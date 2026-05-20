@@ -768,6 +768,16 @@ class ZkPassportPipelineController
       if (readyResult != null) {
         final outerProof = readyResult.outerProofB64Url;
         if (!readyResult.success || outerProof == null) {
+          _log.warn(
+            'zkPassport result envelope rejected',
+            context: {
+              'requestId': requestId,
+              'serverStatus': readyResult.status,
+              'errorFromBridge': readyResult.error,
+              'outerProofPresent': outerProof != null,
+              'nullifierPresent': readyResult.nullifierHex != null,
+            },
+          );
           await _finalizeRuntimeSession(
             requestId: requestId,
             phase: ZkPassportPipelinePhase.failed,
@@ -819,6 +829,16 @@ class ZkPassportPipelineController
               final phase = normalized == 'expired'
                   ? ZkPassportPipelinePhase.timedOut
                   : ZkPassportPipelinePhase.failed;
+              _log.warn(
+                'zkPassport polling reached terminal non-success state',
+                context: {
+                  'requestId': requestId,
+                  'serverStatus': status.status,
+                  'normalizedStatus': normalized,
+                  'finalAvailable': status.finalAvailable,
+                  'updatedAtMs': status.updatedAtMs,
+                },
+              );
               await _finalizeRuntimeSession(
                 requestId: requestId,
                 phase: phase,

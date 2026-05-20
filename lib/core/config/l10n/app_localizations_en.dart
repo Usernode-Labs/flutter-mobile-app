@@ -1366,6 +1366,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String get challengeViewEpochDetails => 'View Details';
 
   @override
+  String get zkIdentityResultSuccessTitle => 'You\'re a unique human!';
+
+  @override
+  String get zkIdentityResultSuccessSubtitle =>
+      'Your phone confirmed you\'re a real, unique person — we never saw your name, photo, or ID.';
+
+  @override
+  String get zkIdentityStatusUniqueness => 'Uniqueness';
+
+  @override
+  String get zkIdentityStatusUniquenessValue => 'Confirmed';
+
+  @override
+  String get zkIdentityStatusFaceMatchLabel => 'Face check';
+
+  @override
+  String get zkIdentityStatusPrivacyValue => 'Nothing shared';
+
+  @override
+  String get zkIdentityCancelVerification => 'Cancel verification';
+
+  @override
+  String get zkIdentityGoToZkPassport => 'Go to ZK Passport';
+
+  @override
+  String get zkIdentityTryAgain => 'Try Again';
+
+  @override
+  String get zkIdentityDone => 'Done';
+
+  @override
+  String get zkIdentityStatusFaceMatchVerified => 'Verified';
+
+  @override
+  String get zkIdentityStatusFaceMatchNotRequested => 'Not requested';
+
+  @override
+  String get zkIdentityStatusPrivacyLabel => 'Privacy';
+
+  @override
+  String get zkIdentityStatusVerifiedDateLabel => 'Verified';
+
+  @override
+  String get zkIdentityStatusProofIdLabel => 'Proof ID';
+
+  @override
+  String get zkIdentityStatusVerifyDurationLabel => 'Verify';
+
+  @override
+  String get zkIdentityStatusWrapDurationLabel => 'Wrap';
+
+  @override
+  String get zkIdentityStatusFinalCheckLabel => 'Final Check';
+
+  @override
+  String get zkIdentityResultFailureTitle => 'Verification Failed';
+
+  @override
+  String get zkIdentityResultFailureSubtitle =>
+      'Your data is safe — no information was shared.';
+
+  @override
   String get walletSentSuccessfully => 'Sent successfully!';
 
   @override

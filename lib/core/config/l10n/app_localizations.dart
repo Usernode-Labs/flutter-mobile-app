@@ -2434,6 +2434,126 @@ abstract class AppLocalizations {
   /// **'View Details'**
   String get challengeViewEpochDetails;
 
+  /// Success title shown after completing ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re a unique human!'**
+  String get zkIdentityResultSuccessTitle;
+
+  /// Success subtitle shown after completing ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone confirmed you\'re a real, unique person — we never saw your name, photo, or ID.'**
+  String get zkIdentityResultSuccessSubtitle;
+
+  /// Status card label for the unique-human check
+  ///
+  /// In en, this message translates to:
+  /// **'Uniqueness'**
+  String get zkIdentityStatusUniqueness;
+
+  /// Status card value when the unique-human check is complete
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed'**
+  String get zkIdentityStatusUniquenessValue;
+
+  /// Status card label for the face match check
+  ///
+  /// In en, this message translates to:
+  /// **'Face check'**
+  String get zkIdentityStatusFaceMatchLabel;
+
+  /// Status card value describing privacy-preserving verification
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing shared'**
+  String get zkIdentityStatusPrivacyValue;
+
+  /// Secondary button label for cancelling an in-progress ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel verification'**
+  String get zkIdentityCancelVerification;
+
+  /// Primary button label that opens the ZK Passport companion app
+  ///
+  /// In en, this message translates to:
+  /// **'Go to ZK Passport'**
+  String get zkIdentityGoToZkPassport;
+
+  /// Button label for retrying a failed ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get zkIdentityTryAgain;
+
+  /// Button label to dismiss the ZK identity result screen on success
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get zkIdentityDone;
+
+  /// Status card value when face match verification was performed and passed
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get zkIdentityStatusFaceMatchVerified;
+
+  /// Status card value when face match verification was not part of this verification
+  ///
+  /// In en, this message translates to:
+  /// **'Not requested'**
+  String get zkIdentityStatusFaceMatchNotRequested;
+
+  /// Status card label for the privacy guarantee row
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get zkIdentityStatusPrivacyLabel;
+
+  /// Status card label for the verification date row
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get zkIdentityStatusVerifiedDateLabel;
+
+  /// Status card label for the proof identifier (truncated nullifier)
+  ///
+  /// In en, this message translates to:
+  /// **'Proof ID'**
+  String get zkIdentityStatusProofIdLabel;
+
+  /// Status card label for the outer proof verification timing
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get zkIdentityStatusVerifyDurationLabel;
+
+  /// Status card label for the proof wrapping timing
+  ///
+  /// In en, this message translates to:
+  /// **'Wrap'**
+  String get zkIdentityStatusWrapDurationLabel;
+
+  /// Status card label for the final wrapped-proof verification timing
+  ///
+  /// In en, this message translates to:
+  /// **'Final Check'**
+  String get zkIdentityStatusFinalCheckLabel;
+
+  /// Title for the ZK identity verification failure dialog/screen
+  ///
+  /// In en, this message translates to:
+  /// **'Verification Failed'**
+  String get zkIdentityResultFailureTitle;
+
+  /// Reassuring subtitle shown on ZK identity verification failure
+  ///
+  /// In en, this message translates to:
+  /// **'Your data is safe — no information was shared.'**
+  String get zkIdentityResultFailureSubtitle;
+
   /// Transaction success screen title
   ///
   /// In en, this message translates to:

@@ -203,6 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _zkTerminalDialogOpen = true;
 
     final isFailure = state.status == ZkPassportPipelineStatus.failure;
+    final l10n = AppLocalizations.of(context);
 
     unawaited(
       showDialog<void>(
@@ -210,30 +211,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         barrierDismissible: false,
         builder: (ctx) {
           final spacing = Theme.of(ctx).extension<AppSpacing>()!;
-          final textTheme = Theme.of(ctx).textTheme;
-          final colorScheme = Theme.of(ctx).colorScheme;
 
           if (isFailure) {
             return AlertDialog(
-              title: const Text('Verification Failed'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Your data is safe \u2014 no information was shared.',
-                  ),
-                  if (state.message.isNotEmpty) ...[
-                    SizedBox(height: spacing.space8),
-                    Text(
-                      state.message,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: colorScheme.error,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              title: Text(l10n.zkIdentityResultFailureTitle),
+              content: Text(l10n.zkIdentityResultFailureSubtitle),
               actions: [
                 Button(
                   label: 'OK',
@@ -256,20 +238,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ref.read(zkIdentityRegistrationProvider).valueOrNull;
 
           return AlertDialog(
-            title: const Text('Identity Verified'),
+            title: Text(l10n.zkIdentityResultSuccessTitle),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Your passport was verified with a zero-knowledge '
-                  'proof \u2014 no personal data was shared.',
-                ),
+                Text(l10n.zkIdentityResultSuccessSubtitle),
                 if (registration != null && registration.registered) ...[
                   SizedBox(height: spacing.space16),
                   ZkIdentityStatusCard(
                     data: buildZkIdentityStatusData(
                       registration,
+                      l10n,
                       onCopyProofId: registration.nullifierHex != null
                           ? () {
                               Clipboard.setData(

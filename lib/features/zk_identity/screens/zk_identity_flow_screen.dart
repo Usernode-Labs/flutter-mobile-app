@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
@@ -106,6 +107,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final semantic = theme.extension<AppSemanticColors>()!;
+    final l10n = AppLocalizations.of(context);
 
     return switch (flowState.currentStep) {
       ZkIdentityStep.checkApp => _appNotInstalled
@@ -194,7 +196,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           children: [
             Text(
               flowState.isSuccess
-                  ? 'Identity Verified!'
+                  ? l10n.zkIdentityResultSuccessTitle
                   : 'Verification Failed',
               style: textTheme.titleLarge,
               textAlign: TextAlign.center,
@@ -202,8 +204,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
             SizedBox(height: spacing.space8),
             if (flowState.isSuccess) ...[
               Text(
-                'Your identity was confirmed with zero-knowledge proof \u2014 '
-                'no personal data was shared.',
+                l10n.zkIdentityResultSuccessSubtitle,
                 style: textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -221,6 +222,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
                   return ZkIdentityStatusCard(
                     data: buildZkIdentityStatusData(
                       reg,
+                      l10n,
                       onCopyProofId: reg.nullifierHex != null
                           ? () {
                               Clipboard.setData(
@@ -266,6 +268,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   ) {
     final controller = ref.read(zkIdentityStepControllerProvider.notifier);
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final l10n = AppLocalizations.of(context);
 
     return switch (flowState.currentStep) {
       ZkIdentityStep.checkApp => _appNotInstalled
@@ -311,33 +314,66 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
             unawaited(controller.triggerVerification());
           },
         ),
-      ZkIdentityStep.verification =>
-        flowState.resultMessage != null && !flowState.isSuccess
-            ? Button(
-                variant: ButtonVariant.primary,
-                size: ButtonSize.large,
-                label: 'Try Again',
-                onTap: controller.reset,
-              )
-            : (pipelineState.phase == ZkPassportPipelinePhase.waiting ||
-                    pipelineState.phase == ZkPassportPipelinePhase.resuming)
-                ? Button(
-                    variant: ButtonVariant.tonal,
-                    size: ButtonSize.large,
-                    label: 'Go To ZK Passport',
-                    onTap: () => launchUrl(
-                      Uri.parse('zkpassport://'),
-                      mode: LaunchMode.externalApplication,
-                    ),
-                  )
-                : null,
+      ZkIdentityStep.verification => _buildVerificationActions(
+          flowState: flowState,
+          pipelineState: pipelineState,
+          controller: controller,
+          spacing: spacing,
+          l10n: l10n,
+        ),
       ZkIdentityStep.result => Button(
           variant: ButtonVariant.primary,
           size: ButtonSize.large,
-          label: flowState.isSuccess ? 'Done' : 'Try Again',
-          onTap: flowState.isSuccess ? () => context.pop() : controller.reset,
+          label: l10n.zkIdentityDone,
+          onTap: () => context.pop(),
         ),
     };
+  }
+
+  Widget? _buildVerificationActions({
+    required ZkIdentityFlowState flowState,
+    required ZkPassportPipelineState pipelineState,
+    required ZkIdentityStepController controller,
+    required AppSpacing spacing,
+    required AppLocalizations l10n,
+  }) {
+    final hasFailure = flowState.resultMessage != null && !flowState.isSuccess;
+    if (hasFailure) {
+      return Button(
+        variant: ButtonVariant.primary,
+        size: ButtonSize.large,
+        label: l10n.zkIdentityTryAgain,
+        onTap: () => unawaited(controller.cancelVerification()),
+      );
+    }
+
+    final isWaitingOnCompanion =
+        pipelineState.phase == ZkPassportPipelinePhase.waiting ||
+            pipelineState.phase == ZkPassportPipelinePhase.resuming;
+    if (!isWaitingOnCompanion) return null;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Button(
+          variant: ButtonVariant.tonal,
+          size: ButtonSize.large,
+          label: l10n.zkIdentityGoToZkPassport,
+          onTap: () => launchUrl(
+            Uri.parse('zkpassport://'),
+            mode: LaunchMode.externalApplication,
+          ),
+        ),
+        SizedBox(height: spacing.space8),
+        Button(
+          variant: ButtonVariant.outlined,
+          size: ButtonSize.large,
+          label: l10n.zkIdentityCancelVerification,
+          onTap: () => unawaited(controller.cancelVerification()),
+        ),
+      ],
+    );
   }
 
   String _stepLabel(ZkIdentityStep step) {

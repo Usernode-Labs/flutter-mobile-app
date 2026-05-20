@@ -34,6 +34,7 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
           return ZkIdentityStatusCard(
             data: buildZkIdentityStatusData(
               reg,
+              l10n,
               onCopyProofId: reg.nullifierHex != null
                   ? () {
                       Clipboard.setData(

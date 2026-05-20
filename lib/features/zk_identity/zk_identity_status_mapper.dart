@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 
@@ -20,7 +21,8 @@ String formatDurationMs(int ms) {
 /// optional timing rows into a shared pure function used by both the
 /// challenge detail screen and the standalone success dialog.
 ZkIdentityStatusData buildZkIdentityStatusData(
-  ZkPassportLocalRegistration reg, {
+  ZkPassportLocalRegistration reg,
+  AppLocalizations l10n, {
   VoidCallback? onCopyProofId,
 }) {
   final date = reg.registeredAtMs != null
@@ -36,36 +38,37 @@ ZkIdentityStatusData buildZkIdentityStatusData(
         '${hex.substring(0, 8)}...${hex.substring(hex.length - 4)}';
   }
 
-  final facematchLabel =
-      reg.facematchVerified == true ? 'Verified' : 'Not requested';
+  final facematchValue = reg.facematchVerified == true
+      ? l10n.zkIdentityStatusFaceMatchVerified
+      : l10n.zkIdentityStatusFaceMatchNotRequested;
 
   return ZkIdentityStatusData(
     steps: [
-      const ZkIdentityStatusStep(
+      ZkIdentityStatusStep(
         icon: Symbols.check_circle_sharp,
-        label: 'Status',
-        value: 'Valid Passport',
+        label: l10n.zkIdentityStatusUniqueness,
+        value: l10n.zkIdentityStatusUniquenessValue,
       ),
       ZkIdentityStatusStep(
         icon: Symbols.face_sharp,
-        label: 'Face Match',
-        value: facematchLabel,
+        label: l10n.zkIdentityStatusFaceMatchLabel,
+        value: facematchValue,
       ),
-      const ZkIdentityStatusStep(
+      ZkIdentityStatusStep(
         icon: Symbols.shield_sharp,
-        label: 'Privacy',
-        value: 'No data shared',
+        label: l10n.zkIdentityStatusPrivacyLabel,
+        value: l10n.zkIdentityStatusPrivacyValue,
       ),
       if (date != null)
         ZkIdentityStatusStep(
           icon: Symbols.calendar_today_sharp,
-          label: 'Verified',
+          label: l10n.zkIdentityStatusVerifiedDateLabel,
           value: date,
         ),
       if (truncatedNullifier != null)
         ZkIdentityStatusStep(
           icon: Symbols.fingerprint_sharp,
-          label: 'Proof ID',
+          label: l10n.zkIdentityStatusProofIdLabel,
           value: truncatedNullifier,
           monospace: true,
           onTap: onCopyProofId,
@@ -73,19 +76,19 @@ ZkIdentityStatusData buildZkIdentityStatusData(
       if (reg.verifyOuterMs != null)
         ZkIdentityStatusStep(
           icon: Symbols.verified_user_sharp,
-          label: 'Verify',
+          label: l10n.zkIdentityStatusVerifyDurationLabel,
           value: formatDurationMs(reg.verifyOuterMs!),
         ),
       if (reg.wrapOuterMs != null)
         ZkIdentityStatusStep(
           icon: Symbols.wrap_text_sharp,
-          label: 'Wrap',
+          label: l10n.zkIdentityStatusWrapDurationLabel,
           value: formatDurationMs(reg.wrapOuterMs!),
         ),
       if (reg.verifyWrappedMs != null)
         ZkIdentityStatusStep(
           icon: Symbols.check_circle_sharp,
-          label: 'Final Check',
+          label: l10n.zkIdentityStatusFinalCheckLabel,
           value: formatDurationMs(reg.verifyWrappedMs!),
         ),
     ],

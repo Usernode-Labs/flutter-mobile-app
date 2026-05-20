@@ -2494,6 +2494,54 @@ abstract class AppLocalizations {
   /// **'Done'**
   String get zkIdentityDone;
 
+  /// Status card value when face match verification was performed and passed
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get zkIdentityStatusFaceMatchVerified;
+
+  /// Status card value when face match verification was not part of this verification
+  ///
+  /// In en, this message translates to:
+  /// **'Not requested'**
+  String get zkIdentityStatusFaceMatchNotRequested;
+
+  /// Status card label for the privacy guarantee row
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get zkIdentityStatusPrivacyLabel;
+
+  /// Status card label for the verification date row
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get zkIdentityStatusVerifiedDateLabel;
+
+  /// Status card label for the proof identifier (truncated nullifier)
+  ///
+  /// In en, this message translates to:
+  /// **'Proof ID'**
+  String get zkIdentityStatusProofIdLabel;
+
+  /// Status card label for the outer proof verification timing
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get zkIdentityStatusVerifyDurationLabel;
+
+  /// Status card label for the proof wrapping timing
+  ///
+  /// In en, this message translates to:
+  /// **'Wrap'**
+  String get zkIdentityStatusWrapDurationLabel;
+
+  /// Status card label for the final wrapped-proof verification timing
+  ///
+  /// In en, this message translates to:
+  /// **'Final Check'**
+  String get zkIdentityStatusFinalCheckLabel;
+
   /// Transaction success screen title
   ///
   /// In en, this message translates to:

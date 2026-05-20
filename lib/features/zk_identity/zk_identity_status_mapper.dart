@@ -38,8 +38,9 @@ ZkIdentityStatusData buildZkIdentityStatusData(
         '${hex.substring(0, 8)}...${hex.substring(hex.length - 4)}';
   }
 
-  final facematchLabel =
-      reg.facematchVerified == true ? 'Verified' : 'Not requested';
+  final facematchValue = reg.facematchVerified == true
+      ? l10n.zkIdentityStatusFaceMatchVerified
+      : l10n.zkIdentityStatusFaceMatchNotRequested;
 
   return ZkIdentityStatusData(
     steps: [
@@ -51,23 +52,23 @@ ZkIdentityStatusData buildZkIdentityStatusData(
       ZkIdentityStatusStep(
         icon: Symbols.face_sharp,
         label: l10n.zkIdentityStatusFaceMatchLabel,
-        value: facematchLabel,
+        value: facematchValue,
       ),
       ZkIdentityStatusStep(
         icon: Symbols.shield_sharp,
-        label: 'Privacy',
+        label: l10n.zkIdentityStatusPrivacyLabel,
         value: l10n.zkIdentityStatusPrivacyValue,
       ),
       if (date != null)
         ZkIdentityStatusStep(
           icon: Symbols.calendar_today_sharp,
-          label: 'Verified',
+          label: l10n.zkIdentityStatusVerifiedDateLabel,
           value: date,
         ),
       if (truncatedNullifier != null)
         ZkIdentityStatusStep(
           icon: Symbols.fingerprint_sharp,
-          label: 'Proof ID',
+          label: l10n.zkIdentityStatusProofIdLabel,
           value: truncatedNullifier,
           monospace: true,
           onTap: onCopyProofId,
@@ -75,19 +76,19 @@ ZkIdentityStatusData buildZkIdentityStatusData(
       if (reg.verifyOuterMs != null)
         ZkIdentityStatusStep(
           icon: Symbols.verified_user_sharp,
-          label: 'Verify',
+          label: l10n.zkIdentityStatusVerifyDurationLabel,
           value: formatDurationMs(reg.verifyOuterMs!),
         ),
       if (reg.wrapOuterMs != null)
         ZkIdentityStatusStep(
           icon: Symbols.wrap_text_sharp,
-          label: 'Wrap',
+          label: l10n.zkIdentityStatusWrapDurationLabel,
           value: formatDurationMs(reg.wrapOuterMs!),
         ),
       if (reg.verifyWrappedMs != null)
         ZkIdentityStatusStep(
           icon: Symbols.check_circle_sharp,
-          label: 'Final Check',
+          label: l10n.zkIdentityStatusFinalCheckLabel,
           value: formatDurationMs(reg.verifyWrappedMs!),
         ),
     ],

@@ -1906,6 +1906,38 @@
   "@zkIdentityDone": {
     "description": "Button label to dismiss the ZK identity result screen on success"
   },
+  "zkIdentityStatusFaceMatchVerified": "Verified",
+  "@zkIdentityStatusFaceMatchVerified": {
+    "description": "Status card value when face match verification was performed and passed"
+  },
+  "zkIdentityStatusFaceMatchNotRequested": "Not requested",
+  "@zkIdentityStatusFaceMatchNotRequested": {
+    "description": "Status card value when face match verification was not part of this verification"
+  },
+  "zkIdentityStatusPrivacyLabel": "Privacy",
+  "@zkIdentityStatusPrivacyLabel": {
+    "description": "Status card label for the privacy guarantee row"
+  },
+  "zkIdentityStatusVerifiedDateLabel": "Verified",
+  "@zkIdentityStatusVerifiedDateLabel": {
+    "description": "Status card label for the verification date row"
+  },
+  "zkIdentityStatusProofIdLabel": "Proof ID",
+  "@zkIdentityStatusProofIdLabel": {
+    "description": "Status card label for the proof identifier (truncated nullifier)"
+  },
+  "zkIdentityStatusVerifyDurationLabel": "Verify",
+  "@zkIdentityStatusVerifyDurationLabel": {
+    "description": "Status card label for the outer proof verification timing"
+  },
+  "zkIdentityStatusWrapDurationLabel": "Wrap",
+  "@zkIdentityStatusWrapDurationLabel": {
+    "description": "Status card label for the proof wrapping timing"
+  },
+  "zkIdentityStatusFinalCheckLabel": "Final Check",
+  "@zkIdentityStatusFinalCheckLabel": {
+    "description": "Status card label for the final wrapped-proof verification timing"
+  },
 
   "walletSentSuccessfully": "Sent successfully!",
   "@walletSentSuccessfully": {

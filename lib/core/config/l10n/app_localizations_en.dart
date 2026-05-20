@@ -1397,6 +1397,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityDone => 'Done';
 
   @override
+  String get zkIdentityStatusFaceMatchVerified => 'Verified';
+
+  @override
+  String get zkIdentityStatusFaceMatchNotRequested => 'Not requested';
+
+  @override
+  String get zkIdentityStatusPrivacyLabel => 'Privacy';
+
+  @override
+  String get zkIdentityStatusVerifiedDateLabel => 'Verified';
+
+  @override
+  String get zkIdentityStatusProofIdLabel => 'Proof ID';
+
+  @override
+  String get zkIdentityStatusVerifyDurationLabel => 'Verify';
+
+  @override
+  String get zkIdentityStatusWrapDurationLabel => 'Wrap';
+
+  @override
+  String get zkIdentityStatusFinalCheckLabel => 'Final Check';
+
+  @override
   String get walletSentSuccessfully => 'Sent successfully!';
 
   @override

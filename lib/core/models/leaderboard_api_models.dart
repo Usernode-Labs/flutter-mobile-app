@@ -218,29 +218,6 @@ class ChallengeDto {
     this.subCategory,
   });
 
-  ChallengeDto copyWith({bool? enabled}) {
-    return ChallengeDto(
-      id: id,
-      eventId: eventId,
-      eventName: eventName,
-      eventType: eventType,
-      category: category,
-      goal: goal,
-      task: task,
-      reward: reward,
-      description: description,
-      requirements: requirements,
-      rewardLogic: rewardLogic,
-      ctaLabel: ctaLabel,
-      ctaLink: ctaLink,
-      scheduleStart: scheduleStart,
-      scheduleEnd: scheduleEnd,
-      enabled: enabled ?? this.enabled,
-      completed: completed,
-      subCategory: subCategory,
-    );
-  }
-
   factory ChallengeDto.fromJson(Map<String, dynamic> json) {
     return ChallengeDto(
       id: _jsonInt(json['id']),

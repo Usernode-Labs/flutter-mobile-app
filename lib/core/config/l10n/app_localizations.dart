@@ -2476,12 +2476,6 @@ abstract class AppLocalizations {
   /// **'Cancel verification'**
   String get zkIdentityCancelVerification;
 
-  /// Secondary button label for discarding a stale ZK identity verification session
-  ///
-  /// In en, this message translates to:
-  /// **'Discard session'**
-  String get zkIdentityDiscardSession;
-
   /// Transaction success screen title
   ///
   /// In en, this message translates to:

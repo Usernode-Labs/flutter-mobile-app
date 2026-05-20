@@ -1,6 +1,5 @@
 import 'package:intl/intl.dart';
 
-import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
 
@@ -395,22 +394,6 @@ const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
 /// Returns true when the challenge is the ZK Identity challenge.
 bool isZkIdentityChallenge(ChallengeDto dto) {
   return dto.subCategory == zkIdentitySubCategory;
-}
-
-/// Local-dev override (`--dart-define=ZK_IDENTITY_FORCE_ENABLED=true`): forces
-/// the ZK Identity challenge to be enabled client-side for testing when the
-/// backend still gates it. Backend completion endpoint will still reject — flag
-/// is UI-side only.
-List<ChallengeDto> applyZkIdentityLocalEnable(List<ChallengeDto> challenges) {
-  if (!AppConfig.zkIdentityForceEnabled) return challenges;
-  final needsOverride = challenges.any(
-    (c) => isZkIdentityChallenge(c) && !c.enabled,
-  );
-  if (!needsOverride) return challenges;
-  return [
-    for (final c in challenges)
-      isZkIdentityChallenge(c) && !c.enabled ? c.copyWith(enabled: true) : c,
-  ];
 }
 
 /// SubCategory identifier for the dApps challenge.

@@ -351,24 +351,11 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   }) {
     final hasFailure = flowState.resultMessage != null && !flowState.isSuccess;
     if (hasFailure) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Button(
-            variant: ButtonVariant.primary,
-            size: ButtonSize.large,
-            label: 'Try Again',
-            onTap: () => unawaited(controller.cancelVerification()),
-          ),
-          SizedBox(height: spacing.space8),
-          Button(
-            variant: ButtonVariant.outlined,
-            size: ButtonSize.large,
-            label: l10n.zkIdentityDiscardSession,
-            onTap: () => unawaited(controller.cancelVerification()),
-          ),
-        ],
+      return Button(
+        variant: ButtonVariant.primary,
+        size: ButtonSize.large,
+        label: 'Try Again',
+        onTap: () => unawaited(controller.cancelVerification()),
       );
     }
 

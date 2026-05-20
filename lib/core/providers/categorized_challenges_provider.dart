@@ -13,9 +13,8 @@ final categorizedChallengesProvider = Provider<CategorizedEnrichedChallenges?>((
 ) {
   final challenges = ref.watch(challengesProvider.select((s) => s.valueOrNull));
   if (challenges == null) return null;
-  final overridden = applyZkIdentityLocalEnable(challenges);
   final breakdown = ref.watch(breakdownProvider.select((s) => s.valueOrNull));
   final activities = extractActivities(breakdown);
-  final enriched = enrichChallenges(overridden, activities);
+  final enriched = enrichChallenges(challenges, activities);
   return categorizeEnrichedChallenges(enriched);
 });

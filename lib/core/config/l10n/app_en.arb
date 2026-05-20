@@ -1894,10 +1894,6 @@
   "@zkIdentityCancelVerification": {
     "description": "Secondary button label for cancelling an in-progress ZK identity verification"
   },
-  "zkIdentityDiscardSession": "Discard session",
-  "@zkIdentityDiscardSession": {
-    "description": "Secondary button label for discarding a stale ZK identity verification session"
-  },
 
   "walletSentSuccessfully": "Sent successfully!",
   "@walletSentSuccessfully": {

@@ -90,13 +90,6 @@ class AppConfig {
     defaultValue: false,
   );
 
-  // Local-dev override: force-enable the ZK Identity challenge even when the
-  // backend reports it disabled. Pass `--dart-define=ZK_IDENTITY_FORCE_ENABLED=true`.
-  static const bool zkIdentityForceEnabled = bool.fromEnvironment(
-    'ZK_IDENTITY_FORCE_ENABLED',
-    defaultValue: false,
-  );
-
   // Observability hub intake base URL for node startup.
   // Leave empty to disable HTTP observability export from the mobile node.
   static const String observabilityHubBaseUrl = String.fromEnvironment(

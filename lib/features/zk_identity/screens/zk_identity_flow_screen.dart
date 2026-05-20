@@ -167,16 +167,6 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (flowState.resultMessage != null && !flowState.isSuccess) ...[
-              if (pipelineState.message.isNotEmpty &&
-                  pipelineState.message != flowState.resultMessage) ...[
-                Text(
-                  pipelineState.message,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.error,
-                  ),
-                ),
-                SizedBox(height: spacing.space8),
-              ],
               Text(
                 'Your data is safe — no information was shared.',
                 style: textTheme.bodySmall?.copyWith(

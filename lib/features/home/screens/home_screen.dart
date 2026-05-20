@@ -203,6 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _zkTerminalDialogOpen = true;
 
     final isFailure = state.status == ZkPassportPipelineStatus.failure;
+    final l10n = AppLocalizations.of(context);
 
     unawaited(
       showDialog<void>(
@@ -256,20 +257,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               ref.read(zkIdentityRegistrationProvider).valueOrNull;
 
           return AlertDialog(
-            title: const Text('Identity Verified'),
+            title: Text(l10n.zkIdentityResultSuccessTitle),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Your passport was verified with a zero-knowledge '
-                  'proof \u2014 no personal data was shared.',
-                ),
+                Text(l10n.zkIdentityResultSuccessSubtitle),
                 if (registration != null && registration.registered) ...[
                   SizedBox(height: spacing.space16),
                   ZkIdentityStatusCard(
                     data: buildZkIdentityStatusData(
                       registration,
+                      l10n,
                       onCopyProofId: registration.nullifierHex != null
                           ? () {
                               Clipboard.setData(

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 
@@ -20,7 +21,8 @@ String formatDurationMs(int ms) {
 /// optional timing rows into a shared pure function used by both the
 /// challenge detail screen and the standalone success dialog.
 ZkIdentityStatusData buildZkIdentityStatusData(
-  ZkPassportLocalRegistration reg, {
+  ZkPassportLocalRegistration reg,
+  AppLocalizations l10n, {
   VoidCallback? onCopyProofId,
 }) {
   final date = reg.registeredAtMs != null
@@ -41,20 +43,20 @@ ZkIdentityStatusData buildZkIdentityStatusData(
 
   return ZkIdentityStatusData(
     steps: [
-      const ZkIdentityStatusStep(
+      ZkIdentityStatusStep(
         icon: Symbols.check_circle_sharp,
-        label: 'Status',
-        value: 'Valid Passport',
+        label: l10n.zkIdentityStatusUniqueness,
+        value: l10n.zkIdentityStatusUniquenessValue,
       ),
       ZkIdentityStatusStep(
         icon: Symbols.face_sharp,
-        label: 'Face Match',
+        label: l10n.zkIdentityStatusFaceMatchLabel,
         value: facematchLabel,
       ),
-      const ZkIdentityStatusStep(
+      ZkIdentityStatusStep(
         icon: Symbols.shield_sharp,
         label: 'Privacy',
-        value: 'No data shared',
+        value: l10n.zkIdentityStatusPrivacyValue,
       ),
       if (date != null)
         ZkIdentityStatusStep(

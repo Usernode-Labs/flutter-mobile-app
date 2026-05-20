@@ -2434,6 +2434,54 @@ abstract class AppLocalizations {
   /// **'View Details'**
   String get challengeViewEpochDetails;
 
+  /// Success title shown after completing ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re a unique human!'**
+  String get zkIdentityResultSuccessTitle;
+
+  /// Success subtitle shown after completing ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'Your phone confirmed you\'re a real, unique person — we never saw your name, photo, or ID.'**
+  String get zkIdentityResultSuccessSubtitle;
+
+  /// Status card label for the unique-human check
+  ///
+  /// In en, this message translates to:
+  /// **'Uniqueness'**
+  String get zkIdentityStatusUniqueness;
+
+  /// Status card value when the unique-human check is complete
+  ///
+  /// In en, this message translates to:
+  /// **'Confirmed'**
+  String get zkIdentityStatusUniquenessValue;
+
+  /// Status card label for the face match check
+  ///
+  /// In en, this message translates to:
+  /// **'Face check'**
+  String get zkIdentityStatusFaceMatchLabel;
+
+  /// Status card value describing privacy-preserving verification
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing shared'**
+  String get zkIdentityStatusPrivacyValue;
+
+  /// Secondary button label for cancelling an in-progress ZK identity verification
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel verification'**
+  String get zkIdentityCancelVerification;
+
+  /// Secondary button label for discarding a stale ZK identity verification session
+  ///
+  /// In en, this message translates to:
+  /// **'Discard session'**
+  String get zkIdentityDiscardSession;
+
   /// Transaction success screen title
   ///
   /// In en, this message translates to:

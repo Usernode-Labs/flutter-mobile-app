@@ -1366,6 +1366,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String get challengeViewEpochDetails => 'View Details';
 
   @override
+  String get zkIdentityResultSuccessTitle => 'You\'re a unique human!';
+
+  @override
+  String get zkIdentityResultSuccessSubtitle =>
+      'Your phone confirmed you\'re a real, unique person — we never saw your name, photo, or ID.';
+
+  @override
+  String get zkIdentityStatusUniqueness => 'Uniqueness';
+
+  @override
+  String get zkIdentityStatusUniquenessValue => 'Confirmed';
+
+  @override
+  String get zkIdentityStatusFaceMatchLabel => 'Face check';
+
+  @override
+  String get zkIdentityStatusPrivacyValue => 'Nothing shared';
+
+  @override
+  String get zkIdentityCancelVerification => 'Cancel verification';
+
+  @override
+  String get zkIdentityDiscardSession => 'Discard session';
+
+  @override
   String get walletSentSuccessfully => 'Sent successfully!';
 
   @override

@@ -21,7 +21,11 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     ref.invalidate(dappStatsProvider);
     await Future.wait([
       ref.read(dappsProvider.future),
-      ref.read(dappStatsProvider.future),
+      // Stats failures shouldn't break pull-to-refresh; cards already
+      // tolerate missing stats via valueOrNull.
+      ref.read(dappStatsProvider.future).catchError(
+            (_) => const <String, DappStats>{},
+          ),
     ]);
   }
 

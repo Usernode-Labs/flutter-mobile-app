@@ -262,13 +262,6 @@ class AppConfig {
   static Duration get challengePointDiffWindow =>
       const Duration(hours: challengePointDiffWindowHours);
 
-  // Dapps screen: force-enable all dapps even when the homepage is unreachable.
-  // Pass `--dart-define=DAPPS_FORCE_ENABLED=true` to skip "Coming soon" state.
-  static const bool dappsForceEnabled = bool.fromEnvironment(
-    'DAPPS_FORCE_ENABLED',
-    defaultValue: false,
-  );
-
   // Explorer API configuration. Both default to the same canonical
   // testnet explorer host; the primary/secondary split is a fallback
   // mechanism for ops to point one at a backup if/when one exists. The

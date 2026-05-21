@@ -1313,6 +1313,19 @@ class ZkPassportPipelineController
         return;
       }
 
+      // Abandon the retry if the stored challenge_id no longer matches the
+      // active ZK Identity row (e.g. a new season's row supersedes a stale one).
+      // Retrying against a closed/replaced row would loop forever on 422.
+      final currentChallengeId = _ref.read(zkIdentityChallengeIdProvider);
+      if (currentChallengeId != null && currentChallengeId != challengeId) {
+        _log.warn(
+          'Clearing pending completion targeting stale challenge_id=$challengeId '
+          '(active row is $currentChallengeId)',
+        );
+        await repo.clearPendingCompletion();
+        return;
+      }
+
       final api = _ref.read(leaderboardApiServiceProvider);
       final ok = await api.completeZkPassport(
         participantId: participantId,

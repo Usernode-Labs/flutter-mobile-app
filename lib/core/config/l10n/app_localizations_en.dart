@@ -1366,14 +1366,109 @@ class AppLocalizationsEn extends AppLocalizations {
   String get challengeViewEpochDetails => 'View Details';
 
   @override
+  String get zkIdentityChallengeTitle => 'Prove you\'re a unique human';
+
+  @override
+  String get zkIdentityDetailStartCta => 'Start';
+
+  @override
+  String get zkIdentityDetailContinueCta => 'Continue';
+
+  @override
+  String get zkIdentityAppNotFoundTitle => 'Install ZK Passport first';
+
+  @override
+  String get zkIdentityAppNotFoundDetail =>
+      'It creates your proof, then sends you back here';
+
+  @override
+  String get zkIdentityInstallCta => 'Install';
+
+  @override
+  String get zkIdentityStepLabelOpenApp => 'Open ZK Passport';
+
+  @override
+  String get zkIdentityStepDescOpenApp => 'Make sure ZK Passport is installed';
+
+  @override
+  String get zkIdentityCheckAppCta => 'Continue';
+
+  @override
+  String get zkIdentityStepLabelScan => 'Scan your passport';
+
+  @override
+  String get zkIdentityStepDescScan =>
+      'Scan once in ZK Passport. It\'s saved for next time.';
+
+  @override
+  String get zkIdentityConfirmScannedBody => 'Already scanned?';
+
+  @override
+  String get zkIdentityConfirmScannedYesCta => 'Continue';
+
+  @override
+  String get zkIdentityConfirmScannedNoCta => 'Not yet';
+
+  @override
+  String get zkIdentityStepLabelReady => 'Ready to verify';
+
+  @override
+  String get zkIdentityStepDescReady =>
+      'Switch to ZK Passport to build your proof';
+
+  @override
+  String get zkIdentityReadyBody =>
+      'Switch to ZK Passport. It builds your proof in about a minute.';
+
+  @override
+  String get zkIdentityReadyBullet1 => 'No name, photo, or ID is shared';
+
+  @override
+  String get zkIdentityReadyBullet2 => 'You send only a proof';
+
+  @override
+  String get zkIdentityReadyBullet3 => 'Nothing personal is stored on-chain';
+
+  @override
+  String get zkIdentityReadyCta => 'Open ZK Passport';
+
+  @override
+  String get zkIdentityStepLabelVerifying => 'Verifying';
+
+  @override
+  String get zkIdentityStepDescVerifying => 'Building and checking your proof';
+
+  @override
+  String get zkIdentityStepLabelResult => 'Result';
+
+  @override
+  String get zkIdentityStepDescResult =>
+      'View the outcome of your verification';
+
+  @override
+  String get zkIdentitySubTaskOpening => 'Opening ZK Passport';
+
+  @override
+  String get zkIdentitySubTaskWaiting => 'Waiting for your proof';
+
+  @override
+  String get zkIdentitySubTaskChecking => 'Checking your proof';
+
+  @override
+  String get zkIdentitySubTaskWrapping => 'Wrapping your proof';
+
+  @override
+  String get zkIdentitySubTaskFinal => 'Final check';
+
+  @override
   String get zkIdentityResultSuccessTitle => 'You\'re a unique human!';
 
   @override
   String get zkIdentityResultSuccessSubtitle =>
-      'Your phone confirmed you\'re a real, unique person — we never saw your name, photo, or ID.';
+      'You proved you\'re unique without sharing your name, photo, or ID';
 
   @override
-  String get zkIdentityStatusUniqueness => 'Uniqueness';
+  String get zkIdentityStatusUniqueness => 'Unique human';
 
   @override
   String get zkIdentityStatusUniquenessValue => 'Confirmed';
@@ -1385,13 +1480,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityStatusPrivacyValue => 'Nothing shared';
 
   @override
-  String get zkIdentityCancelVerification => 'Cancel verification';
+  String get zkIdentityCancelVerification => 'Cancel';
 
   @override
-  String get zkIdentityGoToZkPassport => 'Go to ZK Passport';
+  String get zkIdentityGoToZkPassport => 'Switch to ZK Passport';
 
   @override
-  String get zkIdentityTryAgain => 'Try Again';
+  String get zkIdentityTryAgain => 'Try again';
 
   @override
   String get zkIdentityDone => 'Done';
@@ -1400,13 +1495,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityStatusFaceMatchVerified => 'Verified';
 
   @override
-  String get zkIdentityStatusFaceMatchNotRequested => 'Not requested';
+  String get zkIdentityStatusFaceMatchNotRequested => 'Skipped';
 
   @override
   String get zkIdentityStatusPrivacyLabel => 'Privacy';
 
   @override
-  String get zkIdentityStatusVerifiedDateLabel => 'Verified';
+  String get zkIdentityStatusVerifiedDateLabel => 'Verified on';
 
   @override
   String get zkIdentityStatusProofIdLabel => 'Proof ID';
@@ -1418,14 +1513,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityStatusWrapDurationLabel => 'Wrap';
 
   @override
-  String get zkIdentityStatusFinalCheckLabel => 'Final Check';
+  String get zkIdentityStatusFinalCheckLabel => 'Final check';
 
   @override
-  String get zkIdentityResultFailureTitle => 'Verification Failed';
+  String get zkIdentityResultFailureTitle => 'Couldn\'t verify';
 
   @override
   String get zkIdentityResultFailureSubtitle =>
-      'Your data is safe — no information was shared.';
+      'You didn\'t share your name, photo, or ID';
 
   @override
   String get walletSentSuccessfully => 'Sent successfully!';

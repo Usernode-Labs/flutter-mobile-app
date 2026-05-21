@@ -51,7 +51,7 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
       );
     }
 
-    const title = 'ZK Identity Verification';
+    final title = l10n.zkIdentityChallengeTitle;
     final reward = challengeDto?.reward ?? '500';
     final rewardText = formatRewardText(reward);
 
@@ -61,18 +61,15 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
     final totalEarned =
         earnedNumeric != null ? formatPoints(earnedNumeric) : '--';
 
-    // Build sections following the generic challenge detail pattern:
-    // "The Why" uses description (falls back to goal), "Task" uses task.
+    // Mirror the generic challenge detail screen: render each section
+    // only when the backend provides it. No app-side fallbacks.
     final sections = <({String title, String body})>[];
-    final whyText = challengeDto?.description ??
-        challengeDto?.goal ??
-        'Verify your identity with ZK Passport';
-    if (whyText.isNotEmpty) {
+    final whyText = challengeDto?.description ?? challengeDto?.goal;
+    if (whyText != null && whyText.isNotEmpty) {
       sections.add((title: l10n.challengeSectionTheWhy, body: whyText));
     }
-    final taskText = challengeDto?.task ??
-        'Use the ZK Passport app to create a zero-knowledge proof of your passport.';
-    if (taskText.isNotEmpty) {
+    final taskText = challengeDto?.task;
+    if (taskText != null && taskText.isNotEmpty) {
       sections.add((title: l10n.challengeSectionTask, body: taskText));
     }
     final requirements = challengeDto?.requirements;
@@ -110,7 +107,9 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
                   vertical: spacing.space12,
                 ),
                 child: Button(
-                  label: isActive ? 'Continue' : 'Start Verification',
+                  label: isActive
+                      ? l10n.zkIdentityDetailContinueCta
+                      : l10n.zkIdentityDetailStartCta,
                   onTap: () => context.push(AppRoutes.zkIdentityFlow),
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,

@@ -76,10 +76,11 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     final flowState = ref.watch(zkIdentityStepControllerProvider);
     final pipelineState = ref.watch(zkPassportPipelineProvider);
 
+    final l10n = AppLocalizations.of(context);
     final steps = flowState.steps.map((s) {
       return ZkIdentityStepData(
-        label: _stepLabel(s.step),
-        description: _stepDescription(s.step),
+        label: _stepLabel(s.step, l10n),
+        description: _stepDescription(s.step, l10n),
         status: s.status,
       );
     }).toList();
@@ -111,39 +112,33 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
 
     return switch (flowState.currentStep) {
       ZkIdentityStep.checkApp => _appNotInstalled
-          ? const FullPageErrorState(
-              message: 'ZK Passport app not found',
-              detail: 'Please install the ZK Passport app first to continue.',
+          ? FullPageErrorState(
+              message: l10n.zkIdentityAppNotFoundTitle,
+              detail: l10n.zkIdentityAppNotFoundDetail,
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'First, make sure you have the ZK Passport app installed.',
-                  style: textTheme.bodyMedium,
-                ),
-                if (_checkingApp) ...[
-                  SizedBox(height: spacing.space12),
+                if (_checkingApp)
                   const Center(child: CircularProgressIndicator()),
-                ],
               ],
             ),
       ZkIdentityStep.confirmScanned => Text(
-          'Have you already scanned your passport in the ZK Passport app?',
+          l10n.zkIdentityConfirmScannedBody,
           style: textTheme.bodyMedium,
         ),
       ZkIdentityStep.readyToVerify => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'This will open the ZK Passport app and generate a zero-knowledge proof of your passport. The process may take a moment.',
+              l10n.zkIdentityReadyBody,
               style: textTheme.bodyMedium,
             ),
             SizedBox(height: spacing.space16),
             for (final bullet in [
-              'Your passport data never leaves your device',
-              'Only proof of validity is shared',
-              'No personal information stored on-chain',
+              l10n.zkIdentityReadyBullet1,
+              l10n.zkIdentityReadyBullet2,
+              l10n.zkIdentityReadyBullet3,
             ])
               Padding(
                 padding: EdgeInsets.only(bottom: spacing.space12),
@@ -166,24 +161,17 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
       ZkIdentityStep.verification => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (flowState.resultMessage != null && !flowState.isSuccess) ...[
-              Text(
-                'Your data is safe — no information was shared.',
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              SizedBox(height: spacing.space8),
+            if (flowState.resultMessage != null && !flowState.isSuccess)
               Text(
                 flowState.resultMessage!,
                 style: textTheme.bodySmall?.copyWith(
                   color: colorScheme.error,
                 ),
-              ),
-            ] else
+              )
+            else
               for (final task in _subTasks) ...[
                 _SubTaskRow(
-                  label: task.label,
+                  label: task.labelOf(l10n),
                   state: task.stateFor(pipelineState.phase),
                 ),
                 SizedBox(height: spacing.space8),
@@ -197,7 +185,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
             Text(
               flowState.isSuccess
                   ? l10n.zkIdentityResultSuccessTitle
-                  : 'Verification Failed',
+                  : l10n.zkIdentityResultFailureTitle,
               style: textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
@@ -239,7 +227,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
               ],
             ] else ...[
               Text(
-                'Your data is safe \u2014 no information was shared.',
+                l10n.zkIdentityResultFailureSubtitle,
                 style: textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -275,7 +263,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           ? Button(
               variant: ButtonVariant.primary,
               size: ButtonSize.large,
-              label: 'Open App Store',
+              label: l10n.zkIdentityInstallCta,
               onTap: ref.read(zkPassportLaunchServiceProvider).openStoreListing,
             )
           : _checkingApp
@@ -283,7 +271,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
               : Button(
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,
-                  label: 'Check ZK Passport App',
+                  label: l10n.zkIdentityCheckAppCta,
                   onTap: _checkApp,
                 ),
       ZkIdentityStep.confirmScanned => Column(
@@ -293,14 +281,14 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
             Button(
               variant: ButtonVariant.primary,
               size: ButtonSize.large,
-              label: 'Yes',
+              label: l10n.zkIdentityConfirmScannedYesCta,
               onTap: controller.confirmPassportScanned,
             ),
             SizedBox(height: spacing.space8),
             Button(
               variant: ButtonVariant.outlined,
               size: ButtonSize.large,
-              label: 'No, go back',
+              label: l10n.zkIdentityConfirmScannedNoCta,
               onTap: () => context.pop(),
             ),
           ],
@@ -308,7 +296,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
       ZkIdentityStep.readyToVerify => Button(
           variant: ButtonVariant.primary,
           size: ButtonSize.large,
-          label: 'Start Verification',
+          label: l10n.zkIdentityReadyCta,
           onTap: () {
             controller.confirmReady();
             unawaited(controller.triggerVerification());
@@ -376,26 +364,23 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     );
   }
 
-  String _stepLabel(ZkIdentityStep step) {
+  String _stepLabel(ZkIdentityStep step, AppLocalizations l10n) {
     return switch (step) {
-      ZkIdentityStep.checkApp => 'Check ZK Passport App',
-      ZkIdentityStep.confirmScanned => 'Confirm Passport Scanned',
-      ZkIdentityStep.readyToVerify => 'Ready to Verify',
-      ZkIdentityStep.verification => 'Verification',
-      ZkIdentityStep.result => 'Result',
+      ZkIdentityStep.checkApp => l10n.zkIdentityStepLabelOpenApp,
+      ZkIdentityStep.confirmScanned => l10n.zkIdentityStepLabelScan,
+      ZkIdentityStep.readyToVerify => l10n.zkIdentityStepLabelReady,
+      ZkIdentityStep.verification => l10n.zkIdentityStepLabelVerifying,
+      ZkIdentityStep.result => l10n.zkIdentityStepLabelResult,
     };
   }
 
-  String _stepDescription(ZkIdentityStep step) {
+  String _stepDescription(ZkIdentityStep step, AppLocalizations l10n) {
     return switch (step) {
-      ZkIdentityStep.checkApp => 'Ensure the ZK Passport app is installed.',
-      ZkIdentityStep.confirmScanned =>
-        'Confirm you have scanned your passport.',
-      ZkIdentityStep.readyToVerify =>
-        'Review and confirm to start verification.',
-      ZkIdentityStep.verification =>
-        'Zero-knowledge proof generation and verification.',
-      ZkIdentityStep.result => 'View the outcome of your verification.',
+      ZkIdentityStep.checkApp => l10n.zkIdentityStepDescOpenApp,
+      ZkIdentityStep.confirmScanned => l10n.zkIdentityStepDescScan,
+      ZkIdentityStep.readyToVerify => l10n.zkIdentityStepDescReady,
+      ZkIdentityStep.verification => l10n.zkIdentityStepDescVerifying,
+      ZkIdentityStep.result => l10n.zkIdentityStepDescResult,
     };
   }
 }
@@ -406,16 +391,26 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
 
 enum _SubTaskState { pending, active, done }
 
+enum _SubTaskKind { opening, waiting, checking, wrapping, finalCheck }
+
 class _SubTask {
   const _SubTask({
-    required this.label,
+    required this.kind,
     required this.activePhases,
     required this.doneAfter,
   });
 
-  final String label;
+  final _SubTaskKind kind;
   final Set<ZkPassportPipelinePhase> activePhases;
   final Set<ZkPassportPipelinePhase> doneAfter;
+
+  String labelOf(AppLocalizations l10n) => switch (kind) {
+        _SubTaskKind.opening => l10n.zkIdentitySubTaskOpening,
+        _SubTaskKind.waiting => l10n.zkIdentitySubTaskWaiting,
+        _SubTaskKind.checking => l10n.zkIdentitySubTaskChecking,
+        _SubTaskKind.wrapping => l10n.zkIdentitySubTaskWrapping,
+        _SubTaskKind.finalCheck => l10n.zkIdentitySubTaskFinal,
+      };
 
   _SubTaskState stateFor(ZkPassportPipelinePhase current) {
     if (doneAfter.contains(current) || _isPastAll(current)) {
@@ -434,7 +429,7 @@ class _SubTask {
 
 const _subTasks = [
   _SubTask(
-    label: 'Opening ZK Passport',
+    kind: _SubTaskKind.opening,
     activePhases: {
       ZkPassportPipelinePhase.idle,
       ZkPassportPipelinePhase.launching,
@@ -442,7 +437,7 @@ const _subTasks = [
     doneAfter: {ZkPassportPipelinePhase.launching},
   ),
   _SubTask(
-    label: 'Waiting for proof',
+    kind: _SubTaskKind.waiting,
     activePhases: {
       ZkPassportPipelinePhase.waiting,
       ZkPassportPipelinePhase.resuming,
@@ -450,7 +445,7 @@ const _subTasks = [
     doneAfter: {ZkPassportPipelinePhase.proofReceived},
   ),
   _SubTask(
-    label: 'Verifying proof',
+    kind: _SubTaskKind.checking,
     activePhases: {
       ZkPassportPipelinePhase.proofReceived,
       ZkPassportPipelinePhase.verifyingOuter,
@@ -458,12 +453,12 @@ const _subTasks = [
     doneAfter: {ZkPassportPipelinePhase.verifyingOuter},
   ),
   _SubTask(
-    label: 'Wrapping proof',
+    kind: _SubTaskKind.wrapping,
     activePhases: {ZkPassportPipelinePhase.wrapping},
     doneAfter: {ZkPassportPipelinePhase.wrapping},
   ),
   _SubTask(
-    label: 'Final verification',
+    kind: _SubTaskKind.finalCheck,
     activePhases: {ZkPassportPipelinePhase.verifyingWrapped},
     doneAfter: {
       ZkPassportPipelinePhase.verifyingWrapped,

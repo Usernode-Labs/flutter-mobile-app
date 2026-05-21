@@ -1866,15 +1866,135 @@
   "@challengeViewEpochDetails": {
     "description": "Button label to view epoch performance details"
   },
+  "zkIdentityChallengeTitle": "Prove you're a unique human",
+  "@zkIdentityChallengeTitle": {
+    "description": "Detail screen title for the ZK identity challenge"
+  },
+  "zkIdentityDetailStartCta": "Start",
+  "@zkIdentityDetailStartCta": {
+    "description": "Detail screen CTA shown before the user has begun the flow"
+  },
+  "zkIdentityDetailContinueCta": "Continue",
+  "@zkIdentityDetailContinueCta": {
+    "description": "Detail screen CTA shown when the user resumes an in-progress flow"
+  },
+  "zkIdentityAppNotFoundTitle": "Install ZK Passport first",
+  "@zkIdentityAppNotFoundTitle": {
+    "description": "Title shown when the ZK Passport companion app is not installed"
+  },
+  "zkIdentityAppNotFoundDetail": "It creates your proof, then sends you back here",
+  "@zkIdentityAppNotFoundDetail": {
+    "description": "Detail copy explaining why ZK Passport is needed"
+  },
+  "zkIdentityInstallCta": "Install",
+  "@zkIdentityInstallCta": {
+    "description": "Button label to open the store listing for ZK Passport"
+  },
+  "zkIdentityStepLabelOpenApp": "Open ZK Passport",
+  "@zkIdentityStepLabelOpenApp": {
+    "description": "Step label for the check-app step in the stepper"
+  },
+  "zkIdentityStepDescOpenApp": "Make sure ZK Passport is installed",
+  "@zkIdentityStepDescOpenApp": {
+    "description": "Step description for the check-app step in the stepper"
+  },
+  "zkIdentityCheckAppCta": "Continue",
+  "@zkIdentityCheckAppCta": {
+    "description": "Button label that triggers the install-check"
+  },
+  "zkIdentityStepLabelScan": "Scan your passport",
+  "@zkIdentityStepLabelScan": {
+    "description": "Step label for the confirm-scanned step in the stepper"
+  },
+  "zkIdentityStepDescScan": "Scan once in ZK Passport. It's saved for next time.",
+  "@zkIdentityStepDescScan": {
+    "description": "Step description for the confirm-scanned step in the stepper"
+  },
+  "zkIdentityConfirmScannedBody": "Already scanned?",
+  "@zkIdentityConfirmScannedBody": {
+    "description": "Body prompt for the confirm-scanned step"
+  },
+  "zkIdentityConfirmScannedYesCta": "Continue",
+  "@zkIdentityConfirmScannedYesCta": {
+    "description": "Affirmative button on the confirm-scanned step"
+  },
+  "zkIdentityConfirmScannedNoCta": "Not yet",
+  "@zkIdentityConfirmScannedNoCta": {
+    "description": "Decline button on the confirm-scanned step"
+  },
+  "zkIdentityStepLabelReady": "Ready to verify",
+  "@zkIdentityStepLabelReady": {
+    "description": "Step label for the ready-to-verify step in the stepper"
+  },
+  "zkIdentityStepDescReady": "Switch to ZK Passport to build your proof",
+  "@zkIdentityStepDescReady": {
+    "description": "Step description for the ready-to-verify step in the stepper"
+  },
+  "zkIdentityReadyBody": "Switch to ZK Passport. It builds your proof in about a minute.",
+  "@zkIdentityReadyBody": {
+    "description": "Body for the ready-to-verify step"
+  },
+  "zkIdentityReadyBullet1": "No name, photo, or ID is shared",
+  "@zkIdentityReadyBullet1": {
+    "description": "First privacy bullet on the ready-to-verify step"
+  },
+  "zkIdentityReadyBullet2": "You send only a proof",
+  "@zkIdentityReadyBullet2": {
+    "description": "Second privacy bullet on the ready-to-verify step"
+  },
+  "zkIdentityReadyBullet3": "Nothing personal is stored on-chain",
+  "@zkIdentityReadyBullet3": {
+    "description": "Third privacy bullet on the ready-to-verify step"
+  },
+  "zkIdentityReadyCta": "Open ZK Passport",
+  "@zkIdentityReadyCta": {
+    "description": "Button label that launches the ZK Passport companion app"
+  },
+  "zkIdentityStepLabelVerifying": "Verifying",
+  "@zkIdentityStepLabelVerifying": {
+    "description": "Step label for the verification step in the stepper"
+  },
+  "zkIdentityStepDescVerifying": "Building and checking your proof",
+  "@zkIdentityStepDescVerifying": {
+    "description": "Step description for the verification step in the stepper"
+  },
+  "zkIdentityStepLabelResult": "Result",
+  "@zkIdentityStepLabelResult": {
+    "description": "Step label for the result step in the stepper"
+  },
+  "zkIdentityStepDescResult": "View the outcome of your verification",
+  "@zkIdentityStepDescResult": {
+    "description": "Step description for the result step in the stepper"
+  },
+  "zkIdentitySubTaskOpening": "Opening ZK Passport",
+  "@zkIdentitySubTaskOpening": {
+    "description": "Verification sub-task label: launching ZK Passport"
+  },
+  "zkIdentitySubTaskWaiting": "Waiting for your proof",
+  "@zkIdentitySubTaskWaiting": {
+    "description": "Verification sub-task label: waiting for the user to complete the ZK Passport flow"
+  },
+  "zkIdentitySubTaskChecking": "Checking your proof",
+  "@zkIdentitySubTaskChecking": {
+    "description": "Verification sub-task label: verifying the outer proof"
+  },
+  "zkIdentitySubTaskWrapping": "Wrapping your proof",
+  "@zkIdentitySubTaskWrapping": {
+    "description": "Verification sub-task label: wrapping the outer proof"
+  },
+  "zkIdentitySubTaskFinal": "Final check",
+  "@zkIdentitySubTaskFinal": {
+    "description": "Verification sub-task label: final verification of the wrapped proof"
+  },
   "zkIdentityResultSuccessTitle": "You're a unique human!",
   "@zkIdentityResultSuccessTitle": {
     "description": "Success title shown after completing ZK identity verification"
   },
-  "zkIdentityResultSuccessSubtitle": "Your phone confirmed you're a real, unique person — we never saw your name, photo, or ID.",
+  "zkIdentityResultSuccessSubtitle": "You proved you're unique without sharing your name, photo, or ID",
   "@zkIdentityResultSuccessSubtitle": {
     "description": "Success subtitle shown after completing ZK identity verification"
   },
-  "zkIdentityStatusUniqueness": "Uniqueness",
+  "zkIdentityStatusUniqueness": "Unique human",
   "@zkIdentityStatusUniqueness": {
     "description": "Status card label for the unique-human check"
   },
@@ -1890,15 +2010,15 @@
   "@zkIdentityStatusPrivacyValue": {
     "description": "Status card value describing privacy-preserving verification"
   },
-  "zkIdentityCancelVerification": "Cancel verification",
+  "zkIdentityCancelVerification": "Cancel",
   "@zkIdentityCancelVerification": {
     "description": "Secondary button label for cancelling an in-progress ZK identity verification"
   },
-  "zkIdentityGoToZkPassport": "Go to ZK Passport",
+  "zkIdentityGoToZkPassport": "Switch to ZK Passport",
   "@zkIdentityGoToZkPassport": {
     "description": "Primary button label that opens the ZK Passport companion app"
   },
-  "zkIdentityTryAgain": "Try Again",
+  "zkIdentityTryAgain": "Try again",
   "@zkIdentityTryAgain": {
     "description": "Button label for retrying a failed ZK identity verification"
   },
@@ -1910,7 +2030,7 @@
   "@zkIdentityStatusFaceMatchVerified": {
     "description": "Status card value when face match verification was performed and passed"
   },
-  "zkIdentityStatusFaceMatchNotRequested": "Not requested",
+  "zkIdentityStatusFaceMatchNotRequested": "Skipped",
   "@zkIdentityStatusFaceMatchNotRequested": {
     "description": "Status card value when face match verification was not part of this verification"
   },
@@ -1918,7 +2038,7 @@
   "@zkIdentityStatusPrivacyLabel": {
     "description": "Status card label for the privacy guarantee row"
   },
-  "zkIdentityStatusVerifiedDateLabel": "Verified",
+  "zkIdentityStatusVerifiedDateLabel": "Verified on",
   "@zkIdentityStatusVerifiedDateLabel": {
     "description": "Status card label for the verification date row"
   },
@@ -1934,17 +2054,17 @@
   "@zkIdentityStatusWrapDurationLabel": {
     "description": "Status card label for the proof wrapping timing"
   },
-  "zkIdentityStatusFinalCheckLabel": "Final Check",
+  "zkIdentityStatusFinalCheckLabel": "Final check",
   "@zkIdentityStatusFinalCheckLabel": {
     "description": "Status card label for the final wrapped-proof verification timing"
   },
-  "zkIdentityResultFailureTitle": "Verification Failed",
+  "zkIdentityResultFailureTitle": "Couldn't verify",
   "@zkIdentityResultFailureTitle": {
     "description": "Title for the ZK identity verification failure dialog/screen"
   },
-  "zkIdentityResultFailureSubtitle": "Your data is safe — no information was shared.",
+  "zkIdentityResultFailureSubtitle": "You didn't share your name, photo, or ID",
   "@zkIdentityResultFailureSubtitle": {
-    "description": "Reassuring subtitle shown on ZK identity verification failure"
+    "description": "Reassuring subtitle shown on ZK identity verification failure, naming the specific fields the user kept private"
   },
 
   "walletSentSuccessfully": "Sent successfully!",

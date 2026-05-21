@@ -61,17 +61,15 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
     final totalEarned =
         earnedNumeric != null ? formatPoints(earnedNumeric) : '--';
 
-    // Build sections following the generic challenge detail pattern:
-    // "The Why" uses description (falls back to goal), "Task" uses task.
+    // Mirror the generic challenge detail screen: render each section
+    // only when the backend provides it. No app-side fallbacks.
     final sections = <({String title, String body})>[];
-    final whyText = challengeDto?.description ??
-        challengeDto?.goal ??
-        l10n.zkIdentityChallengeWhyFallback;
-    if (whyText.isNotEmpty) {
+    final whyText = challengeDto?.description ?? challengeDto?.goal;
+    if (whyText != null && whyText.isNotEmpty) {
       sections.add((title: l10n.challengeSectionTheWhy, body: whyText));
     }
-    final taskText = challengeDto?.task ?? l10n.zkIdentityChallengeTaskFallback;
-    if (taskText.isNotEmpty) {
+    final taskText = challengeDto?.task;
+    if (taskText != null && taskText.isNotEmpty) {
       sections.add((title: l10n.challengeSectionTask, body: taskText));
     }
     final requirements = challengeDto?.requirements;

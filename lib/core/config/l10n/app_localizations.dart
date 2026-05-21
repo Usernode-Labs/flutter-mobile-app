@@ -2440,18 +2440,6 @@ abstract class AppLocalizations {
   /// **'Prove you\'re a unique human'**
   String get zkIdentityChallengeTitle;
 
-  /// Fallback body for the challenge detail 'Why' section when the backend provides none
-  ///
-  /// In en, this message translates to:
-  /// **'Prove you\'re a unique person in Usernode. No name, photo, or ID is shared.'**
-  String get zkIdentityChallengeWhyFallback;
-
-  /// Fallback body for the challenge detail 'Task' section when the backend provides none
-  ///
-  /// In en, this message translates to:
-  /// **'Open ZK Passport, scan your passport, then approve. You send only a proof. No name, photo, or ID is shared.'**
-  String get zkIdentityChallengeTaskFallback;
-
   /// Detail screen CTA shown before the user has begun the flow
   ///
   /// In en, this message translates to:
@@ -2545,7 +2533,7 @@ abstract class AppLocalizations {
   /// Body for the ready-to-verify step
   ///
   /// In en, this message translates to:
-  /// **'Switch to ZK Passport. It builds your proof in a few seconds.'**
+  /// **'Switch to ZK Passport. It builds your proof in about a minute.'**
   String get zkIdentityReadyBody;
 
   /// First privacy bullet on the ready-to-verify step

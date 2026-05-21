@@ -1369,14 +1369,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityChallengeTitle => 'Prove you\'re a unique human';
 
   @override
-  String get zkIdentityChallengeWhyFallback =>
-      'Prove you\'re a unique person in Usernode. No name, photo, or ID is shared.';
-
-  @override
-  String get zkIdentityChallengeTaskFallback =>
-      'Open ZK Passport, scan your passport, then approve. You send only a proof. No name, photo, or ID is shared.';
-
-  @override
   String get zkIdentityDetailStartCta => 'Start';
 
   @override
@@ -1426,7 +1418,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get zkIdentityReadyBody =>
-      'Switch to ZK Passport. It builds your proof in a few seconds.';
+      'Switch to ZK Passport. It builds your proof in about a minute.';
 
   @override
   String get zkIdentityReadyBullet1 => 'No name, photo, or ID is shared';

@@ -1870,14 +1870,6 @@
   "@zkIdentityChallengeTitle": {
     "description": "Detail screen title for the ZK identity challenge"
   },
-  "zkIdentityChallengeWhyFallback": "Prove you're a unique person in Usernode. No name, photo, or ID is shared.",
-  "@zkIdentityChallengeWhyFallback": {
-    "description": "Fallback body for the challenge detail 'Why' section when the backend provides none"
-  },
-  "zkIdentityChallengeTaskFallback": "Open ZK Passport, scan your passport, then approve. You send only a proof. No name, photo, or ID is shared.",
-  "@zkIdentityChallengeTaskFallback": {
-    "description": "Fallback body for the challenge detail 'Task' section when the backend provides none"
-  },
   "zkIdentityDetailStartCta": "Start",
   "@zkIdentityDetailStartCta": {
     "description": "Detail screen CTA shown before the user has begun the flow"
@@ -1938,7 +1930,7 @@
   "@zkIdentityStepDescReady": {
     "description": "Step description for the ready-to-verify step in the stepper"
   },
-  "zkIdentityReadyBody": "Switch to ZK Passport. It builds your proof in a few seconds.",
+  "zkIdentityReadyBody": "Switch to ZK Passport. It builds your proof in about a minute.",
   "@zkIdentityReadyBody": {
     "description": "Body for the ready-to-verify step"
   },

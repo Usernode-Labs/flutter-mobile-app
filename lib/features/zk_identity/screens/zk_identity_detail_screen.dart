@@ -51,7 +51,7 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
       );
     }
 
-    const title = 'ZK Identity Verification';
+    final title = l10n.zkIdentityChallengeTitle;
     final reward = challengeDto?.reward ?? '500';
     final rewardText = formatRewardText(reward);
 
@@ -66,12 +66,11 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
     final sections = <({String title, String body})>[];
     final whyText = challengeDto?.description ??
         challengeDto?.goal ??
-        'Verify your identity with ZK Passport';
+        l10n.zkIdentityChallengeWhyFallback;
     if (whyText.isNotEmpty) {
       sections.add((title: l10n.challengeSectionTheWhy, body: whyText));
     }
-    final taskText = challengeDto?.task ??
-        'Use the ZK Passport app to create a zero-knowledge proof of your passport.';
+    final taskText = challengeDto?.task ?? l10n.zkIdentityChallengeTaskFallback;
     if (taskText.isNotEmpty) {
       sections.add((title: l10n.challengeSectionTask, body: taskText));
     }
@@ -110,7 +109,9 @@ class ZkIdentityDetailScreen extends ConsumerWidget {
                   vertical: spacing.space12,
                 ),
                 child: Button(
-                  label: isActive ? 'Continue' : 'Start Verification',
+                  label: isActive
+                      ? l10n.zkIdentityDetailContinueCta
+                      : l10n.zkIdentityDetailStartCta,
                   onTap: () => context.push(AppRoutes.zkIdentityFlow),
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,

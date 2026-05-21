@@ -2434,6 +2434,198 @@ abstract class AppLocalizations {
   /// **'View Details'**
   String get challengeViewEpochDetails;
 
+  /// Detail screen title for the ZK identity challenge
+  ///
+  /// In en, this message translates to:
+  /// **'Prove you\'re a unique human'**
+  String get zkIdentityChallengeTitle;
+
+  /// Fallback body for the challenge detail 'Why' section when the backend provides none
+  ///
+  /// In en, this message translates to:
+  /// **'Prove you\'re a unique person in Usernode. No name, photo, or ID is shared.'**
+  String get zkIdentityChallengeWhyFallback;
+
+  /// Fallback body for the challenge detail 'Task' section when the backend provides none
+  ///
+  /// In en, this message translates to:
+  /// **'Open ZK Passport, scan your passport, then approve. You send only a proof. No name, photo, or ID is shared.'**
+  String get zkIdentityChallengeTaskFallback;
+
+  /// Detail screen CTA shown before the user has begun the flow
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get zkIdentityDetailStartCta;
+
+  /// Detail screen CTA shown when the user resumes an in-progress flow
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get zkIdentityDetailContinueCta;
+
+  /// Title shown when the ZK Passport companion app is not installed
+  ///
+  /// In en, this message translates to:
+  /// **'Install ZK Passport first'**
+  String get zkIdentityAppNotFoundTitle;
+
+  /// Detail copy explaining why ZK Passport is needed
+  ///
+  /// In en, this message translates to:
+  /// **'It creates your proof, then sends you back here'**
+  String get zkIdentityAppNotFoundDetail;
+
+  /// Button label to open the store listing for ZK Passport
+  ///
+  /// In en, this message translates to:
+  /// **'Install'**
+  String get zkIdentityInstallCta;
+
+  /// Step label for the check-app step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Open ZK Passport'**
+  String get zkIdentityStepLabelOpenApp;
+
+  /// Step description for the check-app step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure ZK Passport is installed'**
+  String get zkIdentityStepDescOpenApp;
+
+  /// Button label that triggers the install-check
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get zkIdentityCheckAppCta;
+
+  /// Step label for the confirm-scanned step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Scan your passport'**
+  String get zkIdentityStepLabelScan;
+
+  /// Step description for the confirm-scanned step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Scan once in ZK Passport. It\'s saved for next time.'**
+  String get zkIdentityStepDescScan;
+
+  /// Body prompt for the confirm-scanned step
+  ///
+  /// In en, this message translates to:
+  /// **'Already scanned?'**
+  String get zkIdentityConfirmScannedBody;
+
+  /// Affirmative button on the confirm-scanned step
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get zkIdentityConfirmScannedYesCta;
+
+  /// Decline button on the confirm-scanned step
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet'**
+  String get zkIdentityConfirmScannedNoCta;
+
+  /// Step label for the ready-to-verify step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to verify'**
+  String get zkIdentityStepLabelReady;
+
+  /// Step description for the ready-to-verify step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to ZK Passport to build your proof'**
+  String get zkIdentityStepDescReady;
+
+  /// Body for the ready-to-verify step
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to ZK Passport. It builds your proof in a few seconds.'**
+  String get zkIdentityReadyBody;
+
+  /// First privacy bullet on the ready-to-verify step
+  ///
+  /// In en, this message translates to:
+  /// **'No name, photo, or ID is shared'**
+  String get zkIdentityReadyBullet1;
+
+  /// Second privacy bullet on the ready-to-verify step
+  ///
+  /// In en, this message translates to:
+  /// **'You send only a proof'**
+  String get zkIdentityReadyBullet2;
+
+  /// Third privacy bullet on the ready-to-verify step
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing personal is stored on-chain'**
+  String get zkIdentityReadyBullet3;
+
+  /// Button label that launches the ZK Passport companion app
+  ///
+  /// In en, this message translates to:
+  /// **'Open ZK Passport'**
+  String get zkIdentityReadyCta;
+
+  /// Step label for the verification step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Verifying'**
+  String get zkIdentityStepLabelVerifying;
+
+  /// Step description for the verification step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Building and checking your proof'**
+  String get zkIdentityStepDescVerifying;
+
+  /// Step label for the result step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get zkIdentityStepLabelResult;
+
+  /// Step description for the result step in the stepper
+  ///
+  /// In en, this message translates to:
+  /// **'View the outcome of your verification'**
+  String get zkIdentityStepDescResult;
+
+  /// Verification sub-task label: launching ZK Passport
+  ///
+  /// In en, this message translates to:
+  /// **'Opening ZK Passport'**
+  String get zkIdentitySubTaskOpening;
+
+  /// Verification sub-task label: waiting for the user to complete the ZK Passport flow
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for your proof'**
+  String get zkIdentitySubTaskWaiting;
+
+  /// Verification sub-task label: verifying the outer proof
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your proof'**
+  String get zkIdentitySubTaskChecking;
+
+  /// Verification sub-task label: wrapping the outer proof
+  ///
+  /// In en, this message translates to:
+  /// **'Wrapping your proof'**
+  String get zkIdentitySubTaskWrapping;
+
+  /// Verification sub-task label: final verification of the wrapped proof
+  ///
+  /// In en, this message translates to:
+  /// **'Final check'**
+  String get zkIdentitySubTaskFinal;
+
   /// Success title shown after completing ZK identity verification
   ///
   /// In en, this message translates to:
@@ -2443,13 +2635,13 @@ abstract class AppLocalizations {
   /// Success subtitle shown after completing ZK identity verification
   ///
   /// In en, this message translates to:
-  /// **'Your phone confirmed you\'re a real, unique person — we never saw your name, photo, or ID.'**
+  /// **'You proved you\'re unique without sharing your name, photo, or ID'**
   String get zkIdentityResultSuccessSubtitle;
 
   /// Status card label for the unique-human check
   ///
   /// In en, this message translates to:
-  /// **'Uniqueness'**
+  /// **'Unique human'**
   String get zkIdentityStatusUniqueness;
 
   /// Status card value when the unique-human check is complete
@@ -2473,19 +2665,19 @@ abstract class AppLocalizations {
   /// Secondary button label for cancelling an in-progress ZK identity verification
   ///
   /// In en, this message translates to:
-  /// **'Cancel verification'**
+  /// **'Cancel'**
   String get zkIdentityCancelVerification;
 
   /// Primary button label that opens the ZK Passport companion app
   ///
   /// In en, this message translates to:
-  /// **'Go to ZK Passport'**
+  /// **'Switch to ZK Passport'**
   String get zkIdentityGoToZkPassport;
 
   /// Button label for retrying a failed ZK identity verification
   ///
   /// In en, this message translates to:
-  /// **'Try Again'**
+  /// **'Try again'**
   String get zkIdentityTryAgain;
 
   /// Button label to dismiss the ZK identity result screen on success
@@ -2503,7 +2695,7 @@ abstract class AppLocalizations {
   /// Status card value when face match verification was not part of this verification
   ///
   /// In en, this message translates to:
-  /// **'Not requested'**
+  /// **'Skipped'**
   String get zkIdentityStatusFaceMatchNotRequested;
 
   /// Status card label for the privacy guarantee row
@@ -2515,7 +2707,7 @@ abstract class AppLocalizations {
   /// Status card label for the verification date row
   ///
   /// In en, this message translates to:
-  /// **'Verified'**
+  /// **'Verified on'**
   String get zkIdentityStatusVerifiedDateLabel;
 
   /// Status card label for the proof identifier (truncated nullifier)
@@ -2539,19 +2731,19 @@ abstract class AppLocalizations {
   /// Status card label for the final wrapped-proof verification timing
   ///
   /// In en, this message translates to:
-  /// **'Final Check'**
+  /// **'Final check'**
   String get zkIdentityStatusFinalCheckLabel;
 
   /// Title for the ZK identity verification failure dialog/screen
   ///
   /// In en, this message translates to:
-  /// **'Verification Failed'**
+  /// **'Couldn\'t verify'**
   String get zkIdentityResultFailureTitle;
 
-  /// Reassuring subtitle shown on ZK identity verification failure
+  /// Reassuring subtitle shown on ZK identity verification failure, naming the specific fields the user kept private
   ///
   /// In en, this message translates to:
-  /// **'Your data is safe — no information was shared.'**
+  /// **'You didn\'t share your name, photo, or ID'**
   String get zkIdentityResultFailureSubtitle;
 
   /// Transaction success screen title

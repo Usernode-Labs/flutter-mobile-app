@@ -2,7 +2,7 @@
 
 The Usernode design system's UX writing rules. Every piece of user-facing copy — titles, labels, buttons, body text, errors, status rows — passes through this document.
 
-These guidelines are bottom-up: they were derived from the brand strategy (mission, values, perceptions, positioning) and from concrete UX-audit failures (e.g. issue #418, Bijan's walkthrough of the ZK Identity flow). They are not a remix of Material, Apple, or Microsoft house style — those informed the housekeeping, not the stance.
+These guidelines are derived bottom-up — anchored in the brand strategy (mission, values, perceptions, positioning) and pressure-tested against concrete UX-audit failures (e.g. issue #418, Bijan's walkthrough of the ZK Identity flow). They are informed throughout by established UX-writing standards — Material Design (M1/M2/M3), Apple Human Interface Guidelines, and the Microsoft Style Guide — which contributed rules across voice, sentence shape, word choice, error tone, and house style. We didn't blindly average those sources into a generic stack: we used them as reference and overruled them where the brand or the audit demanded a different call (e.g. Principle 3 reframes M3's "communicate essential details" through agency; Principle 5 keeps crypto terms M3 would flag as jargon, because our audience opted into them).
 
 ---
 

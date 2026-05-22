@@ -238,7 +238,7 @@ class AppConfig {
   // Leaderboard API v2
   static const int leaderboardApiTimeoutSeconds = int.fromEnvironment(
     'LEADERBOARD_API_TIMEOUT_SECONDS',
-    defaultValue: 15,
+    defaultValue: 30,
   );
   static Duration get leaderboardApiTimeout =>
       const Duration(seconds: leaderboardApiTimeoutSeconds);

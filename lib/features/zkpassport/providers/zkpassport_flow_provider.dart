@@ -11,7 +11,9 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
@@ -1236,61 +1238,156 @@ class ZkPassportPipelineController
         'Skipping zkPassport backend completion in view-only mode',
         context: {'sessionId': sessionId},
       );
-      final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-      await repo.clearPendingCompletion();
-      return;
-    }
-
-    final participantId = await _ref.read(participantIdProvider.future);
-    final challengeId = _ref.read(zkIdentityChallengeIdProvider);
-    if (participantId == null || challengeId == null || nullifierHex == null) {
-      _log.warn('Skipping backend completion: missing data', context: {
-        'participantId': participantId,
-        'challengeId': challengeId,
-        'nullifierHex': nullifierHex != null,
-      });
-      return;
-    }
-
-    final accounts = await AccountsRepository.create();
-    final active = await accounts.getActive();
-    if (active == null) return;
-
-    try {
-      final api = _ref.read(leaderboardApiServiceProvider);
-      final ok = await api.completeZkPassport(
-        participantId: participantId,
-        challengeId: challengeId,
-        walletAddress: active.address,
-        sessionId: sessionId,
-        nullifierHex: nullifierHex,
-      );
-
-      if (ok) {
-        _log.info('Backend completion succeeded');
+      try {
         final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
         await repo.clearPendingCompletion();
-        // Silently refresh leaderboard so the challenge shows as completed.
-        unawaited(refreshAllLeaderboardData(_ref));
+      } catch (e, st) {
+        await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
       }
-    } catch (e, st) {
-      _log.warn('Backend completion failed, storing for retry', context: {
-        'error': e.toString(),
-      });
-      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
+      return;
+    }
 
-      // Persist for cold-start retry using already-resolved values.
+    int? participantId;
+    int? challengeId;
+    String? walletAddress;
+
+    try {
+      participantId = await _ref.read(participantIdProvider.future);
+      challengeId = _ref.read(zkIdentityChallengeIdProvider);
+
+      if (participantId == null ||
+          challengeId == null ||
+          nullifierHex == null) {
+        _log.warn('Skipping backend completion: missing data', context: {
+          'participantId': participantId,
+          'challengeId': challengeId,
+          'nullifierHex': nullifierHex != null,
+        });
+        await SentryUtil.captureMessageWithData(
+          'zkPassport backend completion skipped: missing data',
+          {
+            'participant_id': participantId,
+            'challenge_id': challengeId,
+            'nullifier_present': nullifierHex != null,
+            'session_id': sessionId,
+          },
+          level: SentryLevel.warning,
+        );
+        return;
+      }
+
+      final accounts = await AccountsRepository.create();
+      final active = await accounts.getActive();
+      if (active == null) {
+        _log.warn('Skipping backend completion: no active account');
+        await SentryUtil.captureMessageWithData(
+          'zkPassport backend completion skipped: no active account',
+          {
+            'participant_id': participantId,
+            'challenge_id': challengeId,
+            'session_id': sessionId,
+          },
+          level: SentryLevel.warning,
+        );
+        return;
+      }
+      walletAddress = active.address;
+
+      final api = _ref.read(leaderboardApiServiceProvider);
+      const delays = <Duration>[
+        Duration(seconds: 1),
+        Duration(seconds: 2),
+        Duration(seconds: 4),
+      ];
+      Object? lastError;
+      StackTrace? lastStack;
+
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          final ok = await api.completeZkPassport(
+            participantId: participantId,
+            challengeId: challengeId,
+            walletAddress: walletAddress,
+            sessionId: sessionId,
+            nullifierHex: nullifierHex,
+          );
+          if (ok) {
+            _log.info('Backend completion succeeded');
+            final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+            await repo.clearPendingCompletion();
+            unawaited(refreshAllLeaderboardData(_ref));
+            return;
+          }
+          // Defensive: the contract returns true or throws.
+          lastError = StateError('completeZkPassport returned false');
+          lastStack = StackTrace.current;
+          break;
+        } on LeaderboardApiException catch (e, st) {
+          lastError = e;
+          lastStack = st;
+          final retryable =
+              e.statusCode >= 500 || e.statusCode == 408 || e.statusCode == 429;
+          if (!retryable || attempt == delays.length - 1) break;
+          await Future<void>.delayed(delays[attempt]);
+        } catch (e, st) {
+          lastError = e;
+          lastStack = st;
+          if (attempt == delays.length - 1) break;
+          await Future<void>.delayed(delays[attempt]);
+        }
+      }
+
+      _log.warn('Backend completion failed, storing for retry', context: {
+        'error': lastError?.toString(),
+      });
+      await SentryUtil.captureError(
+        lastError ?? StateError('zkpassport completion failed'),
+        lastStack ?? StackTrace.current,
+        tag: 'zkpassport_completion',
+      );
+
       try {
         final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
         await repo.storePendingCompletion(
           participantId: participantId,
           challengeId: challengeId,
-          walletAddress: active.address,
+          walletAddress: walletAddress,
           sessionId: sessionId,
           nullifierHex: nullifierHex,
         );
-      } catch (_) {
-        // Best-effort.
+      } catch (e, st) {
+        await SentryUtil.captureError(
+          e,
+          st,
+          tag: 'zkpassport_completion_persist',
+        );
+      }
+    } catch (e, st) {
+      _log.warn('Backend completion encountered unexpected error', context: {
+        'error': e.toString(),
+      });
+      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
+
+      if (participantId != null &&
+          challengeId != null &&
+          walletAddress != null &&
+          nullifierHex != null) {
+        try {
+          final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+          await repo.storePendingCompletion(
+            participantId: participantId,
+            challengeId: challengeId,
+            walletAddress: walletAddress,
+            sessionId: sessionId,
+            nullifierHex: nullifierHex,
+          );
+        } catch (e, st) {
+          await SentryUtil.captureError(
+            e,
+            st,
+            tag: 'zkpassport_completion_persist',
+          );
+        }
       }
     }
   }
@@ -1352,8 +1449,13 @@ class ZkPassportPipelineController
         await repo.clearPendingCompletion();
         unawaited(refreshAllLeaderboardData(_ref));
       }
-    } catch (e) {
+    } catch (e, st) {
       _log.warn('Pending completion retry failed: $e');
+      await SentryUtil.captureError(
+        e,
+        st,
+        tag: 'zkpassport_completion_retry',
+      );
     }
   }
 

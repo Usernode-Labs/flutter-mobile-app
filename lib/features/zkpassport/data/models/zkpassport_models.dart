@@ -95,6 +95,7 @@ class ZkPassportRuntimeSession {
     required this.createdAtMs,
     required this.lastProgressAtMs,
     required this.resumeAttemptCount,
+    this.userPublicKey,
   });
 
   final String requestId;
@@ -103,6 +104,7 @@ class ZkPassportRuntimeSession {
   final int createdAtMs;
   final int lastProgressAtMs;
   final int resumeAttemptCount;
+  final String? userPublicKey;
 
   bool get isTerminal =>
       phase == ZkPassportPipelinePhase.success ||
@@ -117,6 +119,8 @@ class ZkPassportRuntimeSession {
       'createdAtMs': createdAtMs,
       'lastProgressAtMs': lastProgressAtMs,
       'resumeAttemptCount': resumeAttemptCount,
+      if (userPublicKey != null && userPublicKey!.trim().isNotEmpty)
+        'userPublicKey': userPublicKey,
     };
   }
 
@@ -165,6 +169,7 @@ class ZkPassportRuntimeSession {
       createdAtMs: createdAtMs,
       lastProgressAtMs: lastProgressAtMs,
       resumeAttemptCount: resumeAttemptCount < 0 ? 0 : resumeAttemptCount,
+      userPublicKey: _optionalString(json['userPublicKey']),
     );
   }
 
@@ -175,6 +180,7 @@ class ZkPassportRuntimeSession {
     int? createdAtMs,
     int? lastProgressAtMs,
     int? resumeAttemptCount,
+    String? userPublicKey,
   }) {
     return ZkPassportRuntimeSession(
       requestId: requestId ?? this.requestId,
@@ -183,8 +189,17 @@ class ZkPassportRuntimeSession {
       createdAtMs: createdAtMs ?? this.createdAtMs,
       lastProgressAtMs: lastProgressAtMs ?? this.lastProgressAtMs,
       resumeAttemptCount: resumeAttemptCount ?? this.resumeAttemptCount,
+      userPublicKey: userPublicKey ?? this.userPublicKey,
     );
   }
+}
+
+String? _optionalString(Object? value) {
+  if (value is! String) {
+    return null;
+  }
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }
 
 class ZkPassportSettings {

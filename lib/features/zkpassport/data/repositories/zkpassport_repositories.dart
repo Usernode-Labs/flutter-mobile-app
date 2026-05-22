@@ -226,6 +226,8 @@ class ZkPassportRuntimeSessionRepository {
 final _sessionServerLog =
     LoggingService.instance.withTag('usernode/ZkPassportSessionServer');
 
+const _userPublicKeyHeader = 'X-Usernode-Public-Key';
+
 class ZkPassportSessionServerException implements Exception {
   ZkPassportSessionServerException(this.statusCode, this.message, {this.body});
 
@@ -256,6 +258,7 @@ class ZkPassportSessionServerRepository {
     required String chainId,
     required int nonce,
     required bool facematchStrict,
+    String? userPublicKey,
   }) async {
     if (!_writesEnabled) {
       throw ZkPassportSessionServerException(
@@ -272,6 +275,7 @@ class ZkPassportSessionServerRepository {
         'nonce': nonce,
         'facematch_strict': facematchStrict,
       },
+      userPublicKey: userPublicKey,
       timeout: const Duration(seconds: 10),
     );
     return ZkPassportSessionStartResponse.fromJson(json);
@@ -279,9 +283,11 @@ class ZkPassportSessionServerRepository {
 
   Future<ZkPassportSessionStatusResponse> getSessionStatus({
     required String sessionId,
+    String? userPublicKey,
   }) async {
     final json = await _getJson(
       '/v1/zkp/sessions/${sessionId.trim()}',
+      userPublicKey: userPublicKey,
       timeout: const Duration(seconds: 5),
     );
     return ZkPassportSessionStatusResponse.fromJson(json);
@@ -290,6 +296,7 @@ class ZkPassportSessionServerRepository {
   Future<ZkPassportSessionResultResponse?> tryGetSessionResult({
     required String sessionId,
     int waitMs = 0,
+    String? userPublicKey,
   }) async {
     final normalizedWaitMs = waitMs > 0 ? waitMs : 0;
     final url =
@@ -306,12 +313,15 @@ class ZkPassportSessionServerRepository {
       final timeout = normalizedWaitMs > 0
           ? Duration(milliseconds: normalizedWaitMs + 2000)
           : const Duration(seconds: 5);
-      response = await _http.get(
-        url,
-        headers: const {
-          'Accept': 'application/json',
-        },
-      ).timeout(timeout);
+      response = await _http
+          .get(
+            url,
+            headers: _headers(
+              acceptJson: true,
+              userPublicKey: userPublicKey,
+            ),
+          )
+          .timeout(timeout);
     } catch (e) {
       _sessionServerLog.warn('Session server request failed for $url: $e');
       rethrow;
@@ -328,6 +338,7 @@ class ZkPassportSessionServerRepository {
 
   Future<Map<String, dynamic>> _getJson(
     String path, {
+    String? userPublicKey,
     Duration timeout = const Duration(seconds: 10),
   }) async {
     final url = Uri.parse('$_baseUrl$path');
@@ -335,12 +346,15 @@ class ZkPassportSessionServerRepository {
 
     late final http.Response response;
     try {
-      response = await _http.get(
-        url,
-        headers: const {
-          'Accept': 'application/json',
-        },
-      ).timeout(timeout);
+      response = await _http
+          .get(
+            url,
+            headers: _headers(
+              acceptJson: true,
+              userPublicKey: userPublicKey,
+            ),
+          )
+          .timeout(timeout);
     } catch (e) {
       _sessionServerLog.warn('Session server request failed for $url: $e');
       rethrow;
@@ -351,6 +365,7 @@ class ZkPassportSessionServerRepository {
   Future<Map<String, dynamic>> _postJson(
     String path, {
     Map<String, dynamic>? body,
+    String? userPublicKey,
     Duration timeout = const Duration(seconds: 10),
   }) async {
     final url = Uri.parse('$_baseUrl$path');
@@ -361,10 +376,11 @@ class ZkPassportSessionServerRepository {
       response = await _http
           .post(
             url,
-            headers: const {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+            headers: _headers(
+              acceptJson: true,
+              contentJson: true,
+              userPublicKey: userPublicKey,
+            ),
             body: body == null ? null : jsonEncode(body),
           )
           .timeout(timeout);
@@ -402,6 +418,40 @@ class ZkPassportSessionServerRepository {
   void dispose() {
     _http.close();
   }
+}
+
+Map<String, String> _headers({
+  bool acceptJson = false,
+  bool contentJson = false,
+  String? userPublicKey,
+}) {
+  final headers = <String, String>{};
+  if (contentJson) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (acceptJson) {
+    headers['Accept'] = 'application/json';
+  }
+  final normalizedUserPublicKey = _normalizeHeaderValue(userPublicKey);
+  if (normalizedUserPublicKey != null) {
+    headers[_userPublicKeyHeader] = normalizedUserPublicKey;
+  }
+  return headers;
+}
+
+String? _normalizeHeaderValue(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return null;
+  }
+  final sanitized = trimmed
+      .replaceAll(RegExp(r'[\x00-\x1F\x7F]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (sanitized.isEmpty) {
+    return null;
+  }
+  return sanitized.length > 256 ? sanitized.substring(0, 256) : sanitized;
 }
 
 String _normalizeBaseUrl(String raw) {

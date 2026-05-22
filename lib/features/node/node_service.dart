@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:path_provider/path_provider.dart';
@@ -288,6 +289,11 @@ class RustBackendService {
     }
     if (_nodeRunning) {
       _log.trace('Node already running');
+      unawaited(
+        ObservabilityReportingService.instance.reportNodeInitialized(
+          resetStaticContext: false,
+        ),
+      );
       return true;
     }
 
@@ -340,6 +346,11 @@ class RustBackendService {
 
       await _configureWalletSigner(secretKey, account.id);
       _log.info('Reused previously started node');
+      unawaited(
+        ObservabilityReportingService.instance.reportNodeInitialized(
+          resetStaticContext: true,
+        ),
+      );
       return true;
     }
 
@@ -420,6 +431,11 @@ class RustBackendService {
       await _configureWalletSigner(secretKey, account.id);
 
       _log.info('Node started with user account block producer');
+      unawaited(
+        ObservabilityReportingService.instance.reportNodeInitialized(
+          resetStaticContext: true,
+        ),
+      );
       return true;
     } catch (e, st) {
       _log.error('Failed to start node with account ${account.id}',

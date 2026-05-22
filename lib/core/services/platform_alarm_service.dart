@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 final _log = LoggingService.instance.withTag('usernode/AlarmService');
@@ -275,6 +276,9 @@ class PlatformAlarmService {
       _log.info(
           'Permissions status - Notifications: $hasNotifications, Exact Alarm: $hasExactAlarm, Battery: $hasBatteryExemption');
 
+      _recordRuntimeContextChanged('permissions_changed');
+      _recordPowerNetworkServiceContextChanged('permissions_changed');
+
       return _permissionsGranted;
     } on PlatformException catch (e) {
       _log.error('Error requesting Android permissions: ${e.message}');
@@ -295,6 +299,8 @@ class PlatformAlarmService {
       } else {
         _log.warn('iOS notification permission denied');
       }
+
+      _recordRuntimeContextChanged('permissions_changed');
 
       return granted;
     } on PlatformException catch (e) {
@@ -537,6 +543,7 @@ class PlatformAlarmService {
 
       if (success) {
         _log.info('Foreground service started for slot $slotNumber');
+        _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       } else {
         _log.warn('Failed to start foreground service');
       }
@@ -561,6 +568,7 @@ class PlatformAlarmService {
 
       if (success) {
         _log.info('Foreground service stopped');
+        _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       } else {
         _log.warn('Failed to stop foreground service');
       }
@@ -590,6 +598,7 @@ class PlatformAlarmService {
 
       if (success) {
         _log.info('Persistent foreground service started');
+        _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       } else {
         _log.warn('Failed to start persistent foreground service');
       }
@@ -615,6 +624,7 @@ class PlatformAlarmService {
 
       if (success) {
         _log.info('Persistent foreground service stopped');
+        _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       } else {
         _log.warn('Failed to stop persistent foreground service');
       }
@@ -725,6 +735,8 @@ class PlatformAlarmService {
     if (!Platform.isAndroid) return false;
     try {
       await _channel.invokeMethod('acquireWakelock');
+      _recordRuntimeContextChanged('keep_alive_changed');
+      _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       return true;
     } catch (e) {
       _log.error('Error acquiring wakelock: $e');
@@ -737,6 +749,8 @@ class PlatformAlarmService {
     if (!Platform.isAndroid) return false;
     try {
       await _channel.invokeMethod('releaseWakelock');
+      _recordRuntimeContextChanged('keep_alive_changed');
+      _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       return true;
     } catch (e) {
       _log.error('Error releasing wakelock: $e');
@@ -799,6 +813,24 @@ class PlatformAlarmService {
     } catch (e) {
       _log.error('Error incrementing background task count: $e');
     }
+  }
+
+  void _recordRuntimeContextChanged(String reason) {
+    unawaited(
+      ObservabilityReportingService.instance.reportRuntimeMobileContextSnapshot(
+        reason: reason,
+      ),
+    );
+  }
+
+  void _recordPowerNetworkServiceContextChanged(String reason) {
+    unawaited(
+      ObservabilityReportingService.instance
+          .reportPowerNetworkServiceContextSnapshot(
+        reason: reason,
+        force: true,
+      ),
+    );
   }
 
   void resetForAppRestart() {

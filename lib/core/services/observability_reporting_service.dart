@@ -1,0 +1,471 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:battery_plus/battery_plus.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
+import 'package:crypto_mobile_app/src/rust/observability.dart';
+import 'package:flutter/widgets.dart';
+
+final _log = LoggingService.instance.withTag('usernode/Observability');
+
+typedef ObservabilityRecordClient = FlutterObservabilityRecordResult Function({
+  required FlutterObservabilityKind kind,
+  required String event,
+  String? payloadJson,
+});
+
+typedef _MobileContextCollectorCall = Future<Map<String, dynamic>> Function({
+  Map<String, dynamic>? eventData,
+});
+
+class ObservabilityReportingService {
+  ObservabilityReportingService._()
+      : _record = observabilityRecord,
+        _canRecordOverride = null;
+
+  ObservabilityReportingService.test({
+    required MobileContextSnapshotCollector collector,
+    required ObservabilityRecordClient record,
+    bool Function()? canRecord,
+  })  : _collector = collector,
+        _record = record,
+        _canRecordOverride = canRecord;
+
+  static final ObservabilityReportingService instance =
+      ObservabilityReportingService._();
+
+  static const _lifecycleDuplicateWindow = Duration(seconds: 2);
+  static const _powerNetworkServiceSnapshotInterval = Duration(minutes: 10);
+  static const _powerNetworkServiceSnapshotMinimumGap = Duration(minutes: 1);
+  static const _batteryUsageSampleWindow = Duration(minutes: 5);
+  static const _batteryStateDuplicateWindow = Duration(seconds: 30);
+
+  final ObservabilityRecordClient _record;
+  final bool Function()? _canRecordOverride;
+  final Battery _battery = Battery();
+  final Connectivity _connectivity = Connectivity();
+  MobileContextSnapshotCollector? _collector;
+
+  String? _lastLifecycleEvent;
+  DateTime? _lastLifecycleEventAt;
+  Timer? _powerNetworkServiceSnapshotTimer;
+  StreamSubscription<BatteryState>? _batteryStateSubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  bool _mobileContextReportingStarted = false;
+  bool _staticMobileContextReported = false;
+  bool _powerNetworkServiceSnapshotInFlight = false;
+  bool _nodeInitialized = false;
+  DateTime? _lastPowerNetworkServiceSnapshotAt;
+  int? _lastBatteryLevel;
+  DateTime? _lastBatteryLevelAt;
+  BatteryState? _lastBatteryStateEvent;
+  DateTime? _lastBatteryStateEventAt;
+
+  void markNodeInitialized({bool resetStaticContext = false}) {
+    _nodeInitialized = true;
+    if (resetStaticContext) {
+      _staticMobileContextReported = false;
+    }
+  }
+
+  void configureMobileContextCollector(
+      MobileContextSnapshotCollector collector) {
+    _collector = collector;
+  }
+
+  Future<void> reportNodeInitialized({
+    bool resetStaticContext = false,
+  }) async {
+    markNodeInitialized(resetStaticContext: resetStaticContext);
+    await reportStaticMobileContextSnapshot(reason: 'node_initialized');
+    await startMobileContextSnapshotReporting(initialReason: 'startup');
+  }
+
+  Future<void> reportLifecycleStateChanged(AppLifecycleState state) async {
+    final event = switch (state) {
+      AppLifecycleState.resumed => 'app_foreground',
+      AppLifecycleState.paused ||
+      AppLifecycleState.hidden ||
+      AppLifecycleState.detached =>
+        'app_background',
+      AppLifecycleState.inactive => null,
+    };
+
+    if (event == null || _isDuplicateLifecycleEvent(event)) {
+      return;
+    }
+
+    final eventData = {'lifecycle_state': state.name};
+    await reportRuntimeMobileContextSnapshot(
+      reason: event == 'app_foreground' ? 'foreground' : 'background',
+      eventData: eventData,
+    );
+    await reportPowerNetworkServiceContextSnapshot(
+      reason: event == 'app_foreground' ? 'foreground' : 'background',
+      eventData: eventData,
+      force: true,
+    );
+  }
+
+  bool _isDuplicateLifecycleEvent(String event) {
+    final now = DateTime.now();
+    final lastAt = _lastLifecycleEventAt;
+    if (_lastLifecycleEvent == event &&
+        lastAt != null &&
+        now.difference(lastAt) < _lifecycleDuplicateWindow) {
+      return true;
+    }
+
+    _lastLifecycleEvent = event;
+    _lastLifecycleEventAt = now;
+    return false;
+  }
+
+  Future<void> startMobileContextSnapshotReporting({
+    String initialReason = 'startup',
+    Map<String, dynamic>? initialEventData,
+  }) async {
+    if (!_canReportMobileContextSnapshots) {
+      return;
+    }
+
+    if (_mobileContextReportingStarted) {
+      await reportRuntimeMobileContextSnapshot(
+        reason: initialReason,
+        eventData: initialEventData,
+      );
+      await reportPowerNetworkServiceContextSnapshot(
+        reason: initialReason,
+        eventData: initialEventData,
+        force: true,
+      );
+      return;
+    }
+
+    _mobileContextReportingStarted = true;
+    _batteryStateSubscription = _battery.onBatteryStateChanged.listen(
+      _handleBatteryStateChanged,
+      onError: (Object e) {
+        _log.debug('Battery state stream error: $e');
+      },
+    );
+    _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
+      _handleNetworkChanged,
+      onError: (Object e) {
+        _log.debug('Connectivity stream error: $e');
+      },
+    );
+    _powerNetworkServiceSnapshotTimer = Timer.periodic(
+      _powerNetworkServiceSnapshotInterval,
+      (_) => unawaited(
+        reportPowerNetworkServiceContextSnapshot(reason: 'periodic'),
+      ),
+    );
+
+    await reportRuntimeMobileContextSnapshot(
+      reason: initialReason,
+      eventData: initialEventData,
+    );
+    await reportPowerNetworkServiceContextSnapshot(
+      reason: initialReason,
+      eventData: initialEventData,
+      force: true,
+    );
+  }
+
+  Future<void> stopMobileContextSnapshotReporting() async {
+    _powerNetworkServiceSnapshotTimer?.cancel();
+    _powerNetworkServiceSnapshotTimer = null;
+    await _batteryStateSubscription?.cancel();
+    _batteryStateSubscription = null;
+    await _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
+    _mobileContextReportingStarted = false;
+    _powerNetworkServiceSnapshotInFlight = false;
+  }
+
+  FlutterObservabilityRecordResult recordEvent({
+    required String event,
+    Map<String, dynamic>? details,
+  }) {
+    return _recordStructured(
+      kind: FlutterObservabilityKind.event,
+      event: event,
+      details: details,
+    );
+  }
+
+  FlutterObservabilityRecordResult recordMetricSample({
+    required String event,
+    Map<String, dynamic>? details,
+  }) {
+    return _recordStructured(
+      kind: FlutterObservabilityKind.metrics,
+      event: event,
+      details: details,
+    );
+  }
+
+  FlutterObservabilityRecordResult recordError({
+    required String event,
+    Map<String, dynamic>? details,
+  }) {
+    return _recordStructured(
+      kind: FlutterObservabilityKind.error,
+      event: event,
+      details: details,
+    );
+  }
+
+  Future<void> reportStaticMobileContextSnapshot({
+    String reason = 'node_initialized',
+    Map<String, dynamic>? eventData,
+  }) async {
+    if (_staticMobileContextReported) {
+      return;
+    }
+
+    final collector = _collector;
+    if (collector == null) {
+      _log.debug('Skipping static mobile context; collector not configured');
+      return;
+    }
+
+    final recorded = await _recordMobileContextSnapshot(
+      reason: reason,
+      eventData: eventData,
+      collect: collector.collectStaticMobileContextSnapshot,
+    );
+    if (recorded) {
+      _staticMobileContextReported = true;
+    }
+  }
+
+  Future<void> reportRuntimeMobileContextSnapshot({
+    required String reason,
+    Map<String, dynamic>? eventData,
+  }) async {
+    final collector = _collector;
+    if (collector == null) {
+      _log.debug('Skipping runtime mobile context; collector not configured');
+      return;
+    }
+
+    await _recordMobileContextSnapshot(
+      reason: reason,
+      eventData: eventData,
+      collect: collector.collectRuntimeMobileContextSnapshot,
+    );
+  }
+
+  Future<void> reportPowerNetworkServiceContextSnapshot({
+    required String reason,
+    Map<String, dynamic>? eventData,
+    bool force = false,
+  }) async {
+    if (!_canReportMobileContextSnapshots ||
+        _powerNetworkServiceSnapshotInFlight) {
+      return;
+    }
+
+    final collector = _collector;
+    if (collector == null) {
+      _log.debug(
+        'Skipping power/network/service mobile context; collector not configured',
+      );
+      return;
+    }
+
+    final now = DateTime.now();
+    if (!force &&
+        _lastPowerNetworkServiceSnapshotAt != null &&
+        now.difference(_lastPowerNetworkServiceSnapshotAt!) <
+            _powerNetworkServiceSnapshotMinimumGap) {
+      return;
+    }
+
+    _lastPowerNetworkServiceSnapshotAt = now;
+    _powerNetworkServiceSnapshotInFlight = true;
+    try {
+      await _recordMobileContextSnapshot(
+        reason: reason,
+        eventData: eventData,
+        collect: collector.collectPowerNetworkServiceContextSnapshot,
+        includeBatteryUsage: true,
+      );
+    } finally {
+      _powerNetworkServiceSnapshotInFlight = false;
+    }
+  }
+
+  bool get _canRecordObservability =>
+      _canRecordOverride?.call() ??
+      (!AppConfig.viewOnly &&
+          AppConfig.observabilityHubBaseUrl.trim().isNotEmpty &&
+          _nodeInitialized);
+
+  bool get _canReportMobileContextSnapshots => _canRecordObservability;
+
+  void _handleBatteryStateChanged(BatteryState state) {
+    final now = DateTime.now();
+    final lastAt = _lastBatteryStateEventAt;
+    if (_lastBatteryStateEvent == state &&
+        lastAt != null &&
+        now.difference(lastAt) < _batteryStateDuplicateWindow) {
+      return;
+    }
+
+    _lastBatteryStateEvent = state;
+    _lastBatteryStateEventAt = now;
+    unawaited(
+      reportPowerNetworkServiceContextSnapshot(
+        reason: 'battery_state_changed',
+        eventData: {'battery_state_changed_to': state.name},
+        force: true,
+      ),
+    );
+  }
+
+  void _handleNetworkChanged(List<ConnectivityResult> _) {
+    unawaited(
+      reportPowerNetworkServiceContextSnapshot(
+        reason: 'network_changed',
+        force: true,
+      ),
+    );
+  }
+
+  Future<bool> _recordMobileContextSnapshot({
+    required String reason,
+    Map<String, dynamic>? eventData,
+    required _MobileContextCollectorCall collect,
+    bool includeBatteryUsage = false,
+  }) async {
+    if (!_canReportMobileContextSnapshots) {
+      return false;
+    }
+
+    try {
+      final details = await collect(
+        eventData: {
+          'snapshot_reason': reason,
+          if (eventData != null) ...eventData,
+        },
+      );
+      if (includeBatteryUsage) {
+        final batteryUsage = _batteryUsageDetails(details);
+        if (batteryUsage != null) {
+          details['battery_usage'] = batteryUsage;
+        }
+      }
+
+      final result = recordEvent(
+        event: 'app_mobile_context_snapshot',
+        details: details,
+      );
+
+      if (result.discarded) {
+        _log.debug(
+          'Observability mobile context snapshot discarded',
+          context: {
+            'reason': reason,
+            if (result.reason != null) 'discard_reason': result.reason,
+          },
+        );
+      }
+      return result.queued || !result.discarded;
+    } catch (e) {
+      _log.warn(
+        'Failed to record observability mobile context snapshot: $e',
+        context: {'reason': reason},
+      );
+      return false;
+    }
+  }
+
+  FlutterObservabilityRecordResult _recordStructured({
+    required FlutterObservabilityKind kind,
+    required String event,
+    Map<String, dynamic>? details,
+  }) {
+    if (!_canRecordObservability) {
+      return const FlutterObservabilityRecordResult(
+        queued: false,
+        discarded: true,
+        reason: 'observability_disabled',
+      );
+    }
+
+    String? payloadJson;
+    if (details != null) {
+      try {
+        payloadJson = jsonEncode(details);
+      } catch (_) {
+        return const FlutterObservabilityRecordResult(
+          queued: false,
+          discarded: true,
+          reason: 'invalid_payload_json',
+        );
+      }
+    }
+
+    return _record(
+      kind: kind,
+      event: event,
+      payloadJson: payloadJson,
+    );
+  }
+
+  Map<String, dynamic>? _batteryUsageDetails(Map<String, dynamic> details) {
+    final battery = details['battery'];
+    if (battery is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final levelValue = battery['battery_level'];
+    final level = switch (levelValue) {
+      int value => value,
+      num value => value.round(),
+      _ => null,
+    };
+    if (level == null) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    final previousLevel = _lastBatteryLevel;
+    final previousAt = _lastBatteryLevelAt;
+    _lastBatteryLevel = level;
+    _lastBatteryLevelAt = now;
+
+    if (previousLevel == null || previousAt == null) {
+      return null;
+    }
+
+    final sampleInterval = now.difference(previousAt);
+    if (sampleInterval < _batteryUsageSampleWindow) {
+      return null;
+    }
+
+    final state = battery['battery_state'];
+    if (state == 'charging' || state == 'full') {
+      return null;
+    }
+
+    final deltaPercent = level - previousLevel;
+    final drainedPercent = deltaPercent < 0 ? -deltaPercent : 0;
+    final sampleHours = sampleInterval.inMilliseconds / 3600000;
+    final estimatedDrainPerHour =
+        sampleHours <= 0 ? 0.0 : drainedPercent / sampleHours;
+
+    return {
+      'previous_battery_level': previousLevel,
+      'battery_delta_percent': deltaPercent,
+      'battery_sample_interval_ms': sampleInterval.inMilliseconds,
+      'estimated_drain_percent_per_hour': estimatedDrainPerHour,
+    };
+  }
+}

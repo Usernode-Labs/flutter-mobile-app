@@ -148,6 +148,7 @@ class ZkPassportFlowController {
         message: 'No active account available.',
       );
     }
+    final userPublicKey = active.publicKey;
 
     const chainId = ZkPassportRequestPolicy.boundChainId;
     final settingsRepo = _ref.read(zkPassportSettingsRepositoryProvider);
@@ -173,6 +174,7 @@ class ZkPassportFlowController {
         chainId: chainId,
         nonce: 0,
         facematchStrict: facematchStrict,
+        userPublicKey: userPublicKey,
       );
       final nextRequestId = started.sessionId.trim();
       if (previousRequestId != null &&
@@ -189,6 +191,7 @@ class ZkPassportFlowController {
           chainId: chainId,
           nonce: 0,
           facematchStrict: facematchStrict,
+          userPublicKey: userPublicKey,
         );
       }
       final normalizedRequestId = started.sessionId.trim();
@@ -215,6 +218,7 @@ class ZkPassportFlowController {
     await pipelineController.markLaunchStarted(
       requestId: requestId,
       facematchStrict: facematchStrict,
+      userPublicKey: userPublicKey,
     );
 
     final launchService = _ref.read(zkPassportLaunchServiceProvider);
@@ -439,6 +443,7 @@ class ZkPassportPipelineController
   Future<void> markLaunchStarted({
     required String requestId,
     required bool facematchStrict,
+    required String? userPublicKey,
   }) async {
     await _startupResetFuture;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -449,6 +454,7 @@ class ZkPassportPipelineController
       createdAtMs: nowMs,
       lastProgressAtMs: nowMs,
       resumeAttemptCount: 0,
+      userPublicKey: userPublicKey,
     );
     _runtimeSession = session;
     await _runtimeRepo.save(session);
@@ -563,6 +569,9 @@ class ZkPassportPipelineController
               (current != null && current.requestId == requestId
                   ? current.resumeAttemptCount
                   : 0)),
+      userPublicKey: current != null && current.requestId == requestId
+          ? current.userPublicKey
+          : null,
     );
     _runtimeSession = next;
     await _runtimeRepo.save(next);
@@ -707,6 +716,7 @@ class ZkPassportPipelineController
 
       ZkPassportSessionResultResponse? result;
       var resultFetchFailed = false;
+      final userPublicKey = await _userPublicKeyForRuntime(runtime);
       final resultWaitMs = nowMs < _serverPollingBurstUntilAtMs
           ? _serverStatusBurstPollInterval.inMilliseconds
           : _serverStatusPollInterval.inMilliseconds;
@@ -715,6 +725,7 @@ class ZkPassportPipelineController
         result = await sessionServerRepo.tryGetSessionResult(
           sessionId: requestId,
           waitMs: resultWaitMs,
+          userPublicKey: userPublicKey,
         );
       } catch (e, st) {
         resultFetchFailed = true;
@@ -818,6 +829,7 @@ class ZkPassportPipelineController
             _lastServerStatusFetchAtMs = nowMs;
             final status = await sessionServerRepo.getSessionStatus(
               sessionId: requestId,
+              userPublicKey: userPublicKey,
             );
 
             if (!_isPollingActiveFor(requestId)) {
@@ -1389,5 +1401,27 @@ class ZkPassportPipelineController
       return value;
     }
     return '${value.substring(0, maxChars - 3)}...';
+  }
+
+  Future<String?> _userPublicKeyForRuntime(
+    ZkPassportRuntimeSession runtime,
+  ) async {
+    final persisted = runtime.userPublicKey?.trim();
+    if (persisted != null && persisted.isNotEmpty) {
+      return persisted;
+    }
+
+    try {
+      final accounts = await AccountsRepository.create();
+      final active = await accounts.getActive();
+      if (active == null) {
+        return null;
+      }
+      final activePublicKey = active.publicKey.trim();
+      return activePublicKey.isEmpty ? null : activePublicKey;
+    } catch (e) {
+      _log.debug('Unable to resolve zkPassport user public key: $e');
+      return null;
+    }
   }
 }

@@ -2,14 +2,14 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-04-13 (tracker #388)_
+_Last synced: 2026-04-14 (tracker #388)_
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| Idea | ⏳ LATER |
-| Demo | — |
+| Idea | ⊘ SKIPPED |
+| Demo | ⊘ SKIPPED |
 | Core Testnet | — |
 | Pilot Testnet | — |
 | Mainnet | — |

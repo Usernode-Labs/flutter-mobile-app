@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-04-13 (tracker #384)_
+_Last synced: 2026-05-25 (tracker #384)_
 
 ## Phase status
 
@@ -21,13 +21,15 @@ _Last synced: 2026-04-13 (tracker #384)_
 - [#300](https://github.com/Usernode-Labs/flutter-mobile-app/issues/300) ANR: WalletProvider parses 6,980+ UTXOs on main thread _(also under init:bg-node)_
 - [#331](https://github.com/Usernode-Labs/flutter-mobile-app/issues/331) bug(wallet): burst transactions not visible in Recent Activity after completion
 
-### Pull requests
+### Recent activity (30d)
 
-_None._
+- [#399](https://github.com/Usernode-Labs/flutter-mobile-app/pull/399) add qr code scanning to wallet
+- [#400](https://github.com/Usernode-Labs/flutter-mobile-app/pull/400) Add support for signing data from public keys to prove ownership
+- [#405](https://github.com/Usernode-Labs/flutter-mobile-app/pull/405) feat: Integrate node storage for wallet cache
 
 ## Related discussions
 
-- [#370](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/370) Mainnet Maturity Matrix plan
+- #370 Mainnet Maturity Matrix plan
 
 <!-- auto:end -->
 

@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-04-14 (tracker #388)_
+_Last synced: 2026-05-25 (tracker #388)_
 
 ## Phase status
 
@@ -10,7 +10,7 @@ _Last synced: 2026-04-14 (tracker #388)_
 |---|---|
 | Idea | ⊘ SKIPPED |
 | Demo | ⊘ SKIPPED |
-| Core Testnet | — |
+| Core Testnet | 🟡 IN PROGRESS |
 | Pilot Testnet | — |
 | Mainnet | — |
 
@@ -18,15 +18,12 @@ _Last synced: 2026-04-14 (tracker #388)_
 
 ### Issues
 
-_None._
-
-### Pull requests
-
-_None._
+- [#408](https://github.com/Usernode-Labs/flutter-mobile-app/issues/408) Challenges screen: 'Leaderboard' button hit area is offset upward
+- [#422](https://github.com/Usernode-Labs/flutter-mobile-app/issues/422) Backend prerequisites for ZK Identity end-to-end completion (per-participant enable + bridge config) _(also under init:zk-identity)_
 
 ## Related discussions
 
-- [#370](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/370) Mainnet Maturity Matrix plan
+- #370 Mainnet Maturity Matrix plan
 
 <!-- auto:end -->
 

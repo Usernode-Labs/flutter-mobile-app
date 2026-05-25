@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-04-14 (tracker #387)_
+_Last synced: 2026-05-25 (tracker #387)_
 
 ## Phase status
 
@@ -22,6 +22,7 @@ _Last synced: 2026-04-14 (tracker #387)_
 - [#356](https://github.com/Usernode-Labs/flutter-mobile-app/issues/356) Add explicit error state handling for AsyncValue providers in UI screens
 - [#369](https://github.com/Usernode-Labs/flutter-mobile-app/issues/369) DS Evolution: DESIGN.md + Widgetbook v4 + Composition Playbooks + ds_lints + Marionette MCP
 - [#372](https://github.com/Usernode-Labs/flutter-mobile-app/issues/372) Testing Evolution: Widgetbook Scenarios + Integration Tests + Marionette
+- [#409](https://github.com/Usernode-Labs/flutter-mobile-app/issues/409) Wire Sentry: enable telemetry flags + connect Sentry MCP (Opportunity E Step 0)
 
 ### Pull requests
 
@@ -30,9 +31,9 @@ _Last synced: 2026-04-14 (tracker #387)_
 
 ## Related discussions
 
-- [#367](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/367) Harness Engineering Gap
-- [#368](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/368) DS Evolution Gap Analysis
-- [#370](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/370) Mainnet Maturity Matrix plan
+- #370 Mainnet Maturity Matrix plan
+- #368 DS Evolution Gap Analysis
+- #367 Harness Engineering Gap
 
 <!-- auto:end -->
 

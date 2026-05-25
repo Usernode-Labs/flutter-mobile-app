@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-04-13 (tracker #380)_
+_Last synced: 2026-05-25 (tracker #380)_
 
 ## Phase status
 
@@ -19,14 +19,19 @@ _Last synced: 2026-04-13 (tracker #380)_
 ### Issues
 
 - [#351](https://github.com/Usernode-Labs/flutter-mobile-app/issues/351) Stale local cache/storage causes silent broken states in registration flow
+- [#415](https://github.com/Usernode-Labs/flutter-mobile-app/issues/415) ZK Identity: integrate scoped_nullifier as the Leaderboard Unique ID
+- [#419](https://github.com/Usernode-Labs/flutter-mobile-app/issues/419) ZK identity flow — companion state blindness + persistence + network resilience
+- [#422](https://github.com/Usernode-Labs/flutter-mobile-app/issues/422) Backend prerequisites for ZK Identity end-to-end completion (per-participant enable + bridge config) _(also under init:leaderboard)_
 
-### Pull requests
+### Recent activity (30d)
 
-- [#333](https://github.com/Usernode-Labs/flutter-mobile-app/pull/333) fix(registration): convert hex keys to bech32m before Rust FFI import
+- [#424](https://github.com/Usernode-Labs/flutter-mobile-app/pull/424) Add Usernode content guidelines + re-pass ZK Identity copy
+- [#420](https://github.com/Usernode-Labs/flutter-mobile-app/pull/420) ZK identity: refresh result copy and add in-flow recovery
 
 ## Related discussions
 
-- [#370](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/370) Mainnet Maturity Matrix plan
+- #370 Mainnet Maturity Matrix plan
+- #416 ZK Identity: deeplink bridge vs in-app SDK integration
 
 <!-- auto:end -->
 

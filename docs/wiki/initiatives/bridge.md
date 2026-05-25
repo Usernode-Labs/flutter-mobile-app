@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-04-13 (tracker #385)_
+_Last synced: 2026-05-25 (tracker #385)_
 
 ## Phase status
 
@@ -16,17 +16,11 @@ _Last synced: 2026-04-13 (tracker #385)_
 
 ## Active work
 
-### Issues
-
-_None._
-
-### Pull requests
-
 _None._
 
 ## Related discussions
 
-- [#370](https://github.com/Usernode-Labs/flutter-mobile-app/discussions/370) Mainnet Maturity Matrix plan
+- #370 Mainnet Maturity Matrix plan
 
 <!-- auto:end -->
 

@@ -79,10 +79,6 @@ Adjacent design ideas worth keeping in view, not commitments.
 - **Mesh resilience premium.** Reward nodes that maintain local connectivity (Bluetooth / WiFi Direct) during global backhaul outages. Local subnets staying alive through user-run mesh earn a premium — the network becomes critical infrastructure for disaster recovery and censorship resistance.
 - **Privacy-preserving edge intelligence.** Reward verifiable insight produced at the edge: private AI inference, local data labeling, environmental attestations. Leverages ZK identity + trusted sensor data to monetize computation on sensitive local state without exposing it.
 
-## Known constraints
-
-_To fill: what "fair" means in the reward function, the challenge lifecycle (generation → assignment → completion → settlement), and how this connects to on-chain state._
-
 ## Open questions
 
 - #354 calls the current categorization "theatre" — what's the minimal honest model?

@@ -72,10 +72,6 @@ Once a coordinated decision exists, agents can execute on it. **Social vibe codi
 - **Agents that build their own track record.** An agent could earn activity multipliers by reliably executing on community decisions — turning agents into accountable participants, not just tools.
 - **Cross-dApp reputation portability.** Identity + stake + activity ride with the user. A new dApp could weight inputs by reputation earned in adjacent dApps — opt-in, transparent, sybil-resistant.
 
-## Known constraints
-
-_To fill: which dApp APIs are stable vs experimental, what the sandboxing model is, and how dApps interact with the wallet and identity stack._
-
 ## Open questions
 
 - What changes between Demo and Core Testnet for this initiative? Stability, security review, or new API surface?

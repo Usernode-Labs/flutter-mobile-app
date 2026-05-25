@@ -181,10 +181,17 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   final String url;
   final String name;
 
+  /// When true, the AppBar's leading "Home" button is hidden. Set this when
+  /// the screen is mounted as the root of a bottom-nav tab (not pushed on
+  /// the navigator) so the leading icon doesn't pop the surrounding shell.
+  /// System back / WebView back-history handling is unaffected.
+  final bool embedded;
+
   const DappWebViewScreen({
     super.key,
     required this.url,
     required this.name,
+    this.embedded = false,
   });
 
   @override
@@ -199,9 +206,28 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   final TextEditingController _urlController = TextEditingController();
   final FocusNode _urlFocusNode = FocusNode();
-  final List<DateTime> _secretTaps = <DateTime>[];
-  Timer? _secretTapResetTimer;
   bool _showUrlEditor = false;
+
+  // Mirrors `document.title` of the page currently loaded in the WebView,
+  // refreshed on every full navigation (onPageFinished), SPA pushState
+  // (onUrlChange), and via the `titleChanged` JS-channel method that the
+  // page can post when it mutates `document.title` outside of a real
+  // navigation (e.g. SV's `App.setHeaderTitle` after `/api/apps/:slug`
+  // resolves). Falls back to [widget.name] when null/empty.
+  String? _pageTitle;
+
+  // Set to true the first time the page posts a `titleChanged` message via
+  // the JS channel. Once true, we stop trusting `_controller.getTitle()` in
+  // `_refreshPageTitle` — WKWebView's cached title lags behind the page's
+  // own `document.title = ...` writes by enough frames that
+  // onUrlChange-triggered refreshes routinely come back with the *previous*
+  // screen's title and clobber the just-arrived channel value. The page
+  // promised it would tell us about every title change, so honor that.
+  //
+  // Reset on every full navigation (onPageStarted) so pages that don't
+  // wire up the channel still get title refreshes via the legacy
+  // `getTitle()` polling path.
+  bool _titleFromChannel = false;
   final Set<String> _dappTxIds = {};
   final Map<String, _TxRecord> _txRecords = {};
   Timer? _confirmPoller;
@@ -362,7 +388,44 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
             final method = payload['method'] as String?;
             final id = payload['id'] as String?;
             debugPrint('[Usernode JS-channel] method=$method id=$id');
-            if (method == null || id == null) return;
+            if (method == null) return;
+
+            // `titleChanged` is a fire-and-forget signal from the page that
+            // `document.title` has been updated outside of a real navigation
+            // (e.g. an SPA route change without a pushState, or a deferred
+            // title set after data finishes loading). webview_flutter's
+            // onUrlChange-based `_refreshPageTitle` only catches title
+            // changes that happen at navigation moments; without this
+            // channel, the AppBar's `_pageTitle` lags one navigation
+            // behind the page's actual title. Unlike the other methods
+            // here, there's no pending JS promise to resolve, so we don't
+            // require `id`.
+            if (method == 'titleChanged') {
+              // Use `.toString()` rather than `as String?` so we don't
+              // throw on unexpected payload shapes (the cast surfaced as
+              // a silent setState-skip when the value happened to come
+              // back as a non-String).
+              final raw = payload['value']?.toString().trim();
+              final newTitle = (raw == null || raw.isEmpty) ? null : raw;
+              debugPrint(
+                '[Usernode JS-channel] titleChanged value="$newTitle" '
+                'current="$_pageTitle" mounted=$mounted',
+              );
+              if (!mounted) return;
+              // Pin to the channel as the source of truth for this page
+              // load. Without this, the very next pushState-driven
+              // onUrlChange will run `_refreshPageTitle`, see WKWebView's
+              // stale getTitle() value (the *previous* screen's title)
+              // and clobber the value we're about to set with setState
+              // below — visible as `titleChanged value="dApps"` followed
+              // by `build _pageTitle="whiteboard"` in the logs.
+              _titleFromChannel = true;
+              if (newTitle == _pageTitle) return;
+              setState(() => _pageTitle = newTitle);
+              return;
+            }
+
+            if (id == null) return;
 
             if (method == 'getNodeAddress') {
               final address = await _getActiveNodeAddress();
@@ -400,6 +463,14 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         NavigationDelegate(
           onPageStarted: (_) {
             if (!mounted) return;
+            // A full page load wipes any JS state, so the channel-owns-title
+            // latch has to be cleared too — the new page hasn't told us
+            // anything yet, and we want `_refreshPageTitle` (firing from
+            // onPageFinished below) to populate `_pageTitle` from the
+            // initial `document.title` for pages that don't wire up the
+            // channel. SPA pushState navigations don't fire onPageStarted,
+            // so this won't clear the latch mid-session in dapps like SV.
+            _titleFromChannel = false;
             setState(() => _progress = 0);
           },
           onProgress: (progress) {
@@ -411,6 +482,11 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           onPageFinished: (_) {
             if (!mounted) return;
             setState(() => _progress = 100);
+            _refreshPageTitle();
+          },
+          onUrlChange: (_) {
+            // SPA pushState navigation — title typically changes too.
+            _refreshPageTitle();
           },
           onWebResourceError: (_) {
             if (!mounted) return;
@@ -432,54 +508,57 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   @override
   void dispose() {
     _confirmPoller?.cancel();
-    _secretTapResetTimer?.cancel();
     _urlController.dispose();
     _urlFocusNode.dispose();
     super.dispose();
   }
 
-  void _onSecretTap() {
-    final now = DateTime.now();
-    _secretTaps.add(now);
-    if (_secretTaps.length > 3) {
-      _secretTaps.removeAt(0);
+  Future<void> _refreshPageTitle() async {
+    // The page is driving titles via the JS channel, so getTitle() is no
+    // longer a reliable source — WKWebView lags behind the page's own
+    // `document.title` writes by enough that an onUrlChange-triggered
+    // refresh routinely returns the *previous* screen's title. Bail out
+    // and trust whatever the channel set on us.
+    if (_titleFromChannel) return;
+    try {
+      final title = await _controller.getTitle();
+      if (!mounted) return;
+      // Re-check the latch after the async gap; a `titleChanged` message
+      // may have arrived while we were awaiting getTitle().
+      if (_titleFromChannel) return;
+      final normalized = title?.trim();
+      if (normalized == _pageTitle) return;
+      setState(() {
+        _pageTitle = normalized;
+      });
+    } catch (_) {
+      // Ignore — title is purely cosmetic, fallback is widget.name.
     }
+  }
 
-    _secretTapResetTimer?.cancel();
-    _secretTapResetTimer = Timer(const Duration(milliseconds: 900), () {
-      _secretTaps.clear();
+  void _toggleUrlEditor() {
+    setState(() {
+      _showUrlEditor = !_showUrlEditor;
     });
 
-    if (_secretTaps.length == 3) {
-      final first = _secretTaps.first;
-      final last = _secretTaps.last;
-      final delta = last.difference(first);
-      if (delta <= const Duration(milliseconds: 800)) {
-        setState(() {
-          _showUrlEditor = !_showUrlEditor;
-        });
+    if (!_showUrlEditor) return;
 
-        if (_showUrlEditor) {
-          () async {
-            try {
-              final current = await _controller.currentUrl();
-              if (!mounted) return;
-              if (!_showUrlEditor) return;
-              if (_urlController.text.trim().isNotEmpty) return;
-              _urlController.text = current ?? '';
-            } catch (_) {
-              // Ignore.
-            }
-          }();
-
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted) return;
-            _urlFocusNode.requestFocus();
-          });
-        }
+    () async {
+      try {
+        final current = await _controller.currentUrl();
+        if (!mounted) return;
+        if (!_showUrlEditor) return;
+        if (_urlController.text.trim().isNotEmpty) return;
+        _urlController.text = current ?? '';
+      } catch (_) {
+        // Ignore.
       }
-      _secretTaps.clear();
-    }
+    }();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _urlFocusNode.requestFocus();
+    });
   }
 
   Future<void> _loadUrlFromInput() async {
@@ -1014,6 +1093,16 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           padding: EdgeInsets.all(spacing.space12),
           child: Row(
             children: [
+              IconButton(
+                tooltip: 'Back',
+                // Walks WebView session history first (covers in-page
+                // pushState navigation), falling through to the route
+                // pop only at WebView root — identical to the system
+                // back button's behavior.
+                onPressed: _handleBack,
+                icon: const Icon(Symbols.arrow_back_sharp),
+              ),
+              SizedBox(width: spacing.space8),
               Expanded(
                 child: TextField(
                   controller: _urlController,
@@ -1060,21 +1149,33 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          leading: IconButton(
-            tooltip: 'Home',
-            // Tap = jump straight back to the dapp list, regardless of how
-            // deep the user has navigated inside the WebView. The Android
-            // system back button (PopScope.onPopInvokedWithResult above)
-            // still walks WebView history step-by-step via _handleBack.
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Symbols.home_sharp),
-          ),
+          automaticallyImplyLeading: false,
+          leading: widget.embedded
+              ? null
+              : IconButton(
+                  tooltip: 'Home',
+                  // Tap = jump straight back to the dapp list, regardless
+                  // of how deep the user has navigated inside the
+                  // WebView. The Android system back button
+                  // (PopScope.onPopInvokedWithResult above) still walks
+                  // WebView history step-by-step via _handleBack.
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Symbols.home_sharp),
+                ),
           title: GestureDetector(
-            onTap: _onSecretTap,
+            onTap: _toggleUrlEditor,
             behavior: HitTestBehavior.opaque,
-            child: Text(widget.name),
+            child: Text(
+              _pageTitle?.isNotEmpty == true ? _pageTitle! : widget.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          titleSpacing: 0,
+          // With a leading Home icon present, butt the title up against it
+          // (titleSpacing: 0). In embedded mode there's no leading widget,
+          // so fall back to the standard 16dp inset so the title aligns
+          // with the bottom-nav items' horizontal rhythm.
+          titleSpacing: widget.embedded ? spacing.space16 : 0,
           actions: [
             const NodeStatusIcon(),
             IconButton(

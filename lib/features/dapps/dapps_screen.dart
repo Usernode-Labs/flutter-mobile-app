@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
@@ -31,6 +32,19 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // When DAPPS_TAB_URL is set, the dApps tab is replaced by a single
+    // full-bleed WebView (e.g. a hosted dapp hub like Social Vibecoding).
+    // The embedded screen still receives the native Usernode JS bridge
+    // so any dapp loaded inside it behaves as if installed natively.
+    final overrideUrl = AppConfig.dappsTabUrl.trim();
+    if (overrideUrl.isNotEmpty) {
+      return DappWebViewScreen(
+        url: overrideUrl,
+        name: _dappsTabTitle(overrideUrl),
+        embedded: true,
+      );
+    }
+
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
@@ -51,6 +65,13 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
         ),
       ),
     );
+  }
+
+  static String _dappsTabTitle(String url) {
+    final configured = AppConfig.dappsTabName.trim();
+    if (configured.isNotEmpty) return configured;
+    final host = Uri.tryParse(url)?.host ?? '';
+    return host.isNotEmpty ? host : 'dApps';
   }
 
   List<Widget> _buildSurfaceSlivers(

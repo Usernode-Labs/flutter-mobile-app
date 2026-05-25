@@ -90,6 +90,27 @@ class AppConfig {
     defaultValue: false,
   );
 
+  // When set, the in-app dApps tab renders a single full-bleed WebView
+  // pointing at this URL instead of the local dapp directory list. The
+  // page still receives the native Usernode JS bridge (sendTransaction,
+  // signMessage, txObserved) and tx-confirmation chrome, so any dapp
+  // hub hosted here behaves like a native-installed dapp. Empty (the
+  // default) keeps the original list-based dApps tab.
+  //
+  // Example:
+  //   flutter run --dart-define=DAPPS_TAB_URL=https://social-vibecoding.usernodelabs.org/
+  static const String dappsTabUrl = String.fromEnvironment(
+    'DAPPS_TAB_URL',
+    defaultValue: '',
+  );
+
+  // Optional display name shown in the AppBar when [dappsTabUrl] is set.
+  // Falls back to the URL host when empty.
+  static const String dappsTabName = String.fromEnvironment(
+    'DAPPS_TAB_NAME',
+    defaultValue: '',
+  );
+
   // Observability hub intake base URL for node startup.
   // Leave empty to disable HTTP observability export from the mobile node.
   static const String observabilityHubBaseUrl = String.fromEnvironment(

@@ -55,6 +55,40 @@ void main() {
         isAllowedUsernodeAppDeepLink(Uri.parse('usernode://app/wallet/send')),
         false,
       );
+      expect(
+        isAllowedUsernodeAppDeepLink(Uri.parse('usernode:/wallet/send')),
+        false,
+      );
+    });
+  });
+
+  group('shouldBlockUsernodeDeepLink', () {
+    test('blocks any unsupported usernode scheme URI', () {
+      expect(
+        shouldBlockUsernodeDeepLink(Uri.parse('usernode://app/wallet/send')),
+        true,
+      );
+      expect(
+        shouldBlockUsernodeDeepLink(Uri.parse('usernode:/wallet/send')),
+        true,
+      );
+      expect(
+        shouldBlockUsernodeDeepLink(Uri.parse('usernode://other/wallet/send')),
+        true,
+      );
+    });
+
+    test('allows safe usernode app links and ignores non-usernode links', () {
+      expect(
+        shouldBlockUsernodeDeepLink(
+          Uri.parse('usernode://app/challenges/leaderboard'),
+        ),
+        false,
+      );
+      expect(
+        shouldBlockUsernodeDeepLink(Uri.parse('https://usernode.example')),
+        false,
+      );
     });
   });
 }

@@ -255,9 +255,14 @@ class ChallengeDto {
         mobileCtaLabel != null ||
         mobileCtaLink != null;
     final effectiveMobileCtaType = mobileCtaType ?? baseCtaType;
-    final sanitizedMobileCtaLink = hasMobileCtaOverride
-        ? _sanitizeCtaLink(effectiveMobileCtaType, mobileCtaLink)
-        : null;
+    final canInheritBaseCtaLink =
+        mobileCtaLink == null && mobileCtaType == null;
+    String? sanitizedMobileCtaLink;
+    if (hasMobileCtaOverride) {
+      sanitizedMobileCtaLink = canInheritBaseCtaLink
+          ? baseCtaLink
+          : _sanitizeCtaLink(effectiveMobileCtaType, mobileCtaLink);
+    }
     final useMobileCta = sanitizedMobileCtaLink != null;
     final ctaType = useMobileCta ? effectiveMobileCtaType : baseCtaType;
     final ctaLabel =

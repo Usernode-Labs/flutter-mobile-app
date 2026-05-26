@@ -20,7 +20,12 @@ import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_pro
 import 'package:crypto_mobile_app/features/zk_identity/zk_identity_status_mapper.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    this.initialTab = HomeTab.challenges,
+  });
+
+  final int initialTab;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -38,7 +43,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Initialize current tab
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(currentHomeTabProvider.notifier).state = 0;
+        ref.read(currentHomeTabProvider.notifier).state = widget.initialTab;
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {

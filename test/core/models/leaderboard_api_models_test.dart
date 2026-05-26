@@ -400,6 +400,26 @@ void main() {
         expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
       });
 
+      test('allows label-only mobile override to inherit default CTA', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_label': 'Open on Mobile',
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, isNull);
+        expect(c.ctaLabel, 'Open on Mobile');
+        expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
+      });
+
       test('falls back to default CTA when mobile override is absent', () {
         final c = ChallengeDto.fromJson({
           'id': 52,

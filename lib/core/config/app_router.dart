@@ -26,6 +26,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_s
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
@@ -79,6 +80,7 @@ class AppRoutes {
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
+  static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
   static const deviceBenchmark = '/settings/device-benchmark';
   static const deviceBenchmarkRun = '/settings/device-benchmark/run';
@@ -325,6 +327,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LeaderboardScreen(),
       ),
       GoRoute(
+        path: AppRoutes.dapps,
+        builder: (context, state) => const HomeScreen(
+          initialTab: HomeTab.dapps,
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.dappDetail,
         builder: (context, state) {
           final slug = state.pathParameters['slug'];
@@ -392,8 +400,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _log.trace(
           'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
-      if (isUsernodeAppDeepLink(requestUri) &&
-          !isAllowedUsernodeAppDeepLink(requestUri)) {
+      if (shouldBlockUsernodeDeepLink(requestUri)) {
         _log.warn('Blocked unsupported app deep link: $requestUri');
         return AppRoutes.home;
       }

@@ -19,3 +19,7 @@ bool isUsernodeAppDeepLink(Uri uri) {
 bool isAllowedUsernodeAppDeepLink(Uri uri) {
   return isUsernodeAppDeepLink(uri) && isAllowedAppDeepLinkPath(uri.path);
 }
+
+bool shouldBlockUsernodeDeepLink(Uri uri) {
+  return uri.scheme == 'usernode' && !isAllowedUsernodeAppDeepLink(uri);
+}

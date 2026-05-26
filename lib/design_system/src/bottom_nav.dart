@@ -85,6 +85,22 @@ class BottomNav extends StatelessWidget {
   /// Set to false when the parent provides its own border (e.g. network indicator).
   final bool topBorder;
 
+  // Compact NavigationBar content height (M3 default is 80dp). 56dp is
+  // just enough to hold the 24dp icon + 4dp gap + 16dp label column with
+  // a small padding ring, while the 32dp indicator pill still fits because
+  // we add some absorbed safe-area space to the bar's effective height
+  // below.
+  static const double _navBarHeight = 56.0;
+
+  // Fraction of the OS bottom safe-area inset to bake into the bar's own
+  // content height so centered items shift down into the absorbed region.
+  // The remaining (1 - this) of the inset stays as SafeArea padding below
+  // the bar so the home-indicator gesture area is untouched. At 0.25 on a
+  // 34dp iPhone inset this lands icons ~57dp above the screen edge with
+  // ~20dp of empty space between the body content and the top of the
+  // icons.
+  static const double _safeAreaAbsorbFraction = 0.25;
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -98,10 +114,27 @@ class BottomNav extends StatelessWidget {
     final Color indicatorColor =
         selected.indicatorFillColor ?? Colors.transparent;
 
-    final navBar = NavigationBar(
+    // Bake half the bottom OS inset into the bar's content height so
+    // centered items slide down by that amount; the other half stays as
+    // SafeArea padding below the bar. This pulls icons close to the
+    // rounded screen edge without overlapping the home-indicator region
+    // and without leaving a wide empty colored strip below the icons.
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset = mediaQuery.padding.bottom;
+    final absorbedInset = bottomInset * _safeAreaAbsorbFraction;
+    final remainingInset = bottomInset - absorbedInset;
+
+    Widget navBar = NavigationBar(
       selectedIndex: selectedIndex,
       indicatorShape: indicatorShape,
       indicatorColor: indicatorColor,
+      height: _navBarHeight + absorbedInset,
+      // M3's default labelMedium (12sp) makes longer strings like
+      // "Node Status" wrap to two lines on narrower phones (iPhone 13
+      // mini, SE) because NavigationDestination renders the label as a
+      // bare softWrap-true Text. Drop a notch to labelSmall (11sp), which
+      // fits comfortably while staying inside the M3 typography scale.
+      labelTextStyle: _compactLabelTextStyle(context),
       onDestinationSelected: (index) {
         if (items[index].enabled) {
           onItemSelected?.call(index);
@@ -112,6 +145,19 @@ class BottomNav extends StatelessWidget {
           _buildDestination(context, items[i], selected: i == selectedIndex),
       ],
     );
+
+    // Tell NavigationBar's internal SafeArea that only [remainingInset]
+    // of the OS inset is unaccounted for; the rest is now part of the
+    // height we passed. Without this override SafeArea would add the
+    // full inset on top of the absorbed amount, double-counting it.
+    if (bottomInset > 0) {
+      navBar = MediaQuery(
+        data: mediaQuery.copyWith(
+          padding: mediaQuery.padding.copyWith(bottom: remainingInset),
+        ),
+        child: navBar,
+      );
+    }
 
     if (!topBorder) return navBar;
 
@@ -129,6 +175,27 @@ class BottomNav extends StatelessWidget {
       ),
       child: navBar,
     );
+  }
+
+  // Mirrors M3's default NavigationBar label color logic (selected uses
+  // onSurface, unselected uses onSurfaceVariant, disabled fades to 38%),
+  // but swaps the base style from labelMedium to labelSmall so the text
+  // is one M3 step smaller. Passing widget-level [labelTextStyle] fully
+  // bypasses the theme/defaults chain, so we have to provide colors too.
+  WidgetStateProperty<TextStyle?> _compactLabelTextStyle(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final base = Theme.of(context).textTheme.labelSmall;
+    return WidgetStateProperty.resolveWith<TextStyle?>((states) {
+      final Color color;
+      if (states.contains(WidgetState.disabled)) {
+        color = colors.onSurfaceVariant.withValues(alpha: 0.38);
+      } else if (states.contains(WidgetState.selected)) {
+        color = colors.onSurface;
+      } else {
+        color = colors.onSurfaceVariant;
+      }
+      return base?.copyWith(color: color);
+    });
   }
 
   NavigationDestination _buildDestination(

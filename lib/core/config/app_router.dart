@@ -38,6 +38,7 @@ import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_scr
 import 'package:crypto_mobile_app/features/wallet/burst/burst_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
+import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -386,9 +387,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       );
 
       final currentLocation = state.matchedLocation;
+      final requestUri = state.uri;
 
       _log.trace(
           'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
+
+      if (isUsernodeAppDeepLink(requestUri) &&
+          !isAllowedUsernodeAppDeepLink(requestUri)) {
+        _log.warn('Blocked unsupported app deep link: $requestUri');
+        return AppRoutes.home;
+      }
 
       // Still loading state
       if (hasAny == null || hasCompletedOnboarding == null) {

@@ -70,6 +70,14 @@
 				<string>usernode-zk</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.usernode.app.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>usernode</string>
+			</array>
+		</dict>
 	</array>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>

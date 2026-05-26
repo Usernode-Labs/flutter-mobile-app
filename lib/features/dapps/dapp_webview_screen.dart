@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
@@ -738,6 +739,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         reverseTransitionDuration: const Duration(milliseconds: 250),
         pageBuilder: (ctx, _, __) {
           final spacing = Theme.of(ctx).extension<AppSpacing>()!;
+          final sizing = Theme.of(ctx).extension<AppSizing>()!;
           return Scaffold(
             appBar: AppBar(
               leading: IconButton(
@@ -754,7 +756,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
                 children: [
                   Icon(
                     Symbols.verified_user,
-                    size: 48,
+                    size: sizing.iconDisplay,
                     color: theme.colorScheme.primary,
                   ),
                   SizedBox(height: spacing.space16),

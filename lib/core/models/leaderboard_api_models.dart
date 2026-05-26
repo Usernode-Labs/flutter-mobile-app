@@ -6,16 +6,46 @@
 // Safe JSON number helpers
 // ---------------------------------------------------------------------------
 
+enum CtaType { url, app }
+
 /// Coerces a JSON value that may be [int], [double], or numeric [String] → [int].
-/// Returns [raw] only when it is a non-empty `https://` URL with a host,
-/// otherwise null. Backend-provided links must not introduce non-https
-/// schemes (intent://, file://, javascript:, custom deep-links) into UI
-/// surfaces that launch URLs externally.
-String? _sanitizeHttpsUrl(dynamic raw) {
+/// Returns [raw] only when it is safe for the requested CTA type, otherwise
+/// null. Backend-provided links must not introduce unsafe schemes or internal
+/// paths into UI surfaces that launch URLs or navigate in-app.
+String? _sanitizeCtaLink(CtaType? type, dynamic raw) {
   if (raw is! String || raw.isEmpty) return null;
-  final uri = Uri.tryParse(raw);
-  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
-  return raw;
+  switch (type ?? CtaType.url) {
+    case CtaType.url:
+      final uri = Uri.tryParse(raw);
+      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+        return null;
+      }
+      return raw;
+    case CtaType.app:
+      const allowedPrefixes = [
+        '/wallet',
+        '/challenges',
+        '/main/node',
+        '/settings',
+        '/dapps',
+      ];
+      if (!raw.startsWith('/')) return null;
+      for (final prefix in allowedPrefixes) {
+        if (raw == prefix || raw.startsWith('$prefix/')) {
+          return raw;
+        }
+      }
+      return null;
+  }
+}
+
+CtaType? _parseCtaType(dynamic raw) {
+  if (raw is! String) return null;
+  return switch (raw.toLowerCase()) {
+    'url' => CtaType.url,
+    'app' => CtaType.app,
+    _ => null,
+  };
 }
 
 int _jsonInt(dynamic v) => v is num ? v.toInt() : int.parse(v as String);
@@ -190,6 +220,7 @@ class ChallengeDto {
   final String? requirements;
   final String? rewardLogic;
   final String? ctaLabel;
+  final CtaType? ctaType;
   final String? ctaLink;
   final String? scheduleStart;
   final String? scheduleEnd;
@@ -210,6 +241,7 @@ class ChallengeDto {
     this.requirements,
     this.rewardLogic,
     this.ctaLabel,
+    this.ctaType,
     this.ctaLink,
     this.scheduleStart,
     this.scheduleEnd,
@@ -219,6 +251,7 @@ class ChallengeDto {
   });
 
   factory ChallengeDto.fromJson(Map<String, dynamic> json) {
+    final ctaType = _parseCtaType(json['cta_type']);
     return ChallengeDto(
       id: _jsonInt(json['id']),
       eventId: _jsonIntN(json['event_id']),
@@ -232,7 +265,8 @@ class ChallengeDto {
       requirements: json['requirements'] as String?,
       rewardLogic: json['reward_logic'] as String?,
       ctaLabel: json['cta_label'] as String?,
-      ctaLink: _sanitizeHttpsUrl(json['cta_link']),
+      ctaType: ctaType,
+      ctaLink: _sanitizeCtaLink(ctaType, json['cta_link']),
       scheduleStart: json['schedule_start'] as String?,
       scheduleEnd: json['schedule_end'] as String?,
       enabled: json['enabled'] as bool? ?? false,
@@ -254,6 +288,7 @@ class ChallengeDto {
         if (requirements != null) 'requirements': requirements,
         if (rewardLogic != null) 'reward_logic': rewardLogic,
         if (ctaLabel != null) 'cta_label': ctaLabel,
+        if (ctaType != null) 'cta_type': ctaType!.name,
         if (ctaLink != null) 'cta_link': ctaLink,
         if (scheduleStart != null) 'schedule_start': scheduleStart,
         if (scheduleEnd != null) 'schedule_end': scheduleEnd,

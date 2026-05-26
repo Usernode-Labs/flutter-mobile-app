@@ -22,6 +22,12 @@ class DappItem {
       description: json['description'] as String?,
     );
   }
+
+  // Provisional until the backend ships a stable slug with each dApp.
+  String get slug => name
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
 }
 
 class DappStats {

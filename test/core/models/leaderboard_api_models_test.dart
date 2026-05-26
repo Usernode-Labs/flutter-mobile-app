@@ -203,6 +203,7 @@ void main() {
         'requirements': 'Node must be running',
         'reward_logic': 'Fixed per completion',
         'cta_label': 'Start',
+        'cta_type': 'url',
         'cta_link': 'https://example.com',
         'schedule_start': '2025-01-01',
         'schedule_end': '2025-02-01',
@@ -220,6 +221,7 @@ void main() {
       expect(c.reward, '500');
       expect(c.description, 'Produce blocks to earn points');
       expect(c.ctaLabel, 'Start');
+      expect(c.ctaType, CtaType.url);
       expect(c.enabled, true);
       expect(c.completed, false);
     });
@@ -249,7 +251,8 @@ void main() {
     });
 
     group('cta_link sanitization', () {
-      ChallengeDto parseWithLink(dynamic link) => ChallengeDto.fromJson({
+      ChallengeDto parseWithLink(dynamic link, {String? ctaType}) =>
+          ChallengeDto.fromJson({
             'id': 1,
             'category': 'social',
             'goal': 'g',
@@ -257,6 +260,7 @@ void main() {
             'reward': 0,
             'enabled': true,
             'completed': false,
+            if (ctaType != null) 'cta_type': ctaType,
             'cta_link': link,
           });
 
@@ -300,6 +304,35 @@ void main() {
 
       test('rejects empty string', () {
         expect(parseWithLink('').ctaLink, isNull);
+      });
+
+      test('preserves whitelisted in-app paths for app CTAs', () {
+        expect(
+          parseWithLink('/challenges/zk-identity', ctaType: 'app').ctaLink,
+          '/challenges/zk-identity',
+        );
+        expect(
+          parseWithLink('/dapps/opinion-market', ctaType: 'app').ctaLink,
+          '/dapps/opinion-market',
+        );
+      });
+
+      test('rejects non-whitelisted in-app paths for app CTAs', () {
+        expect(parseWithLink('/admin', ctaType: 'app').ctaLink, isNull);
+        expect(parseWithLink('/dappsevil', ctaType: 'app').ctaLink, isNull);
+      });
+
+      test('rejects external URLs for app CTAs', () {
+        expect(
+          parseWithLink('https://example.com', ctaType: 'app').ctaLink,
+          isNull,
+        );
+      });
+
+      test('falls back to URL sanitization when cta_type is absent', () {
+        expect(parseWithLink('https://example.com').ctaLink,
+            'https://example.com');
+        expect(parseWithLink('/challenges/zk-identity').ctaLink, isNull);
       });
 
       test('rejects non-string types', () {
@@ -990,6 +1023,7 @@ void main() {
         'requirements': 'Node must be running',
         'reward_logic': 'Fixed per completion',
         'cta_label': 'Start',
+        'cta_type': 'url',
         'cta_link': 'https://example.com',
         'schedule_start': '2025-01-01',
         'schedule_end': '2025-02-01',
@@ -1011,6 +1045,7 @@ void main() {
       expect(c2.requirements, c.requirements);
       expect(c2.rewardLogic, c.rewardLogic);
       expect(c2.ctaLabel, c.ctaLabel);
+      expect(c2.ctaType, c.ctaType);
       expect(c2.ctaLink, c.ctaLink);
       expect(c2.scheduleStart, c.scheduleStart);
       expect(c2.scheduleEnd, c.scheduleEnd);

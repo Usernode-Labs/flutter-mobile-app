@@ -24,6 +24,8 @@ import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detai
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
+import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
+import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
@@ -76,10 +78,13 @@ class AppRoutes {
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
+  static const dappDetail = '/dapps/:slug';
   static const deviceBenchmark = '/settings/device-benchmark';
   static const deviceBenchmarkRun = '/settings/device-benchmark/run';
   static const deviceBenchmarkResultDetail =
       '/settings/device-benchmark/result';
+
+  static String dappDetailFor(String slug) => '/dapps/$slug';
 
   // ZK Identity
   static const zkIdentityDetail = '/challenges/zk-identity';
@@ -317,6 +322,57 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.leaderboard,
         builder: (context, state) => const LeaderboardScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.dappDetail,
+        builder: (context, state) {
+          final slug = state.pathParameters['slug'];
+          return Consumer(
+            builder: (context, ref, _) {
+              final dappsAsync = ref.watch(dappsProvider);
+              return dappsAsync.when(
+                loading: () => const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, _) => Scaffold(
+                  appBar: AppBar(),
+                  body: Center(
+                    child: Text('Failed to load dApp: $error'),
+                  ),
+                ),
+                data: (_) {
+                  final dapp =
+                      slug == null ? null : ref.watch(dappBySlugProvider(slug));
+                  if (dapp == null) {
+                    return Scaffold(
+                      appBar: AppBar(),
+                      body: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('dApp not found'),
+                            TextButton(
+                              onPressed: () {
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go(AppRoutes.home);
+                                }
+                              },
+                              child: const Text('Back'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return DappWebViewScreen(url: dapp.url, name: dapp.name);
+                },
+              );
+            },
+          );
+        },
       ),
     ],
     redirect: (context, state) {

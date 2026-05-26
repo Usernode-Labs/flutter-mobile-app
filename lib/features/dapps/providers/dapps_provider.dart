@@ -52,6 +52,27 @@ final dappByPubkeyProvider = Provider<Map<String, DappItem>>((ref) {
   };
 });
 
+final dappBySlugProvider = Provider.family<DappItem?, String>((ref, slug) {
+  final dapps = ref.watch(dappsProvider).valueOrNull;
+  if (dapps == null) return null;
+
+  assert(() {
+    final seen = <String>{};
+    for (final dapp in dapps) {
+      final dappSlug = dapp.slug;
+      if (!seen.add(dappSlug)) {
+        throw FlutterError('Duplicate dApp slug: $dappSlug');
+      }
+    }
+    return true;
+  }());
+
+  for (final dapp in dapps) {
+    if (dapp.slug == slug) return dapp;
+  }
+  return null;
+});
+
 const _statsRefreshInterval = Duration(seconds: 30);
 
 final dappStatsProvider = FutureProvider<Map<String, DappStats>>((ref) async {

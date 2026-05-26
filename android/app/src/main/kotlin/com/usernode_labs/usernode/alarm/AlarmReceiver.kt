@@ -41,6 +41,11 @@ class AlarmReceiver : BroadcastReceiver() {
         val slotNumber = intent.getIntExtra("slotNumber", -1)
         val scheduledTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
         val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
+        val globalSlot = optionalLongExtra(intent, "globalSlot")
+            ?: optionalLongExtra(intent, "global_slot")
+            ?: slotNumber.takeIf { it > 0 }?.toLong()
+        val reason = intent.getStringExtra("reason")
+        val purpose = intent.getStringExtra("purpose")
 
         Log.d(TAG, "[AlarmReceiver] Slot alarm details - ID: $alarmId, Slot: $slotNumber, Scheduled: $scheduledTimeMs")
 
@@ -61,14 +66,20 @@ class AlarmReceiver : BroadcastReceiver() {
         // inactivity sleep path cannot win a race against alarm recovery.
         NativeWakeLockManager.acquire(context)
 
-        val eventData = mapOf(
+        val eventData = mutableMapOf<String, Any?>(
             "alarmId" to alarmId,
             "slotNumber" to slotNumber,
             "alarmTimeMs" to scheduledTimeMs,
+            "firedAtMs" to currentTime,
+            "latencyMs" to latencyMs,
             "batteryLevel" to 0,
             "networkState" to "unknown",
             "nodeRunning" to nodeRunning
         )
+        globalSlot?.let { eventData["globalSlot"] = it }
+        reason?.let { eventData["reason"] = it }
+        purpose?.let { eventData["purpose"] = it }
+
         val handler = AlarmMethodChannelHandler.getInstance()
         if (handler != null && handler.isActivityAttached()) {
             Log.d(TAG, "[AlarmReceiver] Sending android_alarm_fired event to attached Flutter activity")
@@ -90,6 +101,9 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("slotNumber", slotNumber)
             putExtra("nodeRunning", nodeRunning)
             putExtra("alarmTimeMs", scheduledTimeMs)
+            globalSlot?.let { putExtra("globalSlot", it) }
+            reason?.let { putExtra("reason", it) }
+            purpose?.let { putExtra("purpose", it) }
         }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -188,6 +202,19 @@ class AlarmReceiver : BroadcastReceiver() {
             .build()
 
         nm.notify(slotNumber, notification)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun optionalLongExtra(intent: Intent, key: String): Long? {
+        if (!intent.hasExtra(key)) return null
+        val value = intent.extras?.get(key) ?: return null
+        return when (value) {
+            is Int -> value.toLong()
+            is Long -> value
+            is Number -> value.toLong()
+            is String -> value.toLongOrNull()
+            else -> null
+        }?.takeIf { it > 0 }
     }
 
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
@@ -19,12 +20,24 @@ typedef NativeEventCallback = void Function(
 /// iOS: Uses BGProcessingTask and local notifications
 class PlatformAlarmService {
   static final PlatformAlarmService instance = PlatformAlarmService._();
-  PlatformAlarmService._();
+  PlatformAlarmService._({ObservabilityReportingService? observability})
+      : _observability =
+            observability ?? ObservabilityReportingService.instance;
+
+  @visibleForTesting
+  PlatformAlarmService.test({
+    required ObservabilityReportingService observability,
+  }) : _observability = observability;
 
   static const MethodChannel _channel = MethodChannel('com.usernode.app/alarm');
+  final ObservabilityReportingService _observability;
 
   bool _initialized = false;
   bool _permissionsGranted = false;
+  String? _lastAlarmFiredEventKey;
+  DateTime? _lastAlarmFiredEventAt;
+
+  static const _alarmFiredDuplicateWindow = Duration(seconds: 10);
 
   /// Callback to invoke when device reboots and alarms need to be rescheduled
   BootRescheduleCallback? _onBootReschedule;
@@ -94,6 +107,8 @@ class PlatformAlarmService {
 
       _log.debug('Native event received: $eventType');
 
+      _recordNativeAlarmFiredEvent(eventType, eventData ?? {});
+
       if (_onNativeEvent == null) {
         _log.warn('No native event callback registered for event: $eventType');
         return;
@@ -104,6 +119,70 @@ class PlatformAlarmService {
     } catch (e) {
       _log.error('Error handling native event: $e');
     }
+  }
+
+  void _recordNativeAlarmFiredEvent(
+    String eventType,
+    Map<String, dynamic> eventData,
+  ) {
+    if (eventType != 'android_alarm_fired' &&
+        eventType != 'ios_bgtask_executed') {
+      return;
+    }
+
+    final alarmId = _stringFromDynamic(eventData['alarmId']);
+    final slotNumber = _intFromDynamic(eventData['slotNumber']);
+    final globalSlot = _globalSlotForAlarm(
+      alarmId: alarmId,
+      slotNumber: slotNumber,
+      data: eventData,
+    );
+    final alarmTimeMs = _intFromDynamic(eventData['alarmTimeMs']);
+    final eventKey = '$eventType:${alarmId ?? ''}:${alarmTimeMs ?? ''}:'
+        '${globalSlot ?? slotNumber ?? ''}';
+    final now = DateTime.now();
+    final lastAt = _lastAlarmFiredEventAt;
+    if (_lastAlarmFiredEventKey == eventKey &&
+        lastAt != null &&
+        now.difference(lastAt) < _alarmFiredDuplicateWindow) {
+      return;
+    }
+
+    _lastAlarmFiredEventKey = eventKey;
+    _lastAlarmFiredEventAt = now;
+
+    final firedAtMs =
+        _intFromDynamic(eventData['firedAtMs']) ?? now.millisecondsSinceEpoch;
+    final latencyMs = _intFromDynamic(eventData['latencyMs']) ??
+        (alarmTimeMs == null ? null : firedAtMs - alarmTimeMs);
+
+    _observability.reportBlockProductionAlarmFired(
+      nativeEvent: eventType,
+      alarmId: alarmId,
+      purpose: _alarmPurposeForNativeEvent(eventType, alarmId),
+      globalSlot: globalSlot,
+      alarmTimeMs: alarmTimeMs,
+      firedAtMs: firedAtMs,
+      latencyMs: latencyMs,
+      platform: Platform.operatingSystem,
+      nodeRunning: _boolFromDynamic(eventData['nodeRunning']),
+      batteryLevel: _intFromDynamic(eventData['batteryLevel']),
+      networkState: _stringFromDynamic(eventData['networkState']),
+    );
+  }
+
+  @visibleForTesting
+  void handleNativeEventForTest(
+    String eventType,
+    Map<String, dynamic> eventData,
+  ) {
+    _recordNativeAlarmFiredEvent(eventType, eventData);
+  }
+
+  String _alarmPurposeForNativeEvent(String eventType, String? alarmId) {
+    if (alarmId != null) return _alarmPurpose(alarmId, const {});
+    if (eventType == 'ios_bgtask_executed') return 'ios_background_task';
+    return 'block_production_wake';
   }
 
   /// Set the callback to invoke when device reboots
@@ -395,13 +474,64 @@ class PlatformAlarmService {
     required int delayMs,
     Map<String, dynamic>? data,
   }) async {
+    final alarmData = Map<String, dynamic>.from(data ?? const {});
+    final requestedDelayMs = delayMs;
+    final normalizedDelayMs = delayMs < 0 ? 0 : delayMs;
+    final scheduledAtMs = DateTime.now().millisecondsSinceEpoch;
+    final alarmTimeMs = _intFromDynamic(alarmData['alarmTimeMs']) ??
+        scheduledAtMs + normalizedDelayMs;
+    final globalSlot = _globalSlotForAlarm(
+      alarmId: alarmId,
+      slotNumber: slotNumber,
+      data: alarmData,
+    );
+    if (globalSlot != null) {
+      alarmData['globalSlot'] = globalSlot;
+    }
+
+    void recordScheduleResult({
+      required bool success,
+      String? failureReason,
+    }) {
+      final slotTimeMs = _slotTimeMsFromData(alarmData);
+      final leadMs = slotTimeMs == null ? null : slotTimeMs - alarmTimeMs;
+      _observability.reportBlockProductionAlarmScheduled(
+        alarmId: alarmId,
+        purpose: _alarmPurpose(alarmId, alarmData),
+        globalSlot: globalSlot,
+        epoch: _intFromDynamic(alarmData['epoch']),
+        slotTimeMs: slotTimeMs,
+        scheduledAtMs: scheduledAtMs,
+        alarmTimeMs: alarmTimeMs,
+        requestedDelayMs: requestedDelayMs,
+        delayMs: normalizedDelayMs,
+        leadMs: leadMs,
+        platform: Platform.operatingSystem,
+        success: success,
+        schedulerReason: _stringFromDynamic(alarmData['reason']),
+        nodeRunning: _boolFromDynamic(alarmData['nodeRunning']),
+        rustWakeTimeMs: _intFromDynamic(alarmData['rustWakeTimeMs']),
+        localWakeTimeMs: _intFromDynamic(alarmData['localWakeTimeMs']),
+        clockDriftMs: _intFromDynamic(alarmData['clockDriftMs']),
+        failureReason: failureReason,
+      );
+    }
+
     if (!_initialized) {
       _log.warn('Cannot schedule alarm: service not initialized');
+      recordScheduleResult(
+        success: false,
+        failureReason: 'service_not_initialized',
+      );
       return false;
     }
 
     if (!_permissionsGranted) {
       _log.warn('Cannot schedule alarm: permissions not granted');
+      recordScheduleResult(
+        success: false,
+        failureReason: 'permissions_not_granted',
+      );
       return false;
     }
 
@@ -409,21 +539,119 @@ class PlatformAlarmService {
       final params = {
         'alarmId': alarmId,
         'slotNumber': slotNumber,
-        'delayMs': delayMs < 0 ? 0 : delayMs,
-        'data': data ?? {},
+        'delayMs': normalizedDelayMs,
+        'data': alarmData,
       };
 
+      bool success;
       if (Platform.isAndroid) {
-        return await _scheduleAndroidAlarm(params);
+        success = await _scheduleAndroidAlarm(params);
       } else if (Platform.isIOS) {
-        return await _scheduleIOSAlarm(params);
+        success = await _scheduleIOSAlarm(params);
+      } else {
+        recordScheduleResult(
+          success: false,
+          failureReason: 'unsupported_platform',
+        );
+        return false;
       }
 
-      return false;
+      recordScheduleResult(
+        success: success,
+        failureReason: success ? null : 'platform_schedule_failed',
+      );
+      return success;
     } catch (e) {
       _log.error('Error scheduling alarm: $e');
+      recordScheduleResult(
+        success: false,
+        failureReason: 'schedule_exception',
+      );
       return false;
     }
+  }
+
+  String _alarmPurpose(String alarmId, Map<String, dynamic> data) {
+    final explicitPurpose = _stringFromDynamic(data['purpose']);
+    if (explicitPurpose != null) return explicitPurpose;
+    if (alarmId == 'fg_resume') return 'foreground_resume';
+    if (alarmId.startsWith('slot_')) return 'slot_wake';
+    return 'block_production_wake';
+  }
+
+  int? _globalSlotForAlarm({
+    required String? alarmId,
+    required int? slotNumber,
+    required Map<String, dynamic> data,
+  }) {
+    for (final key in const [
+      'globalSlot',
+      'global_slot',
+      'targetGlobalSlot',
+      'target_global_slot',
+    ]) {
+      final explicit = _intFromDynamic(data[key]);
+      if (explicit != null && explicit > 0) {
+        return explicit;
+      }
+    }
+
+    if (slotNumber != null && slotNumber > 0) {
+      return slotNumber;
+    }
+
+    final alarmSlot = _slotFromAlarmId(alarmId);
+    if (alarmSlot != null) {
+      return alarmSlot;
+    }
+
+    return _slotFromReason(_stringFromDynamic(data['reason']));
+  }
+
+  int? _slotFromAlarmId(String? alarmId) {
+    if (alarmId == null || !alarmId.startsWith('slot_')) {
+      return null;
+    }
+    final slot = int.tryParse(alarmId.substring('slot_'.length));
+    return slot != null && slot > 0 ? slot : null;
+  }
+
+  int? _slotFromReason(String? reason) {
+    if (reason == null || !reason.startsWith('next_won_slot:')) {
+      return null;
+    }
+    final slot = int.tryParse(reason.substring('next_won_slot:'.length));
+    return slot != null && slot > 0 ? slot : null;
+  }
+
+  int? _slotTimeMsFromData(Map<String, dynamic> data) {
+    final explicitMs = _intFromDynamic(data['slotTimeMs']);
+    if (explicitMs != null) return explicitMs;
+
+    final slotTime = _stringFromDynamic(data['slotTime']);
+    if (slotTime == null) return null;
+    return DateTime.tryParse(slotTime)?.millisecondsSinceEpoch;
+  }
+
+  int? _intFromDynamic(Object? value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  bool? _boolFromDynamic(Object? value) {
+    if (value is bool) return value;
+    if (value is String) {
+      if (value == 'true') return true;
+      if (value == 'false') return false;
+    }
+    return null;
+  }
+
+  String? _stringFromDynamic(Object? value) {
+    if (value is String && value.isNotEmpty) return value;
+    return null;
   }
 
   /// Schedule Android exact alarm
@@ -817,7 +1045,7 @@ class PlatformAlarmService {
 
   void _recordRuntimeContextChanged(String reason) {
     unawaited(
-      ObservabilityReportingService.instance.reportRuntimeMobileContextSnapshot(
+      _observability.reportRuntimeMobileContextSnapshot(
         reason: reason,
       ),
     );
@@ -825,8 +1053,7 @@ class PlatformAlarmService {
 
   void _recordPowerNetworkServiceContextChanged(String reason) {
     unawaited(
-      ObservabilityReportingService.instance
-          .reportPowerNetworkServiceContextSnapshot(
+      _observability.reportPowerNetworkServiceContextSnapshot(
         reason: reason,
         force: true,
       ),

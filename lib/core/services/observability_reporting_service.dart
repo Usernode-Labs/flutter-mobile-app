@@ -42,6 +42,7 @@ class ObservabilityReportingService {
   static const _powerNetworkServiceSnapshotMinimumGap = Duration(minutes: 1);
   static const _batteryUsageSampleWindow = Duration(minutes: 5);
   static const _batteryStateDuplicateWindow = Duration(seconds: 30);
+  static const _maxPendingEarlyRecords = 16;
 
   final ObservabilityRecordClient _record;
   final bool Function()? _canRecordOverride;
@@ -58,6 +59,7 @@ class ObservabilityReportingService {
   bool _staticMobileContextReported = false;
   bool _powerNetworkServiceSnapshotInFlight = false;
   bool _nodeInitialized = false;
+  final List<_PendingObservabilityRecord> _pendingEarlyRecords = [];
   DateTime? _lastPowerNetworkServiceSnapshotAt;
   int? _lastBatteryLevel;
   DateTime? _lastBatteryLevelAt;
@@ -69,6 +71,7 @@ class ObservabilityReportingService {
     if (resetStaticContext) {
       _staticMobileContextReported = false;
     }
+    _flushPendingEarlyRecords();
   }
 
   void configureMobileContextCollector(
@@ -220,6 +223,104 @@ class ObservabilityReportingService {
     );
   }
 
+  FlutterObservabilityRecordResult reportBlockProductionAlarmScheduled({
+    required String alarmId,
+    required int scheduledAtMs,
+    required int alarmTimeMs,
+    required int requestedDelayMs,
+    required int delayMs,
+    required String platform,
+    required bool success,
+    String? purpose,
+    int? globalSlot,
+    int? epoch,
+    int? slotTimeMs,
+    int? leadMs,
+    String? schedulerReason,
+    bool? nodeRunning,
+    int? rustWakeTimeMs,
+    int? localWakeTimeMs,
+    int? clockDriftMs,
+    String? failureReason,
+  }) {
+    return recordEvent(
+      event: 'app_block_production_alarm_scheduled',
+      details: {
+        'alarm_id': alarmId,
+        if (purpose != null) 'purpose': purpose,
+        if (globalSlot != null) 'global_slot': globalSlot,
+        if (epoch != null) 'epoch': epoch,
+        if (slotTimeMs != null) 'slot_time_ms': slotTimeMs,
+        'scheduled_at_ms': scheduledAtMs,
+        'alarm_time_ms': alarmTimeMs,
+        'requested_delay_ms': requestedDelayMs,
+        'delay_ms': delayMs,
+        if (leadMs != null) 'lead_ms': leadMs,
+        'platform': platform,
+        'success': success,
+        if (schedulerReason != null) 'scheduler_reason': schedulerReason,
+        if (nodeRunning != null) 'node_running': nodeRunning,
+        if (rustWakeTimeMs != null) 'rust_wake_time_ms': rustWakeTimeMs,
+        if (localWakeTimeMs != null) 'local_wake_time_ms': localWakeTimeMs,
+        if (clockDriftMs != null) 'clock_drift_ms': clockDriftMs,
+        if (failureReason != null) 'failure_reason': failureReason,
+      },
+    );
+  }
+
+  FlutterObservabilityRecordResult reportBlockProductionAlarmFired({
+    required String nativeEvent,
+    required int firedAtMs,
+    required String platform,
+    String? alarmId,
+    String? purpose,
+    int? globalSlot,
+    int? alarmTimeMs,
+    int? latencyMs,
+    bool? nodeRunning,
+    int? batteryLevel,
+    String? networkState,
+  }) {
+    return _recordStructured(
+      kind: FlutterObservabilityKind.event,
+      event: 'app_block_production_alarm_fired',
+      details: {
+        'native_event': nativeEvent,
+        if (alarmId != null) 'alarm_id': alarmId,
+        if (purpose != null) 'purpose': purpose,
+        if (globalSlot != null) 'global_slot': globalSlot,
+        if (alarmTimeMs != null) 'alarm_time_ms': alarmTimeMs,
+        'fired_at_ms': firedAtMs,
+        if (latencyMs != null) 'latency_ms': latencyMs,
+        'platform': platform,
+        if (nodeRunning != null) 'node_running': nodeRunning,
+        if (batteryLevel != null) 'battery_level': batteryLevel,
+        if (networkState != null) 'network_state': networkState,
+      },
+      requireNodeInitialized: false,
+      retainUntilNodeInitialized: true,
+    );
+  }
+
+  FlutterObservabilityRecordResult reportBlockProductionMonitoringStarted({
+    required int globalSlot,
+    required int monitoringStartedAtMs,
+    int? epoch,
+    int? slotTimeMs,
+    int? alarmTimeMs,
+  }) {
+    return recordEvent(
+      event: 'app_block_production_monitoring_started',
+      details: {
+        'global_slot': globalSlot,
+        if (epoch != null) 'epoch': epoch,
+        if (slotTimeMs != null) 'slot_time_ms': slotTimeMs,
+        if (alarmTimeMs != null) 'alarm_time_ms': alarmTimeMs,
+        'monitoring_started_at_ms': monitoringStartedAtMs,
+      },
+    );
+  }
+
   Future<void> reportStaticMobileContextSnapshot({
     String reason = 'node_initialized',
     Map<String, dynamic>? eventData,
@@ -302,10 +403,12 @@ class ObservabilityReportingService {
   }
 
   bool get _canRecordObservability =>
+      _canUseObservabilityTransport && _nodeInitialized;
+
+  bool get _canUseObservabilityTransport =>
       _canRecordOverride?.call() ??
       (!AppConfig.viewOnly &&
-          AppConfig.observabilityHubBaseUrl.trim().isNotEmpty &&
-          _nodeInitialized);
+          AppConfig.observabilityHubBaseUrl.trim().isNotEmpty);
 
   bool get _canReportMobileContextSnapshots => _canRecordObservability;
 
@@ -390,8 +493,11 @@ class ObservabilityReportingService {
     required FlutterObservabilityKind kind,
     required String event,
     Map<String, dynamic>? details,
+    bool requireNodeInitialized = true,
+    bool retainUntilNodeInitialized = false,
   }) {
-    if (!_canRecordObservability) {
+    if (!_canUseObservabilityTransport ||
+        (requireNodeInitialized && !_nodeInitialized)) {
       return const FlutterObservabilityRecordResult(
         queued: false,
         discarded: true,
@@ -412,11 +518,60 @@ class ObservabilityReportingService {
       }
     }
 
-    return _record(
+    final result = _record(
       kind: kind,
       event: event,
       payloadJson: payloadJson,
     );
+    if (retainUntilNodeInitialized &&
+        result.discarded &&
+        result.reason == 'node_not_running') {
+      _retainPendingEarlyRecord(
+        _PendingObservabilityRecord(
+          kind: kind,
+          event: event,
+          payloadJson: payloadJson,
+        ),
+      );
+      return const FlutterObservabilityRecordResult(
+        queued: true,
+        discarded: false,
+      );
+    }
+
+    return result;
+  }
+
+  void _retainPendingEarlyRecord(_PendingObservabilityRecord record) {
+    if (_pendingEarlyRecords.contains(record)) {
+      return;
+    }
+
+    if (_pendingEarlyRecords.length >= _maxPendingEarlyRecords) {
+      _pendingEarlyRecords.removeAt(0);
+    }
+    _pendingEarlyRecords.add(record);
+  }
+
+  void _flushPendingEarlyRecords() {
+    if (!_nodeInitialized ||
+        !_canUseObservabilityTransport ||
+        _pendingEarlyRecords.isEmpty) {
+      return;
+    }
+
+    final pending = List<_PendingObservabilityRecord>.of(_pendingEarlyRecords);
+    _pendingEarlyRecords.clear();
+    for (final record in pending) {
+      final result = _record(
+        kind: record.kind,
+        event: record.event,
+        payloadJson: record.payloadJson,
+      );
+      if (result.discarded && result.reason == 'node_not_running') {
+        _retainPendingEarlyRecord(record);
+      }
+    }
   }
 
   Map<String, dynamic>? _batteryUsageDetails(Map<String, dynamic> details) {
@@ -468,4 +623,27 @@ class ObservabilityReportingService {
       'estimated_drain_percent_per_hour': estimatedDrainPerHour,
     };
   }
+}
+
+class _PendingObservabilityRecord {
+  const _PendingObservabilityRecord({
+    required this.kind,
+    required this.event,
+    required this.payloadJson,
+  });
+
+  final FlutterObservabilityKind kind;
+  final String event;
+  final String? payloadJson;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _PendingObservabilityRecord &&
+        other.kind == kind &&
+        other.event == event &&
+        other.payloadJson == payloadJson;
+  }
+
+  @override
+  int get hashCode => Object.hash(kind, event, payloadJson);
 }

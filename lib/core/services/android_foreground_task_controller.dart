@@ -256,6 +256,8 @@ class AndroidForegroundTaskController {
           await _scheduleResume(
             rustSlotTimeMs - _alarmLead.inMilliseconds,
             'next_won_slot:${nextWon.globalSlot}',
+            targetGlobalSlot: nextWon.globalSlot,
+            targetSlotTimeMs: localSlotTimeMs,
           );
         } else {
           _log.info(
@@ -368,7 +370,12 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<void> _scheduleResume(int rustWakeTimeMs, String reason) async {
+  Future<void> _scheduleResume(
+    int rustWakeTimeMs,
+    String reason, {
+    int? targetGlobalSlot,
+    int? targetSlotTimeMs,
+  }) async {
     if (await _shouldHoldForOtherProducerBlock()) {
       final height = _awaitingOtherProducerState?.height;
       _log.info(
@@ -397,6 +404,12 @@ class AndroidForegroundTaskController {
       data: {
         'reason': reason,
         'nodeRunning': RustBackendService.instance.isRunning,
+        'rustWakeTimeMs': rustWakeTimeMs,
+        'localWakeTimeMs': localWakeTimeMs,
+        'clockDriftMs': clockDriftMs,
+        'purpose': 'foreground_resume',
+        if (targetGlobalSlot != null) 'globalSlot': targetGlobalSlot,
+        if (targetSlotTimeMs != null) 'slotTimeMs': targetSlotTimeMs,
       },
     );
 

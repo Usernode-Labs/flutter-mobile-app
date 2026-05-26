@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/src/rust/observability.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -166,6 +167,234 @@ void main() {
         'flutter_error',
       ]);
     });
+
+    test('block production alarm scheduling is reported as an event', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records);
+
+      service.reportBlockProductionAlarmScheduled(
+        alarmId: 'slot_42',
+        purpose: 'slot_wake',
+        globalSlot: 42,
+        epoch: 7,
+        slotTimeMs: 1700000060000,
+        scheduledAtMs: 1700000000000,
+        alarmTimeMs: 1700000005000,
+        requestedDelayMs: 5000,
+        delayMs: 5000,
+        leadMs: 55000,
+        platform: 'android',
+        success: true,
+      );
+
+      expect(records, hasLength(1));
+      final record = records.single;
+      expect(record.kind, FlutterObservabilityKind.event);
+      expect(record.event, 'app_block_production_alarm_scheduled');
+      expect(record.payload, {
+        'alarm_id': 'slot_42',
+        'purpose': 'slot_wake',
+        'global_slot': 42,
+        'epoch': 7,
+        'slot_time_ms': 1700000060000,
+        'scheduled_at_ms': 1700000000000,
+        'alarm_time_ms': 1700000005000,
+        'requested_delay_ms': 5000,
+        'delay_ms': 5000,
+        'lead_ms': 55000,
+        'platform': 'android',
+        'success': true,
+      });
+    });
+
+    test('block production alarm fire is reported as an event', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records, nodeInitialized: false);
+
+      service.reportBlockProductionAlarmFired(
+        nativeEvent: 'android_alarm_fired',
+        alarmId: 'slot_42',
+        purpose: 'slot_wake',
+        globalSlot: 42,
+        alarmTimeMs: 1700000005000,
+        firedAtMs: 1700000005123,
+        latencyMs: 123,
+        platform: 'android',
+        nodeRunning: true,
+        batteryLevel: 88,
+        networkState: 'wifi',
+      );
+
+      expect(records, hasLength(1));
+      final record = records.single;
+      expect(record.kind, FlutterObservabilityKind.event);
+      expect(record.event, 'app_block_production_alarm_fired');
+      expect(record.payload, {
+        'native_event': 'android_alarm_fired',
+        'alarm_id': 'slot_42',
+        'purpose': 'slot_wake',
+        'global_slot': 42,
+        'alarm_time_ms': 1700000005000,
+        'fired_at_ms': 1700000005123,
+        'latency_ms': 123,
+        'platform': 'android',
+        'node_running': true,
+        'battery_level': 88,
+        'network_state': 'wifi',
+      });
+    });
+
+    test('non-alarm records remain gated before node initialization', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records, nodeInitialized: false);
+
+      final result = service.recordEvent(
+        event: 'ordinary_flutter_event',
+        details: {'source': 'test'},
+      );
+
+      expect(result.discarded, isTrue);
+      expect(result.reason, 'observability_disabled');
+      expect(records, isEmpty);
+    });
+
+    test('alarm fire is retained until node initialization when node is absent',
+        () async {
+      final records = <_CapturedObservabilityRecord>[];
+      var nodeRunning = false;
+      final service = _service(
+        records,
+        nodeInitialized: false,
+        record: ({
+          required FlutterObservabilityKind kind,
+          required String event,
+          String? payloadJson,
+        }) {
+          if (!nodeRunning) {
+            return const FlutterObservabilityRecordResult(
+              queued: false,
+              discarded: true,
+              reason: 'node_not_running',
+            );
+          }
+
+          records.add(
+            _CapturedObservabilityRecord(
+              kind: kind,
+              event: event,
+              payload: jsonDecode(payloadJson ?? '{}') as Map<String, dynamic>,
+            ),
+          );
+          return const FlutterObservabilityRecordResult(
+            queued: true,
+            discarded: false,
+          );
+        },
+      );
+
+      final result = service.reportBlockProductionAlarmFired(
+        nativeEvent: 'android_alarm_fired',
+        alarmId: 'slot_42',
+        purpose: 'slot_wake',
+        globalSlot: 42,
+        alarmTimeMs: 1700000005000,
+        firedAtMs: 1700000005123,
+        platform: 'android',
+      );
+
+      expect(result.queued, isTrue);
+      expect(records, isEmpty);
+
+      nodeRunning = true;
+      service.markNodeInitialized();
+
+      final firedRecords = records
+          .where((record) => record.event == 'app_block_production_alarm_fired')
+          .toList();
+      expect(firedRecords, hasLength(1));
+      expect(firedRecords.single.payload['global_slot'], 42);
+    });
+
+    test('native fired resume alarms report target global slot', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records, nodeInitialized: false);
+      final alarmService = PlatformAlarmService.test(observability: service);
+
+      alarmService.handleNativeEventForTest('android_alarm_fired', {
+        'alarmId': 'fg_resume',
+        'slotNumber': 0,
+        'globalSlot': 42,
+        'alarmTimeMs': 1700000005000,
+        'firedAtMs': 1700000005123,
+        'latencyMs': 123,
+        'reason': 'next_won_slot:42',
+      });
+
+      expect(records, hasLength(1));
+      expect(records.single.event, 'app_block_production_alarm_fired');
+      expect(records.single.payload['global_slot'], 42);
+      expect(records.single.payload['purpose'], 'foreground_resume');
+    });
+
+    test('native fired resume alarms derive target slot from reason', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records, nodeInitialized: false);
+      final alarmService = PlatformAlarmService.test(observability: service);
+
+      alarmService.handleNativeEventForTest('android_alarm_fired', {
+        'alarmId': 'fg_resume',
+        'slotNumber': 0,
+        'alarmTimeMs': 1700000005000,
+        'firedAtMs': 1700000005123,
+        'reason': 'next_won_slot:43',
+      });
+
+      expect(records, hasLength(1));
+      expect(records.single.payload['global_slot'], 43);
+    });
+
+    test('duplicate native fired events are suppressed', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records, nodeInitialized: false);
+      final alarmService = PlatformAlarmService.test(observability: service);
+      final eventData = {
+        'alarmId': 'fg_resume',
+        'slotNumber': 0,
+        'globalSlot': 42,
+        'alarmTimeMs': 1700000005000,
+        'firedAtMs': 1700000005123,
+      };
+
+      alarmService.handleNativeEventForTest('android_alarm_fired', eventData);
+      alarmService.handleNativeEventForTest('android_alarm_fired', eventData);
+
+      expect(records, hasLength(1));
+    });
+
+    test('block production monitoring start is reported as an event', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records);
+
+      service.reportBlockProductionMonitoringStarted(
+        globalSlot: 42,
+        epoch: 7,
+        slotTimeMs: 1700000060000,
+        alarmTimeMs: 1700000005000,
+        monitoringStartedAtMs: 1700000005200,
+      );
+
+      expect(records, hasLength(1));
+      final record = records.single;
+      expect(record.kind, FlutterObservabilityKind.event);
+      expect(record.event, 'app_block_production_monitoring_started');
+      expect(record.payload, {
+        'global_slot': 42,
+        'epoch': 7,
+        'slot_time_ms': 1700000060000,
+        'alarm_time_ms': 1700000005000,
+        'monitoring_started_at_ms': 1700000005200,
+      });
+    });
   });
 }
 
@@ -179,29 +408,36 @@ List<_CapturedObservabilityRecord> _staticRecords(
 }
 
 ObservabilityReportingService _service(
-  List<_CapturedObservabilityRecord> records,
-) {
-  return ObservabilityReportingService.test(
+  List<_CapturedObservabilityRecord> records, {
+  bool nodeInitialized = true,
+  ObservabilityRecordClient? record,
+}) {
+  final service = ObservabilityReportingService.test(
     collector: _FakeMobileContextCollector(),
     canRecord: () => true,
-    record: ({
-      required FlutterObservabilityKind kind,
-      required String event,
-      String? payloadJson,
-    }) {
-      records.add(
-        _CapturedObservabilityRecord(
-          kind: kind,
-          event: event,
-          payload: jsonDecode(payloadJson ?? '{}') as Map<String, dynamic>,
-        ),
-      );
-      return const FlutterObservabilityRecordResult(
-        queued: true,
-        discarded: false,
-      );
-    },
+    record: record ??
+        ({
+          required FlutterObservabilityKind kind,
+          required String event,
+          String? payloadJson,
+        }) {
+          records.add(
+            _CapturedObservabilityRecord(
+              kind: kind,
+              event: event,
+              payload: jsonDecode(payloadJson ?? '{}') as Map<String, dynamic>,
+            ),
+          );
+          return const FlutterObservabilityRecordResult(
+            queued: true,
+            discarded: false,
+          );
+        },
   );
+  if (nodeInitialized) {
+    service.markNodeInitialized();
+  }
+  return service;
 }
 
 class _CapturedObservabilityRecord {

@@ -91,6 +91,15 @@ class SlotMonitorService {
     _lastBestTipSlot = null;
     _pollAttemptCount = 0;
 
+    ObservabilityReportingService.instance
+        .reportBlockProductionMonitoringStarted(
+      globalSlot: slot.slotNumber,
+      epoch: slot.epoch,
+      slotTimeMs: slot.slotTime.millisecondsSinceEpoch,
+      alarmTimeMs: slot.alarmTime.millisecondsSinceEpoch,
+      monitoringStartedAtMs: _monitoringStartTime!.millisecondsSinceEpoch,
+    );
+
     // Emit monitoring started event
     _eventController.add(SlotMonitoringEvent(
       type: MonitoringEventType.started,

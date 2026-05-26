@@ -391,11 +391,6 @@ bool isProduceBlocksChallenge(ChallengeDto dto) {
 /// SubCategory identifier for the ZK Identity challenge.
 const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
 
-/// Returns true when the challenge is the ZK Identity challenge.
-bool isZkIdentityChallenge(ChallengeDto dto) {
-  return dto.subCategory == zkIdentitySubCategory;
-}
-
 /// True when the aggregator hasn't yet tallied earned points for a
 /// produce-blocks challenge that already has block activity.
 bool isProduceBlocksSyncing({

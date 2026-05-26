@@ -583,11 +583,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       variant: variant,
       earnedPoints: points,
       onTap: () {
-        if (isZkIdentityChallenge(dto)) {
-          context.push(AppRoutes.zkIdentityDetail);
-        } else {
-          context.push(AppRoutes.challengeDetail, extra: enriched);
-        }
+        context.push(AppRoutes.challengeDetail, extra: enriched);
       },
     );
   }
@@ -680,11 +676,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
           : null,
       completedPoints: completedPoints,
       onTap: () {
-        if (isZkIdentityChallenge(dto)) {
-          context.push(AppRoutes.zkIdentityDetail);
-        } else {
-          context.push(AppRoutes.challengeDetail, extra: enriched);
-        }
+        context.push(AppRoutes.challengeDetail, extra: enriched);
       },
     );
   }

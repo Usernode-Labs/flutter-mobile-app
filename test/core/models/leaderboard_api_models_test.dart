@@ -335,6 +335,71 @@ void main() {
         expect(parseWithLink('/challenges/zk-identity').ctaLink, isNull);
       });
 
+      test('prefers mobile app CTA override when present', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_type': 'app',
+          'mobile_cta_label': 'Open Opinion Market',
+          'mobile_cta_link': '/dapps/opinion-market',
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, CtaType.app);
+        expect(c.ctaLabel, 'Open Opinion Market');
+        expect(c.ctaLink, '/dapps/opinion-market');
+      });
+
+      test('falls back to default CTA when mobile override is absent', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_type': null,
+          'mobile_cta_label': null,
+          'mobile_cta_link': null,
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, isNull);
+        expect(c.ctaLabel, 'Get Started');
+        expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
+      });
+
+      test('ignores empty mobile override fields', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_label': '',
+          'mobile_cta_link': '',
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, isNull);
+        expect(c.ctaLabel, 'Get Started');
+        expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
+      });
+
       test('rejects non-string types', () {
         expect(parseWithLink(null).ctaLink, isNull);
         expect(parseWithLink(42).ctaLink, isNull);

@@ -48,6 +48,11 @@ CtaType? _parseCtaType(dynamic raw) {
   };
 }
 
+String? _nonEmptyString(dynamic raw) {
+  if (raw is! String || raw.isEmpty) return null;
+  return raw;
+}
+
 int _jsonInt(dynamic v) => v is num ? v.toInt() : int.parse(v as String);
 
 /// Nullable variant.
@@ -251,7 +256,21 @@ class ChallengeDto {
   });
 
   factory ChallengeDto.fromJson(Map<String, dynamic> json) {
-    final ctaType = _parseCtaType(json['cta_type']);
+    final baseCtaType = _parseCtaType(json['cta_type']);
+    final mobileCtaType = _parseCtaType(json['mobile_cta_type']);
+    final mobileCtaLabel = _nonEmptyString(json['mobile_cta_label']);
+    final mobileCtaLink = _nonEmptyString(json['mobile_cta_link']);
+    final hasMobileCtaOverride = mobileCtaType != null ||
+        mobileCtaLabel != null ||
+        mobileCtaLink != null;
+    final ctaType =
+        hasMobileCtaOverride ? mobileCtaType ?? baseCtaType : baseCtaType;
+    final ctaLabel = hasMobileCtaOverride
+        ? mobileCtaLabel ?? json['cta_label'] as String?
+        : json['cta_label'] as String?;
+    final ctaLinkRaw = hasMobileCtaOverride
+        ? mobileCtaLink ?? json['cta_link']
+        : json['cta_link'];
     return ChallengeDto(
       id: _jsonInt(json['id']),
       eventId: _jsonIntN(json['event_id']),
@@ -264,9 +283,9 @@ class ChallengeDto {
       description: json['description'] as String?,
       requirements: json['requirements'] as String?,
       rewardLogic: json['reward_logic'] as String?,
-      ctaLabel: json['cta_label'] as String?,
+      ctaLabel: ctaLabel,
       ctaType: ctaType,
-      ctaLink: _sanitizeCtaLink(ctaType, json['cta_link']),
+      ctaLink: _sanitizeCtaLink(ctaType, ctaLinkRaw),
       scheduleStart: json['schedule_start'] as String?,
       scheduleEnd: json['schedule_end'] as String?,
       enabled: json['enabled'] as bool? ?? false,

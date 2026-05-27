@@ -55,6 +55,26 @@
                     android:scheme="usernode-zk"
                     android:host="callback"/>
             </intent-filter>
+            <!-- In-app challenge deep links: usernode://app/challenges/... routed via GoRouter. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="usernode"
+                    android:host="app"
+                    android:pathPrefix="/challenges"/>
+            </intent-filter>
+            <!-- In-app dApp deep links: usernode://app/dapps/... routed via GoRouter. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="usernode"
+                    android:host="app"
+                    android:pathPrefix="/dapps"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

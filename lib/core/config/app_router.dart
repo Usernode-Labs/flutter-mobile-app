@@ -26,6 +26,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_s
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
+import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
@@ -38,6 +39,7 @@ import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_scr
 import 'package:crypto_mobile_app/features/wallet/burst/burst_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
+import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -78,6 +80,7 @@ class AppRoutes {
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
+  static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
   static const deviceBenchmark = '/settings/device-benchmark';
   static const deviceBenchmarkRun = '/settings/device-benchmark/run';
@@ -324,6 +327,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LeaderboardScreen(),
       ),
       GoRoute(
+        path: AppRoutes.dapps,
+        builder: (context, state) => const HomeScreen(
+          initialTab: HomeTab.dapps,
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.dappDetail,
         builder: (context, state) {
           final slug = state.pathParameters['slug'];
@@ -386,9 +395,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       );
 
       final currentLocation = state.matchedLocation;
+      final requestUri = state.uri;
 
       _log.trace(
           'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
+
+      if (shouldBlockUsernodeDeepLink(requestUri)) {
+        _log.warn('Blocked unsupported app deep link: $requestUri');
+        return AppRoutes.home;
+      }
 
       // Still loading state
       if (hasAny == null || hasCompletedOnboarding == null) {

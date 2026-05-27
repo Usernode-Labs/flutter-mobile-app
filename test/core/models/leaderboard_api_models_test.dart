@@ -308,9 +308,18 @@ void main() {
 
       test('preserves whitelisted in-app paths for app CTAs', () {
         expect(
+          parseWithLink('/challenges/leaderboard', ctaType: 'app').ctaLink,
+          '/challenges/leaderboard',
+        );
+        expect(
           parseWithLink('/challenges/zk-identity', ctaType: 'app').ctaLink,
           '/challenges/zk-identity',
         );
+        expect(
+          parseWithLink('/challenges/zk-identity/flow', ctaType: 'app').ctaLink,
+          '/challenges/zk-identity/flow',
+        );
+        expect(parseWithLink('/dapps', ctaType: 'app').ctaLink, '/dapps');
         expect(
           parseWithLink('/dapps/opinion-market', ctaType: 'app').ctaLink,
           '/dapps/opinion-market',
@@ -320,6 +329,18 @@ void main() {
       test('rejects non-whitelisted in-app paths for app CTAs', () {
         expect(parseWithLink('/admin', ctaType: 'app').ctaLink, isNull);
         expect(parseWithLink('/dappsevil', ctaType: 'app').ctaLink, isNull);
+        expect(parseWithLink('/wallet/send', ctaType: 'app').ctaLink, isNull);
+        expect(parseWithLink('/settings', ctaType: 'app').ctaLink, isNull);
+        expect(parseWithLink('/main/node', ctaType: 'app').ctaLink, isNull);
+        expect(
+          parseWithLink('/challenges/not-yet-shipped', ctaType: 'app').ctaLink,
+          isNull,
+        );
+        expect(
+          parseWithLink('/dapps/opinion-market/settings', ctaType: 'app')
+              .ctaLink,
+          isNull,
+        );
       });
 
       test('rejects external URLs for app CTAs', () {
@@ -333,6 +354,113 @@ void main() {
         expect(parseWithLink('https://example.com').ctaLink,
             'https://example.com');
         expect(parseWithLink('/challenges/zk-identity').ctaLink, isNull);
+      });
+
+      test('prefers mobile app CTA override when present', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_type': 'app',
+          'mobile_cta_label': 'Open Opinion Market',
+          'mobile_cta_link': '/dapps/opinion-market',
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, CtaType.app);
+        expect(c.ctaLabel, 'Open Opinion Market');
+        expect(c.ctaLink, '/dapps/opinion-market');
+      });
+
+      test('falls back to default CTA when mobile override is invalid', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_type': 'app',
+          'mobile_cta_label': 'Open Admin',
+          'mobile_cta_link': '/admin',
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, isNull);
+        expect(c.ctaLabel, 'Get Started');
+        expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
+      });
+
+      test('allows label-only mobile override to inherit default CTA', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_label': 'Open on Mobile',
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, isNull);
+        expect(c.ctaLabel, 'Open on Mobile');
+        expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
+      });
+
+      test('falls back to default CTA when mobile override is absent', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_type': null,
+          'mobile_cta_label': null,
+          'mobile_cta_link': null,
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, isNull);
+        expect(c.ctaLabel, 'Get Started');
+        expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
+      });
+
+      test('ignores empty mobile override fields', () {
+        final c = ChallengeDto.fromJson({
+          'id': 52,
+          'category': 'community',
+          'goal': 'Master the Opinion Market',
+          'task': 'Vote on markets',
+          'reward': '1/2 of your final credits',
+          'cta_type': null,
+          'cta_label': 'Get Started',
+          'cta_link': 'https://play.google.com/apps/internaltest/123',
+          'mobile_cta_label': '',
+          'mobile_cta_link': '',
+          'enabled': true,
+          'completed': false,
+        });
+
+        expect(c.ctaType, isNull);
+        expect(c.ctaLabel, 'Get Started');
+        expect(c.ctaLink, 'https://play.google.com/apps/internaltest/123');
       });
 
       test('rejects non-string types', () {

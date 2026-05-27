@@ -2,6 +2,8 @@
 //
 // Base URL: https://leaderboard.usernodelabs.org/api/v2/mobile/
 
+import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
+
 // ---------------------------------------------------------------------------
 // Safe JSON number helpers
 // ---------------------------------------------------------------------------
@@ -22,20 +24,7 @@ String? _sanitizeCtaLink(CtaType? type, dynamic raw) {
       }
       return raw;
     case CtaType.app:
-      const allowedPrefixes = [
-        '/wallet',
-        '/challenges',
-        '/main/node',
-        '/settings',
-        '/dapps',
-      ];
-      if (!raw.startsWith('/')) return null;
-      for (final prefix in allowedPrefixes) {
-        if (raw == prefix || raw.startsWith('$prefix/')) {
-          return raw;
-        }
-      }
-      return null;
+      return isAllowedAppDeepLinkPath(raw) ? raw : null;
   }
 }
 
@@ -46,6 +35,11 @@ CtaType? _parseCtaType(dynamic raw) {
     'app' => CtaType.app,
     _ => null,
   };
+}
+
+String? _nonEmptyString(dynamic raw) {
+  if (raw is! String || raw.isEmpty) return null;
+  return raw;
 }
 
 int _jsonInt(dynamic v) => v is num ? v.toInt() : int.parse(v as String);
@@ -251,7 +245,29 @@ class ChallengeDto {
   });
 
   factory ChallengeDto.fromJson(Map<String, dynamic> json) {
-    final ctaType = _parseCtaType(json['cta_type']);
+    final baseCtaType = _parseCtaType(json['cta_type']);
+    final baseCtaLabel = json['cta_label'] as String?;
+    final baseCtaLink = _sanitizeCtaLink(baseCtaType, json['cta_link']);
+    final mobileCtaType = _parseCtaType(json['mobile_cta_type']);
+    final mobileCtaLabel = _nonEmptyString(json['mobile_cta_label']);
+    final mobileCtaLink = _nonEmptyString(json['mobile_cta_link']);
+    final hasMobileCtaOverride = mobileCtaType != null ||
+        mobileCtaLabel != null ||
+        mobileCtaLink != null;
+    final effectiveMobileCtaType = mobileCtaType ?? baseCtaType;
+    final canInheritBaseCtaLink =
+        mobileCtaLink == null && mobileCtaType == null;
+    String? sanitizedMobileCtaLink;
+    if (hasMobileCtaOverride) {
+      sanitizedMobileCtaLink = canInheritBaseCtaLink
+          ? baseCtaLink
+          : _sanitizeCtaLink(effectiveMobileCtaType, mobileCtaLink);
+    }
+    final useMobileCta = sanitizedMobileCtaLink != null;
+    final ctaType = useMobileCta ? effectiveMobileCtaType : baseCtaType;
+    final ctaLabel =
+        useMobileCta ? mobileCtaLabel ?? baseCtaLabel : baseCtaLabel;
+    final ctaLink = useMobileCta ? sanitizedMobileCtaLink : baseCtaLink;
     return ChallengeDto(
       id: _jsonInt(json['id']),
       eventId: _jsonIntN(json['event_id']),
@@ -264,9 +280,9 @@ class ChallengeDto {
       description: json['description'] as String?,
       requirements: json['requirements'] as String?,
       rewardLogic: json['reward_logic'] as String?,
-      ctaLabel: json['cta_label'] as String?,
+      ctaLabel: ctaLabel,
       ctaType: ctaType,
-      ctaLink: _sanitizeCtaLink(ctaType, json['cta_link']),
+      ctaLink: ctaLink,
       scheduleStart: json['schedule_start'] as String?,
       scheduleEnd: json['schedule_end'] as String?,
       enabled: json['enabled'] as bool? ?? false,

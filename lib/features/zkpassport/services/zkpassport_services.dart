@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 final _log = LoggingService.instance.withTag('usernode/ZkPassportLaunch');
 const _iosAlarmChannel = MethodChannel('com.usernode.app/alarm');
+const _androidZkPassportChannel = MethodChannel('com.usernode.app/zkpassport');
 
 const _androidMarketUrl = 'market://details?id=app.zkpassport.zkpassport';
 const _androidWebUrl =
@@ -18,10 +19,7 @@ class ZkPassportLaunchService {
   Future<bool> launchOrOpenStore(Uri launchUri) async {
     try {
       await _beginIosTransientBackgroundTask();
-      final launched = await launchUrl(
-        launchUri,
-        mode: LaunchMode.externalApplication,
-      );
+      final launched = await _launchApp(launchUri);
       if (launched) {
         _log.info('Launched zkPassport app');
         return true;
@@ -31,6 +29,47 @@ class ZkPassportLaunchService {
       _log.warn('zkPassport launch threw error: $e');
     }
     return openStoreListing();
+  }
+
+  Future<bool> isInstalled() async {
+    if (Platform.isAndroid) {
+      try {
+        return await _androidZkPassportChannel.invokeMethod<bool>(
+              'isInstalled',
+            ) ??
+            false;
+      } catch (e) {
+        _log.warn('zkPassport install check threw error: $e');
+        return false;
+      }
+    }
+
+    try {
+      return canLaunchUrl(Uri.parse('zkpassport://'));
+    } catch (e) {
+      _log.warn('zkPassport install check threw error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _launchApp(Uri launchUri) async {
+    if (Platform.isAndroid) {
+      try {
+        return await _androidZkPassportChannel.invokeMethod<bool>(
+              'launch',
+              {'url': launchUri.toString()},
+            ) ??
+            false;
+      } catch (e) {
+        _log.warn('Android zkPassport launch threw error: $e');
+        return false;
+      }
+    }
+
+    return launchUrl(
+      launchUri,
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   Future<void> _beginIosTransientBackgroundTask() async {

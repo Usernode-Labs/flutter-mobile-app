@@ -1,6 +1,9 @@
 package com.usernode_labs.usernode
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -14,8 +17,10 @@ import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
 
 private const val TAG = "usernode/MainActivity"
+private const val ZKPASSPORT_PACKAGE = "app.zkpassport.zkpassport"
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.usernode.app/alarm"
+    private val ZKPASSPORT_CHANNEL = "com.usernode.app/zkpassport"
     private lateinit var alarmHandler: AlarmMethodChannelHandler
     private val backgroundStopHandler = Handler(Looper.getMainLooper())
     private val backgroundStopTimeoutMs = 5 * 60 * 1000L
@@ -42,6 +47,24 @@ class MainActivity: FlutterActivity() {
 
         channel.setMethodCallHandler { call, result ->
             alarmHandler.handleMethodCall(call, result)
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            ZKPASSPORT_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isInstalled" -> result.success(isZkPassportInstalled())
+                "launch" -> {
+                    val url = call.argument<String>("url")
+                    if (url.isNullOrBlank()) {
+                        result.error("invalid_url", "Missing zkPassport launch URL.", null)
+                    } else {
+                        result.success(launchZkPassport(url))
+                    }
+                }
+                else -> result.notImplemented()
+            }
         }
         BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
     }
@@ -103,6 +126,44 @@ class MainActivity: FlutterActivity() {
                     // Alarm fired - Flutter will handle via AlarmReceiver callback
                 }
             }
+        }
+    }
+
+    private fun isZkPassportInstalled(): Boolean {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(
+                    ZKPASSPORT_PACKAGE,
+                    PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(ZKPASSPORT_PACKAGE, 0)
+            }
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
+
+    private fun launchZkPassport(url: String): Boolean {
+        if (!isZkPassportInstalled()) {
+            return false
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            setPackage(ZKPASSPORT_PACKAGE)
+        }
+
+        return try {
+            startActivity(intent)
+            true
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "zkPassport is installed but cannot handle launch URL", e)
+            false
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to launch zkPassport", e)
+            false
         }
     }
 

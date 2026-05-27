@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../tokens/app_borders.dart';
@@ -66,6 +68,8 @@ class BottomNav extends StatelessWidget {
     required this.items,
     required this.selectedIndex,
     this.onItemSelected,
+    this.onItemLongPress,
+    this.longPressDuration = const Duration(seconds: 3),
     this.topBorder = true,
   }) : assert(
           items.length >= 2 && items.length <= 5,
@@ -80,6 +84,20 @@ class BottomNav extends StatelessWidget {
 
   /// Called when an enabled item is tapped.
   final ValueChanged<int>? onItemSelected;
+
+  /// Called when an enabled item is long-pressed.
+  ///
+  /// Implemented via a transparent overlay row whose long-press
+  /// recognizers compete in the gesture arena with the underlying
+  /// [NavigationBar] inkwells. Quick taps still resolve to
+  /// [onItemSelected]; only long presses held for [longPressDuration]
+  /// fire this callback. Disabled items do not emit either.
+  final ValueChanged<int>? onItemLongPress;
+
+  /// How long an item must be held before [onItemLongPress] fires.
+  /// Defaults to 3 seconds to make the gesture an "intentional power
+  /// user" action rather than something a typical tap could trigger.
+  final Duration longPressDuration;
 
   /// Whether to show an `outlineVariant` top border. Defaults to true.
   /// Set to false when the parent provides its own border (e.g. network indicator).
@@ -159,6 +177,47 @@ class BottomNav extends StatelessWidget {
       );
     }
 
+    // Overlay a transparent row of pointer Listeners so held presses
+    // on any item can be observed without re-implementing
+    // NavigationBar.
+    //
+    // We deliberately avoid the gesture arena here. Material's
+    // [NavigationBar] wraps each destination in an [InkResponse] whose
+    // tap recognizer aggressively claims the arena, which can starve
+    // a [LongPressGestureRecognizer] running in a sibling overlay
+    // before its timeout fires. Raw [Listener] callbacks bypass the
+    // arena entirely: pointer events are delivered to every render
+    // object in the hit-test result, so both the InkResponse tap and
+    // our hold timer get to observe the same pointer stream
+    // independently. Quick taps continue to fire
+    // onDestinationSelected; long presses also fire onItemLongPress.
+    //
+    // The duration is configurable (Flutter's
+    // LongPressGestureRecognizer default is kLongPressTimeout = 500 ms,
+    // which is much shorter than the "intentional power-user" gesture
+    // we want here).
+    if (onItemLongPress != null) {
+      navBar = Stack(
+        children: [
+          navBar,
+          Positioned.fill(
+            child: Row(
+              children: [
+                for (int i = 0; i < items.length; i++)
+                  Expanded(
+                    child: _LongPressCell(
+                      enabled: items[i].enabled,
+                      duration: longPressDuration,
+                      onLongPress: () => onItemLongPress!.call(i),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     if (!topBorder) return navBar;
 
     return DecoratedBox(
@@ -235,6 +294,91 @@ class BottomNav extends StatelessWidget {
       selectedIcon: buildIcon(filled: true),
       label: item.label,
       enabled: item.enabled,
+    );
+  }
+}
+
+/// Transparent overlay cell that fires [onLongPress] after the user
+/// holds for [duration]. Implemented with a raw pointer [Listener]
+/// (not [GestureDetector]) so we never enter the gesture arena —
+/// quick taps fall through to the [NavigationBar]'s ink response
+/// underneath untouched, and the hold detection cannot be starved by
+/// a competing recognizer claiming the arena.
+class _LongPressCell extends StatefulWidget {
+  const _LongPressCell({
+    required this.enabled,
+    required this.duration,
+    required this.onLongPress,
+  });
+
+  final bool enabled;
+  final Duration duration;
+  final VoidCallback onLongPress;
+
+  @override
+  State<_LongPressCell> createState() => _LongPressCellState();
+}
+
+class _LongPressCellState extends State<_LongPressCell> {
+  // Movement past this distance cancels the long-press, matching the
+  // touch-slop heuristic used elsewhere in Flutter
+  // (`kPanSlop` / `kTouchSlop` are both ~18 logical px).
+  static const double _moveSlop = 18.0;
+
+  Timer? _timer;
+  Offset? _startPosition;
+
+  void _start(PointerDownEvent event) {
+    if (!widget.enabled) return;
+    _cancel();
+    _startPosition = event.position;
+    _timer = Timer(widget.duration, _fire);
+  }
+
+  void _onMove(PointerMoveEvent event) {
+    final start = _startPosition;
+    if (start == null) return;
+    if ((event.position - start).distance > _moveSlop) {
+      _cancel();
+    }
+  }
+
+  void _onUp(PointerEvent _) {
+    _cancel();
+  }
+
+  void _fire() {
+    _timer = null;
+    _startPosition = null;
+    widget.onLongPress();
+  }
+
+  void _cancel() {
+    _timer?.cancel();
+    _timer = null;
+    _startPosition = null;
+  }
+
+  @override
+  void dispose() {
+    _cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) {
+      return const SizedBox.expand();
+    }
+    return Listener(
+      // translucent so the InkResponse beneath us in the Stack still
+      // receives the same pointer stream for ripples/tap selection.
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _start,
+      onPointerMove: _onMove,
+      onPointerUp: _onUp,
+      onPointerCancel: _onUp,
+      child: const SizedBox.expand(),
     );
   }
 }

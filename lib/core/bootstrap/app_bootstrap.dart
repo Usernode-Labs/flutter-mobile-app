@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -92,6 +93,9 @@ class AppBootstrap {
 
     // Metrics collector needs the container before any lifecycle/service starts
     MetricsCollectorService.instance.initialize(container);
+    ObservabilityReportingService.instance.configureMobileContextCollector(
+      MetricsCollectorService.instance,
+    );
 
     if (registerLifecycleObserver) {
       await AppSleepService.instance.initializeForInteractiveApp();
@@ -108,7 +112,10 @@ class AppBootstrap {
       AppLifecycleLogger.onForegroundResume = recoverZkSession;
     }
 
-    _bootstrapBackendAsync(log: log, container: container);
+    _bootstrapBackendAsync(
+      log: log,
+      container: container,
+    );
 
     return AppBootstrapResult(
       container: container,
@@ -249,7 +256,8 @@ class AppBootstrap {
       }
 
       // Initialize FRB only; start backend only if an account exists
-      if (!RustBackendService.instance.isRunning) {
+      final nodeWasRunning = RustBackendService.instance.isRunning;
+      if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
         log.info('FRB initialized, starting node...');
@@ -267,6 +275,9 @@ class AppBootstrap {
         }
       } else {
         log.info('Backend already running, skipping start');
+        await ObservabilityReportingService.instance.reportNodeInitialized(
+          resetStaticContext: false,
+        );
       }
 
       // Kick off Android foreground VRF monitoring once the node is running

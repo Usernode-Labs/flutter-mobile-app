@@ -1,7 +1,10 @@
 import 'dart:async';
+
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
-import 'package:flutter/widgets.dart';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:flutter/widgets.dart';
+
 import '../../features/metrics/metrics_collector_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Lifecycle');
@@ -39,6 +42,9 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     // Update metrics collector with new state
     MetricsCollectorService.instance.updateAppLifecycleState(state);
     await AppSleepService.instance.handleLifecycleStateChanged(state);
+    unawaited(
+      ObservabilityReportingService.instance.reportLifecycleStateChanged(state),
+    );
 
     switch (state) {
       case AppLifecycleState.resumed:

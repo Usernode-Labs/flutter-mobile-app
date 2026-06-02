@@ -51,10 +51,12 @@ class SlotMonitoringService : Service() {
             Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
 
             startMonitoring(0, false)
+            val firedAtMs = System.currentTimeMillis()
 
             val eventData = mapOf(
                 "alarmId" to "slot_monitoring_null_intent",
                 "slotNumber" to 0,
+                "firedAtMs" to firedAtMs,
                 "batteryLevel" to 0,
                 "networkState" to "unknown",
                 "nodeRunning" to false
@@ -82,20 +84,32 @@ class SlotMonitoringService : Service() {
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
                 val alarmTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
+                val reason = intent.getStringExtra("reason")
+                val purpose = intent.getStringExtra("purpose")
                 Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
                 // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
                 val safeSlot = if (slotNumber != -1) slotNumber else 0
+                val globalSlot = optionalLongExtra(intent, "globalSlot")
+                    ?: optionalLongExtra(intent, "global_slot")
+                    ?: safeSlot.takeIf { it > 0 }?.toLong()
                 startMonitoring(safeSlot, nodeRunning, alarmTimeMs)
+                val firedAtMs = System.currentTimeMillis()
+                val latencyMs = if (alarmTimeMs > 0) firedAtMs - alarmTimeMs else 0L
 
-                val eventData = mapOf(
+                val eventData = mutableMapOf<String, Any?>(
                     "alarmId" to (alarmId ?: "unknown"),
                     "slotNumber" to safeSlot,
                     "alarmTimeMs" to alarmTimeMs,
+                    "firedAtMs" to firedAtMs,
+                    "latencyMs" to latencyMs,
                     "batteryLevel" to 0,
                     "networkState" to "unknown",
                     "nodeRunning" to nodeRunning
                 )
+                globalSlot?.let { eventData["globalSlot"] = it }
+                reason?.let { eventData["reason"] = it }
+                purpose?.let { eventData["purpose"] = it }
 
                 // Enforce a single-engine policy:
                 // - If the UI engine/channel exists, deliver the event through it (no headless engine).
@@ -247,6 +261,19 @@ class SlotMonitoringService : Service() {
             isPersistentMode = false
             isPersistentModeActive = false
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun optionalLongExtra(intent: Intent, key: String): Long? {
+        if (!intent.hasExtra(key)) return null
+        val value = intent.extras?.get(key) ?: return null
+        return when (value) {
+            is Int -> value.toLong()
+            is Long -> value
+            is Number -> value.toLong()
+            is String -> value.toLongOrNull()
+            else -> null
+        }?.takeIf { it > 0 }
     }
 
     private fun stopPersistentMode() {

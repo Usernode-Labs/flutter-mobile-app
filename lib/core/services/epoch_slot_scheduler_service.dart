@@ -427,6 +427,9 @@ class EpochSlotSchedulerService {
         data: {
           'epoch': slot.epoch,
           'slotTime': slot.slotTime.toIso8601String(),
+          'slotTimeMs': slot.slotTime.millisecondsSinceEpoch,
+          'alarmTimeMs': slot.alarmTime.millisecondsSinceEpoch,
+          'purpose': 'slot_wake',
         },
       );
 

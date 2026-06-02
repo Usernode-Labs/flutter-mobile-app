@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -45,6 +46,7 @@ class IOSForegroundKeepAliveService {
 
       _isKeepAliveActive = true;
       _log.info('Keep-alive mode activated');
+      _recordRuntimeContextChanged('keep_alive_changed');
 
       return true;
     } catch (e) {
@@ -69,6 +71,7 @@ class IOSForegroundKeepAliveService {
 
       _isKeepAliveActive = false;
       _log.info('Keep-alive mode deactivated');
+      _recordRuntimeContextChanged('keep_alive_changed');
     } catch (e) {
       _log.error('Error stopping keep-alive: $e');
     }
@@ -114,6 +117,14 @@ class IOSForegroundKeepAliveService {
   /// - Safe to run indefinitely while charging
   double getEstimatedBatteryDrainPerHour() {
     return 7.5; // Average percentage per hour
+  }
+
+  void _recordRuntimeContextChanged(String reason) {
+    unawaited(
+      ObservabilityReportingService.instance.reportRuntimeMobileContextSnapshot(
+        reason: reason,
+      ),
+    );
   }
 
   /// Recommendations for user

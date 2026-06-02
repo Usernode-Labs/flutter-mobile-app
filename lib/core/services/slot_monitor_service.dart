@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/services/slot_outcome_recorder.dart';
 import '../../features/node/node_service.dart';
@@ -90,12 +91,29 @@ class SlotMonitorService {
     _lastBestTipSlot = null;
     _pollAttemptCount = 0;
 
+    ObservabilityReportingService.instance
+        .reportBlockProductionMonitoringStarted(
+      globalSlot: slot.slotNumber,
+      epoch: slot.epoch,
+      slotTimeMs: slot.slotTime.millisecondsSinceEpoch,
+      alarmTimeMs: slot.alarmTime.millisecondsSinceEpoch,
+      monitoringStartedAtMs: _monitoringStartTime!.millisecondsSinceEpoch,
+    );
+
     // Emit monitoring started event
     _eventController.add(SlotMonitoringEvent(
       type: MonitoringEventType.started,
       slotNumber: slot.slotNumber,
       timestamp: DateTime.now(),
     ));
+
+    unawaited(
+      ObservabilityReportingService.instance
+          .reportPowerNetworkServiceContextSnapshot(
+        reason: 'slot_monitoring_start',
+        force: true,
+      ),
+    );
 
     // Start polling timer (poll interval = 1 slot duration)
     _monitoringTimer = Timer.periodic(

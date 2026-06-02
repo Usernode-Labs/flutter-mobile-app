@@ -7,6 +7,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/metrics/models/slot_outcome_report.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -37,7 +38,7 @@ String _hashDeviceId(String deviceId) {
 /// Service responsible for collecting all metrics from various sources
 ///
 /// Supports both periodic health checks and event-driven metric collection.
-class MetricsCollectorService {
+class MetricsCollectorService implements MobileContextSnapshotCollector {
   MetricsCollectorService._();
   static final MetricsCollectorService instance = MetricsCollectorService._();
 
@@ -110,6 +111,108 @@ class MetricsCollectorService {
   void updateAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;
   }
+
+  /// Collect per-run static mobile context used by observability.
+  ///
+  /// `device_id_hash` is the existing hashed identifier from [_collectDeviceMetrics],
+  /// not the raw platform device id.
+  @override
+  Future<Map<String, dynamic>> collectStaticMobileContextSnapshot({
+    Map<String, dynamic>? eventData,
+  }) async {
+    final results = await Future.wait<Object?>([
+      _safeMobileContextField('runtime', _collectRuntimeMetrics),
+      _safeMobileContextField('platform', _collectPlatformMetrics),
+      _safeMobileContextField('device', _collectDeviceMetrics),
+    ]);
+
+    final runtime = results[0] as RuntimeMetrics?;
+    final platform = results[1] as PlatformMetrics?;
+    final device = results[2] as DeviceMetrics?;
+
+    return {
+      if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
+      if (runtime != null) 'runtime': _staticRuntimeJson(runtime),
+      if (platform != null) 'platform': platform.toJson(),
+      if (device != null) 'device': _staticDeviceJson(device),
+    };
+  }
+
+  /// Collect runtime/app-state mobile context used by observability.
+  @override
+  Future<Map<String, dynamic>> collectRuntimeMobileContextSnapshot({
+    Map<String, dynamic>? eventData,
+  }) async {
+    final runtime = await _safeMobileContextField(
+      'runtime',
+      _collectRuntimeMetrics,
+    ) as RuntimeMetrics?;
+
+    return {
+      if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
+      if (runtime != null) 'runtime': _dynamicRuntimeJson(runtime),
+    };
+  }
+
+  /// Collect power, network, and foreground-service mobile context.
+  @override
+  Future<Map<String, dynamic>> collectPowerNetworkServiceContextSnapshot({
+    Map<String, dynamic>? eventData,
+  }) async {
+    final results = await Future.wait<Object?>([
+      _safeMobileContextField('battery', _collectBatteryMetrics),
+      _safeMobileContextField('network', _collectNetworkMetrics),
+      Platform.isAndroid
+          ? _safeMobileContextField(
+              'foreground_service',
+              _collectForegroundServiceMetrics,
+            )
+          : Future<Object?>.value(null),
+    ]);
+
+    final battery = results[0] as BatteryMetrics?;
+    final network = results[1] as NetworkMetrics?;
+    final foregroundService = results[2] as ForegroundServiceMetrics?;
+
+    return {
+      if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
+      if (battery != null) 'battery': battery.toJson(),
+      if (network != null) 'network': network.toJson(),
+      if (foregroundService != null)
+        'foreground_service': foregroundService.toJson(),
+    };
+  }
+
+  Future<Object?> _safeMobileContextField(
+    String label,
+    Future<Object?> Function() collect,
+  ) async {
+    try {
+      return await collect();
+    } catch (e) {
+      _log.debug('mobile-context-snapshot field failed ($label): $e');
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _staticRuntimeJson(RuntimeMetrics runtime) => {
+        'app_version': runtime.appVersion,
+        'app_build_number': runtime.appBuildNumber,
+      };
+
+  Map<String, dynamic> _dynamicRuntimeJson(RuntimeMetrics runtime) => {
+        'app_state': runtime.appState,
+        'app_uptime_ms': runtime.appUptimeMs,
+        'keep_alive_mode_active': runtime.keepAliveModeActive,
+        'notifications_enabled': runtime.notificationsEnabled,
+      };
+
+  Map<String, dynamic> _staticDeviceJson(DeviceMetrics device) => {
+        'device_id_hash': device.deviceId,
+        'device_manufacturer': device.deviceManufacturer,
+        'device_model': device.deviceModel,
+        'is_physical_device': device.isPhysicalDevice,
+      };
 
   /// Capture a focused snapshot of client-side context for slot outcome
   /// reports.

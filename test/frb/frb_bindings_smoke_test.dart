@@ -11,6 +11,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/node.dart';
+import 'package:crypto_mobile_app/src/rust/observability.dart';
+
+typedef ObservabilityRecordFn = FlutterObservabilityRecordResult Function({
+  required FlutterObservabilityKind kind,
+  required String event,
+  String? payloadJson,
+});
 
 @Tags(['frb', 'smoke'])
 void main() {
@@ -25,6 +32,11 @@ void main() {
       // Ensure we can refer to PeerId in signatures and call toString on it
       void accept(String Function(PeerId) f) {}
       accept((p) => p.toString());
+    });
+
+    test('observabilityRecord has expected signature', () {
+      ObservabilityRecordFn f = observabilityRecord;
+      expect(f, isNotNull);
     });
   });
 }

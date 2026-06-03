@@ -44,7 +44,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     // the bottom navigation bar; the choice persists across launches.
     // See [DappsTabModeNotifier].
     final overrideUrl = AppConfig.dappsTabUrl.trim();
-    final webviewMode = ref.watch(dappsTabModeProvider);
+    final webviewMode = ref.watch(dappsTabWebviewEnabledProvider);
     if (webviewMode && overrideUrl.isNotEmpty) {
       return DappWebViewScreen(
         url: overrideUrl,

@@ -388,6 +388,13 @@ bool isProduceBlocksChallenge(ChallengeDto dto) {
   return dto.subCategory == kProduceBlocksSubCategory;
 }
 
+/// SubCategory identifier for the vibecoding-framework challenge.
+const String kVibecodingSubCategory = 'TEST_VIBECODING_FRAMEWORK';
+
+/// True when the challenge is the vibecoding-framework challenge.
+bool isVibecodingChallenge(ChallengeDto dto) =>
+    dto.subCategory == kVibecodingSubCategory;
+
 /// SubCategory identifier for the ZK Identity challenge.
 const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
 

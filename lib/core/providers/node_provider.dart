@@ -189,11 +189,10 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
   ///
   /// A periodic timer kept here makes the provider self-healing: as
   /// soon as the Rust node becomes reachable, the next tick picks up
-  /// fresh status and the whole UI catches up. 10s is a reasonable
-  /// balance — `getStatus()` is one FFI hop + one in-process RPC, so
-  /// the overhead is negligible, and most UI consumers don't need
-  /// sub-second freshness.
-  static const _autoRefreshInterval = Duration(seconds: 10);
+  /// fresh status and the whole UI catches up. `getStatus()` is one FFI
+  /// hop + one in-process RPC, so the overhead is negligible and a tight
+  /// 1s interval keeps the UI close to real-time.
+  static const _autoRefreshInterval = Duration(seconds: 1);
 
   @override
   Future<NodeStatusState?> build() async {

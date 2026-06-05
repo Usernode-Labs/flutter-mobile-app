@@ -2100,4 +2100,35 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get walletScanCameraPermissionDenied =>
       'Camera permission denied. Enable it in Settings to scan QR codes.';
+
+  @override
+  String get settingsDebugMode => 'Debug Mode';
+
+  @override
+  String get settingsDebugModeEnabled => 'Capturing HTTP requests to memory';
+
+  @override
+  String get settingsDebugModeDisabled => 'Off · no network logging';
+
+  @override
+  String get settingsHttpLogs => 'HTTP Logs';
+
+  @override
+  String get settingsHttpLogsSubtitle => 'View captured network requests';
+
+  @override
+  String get httpLogsTitle => 'HTTP Logs';
+
+  @override
+  String get httpLogsEmpty =>
+      'No requests captured yet. Trigger some network activity to see logs here.';
+
+  @override
+  String get httpLogsCopy => 'Copy all';
+
+  @override
+  String get httpLogsClear => 'Clear';
+
+  @override
+  String get httpLogsCopied => 'Logs copied to clipboard';
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/models/block_production_event.dart';
@@ -180,7 +181,7 @@ class MetricsReportingService {
     );
 
     // Initialize HTTP client
-    _httpClient = http.Client();
+    _httpClient = createAppHttpClient();
 
     // Test connection
     final connected = await _testConnection();
@@ -312,7 +313,7 @@ class MetricsReportingService {
     // closes [_httpClient] in [stop]).
     var client = _httpClient;
     final ownedClient = client == null;
-    client ??= http.Client();
+    client ??= createAppHttpClient();
 
     try {
       final response = await client

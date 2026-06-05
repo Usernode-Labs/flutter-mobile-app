@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/config/debug_mode.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
@@ -56,6 +57,10 @@ class AppBootstrap {
     // Initialize logging with file output
     await LoggingService.initialize();
     final log = LoggingService.instance.withTag(logTag);
+
+    // Load the Debug Mode flag into its synchronous cache so the HTTP layer
+    // sees the correct value before the first request.
+    await DebugModeStorage.init();
 
     if (installErrorHandlers) {
       _installGlobalErrorHandlers(log);

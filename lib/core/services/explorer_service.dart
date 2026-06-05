@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 
 final _log = LoggingService.instance.withTag('ExplorerService');
@@ -19,7 +19,7 @@ enum DataSource {
 /// Explorer API service with multi-tier fallback strategy
 class ExplorerService {
   final Ref _ref;
-  final _client = http.Client();
+  final _client = createAppHttpClient();
 
   ExplorerService(this._ref);
 

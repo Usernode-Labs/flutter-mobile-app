@@ -2845,5 +2845,45 @@
   "walletScanCameraPermissionDenied": "Camera permission denied. Enable it in Settings to scan QR codes.",
   "@walletScanCameraPermissionDenied": {
     "description": "Message shown when camera permission is denied"
+  },
+  "settingsDebugMode": "Debug Mode",
+  "@settingsDebugMode": {
+    "description": "Diagnostics toggle that enables in-memory HTTP request logging"
+  },
+  "settingsDebugModeEnabled": "Capturing HTTP requests to memory",
+  "@settingsDebugModeEnabled": {
+    "description": "Subtitle for the debug mode toggle when enabled"
+  },
+  "settingsDebugModeDisabled": "Off · no network logging",
+  "@settingsDebugModeDisabled": {
+    "description": "Subtitle for the debug mode toggle when disabled"
+  },
+  "settingsHttpLogs": "HTTP Logs",
+  "@settingsHttpLogs": {
+    "description": "Diagnostics tile that opens the captured HTTP request log viewer"
+  },
+  "settingsHttpLogsSubtitle": "View captured network requests",
+  "@settingsHttpLogsSubtitle": {
+    "description": "Subtitle for the HTTP logs tile"
+  },
+  "httpLogsTitle": "HTTP Logs",
+  "@httpLogsTitle": {
+    "description": "App bar title of the HTTP debug log viewer"
+  },
+  "httpLogsEmpty": "No requests captured yet. Trigger some network activity to see logs here.",
+  "@httpLogsEmpty": {
+    "description": "Empty state shown when the HTTP log buffer has no entries"
+  },
+  "httpLogsCopy": "Copy all",
+  "@httpLogsCopy": {
+    "description": "Tooltip for the action that copies all captured logs"
+  },
+  "httpLogsClear": "Clear",
+  "@httpLogsClear": {
+    "description": "Tooltip for the action that clears the captured logs"
+  },
+  "httpLogsCopied": "Logs copied to clipboard",
+  "@httpLogsCopied": {
+    "description": "Snackbar shown after copying logs to the clipboard"
   }
 }

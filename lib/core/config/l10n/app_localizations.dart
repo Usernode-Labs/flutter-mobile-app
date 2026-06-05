@@ -3729,6 +3729,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Camera permission denied. Enable it in Settings to scan QR codes.'**
   String get walletScanCameraPermissionDenied;
+
+  /// Diagnostics toggle that enables in-memory HTTP request logging
+  ///
+  /// In en, this message translates to:
+  /// **'Debug Mode'**
+  String get settingsDebugMode;
+
+  /// Subtitle for the debug mode toggle when enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Capturing HTTP requests to memory'**
+  String get settingsDebugModeEnabled;
+
+  /// Subtitle for the debug mode toggle when disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Off · no network logging'**
+  String get settingsDebugModeDisabled;
+
+  /// Diagnostics tile that opens the captured HTTP request log viewer
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP Logs'**
+  String get settingsHttpLogs;
+
+  /// Subtitle for the HTTP logs tile
+  ///
+  /// In en, this message translates to:
+  /// **'View captured network requests'**
+  String get settingsHttpLogsSubtitle;
+
+  /// App bar title of the HTTP debug log viewer
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP Logs'**
+  String get httpLogsTitle;
+
+  /// Empty state shown when the HTTP log buffer has no entries
+  ///
+  /// In en, this message translates to:
+  /// **'No requests captured yet. Trigger some network activity to see logs here.'**
+  String get httpLogsEmpty;
+
+  /// Tooltip for the action that copies all captured logs
+  ///
+  /// In en, this message translates to:
+  /// **'Copy all'**
+  String get httpLogsCopy;
+
+  /// Tooltip for the action that clears the captured logs
+  ///
+  /// In en, this message translates to:
+  /// **'Clear'**
+  String get httpLogsClear;
+
+  /// Snackbar shown after copying logs to the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Logs copied to clipboard'**
+  String get httpLogsCopied;
 }
 
 class _AppLocalizationsDelegate

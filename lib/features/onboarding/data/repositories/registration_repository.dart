@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -25,7 +26,7 @@ class RegistrationRepository {
     http.Client? httpClient,
     bool? writesEnabled,
   })  : _endpoint = endpoint ?? AppConfig.registrationEndpoint,
-        _http = httpClient ?? http.Client(),
+        _http = httpClient ?? createAppHttpClient(),
         _writesEnabled = writesEnabled ?? !AppConfig.viewOnly;
 
   final String _endpoint;

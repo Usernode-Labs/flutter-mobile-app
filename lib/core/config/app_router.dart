@@ -32,6 +32,7 @@ import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.d
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_run_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/http_debug_logs_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/scan_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
@@ -86,6 +87,7 @@ class AppRoutes {
   static const deviceBenchmarkRun = '/settings/device-benchmark/run';
   static const deviceBenchmarkResultDetail =
       '/settings/device-benchmark/result';
+  static const httpDebugLogs = '/settings/http-debug-logs';
 
   static String dappDetailFor(String slug) => '/dapps/$slug';
 
@@ -273,6 +275,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as DeviceBenchmarkResultDetailArgs;
           return DeviceBenchmarkResultDetailScreen(args: extra);
         },
+      ),
+      GoRoute(
+        path: AppRoutes.httpDebugLogs,
+        builder: (context, state) => const HttpDebugLogsScreen(),
       ),
       GoRoute(
         path: AppRoutes.walletBurst,

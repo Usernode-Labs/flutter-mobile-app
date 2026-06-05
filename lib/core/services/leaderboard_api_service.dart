@@ -6,6 +6,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
@@ -19,7 +20,7 @@ class LeaderboardApiService {
     http.Client? httpClient,
     bool? writesEnabled,
   })  : _baseUrl = baseUrl ?? AppConfig.leaderboardApiBaseUrl,
-        _http = httpClient ?? http.Client(),
+        _http = httpClient ?? createAppHttpClient(),
         _writesEnabled = writesEnabled ?? !AppConfig.viewOnly;
 
   final String _baseUrl;

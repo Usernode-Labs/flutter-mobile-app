@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -246,7 +247,7 @@ class ZkPassportSessionServerRepository {
     http.Client? httpClient,
     bool? writesEnabled,
   })  : _baseUrl = _normalizeBaseUrl(baseUrl),
-        _http = httpClient ?? http.Client(),
+        _http = httpClient ?? createAppHttpClient(),
         _writesEnabled = writesEnabled ?? !AppConfig.viewOnly;
 
   final String _baseUrl;

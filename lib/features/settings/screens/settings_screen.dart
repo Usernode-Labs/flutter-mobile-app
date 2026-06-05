@@ -460,6 +460,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final l10n = AppLocalizations.of(context);
 
     final themeMode = ref.watch(themeModeProvider);
+    final debugModeEnabled = ref.watch(debugModeProvider);
     final zkSettings = ref.watch(zkPassportSettingsProvider);
     final perfState = ref.watch(perfBenchmarkProvider);
     final facematchStrict =
@@ -510,6 +511,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ? AppRoutes.deviceBenchmarkRun
                       : AppRoutes.deviceBenchmark,
                 ),
+                debugModeEnabled: debugModeEnabled,
+                onDebugModeChanged: (value) =>
+                    ref.read(debugModeProvider.notifier).set(value),
+                onHttpLogsTap: () => context.push(AppRoutes.httpDebugLogs),
               ),
 
               SizedBox(height: spacing.space24),

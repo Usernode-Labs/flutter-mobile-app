@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/providers/log_share_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -20,6 +22,15 @@ class HttpDebugLogsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.watch(httpDebugLogStoreProvider);
     final l10n = AppLocalizations.of(context);
+
+    // Surface a one-off message when the backend asks us to stop sharing.
+    ref.listen(logShareControllerProvider, (prev, next) {
+      if (next.stoppedByServer && prev?.stoppedByServer != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.httpLogsShareStopped)),
+        );
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -60,6 +71,72 @@ class HttpDebugLogsScreen extends ConsumerWidget {
             );
           },
         ),
+      ),
+      bottomNavigationBar: const _ShareLogsBar(),
+    );
+  }
+}
+
+/// Bottom action bar that toggles periodic log sharing with the team.
+///
+/// Disabled until a participant ID exists. While active it shows a caption and
+/// a stop button; the backend can also end the session (see [LogShareState]),
+/// after which this returns to the idle "share" affordance.
+class _ShareLogsBar extends ConsumerWidget {
+  const _ShareLogsBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    final l10n = AppLocalizations.of(context);
+
+    final shareState = ref.watch(logShareControllerProvider);
+    final participantId = ref.watch(participantIdProvider).valueOrNull;
+    final controller = ref.read(logShareControllerProvider.notifier);
+
+    final Widget child;
+    if (shareState.isSharing) {
+      child = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            l10n.httpLogsSharing,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: spacing.space8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Symbols.stop_circle_sharp),
+              label: Text(l10n.httpLogsStopSharing),
+              onPressed: controller.stop,
+            ),
+          ),
+        ],
+      );
+    } else {
+      final canShare = participantId != null;
+      child = Tooltip(
+        message: canShare ? '' : l10n.httpLogsShareNoParticipant,
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            icon: const Icon(Symbols.upload_sharp),
+            label: Text(l10n.httpLogsShare),
+            onPressed: canShare ? () => controller.start(participantId) : null,
+          ),
+        ),
+      );
+    }
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.all(spacing.space16),
+        child: child,
       ),
     );
   }

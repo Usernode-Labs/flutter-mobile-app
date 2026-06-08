@@ -3789,6 +3789,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Logs copied to clipboard'**
   String get httpLogsCopied;
+
+  /// Button that starts sending captured logs to the backend
+  ///
+  /// In en, this message translates to:
+  /// **'Share the logs with the team'**
+  String get httpLogsShare;
+
+  /// Caption shown while logs are being shared periodically
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing logs with the team every 30s…'**
+  String get httpLogsSharing;
+
+  /// Button that stops the periodic log sharing session
+  ///
+  /// In en, this message translates to:
+  /// **'Stop sharing'**
+  String get httpLogsStopSharing;
+
+  /// Snackbar shown when the backend asked the app to stop sharing logs
+  ///
+  /// In en, this message translates to:
+  /// **'The server stopped log sharing. You can share again anytime.'**
+  String get httpLogsShareStopped;
+
+  /// Disabled-share hint shown when no participant ID is available
+  ///
+  /// In en, this message translates to:
+  /// **'No participant ID yet — finish onboarding to share logs'**
+  String get httpLogsShareNoParticipant;
 }
 
 class _AppLocalizationsDelegate

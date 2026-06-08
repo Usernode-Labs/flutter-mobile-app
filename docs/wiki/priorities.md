@@ -81,7 +81,7 @@ _Closed milestones move here with a brief retro paragraph. Empty until M1 closes
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-05-25._
+_Last synced: 2026-06-08._
 
 ## Slice
 
@@ -91,16 +91,15 @@ _No open milestones. Create GitHub Milestones (`M1`, `M2`, …) and tag slice is
 
 | Initiative | Open issues with no milestone |
 |---|---|
-| bg-node | 19 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Abg-node+no%3Amilestone)) |
-| app-stores | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Aapp-stores+no%3Amilestone)) |
-| zk-identity | 4 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Azk-identity+no%3Amilestone)) |
-| fair-rewards | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Afair-rewards+no%3Amilestone)) |
-| dapps | 0 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Adapps+no%3Amilestone)) |
-| block-explorer | 0 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Ablock-explorer+no%3Amilestone)) |
-| wallet | 2 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Awallet+no%3Amilestone)) |
-| bridge | 0 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Abridge+no%3Amilestone)) |
-| dex | 0 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Adex+no%3Amilestone)) |
-| dx | 5 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Adx+no%3Amilestone)) |
-| leaderboard | 2 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen+is%3Aissue+label%3Ainit%3Aleaderboard+no%3Amilestone)) |
-
+| bg-node | 20 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Abg-node%20no%3Amilestone)) |
+| app-stores | 2 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Aapp-stores%20no%3Amilestone)) |
+| zk-identity | 5 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Azk-identity%20no%3Amilestone)) |
+| fair-rewards | 2 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Afair-rewards%20no%3Amilestone)) |
+| dapps | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Adapps%20no%3Amilestone)) |
+| block-explorer | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Ablock-explorer%20no%3Amilestone)) |
+| wallet | 3 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Awallet%20no%3Amilestone)) |
+| bridge | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Abridge%20no%3Amilestone)) |
+| dex | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Adex%20no%3Amilestone)) |
+| dx | 6 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Adx%20no%3Amilestone)) |
+| leaderboard | 4 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Aleaderboard%20no%3Amilestone)) |
 <!-- auto:end -->

@@ -2,31 +2,25 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-05-25 (tracker #383)_
+_Last synced: 2026-06-08 ([tracker #383](https://github.com/Usernode-Labs/flutter-mobile-app/issues/383))_
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| Idea | ⏳ LATER |
-| Demo | — |
-| Core Testnet | — |
+| Idea | ⊘ SKIPPED |
+| Demo | ⊘ SKIPPED |
+| Core Testnet | ✅ DONE |
 | Pilot Testnet | — |
 | Mainnet | — |
 
 ## Active work
 
-_None._
-
-### Recent activity (30d)
-
-- [#397](https://github.com/Usernode-Labs/flutter-mobile-app/pull/397) change default explorer to alpha1 instead of alpha2
-- [#407](https://github.com/Usernode-Labs/flutter-mobile-app/pull/407) fix(explorer): migrate defaults from alpha1 to testnet-explorer
+_No active issues or pull requests._
 
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
-
 <!-- auto:end -->
 
 ## Overview

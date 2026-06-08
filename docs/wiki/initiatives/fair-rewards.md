@@ -2,13 +2,13 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-05-25 (tracker #381)_
+_Last synced: 2026-06-08 ([tracker #381](https://github.com/Usernode-Labs/flutter-mobile-app/issues/381))_
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| Idea | 🔄 NOW |
+| Idea | ⏳ LATER |
 | Demo | — |
 | Core Testnet | — |
 | Pilot Testnet | — |
@@ -20,17 +20,12 @@ _Last synced: 2026-05-25 (tracker #381)_
 
 - [#354](https://github.com/Usernode-Labs/flutter-mobile-app/issues/354) Simplify challenge categorization — remove enabled/completed theatre
 
-### Recent activity (30d)
-
-- [#411](https://github.com/Usernode-Labs/flutter-mobile-app/pull/411) fix(challenges): render CTA button on challenge detail page
-
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
 - #362 Challenge Properties Reference
 - #421 Challenge CTAs: option to open the app, not just a webview
 - Usernode-Labs/usernode#799 Incentive placement: L1-baked vs Foundation-distributed
-
 <!-- auto:end -->
 
 ## Overview

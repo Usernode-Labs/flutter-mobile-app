@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-05-25 (tracker #382)_
+_Last synced: 2026-06-08 ([tracker #382](https://github.com/Usernode-Labs/flutter-mobile-app/issues/382))_
 
 ## Phase status
 
@@ -10,24 +10,21 @@ _Last synced: 2026-05-25 (tracker #382)_
 |---|---|
 | Idea | ✅ DONE |
 | Demo | ✅ DONE |
-| Core Testnet | ⏳ LATER |
+| Core Testnet | 🔄 NOW |
 | Pilot Testnet | — |
 | Mainnet | — |
 
 ## Active work
 
-_None._
+_No active issues or pull requests._
 
-### Recent activity (30d)
+## Recent activity (30d)
 
 - [#425](https://github.com/Usernode-Labs/flutter-mobile-app/pull/425) [codex] Remove dApps coming soon gate
-- [#398](https://github.com/Usernode-Labs/flutter-mobile-app/pull/398) add env toggle for enabling dapps
-- [#406](https://github.com/Usernode-Labs/flutter-mobile-app/pull/406) add tracking of dapp-reported last mile transaction times
 
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
-
 <!-- auto:end -->
 
 ## Overview

@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-05-25 (tracker #378)_
+_Last synced: 2026-06-08 ([tracker #378](https://github.com/Usernode-Labs/flutter-mobile-app/issues/378))_
 
 ## Phase status
 
@@ -19,7 +19,7 @@ _Last synced: 2026-05-25 (tracker #378)_
 ### Issues
 
 - [#67](https://github.com/Usernode-Labs/flutter-mobile-app/issues/67) Configure Node In Mobile App With Custom Account Keys
-- [#300](https://github.com/Usernode-Labs/flutter-mobile-app/issues/300) ANR: WalletProvider parses 6,980+ UTXOs on main thread _(also under init:wallet)_
+- [#300](https://github.com/Usernode-Labs/flutter-mobile-app/issues/300) ANR: WalletProvider parses 6,980+ UTXOs on main thread
 - [#309](https://github.com/Usernode-Labs/flutter-mobile-app/issues/309) fix(android): prevent ANR by skipping VRF poll in foreground
 - [#322](https://github.com/Usernode-Labs/flutter-mobile-app/issues/322) Block datetimes not refreshing — upcoming blocks show times in the past
 - [#325](https://github.com/Usernode-Labs/flutter-mobile-app/issues/325) Timezone mismatch: earned/scheduled blocks show wrong timezone vs produced blocks
@@ -42,20 +42,10 @@ _Last synced: 2026-05-25 (tracker #378)_
 
 - [#355](https://github.com/Usernode-Labs/flutter-mobile-app/pull/355) Use systemExempted foreground service instead of dataSync when possible
 
-### Recent activity (30d)
-
-- [#392](https://github.com/Usernode-Labs/flutter-mobile-app/pull/392) Fix background block production breaking when system clock drift is large enough
-- [#393](https://github.com/Usernode-Labs/flutter-mobile-app/pull/393) Sleep always-on app setups on inactivity
-- [#394](https://github.com/Usernode-Labs/flutter-mobile-app/pull/394) Enable sleep on inactive by default
-- [#401](https://github.com/Usernode-Labs/flutter-mobile-app/pull/401) Fix manual wakeup for sleep on inactive feature not working
-- [#403](https://github.com/Usernode-Labs/flutter-mobile-app/pull/403) Increase idle timeout for sleep on inactive from 20s to 5m
-- [#396](https://github.com/Usernode-Labs/flutter-mobile-app/pull/396) Fix sleep on inactive race condition
-
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
 - #426 Mobile BG block production: consolidate decision-making into a single state machine
-
 <!-- auto:end -->
 
 ## Overview

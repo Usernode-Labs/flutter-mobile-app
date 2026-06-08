@@ -2,15 +2,15 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-05-25 (tracker #387)_
+_Last synced: 2026-06-08 ([tracker #387](https://github.com/Usernode-Labs/flutter-mobile-app/issues/387))_
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| Idea | 🔄 NOW |
-| Demo | 🔄 NOW |
-| Core Testnet | 🔄 NOW |
+| Idea | ⏳ LATER |
+| Demo | — |
+| Core Testnet | — |
 | Pilot Testnet | — |
 | Mainnet | — |
 
@@ -27,14 +27,13 @@ _Last synced: 2026-05-25 (tracker #387)_
 ### Pull requests
 
 - [#371](https://github.com/Usernode-Labs/flutter-mobile-app/pull/371) DS Evolution: DESIGN.md + Widgetbook v4 + ds_lints + Marionette MCP
-- [#390](https://github.com/Usernode-Labs/flutter-mobile-app/pull/390) docs: seed Mainnet Maturity Matrix wiki
+- [#390](https://github.com/Usernode-Labs/flutter-mobile-app/pull/390) docs: Mainnet Maturity Matrix wiki — pages + priorities + idea pattern
 
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
 - #368 DS Evolution Gap Analysis
 - #367 Harness Engineering Gap
-
 <!-- auto:end -->
 
 ## Overview

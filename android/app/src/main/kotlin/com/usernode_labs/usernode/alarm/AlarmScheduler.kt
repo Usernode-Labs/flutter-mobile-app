@@ -159,6 +159,28 @@ class AlarmScheduler(
         }
     }
 
+    fun hasScheduledAlarm(alarmId: String): Boolean {
+        return try {
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = "com.usernode.app.SLOT_ALARM"
+            }
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                alarmId.hashCode(),
+                intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val exists = pendingIntent != null
+            Log.d(TAG, "[AlarmScheduler] PendingIntent exists for $alarmId: $exists")
+            exists
+        } catch (e: Exception) {
+            Log.e(TAG, "[AlarmScheduler] Error checking alarm existence for $alarmId", e)
+            false
+        }
+    }
+
     private fun saveScheduledAlarm(alarmId: String, slotNumber: Int) {
         val alarms = getScheduledAlarms().toMutableMap()
         alarms[alarmId] = slotNumber

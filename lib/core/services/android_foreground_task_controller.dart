@@ -24,6 +24,7 @@ class AndroidForegroundTaskController {
   static const Duration _pollInterval = Duration(seconds: 30);
   static const Duration _alarmLead = Duration(minutes: 1);
   static const Duration _alarmEventDedupWindow = Duration(seconds: 10);
+  static const foregroundResumeAlarmId = 'fg_resume';
 
   Timer? _pollTimer;
   bool _initialized = false;
@@ -376,19 +377,41 @@ class AndroidForegroundTaskController {
     int? targetGlobalSlot,
     int? targetSlotTimeMs,
   }) async {
+    await scheduleResumeAlarm(
+      rustWakeTimeMs: rustWakeTimeMs,
+      reason: reason,
+      targetGlobalSlot: targetGlobalSlot,
+      targetSlotTimeMs: targetSlotTimeMs,
+      stopMonitoringAfterSchedule: true,
+    );
+  }
+
+  Future<ForegroundResumeAlarmScheduleResult> scheduleResumeAlarm({
+    required int rustWakeTimeMs,
+    required String reason,
+    int? targetGlobalSlot,
+    int? targetSlotTimeMs,
+    bool stopMonitoringAfterSchedule = false,
+  }) async {
     if (await _shouldHoldForOtherProducerBlock()) {
       final height = _awaitingOtherProducerState?.height;
       _log.info(
         'Keeping wakelock: waiting for another producer block after height ${height ?? 'unknown'}',
       );
-      return;
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'holding_for_other_producer_block',
+      );
     }
 
     final clockDriftMs =
         await RustBackendService.instance.resolveNodeClockDriftMs();
     if (clockDriftMs == null) {
       _log.warn('Skipping resume alarm: node clock drift unavailable');
-      return;
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'clock_drift_unavailable',
+      );
     }
     final localWakeTimeMs =
         RustBackendService.instance.localTimeMsFromRustTimeMs(
@@ -398,7 +421,7 @@ class AndroidForegroundTaskController {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final delayMs = localWakeTimeMs - nowMs;
     final success = await PlatformAlarmService.instance.scheduleAlarm(
-      alarmId: 'fg_resume',
+      alarmId: foregroundResumeAlarmId,
       delayMs: delayMs,
       slotNumber: 0,
       data: {
@@ -419,7 +442,17 @@ class AndroidForegroundTaskController {
       '(success=$success, rustWakeTimeMs=$rustWakeTimeMs, '
       'clockDriftMs=$clockDriftMs)',
     );
-    await stopMonitoring(reason: reason);
+    if (stopMonitoringAfterSchedule) {
+      await stopMonitoring(reason: reason);
+    }
+
+    return ForegroundResumeAlarmScheduleResult(
+      success: success,
+      alarmTimeMs: localWakeTimeMs,
+      delayMs: delayMs,
+      clockDriftMs: clockDriftMs,
+      failureReason: success ? null : 'platform_schedule_failed',
+    );
   }
 
   RpcEpochWonSlot? _nextWonSlot(List<RpcEpochWonSlot> slots, int rustNowMs) {
@@ -502,7 +535,7 @@ class AndroidForegroundTaskController {
     }
 
     final alarmId = data['alarmId'] as String? ?? '';
-    if (alarmId == 'fg_resume') {
+    if (alarmId == foregroundResumeAlarmId) {
       final alarmKey = _alarmEventKey(data);
       unawaited(
         handleAlarmFire(
@@ -558,6 +591,22 @@ class AndroidForegroundTaskController {
       ),
     );
   }
+}
+
+class ForegroundResumeAlarmScheduleResult {
+  const ForegroundResumeAlarmScheduleResult({
+    required this.success,
+    this.alarmTimeMs,
+    this.delayMs,
+    this.clockDriftMs,
+    this.failureReason,
+  });
+
+  final bool success;
+  final int? alarmTimeMs;
+  final int? delayMs;
+  final int? clockDriftMs;
+  final String? failureReason;
 }
 
 // Foreground service lifecycle is handled natively via PlatformAlarmService.

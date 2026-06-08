@@ -1,0 +1,978 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/widgets.dart';
+
+import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
+
+final _log = LoggingService.instance.withTag('usernode/AlarmAudit');
+
+typedef AlarmAuditScheduleAlarm = Future<bool> Function({
+  required String alarmId,
+  required int slotNumber,
+  required int delayMs,
+  Map<String, dynamic>? data,
+});
+
+typedef AlarmAuditScheduleForegroundResume
+    = Future<ForegroundResumeAlarmScheduleResult> Function({
+  required int rustWakeTimeMs,
+  required String schedulerReason,
+  required int globalSlot,
+  required int slotTimeMs,
+});
+
+typedef AlarmAuditRecoveryRetryScheduler = void Function(
+  Duration delay,
+  void Function() callback,
+);
+
+class BlockProductionAlarmAuditService {
+  BlockProductionAlarmAuditService._({
+    Future<bool> Function()? initializeAlarmService,
+    Future<bool> Function()? refreshPermissions,
+    Future<bool> Function()? hasExactAlarmPermission,
+    Future<bool> Function(String alarmId)? hasScheduledAlarm,
+    AlarmAuditScheduleAlarm? scheduleAlarm,
+    AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
+    Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
+    Future<int?> Function()? resolveClockDriftMs,
+    Future<bool> Function()? ensureNodeRunning,
+    bool Function()? isNodeRunning,
+    Future<bool> Function()? wasForceStoppedOnStartup,
+    int Function()? nowMs,
+    int Function(int rustTimeMs, int clockDriftMs)? rustToLocalTimeMs,
+    bool Function()? isAndroid,
+    String Function()? appState,
+    String Function()? platformVersion,
+    ObservabilityReportingService? observability,
+    Duration? slotWakeLead,
+    Duration? foregroundResumeLead,
+    List<Duration>? recoveryRetryDelays,
+    AlarmAuditRecoveryRetryScheduler? scheduleRecoveryRetry,
+  })  : _initializeAlarmService =
+            initializeAlarmService ?? PlatformAlarmService.instance.initialize,
+        _refreshPermissions = refreshPermissions ??
+            PlatformAlarmService.instance.refreshPermissions,
+        _hasExactAlarmPermission = hasExactAlarmPermission ??
+            PlatformAlarmService.instance.hasExactAlarmPermission,
+        _hasScheduledAlarm = hasScheduledAlarm ??
+            PlatformAlarmService.instance.hasScheduledAlarm,
+        _scheduleAlarm =
+            scheduleAlarm ?? PlatformAlarmService.instance.scheduleAlarm,
+        _scheduleForegroundResume =
+            scheduleForegroundResume ?? _scheduleDefaultForegroundResume,
+        _loadEpochSnapshot = loadEpochSnapshot ?? _loadDefaultEpochSnapshot,
+        _resolveClockDriftMs = resolveClockDriftMs ??
+            RustBackendService.instance.resolveNodeClockDriftMs,
+        _ensureNodeRunning = ensureNodeRunning ?? _ensureDefaultNodeRunning,
+        _isNodeRunning =
+            isNodeRunning ?? (() => RustBackendService.instance.isRunning),
+        _wasForceStoppedOnStartup = wasForceStoppedOnStartup ??
+            PlatformAlarmService.instance.wasForceStoppedOnStartup,
+        _nowMs = nowMs ?? (() => DateTime.now().millisecondsSinceEpoch),
+        _rustToLocalTimeMs = rustToLocalTimeMs ??
+            ((rustTimeMs, clockDriftMs) =>
+                RustBackendService.instance.localTimeMsFromRustTimeMs(
+                  rustTimeMs,
+                  clockDriftMs: clockDriftMs,
+                )),
+        _isAndroid = isAndroid ?? (() => Platform.isAndroid),
+        _appState = appState ?? _defaultAppState,
+        _platformVersion =
+            platformVersion ?? (() => Platform.operatingSystemVersion),
+        _observability =
+            observability ?? ObservabilityReportingService.instance,
+        _slotWakeLead = slotWakeLead ?? AppConfig.blockProductionWakeBeforeSlot,
+        _foregroundResumeLead =
+            foregroundResumeLead ?? const Duration(minutes: 1),
+        _recoveryRetryDelays = recoveryRetryDelays ??
+            const [
+              Duration(seconds: 5),
+              Duration(seconds: 15),
+              Duration(seconds: 30),
+              Duration(seconds: 60),
+            ],
+        _scheduleRecoveryRetry = scheduleRecoveryRetry ??
+            ((delay, callback) => Timer(delay, callback));
+
+  @visibleForTesting
+  BlockProductionAlarmAuditService.test({
+    Future<bool> Function()? initializeAlarmService,
+    Future<bool> Function()? refreshPermissions,
+    Future<bool> Function()? hasExactAlarmPermission,
+    Future<bool> Function(String alarmId)? hasScheduledAlarm,
+    AlarmAuditScheduleAlarm? scheduleAlarm,
+    AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
+    Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
+    Future<int?> Function()? resolveClockDriftMs,
+    Future<bool> Function()? ensureNodeRunning,
+    bool Function()? isNodeRunning,
+    Future<bool> Function()? wasForceStoppedOnStartup,
+    int Function()? nowMs,
+    int Function(int rustTimeMs, int clockDriftMs)? rustToLocalTimeMs,
+    bool Function()? isAndroid,
+    String Function()? appState,
+    String Function()? platformVersion,
+    required ObservabilityReportingService observability,
+    Duration? slotWakeLead,
+    Duration? foregroundResumeLead,
+    List<Duration>? recoveryRetryDelays,
+    AlarmAuditRecoveryRetryScheduler? scheduleRecoveryRetry,
+  }) : this._(
+          initializeAlarmService: initializeAlarmService,
+          refreshPermissions: refreshPermissions,
+          hasExactAlarmPermission: hasExactAlarmPermission,
+          hasScheduledAlarm: hasScheduledAlarm,
+          scheduleAlarm: scheduleAlarm,
+          scheduleForegroundResume: scheduleForegroundResume,
+          loadEpochSnapshot: loadEpochSnapshot,
+          resolveClockDriftMs: resolveClockDriftMs,
+          ensureNodeRunning: ensureNodeRunning,
+          isNodeRunning: isNodeRunning,
+          wasForceStoppedOnStartup: wasForceStoppedOnStartup,
+          nowMs: nowMs,
+          rustToLocalTimeMs: rustToLocalTimeMs,
+          isAndroid: isAndroid,
+          appState: appState,
+          platformVersion: platformVersion,
+          observability: observability,
+          slotWakeLead: slotWakeLead,
+          foregroundResumeLead: foregroundResumeLead,
+          recoveryRetryDelays: recoveryRetryDelays,
+          scheduleRecoveryRetry: scheduleRecoveryRetry,
+        );
+
+  static final BlockProductionAlarmAuditService instance =
+      BlockProductionAlarmAuditService._();
+
+  final Future<bool> Function() _initializeAlarmService;
+  final Future<bool> Function() _refreshPermissions;
+  final Future<bool> Function() _hasExactAlarmPermission;
+  final Future<bool> Function(String alarmId) _hasScheduledAlarm;
+  final AlarmAuditScheduleAlarm _scheduleAlarm;
+  final AlarmAuditScheduleForegroundResume _scheduleForegroundResume;
+  final Future<AlarmAuditEpochSnapshot?> Function() _loadEpochSnapshot;
+  final Future<int?> Function() _resolveClockDriftMs;
+  final Future<bool> Function() _ensureNodeRunning;
+  final bool Function() _isNodeRunning;
+  final Future<bool> Function() _wasForceStoppedOnStartup;
+  final int Function() _nowMs;
+  final int Function(int rustTimeMs, int clockDriftMs) _rustToLocalTimeMs;
+  final bool Function() _isAndroid;
+  final String Function() _appState;
+  final String Function() _platformVersion;
+  final ObservabilityReportingService _observability;
+  final Duration _slotWakeLead;
+  final Duration _foregroundResumeLead;
+  final List<Duration> _recoveryRetryDelays;
+  final AlarmAuditRecoveryRetryScheduler _scheduleRecoveryRetry;
+
+  Future<AlarmAuditResult>? _inFlight;
+  bool _forceStopChecked = false;
+  String? _pendingRecoveryReason;
+  var _recoveryRetryAttempt = 0;
+  var _recoveryRetryGeneration = 0;
+
+  void auditBestEffort({required String reason}) {
+    _auditBestEffort(reason: reason);
+  }
+
+  Future<bool> auditForceStopRecoveryIfNeeded() async {
+    if (_forceStopChecked || !_isAndroid()) {
+      return false;
+    }
+
+    _forceStopChecked = true;
+    final detected = await _wasForceStoppedOnStartup();
+    if (!detected) {
+      return false;
+    }
+
+    _report(
+      'app_restarted_after_force_stop',
+      {
+        'platform_version': _platformVersion(),
+        'app_state': _appState(),
+      },
+    );
+    _auditBestEffort(
+      reason: 'force_stop_recovery',
+      retryTransientRecovery: true,
+    );
+    return true;
+  }
+
+  void handleNativeEvent(String eventType, Map<String, dynamic> eventData) {
+    switch (eventType) {
+      case 'android_alarm_recovery_requested':
+        final reason = _stringValue(eventData['reason']) ?? 'native_recovery';
+        _log.warn('Alarm audit received native recovery request', context: {
+          'reason': reason,
+          ...eventData,
+        });
+        _auditBestEffort(reason: reason, retryTransientRecovery: true);
+        break;
+      case 'android_exact_alarm_permission_granted':
+        final stateChanged = eventData['stateChanged'] == true;
+        final source = _stringValue(eventData['source']);
+        if (stateChanged || source == 'permission_state_changed_broadcast') {
+          _auditBestEffort(
+            reason: 'exact_alarm_permission_granted',
+            retryTransientRecovery: true,
+          );
+        }
+        break;
+    }
+  }
+
+  void _auditBestEffort({
+    required String reason,
+    bool retryTransientRecovery = false,
+  }) {
+    if (retryTransientRecovery) {
+      _pendingRecoveryReason = reason;
+    }
+
+    unawaited(
+      audit(reason: reason).then((result) {
+        if (retryTransientRecovery) {
+          _handleRecoveryAuditResult(reason: reason, result: result);
+        }
+      }),
+    );
+  }
+
+  void _handleRecoveryAuditResult({
+    required String reason,
+    required AlarmAuditResult result,
+  }) {
+    if (_pendingRecoveryReason != reason) {
+      return;
+    }
+
+    final skippedReason = result.skippedReason;
+    if (skippedReason == null || !_isTransientRecoverySkip(skippedReason)) {
+      _log.warn('Alarm recovery audit finished without retry', context: {
+        'reason': reason,
+        if (skippedReason != null) 'skipped_reason': skippedReason,
+        'expected_slot_wake_count': result.expectedSlotWakeCount,
+        'rescheduled_count': result.rescheduledCount,
+        'fg_resume_status': result.fgResumeStatus,
+      });
+      _clearPendingRecovery(reason);
+      return;
+    }
+
+    if (_recoveryRetryAttempt >= _recoveryRetryDelays.length) {
+      _log.warn('Alarm recovery audit retries exhausted', context: {
+        'reason': reason,
+        'skipped_reason': skippedReason,
+        'attempts': _recoveryRetryAttempt,
+      });
+      _clearPendingRecovery(reason);
+      return;
+    }
+
+    final delay = _recoveryRetryDelays[_recoveryRetryAttempt];
+    _recoveryRetryAttempt += 1;
+    final generation = ++_recoveryRetryGeneration;
+    _log.warn('Alarm recovery audit will retry after transient skip', context: {
+      'reason': reason,
+      'skipped_reason': skippedReason,
+      'attempt': _recoveryRetryAttempt,
+      'delay_ms': delay.inMilliseconds,
+    });
+
+    _scheduleRecoveryRetry(delay, () {
+      if (_pendingRecoveryReason != reason ||
+          _recoveryRetryGeneration != generation) {
+        return;
+      }
+      _auditBestEffort(reason: reason, retryTransientRecovery: true);
+    });
+  }
+
+  void _clearPendingRecovery(String reason) {
+    if (_pendingRecoveryReason != reason) {
+      return;
+    }
+
+    _pendingRecoveryReason = null;
+    _recoveryRetryAttempt = 0;
+    _recoveryRetryGeneration += 1;
+  }
+
+  bool _isTransientRecoverySkip(String skippedReason) {
+    return skippedReason == 'node_not_running' ||
+        skippedReason == 'clock_drift_unavailable' ||
+        skippedReason == 'epoch_info_unavailable' ||
+        skippedReason == 'no_won_slots';
+  }
+
+  Future<AlarmAuditResult> audit({required String reason}) {
+    final active = _inFlight;
+    if (active != null) {
+      return active;
+    }
+
+    late final Future<AlarmAuditResult> future;
+    future = _runAudit(reason).whenComplete(() {
+      if (identical(_inFlight, future)) {
+        _inFlight = null;
+      }
+    });
+    _inFlight = future;
+    return future;
+  }
+
+  Future<AlarmAuditResult> _runAudit(String reason) async {
+    try {
+      if (!_isAndroid()) {
+        return _skip(reason, 'unsupported_platform');
+      }
+
+      await _initializeAlarmService();
+      await _refreshPermissions();
+
+      final exactAlarmPermission = await _hasExactAlarmPermission();
+      _reportStarted(
+        reason: reason,
+        exactAlarmPermission: exactAlarmPermission,
+      );
+
+      if (!exactAlarmPermission) {
+        return _skip(
+          reason,
+          'no_exact_alarm_permission',
+          fgResumeStatus: 'skipped:no_exact_alarm_permission',
+        );
+      }
+
+      final nodeRunning = await _ensureNodeRunning();
+      if (!nodeRunning) {
+        return _skip(
+          reason,
+          'node_not_running',
+          fgResumeStatus: 'skipped:node_not_running',
+        );
+      }
+
+      final clockDriftMs = await _resolveClockDriftMs();
+      if (clockDriftMs == null) {
+        return _skip(
+          reason,
+          'clock_drift_unavailable',
+          fgResumeStatus: 'skipped:clock_drift_unavailable',
+        );
+      }
+
+      final epoch = await _loadEpochSnapshot();
+      if (epoch == null) {
+        return _skip(
+          reason,
+          'epoch_info_unavailable',
+          fgResumeStatus: 'skipped:epoch_info_unavailable',
+        );
+      }
+
+      if (epoch.wonSlots.isEmpty) {
+        return _skip(
+          reason,
+          'no_won_slots',
+          fgResumeStatus: 'no_won_slots',
+        );
+      }
+
+      final built = _buildExpectedAlarms(
+        reason: reason,
+        epoch: epoch,
+        clockDriftMs: clockDriftMs,
+        nowMs: _nowMs(),
+      );
+      final counts = _AlarmAuditCounts()..tooLateCount = built.tooLateCount;
+
+      for (final alarm in built.futureSlotWakeAlarms) {
+        await _auditSlotWakeAlarm(
+          reason: reason,
+          alarm: alarm,
+          counts: counts,
+          clockDriftMs: clockDriftMs,
+        );
+      }
+
+      final fgResumeStatus = await _auditForegroundResume(
+        reason: reason,
+        epoch: epoch,
+        clockDriftMs: clockDriftMs,
+      );
+
+      _reportCompleted(
+        reason: reason,
+        expectedSlotWakeCount: built.futureSlotWakeAlarms.length,
+        counts: counts,
+        fgResumeStatus: fgResumeStatus,
+      );
+
+      return AlarmAuditResult(
+        reason: reason,
+        expectedSlotWakeCount: built.futureSlotWakeAlarms.length,
+        presentCount: counts.presentCount,
+        missingCount: counts.missingCount,
+        rescheduledCount: counts.rescheduledCount,
+        failedCount: counts.failedCount,
+        tooLateCount: counts.tooLateCount,
+        fgResumeStatus: fgResumeStatus,
+      );
+    } catch (e, st) {
+      _log.error('Alarm audit failed: $e', error: e, stackTrace: st);
+      return _skip(
+        reason,
+        'audit_exception',
+        failureReason: e.toString(),
+        fgResumeStatus: 'skipped:audit_exception',
+      );
+    }
+  }
+
+  _ExpectedAlarmBuildResult _buildExpectedAlarms({
+    required String reason,
+    required AlarmAuditEpochSnapshot epoch,
+    required int clockDriftMs,
+    required int nowMs,
+  }) {
+    final futureSlotWakeAlarms = <AlarmAuditExpectedAlarm>[];
+    var tooLateCount = 0;
+    final wakeLeadMs = _slotWakeLead.inMilliseconds;
+
+    final wonSlots = List<AlarmAuditWonSlot>.of(epoch.wonSlots)
+      ..sort((a, b) => a.expectedTimeMs.compareTo(b.expectedTimeMs));
+
+    for (final wonSlot in wonSlots) {
+      final slotTimeMs = _rustToLocalTimeMs(
+        wonSlot.expectedTimeMs,
+        clockDriftMs,
+      );
+      final alarmTimeMs = slotTimeMs - wakeLeadMs;
+      final alarm = AlarmAuditExpectedAlarm(
+        alarmId: 'slot_${wonSlot.globalSlot}',
+        purpose: 'slot_wake',
+        globalSlot: wonSlot.globalSlot,
+        epoch: epoch.epoch,
+        rustSlotTimeMs: wonSlot.expectedTimeMs,
+        slotTimeMs: slotTimeMs,
+        alarmTimeMs: alarmTimeMs,
+      );
+
+      if (alarmTimeMs <= nowMs) {
+        tooLateCount++;
+        _reportTooLate(
+          reason: reason,
+          alarm: alarm,
+          nowMs: nowMs,
+        );
+        continue;
+      }
+
+      futureSlotWakeAlarms.add(alarm);
+    }
+
+    return _ExpectedAlarmBuildResult(
+      futureSlotWakeAlarms: futureSlotWakeAlarms,
+      tooLateCount: tooLateCount,
+    );
+  }
+
+  Future<void> _auditSlotWakeAlarm({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required _AlarmAuditCounts counts,
+    required int clockDriftMs,
+  }) async {
+    final present = await _hasScheduledAlarm(alarm.alarmId);
+    if (present) {
+      counts.presentCount++;
+      _reportPresent(reason: reason, alarm: alarm);
+      return;
+    }
+
+    counts.missingCount++;
+    final nowMs = _nowMs();
+    final delayMs = alarm.alarmTimeMs - nowMs;
+    if (delayMs <= 0) {
+      counts.tooLateCount++;
+      _reportTooLate(reason: reason, alarm: alarm, nowMs: nowMs);
+      return;
+    }
+
+    final success = await _scheduleAlarm(
+      alarmId: alarm.alarmId,
+      slotNumber: alarm.globalSlot,
+      delayMs: delayMs,
+      data: {
+        'epoch': alarm.epoch,
+        'slotTime': DateTime.fromMillisecondsSinceEpoch(alarm.slotTimeMs)
+            .toIso8601String(),
+        'slotTimeMs': alarm.slotTimeMs,
+        'alarmTimeMs': alarm.alarmTimeMs,
+        'purpose': alarm.purpose,
+        'reason': 'alarm_audit:$reason',
+        'nodeRunning': _isNodeRunning(),
+        'rustWakeTimeMs': alarm.rustSlotTimeMs - _slotWakeLead.inMilliseconds,
+        'localWakeTimeMs': alarm.alarmTimeMs,
+        'clockDriftMs': clockDriftMs,
+      },
+    );
+
+    if (success) {
+      counts.rescheduledCount++;
+      _reportMissingRescheduled(
+        reason: reason,
+        alarm: alarm,
+        scheduleSuccess: true,
+      );
+      return;
+    }
+
+    counts.failedCount++;
+    _reportMissingRescheduleFailed(
+      reason: reason,
+      alarm: alarm,
+      failureReason: 'platform_schedule_failed',
+    );
+  }
+
+  Future<String> _auditForegroundResume({
+    required String reason,
+    required AlarmAuditEpochSnapshot epoch,
+    required int clockDriftMs,
+  }) async {
+    final nowMs = _nowMs();
+    final nextWonSlot = _nextFutureWonSlot(
+      epoch.wonSlots,
+      clockDriftMs: clockDriftMs,
+      nowMs: nowMs,
+    );
+    if (nextWonSlot == null) {
+      return 'no_future_won_slots';
+    }
+
+    final fgLeadMs = _foregroundResumeLead.inMilliseconds;
+    if (nextWonSlot.slotTimeMs - nowMs <= fgLeadMs) {
+      _report(
+        'foreground_resume_not_scheduled_slot_too_close',
+        {
+          'reason': reason,
+          'global_slot': nextWonSlot.globalSlot,
+          'slot_time_ms': nextWonSlot.slotTimeMs,
+          'now_ms': nowMs,
+        },
+      );
+      return 'slot_too_close';
+    }
+
+    final alarm = AlarmAuditExpectedAlarm(
+      alarmId: AndroidForegroundTaskController.foregroundResumeAlarmId,
+      purpose: 'foreground_resume',
+      globalSlot: nextWonSlot.globalSlot,
+      epoch: epoch.epoch,
+      rustSlotTimeMs: nextWonSlot.rustSlotTimeMs,
+      slotTimeMs: nextWonSlot.slotTimeMs,
+      alarmTimeMs: nextWonSlot.slotTimeMs - fgLeadMs,
+    );
+
+    final present = await _hasScheduledAlarm(alarm.alarmId);
+    if (present) {
+      _reportPresent(reason: reason, alarm: alarm);
+      _report(
+        'foreground_resume_present',
+        {
+          'reason': reason,
+          'global_slot': alarm.globalSlot,
+          'alarm_time_ms': alarm.alarmTimeMs,
+          'slot_time_ms': alarm.slotTimeMs,
+        },
+      );
+      return 'present';
+    }
+
+    final schedulerReason = 'next_won_slot:${alarm.globalSlot}';
+    final result = await _scheduleForegroundResume(
+      rustWakeTimeMs: alarm.rustSlotTimeMs - fgLeadMs,
+      schedulerReason: schedulerReason,
+      globalSlot: alarm.globalSlot,
+      slotTimeMs: alarm.slotTimeMs,
+    );
+    final scheduledAlarm = alarm.copyWith(
+      alarmTimeMs: result.alarmTimeMs ?? alarm.alarmTimeMs,
+    );
+
+    if (result.success) {
+      _reportMissingRescheduled(
+        reason: reason,
+        alarm: scheduledAlarm,
+        scheduleSuccess: true,
+      );
+      _report(
+        'foreground_resume_recreated',
+        {
+          'reason': reason,
+          'global_slot': scheduledAlarm.globalSlot,
+          'alarm_time_ms': scheduledAlarm.alarmTimeMs,
+          'slot_time_ms': scheduledAlarm.slotTimeMs,
+        },
+      );
+      return 'recreated';
+    }
+
+    _reportMissingRescheduleFailed(
+      reason: reason,
+      alarm: scheduledAlarm,
+      failureReason: result.failureReason ?? 'platform_schedule_failed',
+    );
+    return 'reschedule_failed';
+  }
+
+  _FutureWonSlot? _nextFutureWonSlot(
+    List<AlarmAuditWonSlot> slots, {
+    required int clockDriftMs,
+    required int nowMs,
+  }) {
+    final futureSlots = slots
+        .map((slot) {
+          final slotTimeMs = _rustToLocalTimeMs(
+            slot.expectedTimeMs,
+            clockDriftMs,
+          );
+          return _FutureWonSlot(
+            globalSlot: slot.globalSlot,
+            rustSlotTimeMs: slot.expectedTimeMs,
+            slotTimeMs: slotTimeMs,
+          );
+        })
+        .where((slot) => slot.slotTimeMs > nowMs)
+        .toList()
+      ..sort((a, b) => a.slotTimeMs.compareTo(b.slotTimeMs));
+
+    return futureSlots.isEmpty ? null : futureSlots.first;
+  }
+
+  void _reportStarted({
+    required String reason,
+    required bool exactAlarmPermission,
+  }) {
+    _report(
+      'alarm_audit_started',
+      {
+        'reason': reason,
+        'app_state': _appState(),
+        'platform_version': _platformVersion(),
+        'exact_alarm_permission': exactAlarmPermission,
+        'node_running': _isNodeRunning(),
+      },
+    );
+  }
+
+  AlarmAuditResult _skip(
+    String reason,
+    String skippedReason, {
+    String fgResumeStatus = 'skipped',
+    String? failureReason,
+  }) {
+    _log.info('Alarm audit skipped', context: {
+      'reason': reason,
+      'skipped_reason': skippedReason,
+      if (failureReason != null) 'failure_reason': failureReason,
+    });
+    _report(
+      'alarm_audit_skipped',
+      {
+        'reason': reason,
+        'skipped_reason': skippedReason,
+        if (failureReason != null) 'failure_reason': failureReason,
+      },
+    );
+    final counts = _AlarmAuditCounts();
+    _reportCompleted(
+      reason: reason,
+      expectedSlotWakeCount: 0,
+      counts: counts,
+      fgResumeStatus: fgResumeStatus,
+    );
+
+    return AlarmAuditResult(
+      reason: reason,
+      skippedReason: skippedReason,
+      expectedSlotWakeCount: 0,
+      presentCount: 0,
+      missingCount: 0,
+      rescheduledCount: 0,
+      failedCount: 0,
+      tooLateCount: 0,
+      fgResumeStatus: fgResumeStatus,
+    );
+  }
+
+  void _reportCompleted({
+    required String reason,
+    required int expectedSlotWakeCount,
+    required _AlarmAuditCounts counts,
+    required String fgResumeStatus,
+  }) {
+    _log.info('Alarm audit completed', context: {
+      'reason': reason,
+      'expected_slot_wake_count': expectedSlotWakeCount,
+      'present_count': counts.presentCount,
+      'missing_count': counts.missingCount,
+      'rescheduled_count': counts.rescheduledCount,
+      'failed_count': counts.failedCount,
+      'too_late_count': counts.tooLateCount,
+      'fg_resume_status': fgResumeStatus,
+    });
+    _report(
+      'alarm_audit_completed',
+      {
+        'reason': reason,
+        'expected_slot_wake_count': expectedSlotWakeCount,
+        'present_count': counts.presentCount,
+        'missing_count': counts.missingCount,
+        'rescheduled_count': counts.rescheduledCount,
+        'failed_count': counts.failedCount,
+        'too_late_count': counts.tooLateCount,
+        'fg_resume_status': fgResumeStatus,
+      },
+    );
+  }
+
+  void _reportPresent({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+  }) {
+    _report('alarm_audit_present', {
+      'reason': reason,
+      ...alarm.telemetryDetails,
+    });
+  }
+
+  void _reportMissingRescheduled({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required bool scheduleSuccess,
+  }) {
+    _report('alarm_audit_missing_rescheduled', {
+      'reason': reason,
+      ...alarm.telemetryDetails,
+      'schedule_success': scheduleSuccess,
+    });
+  }
+
+  void _reportMissingRescheduleFailed({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required String failureReason,
+  }) {
+    _report('alarm_audit_missing_reschedule_failed', {
+      'reason': reason,
+      ...alarm.telemetryDetails,
+      'failure_reason': failureReason,
+    });
+  }
+
+  void _reportTooLate({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required int nowMs,
+  }) {
+    _report('alarm_audit_missing_too_late', {
+      'reason': reason,
+      ...alarm.telemetryDetails,
+      'now_ms': nowMs,
+      'lateness_ms': nowMs - alarm.alarmTimeMs,
+    });
+  }
+
+  void _report(String event, Map<String, dynamic> details) {
+    _observability.reportBlockProductionAlarmAuditEvent(
+      event: event,
+      details: details,
+    );
+  }
+
+  static Future<AlarmAuditEpochSnapshot?> _loadDefaultEpochSnapshot() async {
+    final info = await RustBackendService.instance.getEpochInfo();
+    if (info == null) {
+      return null;
+    }
+
+    return AlarmAuditEpochSnapshot(
+      epoch: info.currentEpoch,
+      wonSlots: info.wonSlots
+          .map(
+            (slot) => AlarmAuditWonSlot(
+              globalSlot: slot.globalSlot,
+              expectedTimeMs: slot.expectedTimeMs.toInt(),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  static Future<bool> _ensureDefaultNodeRunning() async {
+    if (RustBackendService.instance.isRunning) {
+      return true;
+    }
+
+    return false;
+  }
+
+  static Future<ForegroundResumeAlarmScheduleResult>
+      _scheduleDefaultForegroundResume({
+    required int rustWakeTimeMs,
+    required String schedulerReason,
+    required int globalSlot,
+    required int slotTimeMs,
+  }) {
+    return AndroidForegroundTaskController.instance.scheduleResumeAlarm(
+      rustWakeTimeMs: rustWakeTimeMs,
+      reason: schedulerReason,
+      targetGlobalSlot: globalSlot,
+      targetSlotTimeMs: slotTimeMs,
+      stopMonitoringAfterSchedule: false,
+    );
+  }
+
+  static String _defaultAppState() {
+    try {
+      return WidgetsBinding.instance.lifecycleState?.name ?? 'unknown';
+    } catch (_) {
+      return 'unknown';
+    }
+  }
+
+  String? _stringValue(Object? value) {
+    return value is String && value.isNotEmpty ? value : null;
+  }
+}
+
+class AlarmAuditEpochSnapshot {
+  const AlarmAuditEpochSnapshot({
+    required this.epoch,
+    required this.wonSlots,
+  });
+
+  final int epoch;
+  final List<AlarmAuditWonSlot> wonSlots;
+}
+
+class AlarmAuditWonSlot {
+  const AlarmAuditWonSlot({
+    required this.globalSlot,
+    required this.expectedTimeMs,
+  });
+
+  final int globalSlot;
+  final int expectedTimeMs;
+}
+
+class AlarmAuditExpectedAlarm {
+  const AlarmAuditExpectedAlarm({
+    required this.alarmId,
+    required this.purpose,
+    required this.globalSlot,
+    required this.epoch,
+    required this.rustSlotTimeMs,
+    required this.slotTimeMs,
+    required this.alarmTimeMs,
+  });
+
+  final String alarmId;
+  final String purpose;
+  final int globalSlot;
+  final int epoch;
+  final int rustSlotTimeMs;
+  final int slotTimeMs;
+  final int alarmTimeMs;
+
+  Map<String, dynamic> get telemetryDetails => {
+        'alarm_id': alarmId,
+        'purpose': purpose,
+        'global_slot': globalSlot,
+        'alarm_time_ms': alarmTimeMs,
+        'slot_time_ms': slotTimeMs,
+      };
+
+  AlarmAuditExpectedAlarm copyWith({
+    int? alarmTimeMs,
+  }) {
+    return AlarmAuditExpectedAlarm(
+      alarmId: alarmId,
+      purpose: purpose,
+      globalSlot: globalSlot,
+      epoch: epoch,
+      rustSlotTimeMs: rustSlotTimeMs,
+      slotTimeMs: slotTimeMs,
+      alarmTimeMs: alarmTimeMs ?? this.alarmTimeMs,
+    );
+  }
+}
+
+class AlarmAuditResult {
+  const AlarmAuditResult({
+    required this.reason,
+    required this.expectedSlotWakeCount,
+    required this.presentCount,
+    required this.missingCount,
+    required this.rescheduledCount,
+    required this.failedCount,
+    required this.tooLateCount,
+    required this.fgResumeStatus,
+    this.skippedReason,
+  });
+
+  final String reason;
+  final String? skippedReason;
+  final int expectedSlotWakeCount;
+  final int presentCount;
+  final int missingCount;
+  final int rescheduledCount;
+  final int failedCount;
+  final int tooLateCount;
+  final String fgResumeStatus;
+}
+
+class _ExpectedAlarmBuildResult {
+  const _ExpectedAlarmBuildResult({
+    required this.futureSlotWakeAlarms,
+    required this.tooLateCount,
+  });
+
+  final List<AlarmAuditExpectedAlarm> futureSlotWakeAlarms;
+  final int tooLateCount;
+}
+
+class _AlarmAuditCounts {
+  _AlarmAuditCounts();
+
+  int presentCount = 0;
+  int missingCount = 0;
+  int rescheduledCount = 0;
+  int failedCount = 0;
+  int tooLateCount = 0;
+}
+
+class _FutureWonSlot {
+  const _FutureWonSlot({
+    required this.globalSlot,
+    required this.rustSlotTimeMs,
+    required this.slotTimeMs,
+  });
+
+  final int globalSlot;
+  final int rustSlotTimeMs;
+  final int slotTimeMs;
+}

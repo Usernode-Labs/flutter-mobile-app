@@ -302,6 +302,19 @@ class ObservabilityReportingService {
     );
   }
 
+  FlutterObservabilityRecordResult reportBlockProductionAlarmAuditEvent({
+    required String event,
+    Map<String, dynamic>? details,
+  }) {
+    return _recordStructured(
+      kind: FlutterObservabilityKind.event,
+      event: event,
+      details: details,
+      requireNodeInitialized: false,
+      retainUntilNodeInitialized: true,
+    );
+  }
+
   FlutterObservabilityRecordResult reportBlockProductionMonitoringStarted({
     required int globalSlot,
     required int monitoringStartedAtMs,

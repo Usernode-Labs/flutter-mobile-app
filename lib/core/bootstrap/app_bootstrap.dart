@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -12,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
@@ -70,10 +72,35 @@ class AppBootstrap {
     await PlatformAlarmService.instance.initialize();
     PlatformAlarmService.instance.setNativeEventCallback(
       (eventType, eventData) {
-        AppSleepService.instance.handleNativeEvent(eventType, eventData);
-        AndroidForegroundTaskController.instance.handleNativeEvent(
-          eventType,
-          eventData,
+        if (eventType == 'android_alarm_recovery_requested') {
+          log.warn(
+            'Native alarm recovery event delivered',
+            context: eventData,
+          );
+        }
+        _dispatchNativeEvent(
+          log: log,
+          handlerName: 'app_sleep',
+          eventType: eventType,
+          eventData: eventData,
+          handler: () =>
+              AppSleepService.instance.handleNativeEvent(eventType, eventData),
+        );
+        _dispatchNativeEvent(
+          log: log,
+          handlerName: 'android_foreground_task',
+          eventType: eventType,
+          eventData: eventData,
+          handler: () => AndroidForegroundTaskController.instance
+              .handleNativeEvent(eventType, eventData),
+        );
+        _dispatchNativeEvent(
+          log: log,
+          handlerName: 'alarm_audit',
+          eventType: eventType,
+          eventData: eventData,
+          handler: () => BlockProductionAlarmAuditService.instance
+              .handleNativeEvent(eventType, eventData),
         );
       },
     );
@@ -114,7 +141,12 @@ class AppBootstrap {
 
     if (registerLifecycleObserver) {
       AppLifecycleLogger.register();
-      AppLifecycleLogger.onForegroundResume = recoverZkSession;
+      AppLifecycleLogger.onForegroundResume = () {
+        recoverZkSession();
+        BlockProductionAlarmAuditService.instance.auditBestEffort(
+          reason: 'foreground_resume',
+        );
+      };
     }
 
     _bootstrapBackendAsync(
@@ -128,6 +160,29 @@ class AppBootstrap {
       hasAnyAccounts: hasAnyAccounts,
       activeAccountId: activeId,
     );
+  }
+
+  static void _dispatchNativeEvent({
+    required TaggedLogger log,
+    required String handlerName,
+    required String eventType,
+    required Map<String, dynamic> eventData,
+    required void Function() handler,
+  }) {
+    try {
+      handler();
+    } catch (e, st) {
+      log.warn(
+        'Native event handler failed',
+        context: {
+          'handler': handlerName,
+          'event_type': eventType,
+          'error': e,
+          ...eventData,
+        },
+      );
+      log.debug('$st');
+    }
   }
 
   static Future<void> _applyBootstrapIdentity({
@@ -289,12 +344,28 @@ class AppBootstrap {
       if (Platform.isAndroid) {
         log.info('Starting Android foreground VRF monitoring');
         await AndroidForegroundTaskController.instance.onNodeStarted();
+        unawaited(_runStartupAlarmAudit(log));
       }
 
       log.debug('Bootstrap end');
     } catch (e, st) {
       log.error('Bootstrap failed: $e', error: e, stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'bootstrap');
+    }
+  }
+
+  static Future<void> _runStartupAlarmAudit(TaggedLogger log) async {
+    try {
+      final forceStopRecovery = await BlockProductionAlarmAuditService.instance
+          .auditForceStopRecoveryIfNeeded();
+      if (!forceStopRecovery && RustBackendService.instance.isRunning) {
+        await BlockProductionAlarmAuditService.instance.audit(
+          reason: 'cold_start',
+        );
+      }
+    } catch (e, st) {
+      log.warn('Startup alarm audit failed: $e');
+      log.debug('$st');
     }
   }
 

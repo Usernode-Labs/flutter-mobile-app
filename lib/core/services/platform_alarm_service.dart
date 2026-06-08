@@ -280,6 +280,28 @@ class PlatformAlarmService {
   /// Check if necessary permissions are granted
   bool get hasPermissions => _permissionsGranted;
 
+  Future<bool> refreshPermissions() async {
+    if (!_initialized) {
+      _log.debug('Cannot refresh permissions: service not initialized');
+      return false;
+    }
+
+    if (Platform.isAndroid) {
+      final hasNotifications = await hasPostNotificationsPermission();
+      final hasExactAlarm = await hasExactAlarmPermission();
+      _permissionsGranted = hasNotifications && hasExactAlarm;
+      return _permissionsGranted;
+    }
+
+    if (Platform.isIOS) {
+      _permissionsGranted = true;
+      return true;
+    }
+
+    _permissionsGranted = false;
+    return false;
+  }
+
   /// Request platform-specific permissions
   ///
   /// Android: Opens system settings for exact alarm permission
@@ -408,6 +430,7 @@ class PlatformAlarmService {
       // Do not force notifications here; just update combined flag conservatively
       if (hasExact) {
         _log.info('Exact alarm permission granted');
+        await refreshPermissions();
       } else {
         _log.warn('Exact alarm permission still not granted');
       }
@@ -442,6 +465,44 @@ class PlatformAlarmService {
           false;
     } on PlatformException catch (e) {
       _log.error('Error checking exact alarm permission: ${e.message}');
+      return false;
+    }
+  }
+
+  Future<bool> hasScheduledAlarm(String alarmId) async {
+    if (!Platform.isAndroid) return false;
+    if (!_initialized) {
+      _log.debug('Cannot check scheduled alarm: service not initialized');
+      return false;
+    }
+
+    try {
+      return await _channel.invokeMethod<bool>(
+            'hasScheduledAlarm',
+            {'alarmId': alarmId},
+          ) ??
+          false;
+    } on PlatformException catch (e) {
+      _log.warn('Error checking scheduled alarm $alarmId: ${e.message}');
+      return false;
+    } catch (e) {
+      _log.warn('Error checking scheduled alarm $alarmId: $e');
+      return false;
+    }
+  }
+
+  Future<bool> wasForceStoppedOnStartup() async {
+    if (!Platform.isAndroid) return false;
+    if (!_initialized) return false;
+
+    try {
+      return await _channel.invokeMethod<bool>('wasForceStoppedOnStartup') ??
+          false;
+    } on PlatformException catch (e) {
+      _log.debug('Force-stop startup check unavailable: ${e.message}');
+      return false;
+    } catch (e) {
+      _log.debug('Force-stop startup check failed: $e');
       return false;
     }
   }

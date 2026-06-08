@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
+import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
@@ -210,6 +211,12 @@ Future<void> _startHeadlessServices(
 
     // Initialize backend lifecycle provider manually
     container.read(backendLifecycleProvider);
+
+    if (Platform.isAndroid) {
+      BlockProductionAlarmAuditService.instance.auditBestEffort(
+        reason: 'headless_start',
+      );
+    }
 
     log.info('Headless services started successfully');
   } catch (e, st) {

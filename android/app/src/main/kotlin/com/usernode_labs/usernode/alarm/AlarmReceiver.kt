@@ -1,5 +1,6 @@
 package com.usernode_labs.usernode.alarm
 
+import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -15,6 +16,8 @@ import com.usernode_labs.usernode.R
 class AlarmReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "usernode/AlarmReceiver"
+        private const val ACTION_EXACT_ALARM_PERMISSION_CHANGED =
+            "android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -29,6 +32,9 @@ class AlarmReceiver : BroadcastReceiver() {
             }
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 handlePackageReplaced(context)
+            }
+            ACTION_EXACT_ALARM_PERMISSION_CHANGED -> {
+                handleExactAlarmPermissionStateChanged(context)
             }
             else -> {
                 Log.w(TAG, "[AlarmReceiver] Unknown action received: ${intent.action}")
@@ -121,6 +127,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun handleBootCompleted(context: Context) {
         Log.i(TAG, "Device boot completed - starting monitoring")
+        sendAuditRecoveryEvent(context, "boot_completed")
         startMonitoringService(
             context = context,
             alarmId = "boot_completed",
@@ -131,12 +138,61 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun handlePackageReplaced(context: Context) {
         Log.i(TAG, "App updated - starting monitoring")
+        sendAuditRecoveryEvent(context, "package_replaced")
         startMonitoringService(
             context = context,
             alarmId = "package_replaced",
             slotNumber = 0,
             nodeRunning = false
         )
+    }
+
+    private fun handleExactAlarmPermissionStateChanged(context: Context) {
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+
+        val eventType = if (granted) {
+            "android_exact_alarm_permission_granted"
+        } else {
+            "android_exact_alarm_permission_denied"
+        }
+        sendFlutterEvent(
+            context = context,
+            eventType = eventType,
+            eventData = mapOf(
+                "source" to "permission_state_changed_broadcast",
+                "stateChanged" to true
+            )
+        )
+    }
+
+    private fun sendAuditRecoveryEvent(context: Context, reason: String) {
+        sendFlutterEvent(
+            context = context,
+            eventType = "android_alarm_recovery_requested",
+            eventData = mapOf(
+                "reason" to reason,
+                "source" to "alarm_receiver"
+            )
+        )
+    }
+
+    private fun sendFlutterEvent(
+        context: Context,
+        eventType: String,
+        eventData: Map<String, Any?>
+    ) {
+        val handler = AlarmMethodChannelHandler.getInstance()
+        if (handler != null && handler.isActivityAttached()) {
+            handler.sendEventToFlutter(eventType, eventData)
+            return
+        }
+
+        BackgroundAlarmEngine.sendAlarmEvent(context, eventType, eventData)
     }
 
     private fun startMonitoringService(

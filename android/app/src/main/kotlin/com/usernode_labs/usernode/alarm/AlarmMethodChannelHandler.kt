@@ -40,6 +40,7 @@ class AlarmMethodChannelHandler(context: Context) {
 
     private var methodChannel: MethodChannel? = null
     private val flutterAlarmEventBuffer = FlutterAlarmEventBuffer()
+    private var lastKnownExactAlarmPermission: Boolean? = null
 
     companion object {
         private const val TAG = "usernode/AlarmMethodChannelHandler"
@@ -179,6 +180,15 @@ class AlarmMethodChannelHandler(context: Context) {
                 val success = alarmScheduler.cancelAllAlarms()
                 result.success(success)
             }
+            "hasScheduledAlarm" -> {
+                val alarmId = call.argument<String>("alarmId")
+                if (alarmId == null) {
+                    result.error("INVALID_ARGS", "Missing alarmId", null)
+                    return
+                }
+
+                result.success(alarmScheduler.hasScheduledAlarm(alarmId))
+            }
             "startForegroundService" -> {
                 val title = call.argument<String>("title")
                 val message = call.argument<String>("message")
@@ -277,6 +287,9 @@ class AlarmMethodChannelHandler(context: Context) {
             "restartActivity" -> {
                 result.success(restartActivity())
             }
+            "wasForceStoppedOnStartup" -> {
+                result.success(wasForceStoppedOnStartup())
+            }
             else -> {
                 result.notImplemented()
             }
@@ -309,11 +322,13 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     private fun hasExactAlarmPermission(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             alarmManager.canScheduleExactAlarms()
         } else {
             true // No permission needed before Android 12
         }
+        lastKnownExactAlarmPermission = hasPermission
+        return hasPermission
     }
 
     private fun requestExactAlarmPermission(): Boolean {
@@ -329,7 +344,14 @@ class AlarmMethodChannelHandler(context: Context) {
             } else {
                 // Permission already granted
                 Log.d(TAG, "Exact alarm permission already granted")
-                sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
+                lastKnownExactAlarmPermission = true
+                sendEventToFlutter(
+                    "android_exact_alarm_permission_granted",
+                    mapOf(
+                        "source" to "request_already_granted",
+                        "stateChanged" to false
+                    )
+                )
             }
         }
         return true
@@ -339,11 +361,26 @@ class AlarmMethodChannelHandler(context: Context) {
     fun checkAndNotifyExactAlarmPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val hasPermission = alarmManager.canScheduleExactAlarms()
+            val previous = lastKnownExactAlarmPermission
+            val stateChanged = previous != null && previous != hasPermission
+            lastKnownExactAlarmPermission = hasPermission
             Log.d(TAG, "Exact alarm permission check: $hasPermission")
             if (hasPermission) {
-                sendEventToFlutter("android_exact_alarm_permission_granted", emptyMap())
+                sendEventToFlutter(
+                    "android_exact_alarm_permission_granted",
+                    mapOf(
+                        "source" to "resume_permission_check",
+                        "stateChanged" to stateChanged
+                    )
+                )
             } else {
-                sendEventToFlutter("android_exact_alarm_permission_denied", emptyMap())
+                sendEventToFlutter(
+                    "android_exact_alarm_permission_denied",
+                    mapOf(
+                        "source" to "resume_permission_check",
+                        "stateChanged" to stateChanged
+                    )
+                )
             }
         }
     }
@@ -524,6 +561,34 @@ class AlarmMethodChannelHandler(context: Context) {
             putInt("execution_count", currentCount + 1)
             putLong("last_execution_time", System.currentTimeMillis())
             apply()
+        }
+    }
+
+    private fun wasForceStoppedOnStartup(): Boolean {
+        if (Build.VERSION.SDK_INT < 35) {
+            return false
+        }
+
+        return try {
+            val activityManager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val method = activityManager.javaClass.getMethod(
+                "getHistoricalProcessStartReasons",
+                Int::class.javaPrimitiveType!!
+            )
+            val startReasons = method.invoke(activityManager, 0) as? List<*> ?: return false
+            startReasons.any { info ->
+                try {
+                    val wasForceStopped = info?.javaClass
+                        ?.getMethod("wasForceStopped")
+                        ?.invoke(info) as? Boolean
+                    wasForceStopped == true
+                } catch (e: Exception) {
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Unable to inspect ApplicationStartInfo.wasForceStopped", e)
+            false
         }
     }
 

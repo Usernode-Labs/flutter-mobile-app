@@ -159,6 +159,13 @@ void main() {
       expect(retryCallbacks, hasLength(1));
     });
 
+    test('foreground resume lead is four minutes in production', () {
+      expect(
+        AndroidForegroundTaskController.foregroundResumeLead,
+        const Duration(minutes: 4),
+      );
+    });
+
     test('foreground resume present emits present telemetry', () async {
       final harness = _AuditHarness(
         presentAlarms: {'slot_42', 'fg_resume'},

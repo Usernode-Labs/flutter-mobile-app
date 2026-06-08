@@ -2885,5 +2885,25 @@
   "httpLogsCopied": "Logs copied to clipboard",
   "@httpLogsCopied": {
     "description": "Snackbar shown after copying logs to the clipboard"
+  },
+  "httpLogsShare": "Share the logs with the team",
+  "@httpLogsShare": {
+    "description": "Button that starts sending captured logs to the backend"
+  },
+  "httpLogsSharing": "Sharing logs with the team every 30s…",
+  "@httpLogsSharing": {
+    "description": "Caption shown while logs are being shared periodically"
+  },
+  "httpLogsStopSharing": "Stop sharing",
+  "@httpLogsStopSharing": {
+    "description": "Button that stops the periodic log sharing session"
+  },
+  "httpLogsShareStopped": "The server stopped log sharing. You can share again anytime.",
+  "@httpLogsShareStopped": {
+    "description": "Snackbar shown when the backend asked the app to stop sharing logs"
+  },
+  "httpLogsShareNoParticipant": "No participant ID yet — finish onboarding to share logs",
+  "@httpLogsShareNoParticipant": {
+    "description": "Disabled-share hint shown when no participant ID is available"
   }
 }

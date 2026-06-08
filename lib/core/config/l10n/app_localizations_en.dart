@@ -2131,4 +2131,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get httpLogsCopied => 'Logs copied to clipboard';
+
+  @override
+  String get httpLogsShare => 'Share the logs with the team';
+
+  @override
+  String get httpLogsSharing => 'Sharing logs with the team every 30s…';
+
+  @override
+  String get httpLogsStopSharing => 'Stop sharing';
+
+  @override
+  String get httpLogsShareStopped =>
+      'The server stopped log sharing. You can share again anytime.';
+
+  @override
+  String get httpLogsShareNoParticipant =>
+      'No participant ID yet — finish onboarding to share logs';
 }

@@ -90,6 +90,21 @@ class HttpLogEntry {
     return chars * 2;
   }
 
+  /// JSON form for the `events` array when sharing logs with the backend.
+  /// Mirrors the redacted/truncated fields exactly — no raw data leaks here.
+  Map<String, dynamic> toJsonEvent() => {
+        'timestamp': timestamp.toUtc().toIso8601String(),
+        'method': method,
+        'url': url,
+        if (statusCode != null) 'status_code': statusCode,
+        if (durationMs != null) 'duration_ms': durationMs,
+        if (requestHeaders.isNotEmpty) 'request_headers': requestHeaders,
+        if (requestBody != null) 'request_body': requestBody,
+        if (responseHeaders.isNotEmpty) 'response_headers': responseHeaders,
+        if (responseBody != null) 'response_body': responseBody,
+        if (error != null) 'error': error,
+      };
+
   /// Multi-line, human-readable form used for copy/share.
   String toLogText() {
     final b = StringBuffer()
@@ -139,13 +154,34 @@ class HttpDebugLogStore extends ChangeNotifier {
   final List<HttpLogEntry> _entries = [];
   int _totalBytes = 0;
 
+  /// Monotonic count of every entry ever [add]ed, unaffected by eviction.
+  /// Used as a stable cursor for incremental log sharing: callers remember a
+  /// value of [totalAdded] and later ask for [entriesAdded] since it.
+  int _totalAdded = 0;
+
   /// Newest-first snapshot for display.
   List<HttpLogEntry> get entries => _entries.reversed.toList(growable: false);
 
   int get totalBytes => _totalBytes;
 
+  /// See [_totalAdded].
+  int get totalAdded => _totalAdded;
+
+  /// Entries added since [cursor] (a prior [totalAdded] value), oldest-first.
+  ///
+  /// Entries evicted from the buffer since [cursor] are silently skipped — the
+  /// caller gets whatever is still retained, never duplicates. Returns an empty
+  /// list when nothing new (or everything new) has been evicted.
+  List<HttpLogEntry> entriesAdded(int cursor) {
+    final firstRetained = _totalAdded - _entries.length;
+    final from = (cursor - firstRetained).clamp(0, _entries.length);
+    if (from >= _entries.length) return const [];
+    return _entries.sublist(from);
+  }
+
   void add(HttpLogEntry entry) {
     _entries.add(entry);
+    _totalAdded++;
     _totalBytes += entry.approxBytes;
     // Evict oldest until within budget, but always keep the just-added entry.
     while (_totalBytes > maxBytes && _entries.length > 1) {

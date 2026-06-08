@@ -89,8 +89,8 @@ class BlockProductionAlarmAuditService {
         _observability =
             observability ?? ObservabilityReportingService.instance,
         _slotWakeLead = slotWakeLead ?? AppConfig.blockProductionWakeBeforeSlot,
-        _foregroundResumeLead =
-            foregroundResumeLead ?? const Duration(minutes: 1),
+        _foregroundResumeLead = foregroundResumeLead ??
+            AndroidForegroundTaskController.foregroundResumeLead,
         _recoveryRetryDelays = recoveryRetryDelays ??
             const [
               Duration(seconds: 5),

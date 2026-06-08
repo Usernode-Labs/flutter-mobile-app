@@ -22,8 +22,8 @@ class AndroidForegroundTaskController {
       AndroidForegroundTaskController._();
 
   static const Duration _pollInterval = Duration(seconds: 30);
-  static const Duration _alarmLead = Duration(minutes: 1);
   static const Duration _alarmEventDedupWindow = Duration(seconds: 10);
+  static const foregroundResumeLead = Duration(minutes: 4);
   static const foregroundResumeAlarmId = 'fg_resume';
 
   Timer? _pollTimer;
@@ -253,16 +253,16 @@ class AndroidForegroundTaskController {
         );
         final diffMs = localSlotTimeMs - nowMs;
 
-        if (diffMs > _alarmLead.inMilliseconds) {
+        if (diffMs > foregroundResumeLead.inMilliseconds) {
           await _scheduleResume(
-            rustSlotTimeMs - _alarmLead.inMilliseconds,
+            rustSlotTimeMs - foregroundResumeLead.inMilliseconds,
             'next_won_slot:${nextWon.globalSlot}',
             targetGlobalSlot: nextWon.globalSlot,
             targetSlotTimeMs: localSlotTimeMs,
           );
         } else {
           _log.info(
-            'Next won slot ${nextWon.globalSlot} in <1m, keeping foreground running',
+            'Next won slot ${nextWon.globalSlot} is too close, keeping foreground running',
           );
         }
         return;
@@ -286,13 +286,13 @@ class AndroidForegroundTaskController {
         clockDriftMs: clockDriftMs,
       );
       final untilEndMs = localEpochEndTimeMs - nowMs;
-      if (untilEndMs > _alarmLead.inMilliseconds) {
+      if (untilEndMs > foregroundResumeLead.inMilliseconds) {
         await _scheduleResume(
-          epochEndRustTimeMs - _alarmLead.inMilliseconds,
+          epochEndRustTimeMs - foregroundResumeLead.inMilliseconds,
           'epoch_end_${info.currentEpoch}',
         );
       } else {
-        _log.info('Epoch end <1m, keeping foreground until end');
+        _log.info('Epoch end is too close, keeping foreground until end');
       }
     } catch (e, st) {
       _log.error('VRF poll failed', error: e, stackTrace: st);

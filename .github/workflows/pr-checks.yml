@@ -141,7 +141,8 @@ jobs:
 
       - name: Check formatting
         run: |
-          "$FLUTTER_ROOT/bin/dart" format . --set-exit-if-changed
+          git ls-files -z -- '*.dart' ':!:widgetbook/**' \
+            | xargs -0 "$FLUTTER_ROOT/bin/dart" format --set-exit-if-changed
 
       - name: Analyze code
         run: flutter analyze

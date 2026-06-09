@@ -30,7 +30,6 @@ intentional DS surface.
 | `empty_state_use_case.dart` | `empty_state.stories.dart` | Core empty-state primitive used by feature screens. |
 | `epoch_performance_page_use_case.dart` | `epoch_performance_page.stories.dart` | Presentational DS page; useful for performance review states. |
 | `full_page_error_state_use_case.dart` | `full_page_error_state.stories.dart` | Core error state used broadly; keep retry/minimal states. |
-| `full_page_loading_state_use_case.dart` | `full_page_loading_state.stories.dart` | Core loading state used broadly. |
 | `icon_badge_use_case.dart` | `icon_badge.stories.dart` | Shared M3 slot widget; keep semantic and inset states. |
 | `info_row_use_case.dart` | `info_row.stories.dart` | Shared data-display row; keep value/copy/action variants. |
 | `leaderboard_stats_card_use_case.dart` | `leaderboard_stats_card.stories.dart` | Real leaderboard summary card; keep chart and data edge scenarios. |
@@ -67,6 +66,7 @@ intentional DS surface.
 | `settings_page_use_case.dart` | Deferred | Imports feature widgets and platform settings panels; not a presentation-only DS story. |
 | `wallet_page_use_case.dart` | Deferred | Imports feature wallet delegates and manually recreates page states; migrate only after a presentational wallet surface exists. |
 | `registration_errors_use_case.dart` | Deferred | Mixed form/error playground with hard-coded localization stand-ins; keep only the stale-screen wrapper for now. |
+| `full_page_loading_state_use_case.dart` | Deferred | `FullPageLoadingState` is deprecated in the DS in favor of content-first shimmer states; keep the current shimmer stories and revisit only if a spinner page remains an intentional shipping pattern. |
 | `widgetbook.dart` | Replaced | v3 manual tree replaced by generated v4 `components.g.dart` in the separate `/widgetbook` workspace. |
 
 ## Follow-Ups

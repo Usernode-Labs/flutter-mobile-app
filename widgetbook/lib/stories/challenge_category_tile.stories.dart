@@ -36,6 +36,10 @@ final $Default = _Story(
         categoryIcon: const ChallengeCategoryIcon(
           category: ChallengeCategory.technical,
         ),
+        categoryName: 'Technical',
+        remainingCount: 3,
+        completedCount: 2,
+        pointsLabel: '4,525 pts',
         challenges: const [
           ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: false),
           ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: true),
@@ -52,6 +56,10 @@ final $Default = _Story(
         categoryIcon: const ChallengeCategoryIcon(
           category: ChallengeCategory.technical,
         ),
+        categoryName: 'Technical',
+        remainingCount: 3,
+        completedCount: 2,
+        pointsLabel: '4,525 pts',
         challenges: const [
           ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: false),
           ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: true),
@@ -68,8 +76,10 @@ final $Default = _Story(
         categoryIcon: const ChallengeCategoryIcon(
           category: ChallengeCategory.technical,
         ),
+        categoryName: 'Technical',
         remainingCount: 0,
         completedCount: 5,
+        pointsLabel: '4,525 pts',
         challenges: const [
           ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: true),
           ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: true),
@@ -85,8 +95,10 @@ final $Default = _Story(
         categoryIcon: const ChallengeCategoryIcon(
           category: ChallengeCategory.technical,
         ),
+        categoryName: 'Technical',
         remainingCount: 5,
         completedCount: 0,
+        pointsLabel: '0 pts',
         challenges: const [
           ChallengeCategoryItem(title: 'Produce Blocks', isCompleted: false),
           ChallengeCategoryItem(title: 'Run SNARK Worker', isCompleted: false),

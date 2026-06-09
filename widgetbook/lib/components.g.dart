@@ -24,7 +24,6 @@ import 'package:widgetbook_workspace/stories/dropdown_sheet.stories.dart' as _wi
 import 'package:widgetbook_workspace/stories/empty_state.stories.dart' as _widgetbook_workspace_stories_empty_state_stories;
 import 'package:widgetbook_workspace/stories/epoch_performance_page.stories.dart' as _widgetbook_workspace_stories_epoch_performance_page_stories;
 import 'package:widgetbook_workspace/stories/full_page_error_state.stories.dart' as _widgetbook_workspace_stories_full_page_error_state_stories;
-import 'package:widgetbook_workspace/stories/full_page_loading_state.stories.dart' as _widgetbook_workspace_stories_full_page_loading_state_stories;
 import 'package:widgetbook_workspace/stories/icon_badge.stories.dart' as _widgetbook_workspace_stories_icon_badge_stories;
 import 'package:widgetbook_workspace/stories/info_row.stories.dart' as _widgetbook_workspace_stories_info_row_stories;
 import 'package:widgetbook_workspace/stories/leaderboard_stats_card.stories.dart' as _widgetbook_workspace_stories_leaderboard_stats_card_stories;
@@ -67,7 +66,6 @@ final components = <_widgetbook.Component>[
   _widgetbook_workspace_stories_empty_state_stories.EmptyStateComponent,
   _widgetbook_workspace_stories_epoch_performance_page_stories.EpochPerformancePageComponent,
   _widgetbook_workspace_stories_full_page_error_state_stories.FullPageErrorStateComponent,
-  _widgetbook_workspace_stories_full_page_loading_state_stories.FullPageLoadingStateReviewComponent,
   _widgetbook_workspace_stories_icon_badge_stories.IconBadgeComponent,
   _widgetbook_workspace_stories_info_row_stories.InfoRowComponent,
   _widgetbook_workspace_stories_leaderboard_stats_card_stories.LeaderboardStatsCardComponent,

@@ -107,8 +107,18 @@ class Button extends StatelessWidget {
     switch (variant) {
       case ButtonVariant.primary:
         final style = baseStyle.copyWith(
-          backgroundColor: WidgetStatePropertyAll(colors.primary),
-          foregroundColor: WidgetStatePropertyAll(colors.onPrimary),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (!isLoading && states.contains(WidgetState.disabled)) {
+              return colors.onSurface.withValues(alpha: 0.12);
+            }
+            return colors.primary;
+          }),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (!isLoading && states.contains(WidgetState.disabled)) {
+              return colors.onSurface.withValues(alpha: 0.38);
+            }
+            return colors.onPrimary;
+          }),
         );
         if (!isLoading && leadingIcon != null) {
           return FilledButton.icon(

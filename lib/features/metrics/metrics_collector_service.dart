@@ -112,17 +112,20 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     Map<String, dynamic>? eventData,
   }) async {
     final results = await Future.wait<Object?>([
+      _safeMobileContextField('identity', _collectMobileContextIdentity),
       _safeMobileContextField('runtime', _collectRuntimeMetrics),
       _safeMobileContextField('platform', _collectPlatformMetrics),
       _safeMobileContextField('device', _collectDeviceMetrics),
     ]);
 
-    final runtime = results[0] as RuntimeMetrics?;
-    final platform = results[1] as PlatformMetrics?;
-    final device = results[2] as DeviceMetrics?;
+    final identity = results[0] as Map<String, dynamic>?;
+    final runtime = results[1] as RuntimeMetrics?;
+    final platform = results[2] as PlatformMetrics?;
+    final device = results[3] as DeviceMetrics?;
 
     return {
       if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
+      if (identity != null) 'identity': identity,
       if (runtime != null) 'runtime': _staticRuntimeJson(runtime),
       if (platform != null) 'platform': platform.toJson(),
       if (device != null) 'device': _staticDeviceJson(device),
@@ -134,13 +137,17 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   Future<Map<String, dynamic>> collectRuntimeMobileContextSnapshot({
     Map<String, dynamic>? eventData,
   }) async {
-    final runtime = await _safeMobileContextField(
-      'runtime',
-      _collectRuntimeMetrics,
-    ) as RuntimeMetrics?;
+    final results = await Future.wait<Object?>([
+      _safeMobileContextField('identity', _collectMobileContextIdentity),
+      _safeMobileContextField('runtime', _collectRuntimeMetrics),
+    ]);
+
+    final identity = results[0] as Map<String, dynamic>?;
+    final runtime = results[1] as RuntimeMetrics?;
 
     return {
       if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
+      if (identity != null) 'identity': identity,
       if (runtime != null) 'runtime': _dynamicRuntimeJson(runtime),
     };
   }
@@ -151,6 +158,7 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     Map<String, dynamic>? eventData,
   }) async {
     final results = await Future.wait<Object?>([
+      _safeMobileContextField('identity', _collectMobileContextIdentity),
       _safeMobileContextField('battery', _collectBatteryMetrics),
       _safeMobileContextField('network', _collectNetworkMetrics),
       Platform.isAndroid
@@ -161,12 +169,14 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
           : Future<Object?>.value(null),
     ]);
 
-    final battery = results[0] as BatteryMetrics?;
-    final network = results[1] as NetworkMetrics?;
-    final foregroundService = results[2] as ForegroundServiceMetrics?;
+    final identity = results[0] as Map<String, dynamic>?;
+    final battery = results[1] as BatteryMetrics?;
+    final network = results[2] as NetworkMetrics?;
+    final foregroundService = results[3] as ForegroundServiceMetrics?;
 
     return {
       if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
+      if (identity != null) 'identity': identity,
       if (battery != null) 'battery': battery.toJson(),
       if (network != null) 'network': network.toJson(),
       if (foregroundService != null)
@@ -204,6 +214,15 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
         'device_model': device.deviceModel,
         'is_physical_device': device.isPhysicalDevice,
       };
+
+  Future<Map<String, dynamic>?> _collectMobileContextIdentity() async {
+    final participantId = await _loadParticipantId();
+    if (participantId == null) {
+      return null;
+    }
+
+    return {'participant_id': participantId};
+  }
 
   /// Capture a focused snapshot of client-side context for slot outcome
   /// reports.
@@ -331,7 +350,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     // Get peer ID from backend service - CACHED (static per session)
     _cachedPeerId ??= RustBackendService.instance.getPeerId();
     final peerId = _cachedPeerId;
-    int? participantId;
 
     // Read chain_id directly from the Rust node, *not* from the Riverpod
     // cache. `nodeStatusProvider` is a one-shot AsyncNotifier — it builds
@@ -359,27 +377,32 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
       _log.debug('Failed to get chain_id from getStatusNode(): $e');
     }
 
+    return IdentityMetrics(
+      peerId: peerId,
+      chainId: chainId,
+      participantId: await _loadParticipantId(),
+    );
+  }
+
+  Future<int?> _loadParticipantId() async {
     if (_container != null) {
       try {
-        participantId = await _container!.read(participantIdProvider.future);
+        final participantId =
+            await _container!.read(participantIdProvider.future);
+        if (participantId != null) {
+          return participantId;
+        }
       } catch (e) {
         _log.debug('Failed to get participant_id from provider: $e');
       }
     }
 
-    if (participantId == null) {
-      try {
-        participantId = await loadParticipantId();
-      } catch (e) {
-        _log.debug('Failed to load participant_id from storage: $e');
-      }
+    try {
+      return await loadParticipantId();
+    } catch (e) {
+      _log.debug('Failed to load participant_id from storage: $e');
+      return null;
     }
-
-    return IdentityMetrics(
-      peerId: peerId,
-      chainId: chainId,
-      participantId: participantId,
-    );
   }
 
   /// Collect app runtime and performance metrics

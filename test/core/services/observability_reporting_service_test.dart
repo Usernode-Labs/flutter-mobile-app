@@ -2,9 +2,13 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/src/rust/observability.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +50,61 @@ void main() {
         'device_manufacturer': 'ExampleCo',
         'device_model': 'Example Phone',
         'is_physical_device': true,
+      });
+    });
+
+    test('node initialization static context includes persisted participant id',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        NetworkPrefs.networkKey: 'testnet',
+        'testnet:leaderboard:participant_id': 123,
+      });
+      await NetworkPrefs.init();
+
+      final records = <_CapturedObservabilityRecord>[];
+      final container = ProviderContainer();
+      final collector = MetricsCollectorService.instance;
+      collector.reset();
+      collector.initialize(container);
+
+      final service = ObservabilityReportingService.test(
+        collector: collector,
+        canRecord: () => records.isEmpty,
+        record: ({
+          required FlutterObservabilityKind kind,
+          required String event,
+          String? payloadJson,
+        }) {
+          records.add(
+            _CapturedObservabilityRecord(
+              kind: kind,
+              event: event,
+              payload: jsonDecode(payloadJson ?? '{}') as Map<String, dynamic>,
+            ),
+          );
+          return const FlutterObservabilityRecordResult(
+            queued: true,
+            discarded: false,
+          );
+        },
+      );
+
+      addTearDown(() async {
+        await service.stopMobileContextSnapshotReporting();
+        container.dispose();
+        collector.reset();
+      });
+
+      await service.reportNodeInitialized(resetStaticContext: true);
+
+      final firstMobileContextRecord = records.firstWhere(
+        (record) => record.event == 'app_mobile_context_snapshot',
+      );
+      expect(firstMobileContextRecord.payload['event_data'], {
+        'snapshot_reason': 'node_initialized',
+      });
+      expect(firstMobileContextRecord.payload['identity'], {
+        'participant_id': 123,
       });
     });
 

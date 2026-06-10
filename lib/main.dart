@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
@@ -14,7 +13,6 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,7 +36,6 @@ import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 
 Timer? _headlessProducedBlocksRefreshTimer;
 
@@ -149,64 +146,6 @@ Future<void> _startHeadlessServices(
       );
       await MetricsReportingService.instance.start();
       log.info('Metrics reporting service started successfully');
-
-      // Set wallet data callback for metrics collection
-      MetricsReportingService.instance.setWalletDataCallback(() async {
-        try {
-          final repo = await AccountsRepository.create();
-          final account = await repo.getActive();
-          if (account == null || account.address.isEmpty) {
-            return (balance: null, address: null);
-          }
-
-          // Only fetch UTXOs if address is in UTXO format (starts with 'ut')
-          if (!account.address.startsWith('ut')) {
-            log.debug(
-              'Account address not in UTXO format, skipping balance calculation',
-            );
-            return (balance: null, address: account.address);
-          }
-
-          // Parse address to PublicKeyHash
-          final owner = frb_types.publicKeyHashFromString(s: account.address);
-          final utxosResp = await RustBackendService.instance.listUtxosByOwner(
-            owner: owner,
-          );
-          final utxos = utxosResp?.items ?? [];
-
-          // Calculate total balance by summing all UTXO amounts
-          BigInt totalBalance = BigInt.zero;
-          for (final ownedUtxo in utxos) {
-            try {
-              // Serialize UTXO to JSON to access its fields
-              final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
-              final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
-
-              final rawAmount = utxoData['amount'] ?? utxoData['balance'];
-              if (rawAmount is BigInt) {
-                totalBalance += rawAmount;
-              } else if (rawAmount is int) {
-                totalBalance += BigInt.from(rawAmount);
-              } else if (rawAmount is num) {
-                totalBalance += BigInt.from(rawAmount.toInt());
-              } else if (rawAmount is String) {
-                final parsed = BigInt.tryParse(rawAmount);
-                if (parsed != null) {
-                  totalBalance += parsed;
-                }
-              }
-            } catch (e) {
-              // Skip this UTXO if parsing fails
-              log.warn('Error parsing UTXO for balance: $e');
-            }
-          }
-
-          return (balance: totalBalance, address: account.address);
-        } catch (e) {
-          log.warn('Error fetching wallet data for metrics: $e');
-          return (balance: null, address: null);
-        }
-      });
     } else {
       log.debug('Metrics disabled or not configured in headless mode');
     }

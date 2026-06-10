@@ -224,14 +224,7 @@ abstract class _MetricsPayload extends MetricsPayload {
 
 /// @nodoc
 mixin _$AppMetricsGroup {
-  RuntimeMetrics get runtime => throw _privateConstructorUsedError;
-  PlatformMetrics? get platform => throw _privateConstructorUsedError;
   DeviceMetrics? get device => throw _privateConstructorUsedError;
-  BatteryMetrics? get battery => throw _privateConstructorUsedError;
-  NetworkMetrics? get network => throw _privateConstructorUsedError;
-  PermissionsMetrics? get permissions => throw _privateConstructorUsedError;
-  ForegroundServiceMetrics? get foregroundService =>
-      throw _privateConstructorUsedError;
 
   /// Create a copy of AppMetricsGroup
   /// with the given fields replaced by the non-null parameter values.
@@ -246,22 +239,9 @@ abstract class $AppMetricsGroupCopyWith<$Res> {
           AppMetricsGroup value, $Res Function(AppMetricsGroup) then) =
       _$AppMetricsGroupCopyWithImpl<$Res, AppMetricsGroup>;
   @useResult
-  $Res call(
-      {RuntimeMetrics runtime,
-      PlatformMetrics? platform,
-      DeviceMetrics? device,
-      BatteryMetrics? battery,
-      NetworkMetrics? network,
-      PermissionsMetrics? permissions,
-      ForegroundServiceMetrics? foregroundService});
+  $Res call({DeviceMetrics? device});
 
-  $RuntimeMetricsCopyWith<$Res> get runtime;
-  $PlatformMetricsCopyWith<$Res>? get platform;
   $DeviceMetricsCopyWith<$Res>? get device;
-  $BatteryMetricsCopyWith<$Res>? get battery;
-  $NetworkMetricsCopyWith<$Res>? get network;
-  $PermissionsMetricsCopyWith<$Res>? get permissions;
-  $ForegroundServiceMetricsCopyWith<$Res>? get foregroundService;
 }
 
 /// @nodoc
@@ -279,68 +259,14 @@ class _$AppMetricsGroupCopyWithImpl<$Res, $Val extends AppMetricsGroup>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? runtime = null,
-    Object? platform = freezed,
     Object? device = freezed,
-    Object? battery = freezed,
-    Object? network = freezed,
-    Object? permissions = freezed,
-    Object? foregroundService = freezed,
   }) {
     return _then(_value.copyWith(
-      runtime: null == runtime
-          ? _value.runtime
-          : runtime // ignore: cast_nullable_to_non_nullable
-              as RuntimeMetrics,
-      platform: freezed == platform
-          ? _value.platform
-          : platform // ignore: cast_nullable_to_non_nullable
-              as PlatformMetrics?,
       device: freezed == device
           ? _value.device
           : device // ignore: cast_nullable_to_non_nullable
               as DeviceMetrics?,
-      battery: freezed == battery
-          ? _value.battery
-          : battery // ignore: cast_nullable_to_non_nullable
-              as BatteryMetrics?,
-      network: freezed == network
-          ? _value.network
-          : network // ignore: cast_nullable_to_non_nullable
-              as NetworkMetrics?,
-      permissions: freezed == permissions
-          ? _value.permissions
-          : permissions // ignore: cast_nullable_to_non_nullable
-              as PermissionsMetrics?,
-      foregroundService: freezed == foregroundService
-          ? _value.foregroundService
-          : foregroundService // ignore: cast_nullable_to_non_nullable
-              as ForegroundServiceMetrics?,
     ) as $Val);
-  }
-
-  /// Create a copy of AppMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $RuntimeMetricsCopyWith<$Res> get runtime {
-    return $RuntimeMetricsCopyWith<$Res>(_value.runtime, (value) {
-      return _then(_value.copyWith(runtime: value) as $Val);
-    });
-  }
-
-  /// Create a copy of AppMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $PlatformMetricsCopyWith<$Res>? get platform {
-    if (_value.platform == null) {
-      return null;
-    }
-
-    return $PlatformMetricsCopyWith<$Res>(_value.platform!, (value) {
-      return _then(_value.copyWith(platform: value) as $Val);
-    });
   }
 
   /// Create a copy of AppMetricsGroup
@@ -356,63 +282,6 @@ class _$AppMetricsGroupCopyWithImpl<$Res, $Val extends AppMetricsGroup>
       return _then(_value.copyWith(device: value) as $Val);
     });
   }
-
-  /// Create a copy of AppMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $BatteryMetricsCopyWith<$Res>? get battery {
-    if (_value.battery == null) {
-      return null;
-    }
-
-    return $BatteryMetricsCopyWith<$Res>(_value.battery!, (value) {
-      return _then(_value.copyWith(battery: value) as $Val);
-    });
-  }
-
-  /// Create a copy of AppMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $NetworkMetricsCopyWith<$Res>? get network {
-    if (_value.network == null) {
-      return null;
-    }
-
-    return $NetworkMetricsCopyWith<$Res>(_value.network!, (value) {
-      return _then(_value.copyWith(network: value) as $Val);
-    });
-  }
-
-  /// Create a copy of AppMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $PermissionsMetricsCopyWith<$Res>? get permissions {
-    if (_value.permissions == null) {
-      return null;
-    }
-
-    return $PermissionsMetricsCopyWith<$Res>(_value.permissions!, (value) {
-      return _then(_value.copyWith(permissions: value) as $Val);
-    });
-  }
-
-  /// Create a copy of AppMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $ForegroundServiceMetricsCopyWith<$Res>? get foregroundService {
-    if (_value.foregroundService == null) {
-      return null;
-    }
-
-    return $ForegroundServiceMetricsCopyWith<$Res>(_value.foregroundService!,
-        (value) {
-      return _then(_value.copyWith(foregroundService: value) as $Val);
-    });
-  }
 }
 
 /// @nodoc
@@ -423,29 +292,10 @@ abstract class _$$AppMetricsGroupImplCopyWith<$Res>
       __$$AppMetricsGroupImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call(
-      {RuntimeMetrics runtime,
-      PlatformMetrics? platform,
-      DeviceMetrics? device,
-      BatteryMetrics? battery,
-      NetworkMetrics? network,
-      PermissionsMetrics? permissions,
-      ForegroundServiceMetrics? foregroundService});
+  $Res call({DeviceMetrics? device});
 
   @override
-  $RuntimeMetricsCopyWith<$Res> get runtime;
-  @override
-  $PlatformMetricsCopyWith<$Res>? get platform;
-  @override
   $DeviceMetricsCopyWith<$Res>? get device;
-  @override
-  $BatteryMetricsCopyWith<$Res>? get battery;
-  @override
-  $NetworkMetricsCopyWith<$Res>? get network;
-  @override
-  $PermissionsMetricsCopyWith<$Res>? get permissions;
-  @override
-  $ForegroundServiceMetricsCopyWith<$Res>? get foregroundService;
 }
 
 /// @nodoc
@@ -461,43 +311,13 @@ class __$$AppMetricsGroupImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? runtime = null,
-    Object? platform = freezed,
     Object? device = freezed,
-    Object? battery = freezed,
-    Object? network = freezed,
-    Object? permissions = freezed,
-    Object? foregroundService = freezed,
   }) {
     return _then(_$AppMetricsGroupImpl(
-      runtime: null == runtime
-          ? _value.runtime
-          : runtime // ignore: cast_nullable_to_non_nullable
-              as RuntimeMetrics,
-      platform: freezed == platform
-          ? _value.platform
-          : platform // ignore: cast_nullable_to_non_nullable
-              as PlatformMetrics?,
       device: freezed == device
           ? _value.device
           : device // ignore: cast_nullable_to_non_nullable
               as DeviceMetrics?,
-      battery: freezed == battery
-          ? _value.battery
-          : battery // ignore: cast_nullable_to_non_nullable
-              as BatteryMetrics?,
-      network: freezed == network
-          ? _value.network
-          : network // ignore: cast_nullable_to_non_nullable
-              as NetworkMetrics?,
-      permissions: freezed == permissions
-          ? _value.permissions
-          : permissions // ignore: cast_nullable_to_non_nullable
-              as PermissionsMetrics?,
-      foregroundService: freezed == foregroundService
-          ? _value.foregroundService
-          : foregroundService // ignore: cast_nullable_to_non_nullable
-              as ForegroundServiceMetrics?,
     ));
   }
 }
@@ -505,34 +325,14 @@ class __$$AppMetricsGroupImplCopyWithImpl<$Res>
 /// @nodoc
 
 class _$AppMetricsGroupImpl extends _AppMetricsGroup {
-  const _$AppMetricsGroupImpl(
-      {required this.runtime,
-      this.platform,
-      this.device,
-      this.battery,
-      this.network,
-      this.permissions,
-      this.foregroundService})
-      : super._();
+  const _$AppMetricsGroupImpl({this.device}) : super._();
 
   @override
-  final RuntimeMetrics runtime;
-  @override
-  final PlatformMetrics? platform;
-  @override
   final DeviceMetrics? device;
-  @override
-  final BatteryMetrics? battery;
-  @override
-  final NetworkMetrics? network;
-  @override
-  final PermissionsMetrics? permissions;
-  @override
-  final ForegroundServiceMetrics? foregroundService;
 
   @override
   String toString() {
-    return 'AppMetricsGroup(runtime: $runtime, platform: $platform, device: $device, battery: $battery, network: $network, permissions: $permissions, foregroundService: $foregroundService)';
+    return 'AppMetricsGroup(device: $device)';
   }
 
   @override
@@ -540,21 +340,11 @@ class _$AppMetricsGroupImpl extends _AppMetricsGroup {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$AppMetricsGroupImpl &&
-            (identical(other.runtime, runtime) || other.runtime == runtime) &&
-            (identical(other.platform, platform) ||
-                other.platform == platform) &&
-            (identical(other.device, device) || other.device == device) &&
-            (identical(other.battery, battery) || other.battery == battery) &&
-            (identical(other.network, network) || other.network == network) &&
-            (identical(other.permissions, permissions) ||
-                other.permissions == permissions) &&
-            (identical(other.foregroundService, foregroundService) ||
-                other.foregroundService == foregroundService));
+            (identical(other.device, device) || other.device == device));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, runtime, platform, device,
-      battery, network, permissions, foregroundService);
+  int get hashCode => Object.hash(runtimeType, device);
 
   /// Create a copy of AppMetricsGroup
   /// with the given fields replaced by the non-null parameter values.
@@ -567,31 +357,12 @@ class _$AppMetricsGroupImpl extends _AppMetricsGroup {
 }
 
 abstract class _AppMetricsGroup extends AppMetricsGroup {
-  const factory _AppMetricsGroup(
-          {required final RuntimeMetrics runtime,
-          final PlatformMetrics? platform,
-          final DeviceMetrics? device,
-          final BatteryMetrics? battery,
-          final NetworkMetrics? network,
-          final PermissionsMetrics? permissions,
-          final ForegroundServiceMetrics? foregroundService}) =
+  const factory _AppMetricsGroup({final DeviceMetrics? device}) =
       _$AppMetricsGroupImpl;
   const _AppMetricsGroup._() : super._();
 
   @override
-  RuntimeMetrics get runtime;
-  @override
-  PlatformMetrics? get platform;
-  @override
   DeviceMetrics? get device;
-  @override
-  BatteryMetrics? get battery;
-  @override
-  NetworkMetrics? get network;
-  @override
-  PermissionsMetrics? get permissions;
-  @override
-  ForegroundServiceMetrics? get foregroundService;
 
   /// Create a copy of AppMetricsGroup
   /// with the given fields replaced by the non-null parameter values.
@@ -604,10 +375,7 @@ abstract class _AppMetricsGroup extends AppMetricsGroup {
 /// @nodoc
 mixin _$NodeMetricsGroup {
   IdentityMetrics get identity => throw _privateConstructorUsedError;
-  StatusMetrics? get status => throw _privateConstructorUsedError;
   ConsensusMetrics? get consensus => throw _privateConstructorUsedError;
-  BlockchainMetrics? get blockchain => throw _privateConstructorUsedError;
-  WalletMetrics? get wallet => throw _privateConstructorUsedError;
   List<PeerMetrics>? get peers => throw _privateConstructorUsedError;
 
   /// Create a copy of NodeMetricsGroup
@@ -625,17 +393,11 @@ abstract class $NodeMetricsGroupCopyWith<$Res> {
   @useResult
   $Res call(
       {IdentityMetrics identity,
-      StatusMetrics? status,
       ConsensusMetrics? consensus,
-      BlockchainMetrics? blockchain,
-      WalletMetrics? wallet,
       List<PeerMetrics>? peers});
 
   $IdentityMetricsCopyWith<$Res> get identity;
-  $StatusMetricsCopyWith<$Res>? get status;
   $ConsensusMetricsCopyWith<$Res>? get consensus;
-  $BlockchainMetricsCopyWith<$Res>? get blockchain;
-  $WalletMetricsCopyWith<$Res>? get wallet;
 }
 
 /// @nodoc
@@ -654,10 +416,7 @@ class _$NodeMetricsGroupCopyWithImpl<$Res, $Val extends NodeMetricsGroup>
   @override
   $Res call({
     Object? identity = null,
-    Object? status = freezed,
     Object? consensus = freezed,
-    Object? blockchain = freezed,
-    Object? wallet = freezed,
     Object? peers = freezed,
   }) {
     return _then(_value.copyWith(
@@ -665,22 +424,10 @@ class _$NodeMetricsGroupCopyWithImpl<$Res, $Val extends NodeMetricsGroup>
           ? _value.identity
           : identity // ignore: cast_nullable_to_non_nullable
               as IdentityMetrics,
-      status: freezed == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as StatusMetrics?,
       consensus: freezed == consensus
           ? _value.consensus
           : consensus // ignore: cast_nullable_to_non_nullable
               as ConsensusMetrics?,
-      blockchain: freezed == blockchain
-          ? _value.blockchain
-          : blockchain // ignore: cast_nullable_to_non_nullable
-              as BlockchainMetrics?,
-      wallet: freezed == wallet
-          ? _value.wallet
-          : wallet // ignore: cast_nullable_to_non_nullable
-              as WalletMetrics?,
       peers: freezed == peers
           ? _value.peers
           : peers // ignore: cast_nullable_to_non_nullable
@@ -702,20 +449,6 @@ class _$NodeMetricsGroupCopyWithImpl<$Res, $Val extends NodeMetricsGroup>
   /// with the given fields replaced by the non-null parameter values.
   @override
   @pragma('vm:prefer-inline')
-  $StatusMetricsCopyWith<$Res>? get status {
-    if (_value.status == null) {
-      return null;
-    }
-
-    return $StatusMetricsCopyWith<$Res>(_value.status!, (value) {
-      return _then(_value.copyWith(status: value) as $Val);
-    });
-  }
-
-  /// Create a copy of NodeMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
   $ConsensusMetricsCopyWith<$Res>? get consensus {
     if (_value.consensus == null) {
       return null;
@@ -723,34 +456,6 @@ class _$NodeMetricsGroupCopyWithImpl<$Res, $Val extends NodeMetricsGroup>
 
     return $ConsensusMetricsCopyWith<$Res>(_value.consensus!, (value) {
       return _then(_value.copyWith(consensus: value) as $Val);
-    });
-  }
-
-  /// Create a copy of NodeMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $BlockchainMetricsCopyWith<$Res>? get blockchain {
-    if (_value.blockchain == null) {
-      return null;
-    }
-
-    return $BlockchainMetricsCopyWith<$Res>(_value.blockchain!, (value) {
-      return _then(_value.copyWith(blockchain: value) as $Val);
-    });
-  }
-
-  /// Create a copy of NodeMetricsGroup
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $WalletMetricsCopyWith<$Res>? get wallet {
-    if (_value.wallet == null) {
-      return null;
-    }
-
-    return $WalletMetricsCopyWith<$Res>(_value.wallet!, (value) {
-      return _then(_value.copyWith(wallet: value) as $Val);
     });
   }
 }
@@ -765,22 +470,13 @@ abstract class _$$NodeMetricsGroupImplCopyWith<$Res>
   @useResult
   $Res call(
       {IdentityMetrics identity,
-      StatusMetrics? status,
       ConsensusMetrics? consensus,
-      BlockchainMetrics? blockchain,
-      WalletMetrics? wallet,
       List<PeerMetrics>? peers});
 
   @override
   $IdentityMetricsCopyWith<$Res> get identity;
   @override
-  $StatusMetricsCopyWith<$Res>? get status;
-  @override
   $ConsensusMetricsCopyWith<$Res>? get consensus;
-  @override
-  $BlockchainMetricsCopyWith<$Res>? get blockchain;
-  @override
-  $WalletMetricsCopyWith<$Res>? get wallet;
 }
 
 /// @nodoc
@@ -797,10 +493,7 @@ class __$$NodeMetricsGroupImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? identity = null,
-    Object? status = freezed,
     Object? consensus = freezed,
-    Object? blockchain = freezed,
-    Object? wallet = freezed,
     Object? peers = freezed,
   }) {
     return _then(_$NodeMetricsGroupImpl(
@@ -808,22 +501,10 @@ class __$$NodeMetricsGroupImplCopyWithImpl<$Res>
           ? _value.identity
           : identity // ignore: cast_nullable_to_non_nullable
               as IdentityMetrics,
-      status: freezed == status
-          ? _value.status
-          : status // ignore: cast_nullable_to_non_nullable
-              as StatusMetrics?,
       consensus: freezed == consensus
           ? _value.consensus
           : consensus // ignore: cast_nullable_to_non_nullable
               as ConsensusMetrics?,
-      blockchain: freezed == blockchain
-          ? _value.blockchain
-          : blockchain // ignore: cast_nullable_to_non_nullable
-              as BlockchainMetrics?,
-      wallet: freezed == wallet
-          ? _value.wallet
-          : wallet // ignore: cast_nullable_to_non_nullable
-              as WalletMetrics?,
       peers: freezed == peers
           ? _value._peers
           : peers // ignore: cast_nullable_to_non_nullable
@@ -836,25 +517,14 @@ class __$$NodeMetricsGroupImplCopyWithImpl<$Res>
 
 class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
   const _$NodeMetricsGroupImpl(
-      {required this.identity,
-      this.status,
-      this.consensus,
-      this.blockchain,
-      this.wallet,
-      final List<PeerMetrics>? peers})
+      {required this.identity, this.consensus, final List<PeerMetrics>? peers})
       : _peers = peers,
         super._();
 
   @override
   final IdentityMetrics identity;
   @override
-  final StatusMetrics? status;
-  @override
   final ConsensusMetrics? consensus;
-  @override
-  final BlockchainMetrics? blockchain;
-  @override
-  final WalletMetrics? wallet;
   final List<PeerMetrics>? _peers;
   @override
   List<PeerMetrics>? get peers {
@@ -867,7 +537,7 @@ class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
 
   @override
   String toString() {
-    return 'NodeMetricsGroup(identity: $identity, status: $status, consensus: $consensus, blockchain: $blockchain, wallet: $wallet, peers: $peers)';
+    return 'NodeMetricsGroup(identity: $identity, consensus: $consensus, peers: $peers)';
   }
 
   @override
@@ -877,18 +547,14 @@ class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
             other is _$NodeMetricsGroupImpl &&
             (identical(other.identity, identity) ||
                 other.identity == identity) &&
-            (identical(other.status, status) || other.status == status) &&
             (identical(other.consensus, consensus) ||
                 other.consensus == consensus) &&
-            (identical(other.blockchain, blockchain) ||
-                other.blockchain == blockchain) &&
-            (identical(other.wallet, wallet) || other.wallet == wallet) &&
             const DeepCollectionEquality().equals(other._peers, _peers));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, identity, status, consensus,
-      blockchain, wallet, const DeepCollectionEquality().hash(_peers));
+  int get hashCode => Object.hash(runtimeType, identity, consensus,
+      const DeepCollectionEquality().hash(_peers));
 
   /// Create a copy of NodeMetricsGroup
   /// with the given fields replaced by the non-null parameter values.
@@ -903,23 +569,14 @@ class _$NodeMetricsGroupImpl extends _NodeMetricsGroup {
 abstract class _NodeMetricsGroup extends NodeMetricsGroup {
   const factory _NodeMetricsGroup(
       {required final IdentityMetrics identity,
-      final StatusMetrics? status,
       final ConsensusMetrics? consensus,
-      final BlockchainMetrics? blockchain,
-      final WalletMetrics? wallet,
       final List<PeerMetrics>? peers}) = _$NodeMetricsGroupImpl;
   const _NodeMetricsGroup._() : super._();
 
   @override
   IdentityMetrics get identity;
   @override
-  StatusMetrics? get status;
-  @override
   ConsensusMetrics? get consensus;
-  @override
-  BlockchainMetrics? get blockchain;
-  @override
-  WalletMetrics? get wallet;
   @override
   List<PeerMetrics>? get peers;
 
@@ -2272,215 +1929,6 @@ abstract class _NetworkMetrics extends NetworkMetrics {
 }
 
 /// @nodoc
-mixin _$PermissionsMetrics {
-  bool get permissionExactAlarms => throw _privateConstructorUsedError;
-  bool get permissionBatteryOptimizationExempt =>
-      throw _privateConstructorUsedError;
-  bool get exactAlarmsPermission => throw _privateConstructorUsedError;
-  String get notificationPermission => throw _privateConstructorUsedError;
-
-  /// Create a copy of PermissionsMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $PermissionsMetricsCopyWith<PermissionsMetrics> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $PermissionsMetricsCopyWith<$Res> {
-  factory $PermissionsMetricsCopyWith(
-          PermissionsMetrics value, $Res Function(PermissionsMetrics) then) =
-      _$PermissionsMetricsCopyWithImpl<$Res, PermissionsMetrics>;
-  @useResult
-  $Res call(
-      {bool permissionExactAlarms,
-      bool permissionBatteryOptimizationExempt,
-      bool exactAlarmsPermission,
-      String notificationPermission});
-}
-
-/// @nodoc
-class _$PermissionsMetricsCopyWithImpl<$Res, $Val extends PermissionsMetrics>
-    implements $PermissionsMetricsCopyWith<$Res> {
-  _$PermissionsMetricsCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of PermissionsMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? permissionExactAlarms = null,
-    Object? permissionBatteryOptimizationExempt = null,
-    Object? exactAlarmsPermission = null,
-    Object? notificationPermission = null,
-  }) {
-    return _then(_value.copyWith(
-      permissionExactAlarms: null == permissionExactAlarms
-          ? _value.permissionExactAlarms
-          : permissionExactAlarms // ignore: cast_nullable_to_non_nullable
-              as bool,
-      permissionBatteryOptimizationExempt: null ==
-              permissionBatteryOptimizationExempt
-          ? _value.permissionBatteryOptimizationExempt
-          : permissionBatteryOptimizationExempt // ignore: cast_nullable_to_non_nullable
-              as bool,
-      exactAlarmsPermission: null == exactAlarmsPermission
-          ? _value.exactAlarmsPermission
-          : exactAlarmsPermission // ignore: cast_nullable_to_non_nullable
-              as bool,
-      notificationPermission: null == notificationPermission
-          ? _value.notificationPermission
-          : notificationPermission // ignore: cast_nullable_to_non_nullable
-              as String,
-    ) as $Val);
-  }
-}
-
-/// @nodoc
-abstract class _$$PermissionsMetricsImplCopyWith<$Res>
-    implements $PermissionsMetricsCopyWith<$Res> {
-  factory _$$PermissionsMetricsImplCopyWith(_$PermissionsMetricsImpl value,
-          $Res Function(_$PermissionsMetricsImpl) then) =
-      __$$PermissionsMetricsImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {bool permissionExactAlarms,
-      bool permissionBatteryOptimizationExempt,
-      bool exactAlarmsPermission,
-      String notificationPermission});
-}
-
-/// @nodoc
-class __$$PermissionsMetricsImplCopyWithImpl<$Res>
-    extends _$PermissionsMetricsCopyWithImpl<$Res, _$PermissionsMetricsImpl>
-    implements _$$PermissionsMetricsImplCopyWith<$Res> {
-  __$$PermissionsMetricsImplCopyWithImpl(_$PermissionsMetricsImpl _value,
-      $Res Function(_$PermissionsMetricsImpl) _then)
-      : super(_value, _then);
-
-  /// Create a copy of PermissionsMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? permissionExactAlarms = null,
-    Object? permissionBatteryOptimizationExempt = null,
-    Object? exactAlarmsPermission = null,
-    Object? notificationPermission = null,
-  }) {
-    return _then(_$PermissionsMetricsImpl(
-      permissionExactAlarms: null == permissionExactAlarms
-          ? _value.permissionExactAlarms
-          : permissionExactAlarms // ignore: cast_nullable_to_non_nullable
-              as bool,
-      permissionBatteryOptimizationExempt: null ==
-              permissionBatteryOptimizationExempt
-          ? _value.permissionBatteryOptimizationExempt
-          : permissionBatteryOptimizationExempt // ignore: cast_nullable_to_non_nullable
-              as bool,
-      exactAlarmsPermission: null == exactAlarmsPermission
-          ? _value.exactAlarmsPermission
-          : exactAlarmsPermission // ignore: cast_nullable_to_non_nullable
-              as bool,
-      notificationPermission: null == notificationPermission
-          ? _value.notificationPermission
-          : notificationPermission // ignore: cast_nullable_to_non_nullable
-              as String,
-    ));
-  }
-}
-
-/// @nodoc
-
-class _$PermissionsMetricsImpl extends _PermissionsMetrics {
-  const _$PermissionsMetricsImpl(
-      {required this.permissionExactAlarms,
-      required this.permissionBatteryOptimizationExempt,
-      required this.exactAlarmsPermission,
-      required this.notificationPermission})
-      : super._();
-
-  @override
-  final bool permissionExactAlarms;
-  @override
-  final bool permissionBatteryOptimizationExempt;
-  @override
-  final bool exactAlarmsPermission;
-  @override
-  final String notificationPermission;
-
-  @override
-  String toString() {
-    return 'PermissionsMetrics(permissionExactAlarms: $permissionExactAlarms, permissionBatteryOptimizationExempt: $permissionBatteryOptimizationExempt, exactAlarmsPermission: $exactAlarmsPermission, notificationPermission: $notificationPermission)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$PermissionsMetricsImpl &&
-            (identical(other.permissionExactAlarms, permissionExactAlarms) ||
-                other.permissionExactAlarms == permissionExactAlarms) &&
-            (identical(other.permissionBatteryOptimizationExempt,
-                    permissionBatteryOptimizationExempt) ||
-                other.permissionBatteryOptimizationExempt ==
-                    permissionBatteryOptimizationExempt) &&
-            (identical(other.exactAlarmsPermission, exactAlarmsPermission) ||
-                other.exactAlarmsPermission == exactAlarmsPermission) &&
-            (identical(other.notificationPermission, notificationPermission) ||
-                other.notificationPermission == notificationPermission));
-  }
-
-  @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      permissionExactAlarms,
-      permissionBatteryOptimizationExempt,
-      exactAlarmsPermission,
-      notificationPermission);
-
-  /// Create a copy of PermissionsMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$PermissionsMetricsImplCopyWith<_$PermissionsMetricsImpl> get copyWith =>
-      __$$PermissionsMetricsImplCopyWithImpl<_$PermissionsMetricsImpl>(
-          this, _$identity);
-}
-
-abstract class _PermissionsMetrics extends PermissionsMetrics {
-  const factory _PermissionsMetrics(
-      {required final bool permissionExactAlarms,
-      required final bool permissionBatteryOptimizationExempt,
-      required final bool exactAlarmsPermission,
-      required final String notificationPermission}) = _$PermissionsMetricsImpl;
-  const _PermissionsMetrics._() : super._();
-
-  @override
-  bool get permissionExactAlarms;
-  @override
-  bool get permissionBatteryOptimizationExempt;
-  @override
-  bool get exactAlarmsPermission;
-  @override
-  String get notificationPermission;
-
-  /// Create a copy of PermissionsMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$PermissionsMetricsImplCopyWith<_$PermissionsMetricsImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
 mixin _$ForegroundServiceMetrics {
   bool get foregroundServiceRunning => throw _privateConstructorUsedError;
   bool get wakelockHeld => throw _privateConstructorUsedError;
@@ -2639,261 +2087,14 @@ abstract class _ForegroundServiceMetrics extends ForegroundServiceMetrics {
 }
 
 /// @nodoc
-mixin _$StatusMetrics {
-  bool get nodeRunning => throw _privateConstructorUsedError;
-  String get nodeState => throw _privateConstructorUsedError;
-  String? get nodeSyncStatus => throw _privateConstructorUsedError;
-  int? get nodeBestTipSlot => throw _privateConstructorUsedError;
-  String? get nodeBestTipHash => throw _privateConstructorUsedError;
-  int get nodeConnectedPeers => throw _privateConstructorUsedError;
-
-  /// Create a copy of StatusMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $StatusMetricsCopyWith<StatusMetrics> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $StatusMetricsCopyWith<$Res> {
-  factory $StatusMetricsCopyWith(
-          StatusMetrics value, $Res Function(StatusMetrics) then) =
-      _$StatusMetricsCopyWithImpl<$Res, StatusMetrics>;
-  @useResult
-  $Res call(
-      {bool nodeRunning,
-      String nodeState,
-      String? nodeSyncStatus,
-      int? nodeBestTipSlot,
-      String? nodeBestTipHash,
-      int nodeConnectedPeers});
-}
-
-/// @nodoc
-class _$StatusMetricsCopyWithImpl<$Res, $Val extends StatusMetrics>
-    implements $StatusMetricsCopyWith<$Res> {
-  _$StatusMetricsCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of StatusMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? nodeRunning = null,
-    Object? nodeState = null,
-    Object? nodeSyncStatus = freezed,
-    Object? nodeBestTipSlot = freezed,
-    Object? nodeBestTipHash = freezed,
-    Object? nodeConnectedPeers = null,
-  }) {
-    return _then(_value.copyWith(
-      nodeRunning: null == nodeRunning
-          ? _value.nodeRunning
-          : nodeRunning // ignore: cast_nullable_to_non_nullable
-              as bool,
-      nodeState: null == nodeState
-          ? _value.nodeState
-          : nodeState // ignore: cast_nullable_to_non_nullable
-              as String,
-      nodeSyncStatus: freezed == nodeSyncStatus
-          ? _value.nodeSyncStatus
-          : nodeSyncStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
-      nodeBestTipSlot: freezed == nodeBestTipSlot
-          ? _value.nodeBestTipSlot
-          : nodeBestTipSlot // ignore: cast_nullable_to_non_nullable
-              as int?,
-      nodeBestTipHash: freezed == nodeBestTipHash
-          ? _value.nodeBestTipHash
-          : nodeBestTipHash // ignore: cast_nullable_to_non_nullable
-              as String?,
-      nodeConnectedPeers: null == nodeConnectedPeers
-          ? _value.nodeConnectedPeers
-          : nodeConnectedPeers // ignore: cast_nullable_to_non_nullable
-              as int,
-    ) as $Val);
-  }
-}
-
-/// @nodoc
-abstract class _$$StatusMetricsImplCopyWith<$Res>
-    implements $StatusMetricsCopyWith<$Res> {
-  factory _$$StatusMetricsImplCopyWith(
-          _$StatusMetricsImpl value, $Res Function(_$StatusMetricsImpl) then) =
-      __$$StatusMetricsImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {bool nodeRunning,
-      String nodeState,
-      String? nodeSyncStatus,
-      int? nodeBestTipSlot,
-      String? nodeBestTipHash,
-      int nodeConnectedPeers});
-}
-
-/// @nodoc
-class __$$StatusMetricsImplCopyWithImpl<$Res>
-    extends _$StatusMetricsCopyWithImpl<$Res, _$StatusMetricsImpl>
-    implements _$$StatusMetricsImplCopyWith<$Res> {
-  __$$StatusMetricsImplCopyWithImpl(
-      _$StatusMetricsImpl _value, $Res Function(_$StatusMetricsImpl) _then)
-      : super(_value, _then);
-
-  /// Create a copy of StatusMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? nodeRunning = null,
-    Object? nodeState = null,
-    Object? nodeSyncStatus = freezed,
-    Object? nodeBestTipSlot = freezed,
-    Object? nodeBestTipHash = freezed,
-    Object? nodeConnectedPeers = null,
-  }) {
-    return _then(_$StatusMetricsImpl(
-      nodeRunning: null == nodeRunning
-          ? _value.nodeRunning
-          : nodeRunning // ignore: cast_nullable_to_non_nullable
-              as bool,
-      nodeState: null == nodeState
-          ? _value.nodeState
-          : nodeState // ignore: cast_nullable_to_non_nullable
-              as String,
-      nodeSyncStatus: freezed == nodeSyncStatus
-          ? _value.nodeSyncStatus
-          : nodeSyncStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
-      nodeBestTipSlot: freezed == nodeBestTipSlot
-          ? _value.nodeBestTipSlot
-          : nodeBestTipSlot // ignore: cast_nullable_to_non_nullable
-              as int?,
-      nodeBestTipHash: freezed == nodeBestTipHash
-          ? _value.nodeBestTipHash
-          : nodeBestTipHash // ignore: cast_nullable_to_non_nullable
-              as String?,
-      nodeConnectedPeers: null == nodeConnectedPeers
-          ? _value.nodeConnectedPeers
-          : nodeConnectedPeers // ignore: cast_nullable_to_non_nullable
-              as int,
-    ));
-  }
-}
-
-/// @nodoc
-
-class _$StatusMetricsImpl extends _StatusMetrics {
-  const _$StatusMetricsImpl(
-      {required this.nodeRunning,
-      required this.nodeState,
-      this.nodeSyncStatus,
-      this.nodeBestTipSlot,
-      this.nodeBestTipHash,
-      required this.nodeConnectedPeers})
-      : super._();
-
-  @override
-  final bool nodeRunning;
-  @override
-  final String nodeState;
-  @override
-  final String? nodeSyncStatus;
-  @override
-  final int? nodeBestTipSlot;
-  @override
-  final String? nodeBestTipHash;
-  @override
-  final int nodeConnectedPeers;
-
-  @override
-  String toString() {
-    return 'StatusMetrics(nodeRunning: $nodeRunning, nodeState: $nodeState, nodeSyncStatus: $nodeSyncStatus, nodeBestTipSlot: $nodeBestTipSlot, nodeBestTipHash: $nodeBestTipHash, nodeConnectedPeers: $nodeConnectedPeers)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$StatusMetricsImpl &&
-            (identical(other.nodeRunning, nodeRunning) ||
-                other.nodeRunning == nodeRunning) &&
-            (identical(other.nodeState, nodeState) ||
-                other.nodeState == nodeState) &&
-            (identical(other.nodeSyncStatus, nodeSyncStatus) ||
-                other.nodeSyncStatus == nodeSyncStatus) &&
-            (identical(other.nodeBestTipSlot, nodeBestTipSlot) ||
-                other.nodeBestTipSlot == nodeBestTipSlot) &&
-            (identical(other.nodeBestTipHash, nodeBestTipHash) ||
-                other.nodeBestTipHash == nodeBestTipHash) &&
-            (identical(other.nodeConnectedPeers, nodeConnectedPeers) ||
-                other.nodeConnectedPeers == nodeConnectedPeers));
-  }
-
-  @override
-  int get hashCode => Object.hash(runtimeType, nodeRunning, nodeState,
-      nodeSyncStatus, nodeBestTipSlot, nodeBestTipHash, nodeConnectedPeers);
-
-  /// Create a copy of StatusMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$StatusMetricsImplCopyWith<_$StatusMetricsImpl> get copyWith =>
-      __$$StatusMetricsImplCopyWithImpl<_$StatusMetricsImpl>(this, _$identity);
-}
-
-abstract class _StatusMetrics extends StatusMetrics {
-  const factory _StatusMetrics(
-      {required final bool nodeRunning,
-      required final String nodeState,
-      final String? nodeSyncStatus,
-      final int? nodeBestTipSlot,
-      final String? nodeBestTipHash,
-      required final int nodeConnectedPeers}) = _$StatusMetricsImpl;
-  const _StatusMetrics._() : super._();
-
-  @override
-  bool get nodeRunning;
-  @override
-  String get nodeState;
-  @override
-  String? get nodeSyncStatus;
-  @override
-  int? get nodeBestTipSlot;
-  @override
-  String? get nodeBestTipHash;
-  @override
-  int get nodeConnectedPeers;
-
-  /// Create a copy of StatusMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$StatusMetricsImplCopyWith<_$StatusMetricsImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
 mixin _$ConsensusMetrics {
   int? get currentEpoch => throw _privateConstructorUsedError;
-  int? get currentGlobalSlot => throw _privateConstructorUsedError;
   int? get currentEpochWonSlots => throw _privateConstructorUsedError;
   int? get currentEpochProduced => throw _privateConstructorUsedError;
   int? get currentEpochFailed => throw _privateConstructorUsedError;
   int? get totalWonSlots => throw _privateConstructorUsedError;
   int? get totalBlocksProduced => throw _privateConstructorUsedError;
   int? get totalBlocksFailed => throw _privateConstructorUsedError;
-  int? get evaluatedCurrentEpoch => throw _privateConstructorUsedError;
-  String? get currentEpochVrfEvaluationStatus =>
-      throw _privateConstructorUsedError;
-  String? get nextEpochVrfEvaluationStatus =>
-      throw _privateConstructorUsedError;
   double? get bpSuccessRate => throw _privateConstructorUsedError;
 
   /// Create a copy of ConsensusMetrics
@@ -2911,16 +2112,12 @@ abstract class $ConsensusMetricsCopyWith<$Res> {
   @useResult
   $Res call(
       {int? currentEpoch,
-      int? currentGlobalSlot,
       int? currentEpochWonSlots,
       int? currentEpochProduced,
       int? currentEpochFailed,
       int? totalWonSlots,
       int? totalBlocksProduced,
       int? totalBlocksFailed,
-      int? evaluatedCurrentEpoch,
-      String? currentEpochVrfEvaluationStatus,
-      String? nextEpochVrfEvaluationStatus,
       double? bpSuccessRate});
 }
 
@@ -2940,26 +2137,18 @@ class _$ConsensusMetricsCopyWithImpl<$Res, $Val extends ConsensusMetrics>
   @override
   $Res call({
     Object? currentEpoch = freezed,
-    Object? currentGlobalSlot = freezed,
     Object? currentEpochWonSlots = freezed,
     Object? currentEpochProduced = freezed,
     Object? currentEpochFailed = freezed,
     Object? totalWonSlots = freezed,
     Object? totalBlocksProduced = freezed,
     Object? totalBlocksFailed = freezed,
-    Object? evaluatedCurrentEpoch = freezed,
-    Object? currentEpochVrfEvaluationStatus = freezed,
-    Object? nextEpochVrfEvaluationStatus = freezed,
     Object? bpSuccessRate = freezed,
   }) {
     return _then(_value.copyWith(
       currentEpoch: freezed == currentEpoch
           ? _value.currentEpoch
           : currentEpoch // ignore: cast_nullable_to_non_nullable
-              as int?,
-      currentGlobalSlot: freezed == currentGlobalSlot
-          ? _value.currentGlobalSlot
-          : currentGlobalSlot // ignore: cast_nullable_to_non_nullable
               as int?,
       currentEpochWonSlots: freezed == currentEpochWonSlots
           ? _value.currentEpochWonSlots
@@ -2985,19 +2174,6 @@ class _$ConsensusMetricsCopyWithImpl<$Res, $Val extends ConsensusMetrics>
           ? _value.totalBlocksFailed
           : totalBlocksFailed // ignore: cast_nullable_to_non_nullable
               as int?,
-      evaluatedCurrentEpoch: freezed == evaluatedCurrentEpoch
-          ? _value.evaluatedCurrentEpoch
-          : evaluatedCurrentEpoch // ignore: cast_nullable_to_non_nullable
-              as int?,
-      currentEpochVrfEvaluationStatus: freezed ==
-              currentEpochVrfEvaluationStatus
-          ? _value.currentEpochVrfEvaluationStatus
-          : currentEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
-      nextEpochVrfEvaluationStatus: freezed == nextEpochVrfEvaluationStatus
-          ? _value.nextEpochVrfEvaluationStatus
-          : nextEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
       bpSuccessRate: freezed == bpSuccessRate
           ? _value.bpSuccessRate
           : bpSuccessRate // ignore: cast_nullable_to_non_nullable
@@ -3016,16 +2192,12 @@ abstract class _$$ConsensusMetricsImplCopyWith<$Res>
   @useResult
   $Res call(
       {int? currentEpoch,
-      int? currentGlobalSlot,
       int? currentEpochWonSlots,
       int? currentEpochProduced,
       int? currentEpochFailed,
       int? totalWonSlots,
       int? totalBlocksProduced,
       int? totalBlocksFailed,
-      int? evaluatedCurrentEpoch,
-      String? currentEpochVrfEvaluationStatus,
-      String? nextEpochVrfEvaluationStatus,
       double? bpSuccessRate});
 }
 
@@ -3043,26 +2215,18 @@ class __$$ConsensusMetricsImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? currentEpoch = freezed,
-    Object? currentGlobalSlot = freezed,
     Object? currentEpochWonSlots = freezed,
     Object? currentEpochProduced = freezed,
     Object? currentEpochFailed = freezed,
     Object? totalWonSlots = freezed,
     Object? totalBlocksProduced = freezed,
     Object? totalBlocksFailed = freezed,
-    Object? evaluatedCurrentEpoch = freezed,
-    Object? currentEpochVrfEvaluationStatus = freezed,
-    Object? nextEpochVrfEvaluationStatus = freezed,
     Object? bpSuccessRate = freezed,
   }) {
     return _then(_$ConsensusMetricsImpl(
       currentEpoch: freezed == currentEpoch
           ? _value.currentEpoch
           : currentEpoch // ignore: cast_nullable_to_non_nullable
-              as int?,
-      currentGlobalSlot: freezed == currentGlobalSlot
-          ? _value.currentGlobalSlot
-          : currentGlobalSlot // ignore: cast_nullable_to_non_nullable
               as int?,
       currentEpochWonSlots: freezed == currentEpochWonSlots
           ? _value.currentEpochWonSlots
@@ -3088,19 +2252,6 @@ class __$$ConsensusMetricsImplCopyWithImpl<$Res>
           ? _value.totalBlocksFailed
           : totalBlocksFailed // ignore: cast_nullable_to_non_nullable
               as int?,
-      evaluatedCurrentEpoch: freezed == evaluatedCurrentEpoch
-          ? _value.evaluatedCurrentEpoch
-          : evaluatedCurrentEpoch // ignore: cast_nullable_to_non_nullable
-              as int?,
-      currentEpochVrfEvaluationStatus: freezed ==
-              currentEpochVrfEvaluationStatus
-          ? _value.currentEpochVrfEvaluationStatus
-          : currentEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
-      nextEpochVrfEvaluationStatus: freezed == nextEpochVrfEvaluationStatus
-          ? _value.nextEpochVrfEvaluationStatus
-          : nextEpochVrfEvaluationStatus // ignore: cast_nullable_to_non_nullable
-              as String?,
       bpSuccessRate: freezed == bpSuccessRate
           ? _value.bpSuccessRate
           : bpSuccessRate // ignore: cast_nullable_to_non_nullable
@@ -3114,23 +2265,17 @@ class __$$ConsensusMetricsImplCopyWithImpl<$Res>
 class _$ConsensusMetricsImpl extends _ConsensusMetrics {
   const _$ConsensusMetricsImpl(
       {this.currentEpoch,
-      this.currentGlobalSlot,
       this.currentEpochWonSlots,
       this.currentEpochProduced,
       this.currentEpochFailed,
       this.totalWonSlots,
       this.totalBlocksProduced,
       this.totalBlocksFailed,
-      this.evaluatedCurrentEpoch,
-      this.currentEpochVrfEvaluationStatus,
-      this.nextEpochVrfEvaluationStatus,
       this.bpSuccessRate})
       : super._();
 
   @override
   final int? currentEpoch;
-  @override
-  final int? currentGlobalSlot;
   @override
   final int? currentEpochWonSlots;
   @override
@@ -3144,17 +2289,11 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
   @override
   final int? totalBlocksFailed;
   @override
-  final int? evaluatedCurrentEpoch;
-  @override
-  final String? currentEpochVrfEvaluationStatus;
-  @override
-  final String? nextEpochVrfEvaluationStatus;
-  @override
   final double? bpSuccessRate;
 
   @override
   String toString() {
-    return 'ConsensusMetrics(currentEpoch: $currentEpoch, currentGlobalSlot: $currentGlobalSlot, currentEpochWonSlots: $currentEpochWonSlots, currentEpochProduced: $currentEpochProduced, currentEpochFailed: $currentEpochFailed, totalWonSlots: $totalWonSlots, totalBlocksProduced: $totalBlocksProduced, totalBlocksFailed: $totalBlocksFailed, evaluatedCurrentEpoch: $evaluatedCurrentEpoch, currentEpochVrfEvaluationStatus: $currentEpochVrfEvaluationStatus, nextEpochVrfEvaluationStatus: $nextEpochVrfEvaluationStatus, bpSuccessRate: $bpSuccessRate)';
+    return 'ConsensusMetrics(currentEpoch: $currentEpoch, currentEpochWonSlots: $currentEpochWonSlots, currentEpochProduced: $currentEpochProduced, currentEpochFailed: $currentEpochFailed, totalWonSlots: $totalWonSlots, totalBlocksProduced: $totalBlocksProduced, totalBlocksFailed: $totalBlocksFailed, bpSuccessRate: $bpSuccessRate)';
   }
 
   @override
@@ -3164,8 +2303,6 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
             other is _$ConsensusMetricsImpl &&
             (identical(other.currentEpoch, currentEpoch) ||
                 other.currentEpoch == currentEpoch) &&
-            (identical(other.currentGlobalSlot, currentGlobalSlot) ||
-                other.currentGlobalSlot == currentGlobalSlot) &&
             (identical(other.currentEpochWonSlots, currentEpochWonSlots) ||
                 other.currentEpochWonSlots == currentEpochWonSlots) &&
             (identical(other.currentEpochProduced, currentEpochProduced) ||
@@ -3178,16 +2315,6 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
                 other.totalBlocksProduced == totalBlocksProduced) &&
             (identical(other.totalBlocksFailed, totalBlocksFailed) ||
                 other.totalBlocksFailed == totalBlocksFailed) &&
-            (identical(other.evaluatedCurrentEpoch, evaluatedCurrentEpoch) ||
-                other.evaluatedCurrentEpoch == evaluatedCurrentEpoch) &&
-            (identical(other.currentEpochVrfEvaluationStatus,
-                    currentEpochVrfEvaluationStatus) ||
-                other.currentEpochVrfEvaluationStatus ==
-                    currentEpochVrfEvaluationStatus) &&
-            (identical(other.nextEpochVrfEvaluationStatus,
-                    nextEpochVrfEvaluationStatus) ||
-                other.nextEpochVrfEvaluationStatus ==
-                    nextEpochVrfEvaluationStatus) &&
             (identical(other.bpSuccessRate, bpSuccessRate) ||
                 other.bpSuccessRate == bpSuccessRate));
   }
@@ -3196,16 +2323,12 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
   int get hashCode => Object.hash(
       runtimeType,
       currentEpoch,
-      currentGlobalSlot,
       currentEpochWonSlots,
       currentEpochProduced,
       currentEpochFailed,
       totalWonSlots,
       totalBlocksProduced,
       totalBlocksFailed,
-      evaluatedCurrentEpoch,
-      currentEpochVrfEvaluationStatus,
-      nextEpochVrfEvaluationStatus,
       bpSuccessRate);
 
   /// Create a copy of ConsensusMetrics
@@ -3221,23 +2344,17 @@ class _$ConsensusMetricsImpl extends _ConsensusMetrics {
 abstract class _ConsensusMetrics extends ConsensusMetrics {
   const factory _ConsensusMetrics(
       {final int? currentEpoch,
-      final int? currentGlobalSlot,
       final int? currentEpochWonSlots,
       final int? currentEpochProduced,
       final int? currentEpochFailed,
       final int? totalWonSlots,
       final int? totalBlocksProduced,
       final int? totalBlocksFailed,
-      final int? evaluatedCurrentEpoch,
-      final String? currentEpochVrfEvaluationStatus,
-      final String? nextEpochVrfEvaluationStatus,
       final double? bpSuccessRate}) = _$ConsensusMetricsImpl;
   const _ConsensusMetrics._() : super._();
 
   @override
   int? get currentEpoch;
-  @override
-  int? get currentGlobalSlot;
   @override
   int? get currentEpochWonSlots;
   @override
@@ -3251,12 +2368,6 @@ abstract class _ConsensusMetrics extends ConsensusMetrics {
   @override
   int? get totalBlocksFailed;
   @override
-  int? get evaluatedCurrentEpoch;
-  @override
-  String? get currentEpochVrfEvaluationStatus;
-  @override
-  String? get nextEpochVrfEvaluationStatus;
-  @override
   double? get bpSuccessRate;
 
   /// Create a copy of ConsensusMetrics
@@ -3268,376 +2379,13 @@ abstract class _ConsensusMetrics extends ConsensusMetrics {
 }
 
 /// @nodoc
-mixin _$BlockchainMetrics {
-  int? get blockchainHeight => throw _privateConstructorUsedError;
-  String? get blockchainLatestBlockHash => throw _privateConstructorUsedError;
-  int? get blockchainLatestBlockSlot => throw _privateConstructorUsedError;
-  String? get blockchainLatestBlockTimestamp =>
-      throw _privateConstructorUsedError;
-
-  /// Create a copy of BlockchainMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $BlockchainMetricsCopyWith<BlockchainMetrics> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $BlockchainMetricsCopyWith<$Res> {
-  factory $BlockchainMetricsCopyWith(
-          BlockchainMetrics value, $Res Function(BlockchainMetrics) then) =
-      _$BlockchainMetricsCopyWithImpl<$Res, BlockchainMetrics>;
-  @useResult
-  $Res call(
-      {int? blockchainHeight,
-      String? blockchainLatestBlockHash,
-      int? blockchainLatestBlockSlot,
-      String? blockchainLatestBlockTimestamp});
-}
-
-/// @nodoc
-class _$BlockchainMetricsCopyWithImpl<$Res, $Val extends BlockchainMetrics>
-    implements $BlockchainMetricsCopyWith<$Res> {
-  _$BlockchainMetricsCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of BlockchainMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? blockchainHeight = freezed,
-    Object? blockchainLatestBlockHash = freezed,
-    Object? blockchainLatestBlockSlot = freezed,
-    Object? blockchainLatestBlockTimestamp = freezed,
-  }) {
-    return _then(_value.copyWith(
-      blockchainHeight: freezed == blockchainHeight
-          ? _value.blockchainHeight
-          : blockchainHeight // ignore: cast_nullable_to_non_nullable
-              as int?,
-      blockchainLatestBlockHash: freezed == blockchainLatestBlockHash
-          ? _value.blockchainLatestBlockHash
-          : blockchainLatestBlockHash // ignore: cast_nullable_to_non_nullable
-              as String?,
-      blockchainLatestBlockSlot: freezed == blockchainLatestBlockSlot
-          ? _value.blockchainLatestBlockSlot
-          : blockchainLatestBlockSlot // ignore: cast_nullable_to_non_nullable
-              as int?,
-      blockchainLatestBlockTimestamp: freezed == blockchainLatestBlockTimestamp
-          ? _value.blockchainLatestBlockTimestamp
-          : blockchainLatestBlockTimestamp // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
-  }
-}
-
-/// @nodoc
-abstract class _$$BlockchainMetricsImplCopyWith<$Res>
-    implements $BlockchainMetricsCopyWith<$Res> {
-  factory _$$BlockchainMetricsImplCopyWith(_$BlockchainMetricsImpl value,
-          $Res Function(_$BlockchainMetricsImpl) then) =
-      __$$BlockchainMetricsImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call(
-      {int? blockchainHeight,
-      String? blockchainLatestBlockHash,
-      int? blockchainLatestBlockSlot,
-      String? blockchainLatestBlockTimestamp});
-}
-
-/// @nodoc
-class __$$BlockchainMetricsImplCopyWithImpl<$Res>
-    extends _$BlockchainMetricsCopyWithImpl<$Res, _$BlockchainMetricsImpl>
-    implements _$$BlockchainMetricsImplCopyWith<$Res> {
-  __$$BlockchainMetricsImplCopyWithImpl(_$BlockchainMetricsImpl _value,
-      $Res Function(_$BlockchainMetricsImpl) _then)
-      : super(_value, _then);
-
-  /// Create a copy of BlockchainMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? blockchainHeight = freezed,
-    Object? blockchainLatestBlockHash = freezed,
-    Object? blockchainLatestBlockSlot = freezed,
-    Object? blockchainLatestBlockTimestamp = freezed,
-  }) {
-    return _then(_$BlockchainMetricsImpl(
-      blockchainHeight: freezed == blockchainHeight
-          ? _value.blockchainHeight
-          : blockchainHeight // ignore: cast_nullable_to_non_nullable
-              as int?,
-      blockchainLatestBlockHash: freezed == blockchainLatestBlockHash
-          ? _value.blockchainLatestBlockHash
-          : blockchainLatestBlockHash // ignore: cast_nullable_to_non_nullable
-              as String?,
-      blockchainLatestBlockSlot: freezed == blockchainLatestBlockSlot
-          ? _value.blockchainLatestBlockSlot
-          : blockchainLatestBlockSlot // ignore: cast_nullable_to_non_nullable
-              as int?,
-      blockchainLatestBlockTimestamp: freezed == blockchainLatestBlockTimestamp
-          ? _value.blockchainLatestBlockTimestamp
-          : blockchainLatestBlockTimestamp // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
-  }
-}
-
-/// @nodoc
-
-class _$BlockchainMetricsImpl extends _BlockchainMetrics {
-  const _$BlockchainMetricsImpl(
-      {this.blockchainHeight,
-      this.blockchainLatestBlockHash,
-      this.blockchainLatestBlockSlot,
-      this.blockchainLatestBlockTimestamp})
-      : super._();
-
-  @override
-  final int? blockchainHeight;
-  @override
-  final String? blockchainLatestBlockHash;
-  @override
-  final int? blockchainLatestBlockSlot;
-  @override
-  final String? blockchainLatestBlockTimestamp;
-
-  @override
-  String toString() {
-    return 'BlockchainMetrics(blockchainHeight: $blockchainHeight, blockchainLatestBlockHash: $blockchainLatestBlockHash, blockchainLatestBlockSlot: $blockchainLatestBlockSlot, blockchainLatestBlockTimestamp: $blockchainLatestBlockTimestamp)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$BlockchainMetricsImpl &&
-            (identical(other.blockchainHeight, blockchainHeight) ||
-                other.blockchainHeight == blockchainHeight) &&
-            (identical(other.blockchainLatestBlockHash,
-                    blockchainLatestBlockHash) ||
-                other.blockchainLatestBlockHash == blockchainLatestBlockHash) &&
-            (identical(other.blockchainLatestBlockSlot,
-                    blockchainLatestBlockSlot) ||
-                other.blockchainLatestBlockSlot == blockchainLatestBlockSlot) &&
-            (identical(other.blockchainLatestBlockTimestamp,
-                    blockchainLatestBlockTimestamp) ||
-                other.blockchainLatestBlockTimestamp ==
-                    blockchainLatestBlockTimestamp));
-  }
-
-  @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      blockchainHeight,
-      blockchainLatestBlockHash,
-      blockchainLatestBlockSlot,
-      blockchainLatestBlockTimestamp);
-
-  /// Create a copy of BlockchainMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$BlockchainMetricsImplCopyWith<_$BlockchainMetricsImpl> get copyWith =>
-      __$$BlockchainMetricsImplCopyWithImpl<_$BlockchainMetricsImpl>(
-          this, _$identity);
-}
-
-abstract class _BlockchainMetrics extends BlockchainMetrics {
-  const factory _BlockchainMetrics(
-      {final int? blockchainHeight,
-      final String? blockchainLatestBlockHash,
-      final int? blockchainLatestBlockSlot,
-      final String? blockchainLatestBlockTimestamp}) = _$BlockchainMetricsImpl;
-  const _BlockchainMetrics._() : super._();
-
-  @override
-  int? get blockchainHeight;
-  @override
-  String? get blockchainLatestBlockHash;
-  @override
-  int? get blockchainLatestBlockSlot;
-  @override
-  String? get blockchainLatestBlockTimestamp;
-
-  /// Create a copy of BlockchainMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$BlockchainMetricsImplCopyWith<_$BlockchainMetricsImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-mixin _$WalletMetrics {
-  BigInt? get walletBalance => throw _privateConstructorUsedError;
-  String? get walletAddress => throw _privateConstructorUsedError;
-
-  /// Create a copy of WalletMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $WalletMetricsCopyWith<WalletMetrics> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
-abstract class $WalletMetricsCopyWith<$Res> {
-  factory $WalletMetricsCopyWith(
-          WalletMetrics value, $Res Function(WalletMetrics) then) =
-      _$WalletMetricsCopyWithImpl<$Res, WalletMetrics>;
-  @useResult
-  $Res call({BigInt? walletBalance, String? walletAddress});
-}
-
-/// @nodoc
-class _$WalletMetricsCopyWithImpl<$Res, $Val extends WalletMetrics>
-    implements $WalletMetricsCopyWith<$Res> {
-  _$WalletMetricsCopyWithImpl(this._value, this._then);
-
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
-
-  /// Create a copy of WalletMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? walletBalance = freezed,
-    Object? walletAddress = freezed,
-  }) {
-    return _then(_value.copyWith(
-      walletBalance: freezed == walletBalance
-          ? _value.walletBalance
-          : walletBalance // ignore: cast_nullable_to_non_nullable
-              as BigInt?,
-      walletAddress: freezed == walletAddress
-          ? _value.walletAddress
-          : walletAddress // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ) as $Val);
-  }
-}
-
-/// @nodoc
-abstract class _$$WalletMetricsImplCopyWith<$Res>
-    implements $WalletMetricsCopyWith<$Res> {
-  factory _$$WalletMetricsImplCopyWith(
-          _$WalletMetricsImpl value, $Res Function(_$WalletMetricsImpl) then) =
-      __$$WalletMetricsImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({BigInt? walletBalance, String? walletAddress});
-}
-
-/// @nodoc
-class __$$WalletMetricsImplCopyWithImpl<$Res>
-    extends _$WalletMetricsCopyWithImpl<$Res, _$WalletMetricsImpl>
-    implements _$$WalletMetricsImplCopyWith<$Res> {
-  __$$WalletMetricsImplCopyWithImpl(
-      _$WalletMetricsImpl _value, $Res Function(_$WalletMetricsImpl) _then)
-      : super(_value, _then);
-
-  /// Create a copy of WalletMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? walletBalance = freezed,
-    Object? walletAddress = freezed,
-  }) {
-    return _then(_$WalletMetricsImpl(
-      walletBalance: freezed == walletBalance
-          ? _value.walletBalance
-          : walletBalance // ignore: cast_nullable_to_non_nullable
-              as BigInt?,
-      walletAddress: freezed == walletAddress
-          ? _value.walletAddress
-          : walletAddress // ignore: cast_nullable_to_non_nullable
-              as String?,
-    ));
-  }
-}
-
-/// @nodoc
-
-class _$WalletMetricsImpl extends _WalletMetrics {
-  const _$WalletMetricsImpl({this.walletBalance, this.walletAddress})
-      : super._();
-
-  @override
-  final BigInt? walletBalance;
-  @override
-  final String? walletAddress;
-
-  @override
-  String toString() {
-    return 'WalletMetrics(walletBalance: $walletBalance, walletAddress: $walletAddress)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$WalletMetricsImpl &&
-            (identical(other.walletBalance, walletBalance) ||
-                other.walletBalance == walletBalance) &&
-            (identical(other.walletAddress, walletAddress) ||
-                other.walletAddress == walletAddress));
-  }
-
-  @override
-  int get hashCode => Object.hash(runtimeType, walletBalance, walletAddress);
-
-  /// Create a copy of WalletMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$WalletMetricsImplCopyWith<_$WalletMetricsImpl> get copyWith =>
-      __$$WalletMetricsImplCopyWithImpl<_$WalletMetricsImpl>(this, _$identity);
-}
-
-abstract class _WalletMetrics extends WalletMetrics {
-  const factory _WalletMetrics(
-      {final BigInt? walletBalance,
-      final String? walletAddress}) = _$WalletMetricsImpl;
-  const _WalletMetrics._() : super._();
-
-  @override
-  BigInt? get walletBalance;
-  @override
-  String? get walletAddress;
-
-  /// Create a copy of WalletMetrics
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$WalletMetricsImplCopyWith<_$WalletMetricsImpl> get copyWith =>
-      throw _privateConstructorUsedError;
-}
-
-/// @nodoc
 mixin _$PeerMetrics {
   String get peerId => throw _privateConstructorUsedError;
   String? get address => throw _privateConstructorUsedError;
   String? get bestTip => throw _privateConstructorUsedError;
-  int? get bestTipHeight => throw _privateConstructorUsedError;
   int? get bestTipGlobalSlot => throw _privateConstructorUsedError;
-  int? get bestTipTimestamp => throw _privateConstructorUsedError;
   String get connectionStatus => throw _privateConstructorUsedError;
-  String? get connectingDetails => throw _privateConstructorUsedError;
   bool get incoming => throw _privateConstructorUsedError;
-  int get time => throw _privateConstructorUsedError;
 
   /// Create a copy of PeerMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -3656,13 +2404,9 @@ abstract class $PeerMetricsCopyWith<$Res> {
       {String peerId,
       String? address,
       String? bestTip,
-      int? bestTipHeight,
       int? bestTipGlobalSlot,
-      int? bestTipTimestamp,
       String connectionStatus,
-      String? connectingDetails,
-      bool incoming,
-      int time});
+      bool incoming});
 }
 
 /// @nodoc
@@ -3683,13 +2427,9 @@ class _$PeerMetricsCopyWithImpl<$Res, $Val extends PeerMetrics>
     Object? peerId = null,
     Object? address = freezed,
     Object? bestTip = freezed,
-    Object? bestTipHeight = freezed,
     Object? bestTipGlobalSlot = freezed,
-    Object? bestTipTimestamp = freezed,
     Object? connectionStatus = null,
-    Object? connectingDetails = freezed,
     Object? incoming = null,
-    Object? time = null,
   }) {
     return _then(_value.copyWith(
       peerId: null == peerId
@@ -3704,34 +2444,18 @@ class _$PeerMetricsCopyWithImpl<$Res, $Val extends PeerMetrics>
           ? _value.bestTip
           : bestTip // ignore: cast_nullable_to_non_nullable
               as String?,
-      bestTipHeight: freezed == bestTipHeight
-          ? _value.bestTipHeight
-          : bestTipHeight // ignore: cast_nullable_to_non_nullable
-              as int?,
       bestTipGlobalSlot: freezed == bestTipGlobalSlot
           ? _value.bestTipGlobalSlot
           : bestTipGlobalSlot // ignore: cast_nullable_to_non_nullable
-              as int?,
-      bestTipTimestamp: freezed == bestTipTimestamp
-          ? _value.bestTipTimestamp
-          : bestTipTimestamp // ignore: cast_nullable_to_non_nullable
               as int?,
       connectionStatus: null == connectionStatus
           ? _value.connectionStatus
           : connectionStatus // ignore: cast_nullable_to_non_nullable
               as String,
-      connectingDetails: freezed == connectingDetails
-          ? _value.connectingDetails
-          : connectingDetails // ignore: cast_nullable_to_non_nullable
-              as String?,
       incoming: null == incoming
           ? _value.incoming
           : incoming // ignore: cast_nullable_to_non_nullable
               as bool,
-      time: null == time
-          ? _value.time
-          : time // ignore: cast_nullable_to_non_nullable
-              as int,
     ) as $Val);
   }
 }
@@ -3748,13 +2472,9 @@ abstract class _$$PeerMetricsImplCopyWith<$Res>
       {String peerId,
       String? address,
       String? bestTip,
-      int? bestTipHeight,
       int? bestTipGlobalSlot,
-      int? bestTipTimestamp,
       String connectionStatus,
-      String? connectingDetails,
-      bool incoming,
-      int time});
+      bool incoming});
 }
 
 /// @nodoc
@@ -3773,13 +2493,9 @@ class __$$PeerMetricsImplCopyWithImpl<$Res>
     Object? peerId = null,
     Object? address = freezed,
     Object? bestTip = freezed,
-    Object? bestTipHeight = freezed,
     Object? bestTipGlobalSlot = freezed,
-    Object? bestTipTimestamp = freezed,
     Object? connectionStatus = null,
-    Object? connectingDetails = freezed,
     Object? incoming = null,
-    Object? time = null,
   }) {
     return _then(_$PeerMetricsImpl(
       peerId: null == peerId
@@ -3794,34 +2510,18 @@ class __$$PeerMetricsImplCopyWithImpl<$Res>
           ? _value.bestTip
           : bestTip // ignore: cast_nullable_to_non_nullable
               as String?,
-      bestTipHeight: freezed == bestTipHeight
-          ? _value.bestTipHeight
-          : bestTipHeight // ignore: cast_nullable_to_non_nullable
-              as int?,
       bestTipGlobalSlot: freezed == bestTipGlobalSlot
           ? _value.bestTipGlobalSlot
           : bestTipGlobalSlot // ignore: cast_nullable_to_non_nullable
-              as int?,
-      bestTipTimestamp: freezed == bestTipTimestamp
-          ? _value.bestTipTimestamp
-          : bestTipTimestamp // ignore: cast_nullable_to_non_nullable
               as int?,
       connectionStatus: null == connectionStatus
           ? _value.connectionStatus
           : connectionStatus // ignore: cast_nullable_to_non_nullable
               as String,
-      connectingDetails: freezed == connectingDetails
-          ? _value.connectingDetails
-          : connectingDetails // ignore: cast_nullable_to_non_nullable
-              as String?,
       incoming: null == incoming
           ? _value.incoming
           : incoming // ignore: cast_nullable_to_non_nullable
               as bool,
-      time: null == time
-          ? _value.time
-          : time // ignore: cast_nullable_to_non_nullable
-              as int,
     ));
   }
 }
@@ -3833,13 +2533,9 @@ class _$PeerMetricsImpl extends _PeerMetrics {
       {required this.peerId,
       this.address,
       this.bestTip,
-      this.bestTipHeight,
       this.bestTipGlobalSlot,
-      this.bestTipTimestamp,
       required this.connectionStatus,
-      this.connectingDetails,
-      required this.incoming,
-      required this.time})
+      required this.incoming})
       : super._();
 
   @override
@@ -3849,23 +2545,15 @@ class _$PeerMetricsImpl extends _PeerMetrics {
   @override
   final String? bestTip;
   @override
-  final int? bestTipHeight;
-  @override
   final int? bestTipGlobalSlot;
-  @override
-  final int? bestTipTimestamp;
   @override
   final String connectionStatus;
   @override
-  final String? connectingDetails;
-  @override
   final bool incoming;
-  @override
-  final int time;
 
   @override
   String toString() {
-    return 'PeerMetrics(peerId: $peerId, address: $address, bestTip: $bestTip, bestTipHeight: $bestTipHeight, bestTipGlobalSlot: $bestTipGlobalSlot, bestTipTimestamp: $bestTipTimestamp, connectionStatus: $connectionStatus, connectingDetails: $connectingDetails, incoming: $incoming, time: $time)';
+    return 'PeerMetrics(peerId: $peerId, address: $address, bestTip: $bestTip, bestTipGlobalSlot: $bestTipGlobalSlot, connectionStatus: $connectionStatus, incoming: $incoming)';
   }
 
   @override
@@ -3876,34 +2564,17 @@ class _$PeerMetricsImpl extends _PeerMetrics {
             (identical(other.peerId, peerId) || other.peerId == peerId) &&
             (identical(other.address, address) || other.address == address) &&
             (identical(other.bestTip, bestTip) || other.bestTip == bestTip) &&
-            (identical(other.bestTipHeight, bestTipHeight) ||
-                other.bestTipHeight == bestTipHeight) &&
             (identical(other.bestTipGlobalSlot, bestTipGlobalSlot) ||
                 other.bestTipGlobalSlot == bestTipGlobalSlot) &&
-            (identical(other.bestTipTimestamp, bestTipTimestamp) ||
-                other.bestTipTimestamp == bestTipTimestamp) &&
             (identical(other.connectionStatus, connectionStatus) ||
                 other.connectionStatus == connectionStatus) &&
-            (identical(other.connectingDetails, connectingDetails) ||
-                other.connectingDetails == connectingDetails) &&
             (identical(other.incoming, incoming) ||
-                other.incoming == incoming) &&
-            (identical(other.time, time) || other.time == time));
+                other.incoming == incoming));
   }
 
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      peerId,
-      address,
-      bestTip,
-      bestTipHeight,
-      bestTipGlobalSlot,
-      bestTipTimestamp,
-      connectionStatus,
-      connectingDetails,
-      incoming,
-      time);
+  int get hashCode => Object.hash(runtimeType, peerId, address, bestTip,
+      bestTipGlobalSlot, connectionStatus, incoming);
 
   /// Create a copy of PeerMetrics
   /// with the given fields replaced by the non-null parameter values.
@@ -3919,13 +2590,9 @@ abstract class _PeerMetrics extends PeerMetrics {
       {required final String peerId,
       final String? address,
       final String? bestTip,
-      final int? bestTipHeight,
       final int? bestTipGlobalSlot,
-      final int? bestTipTimestamp,
       required final String connectionStatus,
-      final String? connectingDetails,
-      required final bool incoming,
-      required final int time}) = _$PeerMetricsImpl;
+      required final bool incoming}) = _$PeerMetricsImpl;
   const _PeerMetrics._() : super._();
 
   @override
@@ -3935,19 +2602,11 @@ abstract class _PeerMetrics extends PeerMetrics {
   @override
   String? get bestTip;
   @override
-  int? get bestTipHeight;
-  @override
   int? get bestTipGlobalSlot;
-  @override
-  int? get bestTipTimestamp;
   @override
   String get connectionStatus;
   @override
-  String? get connectingDetails;
-  @override
   bool get incoming;
-  @override
-  int get time;
 
   /// Create a copy of PeerMetrics
   /// with the given fields replaced by the non-null parameter values.

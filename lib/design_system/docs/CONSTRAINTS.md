@@ -42,6 +42,7 @@ Rules enforced by convention (and eventually by lint). Each constraint has: WHAT
 final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 // semantic.technical  — blue (infrastructure, upcoming slots)
 // semantic.flash      — amber (challenge category)
+// semantic.premium    — yellow (featured rewards, high-value spotlight)
 // semantic.community  — green (challenge category)
 // semantic.success    — green (positive outcomes)
 // semantic.warning    — amber (syncing, permissions)
@@ -69,10 +70,10 @@ final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
 ## Widgetbook Rule
 
-**Constraint:** Every widget gets a Widgetbook use case importing the **real widget** with mock data via knobs. Never hand-built replicas.
+**Constraint:** Every widget gets a Widgetbook v4 story in `widgetbook/lib/stories/` with typed Args and Scenarios importing the **real widget**. Never hand-built replicas.
 
 **Why:** What you see in Widgetbook must be exactly what ships. Replicas drift.
-**Where:** Widgetbook use cases in `widgetbook/`.
+**Where:** Widgetbook v4 stories in `widgetbook/lib/stories/`.
 
 ## Widget Pipeline
 
@@ -81,7 +82,7 @@ Three slash commands drive design-to-code:
 | Command | Purpose |
 |---------|---------|
 | `/figma-inspect` | Extract Figma design data, map to tokens, produce `.spec.yaml` + `.genesis.md` |
-| `/widget-from-figma` | End-to-end: inspect + build widget + tests + Widgetbook use case |
+| `/widget-from-figma` | End-to-end: inspect + build widget + tests + Widgetbook v4 story |
 | `/verify-widget` | Quality gate: format, analyze, test, token check, barrel, genesis, catalog |
 
 **Where:** Skills: `/figma-inspect`, `/widget-from-figma`, `/verify-widget`.

@@ -48,7 +48,7 @@ graph TD
         TOKENS["tokens/\n9 token classes"]
         THEME["theme/\nColorIsExpensiveTheme"]
         SRC["src/\n35 widgets"]
-        WB["widgetbook/\n39 use cases"]
+        WB["widgetbook/\nv4 stories"]
         BARREL["design_system.dart\nbarrel export"]
     end
 
@@ -190,7 +190,7 @@ sequenceDiagram
 
     Agent->>FS: Write widget src
     Agent->>FS: Write test + golden
-    Agent->>FS: Write widgetbook use case
+    Agent->>FS: Write Widgetbook v4 story + scenarios
     Agent->>FS: Update barrel export
     Agent->>FS: Update genesis doc
     Agent->>FS: Add catalog row to DESIGN_SYSTEM.md
@@ -248,9 +248,10 @@ graph LR
     subgraph "Semantic color groups"
         C1["technical\nblue hue"]
         C2["flash\namber hue"]
+        C6["premium\nyellow hue"]
         C3["community\ngreen hue"]
         C4["success\ngreen hue"]
-        C5["warning\n(via M3 error role)"]
+        C5["warning\namber caution"]
     end
 
     TOKEN --- T1

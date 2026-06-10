@@ -54,7 +54,7 @@ All new design system work lives in `lib/design_system/`. Existing code is untou
 - **Colors**: `Theme.of(context).colorScheme` — **all structural roles are achromatic grey** (primary, secondary, tertiary, containers). Only `error*` has hue. To introduce chromatic color, use `Theme.of(context).extension<AppSemanticColors>()!` (technical/flash/community/success/warning). Never assume a `ColorScheme` role carries color.
 - **Typography**: `Theme.of(context).textTheme`
 - **Presentation-only**: Design system widgets take all state via constructor params (data + callbacks). No providers, no `ConsumerWidget`, no services. No FRB-generated types in constructor params (they transitively import native FFI). Screens in `lib/features/` wire state to widgets.
-- **Widgetbook rule**: Every new design system widget gets a use case that imports the **real widget** with mock data via knobs — never hand-built replicas.
+- **Widgetbook rule**: Every new design system widget gets a Widgetbook v4 story in `widgetbook/lib/stories/` with typed Args and Scenarios importing the **real widget** — never hand-built replicas.
 - **Quality gate**: `dart format` clean, `flutter analyze` passes, tests pass, `ds_lints` clean (no warnings)
 - **Screen building**: `lib/design_system/docs/SCREEN_PATTERNS.md` — templates, token reference, checklists
 - **Widget pipeline**: `.claude/commands/widget-from-figma.md` → `.claude/commands/figma-inspect.md` → `.claude/commands/verify-widget.md`

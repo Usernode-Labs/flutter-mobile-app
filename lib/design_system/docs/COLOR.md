@@ -48,24 +48,28 @@ The principle yields to user accessibility needs, not the other way around.
 
 ## Semantic Colors (AppSemanticColors)
 
-The chromatic gatekeeper. A `ThemeExtension` (not a `ColorScheme` role) — access is explicit and opt-in. Exactly 4 groups; adding a 5th is a design decision, not a convenience.
+The chromatic gatekeeper. A `ThemeExtension` (not a `ColorScheme` role) — access is explicit and opt-in. The palette is intentionally small; adding a group is a design decision, not a convenience.
 
 | Group | Hue | Domain Meaning |
 |-------|-----|----------------|
 | **Technical** | Blue | Precision, computation, code |
 | **Flash** | Amber | Urgency, energy, time-limited |
+| **Premium** | Yellow | Featured rewards, high-value spotlight |
 | **Community** | Green | Participation, growth, social |
 | **Success** | Green (distinct tone) | Completion, achievement, earned badges |
+| **Warning** | Amber (distinct tone) | Syncing, permissions, caution |
 
-Each group provides a 6-role pattern mirroring M3. All pairs APCA-verified.
+Each group provides a 6-role pattern mirroring M3. When a group is added or changed, contrast must be re-checked across light, dark, and contrast themes.
 
 | Tier | Role | Visual Weight | Use Case |
 |------|------|--------------|----------|
 | Strong | `color` / `onColor` | Full accent | Icons, text, borders, small-area emphasis |
 | Medium | `colorContainer` / `onColorContainer` | Medium tint | Badges, chips, banners |
-| Faint | `colorSurface` / `onColorSurface` | Near-surface whisper | Card backgrounds, section fills, list highlights |
+| Faint / spotlight | `colorSurface` / `onColorSurface` | Usually near-surface; premium is intentionally saturated | Card backgrounds, section fills, list highlights, featured rewards |
 
-Use `colorSurface` for large-area backgrounds where `colorContainer` would be too loud. `colorSurface` is a solid near-surface color with barely perceptible hue; `onColorSurface` reinforces the semantic with chromatic text.
+For most semantic groups, use `colorSurface` for large-area backgrounds where `colorContainer` would be too loud. Those surfaces should be solid near-surface colors with barely perceptible hue; `onColorSurface` reinforces the semantic with readable text/icon color.
+
+Premium is the one deliberate exception: `premium.colorSurface` is the full featured-reward yellow (`#FFC900`) with black foreground. Use `premium.color` as the matching black CTA or reward-rail surface, `premium.onColor` as yellow foreground on that black surface, and `premium.colorContainer` (`#FFF3D2`) for softer selected states.
 
 > Values, sub-roles, and contrast data → `app_semantic_colors.dart`
 
@@ -79,8 +83,8 @@ Use `colorSurface` for large-area backgrounds where `colorContainer` would be to
 
 Color is a budget. Each expenditure must carry semantic weight.
 
-**Earns color:** Technical (blue), Flash (amber), Community (green), Success (green, distinct tone), Error (red).
+**Earns color:** Technical (blue), Flash (amber), Premium (yellow), Community (green), Success (green, distinct tone), Warning (amber), Error (red).
 
-**Stays achromatic:** Primary buttons, secondary actions, nav bars/tabs, cards/sheets/dialogs, outlines/dividers, scaffold background, progress indicators, switches/checkboxes.
+**Stays achromatic:** Primary buttons, secondary actions, card/sheet/dialog structure, outlines/dividers, scaffold background, progress indicators, switches/checkboxes. Navigation surfaces stay achromatic; selected item indicators may spend semantic color when the active destination has a clear semantic role.
 
-**The gatekeeper:** `AppSemanticColors` is the only sanctioned path to hue (besides `error`). If you can't map to one of 5 budget lines (4 semantic + error), it stays achromatic.
+**The gatekeeper:** `AppSemanticColors` is the only sanctioned path to hue (besides `error`). If you can't map to a semantic budget line, it stays achromatic.

@@ -2905,5 +2905,25 @@
   "httpLogsShareNoParticipant": "No participant ID yet — finish onboarding to share logs",
   "@httpLogsShareNoParticipant": {
     "description": "Disabled-share hint shown when no participant ID is available"
+  },
+  "participantRecoveryTitle": "Onboarding has evolved",
+  "@participantRecoveryTitle": {
+    "description": "Title of the dialog prompting the user to re-register to restore their participant ID"
+  },
+  "participantRecoveryBody": "Set your Discord handle and registration code again to restore your leaderboard participation.",
+  "@participantRecoveryBody": {
+    "description": "Body of the participant-recovery dialog"
+  },
+  "participantRecoveryRestore": "Restore",
+  "@participantRecoveryRestore": {
+    "description": "Primary button that submits the participant-recovery form"
+  },
+  "participantRecoveryLater": "Later",
+  "@participantRecoveryLater": {
+    "description": "Dismiss button on the participant-recovery dialog"
+  },
+  "participantRecoverySuccess": "Leaderboard participation restored.",
+  "@participantRecoverySuccess": {
+    "description": "Snackbar confirmation after participant ID is restored"
   }
 }

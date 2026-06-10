@@ -6,15 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/repositories/registration_repository.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/registration_flow.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/onboarding_providers.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
@@ -99,48 +96,16 @@ class _OnboardingImportApiAccountScreenState
 
     setState(() => _submitting = true);
     try {
-      final registration =
-          await _registerViaApi(contact: contact, code: activationCode);
-
-      final repo = await AccountsRepository.create();
-      await repo.importFromSecretKey(
-        name: 'API Account',
-        secretKey: registration.secretKey,
+      final result = await registerAndApply(
+        ref: ref,
+        contact: contact,
+        code: activationCode,
       );
-
-      if (!mounted) return;
-
-      // Persist season context so cold-start can detect staleness.
-      // With season continuity, registration is at the season level —
-      // don't persist the season-phase eventId as a user selection.
-      if (registration.seasonId != null) {
-        await LeaderboardBootstrap.persistSeasonEvent(SeasonEventContext(
-          seasonId: registration.seasonId,
-          seasonName: registration.seasonName,
-        ));
-      }
-
-      // Start backend for new account
-      var backendFailed = false;
-      try {
-        await RustBackendService.instance.startNode();
-        _log.debug('Backend started successfully');
-      } catch (e, st) {
-        _log.error('Failed to start backend', error: e, stackTrace: st);
-        backendFailed = true;
-      }
-
-      // Reset stale registration state (important for re-registration flow)
-      ref.read(registrationFreshnessProvider.notifier).state =
-          RegistrationFreshness.unknown;
-
-      // Invalidate account state so router sees new account immediately
-      ref.invalidate(hasAnyAccountProvider);
 
       // Navigate to welcome setup screen before permission flow
       if (!mounted) return;
 
-      if (backendFailed) {
+      if (result.backendStartFailed) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(l10n.importApiAccountBackendStartFailed)),
         );
@@ -173,14 +138,6 @@ class _OnboardingImportApiAccountScreenState
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-  }
-
-  Future<RegistrationResult> _registerViaApi({
-    required String contact,
-    required String code,
-  }) async {
-    final repo = RegistrationRepository();
-    return repo.register(registrationCode: code, identifier: contact);
   }
 
   @override

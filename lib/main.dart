@@ -29,6 +29,8 @@ import 'core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/features/onboarding/widgets/participant_recovery_dialog.dart';
 import 'package:crypto_mobile_app/core/providers/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
@@ -373,6 +375,7 @@ class _AppWrapper extends ConsumerStatefulWidget {
 class _AppWrapperState extends ConsumerState<_AppWrapper>
     with WidgetsBindingObserver {
   bool _versionCheckShown = false;
+  bool _participantRecoveryOpen = false;
   bool _wasSleeping = false;
   final _appSleepService = AppSleepService.instance;
 
@@ -384,7 +387,10 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     _appSleepService.addListener(_handleAppSleepChanged);
     _syncVersionChecks();
     // Check version after first frame
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkInitialVersion());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialVersion();
+      _checkParticipantRecovery();
+    });
   }
 
   @override
@@ -394,6 +400,57 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       // prevents stacking a second dialog on top of an already-shown one.
       ref.invalidate(appVersionCheckProvider);
       _checkInitialVersion();
+      _checkParticipantRecovery();
+    }
+  }
+
+  /// Prompts a fully-onboarded user to re-register when their `participant_id`
+  /// is missing (e.g. registered on an older build, or after a network switch).
+  /// Without it, leaderboard/log-sharing features are silently disabled.
+  /// Re-prompts on each app start/resume until restored; the dialog itself is
+  /// the only thing that fires, since missing participant keeps registration
+  /// freshness `unknown` so the stale-registration redirect never triggers.
+  Future<void> _checkParticipantRecovery({int attempt = 0}) async {
+    if (_participantRecoveryOpen || _appSleepService.isSleeping) return;
+    final log = LoggingService.instance.withTag('usernode/ParticipantRecovery');
+    try {
+      final hasAccount = await ref.read(hasAnyAccountProvider.future);
+      final onboarded = await ref.read(hasCompletedOnboardingProvider.future);
+      if (!hasAccount || !onboarded) return;
+
+      final participantId = await ref.read(participantIdProvider.future);
+      if (participantId != null) return;
+
+      // Never interrupt the onboarding flow itself.
+      final location = ref
+          .read(appRouterProvider)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .path;
+      if (location.startsWith('/onboarding/')) return;
+
+      // On cold start the router is briefly on /splash while account/onboarding
+      // state resolves; re-check once it settles instead of giving up.
+      if (location == AppRoutes.splash) {
+        if (attempt >= 5) return;
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) _checkParticipantRecovery(attempt: attempt + 1);
+        });
+        return;
+      }
+
+      final context = appNavigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+
+      _participantRecoveryOpen = true;
+      try {
+        await showParticipantRecoveryDialog(context);
+      } finally {
+        _participantRecoveryOpen = false;
+      }
+    } catch (e) {
+      log.warn('Participant recovery check failed: $e');
     }
   }
 

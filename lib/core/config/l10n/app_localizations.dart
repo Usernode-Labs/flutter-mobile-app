@@ -3819,6 +3819,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No participant ID yet — finish onboarding to share logs'**
   String get httpLogsShareNoParticipant;
+
+  /// Title of the dialog prompting the user to re-register to restore their participant ID
+  ///
+  /// In en, this message translates to:
+  /// **'Onboarding has evolved'**
+  String get participantRecoveryTitle;
+
+  /// Body of the participant-recovery dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Set your Discord handle and registration code again to restore your leaderboard participation.'**
+  String get participantRecoveryBody;
+
+  /// Primary button that submits the participant-recovery form
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get participantRecoveryRestore;
+
+  /// Dismiss button on the participant-recovery dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get participantRecoveryLater;
+
+  /// Snackbar confirmation after participant ID is restored
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard participation restored.'**
+  String get participantRecoverySuccess;
 }
 
 class _AppLocalizationsDelegate

@@ -12,7 +12,6 @@ import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
 import 'package:crypto_mobile_app/features/metrics/models/slot_outcome_report.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -64,16 +63,11 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   PackageInfo? _cachedPackageInfo;
   BaseDeviceInfo? _cachedDeviceInfo;
   String? _cachedPeerId;
-  String? _cachedWalletAddress;
 
   // Semi-static data with TTL
   DateTime? _batteryOptimizationCacheTime;
   bool? _cachedBatteryOptimization;
   final Duration _batteryOptimizationTTL = const Duration(minutes: 5);
-
-  DateTime? _permissionsCacheTime;
-  _PermissionsCache? _cachedPermissions;
-  final Duration _permissionsTTL = const Duration(minutes: 1);
 
   /// Helper method to check if cache should be refreshed
   bool _shouldRefreshCache(DateTime? cacheTime, Duration ttl) {
@@ -100,11 +94,8 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     _cachedPackageInfo = null;
     _cachedDeviceInfo = null;
     _cachedPeerId = null;
-    _cachedWalletAddress = null;
     _batteryOptimizationCacheTime = null;
     _cachedBatteryOptimization = null;
-    _permissionsCacheTime = null;
-    _cachedPermissions = null;
   }
 
   /// Update the current app lifecycle state
@@ -268,17 +259,13 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   /// Always collects full metrics for all event types, providing complete
   /// visibility into app health, node performance, and block production.
   Future<MetricsPayload> collectMetricsForEvent(
-    BlockProductionEvent event, {
-    BigInt? walletBalance,
-    String? walletAddress,
-  }) async {
+    BlockProductionEvent event,
+  ) async {
     _log.debug('Collecting full metrics for event: ${event.eventType}');
 
     return await collectMetrics(
       eventType: event.eventType,
       eventData: event.toJson(),
-      walletBalance: walletBalance,
-      walletAddress: walletAddress,
     );
   }
 
@@ -288,8 +275,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   Future<MetricsPayload> collectMetrics({
     String eventType = 'health_check',
     Map<String, dynamic>? eventData,
-    BigInt? walletBalance,
-    String? walletAddress,
   }) async {
     // For full collection, fetch node status ONCE from provider to avoid expensive FFI calls
     NodeStatusState? rawStatus;
@@ -304,56 +289,21 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
       }
     }
 
-    // Collect all metrics in parallel for efficiency
-    // Pass rawStatus to methods that need it to avoid duplicate FFI calls
-    final results = await Future.wait([
-      _collectEventMetrics(eventType, eventData),
-      _collectRuntimeMetrics(),
-      _collectPlatformMetrics(),
-      _collectDeviceMetrics(),
-      _collectBatteryMetrics(),
-      _collectNetworkMetrics(),
-      _collectPermissionsMetrics(),
-      _collectStatusMetrics(rawStatus: rawStatus),
-      _collectBlockchainMetrics(rawStatus: rawStatus),
-    ]);
-
-    final event = results[0] as EventMetrics;
-    final runtime = results[1] as RuntimeMetrics;
-    final platform = results[2] as PlatformMetrics;
-    final device = results[3] as DeviceMetrics;
-    final battery = results[4] as BatteryMetrics;
-    final network = results[5] as NetworkMetrics;
-    final permissions = results[6] as PermissionsMetrics;
-    final status = results[7] as StatusMetrics;
-    final blockchain = results[8] as BlockchainMetrics;
-
-    // Collect additional metrics - pass rawStatus to avoid duplicate calls
+    // The metrics-API payload carries only event metadata, the hashed
+    // device id, node identity, consensus and peers. App runtime/platform/
+    // battery/network/permissions and node status/blockchain/wallet are
+    // intentionally not reported here (see metrics_payload.dart).
+    final event = await _collectEventMetrics(eventType, eventData);
+    final device = await _collectDeviceMetrics();
     final identity = await _collectIdentityMetrics();
     final consensus = await _collectConsensusMetrics(rawStatus: rawStatus);
-    final wallet = _collectWalletMetrics(walletBalance, walletAddress);
     final peers = await _collectPeersMetrics(rawStatus: rawStatus);
-    final foregroundService =
-        Platform.isAndroid ? await _collectForegroundServiceMetrics() : null;
 
-    // Build app metrics group
-    final app = AppMetricsGroup(
-      runtime: runtime,
-      platform: platform,
-      device: device,
-      battery: battery,
-      network: network,
-      permissions: permissions,
-      foregroundService: foregroundService,
-    );
+    final app = AppMetricsGroup(device: device);
 
-    // Build node metrics group
     final node = NodeMetricsGroup(
       identity: identity,
-      status: status,
       consensus: consensus,
-      blockchain: blockchain,
-      wallet: wallet,
       peers: peers,
     );
 
@@ -625,151 +575,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     );
   }
 
-  /// Collect permissions state
-  Future<PermissionsMetrics> _collectPermissionsMetrics() async {
-    // Check if we need to refresh permissions cache (1min TTL)
-    if (_shouldRefreshCache(_permissionsCacheTime, _permissionsTTL)) {
-      // Check notification permission
-      final notificationStatus = await Permission.notification.status;
-      final notificationGranted = notificationStatus.isGranted;
-
-      // Check schedule exact alarm permission (Android 12+)
-      bool exactAlarmsPermission = false;
-      if (Platform.isAndroid) {
-        try {
-          exactAlarmsPermission = PlatformAlarmService.instance.hasPermissions;
-        } catch (e) {
-          _log.debug('Could not check exact alarms permission: $e');
-        }
-      } else if (Platform.isIOS) {
-        // iOS doesn't have exact alarms, use notification permission
-        exactAlarmsPermission = notificationGranted;
-      }
-
-      // Battery optimization exempt (Android) - reuse from battery cache
-      bool batteryOptimizationExempt = false;
-      if (Platform.isAndroid) {
-        try {
-          // Reuse cached battery optimization status if available
-          if (_cachedBatteryOptimization != null) {
-            batteryOptimizationExempt = _cachedBatteryOptimization!;
-          } else {
-            batteryOptimizationExempt = await PlatformAlarmService.instance
-                .isBatteryOptimizationDisabled();
-          }
-        } catch (e) {
-          _log.debug('Could not check battery optimization exempt status: $e');
-        }
-      }
-
-      // Cache the results
-      _cachedPermissions = _PermissionsCache(
-        notification: notificationGranted,
-        exactAlarms: exactAlarmsPermission,
-        batteryOptimization: batteryOptimizationExempt,
-      );
-      _permissionsCacheTime = DateTime.now();
-    }
-
-    // Use cached permissions
-    final notificationGranted = _cachedPermissions?.notification ?? false;
-    final exactAlarmsPermission = _cachedPermissions?.exactAlarms ?? false;
-    final batteryOptimizationExempt =
-        _cachedPermissions?.batteryOptimization ?? false;
-
-    // Map notification status to string
-    String notificationPermission = 'denied';
-    if (notificationGranted) {
-      notificationPermission = 'authorized';
-    }
-    // Note: We can't determine permanently_denied from cache,
-    // but this is acceptable for the caching strategy
-
-    return PermissionsMetrics(
-      permissionExactAlarms: exactAlarmsPermission,
-      permissionBatteryOptimizationExempt: batteryOptimizationExempt,
-      exactAlarmsPermission: exactAlarmsPermission,
-      notificationPermission: notificationPermission,
-    );
-  }
-
-  /// Collect node status metrics from Rust backend
-  ///
-  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
-  /// This avoids expensive FFI calls when status is already available.
-  Future<StatusMetrics> _collectStatusMetrics(
-      {NodeStatusState? rawStatus}) async {
-    bool nodeRunning = RustBackendService.instance.isRunning;
-    String nodeState = nodeRunning ? 'running' : 'stopped';
-    String? syncStatus;
-    int? bestTipSlot;
-    String? bestTipHash;
-    int connectedPeers = 0;
-
-    if (nodeRunning) {
-      try {
-        // Use existing sync status provider if container is available
-        if (_container != null) {
-          // Read sync status from provider (reuses UI logic)
-          final statusAsync = _container!.read(nodeStatusProvider);
-          final statusValue = statusAsync.valueOrNull;
-          if (statusValue != null) {
-            syncStatus = statusValue.syncStatus.state
-                .name; // 'connecting', 'syncing', 'synced', 'error'
-            connectedPeers = statusValue.connectedPeers;
-
-            // Get best tip data
-            final bestTip = statusValue.localBest;
-            bestTipSlot = bestTip?.globalSlot;
-            bestTipHash = bestTip?.hash.toString();
-          }
-        } else {
-          // Use provided rawStatus
-          if (rawStatus != null) {
-            // Count connected peers from rawStatus
-            connectedPeers = rawStatus.connectedPeers;
-
-            // Determine sync status based on blockchain sync state
-            final applyProgress = rawStatus.applyProgress;
-
-            // Check if we're still connecting (no peers or no sync data)
-            if (connectedPeers == 0 || applyProgress == null) {
-              syncStatus = 'connecting';
-            } else {
-              // We have peers and sync data - check sync progress
-              final totalBlocks = applyProgress.done +
-                  applyProgress.pending +
-                  applyProgress.idle;
-              if (totalBlocks == BigInt.zero ||
-                  applyProgress.done == totalBlocks) {
-                syncStatus = 'synced';
-              } else {
-                syncStatus = 'syncing';
-              }
-            }
-
-            // Best tip info from blockchain
-            final bestTip = rawStatus.networkBest ?? rawStatus.localBest;
-            bestTipSlot = bestTip?.globalSlot;
-            bestTipHash = bestTip?.hash.toString();
-          }
-        }
-      } catch (e) {
-        _log.debug('Error getting node status: $e');
-        nodeState = 'error';
-      }
-    }
-
-    return StatusMetrics(
-      nodeRunning: nodeRunning,
-      nodeState: nodeState,
-      nodeSyncStatus: syncStatus,
-      nodeBestTipSlot: bestTipSlot,
-      nodeBestTipHash: bestTipHash,
-      nodeConnectedPeers: connectedPeers,
-    );
-  }
-
   /// Collect consensus and block production metrics
   ///
   /// If [rawStatus] is provided, it will be used instead of fetching from backend.
@@ -777,13 +582,9 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   Future<ConsensusMetrics> _collectConsensusMetrics(
       {NodeStatusState? rawStatus}) async {
     int? currentEpoch;
-    int? currentGlobalSlot;
     int? currentEpochWonSlots;
     int? currentEpochProduced;
     int? currentEpochFailed;
-    int? evaluatedCurrentEpoch;
-    String? currentEpochVrfEvaluationStatus;
-    String? nextEpochVrfEvaluationStatus;
     double? bpSuccessRate;
 
     if (RustBackendService.instance.isRunning) {
@@ -793,19 +594,11 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
           final bestTip = rawStatus.networkBest ?? rawStatus.localBest;
           currentEpoch = bestTip?.epoch;
 
-          // Use backend-provided current global slot
-          currentGlobalSlot = rawStatus.currentGlobalSlot;
-
-          // Extract VRF evaluator metrics
+          // Won slots come from the VRF evaluator details.
           final vrfEvaluator = rawStatus.vrfEvaluator;
           if (vrfEvaluator != null) {
-            evaluatedCurrentEpoch = vrfEvaluator.details?.evaluatedCurrentEpoch;
             currentEpochWonSlots =
                 vrfEvaluator.details?.wonSlotsCurrentEpoch.toInt();
-            currentEpochVrfEvaluationStatus =
-                _vrfStatusName(vrfEvaluator.currentEpochVrfEvaluationStatus);
-            nextEpochVrfEvaluationStatus =
-                _vrfStatusName(vrfEvaluator.nextEpochVrfEvaluationStatus);
           }
         }
 
@@ -847,59 +640,14 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
 
     return ConsensusMetrics(
       currentEpoch: currentEpoch,
-      currentGlobalSlot: currentGlobalSlot,
       currentEpochWonSlots: currentEpochWonSlots,
       currentEpochProduced: currentEpochProduced,
       currentEpochFailed: currentEpochFailed,
-      evaluatedCurrentEpoch: evaluatedCurrentEpoch,
-      currentEpochVrfEvaluationStatus: currentEpochVrfEvaluationStatus,
-      nextEpochVrfEvaluationStatus: nextEpochVrfEvaluationStatus,
       bpSuccessRate: bpSuccessRate,
       // Total metrics not implemented yet
       totalWonSlots: null,
       totalBlocksProduced: null,
       totalBlocksFailed: null,
-    );
-  }
-
-  /// Collect blockchain state
-  ///
-  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
-  /// This avoids expensive FFI calls when status is already available.
-  Future<BlockchainMetrics> _collectBlockchainMetrics(
-      {NodeStatusState? rawStatus}) async {
-    int? blockchainHeight;
-    String? latestBlockHash;
-    int? latestBlockSlot;
-    String? latestBlockTimestamp;
-
-    if (RustBackendService.instance.isRunning) {
-      try {
-        // Use provided rawStatus
-        if (rawStatus != null) {
-          final bestTip = rawStatus.networkBest ?? rawStatus.localBest;
-
-          blockchainHeight = bestTip?.height;
-          latestBlockHash = bestTip?.hash.toString();
-          latestBlockSlot = bestTip?.globalSlot;
-          // Convert timestamp (assuming it's in milliseconds since epoch)
-          if (bestTip?.timestamp != null) {
-            latestBlockTimestamp = DateTime.fromMillisecondsSinceEpoch(
-              bestTip!.timestamp.toInt(),
-              isUtc: true,
-            ).toIso8601String();
-          }
-        }
-      } catch (e) {
-        _log.debug('Error collecting blockchain metrics: $e');
-      }
-    }
-
-    return BlockchainMetrics(
-      blockchainHeight: blockchainHeight,
-      blockchainLatestBlockHash: latestBlockHash,
-      blockchainLatestBlockSlot: latestBlockSlot,
-      blockchainLatestBlockTimestamp: latestBlockTimestamp,
     );
   }
 
@@ -915,19 +663,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     return ForegroundServiceMetrics(
       foregroundServiceRunning: foregroundServiceRunning,
       wakelockHeld: wakelockHeld,
-    );
-  }
-
-  /// Collect wallet metrics
-  WalletMetrics _collectWalletMetrics(BigInt? balance, String? address) {
-    // Cache wallet address if provided - CACHED (immutable per session)
-    if (address != null) {
-      _cachedWalletAddress = address;
-    }
-
-    return WalletMetrics(
-      walletBalance: balance,
-      walletAddress: _cachedWalletAddress ?? address,
     );
   }
 
@@ -950,13 +685,9 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
           peerId: peer.peerId.toString(),
           address: peer.address,
           bestTip: null, // Not available in current RpcPeerInfo
-          bestTipHeight: peer.bestTipHeight,
           bestTipGlobalSlot: peer.bestTipGlobalSlot,
-          bestTipTimestamp: null, // Not available in current RpcPeerInfo
           connectionStatus: peer.connectionStatus.toString().split('.').last,
-          connectingDetails: null, // Not available in current RpcPeerInfo
           incoming: peer.incoming,
-          time: DateTime.now().millisecondsSinceEpoch, // Current time as proxy
         );
       }).toList();
     } catch (e) {
@@ -964,25 +695,4 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
       return [];
     }
   }
-}
-
-/// Helper class for caching permissions data
-class _PermissionsCache {
-  final bool notification;
-  final bool exactAlarms;
-  final bool batteryOptimization;
-
-  _PermissionsCache({
-    required this.notification,
-    required this.exactAlarms,
-    required this.batteryOptimization,
-  });
-}
-
-String _vrfStatusName(RpcStatusVrfEvaluationStatus status) {
-  return switch (status) {
-    RpcStatusVrfEvaluationStatus.pending => 'pending',
-    RpcStatusVrfEvaluationStatus.completed => 'completed',
-    RpcStatusVrfEvaluationStatus.evaluating => 'evaluating',
-  };
 }

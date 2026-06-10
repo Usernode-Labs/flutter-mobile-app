@@ -16,10 +16,6 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/MetricsReporting');
 
-/// Callback type for fetching wallet data
-typedef WalletDataCallback = Future<({BigInt? balance, String? address})>
-    Function();
-
 /// Service responsible for collecting and reporting metrics
 ///
 /// Supports both:
@@ -31,7 +27,6 @@ class MetricsReportingService {
 
   Timer? _reportingTimer;
   http.Client? _httpClient;
-  WalletDataCallback? _walletDataCallback;
   StreamSubscription<BlockProductionEvent>? _eventSubscription;
   bool _isRunning = false;
   DateTime? _lastReportTime;
@@ -65,11 +60,6 @@ class MetricsReportingService {
 
   /// Number of failed metric reports
   int get failureCount => _failureCount;
-
-  /// Set the callback for fetching wallet data
-  void setWalletDataCallback(WalletDataCallback callback) {
-    _walletDataCallback = callback;
-  }
 
   /// Start listening to block production events
   ///
@@ -108,27 +98,9 @@ class MetricsReportingService {
         'Handling block production event: ${event.eventType}',
       );
 
-      // Fetch wallet data if needed
-      BigInt? walletBalance;
-      String? walletAddress;
-
-      if (_walletDataCallback != null) {
-        try {
-          final walletData = await _walletDataCallback!();
-          walletBalance = walletData.balance;
-          walletAddress = walletData.address;
-        } catch (e) {
-          // Continue without wallet data
-        }
-      }
-
       // Collect targeted metrics for this event
       final payload =
-          await MetricsCollectorService.instance.collectMetricsForEvent(
-        event,
-        walletBalance: walletBalance,
-        walletAddress: walletAddress,
-      );
+          await MetricsCollectorService.instance.collectMetricsForEvent(event);
 
       // Fire and forget - send metrics without blocking
       _sendMetricsAsync(payload, eventType: event.eventType);
@@ -223,7 +195,6 @@ class MetricsReportingService {
 
   Future<void> resetForAppRestart() async {
     await stop();
-    _walletDataCallback = null;
     resetStats();
   }
 
@@ -415,28 +386,8 @@ class MetricsReportingService {
         'Collecting and reporting metrics',
       );
 
-      // Fetch wallet data if callback is set
-      BigInt? walletBalance;
-      String? walletAddress;
-
-      if (_walletDataCallback != null) {
-        try {
-          final walletData = await _walletDataCallback!();
-          walletBalance = walletData.balance;
-          walletAddress = walletData.address;
-        } catch (e) {
-          _log.warn(
-            'Error fetching wallet data: $e',
-          );
-          // Continue without wallet data
-        }
-      }
-
       // Collect all metrics
-      final payload = await MetricsCollectorService.instance.collectMetrics(
-        walletBalance: walletBalance,
-        walletAddress: walletAddress,
-      );
+      final payload = await MetricsCollectorService.instance.collectMetrics();
 
       _log.debug(
           'Collected consensus: epoch=${payload.node.consensus?.currentEpoch}, produced=${payload.node.consensus?.currentEpochProduced}, hasContainer=${MetricsCollectorService.instance.hasContainer}, isRunning=${RustBackendService.instance.isRunning}');

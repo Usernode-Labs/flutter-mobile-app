@@ -92,7 +92,11 @@ void main() {
         'surface variant renders FilledButton with surfaceContainerLowest fill',
         (tester) async {
       await tester.pumpWidget(wrap(
-        const Button(label: 'Surface', variant: ButtonVariant.surface),
+        Button(
+          label: 'Surface',
+          variant: ButtonVariant.surface,
+          onTap: () {},
+        ),
       ));
 
       expect(find.byType(FilledButton), findsOneWidget);
@@ -112,7 +116,11 @@ void main() {
     testWidgets('surface variant uses onSurface foreground color',
         (tester) async {
       await tester.pumpWidget(wrap(
-        const Button(label: 'Surface Text', variant: ButtonVariant.surface),
+        Button(
+          label: 'Surface Text',
+          variant: ButtonVariant.surface,
+          onTap: () {},
+        ),
       ));
 
       final theme = themeWithExtensions();
@@ -139,7 +147,11 @@ void main() {
     testWidgets('primary variant renders FilledButton with primary fill',
         (tester) async {
       await tester.pumpWidget(wrap(
-        const Button(label: 'Primary', variant: ButtonVariant.primary),
+        Button(
+          label: 'Primary',
+          variant: ButtonVariant.primary,
+          onTap: () {},
+        ),
       ));
 
       expect(find.byType(FilledButton), findsOneWidget);
@@ -158,7 +170,11 @@ void main() {
     testWidgets('primary variant uses onPrimary foreground color',
         (tester) async {
       await tester.pumpWidget(wrap(
-        const Button(label: 'Primary Text', variant: ButtonVariant.primary),
+        Button(
+          label: 'Primary Text',
+          variant: ButtonVariant.primary,
+          onTap: () {},
+        ),
       ));
 
       final theme = themeWithExtensions();
@@ -171,6 +187,42 @@ void main() {
             .first,
       );
       expect(text.style.color, equals(theme.colorScheme.onPrimary));
+    });
+
+    testWidgets('disabled primary variant uses disabled colors',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const Button(label: 'Disabled Primary', variant: ButtonVariant.primary),
+      ));
+
+      final theme = themeWithExtensions();
+      final opacity = theme.extension<AppOpacity>()!;
+
+      final material = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(
+        material.color,
+        equals(theme.colorScheme.onSurface.withValues(alpha: opacity.medium)),
+      );
+      expect(material.color, isNot(equals(theme.colorScheme.primary)));
+
+      final text = tester.widget<DefaultTextStyle>(
+        find
+            .ancestor(
+              of: find.text('Disabled Primary'),
+              matching: find.byType(DefaultTextStyle),
+            )
+            .first,
+      );
+      expect(
+        text.style.color,
+        equals(theme.colorScheme.onSurface.withValues(alpha: opacity.disabled)),
+      );
+      expect(text.style.color, isNot(equals(theme.colorScheme.onPrimary)));
     });
 
     testWidgets('disabled button does not fire onTap', (tester) async {

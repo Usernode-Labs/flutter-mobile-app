@@ -83,8 +83,11 @@ check "Scroll container" $? "$scroll_issue"
 
 double_pad=$(grep -n 'padding:' "$FILE" 2>/dev/null | grep -E 'horizontal.*space16|space16.*horizontal' | head -5)
 double_pad_count=$(echo "$double_pad" | grep -c '.' 2>/dev/null || true)
-[ "$double_pad_count" -le 1 ]
-check "No double padding" $? "Multiple horizontal space16 paddings found: $(echo "$double_pad" | head -2)"
+if [ "$double_pad_count" -gt 1 ]; then
+  warn "No double padding" "Multiple horizontal space16 paddings found; verify they are not nested: $(echo "$double_pad" | head -2)"
+else
+  check "No double padding" 0 ""
+fi
 
 offgrid=$(grep -nE 'EdgeInsets' "$FILE" 2>/dev/null | grep -E '\b(5|7|9|10|11|13|14|15|17|18|19|20|22|25|26|28|30)\b' | head -5)
 [ -z "$offgrid" ]

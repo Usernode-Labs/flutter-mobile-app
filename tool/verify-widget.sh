@@ -12,7 +12,7 @@ if [ -z "$ROOT" ]; then
 fi
 cd "$ROOT"
 
-PUBLIC_HELPER_EXEMPTIONS="nav_indicator_shapes"
+PUBLIC_HELPER_EXEMPTIONS="nav_indicator_shapes paint_helpers"
 LEGACY_M3_CONTAINER_ALLOWED="block_production_status_card bottom_nav button challenge_card challenge_detail_page challenge_event_group dapp_card dropdown_sheet epoch_performance_page slot_assignments_page zk_identity_flow_page"
 
 pascal_to_snake() {
@@ -145,7 +145,7 @@ verify_one() {
   if is_legacy_m3_allowed "$snake"; then
     banned=""
   else
-    banned="$(grep -nE '\b(ElevatedButton|OutlinedButton|TextButton|FloatingActionButton|Card\(|ListTile\(|Scaffold\(|AppBar\(|NavigationBar\(|BottomNavigationBar|CupertinoButton|CupertinoNavigationBar)\b' "$src" 2>/dev/null | head -5)"
+    banned="$(grep -nE '\b(ElevatedButton|OutlinedButton|TextButton|FloatingActionButton|Card|ListTile|Scaffold|AppBar|NavigationBar|BottomNavigationBar|CupertinoButton|CupertinoNavigationBar)[[:space:]]*\(' "$src" 2>/dev/null | head -5)"
     banned="$(printf "%s\n" "$banned"; grep -nE '\bFilledButton\b' "$src" 2>/dev/null | head -5)"
   fi
   [ -z "$banned" ]

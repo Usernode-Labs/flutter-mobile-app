@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
+import '../tokens/app_opacity.dart';
 import '../tokens/app_spacing.dart';
 
 /// Button size — controls height.
@@ -71,6 +72,7 @@ class Button extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
+    final opacity = Theme.of(context).extension<AppOpacity>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     final height = switch (size) {
@@ -104,11 +106,31 @@ class Button extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
 
+    final disabledBackground =
+        colors.onSurface.withValues(alpha: opacity.medium);
+    final disabledForeground =
+        colors.onSurface.withValues(alpha: opacity.disabled);
+
+    WidgetStateProperty<Color> stateColor({
+      required Color enabled,
+      required Color disabled,
+    }) {
+      return WidgetStateProperty.resolveWith((states) {
+        return states.contains(WidgetState.disabled) ? disabled : enabled;
+      });
+    }
+
     switch (variant) {
       case ButtonVariant.primary:
         final style = baseStyle.copyWith(
-          backgroundColor: WidgetStatePropertyAll(colors.primary),
-          foregroundColor: WidgetStatePropertyAll(colors.onPrimary),
+          backgroundColor: stateColor(
+            enabled: colors.primary,
+            disabled: disabledBackground,
+          ),
+          foregroundColor: stateColor(
+            enabled: colors.onPrimary,
+            disabled: disabledForeground,
+          ),
         );
         if (!isLoading && leadingIcon != null) {
           return FilledButton.icon(
@@ -144,9 +166,16 @@ class Button extends StatelessWidget {
       case ButtonVariant.outlined:
         final style = baseStyle.copyWith(
           backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-          side: WidgetStatePropertyAll(
-            BorderSide(color: colors.outlineVariant),
+          foregroundColor: stateColor(
+            enabled: colors.primary,
+            disabled: disabledForeground,
           ),
+          side: WidgetStateProperty.resolveWith((states) {
+            final color = states.contains(WidgetState.disabled)
+                ? disabledBackground
+                : colors.outlineVariant;
+            return BorderSide(color: color);
+          }),
         );
         if (!isLoading && leadingIcon != null) {
           return OutlinedButton.icon(
@@ -164,9 +193,14 @@ class Button extends StatelessWidget {
 
       case ButtonVariant.surface:
         final style = baseStyle.copyWith(
-          backgroundColor:
-              WidgetStatePropertyAll(colors.surfaceContainerLowest),
-          foregroundColor: WidgetStatePropertyAll(colors.onSurface),
+          backgroundColor: stateColor(
+            enabled: colors.surfaceContainerLowest,
+            disabled: disabledBackground,
+          ),
+          foregroundColor: stateColor(
+            enabled: colors.onSurface,
+            disabled: disabledForeground,
+          ),
         );
         if (!isLoading && leadingIcon != null) {
           return FilledButton.icon(

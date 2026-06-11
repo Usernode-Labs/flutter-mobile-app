@@ -43,12 +43,20 @@ Run Flutter Rust Bridge generation against the `../usernode` checkout.
    flutter_rust_bridge_codegen generate
    ```
 
-7. If sibling worktrees need reseeding, offer:
+7. If sibling worktrees need reseeding, offer a dry run first:
 
    ```bash
    for wt in $(git worktree list --porcelain | awk '/^worktree/ {print $2}' | tail -n +2); do
-     rsync -a --delete lib/src/rust/ "$wt/lib/src/rust/"
+     if git -C "$wt" status --short -- lib/src/rust | grep -q .; then
+       echo "SKIP dirty rust bindings in $wt"
+       continue
+     fi
+     rsync -a --dry-run --itemize-changes lib/src/rust/ "$wt/lib/src/rust/"
    done
    ```
+
+   After the user reviews the dry-run output, rerun only the approved clean
+   targets without `--dry-run`. Do not use `--delete` unless the user explicitly
+   confirms it for each target worktree.
 
 Report the FRB rev, whether install was skipped, generation status, and any worktree reseed.

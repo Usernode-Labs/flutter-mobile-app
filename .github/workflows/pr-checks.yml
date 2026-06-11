@@ -78,6 +78,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Checkout usernode repository
         uses: actions/checkout@v4
@@ -156,8 +158,7 @@ jobs:
 
       - name: Verify changed design system widgets
         run: |
-          git fetch origin "${{ github.base_ref }}" --depth=1
-          changed_widgets=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD -- 'lib/design_system/src/*.dart')
+          changed_widgets=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" -- 'lib/design_system/src/*.dart')
           if [ -z "$changed_widgets" ]; then
             echo "No design system widget source changes."
             exit 0
@@ -166,10 +167,6 @@ jobs:
           for file in $changed_widgets; do
             snake=$(basename "$file" .dart)
             case "$snake" in
-              nav_indicator_shapes|paint_helpers)
-                echo "Skipping public helper exemption: $file"
-                continue
-                ;;
               text_field)
                 widget="DSTextField"
                 ;;

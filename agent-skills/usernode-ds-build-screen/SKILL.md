@@ -30,7 +30,12 @@ Use this for feature screens under `lib/features/` or DS-backed page surfaces.
 
 ## Required Pattern Decision
 
-Design work must record:
+Design work must write a `pattern_decision:` block before implementation. For
+new screen specs, store it in `lib/design_system/.specs/<ScreenName>.spec.yaml`.
+For existing-screen redesigns where a spec file is not useful, include the same
+`pattern_decision:` block in the implementation notes before code changes.
+
+The block must record:
 
 - operating mode and trust level;
 - screen type and navigation model;

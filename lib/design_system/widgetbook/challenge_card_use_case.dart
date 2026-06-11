@@ -46,6 +46,11 @@ WidgetbookComponent challengeCardComponent() {
             initialValue: 'Up to 1000 pts',
           );
 
+          final earnedText = context.knobs.stringOrNull(
+            label: 'Earned Text (active, right side)',
+            initialValue: 'earned: 1,500',
+          );
+
           final earnedPoints = context.knobs.stringOrNull(
             label: 'Earned Points (ongoing)',
             initialValue: '10,550.1 pts',
@@ -74,6 +79,7 @@ WidgetbookComponent challengeCardComponent() {
               ),
               variant: variant,
               rewardText: rewardText,
+              earnedText: earnedText,
               earnedPoints: earnedPoints,
               epochPoints: epochPoints,
               completedPoints: completedPoints,

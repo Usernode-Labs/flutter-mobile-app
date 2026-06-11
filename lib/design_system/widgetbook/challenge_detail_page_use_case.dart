@@ -133,6 +133,11 @@ WidgetbookComponent challengeDetailPageComponent() {
                 'Base reward: up to 5,000 pts based on success rate.\nRank bonus: up to 1,500 pts for top 3 producers.',
           );
 
+          final showBreakdown = context.knobs.boolean(
+            label: 'Show Points Breakdown',
+            initialValue: true,
+          );
+
           final showCta = context.knobs.boolean(
             label: 'Show CTA Button',
             initialValue: false,
@@ -178,6 +183,26 @@ WidgetbookComponent challengeDetailPageComponent() {
             ],
             totalRewardHeading: totalRewardHeading,
             totalRewardBody: totalRewardBody,
+            pointsBreakdown: showBreakdown
+                ? const [
+                    (
+                      description: 'Gave 5 kudos week 1 -> 500 pts',
+                      points: '+500',
+                      date: 'Jun 11, 2026',
+                    ),
+                    (
+                      description: 'Gave 5 kudos week 2 -> 500 pts',
+                      points: '+500',
+                      date: 'Jun 11, 2026',
+                    ),
+                    (
+                      description: 'Gave 5 kudos week 3 -> 500 pts',
+                      points: '+500',
+                      date: 'Jun 11, 2026',
+                    ),
+                  ]
+                : const [],
+            pointsBreakdownTotal: showBreakdown ? '1,500 pts' : null,
             ctaLabel: ctaLabel,
             onCtaTap: showCta ? () {} : null,
           );

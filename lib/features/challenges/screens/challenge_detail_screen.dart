@@ -128,10 +128,38 @@ class ChallengeDetailScreen extends ConsumerWidget {
               context,
             ).challengeTotalReward(formatRewardText(dto.reward)),
       totalRewardBody: showRewardCard ? null : (dto.rewardLogic ?? ''),
+      pointsBreakdown: _buildPointsBreakdown(dto),
+      pointsBreakdownTotal: dto.activitiesTotal > 0
+          ? '${formatPoints(dto.activitiesTotal)} pts'
+          : null,
       onBackTap: () => context.pop(),
       ctaLabel: hasCta ? ctaLabel : null,
       onCtaTap: hasCta ? () => handleChallengeCta(context, dto) : null,
     );
+  }
+
+  /// Maps the challenge's embedded activities to display rows for the
+  /// "Points breakdown" section.
+  List<ChallengePointEntry> _buildPointsBreakdown(ChallengeDto dto) {
+    return dto.activities
+        .map((a) => (
+              description: a.description ?? '',
+              points: '+${formatPoints(a.points)}',
+              date: _formatActivityDate(a.activityAt),
+            ))
+        .toList();
+  }
+
+  String? _formatActivityDate(String? iso) {
+    if (iso == null) return null;
+    final parsed = DateTime.tryParse(iso);
+    if (parsed == null) return null;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final d = parsed.toLocal();
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
   Widget _buildRewardCard(
@@ -152,8 +180,11 @@ class ChallengeDetailScreen extends ConsumerWidget {
         : null;
     final maxPts = ceiling != null ? ceiling - kTop3RankBonusPoints : 0;
 
-    // earnedPoints includes extra points; base is the success-rate calculation only.
-    final earnedPoints = challenge.earnedPoints;
+    // Prefer the server's per-challenge activities sum (same source as the
+    // Points breakdown section); challenge.earnedPoints only reflects the
+    // single primary breakdown activity, so it under-counts multi-activity
+    // challenges (e.g. 500 vs the real 1,500 total).
+    final earnedPoints = challenge.displayEarnedPoints;
     final basePoints = challenge.activity?.points;
     final extraPointsTotal = challenge.extraPoints;
     final isSyncing = isProduceBlocksSyncing(
@@ -171,6 +202,10 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final totalWithBonuses = (earnedPoints ?? 0) + (eb?.totalBonusPoints ?? 0);
     final displayTotalEarned = syncingText ??
         (earnedPoints != null ? formatPoints(totalWithBonuses) : '--');
+    // Non-produce-blocks challenges show the activities total directly (matches
+    // the Points breakdown), not the single-activity base figure.
+    final displaySimpleEarned =
+        earnedPoints != null ? formatPoints(earnedPoints) : '--';
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -216,7 +251,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
     return ChallengeRewardCard(
       category: category,
-      totalEarned: isProduceBlocks ? displayTotalEarned : displayBasePoints,
+      totalEarned: isProduceBlocks ? displayTotalEarned : displaySimpleEarned,
       data: data,
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,

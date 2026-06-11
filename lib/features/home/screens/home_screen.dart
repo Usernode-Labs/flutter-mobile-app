@@ -9,9 +9,7 @@ import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
-import 'package:crypto_mobile_app/features/dapps/providers/dapps_tab_mode_provider.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
-import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -160,30 +158,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
     ];
 
-    final dappsTabHasWebviewMode = AppConfig.dappsTabUrl.trim().isNotEmpty;
-
     Widget bottomNav = BottomNav(
       items: items,
       selectedIndex: index,
       onItemSelected: (i) {
         ref.read(currentHomeTabProvider.notifier).state = i;
       },
-      onItemLongPress: dappsTabHasWebviewMode
-          ? (i) {
-              // Long-press on the Dapps tab flips between the original
-              // dApps directory list and the Social Vibecoding webview.
-              // Other tabs ignore long-press for now.
-              if (i == HomeTab.dapps) {
-                // Confirm the gesture so the user knows it landed even
-                // before the new screen finishes mounting.
-                HapticFeedback.mediumImpact();
-                ref.read(dappsTabModeProvider.notifier).toggle();
-                // Keep the user on the Dapps tab so they immediately see
-                // the toggle take effect.
-                ref.read(currentHomeTabProvider.notifier).state = HomeTab.dapps;
-              }
-            }
-          : null,
       topBorder: !isInternal,
     );
 

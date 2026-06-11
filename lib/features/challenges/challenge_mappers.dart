@@ -109,11 +109,22 @@ class EnrichedChallenge {
 
   /// Actual points earned by the participant (including extra points),
   /// or null if not completed.
+  ///
+  /// Reflects only the single primary breakdown [activity]; use
+  /// [displayEarnedPoints] for the user-facing total. Kept as-is because tab
+  /// categorization (`mapEnrichedVariant`) keys off whether this is non-zero.
   int? get earnedPoints {
     final base = activity?.points;
     if (base == null && extraPoints == 0) return null;
     return (base ?? 0) + extraPoints;
   }
+
+  /// User-facing earned total. Prefers the server's per-challenge
+  /// [ChallengeDto.activitiesTotal] (sum of all activities) so cards and the
+  /// detail page match the Points breakdown; falls back to [earnedPoints] when
+  /// the list was fetched without `participant_id` (no embedded activities).
+  int? get displayEarnedPoints =>
+      dto.activitiesTotal > 0 ? dto.activitiesTotal : earnedPoints;
 }
 
 /// Cross-references challenges with breakdown activities.
@@ -217,11 +228,14 @@ bool _isScheduleExpired(ChallengeDto dto) {
   return DateTime.now().toUtc().isAfter(end);
 }
 
-/// Categorizes enriched challenges using participant-specific completion.
+/// Categorizes enriched challenges into the three tab buckets.
 ///
-/// - **Completed**: participant has a matching breakdown activity
-/// - **Missed**: challenge not enabled OR schedule has ended (and not completed)
-/// - **Active**: everything else (enabled, schedule not expired, not yet completed)
+/// A challenge is **over** when `dto.completed` is true OR its schedule end
+/// date is in the past.
+///
+/// - **Completed**: over AND the participant won points.
+/// - **Missed**: over but won no points, OR not enabled and not yet over.
+/// - **Active**: enabled, not over.
 CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   List<EnrichedChallenge> challenges,
 ) {
@@ -230,26 +244,20 @@ CategorizedEnrichedChallenges categorizeEnrichedChallenges(
   final missed = <EnrichedChallenge>[];
 
   for (final c in challenges) {
-    // HIDE: unreleased challenge — not enabled, not expired, no earned points.
-    final hasEarnedPoints = c.earnedPoints != null && c.earnedPoints! > 0;
-    if (!c.dto.enabled && !_isScheduleExpired(c.dto) && !hasEarnedPoints) {
+    final hasEarnedPoints = (c.displayEarnedPoints ?? 0) > 0;
+    final over = c.dto.completed || _isScheduleExpired(c.dto);
+
+    // HIDE: unreleased challenge — not enabled, not over, no earned points.
+    if (!c.dto.enabled && !over && !hasEarnedPoints) {
       continue;
     }
 
-    if (isProduceBlocksChallenge(c.dto)) {
-      if (c.dto.completed || (_isScheduleExpired(c.dto) && hasEarnedPoints)) {
-        completed.add(c);
-      } else if (_isScheduleExpired(c.dto)) {
-        missed.add(c);
-      } else {
-        active.add(c);
-      }
-    } else if (c.participantCompleted) {
-      completed.add(c);
-    } else if (_isScheduleExpired(c.dto)) {
-      missed.add(c);
-    } else {
+    if (over) {
+      (hasEarnedPoints ? completed : missed).add(c);
+    } else if (c.dto.enabled) {
       active.add(c);
+    } else {
+      missed.add(c);
     }
   }
 
@@ -277,24 +285,25 @@ ChallengeCardVariant mapEnrichedVariant(
   EnrichedChallenge c, {
   double? eventSuccessRate,
 }) {
-  final hasEarnedPoints = c.earnedPoints != null && c.earnedPoints! > 0;
+  // Over = explicitly completed OR past its end date. Matches the tab
+  // categorization in [categorizeEnrichedChallenges]: over + points = completed,
+  // over + no points = missed.
+  final hasEarnedPoints = (c.displayEarnedPoints ?? 0) > 0;
+  if (c.dto.completed || _isScheduleExpired(c.dto)) {
+    return hasEarnedPoints
+        ? ChallengeCardVariant.completed
+        : ChallengeCardVariant.missed;
+  }
+  if (!c.dto.enabled) return ChallengeCardVariant.missed;
 
+  // Produce-blocks challenges still in progress render as "ongoing" (they stay
+  // in the Active tab) when there's evidence of participation.
   if (isProduceBlocksChallenge(c.dto)) {
-    if (c.dto.completed || (_isScheduleExpired(c.dto) && hasEarnedPoints)) {
-      return ChallengeCardVariant.completed;
-    }
-    if (_isScheduleExpired(c.dto)) return ChallengeCardVariant.missed;
-    if (!c.dto.enabled) return ChallengeCardVariant.missed;
     if (hasEarnedPoints) return ChallengeCardVariant.ongoing;
     if (eventSuccessRate != null && eventSuccessRate > 0) {
       return ChallengeCardVariant.ongoing;
     }
-    return ChallengeCardVariant.active;
   }
-
-  if (c.participantCompleted) return ChallengeCardVariant.completed;
-  if (_isScheduleExpired(c.dto)) return ChallengeCardVariant.missed;
-  if (!c.dto.enabled) return ChallengeCardVariant.missed;
   return ChallengeCardVariant.active;
 }
 

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -23,9 +22,6 @@ class WalletState {
 }
 
 class WalletController extends AsyncNotifier<WalletState> {
-  // Transaction list parsed from UTXOs
-  List<TransactionModel> _transactions = [];
-
   @override
   Future<WalletState> build() async {
     var balance = await _calculateBalance();
@@ -71,9 +67,9 @@ class WalletController extends AsyncNotifier<WalletState> {
         return explorerBalance;
       }
 
-      // Fallback to UTXO-based calculation
-      _log.debug('Falling back to UTXO-based balance calculation');
-      return await _calculateBalanceFromUtxos(userAddress);
+      // Fallback to node-local wallet data.
+      _log.debug('Falling back to local wallet balance calculation');
+      return await _calculateBalanceFromLocalWallet(userAddress);
     } catch (e, st) {
       _log.error('Failed to calculate wallet balance',
           error: e, stackTrace: st);
@@ -112,47 +108,21 @@ class WalletController extends AsyncNotifier<WalletState> {
     return null;
   }
 
-  /// Calculate balance from UTXOs (original implementation)
-  Future<WalletBalance> _calculateBalanceFromUtxos(String userAddress) async {
-    // Get active account for owner
+  /// Calculate balance from local node wallet data.
+  Future<WalletBalance> _calculateBalanceFromLocalWallet(
+      String userAddress) async {
     final owner = frb_types.publicKeyHashFromString(s: userAddress);
-    final utxosResp =
-        await RustBackendService.instance.listUtxosByOwner(owner: owner);
-    final utxos = utxosResp?.items ?? [];
 
-    _log.debug('Got ${utxos.length} UTXOs for fallback balance calculation');
+    final balanceResp =
+        await RustBackendService.instance.walletBalance(owner: owner);
 
-    // Aggregate balances by token_id
-    final Map<String, BigInt> balancesByToken = {};
+    _log.debug('Got wallet balance response=${balanceResp != null}');
 
-    // Extract asset data from UTXOs via JSON serialization
-    for (var i = 0; i < utxos.length; i++) {
-      try {
-        final ownedUtxo = utxos[i];
-        final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
-        final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
-        final asset = _parseSingleAssetUtxo(utxoData);
-        if (asset == null) continue;
+    final totalBalance = balanceResp?.baseTotal ?? BigInt.zero;
 
-        // Aggregate balances by token_id
-        balancesByToken[asset.tokenId] =
-            (balancesByToken[asset.tokenId] ?? BigInt.zero) + asset.amount;
-      } catch (e, st) {
-        _log.error('Failed to parse UTXO[$i]', error: e, stackTrace: st);
-      }
-    }
+    final primaryTokenSymbol = totalBalance > BigInt.zero ? 'TKN' : 'TOKENS';
 
-    // Calculate totals
-    final totalBalance = balancesByToken.values.fold<BigInt>(
-      BigInt.zero,
-      (sum, balance) => sum + balance,
-    );
-
-    // Parse transactions from UTXOs
-    final primaryTokenSymbol = balancesByToken.isNotEmpty ? 'TKN' : 'TOKENS';
-    _transactions = _parseTransactionsFromUtxos(utxos, primaryTokenSymbol);
-
-    _log.debug('Calculated balance from UTXOs: ${totalBalance.toString()}');
+    _log.debug('Calculated local wallet balance: ${totalBalance.toString()}');
 
     return WalletBalance(
       tokenAmount: totalBalance.toDouble(),
@@ -163,90 +133,7 @@ class WalletController extends AsyncNotifier<WalletState> {
     );
   }
 
-  /// Parse transactions from UTXOs to populate recent activity
-  List<TransactionModel> _parseTransactionsFromUtxos(
-      List<dynamic> utxos, String tokenSymbol) {
-    final transactions = <TransactionModel>[];
-
-    for (var i = utxos.length - 1; i >= 0; i--) {
-      try {
-        final ownedUtxo = utxos[i];
-
-        // Serialize UTXO to JSON string
-        final jsonStr = frb_types.utxoToJson(utxo: ownedUtxo.utxo);
-        final utxoData = json.decode(jsonStr) as Map<String, dynamic>;
-
-        final asset = _parseSingleAssetUtxo(utxoData);
-        if (asset == null) continue;
-        final balance = asset.amount;
-
-        // For UTXOs, treat all as received transactions
-        // Block reward determination should come from the explorer API instead
-        final transaction = TransactionModel(
-          id: utxoData['id']?.toString() ?? 'utxo_$i',
-          title: 'Received',
-          subtitle: 'Token transfer',
-          amount: balance.toDouble(),
-          tokenSymbol: tokenSymbol,
-          type: TransactionType.receive,
-          status: TransactionStatus.completed,
-          timestamp: _parseTimestampFromUtxo(utxoData),
-          icon: Symbols.south_west_sharp,
-          color: Colors.green,
-          dataSource: DataSource.local, // UTXO transactions are local
-        );
-
-        transactions.add(transaction);
-      } catch (e, st) {
-        _log.error('Failed to parse transaction from UTXO[$i]',
-            error: e, stackTrace: st);
-      }
-    }
-
-    // Sort by timestamp (newest first)
-    transactions.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    final result = transactions;
-
-    _log.debug(
-        'Parsed ${result.length} transactions from ${utxos.length} UTXOs');
-    return result;
-  }
-
-  /// Parse timestamp from UTXO data, fallback to current time
-  DateTime _parseTimestampFromUtxo(Map<String, dynamic> utxoData) {
-    try {
-      // Try to extract timestamp from UTXO data
-      // This depends on the actual structure we see in logs
-      final timestampMs = utxoData['timestamp'] as int?;
-      if (timestampMs != null) {
-        return DateTime.fromMillisecondsSinceEpoch(timestampMs);
-      }
-    } catch (e) {
-      // Fallback to current time if parsing fails
-    }
-    return DateTime.now().subtract(
-        Duration(minutes: (DateTime.now().millisecondsSinceEpoch % 1000)));
-  }
-
-  _AssetBalance? _parseSingleAssetUtxo(Map<String, dynamic> utxoData) {
-    final tokenId =
-        (utxoData['token_id'] ?? utxoData['tokenId'])?.toString() ?? '';
-    final amount = _parseBigInt(utxoData['amount'] ?? utxoData['balance']);
-    if (tokenId.isNotEmpty && amount != null) {
-      return _AssetBalance(tokenId: tokenId, amount: amount);
-    }
-    return null;
-  }
-
-  BigInt? _parseBigInt(dynamic value) {
-    if (value is BigInt) return value;
-    if (value is int) return BigInt.from(value);
-    if (value is num) return BigInt.from(value.toInt());
-    if (value is String) return BigInt.tryParse(value);
-    return null;
-  }
-
-  /// Get all transactions (confirmed from explorer/UTXO + pending from mempool) sorted by timestamp
+  /// Get all transactions (confirmed from explorer + pending from mempool) sorted by timestamp
   Future<List<TransactionModel>> _getAllTransactions() async {
     try {
       // Get current user address
@@ -255,7 +142,7 @@ class WalletController extends AsyncNotifier<WalletState> {
 
       if (activeAccount == null || activeAccount.address.isEmpty) {
         _log.debug('No active account for transaction fetch');
-        return _transactions;
+        return [];
       }
 
       final userAddress = activeAccount.address;
@@ -301,8 +188,7 @@ class WalletController extends AsyncNotifier<WalletState> {
       return dedupedTransactions;
     } catch (e, st) {
       _log.error('Failed to get all transactions', error: e, stackTrace: st);
-      // Return just local transactions on error
-      return _transactions;
+      return [];
     }
   }
 
@@ -503,10 +389,3 @@ class WalletController extends AsyncNotifier<WalletState> {
 final walletProvider = AsyncNotifierProvider<WalletController, WalletState>(
   WalletController.new,
 );
-
-class _AssetBalance {
-  final String tokenId;
-  final BigInt amount;
-
-  const _AssetBalance({required this.tokenId, required this.amount});
-}

@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owne
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_blockchain.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -1213,6 +1214,53 @@ class RustBackendService {
       await SentryUtil.captureError(e, st, tag: 'listUtxosByOwner_logging');
     }
     return utxos;
+  }
+
+  /// Convenience helper to fetch wallet balance from the local wallet cache.
+  Future<RpcWalletBalanceResp?> walletBalance({
+    required PublicKeyHash owner,
+  }) async {
+    _log.trace(
+      'walletBalance called with params: owner=[PublicKeyHash]',
+    );
+    if (_shouldSkipRpc('walletBalance')) return null;
+    final r = _rpc;
+    if (r == null) return null;
+
+    RpcWalletBalanceResp? balance;
+    try {
+      balance = await r.wallet().balance(owner: owner);
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during walletBalance', error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      _control = null;
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_walletBalance');
+      return null;
+    } catch (e, st) {
+      _log.warn('RPC walletBalance failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_walletBalance');
+      return null;
+    }
+
+    try {
+      _log.trace(
+        'walletBalance response: tracked=${balance?.tracked}, baseTotal=${balance?.baseTotal}, baseAvailable=${balance?.baseAvailable}',
+      );
+      _log.debug(
+        'walletBalance ok',
+        context: {
+          'tracked': balance?.tracked,
+          'baseTotal': balance?.baseTotal.toString(),
+          'baseAvailable': balance?.baseAvailable.toString(),
+          'baseUtxos': balance?.baseUtxos.toString(),
+        },
+      );
+    } catch (e, st) {
+      _log.warn('Failed to log walletBalance response: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'walletBalance_logging');
+    }
+    return balance;
   }
 
   /// Convenience helper to transfer funds via RPC.

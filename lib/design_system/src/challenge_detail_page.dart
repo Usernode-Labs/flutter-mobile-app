@@ -12,6 +12,15 @@ import 'top_app_bar.dart';
 /// A named record for description sections in [ChallengeDetailPage].
 typedef ChallengeDetailSection = ({String title, String body});
 
+/// A single line in the points-breakdown section. [points] and the section
+/// total are preformatted strings (e.g. "+500") so this widget stays
+/// presentation-only.
+typedef ChallengePointEntry = ({
+  String description,
+  String points,
+  String? date
+});
+
 /// A full-page detail view for a blockchain challenge.
 ///
 /// Renders a [TopAppBar] (large) with category icon, title, and subtitle,
@@ -32,6 +41,8 @@ class ChallengeDetailPage extends StatelessWidget {
     required this.sections,
     this.totalRewardHeading,
     this.totalRewardBody,
+    this.pointsBreakdown = const <ChallengePointEntry>[],
+    this.pointsBreakdownTotal,
     this.onBackTap,
     this.ctaLabel,
     this.onCtaTap,
@@ -63,6 +74,13 @@ class ChallengeDetailPage extends StatelessWidget {
 
   /// Body text for the total reward card. Ignored when [totalRewardHeading] is null.
   final String? totalRewardBody;
+
+  /// Participant's per-challenge point entries. When non-empty, a
+  /// "Points breakdown" card is rendered at the bottom of the page.
+  final List<ChallengePointEntry> pointsBreakdown;
+
+  /// Preformatted total for the points-breakdown card (e.g. "1,500 pts").
+  final String? pointsBreakdownTotal;
 
   /// Called when the back button is tapped.
   final VoidCallback? onBackTap;
@@ -112,6 +130,13 @@ class ChallengeDetailPage extends StatelessWidget {
                       _TotalRewardCard(
                         heading: totalRewardHeading!,
                         body: totalRewardBody ?? '',
+                      ),
+                    ],
+                    if (pointsBreakdown.isNotEmpty) ...[
+                      SizedBox(height: spacing.space16),
+                      _PointsBreakdownCard(
+                        entries: pointsBreakdown,
+                        total: pointsBreakdownTotal,
                       ),
                     ],
                   ],
@@ -173,6 +198,90 @@ class _SectionsCard extends StatelessWidget {
               style: textTheme.bodySmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// A white card listing the participant's per-challenge point entries and a
+/// total, shown when the challenge has activities.
+class _PointsBreakdownCard extends StatelessWidget {
+  const _PointsBreakdownCard({required this.entries, this.total});
+
+  final List<ChallengePointEntry> entries;
+  final String? total;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      borderRadius: radii.borderRadiusLargeIncreased,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Points breakdown',
+            style: textTheme.labelLarge?.copyWith(color: colors.onSurface),
+          ),
+          SizedBox(height: spacing.space12),
+          for (int i = 0; i < entries.length; i++) ...[
+            if (i > 0) SizedBox(height: spacing.space12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entries[i].description,
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: colors.onSurface),
+                      ),
+                      if (entries[i].date != null)
+                        Text(
+                          entries[i].date!,
+                          style: textTheme.labelSmall
+                              ?.copyWith(color: colors.onSurfaceVariant),
+                        ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: spacing.space8),
+                Text(
+                  entries[i].points,
+                  style:
+                      textTheme.labelLarge?.copyWith(color: colors.onSurface),
+                ),
+              ],
+            ),
+          ],
+          if (total != null) ...[
+            SizedBox(height: spacing.space12),
+            Divider(height: 1, color: colors.outlineVariant),
+            SizedBox(height: spacing.space12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total',
+                  style:
+                      textTheme.labelLarge?.copyWith(color: colors.onSurface),
+                ),
+                Text(
+                  total!,
+                  style:
+                      textTheme.labelLarge?.copyWith(color: colors.onSurface),
+                ),
+              ],
             ),
           ],
         ],

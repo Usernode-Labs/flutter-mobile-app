@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 
 typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function(
@@ -31,6 +32,8 @@ typedef GetStatusFn = Future<RpcStatusResp?> Function({bool includeVrfDetails});
 typedef BuildEnvFn = BuildInfo Function();
 typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function(
     {required PublicKeyHash owner, int? limit});
+typedef WalletBalanceFn = Future<RpcWalletBalanceResp?> Function(
+    {required PublicKeyHash owner});
 typedef TransferFundsFn = Future<RpcWalletTxSendResp?> Function(
     {required PublicKeyHash fromPkHash,
     required BigInt amount,
@@ -60,6 +63,11 @@ void main() {
 
     test('listUtxosByOwner({required PublicKeyHash owner, int? limit})', () {
       final ListUtxosByOwnerFn f = RustBackendService.instance.listUtxosByOwner;
+      expect(f, isNotNull);
+    });
+
+    test('walletBalance({required PublicKeyHash owner})', () {
+      final WalletBalanceFn f = RustBackendService.instance.walletBalance;
       expect(f, isNotNull);
     });
 
@@ -175,6 +183,19 @@ void main() {
       void check(RpcListUtxosByOwnerResp r) {
         final items = r.items; // List<OwnedUtxo>
         expect(items, isA<List<OwnedUtxo>>());
+      }
+
+      expect(check, isNotNull);
+    });
+
+    test('RpcWalletBalanceResp members', () {
+      void check(RpcWalletBalanceResp r) {
+        final tracked = r.tracked; // bool
+        final total = r.baseTotal; // BigInt
+        final available = r.baseAvailable; // BigInt
+        final largest = r.baseLargestUtxo; // BigInt
+        final count = r.baseUtxos; // BigInt
+        expect([tracked, total, available, largest, count].isNotEmpty, isTrue);
       }
 
       expect(check, isNotNull);

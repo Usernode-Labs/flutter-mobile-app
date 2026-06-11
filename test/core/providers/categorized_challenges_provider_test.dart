@@ -133,14 +133,16 @@ void main() {
 
       final result = container.read(categorizedChallengesProvider);
       expect(result, isNotNull);
-      // id=3 (enabled=false) is filtered out before enrichment.
-      // Without breakdown, activity is null for all, so
-      // participantCompleted is false for all. Categorization:
-      //   id=1: enabled=true, participantCompleted=false → active
-      //   id=2: enabled=true, participantCompleted=false → active (no activity match!)
-      expect(result!.active.length, 2);
+      // id=3 (enabled=false, not over, no points) is hidden before enrichment.
+      // A challenge is "over" when completed OR past its end date; over splits
+      // by points won. Without breakdown nobody won points, so:
+      //   id=1: enabled, not over → active
+      //   id=2: completed=true but 0 points won → missed
+      expect(result!.active.length, 1);
+      expect(result.active.first.dto.goal, 'Produce Every Block');
       expect(result.completed.length, 0);
-      expect(result.missed.length, 0);
+      expect(result.missed.length, 1);
+      expect(result.missed.first.dto.goal, 'Prove Humanity');
     });
 
     test('categorizes with breakdown (enriched)', () async {

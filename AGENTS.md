@@ -62,7 +62,7 @@ All new design system work lives in `lib/design_system/`.
 - Colors: use `Theme.of(context).colorScheme` for achromatic M3 structure. Use `AppSemanticColors` for chromatic semantic meaning. Never assume a `ColorScheme` role carries hue.
 - Typography: use `Theme.of(context).textTheme`.
 - Presentation-only: DS widgets take all state through constructor data and callbacks. No providers, no `ConsumerWidget`, no services, and no FRB-generated constructor types.
-- Widgetbook: every new DS widget gets a use case in `lib/design_system/widgetbook/` that imports the real widget with mock data via knobs.
+- Widgetbook: every new DS widget gets a story in `widgetbook/lib/stories/` that imports the real widget with mock data via knobs.
 - Build constraints: `lib/design_system/.specs/BUILD_INSTRUCTIONS.md`.
 - Screen patterns: `lib/design_system/docs/SCREEN_PATTERNS.md` and `lib/design_system/docs/LAYOUT.md`.
 - All constraints: `lib/design_system/docs/CONSTRAINTS.md`.

@@ -41,7 +41,6 @@ dependencies:
   url_launcher: "^6.2.0"
   app_links: "^6.4.0"
   webview_flutter: "^4.10.0"
-  widgetbook: "^3.10.0"
   flutter_markdown: "^0.7.6"
   mobile_scanner: "^7.0.0"
   material_symbols_icons: ^4.2906.0

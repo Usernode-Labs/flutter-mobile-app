@@ -26,7 +26,7 @@ Build presentation-only design-system widgets in `lib/design_system/`.
 5. Implement only after the decision is clear:
    - widget in `lib/design_system/src/<snake>.dart`;
    - focused test in `test/design_system/<snake>_test.dart`;
-   - real Widgetbook use case in `lib/design_system/widgetbook/<snake>_use_case.dart`;
+   - real Widgetbook story in `widgetbook/lib/stories/<snake>.stories.dart`;
    - barrel export in `lib/design_system/design_system.dart`;
    - genesis doc in `lib/design_system/.specs/<WidgetName>.genesis.md`;
    - catalog row in `lib/design_system/DESIGN_SYSTEM.md`.
@@ -41,5 +41,5 @@ Build presentation-only design-system widgets in `lib/design_system/`.
 - Widgets are presentation-only: no providers, services, async orchestration, or FRB-generated constructor types.
 - Use `Theme.of(context).extension<T>()!` for DS tokens and `Theme.of(context).textTheme` for typography.
 - Use M3 components directly at screen level. DS widgets should be slot widgets or genuine custom gaps, not wrappers around M3 containers.
-- Use `lib/design_system/widgetbook/`, not stale `widgetbook/lib/use_cases/`.
+- Use `widgetbook/lib/stories/`, not stale `lib/design_system/widgetbook/` or `widgetbook/lib/use_cases/`.
 - For text-only inputs, proceed only after explicit user override and preserve uncertainty in `pattern_decision`.

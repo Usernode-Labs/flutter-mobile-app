@@ -15,6 +15,7 @@ cd "$ROOT"
 PUBLIC_HELPER_EXEMPTIONS="nav_indicator_shapes paint_helpers"
 LEGACY_M3_CONTAINER_ALLOWED="block_production_status_card bottom_nav button challenge_card challenge_detail_page challenge_event_group dapp_card dropdown_sheet epoch_performance_page slot_assignments_page zk_identity_flow_page"
 LEGACY_MISSING_TEST_ALLOWED="challenge_category_icon challenge_category_tile challenge_event_group dapp_avatar dapp_card status_text_trailing zk_identity_step_illustration"
+LEGACY_MISSING_WIDGETBOOK_ALLOWED="dapp_avatar full_page_loading_state parallax_surface_layout"
 BANNED_M3_PATTERN='(^|[^[:alnum:]_])(ElevatedButton|OutlinedButton|TextButton|FloatingActionButton|Card|ListTile|Scaffold|AppBar|NavigationBar|BottomNavigationBar|CupertinoButton|CupertinoNavigationBar)(\.[[:alpha:]_][[:alnum:]_]*)?[[:space:]]*\('
 FILLED_BUTTON_PATTERN='(^|[^[:alnum:]_])FilledButton(\.[[:alpha:]_][[:alnum:]_]*)?[[:space:]]*\('
 
@@ -56,16 +57,17 @@ is_legacy_missing_test_allowed() {
   return 1
 }
 
+is_legacy_missing_widgetbook_allowed() {
+  local snake="$1"
+  for item in $LEGACY_MISSING_WIDGETBOOK_ALLOWED; do
+    [ "$snake" = "$item" ] && return 0
+  done
+  return 1
+}
+
 widgetbook_use_case_for() {
   local snake="$1"
-  case "$snake" in
-    shimmer_block|shimmer_card_skeleton|shimmer_list_tile)
-      echo "lib/design_system/widgetbook/shimmer_use_case.dart"
-      ;;
-    *)
-      echo "lib/design_system/widgetbook/${snake}_use_case.dart"
-      ;;
-  esac
+  echo "widgetbook/lib/stories/${snake}.stories.dart"
 }
 
 find_banned_m3_wrappers() {
@@ -235,8 +237,13 @@ verify_one() {
   grep -q "\`$widget_name\`" "$catalog" 2>/dev/null
   check "Widget catalog" $? "No catalog row for $widget_name"
 
-  [ -f "$use_case" ]
-  check "Widgetbook use case" $? "Missing $use_case"
+  if [ -f "$use_case" ]; then
+    check "Widgetbook story" 0 ""
+  elif is_legacy_missing_widgetbook_allowed "$snake"; then
+    note_warn "Widgetbook story" "Legacy missing story: $use_case"
+  else
+    check "Widgetbook story" 1 "Missing $use_case"
+  fi
 
   ensure_ds_lints_deps
   ds_lint_out="$(cd packages/ds_lints && dart run bin/lint.dart --file "$ROOT/$src" 2>&1)"

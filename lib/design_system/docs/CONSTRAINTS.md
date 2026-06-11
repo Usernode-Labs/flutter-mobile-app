@@ -72,7 +72,7 @@ final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 **Constraint:** Every widget gets a Widgetbook use case importing the **real widget** with mock data via knobs. Never hand-built replicas.
 
 **Why:** What you see in Widgetbook must be exactly what ships. Replicas drift.
-**Where:** Widgetbook use cases in `lib/design_system/widgetbook/`.
+**Where:** Widgetbook stories in `widgetbook/lib/stories/`.
 
 ## Widget Pipeline
 

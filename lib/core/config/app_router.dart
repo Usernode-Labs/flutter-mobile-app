@@ -314,6 +314,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.challengeDetail,
+        // The detail screen is driven entirely by the EnrichedChallenge passed
+        // via `extra` from the list tap. `extra` is in-memory only, so it's
+        // null after a hot restart / deep link to this path — fall back to home
+        // instead of crashing on the cast below.
+        redirect: (context, state) =>
+            state.extra is EnrichedChallenge ? null : AppRoutes.home,
         builder: (context, state) {
           final enriched = state.extra as EnrichedChallenge;
           return ChallengeDetailScreen(challenge: enriched);

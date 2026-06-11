@@ -111,10 +111,10 @@ class _ShareLogsBar extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: Button(
-              leadingIcon: const Icon(Symbols.stop_circle_sharp),
               label: l10n.httpLogsStopSharing,
-              variant: ButtonVariant.outlined,
+              leadingIcon: const Icon(Symbols.stop_circle_sharp),
               onTap: controller.stop,
+              variant: ButtonVariant.outlined,
             ),
           ),
         ],
@@ -126,10 +126,10 @@ class _ShareLogsBar extends ConsumerWidget {
         child: SizedBox(
           width: double.infinity,
           child: Button(
-            leadingIcon: const Icon(Symbols.upload_sharp),
             label: l10n.httpLogsShare,
-            variant: ButtonVariant.primary,
+            leadingIcon: const Icon(Symbols.upload_sharp),
             onTap: canShare ? () => controller.start(participantId) : null,
+            variant: ButtonVariant.primary,
           ),
         ),
       );

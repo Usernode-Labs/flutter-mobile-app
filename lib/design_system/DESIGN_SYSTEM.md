@@ -199,7 +199,7 @@ Shape values come from `AppRadii`.
 | `tokens/` | Spacing, radii, elevation, opacity, sizing, animation, borders, semantic colors |
 | `theme/` | ColorScheme construction and ThemeExtension wiring |
 | `src/` | Public DS widgets and supporting primitives |
-| `widgetbook/` | Real-widget use cases with mock data |
+| `widgetbook/lib/stories/` | Real-widget stories with mock data |
 | `.specs/` | Build instructions, specs, and genesis docs |
 | `docs/CONSTRAINTS.md` | Rules, lint table, quality gates |
 | `docs/LAYOUT.md` | Screen anatomy, spacing roles, scroll patterns |

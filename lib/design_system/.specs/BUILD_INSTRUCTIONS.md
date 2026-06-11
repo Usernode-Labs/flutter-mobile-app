@@ -188,7 +188,7 @@ For a widget named `FooBar`:
 export 'src/foo_bar.dart';
 ```
 
-### 4. Widgetbook use case: `lib/design_system/widgetbook/foo_bar_use_case.dart`
+### 4. Widgetbook story: `widgetbook/lib/stories/foo_bar.stories.dart`
 - Import the real widget (never build a replica)
 - Use Widgetbook knobs for each constructor parameter
 - Provide sensible defaults
@@ -291,7 +291,7 @@ Every widget gets a `.genesis.md` file in `lib/design_system/.specs/`:
 | #2563EC | `colorScheme.secondary` | Exact match |
 
 ## Optional Visual Reference
-- **Widgetbook use case**: `lib/design_system/widgetbook/<widget_name>_use_case.dart`
+- **Widgetbook story**: `widgetbook/lib/stories/<widget_name>.stories.dart`
 - **Golden file**: `test/design_system/goldens/<widget_name>.png` when a stable
   primitive intentionally opts into golden coverage
 ```

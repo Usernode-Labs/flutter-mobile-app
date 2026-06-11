@@ -222,6 +222,13 @@ class ChallengeDto {
   final bool completed;
   final String? subCategory;
 
+  /// Participant's activities for this challenge, present only when the list
+  /// was fetched with `participant_id`. Empty otherwise.
+  final List<BreakdownActivity> activities;
+
+  /// Sum of points across [activities] (server-provided `activities_total`).
+  final int activitiesTotal;
+
   const ChallengeDto({
     required this.id,
     this.eventId,
@@ -242,6 +249,8 @@ class ChallengeDto {
     required this.enabled,
     required this.completed,
     this.subCategory,
+    this.activities = const [],
+    this.activitiesTotal = 0,
   });
 
   factory ChallengeDto.fromJson(Map<String, dynamic> json) {
@@ -288,6 +297,12 @@ class ChallengeDto {
       enabled: json['enabled'] as bool? ?? false,
       completed: json['completed'] as bool? ?? false,
       subCategory: json['sub_category'] as String?,
+      activities: (json['activities'] as List?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(BreakdownActivity.fromJson)
+              .toList() ??
+          const [],
+      activitiesTotal: _jsonIntN(json['activities_total']) ?? 0,
     );
   }
 
@@ -311,6 +326,8 @@ class ChallengeDto {
         'enabled': enabled,
         'completed': completed,
         if (subCategory != null) 'sub_category': subCategory,
+        'activities': activities.map((a) => a.toJson()).toList(),
+        'activities_total': activitiesTotal,
       };
 }
 

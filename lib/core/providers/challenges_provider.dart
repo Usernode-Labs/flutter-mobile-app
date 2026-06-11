@@ -9,14 +9,21 @@ class ChallengesController extends LeaderboardNotifier<List<ChallengeDto>> {
   @override
   bool watchDeps() {
     ref.watch(seasonEventContextProvider.select((ctx) => ctx.seasonId));
+    // Refetch once the participant id becomes available so the list comes
+    // back with embedded per-challenge activities.
+    ref.watch(participantIdProvider.select((p) => p.valueOrNull));
     return true;
   }
 
   @override
   Future<List<ChallengeDto>> fetch() async {
     final ctx = ref.read(seasonEventContextProvider);
+    final participantId = ref.read(participantIdProvider).valueOrNull;
     final service = ref.read(leaderboardApiServiceProvider);
-    return service.getChallenges(seasonId: ctx.seasonId);
+    return service.getChallenges(
+      seasonId: ctx.seasonId,
+      participantId: participantId,
+    );
   }
 }
 

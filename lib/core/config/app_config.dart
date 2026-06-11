@@ -221,8 +221,9 @@ class AppConfig {
       String.fromEnvironment('METRICS_ENDPOINT', defaultValue: '');
   static const int metricsInterval =
       int.fromEnvironment('METRICS_INTERVAL', defaultValue: 30);
-  static const String metricsHealthEndpoint =
-      String.fromEnvironment('METRICS_HEALTH_ENDPOINT', defaultValue: '');
+  static const String metricsHealthEndpoint = String.fromEnvironment(
+      'METRICS_HEALTH_ENDPOINT',
+      defaultValue: 'https://leaderboard.usernodelabs.org/api/health');
 
   // Block Production configuration (all in seconds)
   static const int metricsCollectionIntervalSeconds = int.fromEnvironment(

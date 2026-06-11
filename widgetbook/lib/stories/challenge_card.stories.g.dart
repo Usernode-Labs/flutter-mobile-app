@@ -52,6 +52,7 @@ class ChallengeCardStory extends Story<ChallengeCard, ChallengeCardArgs> {
                variant: args.variant,
                rewardIcon: args.rewardIcon,
                rewardText: args.rewardText,
+               earnedText: args.earnedText,
                earnedPoints: args.earnedPoints,
                epochPoints: args.epochPoints,
                completedPoints: args.completedPoints,
@@ -71,6 +72,7 @@ class ChallengeCardArgs extends StoryArgs<ChallengeCard> {
     Arg<ChallengeCardVariant>? variant,
     Arg<IconData?>? rewardIcon,
     Arg<String?>? rewardText,
+    Arg<String?>? earnedText,
     Arg<String?>? earnedPoints,
     Arg<String?>? epochPoints,
     Arg<String?>? completedPoints,
@@ -106,6 +108,11 @@ class ChallengeCardArgs extends StoryArgs<ChallengeCard> {
          rewardText,
          NullableStringArg(null),
        )!,
+       this.earnedTextArg = $initArg(
+         'earnedText',
+         earnedText,
+         NullableStringArg(null),
+       )!,
        this.earnedPointsArg = $initArg(
          'earnedPoints',
          earnedPoints,
@@ -133,6 +140,7 @@ class ChallengeCardArgs extends StoryArgs<ChallengeCard> {
     ChallengeCardVariant variant = ChallengeCardVariant.active,
     IconData? rewardIcon,
     String? rewardText = null,
+    String? earnedText = null,
     String? earnedPoints = null,
     String? epochPoints = null,
     String? completedPoints = null,
@@ -146,6 +154,7 @@ class ChallengeCardArgs extends StoryArgs<ChallengeCard> {
        this.variantArg = Arg.fixed(variant),
        this.rewardIconArg = rewardIcon == null ? null : Arg.fixed(rewardIcon),
        this.rewardTextArg = rewardText == null ? null : Arg.fixed(rewardText),
+       this.earnedTextArg = earnedText == null ? null : Arg.fixed(earnedText),
        this.earnedPointsArg = earnedPoints == null
            ? null
            : Arg.fixed(earnedPoints),
@@ -175,6 +184,8 @@ class ChallengeCardArgs extends StoryArgs<ChallengeCard> {
 
   final Arg<String?>? rewardTextArg;
 
+  final Arg<String?>? earnedTextArg;
+
   final Arg<String?>? earnedPointsArg;
 
   final Arg<String?>? epochPointsArg;
@@ -201,6 +212,8 @@ class ChallengeCardArgs extends StoryArgs<ChallengeCard> {
 
   String? get rewardText => rewardTextArg?.value;
 
+  String? get earnedText => earnedTextArg?.value;
+
   String? get earnedPoints => earnedPointsArg?.value;
 
   String? get epochPoints => epochPointsArg?.value;
@@ -220,6 +233,7 @@ class ChallengeCardArgs extends StoryArgs<ChallengeCard> {
     variantArg,
     rewardIconArg,
     rewardTextArg,
+    earnedTextArg,
     earnedPointsArg,
     epochPointsArg,
     completedPointsArg,

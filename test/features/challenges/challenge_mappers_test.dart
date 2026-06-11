@@ -302,7 +302,7 @@ void main() {
   });
 
   group('categorizeEnrichedChallenges', () {
-    test('participant completed → completed tab', () {
+    test('activity present but not completed/expired → active tab', () {
       final enriched = [
         EnrichedChallenge(
           dto: _makeDto(id: 1, enabled: true, goal: 'Goal'),
@@ -310,8 +310,8 @@ void main() {
         ),
       ];
       final result = categorizeEnrichedChallenges(enriched);
-      expect(result.completed, hasLength(1));
-      expect(result.active, isEmpty);
+      expect(result.active, hasLength(1));
+      expect(result.completed, isEmpty);
       expect(result.missed, isEmpty);
     });
 
@@ -335,7 +335,7 @@ void main() {
       expect(result.missed, isEmpty);
     });
 
-    test('disabled challenge with earned points goes to completed', () {
+    test('disabled challenge with earned points (not over) → missed tab', () {
       final enriched = [
         EnrichedChallenge(
           dto: _makeDto(id: 1, enabled: false, goal: 'Goal'),
@@ -343,12 +343,12 @@ void main() {
         ),
       ];
       final result = categorizeEnrichedChallenges(enriched);
+      expect(result.missed, hasLength(1));
       expect(result.active, isEmpty);
-      expect(result.completed, hasLength(1));
-      expect(result.missed, isEmpty);
+      expect(result.completed, isEmpty);
     });
 
-    test('enabled but scheduleEnd in the past → missed tab', () {
+    test('expired with no points won → missed tab', () {
       final pastEnd = DateTime.now()
           .toUtc()
           .subtract(const Duration(days: 1))
@@ -360,6 +360,25 @@ void main() {
       ];
       final result = categorizeEnrichedChallenges(enriched);
       expect(result.missed, hasLength(1));
+      expect(result.completed, isEmpty);
+      expect(result.active, isEmpty);
+    });
+
+    test('expired with points won → completed tab', () {
+      final pastEnd = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 1))
+          .toIso8601String();
+      final enriched = [
+        EnrichedChallenge(
+          dto: _makeDto(
+              id: 1, enabled: true, scheduleEnd: pastEnd, goal: 'Goal'),
+          activity: _makeActivity(description: 'Goal'),
+        ),
+      ];
+      final result = categorizeEnrichedChallenges(enriched);
+      expect(result.completed, hasLength(1));
+      expect(result.missed, isEmpty);
       expect(result.active, isEmpty);
     });
 
@@ -377,7 +396,8 @@ void main() {
     });
 
     test('bare datetime scheduleEnd treated as UTC (real API format)', () {
-      // "2020-01-01 00:00:00" without Z — must be treated as UTC (in the past).
+      // "2020-01-01 00:00:00" without Z — must be treated as UTC (in the past),
+      // so the challenge is over. No points won → missed.
       final enriched = [
         EnrichedChallenge(
           dto: _makeDto(
@@ -433,13 +453,13 @@ void main() {
   });
 
   group('mapEnrichedVariant', () {
-    test('participant completed → completed', () {
+    test('activity present but not completed/expired → active', () {
       expect(
         mapEnrichedVariant(EnrichedChallenge(
           dto: _makeDto(enabled: true, goal: 'Goal'),
           activity: _makeActivity(description: 'Goal'),
         )),
-        ChallengeCardVariant.completed,
+        ChallengeCardVariant.active,
       );
     });
 
@@ -461,17 +481,17 @@ void main() {
       );
     });
 
-    test('participant completed overrides not-enabled', () {
+    test('not enabled with activity but not completed/expired → missed', () {
       expect(
         mapEnrichedVariant(EnrichedChallenge(
           dto: _makeDto(enabled: false, goal: 'Goal'),
           activity: _makeActivity(description: 'Goal'),
         )),
-        ChallengeCardVariant.completed,
+        ChallengeCardVariant.missed,
       );
     });
 
-    test('enabled but scheduleEnd in the past → missed', () {
+    test('expired with no points won → missed', () {
       final pastEnd = DateTime.now()
           .toUtc()
           .subtract(const Duration(days: 1))
@@ -481,6 +501,20 @@ void main() {
           dto: _makeDto(enabled: true, scheduleEnd: pastEnd),
         )),
         ChallengeCardVariant.missed,
+      );
+    });
+
+    test('expired with points won → completed', () {
+      final pastEnd = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(days: 1))
+          .toIso8601String();
+      expect(
+        mapEnrichedVariant(EnrichedChallenge(
+          dto: _makeDto(enabled: true, scheduleEnd: pastEnd, goal: 'Goal'),
+          activity: _makeActivity(description: 'Goal'),
+        )),
+        ChallengeCardVariant.completed,
       );
     });
 

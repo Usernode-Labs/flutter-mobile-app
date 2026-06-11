@@ -63,6 +63,8 @@ class ChallengeDetailPageStory
                sections: args.sections,
                totalRewardHeading: args.totalRewardHeading,
                totalRewardBody: args.totalRewardBody,
+               pointsBreakdown: args.pointsBreakdown,
+               pointsBreakdownTotal: args.pointsBreakdownTotal,
                onBackTap: args.onBackTap,
                ctaLabel: args.ctaLabel,
                onCtaTap: args.onCtaTap,
@@ -81,6 +83,9 @@ class ChallengeDetailPageArgs extends StoryArgs<ChallengeDetailPage> {
     required Arg<List<({String body, String title})>> sections,
     Arg<String?>? totalRewardHeading,
     Arg<String?>? totalRewardBody,
+    Arg<List<({String? date, String description, String points})>>?
+    pointsBreakdown,
+    Arg<String?>? pointsBreakdownTotal,
     Arg<void Function()?>? onBackTap,
     Arg<String?>? ctaLabel,
     Arg<void Function()?>? onCtaTap,
@@ -108,6 +113,16 @@ class ChallengeDetailPageArgs extends StoryArgs<ChallengeDetailPage> {
          totalRewardBody,
          NullableStringArg(null),
        )!,
+       this.pointsBreakdownArg = $initArg(
+         'pointsBreakdown',
+         pointsBreakdown,
+         ConstArg(const <ChallengePointEntry>[]),
+       )!,
+       this.pointsBreakdownTotalArg = $initArg(
+         'pointsBreakdownTotal',
+         pointsBreakdownTotal,
+         NullableStringArg(null),
+       )!,
        this.onBackTapArg = $initArg('onBackTap', onBackTap, null),
        this.ctaLabelArg = $initArg(
          'ctaLabel',
@@ -126,6 +141,9 @@ class ChallengeDetailPageArgs extends StoryArgs<ChallengeDetailPage> {
     required List<({String body, String title})> sections,
     String? totalRewardHeading = null,
     String? totalRewardBody = null,
+    List<({String? date, String description, String points})> pointsBreakdown =
+        const <ChallengePointEntry>[],
+    String? pointsBreakdownTotal = null,
     void Function()? onBackTap,
     String? ctaLabel = null,
     void Function()? onCtaTap,
@@ -144,6 +162,10 @@ class ChallengeDetailPageArgs extends StoryArgs<ChallengeDetailPage> {
        this.totalRewardBodyArg = totalRewardBody == null
            ? null
            : Arg.fixed(totalRewardBody),
+       this.pointsBreakdownArg = Arg.fixed(pointsBreakdown),
+       this.pointsBreakdownTotalArg = pointsBreakdownTotal == null
+           ? null
+           : Arg.fixed(pointsBreakdownTotal),
        this.onBackTapArg = onBackTap == null ? null : Arg.fixed(onBackTap),
        this.ctaLabelArg = ctaLabel == null ? null : Arg.fixed(ctaLabel),
        this.onCtaTapArg = onCtaTap == null ? null : Arg.fixed(onCtaTap);
@@ -165,6 +187,11 @@ class ChallengeDetailPageArgs extends StoryArgs<ChallengeDetailPage> {
   final Arg<String?>? totalRewardHeadingArg;
 
   final Arg<String?>? totalRewardBodyArg;
+
+  final Arg<List<({String? date, String description, String points})>>
+  pointsBreakdownArg;
+
+  final Arg<String?>? pointsBreakdownTotalArg;
 
   final Arg<void Function()?>? onBackTapArg;
 
@@ -190,6 +217,11 @@ class ChallengeDetailPageArgs extends StoryArgs<ChallengeDetailPage> {
 
   String? get totalRewardBody => totalRewardBodyArg?.value;
 
+  List<({String? date, String description, String points})>
+  get pointsBreakdown => pointsBreakdownArg.value;
+
+  String? get pointsBreakdownTotal => pointsBreakdownTotalArg?.value;
+
   void Function()? get onBackTap => onBackTapArg?.value;
 
   String? get ctaLabel => ctaLabelArg?.value;
@@ -207,6 +239,8 @@ class ChallengeDetailPageArgs extends StoryArgs<ChallengeDetailPage> {
     sectionsArg,
     totalRewardHeadingArg,
     totalRewardBodyArg,
+    pointsBreakdownArg,
+    pointsBreakdownTotalArg,
     onBackTapArg,
     ctaLabelArg,
     onCtaTapArg,

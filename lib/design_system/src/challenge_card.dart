@@ -37,6 +37,7 @@ class ChallengeCard extends StatefulWidget {
     this.variant = ChallengeCardVariant.active,
     this.rewardIcon,
     this.rewardText,
+    this.earnedText,
     this.earnedPoints,
     this.epochPoints,
     this.completedPoints,
@@ -51,6 +52,10 @@ class ChallengeCard extends StatefulWidget {
   final ChallengeCardVariant variant;
   final IconData? rewardIcon;
   final String? rewardText;
+
+  /// Trailing text on the active reward bar, right of [rewardText]
+  /// (e.g. "earned: 1,500"). Hidden when null.
+  final String? earnedText;
   final String? earnedPoints;
   final String? epochPoints;
   final String? completedPoints;
@@ -270,16 +275,34 @@ class _ChallengeCardState extends State<ChallengeCard>
         return Padding(
           padding: EdgeInsets.all(spacing.space16),
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(
-                widget.rewardIcon ?? Symbols.rocket_launch_sharp,
-                size: sizing.iconSmall,
-                color: colors.onSurface,
+              Flexible(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.rewardIcon ?? Symbols.rocket_launch_sharp,
+                      size: sizing.iconSmall,
+                      color: colors.onSurface,
+                    ),
+                    if (widget.rewardText != null) ...[
+                      SizedBox(width: spacing.space4),
+                      Flexible(
+                        child: Text(
+                          widget.rewardText!,
+                          style: rewardStyle?.copyWith(color: colors.onSurface),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (widget.rewardText != null) ...[
-                SizedBox(width: spacing.space4),
+              if (widget.earnedText != null) ...[
+                SizedBox(width: spacing.space8),
                 Text(
-                  widget.rewardText!,
+                  widget.earnedText!,
                   style: rewardStyle?.copyWith(color: colors.onSurface),
                 ),
               ],

@@ -2148,4 +2148,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get httpLogsShareNoParticipant =>
       'No participant ID yet — finish onboarding to share logs';
+
+  @override
+  String get participantRecoveryTitle => 'Onboarding has evolved';
+
+  @override
+  String get participantRecoveryBody =>
+      'Set your Discord handle and registration code again to restore your leaderboard participation.';
+
+  @override
+  String get participantRecoveryRestore => 'Restore';
+
+  @override
+  String get participantRecoveryLater => 'Later';
+
+  @override
+  String get participantRecoverySuccess =>
+      'Leaderboard participation restored.';
 }

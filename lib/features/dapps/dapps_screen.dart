@@ -3,7 +3,6 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
-import 'package:crypto_mobile_app/features/dapps/providers/dapps_tab_mode_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -33,19 +32,13 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // The dApps tab has two modes:
-    //   - default: the local dApps directory list (rendered below).
-    //   - webview: a single full-bleed WebView at AppConfig.dappsTabUrl
-    //     (the Social Vibecoding hub by default). The embedded screen
-    //     still receives the native Usernode JS bridge so any dapp
-    //     loaded inside it behaves as if installed natively.
-    //
-    // The user flips between them by long-pressing the Dapps item in
-    // the bottom navigation bar; the choice persists across launches.
-    // See [DappsTabModeNotifier].
+    // The dApps tab is a single full-bleed WebView at AppConfig.dappsTabUrl
+    // (the Social Vibecoding hub by default). The embedded screen still
+    // receives the native Usernode JS bridge so any dapp loaded inside it
+    // behaves as if installed natively. The local dApps directory list below
+    // is only used as a fallback when no dappsTabUrl is configured.
     final overrideUrl = AppConfig.dappsTabUrl.trim();
-    final webviewMode = ref.watch(dappsTabWebviewEnabledProvider);
-    if (webviewMode && overrideUrl.isNotEmpty) {
+    if (overrideUrl.isNotEmpty) {
       return DappWebViewScreen(
         url: overrideUrl,
         name: _dappsTabTitle(overrideUrl),

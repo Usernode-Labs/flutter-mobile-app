@@ -20,30 +20,22 @@ class MetricsPayload with _$MetricsPayload {
       };
 }
 
-/// App-related metrics group
+/// App-related metrics group.
+///
+/// Only [device] (its `device_id`) is sent to the metrics API. Runtime,
+/// platform, battery, network, permissions and foreground-service data are
+/// intentionally omitted from this payload — those models still exist and are
+/// collected for the observability snapshots and slot-outcome reports.
 @freezed
 class AppMetricsGroup with _$AppMetricsGroup {
   const factory AppMetricsGroup({
-    required RuntimeMetrics runtime,
-    PlatformMetrics? platform,
     DeviceMetrics? device,
-    BatteryMetrics? battery,
-    NetworkMetrics? network,
-    PermissionsMetrics? permissions,
-    ForegroundServiceMetrics? foregroundService, // Android only
   }) = _AppMetricsGroup;
 
   const AppMetricsGroup._();
 
   Map<String, dynamic> toJson() => {
-        'runtime': runtime.toJson(),
-        if (platform != null) 'platform': platform!.toJson(),
         if (device != null) 'device': device!.toJson(),
-        if (battery != null) 'battery': battery!.toJson(),
-        if (network != null) 'network': network!.toJson(),
-        if (permissions != null) 'permissions': permissions!.toJson(),
-        if (foregroundService != null)
-          'foreground_service': foregroundService!.toJson(),
       };
 }
 
@@ -52,10 +44,7 @@ class AppMetricsGroup with _$AppMetricsGroup {
 class NodeMetricsGroup with _$NodeMetricsGroup {
   const factory NodeMetricsGroup({
     required IdentityMetrics identity,
-    StatusMetrics? status,
     ConsensusMetrics? consensus,
-    BlockchainMetrics? blockchain,
-    WalletMetrics? wallet,
     List<PeerMetrics>? peers,
   }) = _NodeMetricsGroup;
 
@@ -63,10 +52,7 @@ class NodeMetricsGroup with _$NodeMetricsGroup {
 
   Map<String, dynamic> toJson() => {
         'identity': identity.toJson(),
-        if (status != null) 'status': status!.toJson(),
         if (consensus != null) 'consensus': consensus!.toJson(),
-        if (blockchain != null) 'blockchain': blockchain!.toJson(),
-        if (wallet != null) 'wallet': wallet!.toJson(),
         if (peers != null) 'peers': peers!.map((p) => p.toJson()).toList(),
       };
 }
@@ -162,11 +148,11 @@ class DeviceMetrics with _$DeviceMetrics {
 
   const DeviceMetrics._();
 
+  // Only device_id is sent to the metrics API. Manufacturer/model/physical-ness
+  // are still carried on the model for the observability snapshot
+  // (_staticDeviceJson), but intentionally excluded from this payload.
   Map<String, dynamic> toJson() => {
         'device_id': deviceId,
-        'device_manufacturer': deviceManufacturer,
-        'device_model': deviceModel,
-        'is_physical_device': isPhysicalDevice,
       };
 }
 
@@ -208,27 +194,6 @@ class NetworkMetrics with _$NetworkMetrics {
       };
 }
 
-/// App permissions state
-@freezed
-class PermissionsMetrics with _$PermissionsMetrics {
-  const factory PermissionsMetrics({
-    required bool permissionExactAlarms,
-    required bool permissionBatteryOptimizationExempt,
-    required bool exactAlarmsPermission,
-    required String notificationPermission,
-  }) = _PermissionsMetrics;
-
-  const PermissionsMetrics._();
-
-  Map<String, dynamic> toJson() => {
-        'permission_exact_alarms': permissionExactAlarms,
-        'permission_battery_optimization_exempt':
-            permissionBatteryOptimizationExempt,
-        'exact_alarms_permission': exactAlarmsPermission,
-        'notification_permission': notificationPermission,
-      };
-}
-
 /// Foreground service metrics (Android only)
 @freezed
 class ForegroundServiceMetrics with _$ForegroundServiceMetrics {
@@ -245,45 +210,17 @@ class ForegroundServiceMetrics with _$ForegroundServiceMetrics {
       };
 }
 
-/// Node status metrics
-@freezed
-class StatusMetrics with _$StatusMetrics {
-  const factory StatusMetrics({
-    required bool nodeRunning,
-    required String nodeState,
-    String? nodeSyncStatus,
-    int? nodeBestTipSlot,
-    String? nodeBestTipHash,
-    required int nodeConnectedPeers,
-  }) = _StatusMetrics;
-
-  const StatusMetrics._();
-
-  Map<String, dynamic> toJson() => {
-        'node_running': nodeRunning,
-        'node_state': nodeState,
-        if (nodeSyncStatus != null) 'node_sync_status': nodeSyncStatus,
-        if (nodeBestTipSlot != null) 'node_best_tip_slot': nodeBestTipSlot,
-        if (nodeBestTipHash != null) 'node_best_tip_hash': nodeBestTipHash,
-        'node_connected_peers': nodeConnectedPeers,
-      };
-}
-
 /// Consensus and block production metrics
 @freezed
 class ConsensusMetrics with _$ConsensusMetrics {
   const factory ConsensusMetrics({
     int? currentEpoch,
-    int? currentGlobalSlot,
     int? currentEpochWonSlots,
     int? currentEpochProduced,
     int? currentEpochFailed,
     int? totalWonSlots,
     int? totalBlocksProduced,
     int? totalBlocksFailed,
-    int? evaluatedCurrentEpoch,
-    String? currentEpochVrfEvaluationStatus,
-    String? nextEpochVrfEvaluationStatus,
     double? bpSuccessRate,
   }) = _ConsensusMetrics;
 
@@ -291,7 +228,6 @@ class ConsensusMetrics with _$ConsensusMetrics {
 
   Map<String, dynamic> toJson() => {
         if (currentEpoch != null) 'current_epoch': currentEpoch,
-        if (currentGlobalSlot != null) 'current_global_slot': currentGlobalSlot,
         if (currentEpochWonSlots != null)
           'current_epoch_won_slots': currentEpochWonSlots,
         if (currentEpochProduced != null)
@@ -302,53 +238,7 @@ class ConsensusMetrics with _$ConsensusMetrics {
         if (totalBlocksProduced != null)
           'total_blocks_produced': totalBlocksProduced,
         if (totalBlocksFailed != null) 'total_blocks_failed': totalBlocksFailed,
-        if (evaluatedCurrentEpoch != null)
-          'evaluated_current_epoch': evaluatedCurrentEpoch,
-        if (currentEpochVrfEvaluationStatus != null)
-          'current_epoch_vrf_evaluation_status':
-              currentEpochVrfEvaluationStatus,
-        if (nextEpochVrfEvaluationStatus != null)
-          'next_epoch_vrf_evaluation_status': nextEpochVrfEvaluationStatus,
         if (bpSuccessRate != null) 'bp_success_rate': bpSuccessRate,
-      };
-}
-
-/// Blockchain state
-@freezed
-class BlockchainMetrics with _$BlockchainMetrics {
-  const factory BlockchainMetrics({
-    int? blockchainHeight,
-    String? blockchainLatestBlockHash,
-    int? blockchainLatestBlockSlot,
-    String? blockchainLatestBlockTimestamp,
-  }) = _BlockchainMetrics;
-
-  const BlockchainMetrics._();
-
-  Map<String, dynamic> toJson() => {
-        if (blockchainHeight != null) 'blockchain_height': blockchainHeight,
-        if (blockchainLatestBlockHash != null)
-          'blockchain_latest_block_hash': blockchainLatestBlockHash,
-        if (blockchainLatestBlockSlot != null)
-          'blockchain_latest_block_slot': blockchainLatestBlockSlot,
-        if (blockchainLatestBlockTimestamp != null)
-          'blockchain_latest_block_timestamp': blockchainLatestBlockTimestamp,
-      };
-}
-
-/// Wallet metrics
-@freezed
-class WalletMetrics with _$WalletMetrics {
-  const factory WalletMetrics({
-    BigInt? walletBalance,
-    String? walletAddress,
-  }) = _WalletMetrics;
-
-  const WalletMetrics._();
-
-  Map<String, dynamic> toJson() => {
-        if (walletBalance != null) 'wallet_balance': walletBalance!.toInt(),
-        if (walletAddress != null) 'wallet_address': walletAddress,
       };
 }
 
@@ -359,13 +249,9 @@ class PeerMetrics with _$PeerMetrics {
     required String peerId,
     String? address,
     String? bestTip,
-    int? bestTipHeight,
     int? bestTipGlobalSlot,
-    int? bestTipTimestamp,
     required String connectionStatus,
-    String? connectingDetails,
     required bool incoming,
-    required int time,
   }) = _PeerMetrics;
 
   const PeerMetrics._();
@@ -374,13 +260,9 @@ class PeerMetrics with _$PeerMetrics {
         'peer_id': peerId,
         if (address != null) 'address': address,
         if (bestTip != null) 'best_tip': bestTip,
-        if (bestTipHeight != null) 'best_tip_height': bestTipHeight,
         if (bestTipGlobalSlot != null)
           'best_tip_global_slot': bestTipGlobalSlot,
-        if (bestTipTimestamp != null) 'best_tip_timestamp': bestTipTimestamp,
         'connection_status': connectionStatus,
-        if (connectingDetails != null) 'connecting_details': connectingDetails,
         'incoming': incoming,
-        'time': time,
       };
 }

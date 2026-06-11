@@ -140,7 +140,9 @@ jobs:
         run: flutter_rust_bridge_codegen generate
 
       - name: Check formatting
-        run: dart format . --set-exit-if-changed
+        run: |
+          git ls-files -z -- '*.dart' ':!:widgetbook/**' \
+            | xargs -0 "$FLUTTER_ROOT/bin/dart" format --set-exit-if-changed
 
       - name: Analyze code
         run: flutter analyze

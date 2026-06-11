@@ -367,6 +367,8 @@ class EpochSlotSchedulerService {
             slotTime: slotTime,
             alarmTime: alarmTime,
             epoch: epochData.epoch,
+            rustSlotTimeMs: rustSlotTimeMs,
+            clockDriftMs: clockDriftMs,
           );
 
           final success =
@@ -420,6 +422,11 @@ class EpochSlotSchedulerService {
 
       // Use platform alarm service for scheduling
       final alarmId = 'slot_${slot.slotNumber}';
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final sampleSystemTimeMs =
+          RustBackendService.instance.lastNodeClockSampleSystemTimeMs;
+      final clockDriftSampleAgeMs =
+          sampleSystemTimeMs == null ? null : nowMs - sampleSystemTimeMs;
       final success = await PlatformAlarmService.instance.scheduleAlarm(
         alarmId: alarmId,
         delayMs: delayMs,
@@ -428,8 +435,17 @@ class EpochSlotSchedulerService {
           'epoch': slot.epoch,
           'slotTime': slot.slotTime.toIso8601String(),
           'slotTimeMs': slot.slotTime.millisecondsSinceEpoch,
+          'localSlotTimeMs': slot.slotTime.millisecondsSinceEpoch,
           'alarmTimeMs': slot.alarmTime.millisecondsSinceEpoch,
           'purpose': 'slot_wake',
+          'systemTimeMsAtSchedule': nowMs,
+          if (slot.rustSlotTimeMs != null)
+            'rustSlotTimeMs': slot.rustSlotTimeMs,
+          if (slot.clockDriftMs != null) 'clockDriftMs': slot.clockDriftMs,
+          if (RustBackendService.instance.lastNodeTimeMs != null)
+            'nodeTimeMsAtSchedule': RustBackendService.instance.lastNodeTimeMs,
+          if (clockDriftSampleAgeMs != null)
+            'clockDriftSampleAgeMs': clockDriftSampleAgeMs,
         },
       );
 
@@ -712,12 +728,16 @@ class ScheduledSlot {
   final DateTime slotTime;
   final DateTime alarmTime;
   final int epoch;
+  final int? rustSlotTimeMs;
+  final int? clockDriftMs;
 
   ScheduledSlot({
     required this.slotNumber,
     required this.slotTime,
     required this.alarmTime,
     required this.epoch,
+    this.rustSlotTimeMs,
+    this.clockDriftMs,
   });
 
   Map<String, dynamic> toJson() => {
@@ -725,6 +745,8 @@ class ScheduledSlot {
         'slotTime': slotTime.toIso8601String(),
         'alarmTime': alarmTime.toIso8601String(),
         'epoch': epoch,
+        if (rustSlotTimeMs != null) 'rustSlotTimeMs': rustSlotTimeMs,
+        if (clockDriftMs != null) 'clockDriftMs': clockDriftMs,
       };
 
   factory ScheduledSlot.fromJson(Map<String, dynamic> json) => ScheduledSlot(
@@ -732,6 +754,8 @@ class ScheduledSlot {
         slotTime: DateTime.parse(json['slotTime'] as String),
         alarmTime: DateTime.parse(json['alarmTime'] as String),
         epoch: json['epoch'] as int,
+        rustSlotTimeMs: json['rustSlotTimeMs'] as int?,
+        clockDriftMs: json['clockDriftMs'] as int?,
       );
 }
 

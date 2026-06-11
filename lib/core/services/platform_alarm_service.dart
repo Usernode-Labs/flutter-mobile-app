@@ -14,6 +14,234 @@ typedef BootRescheduleCallback = Future<void> Function();
 typedef NativeEventCallback = void Function(
     String eventType, Map<String, dynamic> eventData);
 
+class AlarmDebugState {
+  const AlarmDebugState({
+    required this.alarmId,
+    required this.pendingIntentExists,
+    this.canScheduleExactAlarms,
+    this.scheduledAtMs,
+    this.triggerAtMs,
+    this.slotNumber,
+    this.globalSlot,
+    this.epoch,
+    this.slotTimeMs,
+    this.rustSlotTimeMs,
+    this.localSlotTimeMs,
+    this.alarmTimeMs,
+    this.nativeTriggerAtMs,
+    this.scheduledElapsedRealtimeMs,
+    this.triggerElapsedRealtimeMs,
+    this.requestedDelayMs,
+    this.effectiveDelayMs,
+    this.rustWakeTimeMs,
+    this.localWakeTimeMs,
+    this.clockDriftMs,
+    this.nodeTimeMsAtSchedule,
+    this.systemTimeMsAtSchedule,
+    this.clockDriftSampleAgeMs,
+    this.purpose,
+    this.schedulerReason,
+    this.scheduleStatus,
+    this.scheduleFailureReason,
+    this.receiverEnteredAtMs,
+    this.receiverSystemTimeMs,
+    this.receiverElapsedRealtimeMs,
+    this.receiverLatencyMs,
+    this.nativeDeliveryLatencyMs,
+    this.elapsedDeliveryLatencyMs,
+    this.flutterEventSentAtMs,
+    this.cancelledAtMs,
+    this.cancelReason,
+    this.nodeRunning,
+    this.stateUnavailableReason,
+  });
+
+  factory AlarmDebugState.fromMap(Map<Object?, Object?> map) {
+    return AlarmDebugState(
+      alarmId: _alarmDebugString(map['alarmId']) ??
+          _alarmDebugString(map['alarm_id']) ??
+          'unknown',
+      pendingIntentExists: _alarmDebugBool(map['pendingIntentExists']) ??
+          _alarmDebugBool(map['pending_intent_exists']) ??
+          false,
+      canScheduleExactAlarms: _alarmDebugBool(map['canScheduleExactAlarms']) ??
+          _alarmDebugBool(map['can_schedule_exact_alarms']),
+      scheduledAtMs: _alarmDebugInt(map['scheduledAtMs']) ??
+          _alarmDebugInt(map['scheduled_at_ms']),
+      triggerAtMs: _alarmDebugInt(map['triggerAtMs']) ??
+          _alarmDebugInt(map['trigger_at_ms']),
+      slotNumber: _alarmDebugInt(map['slotNumber']) ??
+          _alarmDebugInt(map['slot_number']),
+      globalSlot: _alarmDebugInt(map['globalSlot']) ??
+          _alarmDebugInt(map['global_slot']),
+      epoch: _alarmDebugInt(map['epoch']),
+      slotTimeMs: _alarmDebugInt(map['slotTimeMs']) ??
+          _alarmDebugInt(map['slot_time_ms']),
+      rustSlotTimeMs: _alarmDebugInt(map['rustSlotTimeMs']) ??
+          _alarmDebugInt(map['rust_slot_time_ms']),
+      localSlotTimeMs: _alarmDebugInt(map['localSlotTimeMs']) ??
+          _alarmDebugInt(map['local_slot_time_ms']),
+      alarmTimeMs: _alarmDebugInt(map['alarmTimeMs']) ??
+          _alarmDebugInt(map['alarm_time_ms']),
+      nativeTriggerAtMs: _alarmDebugInt(map['nativeTriggerAtMs']) ??
+          _alarmDebugInt(map['native_trigger_at_ms']),
+      scheduledElapsedRealtimeMs:
+          _alarmDebugInt(map['scheduledElapsedRealtimeMs']) ??
+              _alarmDebugInt(map['scheduled_elapsed_realtime_ms']),
+      triggerElapsedRealtimeMs:
+          _alarmDebugInt(map['triggerElapsedRealtimeMs']) ??
+              _alarmDebugInt(map['trigger_elapsed_realtime_ms']),
+      requestedDelayMs: _alarmDebugInt(map['requestedDelayMs']) ??
+          _alarmDebugInt(map['requested_delay_ms']),
+      effectiveDelayMs: _alarmDebugInt(map['effectiveDelayMs']) ??
+          _alarmDebugInt(map['effective_delay_ms']),
+      rustWakeTimeMs: _alarmDebugInt(map['rustWakeTimeMs']) ??
+          _alarmDebugInt(map['rust_wake_time_ms']),
+      localWakeTimeMs: _alarmDebugInt(map['localWakeTimeMs']) ??
+          _alarmDebugInt(map['local_wake_time_ms']),
+      clockDriftMs: _alarmDebugInt(map['clockDriftMs']) ??
+          _alarmDebugInt(map['clock_drift_ms']),
+      nodeTimeMsAtSchedule: _alarmDebugInt(map['nodeTimeMsAtSchedule']) ??
+          _alarmDebugInt(map['node_time_ms_at_schedule']),
+      systemTimeMsAtSchedule: _alarmDebugInt(map['systemTimeMsAtSchedule']) ??
+          _alarmDebugInt(map['system_time_ms_at_schedule']),
+      clockDriftSampleAgeMs: _alarmDebugInt(map['clockDriftSampleAgeMs']) ??
+          _alarmDebugInt(map['clock_drift_sample_age_ms']),
+      purpose: _alarmDebugString(map['purpose']),
+      schedulerReason: _alarmDebugString(map['schedulerReason']) ??
+          _alarmDebugString(map['scheduler_reason']),
+      scheduleStatus: _alarmDebugString(map['scheduleStatus']) ??
+          _alarmDebugString(map['schedule_status']),
+      scheduleFailureReason: _alarmDebugString(map['scheduleFailureReason']) ??
+          _alarmDebugString(map['schedule_failure_reason']),
+      receiverEnteredAtMs: _alarmDebugInt(map['receiverEnteredAtMs']) ??
+          _alarmDebugInt(map['receiver_entered_at_ms']),
+      receiverSystemTimeMs: _alarmDebugInt(map['receiverSystemTimeMs']) ??
+          _alarmDebugInt(map['receiver_system_time_ms']),
+      receiverElapsedRealtimeMs:
+          _alarmDebugInt(map['receiverElapsedRealtimeMs']) ??
+              _alarmDebugInt(map['receiver_elapsed_realtime_ms']),
+      receiverLatencyMs: _alarmDebugInt(map['receiverLatencyMs']) ??
+          _alarmDebugInt(map['receiver_latency_ms']),
+      nativeDeliveryLatencyMs: _alarmDebugInt(map['nativeDeliveryLatencyMs']) ??
+          _alarmDebugInt(map['native_delivery_latency_ms']),
+      elapsedDeliveryLatencyMs:
+          _alarmDebugInt(map['elapsedDeliveryLatencyMs']) ??
+              _alarmDebugInt(map['elapsed_delivery_latency_ms']),
+      flutterEventSentAtMs: _alarmDebugInt(map['flutterEventSentAtMs']) ??
+          _alarmDebugInt(map['flutter_event_sent_at_ms']),
+      cancelledAtMs: _alarmDebugInt(map['cancelledAtMs']) ??
+          _alarmDebugInt(map['cancelled_at_ms']),
+      cancelReason: _alarmDebugString(map['cancelReason']) ??
+          _alarmDebugString(map['cancel_reason']),
+      nodeRunning: _alarmDebugBool(map['nodeRunning']) ??
+          _alarmDebugBool(map['node_running']),
+      stateUnavailableReason:
+          _alarmDebugString(map['stateUnavailableReason']) ??
+              _alarmDebugString(map['state_unavailable_reason']),
+    );
+  }
+
+  final String alarmId;
+  final bool pendingIntentExists;
+  final bool? canScheduleExactAlarms;
+  final int? scheduledAtMs;
+  final int? triggerAtMs;
+  final int? slotNumber;
+  final int? globalSlot;
+  final int? epoch;
+  final int? slotTimeMs;
+  final int? rustSlotTimeMs;
+  final int? localSlotTimeMs;
+  final int? alarmTimeMs;
+  final int? nativeTriggerAtMs;
+  final int? scheduledElapsedRealtimeMs;
+  final int? triggerElapsedRealtimeMs;
+  final int? requestedDelayMs;
+  final int? effectiveDelayMs;
+  final int? rustWakeTimeMs;
+  final int? localWakeTimeMs;
+  final int? clockDriftMs;
+  final int? nodeTimeMsAtSchedule;
+  final int? systemTimeMsAtSchedule;
+  final int? clockDriftSampleAgeMs;
+  final String? purpose;
+  final String? schedulerReason;
+  final String? scheduleStatus;
+  final String? scheduleFailureReason;
+  final int? receiverEnteredAtMs;
+  final int? receiverSystemTimeMs;
+  final int? receiverElapsedRealtimeMs;
+  final int? receiverLatencyMs;
+  final int? nativeDeliveryLatencyMs;
+  final int? elapsedDeliveryLatencyMs;
+  final int? flutterEventSentAtMs;
+  final int? cancelledAtMs;
+  final String? cancelReason;
+  final bool? nodeRunning;
+  final String? stateUnavailableReason;
+
+  Map<String, dynamic> get telemetryDetails => {
+        'native_pending_intent_exists': pendingIntentExists,
+        if (canScheduleExactAlarms != null)
+          'native_can_schedule_exact_alarms': canScheduleExactAlarms,
+        if (scheduledAtMs != null) 'ledger_scheduled_at_ms': scheduledAtMs,
+        if (triggerAtMs != null) 'ledger_trigger_at_ms': triggerAtMs,
+        if (slotNumber != null) 'ledger_slot_number': slotNumber,
+        if (globalSlot != null) 'ledger_global_slot': globalSlot,
+        if (epoch != null) 'ledger_epoch': epoch,
+        if (slotTimeMs != null) 'ledger_slot_time_ms': slotTimeMs,
+        if (rustSlotTimeMs != null) 'ledger_rust_slot_time_ms': rustSlotTimeMs,
+        if (localSlotTimeMs != null)
+          'ledger_local_slot_time_ms': localSlotTimeMs,
+        if (alarmTimeMs != null) 'ledger_alarm_time_ms': alarmTimeMs,
+        if (nativeTriggerAtMs != null)
+          'ledger_native_trigger_at_ms': nativeTriggerAtMs,
+        if (scheduledElapsedRealtimeMs != null)
+          'ledger_scheduled_elapsed_realtime_ms': scheduledElapsedRealtimeMs,
+        if (triggerElapsedRealtimeMs != null)
+          'ledger_trigger_elapsed_realtime_ms': triggerElapsedRealtimeMs,
+        if (requestedDelayMs != null)
+          'ledger_requested_delay_ms': requestedDelayMs,
+        if (effectiveDelayMs != null)
+          'ledger_effective_delay_ms': effectiveDelayMs,
+        if (rustWakeTimeMs != null) 'ledger_rust_wake_time_ms': rustWakeTimeMs,
+        if (localWakeTimeMs != null)
+          'ledger_local_wake_time_ms': localWakeTimeMs,
+        if (clockDriftMs != null) 'ledger_clock_drift_ms': clockDriftMs,
+        if (nodeTimeMsAtSchedule != null)
+          'ledger_node_time_ms_at_schedule': nodeTimeMsAtSchedule,
+        if (systemTimeMsAtSchedule != null)
+          'ledger_system_time_ms_at_schedule': systemTimeMsAtSchedule,
+        if (clockDriftSampleAgeMs != null)
+          'ledger_clock_drift_sample_age_ms': clockDriftSampleAgeMs,
+        if (purpose != null) 'ledger_purpose': purpose,
+        if (schedulerReason != null) 'ledger_scheduler_reason': schedulerReason,
+        if (scheduleStatus != null) 'ledger_schedule_status': scheduleStatus,
+        if (scheduleFailureReason != null)
+          'ledger_schedule_failure_reason': scheduleFailureReason,
+        if (receiverEnteredAtMs != null)
+          'ledger_receiver_entered_at_ms': receiverEnteredAtMs,
+        if (receiverSystemTimeMs != null)
+          'ledger_receiver_system_time_ms': receiverSystemTimeMs,
+        if (receiverElapsedRealtimeMs != null)
+          'ledger_receiver_elapsed_realtime_ms': receiverElapsedRealtimeMs,
+        if (receiverLatencyMs != null)
+          'ledger_receiver_latency_ms': receiverLatencyMs,
+        if (nativeDeliveryLatencyMs != null)
+          'ledger_native_delivery_latency_ms': nativeDeliveryLatencyMs,
+        if (elapsedDeliveryLatencyMs != null)
+          'ledger_elapsed_delivery_latency_ms': elapsedDeliveryLatencyMs,
+        if (flutterEventSentAtMs != null)
+          'ledger_flutter_event_sent_at_ms': flutterEventSentAtMs,
+        if (cancelledAtMs != null) 'ledger_cancelled_at_ms': cancelledAtMs,
+        if (cancelReason != null) 'ledger_cancel_reason': cancelReason,
+        if (nodeRunning != null) 'ledger_node_running': nodeRunning,
+        if (stateUnavailableReason != null)
+          'alarm_debug_state_unavailable_reason': stateUnavailableReason,
+      };
+}
+
 /// Abstract interface for platform-specific alarm/wake-up scheduling
 ///
 /// Android: Uses AlarmManager with exact alarms and Foreground Service
@@ -164,6 +392,15 @@ class PlatformAlarmService {
       alarmTimeMs: alarmTimeMs,
       firedAtMs: firedAtMs,
       latencyMs: latencyMs,
+      nativeTriggerAtMs: _intFromDynamic(eventData['nativeTriggerAtMs']),
+      triggerElapsedRealtimeMs:
+          _intFromDynamic(eventData['triggerElapsedRealtimeMs']),
+      receiverElapsedRealtimeMs:
+          _intFromDynamic(eventData['receiverElapsedRealtimeMs']),
+      nativeDeliveryLatencyMs:
+          _intFromDynamic(eventData['nativeDeliveryLatencyMs']),
+      elapsedDeliveryLatencyMs:
+          _intFromDynamic(eventData['elapsedDeliveryLatencyMs']),
       platform: Platform.operatingSystem,
       nodeRunning: _boolFromDynamic(eventData['nodeRunning']),
       batteryLevel: _intFromDynamic(eventData['batteryLevel']),
@@ -491,6 +728,53 @@ class PlatformAlarmService {
     }
   }
 
+  Future<AlarmDebugState> getAlarmDebugState(String alarmId) async {
+    if (!Platform.isAndroid) {
+      return AlarmDebugState(
+        alarmId: alarmId,
+        pendingIntentExists: false,
+        stateUnavailableReason: 'unsupported_platform',
+      );
+    }
+    if (!_initialized) {
+      _log.debug('Cannot get alarm debug state: service not initialized');
+      return AlarmDebugState(
+        alarmId: alarmId,
+        pendingIntentExists: false,
+        stateUnavailableReason: 'service_not_initialized',
+      );
+    }
+
+    try {
+      final raw = await _channel.invokeMethod<Object?>(
+        'getAlarmDebugState',
+        {'alarmId': alarmId},
+      );
+      if (raw is Map) {
+        return AlarmDebugState.fromMap(raw.cast<Object?, Object?>());
+      }
+      return AlarmDebugState(
+        alarmId: alarmId,
+        pendingIntentExists: await hasScheduledAlarm(alarmId),
+        stateUnavailableReason: 'invalid_native_state',
+      );
+    } on PlatformException catch (e) {
+      _log.warn('Error getting alarm debug state $alarmId: ${e.message}');
+      return AlarmDebugState(
+        alarmId: alarmId,
+        pendingIntentExists: await hasScheduledAlarm(alarmId),
+        stateUnavailableReason: 'platform_exception',
+      );
+    } catch (e) {
+      _log.warn('Error getting alarm debug state $alarmId: $e');
+      return AlarmDebugState(
+        alarmId: alarmId,
+        pendingIntentExists: await hasScheduledAlarm(alarmId),
+        stateUnavailableReason: 'exception',
+      );
+    }
+  }
+
   Future<bool> wasForceStoppedOnStartup() async {
     if (!Platform.isAndroid) return false;
     if (!_initialized) return false;
@@ -541,6 +825,8 @@ class PlatformAlarmService {
     final scheduledAtMs = DateTime.now().millisecondsSinceEpoch;
     final alarmTimeMs = _intFromDynamic(alarmData['alarmTimeMs']) ??
         scheduledAtMs + normalizedDelayMs;
+    alarmData.putIfAbsent('alarmTimeMs', () => alarmTimeMs);
+    alarmData.putIfAbsent('systemTimeMsAtSchedule', () => scheduledAtMs);
     final globalSlot = _globalSlotForAlarm(
       alarmId: alarmId,
       slotNumber: slotNumber,
@@ -562,6 +848,9 @@ class PlatformAlarmService {
         globalSlot: globalSlot,
         epoch: _intFromDynamic(alarmData['epoch']),
         slotTimeMs: slotTimeMs,
+        rustSlotTimeMs: _intFromDynamic(alarmData['rustSlotTimeMs']),
+        localSlotTimeMs:
+            _intFromDynamic(alarmData['localSlotTimeMs']) ?? slotTimeMs,
         scheduledAtMs: scheduledAtMs,
         alarmTimeMs: alarmTimeMs,
         requestedDelayMs: requestedDelayMs,
@@ -574,6 +863,12 @@ class PlatformAlarmService {
         rustWakeTimeMs: _intFromDynamic(alarmData['rustWakeTimeMs']),
         localWakeTimeMs: _intFromDynamic(alarmData['localWakeTimeMs']),
         clockDriftMs: _intFromDynamic(alarmData['clockDriftMs']),
+        nodeTimeMsAtSchedule:
+            _intFromDynamic(alarmData['nodeTimeMsAtSchedule']),
+        systemTimeMsAtSchedule:
+            _intFromDynamic(alarmData['systemTimeMsAtSchedule']),
+        clockDriftSampleAgeMs:
+            _intFromDynamic(alarmData['clockDriftSampleAgeMs']),
         failureReason: failureReason,
       );
     }
@@ -1127,6 +1422,27 @@ class PlatformAlarmService {
     _onBootReschedule = null;
     _onNativeEvent = null;
   }
+}
+
+int? _alarmDebugInt(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
+bool? _alarmDebugBool(Object? value) {
+  if (value is bool) return value;
+  if (value is String) {
+    if (value == 'true') return true;
+    if (value == 'false') return false;
+  }
+  return null;
+}
+
+String? _alarmDebugString(Object? value) {
+  if (value is String && value.isNotEmpty) return value;
+  return null;
 }
 
 /// Result of an alarm scheduling operation

@@ -38,6 +38,7 @@ class BlockProductionAlarmAuditService {
     Future<bool> Function()? refreshPermissions,
     Future<bool> Function()? hasExactAlarmPermission,
     Future<bool> Function(String alarmId)? hasScheduledAlarm,
+    Future<AlarmDebugState> Function(String alarmId)? getAlarmDebugState,
     AlarmAuditScheduleAlarm? scheduleAlarm,
     AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
     Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
@@ -47,6 +48,8 @@ class BlockProductionAlarmAuditService {
     Future<bool> Function()? wasForceStoppedOnStartup,
     int Function()? nowMs,
     int Function(int rustTimeMs, int clockDriftMs)? rustToLocalTimeMs,
+    int? Function()? lastNodeTimeMs,
+    int? Function()? lastNodeClockSampleSystemTimeMs,
     bool Function()? isAndroid,
     String Function()? appState,
     String Function()? platformVersion,
@@ -61,8 +64,13 @@ class BlockProductionAlarmAuditService {
             PlatformAlarmService.instance.refreshPermissions,
         _hasExactAlarmPermission = hasExactAlarmPermission ??
             PlatformAlarmService.instance.hasExactAlarmPermission,
-        _hasScheduledAlarm = hasScheduledAlarm ??
-            PlatformAlarmService.instance.hasScheduledAlarm,
+        _getAlarmDebugState = getAlarmDebugState ??
+            (hasScheduledAlarm == null
+                ? PlatformAlarmService.instance.getAlarmDebugState
+                : ((alarmId) async => AlarmDebugState(
+                      alarmId: alarmId,
+                      pendingIntentExists: await hasScheduledAlarm(alarmId),
+                    ))),
         _scheduleAlarm =
             scheduleAlarm ?? PlatformAlarmService.instance.scheduleAlarm,
         _scheduleForegroundResume =
@@ -82,6 +90,10 @@ class BlockProductionAlarmAuditService {
                   rustTimeMs,
                   clockDriftMs: clockDriftMs,
                 )),
+        _lastNodeTimeMs = lastNodeTimeMs ??
+            (() => RustBackendService.instance.lastNodeTimeMs),
+        _lastNodeClockSampleSystemTimeMs = lastNodeClockSampleSystemTimeMs ??
+            (() => RustBackendService.instance.lastNodeClockSampleSystemTimeMs),
         _isAndroid = isAndroid ?? (() => Platform.isAndroid),
         _appState = appState ?? _defaultAppState,
         _platformVersion =
@@ -107,6 +119,7 @@ class BlockProductionAlarmAuditService {
     Future<bool> Function()? refreshPermissions,
     Future<bool> Function()? hasExactAlarmPermission,
     Future<bool> Function(String alarmId)? hasScheduledAlarm,
+    Future<AlarmDebugState> Function(String alarmId)? getAlarmDebugState,
     AlarmAuditScheduleAlarm? scheduleAlarm,
     AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
     Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
@@ -116,6 +129,8 @@ class BlockProductionAlarmAuditService {
     Future<bool> Function()? wasForceStoppedOnStartup,
     int Function()? nowMs,
     int Function(int rustTimeMs, int clockDriftMs)? rustToLocalTimeMs,
+    int? Function()? lastNodeTimeMs,
+    int? Function()? lastNodeClockSampleSystemTimeMs,
     bool Function()? isAndroid,
     String Function()? appState,
     String Function()? platformVersion,
@@ -129,6 +144,7 @@ class BlockProductionAlarmAuditService {
           refreshPermissions: refreshPermissions,
           hasExactAlarmPermission: hasExactAlarmPermission,
           hasScheduledAlarm: hasScheduledAlarm,
+          getAlarmDebugState: getAlarmDebugState,
           scheduleAlarm: scheduleAlarm,
           scheduleForegroundResume: scheduleForegroundResume,
           loadEpochSnapshot: loadEpochSnapshot,
@@ -138,6 +154,8 @@ class BlockProductionAlarmAuditService {
           wasForceStoppedOnStartup: wasForceStoppedOnStartup,
           nowMs: nowMs,
           rustToLocalTimeMs: rustToLocalTimeMs,
+          lastNodeTimeMs: lastNodeTimeMs,
+          lastNodeClockSampleSystemTimeMs: lastNodeClockSampleSystemTimeMs,
           isAndroid: isAndroid,
           appState: appState,
           platformVersion: platformVersion,
@@ -154,7 +172,7 @@ class BlockProductionAlarmAuditService {
   final Future<bool> Function() _initializeAlarmService;
   final Future<bool> Function() _refreshPermissions;
   final Future<bool> Function() _hasExactAlarmPermission;
-  final Future<bool> Function(String alarmId) _hasScheduledAlarm;
+  final Future<AlarmDebugState> Function(String alarmId) _getAlarmDebugState;
   final AlarmAuditScheduleAlarm _scheduleAlarm;
   final AlarmAuditScheduleForegroundResume _scheduleForegroundResume;
   final Future<AlarmAuditEpochSnapshot?> Function() _loadEpochSnapshot;
@@ -164,6 +182,8 @@ class BlockProductionAlarmAuditService {
   final Future<bool> Function() _wasForceStoppedOnStartup;
   final int Function() _nowMs;
   final int Function(int rustTimeMs, int clockDriftMs) _rustToLocalTimeMs;
+  final int? Function() _lastNodeTimeMs;
+  final int? Function() _lastNodeClockSampleSystemTimeMs;
   final bool Function() _isAndroid;
   final String Function() _appState;
   final String Function() _platformVersion;
@@ -389,16 +409,24 @@ class BlockProductionAlarmAuditService {
         );
       }
 
+      final auditNowMs = _nowMs();
       final built = _buildExpectedAlarms(
-        reason: reason,
         epoch: epoch,
         clockDriftMs: clockDriftMs,
-        nowMs: _nowMs(),
+        nowMs: auditNowMs,
       );
-      final counts = _AlarmAuditCounts()..tooLateCount = built.tooLateCount;
+      final counts = _AlarmAuditCounts();
+
+      for (final alarm in built.pastSlotWakeAlarms) {
+        await _auditPastSlotWakeAlarm(
+          reason: reason,
+          alarm: alarm,
+          counts: counts,
+        );
+      }
 
       for (final alarm in built.futureSlotWakeAlarms) {
-        await _auditSlotWakeAlarm(
+        await _auditFutureSlotWakeAlarm(
           reason: reason,
           alarm: alarm,
           counts: counts,
@@ -426,7 +454,6 @@ class BlockProductionAlarmAuditService {
         missingCount: counts.missingCount,
         rescheduledCount: counts.rescheduledCount,
         failedCount: counts.failedCount,
-        tooLateCount: counts.tooLateCount,
         fgResumeStatus: fgResumeStatus,
       );
     } catch (e, st) {
@@ -441,13 +468,12 @@ class BlockProductionAlarmAuditService {
   }
 
   _ExpectedAlarmBuildResult _buildExpectedAlarms({
-    required String reason,
     required AlarmAuditEpochSnapshot epoch,
     required int clockDriftMs,
     required int nowMs,
   }) {
     final futureSlotWakeAlarms = <AlarmAuditExpectedAlarm>[];
-    var tooLateCount = 0;
+    final pastSlotWakeAlarms = <AlarmAuditExpectedAlarm>[];
     final wakeLeadMs = _slotWakeLead.inMilliseconds;
 
     final wonSlots = List<AlarmAuditWonSlot>.of(epoch.wonSlots)
@@ -467,37 +493,33 @@ class BlockProductionAlarmAuditService {
         rustSlotTimeMs: wonSlot.expectedTimeMs,
         slotTimeMs: slotTimeMs,
         alarmTimeMs: alarmTimeMs,
+        clockDriftMs: clockDriftMs,
+        nodeTimeMsAtAudit: _lastNodeTimeMs(),
+        systemTimeMsAtAudit: nowMs,
+        clockDriftSampleAgeMs: _clockDriftSampleAgeMs(nowMs),
       );
 
-      if (alarmTimeMs <= nowMs) {
-        tooLateCount++;
-        _reportTooLate(
-          reason: reason,
-          alarm: alarm,
-          nowMs: nowMs,
-        );
-        continue;
-      }
-
-      futureSlotWakeAlarms.add(alarm);
+      final target =
+          alarmTimeMs <= nowMs ? pastSlotWakeAlarms : futureSlotWakeAlarms;
+      target.add(alarm);
     }
 
     return _ExpectedAlarmBuildResult(
       futureSlotWakeAlarms: futureSlotWakeAlarms,
-      tooLateCount: tooLateCount,
+      pastSlotWakeAlarms: pastSlotWakeAlarms,
     );
   }
 
-  Future<void> _auditSlotWakeAlarm({
+  Future<void> _auditFutureSlotWakeAlarm({
     required String reason,
     required AlarmAuditExpectedAlarm alarm,
     required _AlarmAuditCounts counts,
     required int clockDriftMs,
   }) async {
-    final present = await _hasScheduledAlarm(alarm.alarmId);
-    if (present) {
+    final state = await _getAlarmDebugState(alarm.alarmId);
+    if (state.pendingIntentExists) {
       counts.presentCount++;
-      _reportPresent(reason: reason, alarm: alarm);
+      _reportPresent(reason: reason, alarm: alarm, state: state);
       return;
     }
 
@@ -505,8 +527,13 @@ class BlockProductionAlarmAuditService {
     final nowMs = _nowMs();
     final delayMs = alarm.alarmTimeMs - nowMs;
     if (delayMs <= 0) {
-      counts.tooLateCount++;
-      _reportTooLate(reason: reason, alarm: alarm, nowMs: nowMs);
+      await _auditPastSlotWakeAlarm(
+        reason: reason,
+        alarm: alarm,
+        counts: counts,
+        state: state,
+        nowMs: nowMs,
+      );
       return;
     }
 
@@ -519,6 +546,8 @@ class BlockProductionAlarmAuditService {
         'slotTime': DateTime.fromMillisecondsSinceEpoch(alarm.slotTimeMs)
             .toIso8601String(),
         'slotTimeMs': alarm.slotTimeMs,
+        'localSlotTimeMs': alarm.slotTimeMs,
+        'rustSlotTimeMs': alarm.rustSlotTimeMs,
         'alarmTimeMs': alarm.alarmTimeMs,
         'purpose': alarm.purpose,
         'reason': 'alarm_audit:$reason',
@@ -526,6 +555,7 @@ class BlockProductionAlarmAuditService {
         'rustWakeTimeMs': alarm.rustSlotTimeMs - _slotWakeLead.inMilliseconds,
         'localWakeTimeMs': alarm.alarmTimeMs,
         'clockDriftMs': clockDriftMs,
+        ..._scheduleClockTelemetryData(nowMs),
       },
     );
 
@@ -535,6 +565,7 @@ class BlockProductionAlarmAuditService {
         reason: reason,
         alarm: alarm,
         scheduleSuccess: true,
+        state: state,
       );
       return;
     }
@@ -544,6 +575,66 @@ class BlockProductionAlarmAuditService {
       reason: reason,
       alarm: alarm,
       failureReason: 'platform_schedule_failed',
+      state: state,
+    );
+  }
+
+  Future<void> _auditPastSlotWakeAlarm({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required _AlarmAuditCounts counts,
+    AlarmDebugState? state,
+    int? nowMs,
+  }) async {
+    final debugState = state ?? await _getAlarmDebugState(alarm.alarmId);
+    counts.pastSlotWakeCount++;
+
+    final receiverEnteredAtMs = debugState.receiverEnteredAtMs;
+    if (receiverEnteredAtMs != null) {
+      final slotDeltaMs = receiverEnteredAtMs - alarm.slotTimeMs;
+      final deliveryLatencyMs = receiverEnteredAtMs - alarm.alarmTimeMs;
+      if (receiverEnteredAtMs > alarm.slotTimeMs) {
+        counts.pastReceiverLateCount++;
+        _reportPastReceiverLate(
+          reason: reason,
+          alarm: alarm,
+          state: debugState,
+          nowMs: nowMs ?? _nowMs(),
+          deliveryLatencyMs: deliveryLatencyMs,
+          slotDeltaMs: slotDeltaMs,
+        );
+        return;
+      }
+
+      counts.pastReceiverOnTimeCount++;
+      _reportPastReceiverOnTime(
+        reason: reason,
+        alarm: alarm,
+        state: debugState,
+        nowMs: nowMs ?? _nowMs(),
+        deliveryLatencyMs: deliveryLatencyMs,
+        slotDeltaMs: slotDeltaMs,
+      );
+      return;
+    }
+
+    if (debugState.pendingIntentExists) {
+      counts.pastPendingNoReceiverCount++;
+      _reportPastPendingNoReceiver(
+        reason: reason,
+        alarm: alarm,
+        state: debugState,
+        nowMs: nowMs ?? _nowMs(),
+      );
+      return;
+    }
+
+    counts.pastMissingNoReceiverCount++;
+    _reportPastMissingNoReceiver(
+      reason: reason,
+      alarm: alarm,
+      state: debugState,
+      nowMs: nowMs ?? _nowMs(),
     );
   }
 
@@ -584,11 +675,15 @@ class BlockProductionAlarmAuditService {
       rustSlotTimeMs: nextWonSlot.rustSlotTimeMs,
       slotTimeMs: nextWonSlot.slotTimeMs,
       alarmTimeMs: nextWonSlot.slotTimeMs - fgLeadMs,
+      clockDriftMs: clockDriftMs,
+      nodeTimeMsAtAudit: _lastNodeTimeMs(),
+      systemTimeMsAtAudit: nowMs,
+      clockDriftSampleAgeMs: _clockDriftSampleAgeMs(nowMs),
     );
 
-    final present = await _hasScheduledAlarm(alarm.alarmId);
-    if (present) {
-      _reportPresent(reason: reason, alarm: alarm);
+    final state = await _getAlarmDebugState(alarm.alarmId);
+    if (state.pendingIntentExists) {
+      _reportPresent(reason: reason, alarm: alarm, state: state);
       _report(
         'foreground_resume_present',
         {
@@ -596,6 +691,7 @@ class BlockProductionAlarmAuditService {
           'global_slot': alarm.globalSlot,
           'alarm_time_ms': alarm.alarmTimeMs,
           'slot_time_ms': alarm.slotTimeMs,
+          ...state.telemetryDetails,
         },
       );
       return 'present';
@@ -617,6 +713,7 @@ class BlockProductionAlarmAuditService {
         reason: reason,
         alarm: scheduledAlarm,
         scheduleSuccess: true,
+        state: state,
       );
       _report(
         'foreground_resume_recreated',
@@ -625,6 +722,7 @@ class BlockProductionAlarmAuditService {
           'global_slot': scheduledAlarm.globalSlot,
           'alarm_time_ms': scheduledAlarm.alarmTimeMs,
           'slot_time_ms': scheduledAlarm.slotTimeMs,
+          ...state.telemetryDetails,
         },
       );
       return 'recreated';
@@ -634,6 +732,7 @@ class BlockProductionAlarmAuditService {
       reason: reason,
       alarm: scheduledAlarm,
       failureReason: result.failureReason ?? 'platform_schedule_failed',
+      state: state,
     );
     return 'reschedule_failed';
   }
@@ -660,6 +759,23 @@ class BlockProductionAlarmAuditService {
       ..sort((a, b) => a.slotTimeMs.compareTo(b.slotTimeMs));
 
     return futureSlots.isEmpty ? null : futureSlots.first;
+  }
+
+  Map<String, dynamic> _scheduleClockTelemetryData(int systemTimeMs) {
+    final nodeTimeMs = _lastNodeTimeMs();
+    final clockDriftSampleAgeMs = _clockDriftSampleAgeMs(systemTimeMs);
+    return {
+      'systemTimeMsAtSchedule': systemTimeMs,
+      if (nodeTimeMs != null) 'nodeTimeMsAtSchedule': nodeTimeMs,
+      if (clockDriftSampleAgeMs != null)
+        'clockDriftSampleAgeMs': clockDriftSampleAgeMs,
+    };
+  }
+
+  int? _clockDriftSampleAgeMs(int systemTimeMs) {
+    final sampleSystemTimeMs = _lastNodeClockSampleSystemTimeMs();
+    if (sampleSystemTimeMs == null) return null;
+    return systemTimeMs - sampleSystemTimeMs;
   }
 
   void _reportStarted({
@@ -713,7 +829,6 @@ class BlockProductionAlarmAuditService {
       missingCount: 0,
       rescheduledCount: 0,
       failedCount: 0,
-      tooLateCount: 0,
       fgResumeStatus: fgResumeStatus,
     );
   }
@@ -731,7 +846,11 @@ class BlockProductionAlarmAuditService {
       'missing_count': counts.missingCount,
       'rescheduled_count': counts.rescheduledCount,
       'failed_count': counts.failedCount,
-      'too_late_count': counts.tooLateCount,
+      'past_slot_wake_count': counts.pastSlotWakeCount,
+      'past_receiver_on_time_count': counts.pastReceiverOnTimeCount,
+      'past_receiver_late_count': counts.pastReceiverLateCount,
+      'past_pending_no_receiver_count': counts.pastPendingNoReceiverCount,
+      'past_missing_no_receiver_count': counts.pastMissingNoReceiverCount,
       'fg_resume_status': fgResumeStatus,
     });
     _report(
@@ -743,7 +862,11 @@ class BlockProductionAlarmAuditService {
         'missing_count': counts.missingCount,
         'rescheduled_count': counts.rescheduledCount,
         'failed_count': counts.failedCount,
-        'too_late_count': counts.tooLateCount,
+        'past_slot_wake_count': counts.pastSlotWakeCount,
+        'past_receiver_on_time_count': counts.pastReceiverOnTimeCount,
+        'past_receiver_late_count': counts.pastReceiverLateCount,
+        'past_pending_no_receiver_count': counts.pastPendingNoReceiverCount,
+        'past_missing_no_receiver_count': counts.pastMissingNoReceiverCount,
         'fg_resume_status': fgResumeStatus,
       },
     );
@@ -752,10 +875,12 @@ class BlockProductionAlarmAuditService {
   void _reportPresent({
     required String reason,
     required AlarmAuditExpectedAlarm alarm,
+    AlarmDebugState? state,
   }) {
     _report('alarm_audit_present', {
       'reason': reason,
       ...alarm.telemetryDetails,
+      if (state != null) ...state.telemetryDetails,
     });
   }
 
@@ -763,11 +888,13 @@ class BlockProductionAlarmAuditService {
     required String reason,
     required AlarmAuditExpectedAlarm alarm,
     required bool scheduleSuccess,
+    AlarmDebugState? state,
   }) {
     _report('alarm_audit_missing_rescheduled', {
       'reason': reason,
       ...alarm.telemetryDetails,
       'schedule_success': scheduleSuccess,
+      if (state != null) ...state.telemetryDetails,
     });
   }
 
@@ -775,24 +902,79 @@ class BlockProductionAlarmAuditService {
     required String reason,
     required AlarmAuditExpectedAlarm alarm,
     required String failureReason,
+    AlarmDebugState? state,
   }) {
     _report('alarm_audit_missing_reschedule_failed', {
       'reason': reason,
       ...alarm.telemetryDetails,
       'failure_reason': failureReason,
+      if (state != null) ...state.telemetryDetails,
     });
   }
 
-  void _reportTooLate({
+  void _reportPastReceiverOnTime({
     required String reason,
     required AlarmAuditExpectedAlarm alarm,
+    required AlarmDebugState state,
     required int nowMs,
+    required int deliveryLatencyMs,
+    required int slotDeltaMs,
   }) {
-    _report('alarm_audit_missing_too_late', {
+    _report('alarm_audit_past_receiver_on_time', {
       'reason': reason,
       ...alarm.telemetryDetails,
       'now_ms': nowMs,
-      'lateness_ms': nowMs - alarm.alarmTimeMs,
+      'delivery_latency_ms': deliveryLatencyMs,
+      'slot_delta_ms': slotDeltaMs,
+      ...state.telemetryDetails,
+    });
+  }
+
+  void _reportPastReceiverLate({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required AlarmDebugState state,
+    required int nowMs,
+    required int deliveryLatencyMs,
+    required int slotDeltaMs,
+  }) {
+    _report('alarm_audit_past_receiver_late', {
+      'reason': reason,
+      ...alarm.telemetryDetails,
+      'now_ms': nowMs,
+      'delivery_latency_ms': deliveryLatencyMs,
+      'slot_delta_ms': slotDeltaMs,
+      ...state.telemetryDetails,
+    });
+  }
+
+  void _reportPastPendingNoReceiver({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required AlarmDebugState state,
+    required int nowMs,
+  }) {
+    _report('alarm_audit_past_pending_no_receiver', {
+      'reason': reason,
+      ...alarm.telemetryDetails,
+      'now_ms': nowMs,
+      'past_alarm_age_ms': nowMs - alarm.alarmTimeMs,
+      ...state.telemetryDetails,
+    });
+  }
+
+  void _reportPastMissingNoReceiver({
+    required String reason,
+    required AlarmAuditExpectedAlarm alarm,
+    required AlarmDebugState state,
+    required int nowMs,
+  }) {
+    _report('alarm_audit_past_missing_no_receiver', {
+      'reason': reason,
+      ...alarm.telemetryDetails,
+      'now_ms': nowMs,
+      'past_alarm_age_ms': nowMs - alarm.alarmTimeMs,
+      ...state.telemetryDetails,
     });
   }
 
@@ -841,6 +1023,8 @@ class BlockProductionAlarmAuditService {
       rustWakeTimeMs: rustWakeTimeMs,
       reason: schedulerReason,
       targetGlobalSlot: globalSlot,
+      targetRustSlotTimeMs: rustWakeTimeMs +
+          AndroidForegroundTaskController.foregroundResumeLead.inMilliseconds,
       targetSlotTimeMs: slotTimeMs,
       stopMonitoringAfterSchedule: false,
     );
@@ -888,6 +1072,10 @@ class AlarmAuditExpectedAlarm {
     required this.rustSlotTimeMs,
     required this.slotTimeMs,
     required this.alarmTimeMs,
+    required this.clockDriftMs,
+    this.nodeTimeMsAtAudit,
+    this.systemTimeMsAtAudit,
+    this.clockDriftSampleAgeMs,
   });
 
   final String alarmId;
@@ -897,13 +1085,26 @@ class AlarmAuditExpectedAlarm {
   final int rustSlotTimeMs;
   final int slotTimeMs;
   final int alarmTimeMs;
+  final int clockDriftMs;
+  final int? nodeTimeMsAtAudit;
+  final int? systemTimeMsAtAudit;
+  final int? clockDriftSampleAgeMs;
 
   Map<String, dynamic> get telemetryDetails => {
         'alarm_id': alarmId,
         'purpose': purpose,
         'global_slot': globalSlot,
+        'epoch': epoch,
         'alarm_time_ms': alarmTimeMs,
         'slot_time_ms': slotTimeMs,
+        'rust_slot_time_ms': rustSlotTimeMs,
+        'local_slot_time_ms': slotTimeMs,
+        'clock_drift_ms': clockDriftMs,
+        if (nodeTimeMsAtAudit != null) 'audit_node_time_ms': nodeTimeMsAtAudit,
+        if (systemTimeMsAtAudit != null)
+          'audit_system_time_ms': systemTimeMsAtAudit,
+        if (clockDriftSampleAgeMs != null)
+          'audit_clock_drift_sample_age_ms': clockDriftSampleAgeMs,
       };
 
   AlarmAuditExpectedAlarm copyWith({
@@ -917,6 +1118,10 @@ class AlarmAuditExpectedAlarm {
       rustSlotTimeMs: rustSlotTimeMs,
       slotTimeMs: slotTimeMs,
       alarmTimeMs: alarmTimeMs ?? this.alarmTimeMs,
+      clockDriftMs: clockDriftMs,
+      nodeTimeMsAtAudit: nodeTimeMsAtAudit,
+      systemTimeMsAtAudit: systemTimeMsAtAudit,
+      clockDriftSampleAgeMs: clockDriftSampleAgeMs,
     );
   }
 }
@@ -929,7 +1134,6 @@ class AlarmAuditResult {
     required this.missingCount,
     required this.rescheduledCount,
     required this.failedCount,
-    required this.tooLateCount,
     required this.fgResumeStatus,
     this.skippedReason,
   });
@@ -941,18 +1145,17 @@ class AlarmAuditResult {
   final int missingCount;
   final int rescheduledCount;
   final int failedCount;
-  final int tooLateCount;
   final String fgResumeStatus;
 }
 
 class _ExpectedAlarmBuildResult {
   const _ExpectedAlarmBuildResult({
     required this.futureSlotWakeAlarms,
-    required this.tooLateCount,
+    required this.pastSlotWakeAlarms,
   });
 
   final List<AlarmAuditExpectedAlarm> futureSlotWakeAlarms;
-  final int tooLateCount;
+  final List<AlarmAuditExpectedAlarm> pastSlotWakeAlarms;
 }
 
 class _AlarmAuditCounts {
@@ -962,7 +1165,11 @@ class _AlarmAuditCounts {
   int missingCount = 0;
   int rescheduledCount = 0;
   int failedCount = 0;
-  int tooLateCount = 0;
+  int pastSlotWakeCount = 0;
+  int pastReceiverOnTimeCount = 0;
+  int pastReceiverLateCount = 0;
+  int pastPendingNoReceiverCount = 0;
+  int pastMissingNoReceiverCount = 0;
 }
 
 class _FutureWonSlot {

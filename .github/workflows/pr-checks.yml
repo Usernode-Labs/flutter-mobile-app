@@ -156,9 +156,12 @@ jobs:
       - name: Check DESIGN_SYSTEM.md token frontmatter
         run: flutter test test/design_system/design_system_md_tokens_test.dart
 
+      - name: Verify widget harness fixtures
+        run: bash tool/verify-widget.sh --self-test
+
       - name: Verify changed design system widgets
         run: |
-          changed_widgets=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" -- 'lib/design_system/src/*.dart')
+          changed_widgets=$(git diff --name-only --diff-filter=d "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" -- 'lib/design_system/src/*.dart')
           if [ -z "$changed_widgets" ]; then
             echo "No design system widget source changes."
             exit 0

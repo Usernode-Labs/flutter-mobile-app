@@ -2,7 +2,7 @@
 set -u
 
 usage() {
-  echo "Usage: bash tool/verify-widget.sh <WidgetName|--all>"
+  echo "Usage: bash tool/verify-widget.sh <WidgetName|--all|--self-test>"
 }
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -14,6 +14,9 @@ cd "$ROOT"
 
 PUBLIC_HELPER_EXEMPTIONS="nav_indicator_shapes paint_helpers"
 LEGACY_M3_CONTAINER_ALLOWED="block_production_status_card bottom_nav button challenge_card challenge_detail_page challenge_event_group dapp_card dropdown_sheet epoch_performance_page slot_assignments_page zk_identity_flow_page"
+LEGACY_MISSING_TEST_ALLOWED="challenge_category_icon challenge_category_tile challenge_event_group dapp_avatar dapp_card status_text_trailing zk_identity_step_illustration"
+BANNED_M3_PATTERN='(^|[^[:alnum:]_])(ElevatedButton|OutlinedButton|TextButton|FloatingActionButton|Card|ListTile|Scaffold|AppBar|NavigationBar|BottomNavigationBar|CupertinoButton|CupertinoNavigationBar)(\.[[:alpha:]_][[:alnum:]_]*)?[[:space:]]*\('
+FILLED_BUTTON_PATTERN='(^|[^[:alnum:]_])FilledButton(\.[[:alpha:]_][[:alnum:]_]*)?[[:space:]]*\('
 
 pascal_to_snake() {
   case "$1" in
@@ -45,6 +48,14 @@ is_legacy_m3_allowed() {
   return 1
 }
 
+is_legacy_missing_test_allowed() {
+  local snake="$1"
+  for item in $LEGACY_MISSING_TEST_ALLOWED; do
+    [ "$snake" = "$item" ] && return 0
+  done
+  return 1
+}
+
 widgetbook_use_case_for() {
   local snake="$1"
   case "$snake" in
@@ -55,6 +66,63 @@ widgetbook_use_case_for() {
       echo "lib/design_system/widgetbook/${snake}_use_case.dart"
       ;;
   esac
+}
+
+find_banned_m3_wrappers() {
+  local src="$1"
+  {
+    grep -nE "$BANNED_M3_PATTERN" "$src" 2>/dev/null | head -5
+    grep -nE "$FILLED_BUTTON_PATTERN" "$src" 2>/dev/null | head -5
+  } | sed '/^$/d'
+}
+
+run_self_test() {
+  local tmp
+  tmp="$(mktemp)"
+  trap 'rm -f "$tmp"' EXIT INT TERM
+
+  cat > "$tmp" <<'EOF'
+Widget fixture() {
+  return Column(
+    children: [
+      Card (child: SizedBox()),
+      ElevatedButton.icon(onPressed: null, icon: SizedBox(), label: Text('A')),
+      TextButton.icon(onPressed: null, icon: SizedBox(), label: Text('B')),
+      FloatingActionButton.extended(onPressed: null, label: Text('C')),
+      FilledButton.tonalIcon(onPressed: null, icon: SizedBox(), label: Text('D')),
+      MyCard(),
+    ],
+  );
+}
+EOF
+
+  local banned
+  banned="$(find_banned_m3_wrappers "$tmp")"
+  local failed=0
+
+  for expected in \
+    "Card (child:" \
+    "ElevatedButton.icon(" \
+    "TextButton.icon(" \
+    "FloatingActionButton.extended(" \
+    "FilledButton.tonalIcon("; do
+    if ! printf "%s\n" "$banned" | grep -Fq "$expected"; then
+      echo "FAIL: missing banned-wrapper fixture: $expected" >&2
+      failed=1
+    fi
+  done
+
+  if printf "%s\n" "$banned" | grep -Fq "MyCard("; then
+    echo "FAIL: false positive for project-specific MyCard constructor" >&2
+    failed=1
+  fi
+
+  if [ "$failed" -eq 0 ]; then
+    echo "verify-widget self-test passed"
+  fi
+  rm -f "$tmp"
+  trap - EXIT INT TERM
+  return "$failed"
 }
 
 ensure_ds_lints_deps() {
@@ -132,7 +200,11 @@ verify_one() {
   else
     fmt_out="$(dart format --output=none --set-exit-if-changed "$src" 2>&1)"
     check "Format" $? "$fmt_out"
-    note_warn "Widget test" "No focused test found: $test_file"
+    if is_legacy_missing_test_allowed "$snake"; then
+      note_warn "Widget test" "Legacy missing focused test: $test_file"
+    else
+      check "Widget test" 1 "Missing focused test: $test_file"
+    fi
   fi
 
   hardcoded="$(grep -nE '\b(Color\(0x|Colors\.|EdgeInsets\.(all|symmetric|only)\([0-9]|BorderRadius\.circular\([0-9])' "$src" 2>/dev/null | grep -vE '^[0-9]+:\s*//|Colors\.transparent' | head -5)"
@@ -145,8 +217,7 @@ verify_one() {
   if is_legacy_m3_allowed "$snake"; then
     banned=""
   else
-    banned="$(grep -nE '\b(ElevatedButton|OutlinedButton|TextButton|FloatingActionButton|Card|ListTile|Scaffold|AppBar|NavigationBar|BottomNavigationBar|CupertinoButton|CupertinoNavigationBar)[[:space:]]*\(' "$src" 2>/dev/null | head -5)"
-    banned="$(printf "%s\n" "$banned"; grep -nE '\bFilledButton\b' "$src" 2>/dev/null | head -5)"
+    banned="$(find_banned_m3_wrappers "$src")"
   fi
   [ -z "$banned" ]
   check "No banned M3 wrappers" $? "$(echo "$banned" | head -3)"
@@ -188,6 +259,11 @@ verify_one() {
 if [ "$#" -ne 1 ]; then
   usage >&2
   exit 2
+fi
+
+if [ "$1" = "--self-test" ]; then
+  run_self_test
+  exit $?
 fi
 
 if [ "$1" = "--all" ]; then

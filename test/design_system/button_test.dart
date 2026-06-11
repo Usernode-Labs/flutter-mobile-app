@@ -189,6 +189,64 @@ void main() {
       expect(text.style.color, equals(theme.colorScheme.onPrimary));
     });
 
+    testWidgets('loading primary variant keeps enabled fill and spinner color',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        Button(
+          label: 'Loading Primary',
+          variant: ButtonVariant.primary,
+          isLoading: true,
+          onTap: () {},
+        ),
+      ));
+
+      final theme = themeWithExtensions();
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(button.onPressed, isNull);
+
+      final material = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(material.color, equals(theme.colorScheme.primary));
+
+      final spinner = tester.widget<CircularProgressIndicator>(
+        find.byType(CircularProgressIndicator),
+      );
+      expect(spinner.color, equals(theme.colorScheme.onPrimary));
+    });
+
+    testWidgets('loading surface variant keeps enabled fill and spinner color',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        Button(
+          label: 'Loading Surface',
+          variant: ButtonVariant.surface,
+          isLoading: true,
+          onTap: () {},
+        ),
+      ));
+
+      final theme = themeWithExtensions();
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(button.onPressed, isNull);
+
+      final material = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(material.color, equals(theme.colorScheme.surfaceContainerLowest));
+
+      final spinner = tester.widget<CircularProgressIndicator>(
+        find.byType(CircularProgressIndicator),
+      );
+      expect(spinner.color, equals(theme.colorScheme.onSurface));
+    });
+
     testWidgets('disabled primary variant uses disabled colors',
         (tester) async {
       await tester.pumpWidget(wrap(

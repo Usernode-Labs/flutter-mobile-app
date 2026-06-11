@@ -116,7 +116,8 @@ class Button extends StatelessWidget {
       required Color disabled,
     }) {
       return WidgetStateProperty.resolveWith((states) {
-        return states.contains(WidgetState.disabled) ? disabled : enabled;
+        final disabledState = states.contains(WidgetState.disabled);
+        return disabledState && !isLoading ? disabled : enabled;
       });
     }
 
@@ -171,7 +172,7 @@ class Button extends StatelessWidget {
             disabled: disabledForeground,
           ),
           side: WidgetStateProperty.resolveWith((states) {
-            final color = states.contains(WidgetState.disabled)
+            final color = states.contains(WidgetState.disabled) && !isLoading
                 ? disabledBackground
                 : colors.outlineVariant;
             return BorderSide(color: color);

@@ -521,7 +521,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
         final totalPoints = eventBd?.totalPoints ??
             group.challenges.fold<int>(
               0,
-              (sum, c) => sum + (c.earnedPoints ?? 0),
+              (sum, c) => sum + (c.displayEarnedPoints ?? 0),
             );
         // Only the first produce-blocks challenge claims event bonuses.
         var bonusesClaimed = false;
@@ -567,7 +567,9 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       eventSuccessRate: isProduceBlocks ? eventBd?.successRate : null,
     );
 
-    final effectiveEarned = enriched.earnedPoints;
+    // Prefer the embedded activities total (matches the detail page +
+    // breakdown); falls back to the single-activity value.
+    final effectiveEarned = enriched.displayEarnedPoints;
     final bonusPoints =
         (isProduceBlocks && claimBonuses) ? eventBd?.totalBonusPoints ?? 0 : 0;
 
@@ -636,8 +638,9 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       eventSuccessRate: isProduceBlocks ? eb?.successRate : null,
     );
 
-    // Use API-provided earned points directly (breakdown with include_activity=1).
-    final effectiveEarned = enriched.earnedPoints;
+    // Prefer the embedded per-challenge activities total (matches the detail
+    // page + Points breakdown); falls back to the single-activity value.
+    final effectiveEarned = enriched.displayEarnedPoints;
     final isSyncing = isProduceBlocksSyncing(
       isProduceBlocks: isProduceBlocks,
       earnedPoints: effectiveEarned,

@@ -180,8 +180,11 @@ class ChallengeDetailScreen extends ConsumerWidget {
         : null;
     final maxPts = ceiling != null ? ceiling - kTop3RankBonusPoints : 0;
 
-    // earnedPoints includes extra points; base is the success-rate calculation only.
-    final earnedPoints = challenge.earnedPoints;
+    // Prefer the server's per-challenge activities sum (same source as the
+    // Points breakdown section); challenge.earnedPoints only reflects the
+    // single primary breakdown activity, so it under-counts multi-activity
+    // challenges (e.g. 500 vs the real 1,500 total).
+    final earnedPoints = challenge.displayEarnedPoints;
     final basePoints = challenge.activity?.points;
     final extraPointsTotal = challenge.extraPoints;
     final isSyncing = isProduceBlocksSyncing(
@@ -199,6 +202,10 @@ class ChallengeDetailScreen extends ConsumerWidget {
     final totalWithBonuses = (earnedPoints ?? 0) + (eb?.totalBonusPoints ?? 0);
     final displayTotalEarned = syncingText ??
         (earnedPoints != null ? formatPoints(totalWithBonuses) : '--');
+    // Non-produce-blocks challenges show the activities total directly (matches
+    // the Points breakdown), not the single-activity base figure.
+    final displaySimpleEarned =
+        earnedPoints != null ? formatPoints(earnedPoints) : '--';
 
     // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
@@ -244,7 +251,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
     return ChallengeRewardCard(
       category: category,
-      totalEarned: isProduceBlocks ? displayTotalEarned : displayBasePoints,
+      totalEarned: isProduceBlocks ? displayTotalEarned : displaySimpleEarned,
       data: data,
       epochSectionLabel: epochSectionLabel,
       epochEarned: epochEarned,

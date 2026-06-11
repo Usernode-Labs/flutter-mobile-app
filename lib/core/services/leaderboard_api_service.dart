@@ -70,12 +70,18 @@ class LeaderboardApiService {
   Future<List<ChallengeDto>> getChallenges({
     int? seasonId,
     int? eventId,
+    int? participantId,
     bool? activeOnly,
     bool? onlyScheduled,
   }) async {
     final params = <String, String>{};
     if (seasonId != null) params['season_id'] = seasonId.toString();
     if (eventId != null) params['event_id'] = eventId.toString();
+    // When provided, the server embeds the participant's per-challenge
+    // `activities` + `activities_total` in each ChallengeDto.
+    if (participantId != null) {
+      params['participant_id'] = participantId.toString();
+    }
     if (activeOnly != null) params['active_only'] = activeOnly.toString();
     if (onlyScheduled == true) {
       params['only_scheduled'] = '1'; // backend expects '1', not 'true'

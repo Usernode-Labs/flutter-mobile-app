@@ -666,6 +666,10 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen>
       rewardText: variant == ChallengeCardVariant.active
           ? formatRewardText(dto.reward)
           : null,
+      earnedText:
+          variant == ChallengeCardVariant.active && dto.activitiesTotal > 0
+              ? 'earned: ${formatPoints(dto.activitiesTotal)}'
+              : null,
       earnedPoints: variant == ChallengeCardVariant.ongoing
           ? isSyncing
               ? ref.watch(syncingTextProvider).valueOrNull ??

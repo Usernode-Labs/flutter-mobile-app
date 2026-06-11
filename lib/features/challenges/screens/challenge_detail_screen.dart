@@ -128,10 +128,38 @@ class ChallengeDetailScreen extends ConsumerWidget {
               context,
             ).challengeTotalReward(formatRewardText(dto.reward)),
       totalRewardBody: showRewardCard ? null : (dto.rewardLogic ?? ''),
+      pointsBreakdown: _buildPointsBreakdown(dto),
+      pointsBreakdownTotal: dto.activitiesTotal > 0
+          ? '${formatPoints(dto.activitiesTotal)} pts'
+          : null,
       onBackTap: () => context.pop(),
       ctaLabel: hasCta ? ctaLabel : null,
       onCtaTap: hasCta ? () => handleChallengeCta(context, dto) : null,
     );
+  }
+
+  /// Maps the challenge's embedded activities to display rows for the
+  /// "Points breakdown" section.
+  List<ChallengePointEntry> _buildPointsBreakdown(ChallengeDto dto) {
+    return dto.activities
+        .map((a) => (
+              description: a.description ?? '',
+              points: '+${formatPoints(a.points)}',
+              date: _formatActivityDate(a.activityAt),
+            ))
+        .toList();
+  }
+
+  String? _formatActivityDate(String? iso) {
+    if (iso == null) return null;
+    final parsed = DateTime.tryParse(iso);
+    if (parsed == null) return null;
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final d = parsed.toLocal();
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
   Widget _buildRewardCard(

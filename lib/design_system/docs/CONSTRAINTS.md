@@ -72,31 +72,31 @@ final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 **Constraint:** Every widget gets a Widgetbook use case importing the **real widget** with mock data via knobs. Never hand-built replicas.
 
 **Why:** What you see in Widgetbook must be exactly what ships. Replicas drift.
-**Where:** Widgetbook use cases in `widgetbook/`.
+**Where:** Widgetbook use cases in `lib/design_system/widgetbook/`.
 
 ## Widget Pipeline
 
-Three slash commands drive design-to-code:
+Portable Agent Skills drive design-to-code:
 
-| Command | Purpose |
-|---------|---------|
-| `/figma-inspect` | Extract Figma design data, map to tokens, produce `.spec.yaml` + `.genesis.md` |
-| `/widget-from-figma` | End-to-end: inspect + build widget + tests + Widgetbook use case |
-| `/verify-widget` | Quality gate: format, analyze, test, token check, barrel, genesis, catalog |
+| Skill/tool | Purpose |
+|------------|---------|
+| `usernode-ds-design-intake` | Normalize Figma, screenshot, sketch, wireframe, or text input; map to tokens; produce `.spec.yaml` when useful |
+| `usernode-ds-build-widget` | End-to-end: intake, pattern decision, match-before-make, build widget, tests, Widgetbook use case |
+| `bash tool/verify-widget.sh <WidgetName>` | Quality gate: format, analyze, test, token check, barrel, genesis, catalog |
 
-**Where:** Skills: `/figma-inspect`, `/widget-from-figma`, `/verify-widget`.
+**Where:** Skills in `agent-skills/`; scripts in `tool/`.
 
 ## Screen Pipeline
 
-Three slash commands drive screen design-to-code:
+Portable Agent Skills drive screen design-to-code and review:
 
-| Command | Purpose |
-|---------|---------|
-| `/screen-from-figma` | End-to-end: detect screen type, select template, compose widgets, wire state, audit |
-| `/screen-audit` | Quality gate: 13 automated checks (spacing, colors, SafeArea, scroll, PSL, ds_lints) |
-| `/pr-audit` | Pre-push: aggregates `/verify-widget` + `/screen-audit` on changed files + full quality gate |
+| Skill/tool | Purpose |
+|------------|---------|
+| `usernode-ds-build-screen` | End-to-end: detect screen type, select pattern, compose widgets, wire state, audit |
+| `bash tool/screen-audit.sh <path>` | Quality gate: automated checks plus mobile UX hard-ban review warnings |
+| `usernode-ds-audit` | PR/current-branch routing across widget verification, screen audit, taste checklist, and full quality gate |
 
-**Where:** Skills: `/screen-from-figma`, `/screen-audit`, `/pr-audit`.
+**Where:** Skills in `agent-skills/`; scripts in `tool/`.
 
 ## M3 Gap-Proof Checklist
 
@@ -125,7 +125,7 @@ See [DECISIONS.md](DECISIONS.md) "Selective M3 Adoption" for a worked example.
 | 9 | Genesis doc exists | `.specs/<WidgetName>.genesis.md` |
 | 10 | Catalog entry exists | Row in Widget Catalog |
 
-**Where:** `/verify-widget` checks all 10 items.
+**Where:** `tool/verify-widget.sh` checks all 10 items.
 
 ## Card Zero-Margin Rule
 
@@ -193,6 +193,7 @@ cd packages/ds_lints && dart run bin/lint.dart /path/to/project/root
 | `avoid_listtile_layout_overrides` | WARNING | Per-widget `visualDensity`, `minVerticalPadding`, `minTileHeight`, `titleAlignment`, or `contentPadding` on `ListTile`/`SwitchListTile`/`CheckboxListTile`/`RadioListTile`. These layout properties should come from the theme — per-widget overrides break M3's baseline alignment. |
 | `require_tile_card_vertical_inset` | WARNING | `AppCard(padding: EdgeInsets.zero)` whose child subtree contains tile widgets. Use `EdgeInsets.symmetric(vertical: spacing.space8)` for list surface inset. |
 | `avoid_card_margin` | WARNING | `Card(margin: ...)` with an explicit margin argument. CardThemeData zeroes the default 4px margin — use a parent `Padding` or `SizedBox` for spacing instead. |
+| `require_ds_button` | WARNING | Raw `FilledButton`, `ElevatedButton`, `OutlinedButton`, or `TextButton` outside `lib/design_system/src/button.dart`. Use the design-system `Button` so sizing and styling stay tokenized. |
 
 Excluded paths: `/widgetbook/`, `/test/`.
 

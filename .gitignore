@@ -82,6 +82,8 @@ gmp.md
 # AI tool config (local-only)
 .gemini/
 .claude/
+.agents/
+.codex/
 
 # Design system research archive (local only)
 lib/design_system/.archive/

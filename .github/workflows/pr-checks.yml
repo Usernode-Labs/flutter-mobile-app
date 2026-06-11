@@ -151,6 +151,35 @@ jobs:
           dart pub get
           dart run bin/lint.dart ../..
 
+      - name: Check DESIGN_SYSTEM.md token frontmatter
+        run: flutter test test/design_system/design_system_md_tokens_test.dart
+
+      - name: Verify changed design system widgets
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          changed_widgets=$(git diff --name-only "origin/${{ github.base_ref }}"...HEAD -- 'lib/design_system/src/*.dart')
+          if [ -z "$changed_widgets" ]; then
+            echo "No design system widget source changes."
+            exit 0
+          fi
+
+          for file in $changed_widgets; do
+            snake=$(basename "$file" .dart)
+            case "$snake" in
+              nav_indicator_shapes|paint_helpers)
+                echo "Skipping public helper exemption: $file"
+                continue
+                ;;
+              text_field)
+                widget="DSTextField"
+                ;;
+              *)
+                widget=$(echo "$snake" | perl -pe 's/(^|_)(.)/uc($2)/ge')
+                ;;
+            esac
+            bash tool/verify-widget.sh "$widget"
+          done
+
       - name: Run unit tests
         run: flutter test --coverage
 

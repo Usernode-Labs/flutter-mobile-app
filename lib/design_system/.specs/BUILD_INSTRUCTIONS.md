@@ -188,7 +188,7 @@ For a widget named `FooBar`:
 export 'src/foo_bar.dart';
 ```
 
-### 4. Widgetbook use case: `widgetbook/lib/use_cases/foo_bar_use_case.dart`
+### 4. Widgetbook use case: `lib/design_system/widgetbook/foo_bar_use_case.dart`
 - Import the real widget (never build a replica)
 - Use Widgetbook knobs for each constructor parameter
 - Provide sensible defaults
@@ -201,6 +201,7 @@ Before finishing:
 3. Run `flutter test test/design_system/foo_bar_test.dart` — passes
 4. No hardcoded color, spacing, radius, elevation, opacity, or sizing values
 5. Widget is exported from barrel file
+6. Run `bash tool/verify-widget.sh FooBar`
 
 ## Mapping Notes
 
@@ -232,9 +233,15 @@ each individual file. This avoids redundant analysis runs.
 **For tests:** use `run_tests` MCP tool (not `flutter test` shell command).
 The Dart MCP server states: "ALWAYS use instead of `dart test` or `flutter test` shell commands."
 
-## Golden Tests
+## Visual Regression Tests
 
-Every widget test includes a golden screenshot assertion:
+Goldens are optional and reserved for stable, high-signal primitives where
+visual drift would be costly: `Button`, `Tabs`, core navigation, typography
+catalogs, token catalogs, and other widgets that are intentionally stable.
+Do not add goldens by default for active iteration widgets or one-off page
+surfaces; prefer behavior tests plus Widgetbook review until the API settles.
+
+When a golden is warranted, include a focused screenshot assertion:
 
 ```dart
 testWidgets('golden', (tester) async {
@@ -255,6 +262,8 @@ testWidgets('golden', (tester) async {
 - Use `Center` + `Scaffold(body:)` for consistent framing
 - Run `flutter test --update-goldens test/design_system/<widget_name>_test.dart` to generate the baseline PNG
 - Golden files live at `test/design_system/goldens/` — committed to git
+- `tool/verify-widget.sh` does not require goldens; add them only when the
+  component is stable enough that visual snapshots improve review quality.
 
 ## Genesis Document
 
@@ -281,9 +290,10 @@ Every widget gets a `.genesis.md` file in `lib/design_system/.specs/`:
 | 14px padding | `space16` (16px) | Snapped to nearest spacing token |
 | #2563EC | `colorScheme.secondary` | Exact match |
 
-## Golden Reference
-- **Golden file**: `test/design_system/goldens/<widget_name>.png`
-- Rendered with light theme, default viewport
+## Optional Visual Reference
+- **Widgetbook use case**: `lib/design_system/widgetbook/<widget_name>_use_case.dart`
+- **Golden file**: `test/design_system/goldens/<widget_name>.png` when a stable
+  primitive intentionally opts into golden coverage
 ```
 
 Key principles:

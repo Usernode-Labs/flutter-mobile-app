@@ -2,6 +2,10 @@
 
 This file guides agents working in this repository. Follow these conventions and paths when reading, modifying, or adding code. Keep diffs small and focused; prefer surgical updates over broad refactors.
 
+## First Session Setup
+- In a fresh clone or worktree, run `bash tool/agent-setup.sh` once. It sets `core.hooksPath=.githooks` and creates repo-local agent skill adapters.
+- Canonical project skills live in `agent-skills/`. Repo-local `.claude/skills/`, `.agents/skills/`, and `.codex/skills/` are generated adapters and stay ignored.
+
 ## Project Structure
 - `lib/core` — routing, theming, DI, errors, config, telemetry utilities.
 - `lib/features` — feature-first modules (e.g., `node/`, `wallet/`, `settings/`, `home/`).
@@ -9,6 +13,8 @@ This file guides agents working in this repository. Follow these conventions and
 - `rust_builder/` — Rust crates and flutter_rust_bridge integration.
 - `assets/`, `android/`, `ios/`, `web/`, `macos/`, `linux/`, `windows/` — platform assets.
 - `test/` — unit/widget/provider tests. See also `README.md`.
+- `agent-skills/` — portable Agent Skills for DS intake/build/audit and FRB codegen.
+- `tool/` — tool-agnostic scripts callable by humans, agents, hooks, and CI.
 
 Helpful entry points
 - `lib/main.dart` — app bootstrap + Sentry + backend init.
@@ -21,6 +27,7 @@ Helpful entry points
 - Rust backend façade — `lib/features/node/data/repositories/rust_backend_service.dart`.
 
 ## Build, Test, and Dev
+- Bootstrap harness: `bash tool/agent-setup.sh`
 - Install deps: `flutter pub get`
 - Generate l10n: `flutter gen-l10n`
 - FRB codegen: `flutter_rust_bridge_codegen generate` (uses `flutter_rust_bridge.yaml`)
@@ -29,6 +36,43 @@ Helpful entry points
 - Format check: `dart format --output=none --set-exit-if-changed .`
 - Tests: `flutter test` (CI runs format/analyze/tests on PRs)
 - Design system lints: `cd packages/ds_lints && dart run bin/lint.dart ../..` (enforced in CI)
+- Verify DS widget: `bash tool/verify-widget.sh <WidgetName>` or `bash tool/verify-widget.sh --all`
+- Audit screen: `bash tool/screen-audit.sh <path/to/screen.dart>`
+
+## Documentation Philosophy
+**Code is the documentation.** Doc comments, type signatures, and well-named abstractions are the source of truth. Markdown files, genesis docs, and specs are scaffolding that point readers to the right code with just enough context. Do not duplicate what code already says; link to it instead.
+
+## Agent Skills
+- `usernode-ds-harness-init` — repair local setup and skill adapters.
+- `usernode-agent-harness-audit` — benchmark this harness against curated external Flutter/mobile/design-system skills without adopting generic behavior.
+- `usernode-ds-design-intake` — normalize Figma, screenshots, sketches, wireframes, or text briefs.
+- `usernode-ds-build-widget` — build DS widgets with match-before-make and verification.
+- `usernode-ds-build-screen` — build or redesign screens using M3, DS patterns, and taste checks.
+- `usernode-ds-audit` — route widget, screen, and PR audits through tool scripts and manual checks.
+- `usernode-mobile-ux-taste` — pattern-decision and hard-ban layer for mobile UX.
+- `usernode-frb-codegen` — FRB revision matching and binding generation.
+
+## Design System Boundary
+All new design system work lives in `lib/design_system/`.
+
+- M3 first: never create a custom widget that duplicates an M3 component such as `ListTile`, `Card`, `Switch`, or `Checkbox`. Use M3 directly and compose DS slot widgets into M3 containers. Only create a custom widget when M3 genuinely does not cover the pattern; prove the gap first.
+- Design input is inspiration, not source of truth. DS code and token classes are authoritative.
+- New design patterns require explicit human approval after M3/existing-DS gap proof.
+- Tokens: access via `Theme.of(context).extension<T>()!` (`AppSpacing`, `AppRadii`, `AppElevation`, etc.).
+- Colors: use `Theme.of(context).colorScheme` for achromatic M3 structure. Use `AppSemanticColors` for chromatic semantic meaning. Never assume a `ColorScheme` role carries hue.
+- Typography: use `Theme.of(context).textTheme`.
+- Presentation-only: DS widgets take all state through constructor data and callbacks. No providers, no `ConsumerWidget`, no services, and no FRB-generated constructor types.
+- Widgetbook: every new DS widget gets a use case in `lib/design_system/widgetbook/` that imports the real widget with mock data via knobs.
+- Build constraints: `lib/design_system/.specs/BUILD_INSTRUCTIONS.md`.
+- Screen patterns: `lib/design_system/docs/SCREEN_PATTERNS.md` and `lib/design_system/docs/LAYOUT.md`.
+- All constraints: `lib/design_system/docs/CONSTRAINTS.md`.
+
+## Planning & Git Workflow
+- Prefer lean, surgical approaches. Start with the simplest viable solution and iterate.
+- Before a multi-step implementation, do a quick feasibility check of environment, dependencies, and platform constraints.
+- Before stashing or switching branches with staged changes, commit current work first or confirm with the user.
+- If pre-commit hooks fail on unrelated environmental issues, diagnose once; if bypassing with `--no-verify`, report exactly why.
+- After modifying Dart files, run formatting and analyzer checks before considering the task done.
 
 Common flags
 - Enable result-based node providers: `--dart-define=USE_RESULT_PROVIDERS=true`

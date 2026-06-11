@@ -110,10 +110,11 @@ class _ShareLogsBar extends ConsumerWidget {
           SizedBox(height: spacing.space8),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              icon: const Icon(Symbols.stop_circle_sharp),
-              label: Text(l10n.httpLogsStopSharing),
-              onPressed: controller.stop,
+            child: Button(
+              leadingIcon: const Icon(Symbols.stop_circle_sharp),
+              label: l10n.httpLogsStopSharing,
+              variant: ButtonVariant.outlined,
+              onTap: controller.stop,
             ),
           ),
         ],
@@ -124,10 +125,11 @@ class _ShareLogsBar extends ConsumerWidget {
         message: canShare ? '' : l10n.httpLogsShareNoParticipant,
         child: SizedBox(
           width: double.infinity,
-          child: FilledButton.icon(
-            icon: const Icon(Symbols.upload_sharp),
-            label: Text(l10n.httpLogsShare),
-            onPressed: canShare ? () => controller.start(participantId) : null,
+          child: Button(
+            leadingIcon: const Icon(Symbols.upload_sharp),
+            label: l10n.httpLogsShare,
+            variant: ButtonVariant.primary,
+            onTap: canShare ? () => controller.start(participantId) : null,
           ),
         ),
       );

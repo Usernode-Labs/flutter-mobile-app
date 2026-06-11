@@ -1,6 +1,7 @@
 #!/bin/sh
-# Pre-commit hook: run dart format + flutter analyze on staged .dart files.
-# Catches formatting issues and compile errors before they're committed.
+# Pre-commit hook: run dart format, flutter analyze, and scoped DS lints on
+# staged Dart files. Catches formatting, compile, and design-system drift before
+# commit.
 #
 # Activate with: git config core.hooksPath .githooks
 
@@ -16,5 +17,24 @@ if [ -n "$changed_dart" ]; then
 
   echo "Running flutter analyze on staged .dart files..."
   flutter analyze --no-pub $changed_dart
-  exit $?
+  analyze_exit=$?
+  if [ $analyze_exit -ne 0 ]; then
+    exit $analyze_exit
+  fi
+
+  echo "Running scoped design system lints on staged app files..."
+  for file in $changed_dart; do
+    case "$file" in
+      lib/design_system/*.dart|lib/design_system/*/*.dart|lib/features/*.dart|lib/features/*/*.dart|lib/features/*/*/*.dart|lib/features/*/*/*/*.dart)
+        if [ ! -f packages/ds_lints/.dart_tool/package_config.json ]; then
+          (cd packages/ds_lints && dart pub get >/dev/null)
+        fi
+        (cd packages/ds_lints && dart run bin/lint.dart --file "../../$file")
+        lint_exit=$?
+        if [ $lint_exit -ne 0 ]; then
+          exit $lint_exit
+        fi
+        ;;
+    esac
+  done
 fi

@@ -32,7 +32,7 @@ class StaleRegistrationDemo extends StatelessWidget {
   }
 }
 
-const meta = Meta<StaleRegistrationDemo>(path: 'pages/onboarding');
+const meta = Meta<StaleRegistrationDemo>(path: 'live app/pages/onboarding');
 
 final $Default = _Story(
   args: _Args(

@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/epoch_performance_page.dart'
 
 part 'epoch_performance_page.stories.g.dart';
 
-const meta = Meta<EpochPerformancePage>(path: 'pages/performance');
+const meta = Meta<EpochPerformancePage>(path: 'live app/pages/performance');
 
 final $Default = _Story(
   args: _Args(

@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/leaderboard_stats_card.dart'
 
 part 'leaderboard_stats_card.stories.g.dart';
 
-const meta = Meta<LeaderboardStatsCard>(path: 'widgets/data-display');
+const meta = Meta<LeaderboardStatsCard>(path: 'live app/widgets/data-display');
 
 final $Default = _Story(
   args: _Args(

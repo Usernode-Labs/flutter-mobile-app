@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/icon_badge.dart';
 
 part 'icon_badge.stories.g.dart';
 
-const meta = Meta<IconBadge>(path: 'widgets/indicators');
+const meta = Meta<IconBadge>(path: 'live app/widgets/indicators');
 
 final $Default = _Story(
   args: _Args(icon: Arg.fixed(Symbols.swap_horiz_sharp)),

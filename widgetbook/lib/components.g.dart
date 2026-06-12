@@ -6,148 +6,104 @@
 // ignore_for_file: unused_import, prefer_relative_imports, directives_ordering, unused_element, strict_raw_type
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:widgetbook/widgetbook.dart' as _widgetbook;
-import 'package:widgetbook_workspace/stories/block_production_status_card.stories.dart'
-    as _widgetbook_workspace_stories_block_production_status_card_stories;
-import 'package:widgetbook_workspace/stories/bottom_nav.stories.dart'
-    as _widgetbook_workspace_stories_bottom_nav_stories;
-import 'package:widgetbook_workspace/stories/burst_pulse_illustration.stories.dart'
-    as _widgetbook_workspace_stories_burst_pulse_illustration_stories;
-import 'package:widgetbook_workspace/stories/button.stories.dart'
-    as _widgetbook_workspace_stories_button_stories;
-import 'package:widgetbook_workspace/stories/challenge_activity_summary.stories.dart'
-    as _widgetbook_workspace_stories_challenge_activity_summary_stories;
-import 'package:widgetbook_workspace/stories/challenge_card.stories.dart'
-    as _widgetbook_workspace_stories_challenge_card_stories;
-import 'package:widgetbook_workspace/stories/challenge_category_icon.stories.dart'
-    as _widgetbook_workspace_stories_challenge_category_icon_stories;
-import 'package:widgetbook_workspace/stories/challenge_category_tile.stories.dart'
-    as _widgetbook_workspace_stories_challenge_category_tile_stories;
-import 'package:widgetbook_workspace/stories/challenge_detail_page.stories.dart'
-    as _widgetbook_workspace_stories_challenge_detail_page_stories;
-import 'package:widgetbook_workspace/stories/challenge_event_group.stories.dart'
-    as _widgetbook_workspace_stories_challenge_event_group_stories;
-import 'package:widgetbook_workspace/stories/challenge_reward_card.stories.dart'
-    as _widgetbook_workspace_stories_challenge_reward_card_stories;
-import 'package:widgetbook_workspace/stories/dapp_card.stories.dart'
-    as _widgetbook_workspace_stories_dapp_card_stories;
-import 'package:widgetbook_workspace/stories/dropdown_chain.stories.dart'
-    as _widgetbook_workspace_stories_dropdown_chain_stories;
-import 'package:widgetbook_workspace/stories/dropdown_chip.stories.dart'
-    as _widgetbook_workspace_stories_dropdown_chip_stories;
-import 'package:widgetbook_workspace/stories/dropdown_sheet.stories.dart'
-    as _widgetbook_workspace_stories_dropdown_sheet_stories;
-import 'package:widgetbook_workspace/stories/empty_state.stories.dart'
-    as _widgetbook_workspace_stories_empty_state_stories;
-import 'package:widgetbook_workspace/stories/epoch_performance_page.stories.dart'
-    as _widgetbook_workspace_stories_epoch_performance_page_stories;
-import 'package:widgetbook_workspace/stories/full_page_error_state.stories.dart'
-    as _widgetbook_workspace_stories_full_page_error_state_stories;
-import 'package:widgetbook_workspace/stories/icon_badge.stories.dart'
-    as _widgetbook_workspace_stories_icon_badge_stories;
-import 'package:widgetbook_workspace/stories/info_row.stories.dart'
-    as _widgetbook_workspace_stories_info_row_stories;
-import 'package:widgetbook_workspace/stories/leaderboard_stats_card.stories.dart'
-    as _widgetbook_workspace_stories_leaderboard_stats_card_stories;
-import 'package:widgetbook_workspace/stories/list_section_header.stories.dart'
-    as _widgetbook_workspace_stories_list_section_header_stories;
-import 'package:widgetbook_workspace/stories/rank_badge.stories.dart'
-    as _widgetbook_workspace_stories_rank_badge_stories;
-import 'package:widgetbook_workspace/stories/result_page.stories.dart'
-    as _widgetbook_workspace_stories_result_page_stories;
-import 'package:widgetbook_workspace/stories/score_header.stories.dart'
-    as _widgetbook_workspace_stories_score_header_stories;
-import 'package:widgetbook_workspace/stories/sheet_layout.stories.dart'
-    as _widgetbook_workspace_stories_sheet_layout_stories;
-import 'package:widgetbook_workspace/stories/shimmer_block.stories.dart'
-    as _widgetbook_workspace_stories_shimmer_block_stories;
-import 'package:widgetbook_workspace/stories/shimmer_card_skeleton.stories.dart'
-    as _widgetbook_workspace_stories_shimmer_card_skeleton_stories;
-import 'package:widgetbook_workspace/stories/shimmer_list_tile.stories.dart'
-    as _widgetbook_workspace_stories_shimmer_list_tile_stories;
-import 'package:widgetbook_workspace/stories/slot_assignments_page.stories.dart'
-    as _widgetbook_workspace_stories_slot_assignments_page_stories;
-import 'package:widgetbook_workspace/stories/stale_registration_screen.stories.dart'
-    as _widgetbook_workspace_stories_stale_registration_screen_stories;
-import 'package:widgetbook_workspace/stories/status_badge.stories.dart'
-    as _widgetbook_workspace_stories_status_badge_stories;
-import 'package:widgetbook_workspace/stories/status_text_trailing.stories.dart'
-    as _widgetbook_workspace_stories_status_text_trailing_stories;
-import 'package:widgetbook_workspace/stories/tabs.stories.dart'
-    as _widgetbook_workspace_stories_tabs_stories;
-import 'package:widgetbook_workspace/stories/text_chevron_trailing.stories.dart'
-    as _widgetbook_workspace_stories_text_chevron_trailing_stories;
-import 'package:widgetbook_workspace/stories/text_field.stories.dart'
-    as _widgetbook_workspace_stories_text_field_stories;
-import 'package:widgetbook_workspace/stories/top_app_bar.stories.dart'
-    as _widgetbook_workspace_stories_top_app_bar_stories;
-import 'package:widgetbook_workspace/stories/zk_identity_flow_page.stories.dart'
-    as _widgetbook_workspace_stories_zk_identity_flow_page_stories;
-import 'package:widgetbook_workspace/stories/zk_identity_status_card.stories.dart'
-    as _widgetbook_workspace_stories_zk_identity_status_card_stories;
-import 'package:widgetbook_workspace/stories/zk_identity_step_illustration.stories.dart'
-    as _widgetbook_workspace_stories_zk_identity_step_illustration_stories;
+import 'package:widgetbook_workspace/stories/active_challenge_bands.stories.dart' as _widgetbook_workspace_stories_active_challenge_bands_stories;
+import 'package:widgetbook_workspace/stories/atomic_challenge_card.stories.dart' as _widgetbook_workspace_stories_atomic_challenge_card_stories;
+import 'package:widgetbook_workspace/stories/atomic_challenge_detail_page.stories.dart' as _widgetbook_workspace_stories_atomic_challenge_detail_page_stories;
+import 'package:widgetbook_workspace/stories/block_production_status_card.stories.dart' as _widgetbook_workspace_stories_block_production_status_card_stories;
+import 'package:widgetbook_workspace/stories/bottom_nav.stories.dart' as _widgetbook_workspace_stories_bottom_nav_stories;
+import 'package:widgetbook_workspace/stories/burst_pulse_illustration.stories.dart' as _widgetbook_workspace_stories_burst_pulse_illustration_stories;
+import 'package:widgetbook_workspace/stories/button.stories.dart' as _widgetbook_workspace_stories_button_stories;
+import 'package:widgetbook_workspace/stories/challenge_activity_summary.stories.dart' as _widgetbook_workspace_stories_challenge_activity_summary_stories;
+import 'package:widgetbook_workspace/stories/challenge_card.stories.dart' as _widgetbook_workspace_stories_challenge_card_stories;
+import 'package:widgetbook_workspace/stories/challenge_category_icon.stories.dart' as _widgetbook_workspace_stories_challenge_category_icon_stories;
+import 'package:widgetbook_workspace/stories/challenge_category_tile.stories.dart' as _widgetbook_workspace_stories_challenge_category_tile_stories;
+import 'package:widgetbook_workspace/stories/challenge_detail_page.stories.dart' as _widgetbook_workspace_stories_challenge_detail_page_stories;
+import 'package:widgetbook_workspace/stories/challenge_event_group.stories.dart' as _widgetbook_workspace_stories_challenge_event_group_stories;
+import 'package:widgetbook_workspace/stories/challenge_reward_card.stories.dart' as _widgetbook_workspace_stories_challenge_reward_card_stories;
+import 'package:widgetbook_workspace/stories/dapp_card.stories.dart' as _widgetbook_workspace_stories_dapp_card_stories;
+import 'package:widgetbook_workspace/stories/dapps_app_bar_prototype.stories.dart' as _widgetbook_workspace_stories_dapps_app_bar_prototype_stories;
+import 'package:widgetbook_workspace/stories/dropdown_chain.stories.dart' as _widgetbook_workspace_stories_dropdown_chain_stories;
+import 'package:widgetbook_workspace/stories/dropdown_chip.stories.dart' as _widgetbook_workspace_stories_dropdown_chip_stories;
+import 'package:widgetbook_workspace/stories/dropdown_sheet.stories.dart' as _widgetbook_workspace_stories_dropdown_sheet_stories;
+import 'package:widgetbook_workspace/stories/empty_state.stories.dart' as _widgetbook_workspace_stories_empty_state_stories;
+import 'package:widgetbook_workspace/stories/epoch_performance_page.stories.dart' as _widgetbook_workspace_stories_epoch_performance_page_stories;
+import 'package:widgetbook_workspace/stories/full_page_error_state.stories.dart' as _widgetbook_workspace_stories_full_page_error_state_stories;
+import 'package:widgetbook_workspace/stories/icon_badge.stories.dart' as _widgetbook_workspace_stories_icon_badge_stories;
+import 'package:widgetbook_workspace/stories/info_row.stories.dart' as _widgetbook_workspace_stories_info_row_stories;
+import 'package:widgetbook_workspace/stories/leaderboard_stats_card.stories.dart' as _widgetbook_workspace_stories_leaderboard_stats_card_stories;
+import 'package:widgetbook_workspace/stories/list_section_header.stories.dart' as _widgetbook_workspace_stories_list_section_header_stories;
+import 'package:widgetbook_workspace/stories/node_sync_detail_page.stories.dart' as _widgetbook_workspace_stories_node_sync_detail_page_stories;
+import 'package:widgetbook_workspace/stories/rank_badge.stories.dart' as _widgetbook_workspace_stories_rank_badge_stories;
+import 'package:widgetbook_workspace/stories/result_page.stories.dart' as _widgetbook_workspace_stories_result_page_stories;
+import 'package:widgetbook_workspace/stories/score_header.stories.dart' as _widgetbook_workspace_stories_score_header_stories;
+import 'package:widgetbook_workspace/stories/settings_detail_page.stories.dart' as _widgetbook_workspace_stories_settings_detail_page_stories;
+import 'package:widgetbook_workspace/stories/sheet_layout.stories.dart' as _widgetbook_workspace_stories_sheet_layout_stories;
+import 'package:widgetbook_workspace/stories/shimmer_block.stories.dart' as _widgetbook_workspace_stories_shimmer_block_stories;
+import 'package:widgetbook_workspace/stories/shimmer_card_skeleton.stories.dart' as _widgetbook_workspace_stories_shimmer_card_skeleton_stories;
+import 'package:widgetbook_workspace/stories/shimmer_list_tile.stories.dart' as _widgetbook_workspace_stories_shimmer_list_tile_stories;
+import 'package:widgetbook_workspace/stories/slot_assignments_page.stories.dart' as _widgetbook_workspace_stories_slot_assignments_page_stories;
+import 'package:widgetbook_workspace/stories/stale_registration_screen.stories.dart' as _widgetbook_workspace_stories_stale_registration_screen_stories;
+import 'package:widgetbook_workspace/stories/status_badge.stories.dart' as _widgetbook_workspace_stories_status_badge_stories;
+import 'package:widgetbook_workspace/stories/status_text_trailing.stories.dart' as _widgetbook_workspace_stories_status_text_trailing_stories;
+import 'package:widgetbook_workspace/stories/tabs.stories.dart' as _widgetbook_workspace_stories_tabs_stories;
+import 'package:widgetbook_workspace/stories/testnet_profile_page.stories.dart' as _widgetbook_workspace_stories_testnet_profile_page_stories;
+import 'package:widgetbook_workspace/stories/text_chevron_trailing.stories.dart' as _widgetbook_workspace_stories_text_chevron_trailing_stories;
+import 'package:widgetbook_workspace/stories/text_field.stories.dart' as _widgetbook_workspace_stories_text_field_stories;
+import 'package:widgetbook_workspace/stories/top_app_bar.stories.dart' as _widgetbook_workspace_stories_top_app_bar_stories;
+import 'package:widgetbook_workspace/stories/top_status_app_bar.stories.dart' as _widgetbook_workspace_stories_top_status_app_bar_stories;
+import 'package:widgetbook_workspace/stories/wallet_app_bar_prototype.stories.dart' as _widgetbook_workspace_stories_wallet_app_bar_prototype_stories;
+import 'package:widgetbook_workspace/stories/zk_identity_flow_page.stories.dart' as _widgetbook_workspace_stories_zk_identity_flow_page_stories;
+import 'package:widgetbook_workspace/stories/zk_identity_status_card.stories.dart' as _widgetbook_workspace_stories_zk_identity_status_card_stories;
+import 'package:widgetbook_workspace/stories/zk_identity_step_illustration.stories.dart' as _widgetbook_workspace_stories_zk_identity_step_illustration_stories;
 
 final components = <_widgetbook.Component>[
-  _widgetbook_workspace_stories_block_production_status_card_stories
-      .BlockProductionStatusCardComponent,
+  _widgetbook_workspace_stories_active_challenge_bands_stories.ActiveChallengeBandsComponent,
+  _widgetbook_workspace_stories_atomic_challenge_card_stories.AtomicChallengeCardComponent,
+  _widgetbook_workspace_stories_atomic_challenge_detail_page_stories.AtomicChallengeDetailPageComponent,
+  _widgetbook_workspace_stories_block_production_status_card_stories.BlockProductionStatusCardComponent,
   _widgetbook_workspace_stories_bottom_nav_stories.BottomNavComponent,
-  _widgetbook_workspace_stories_burst_pulse_illustration_stories
-      .BurstPulseIllustrationComponent,
+  _widgetbook_workspace_stories_burst_pulse_illustration_stories.BurstPulseIllustrationComponent,
   _widgetbook_workspace_stories_button_stories.ButtonComponent,
-  _widgetbook_workspace_stories_challenge_activity_summary_stories
-      .ChallengeActivitySummaryComponent,
+  _widgetbook_workspace_stories_challenge_activity_summary_stories.ChallengeActivitySummaryComponent,
   _widgetbook_workspace_stories_challenge_card_stories.ChallengeCardComponent,
-  _widgetbook_workspace_stories_challenge_category_icon_stories
-      .ChallengeCategoryIconComponent,
-  _widgetbook_workspace_stories_challenge_category_tile_stories
-      .ChallengeCategoryTileComponent,
-  _widgetbook_workspace_stories_challenge_detail_page_stories
-      .ChallengeDetailPageComponent,
-  _widgetbook_workspace_stories_challenge_event_group_stories
-      .ChallengeEventGroupComponent,
-  _widgetbook_workspace_stories_challenge_reward_card_stories
-      .ChallengeRewardCardComponent,
+  _widgetbook_workspace_stories_challenge_category_icon_stories.ChallengeCategoryIconComponent,
+  _widgetbook_workspace_stories_challenge_category_tile_stories.ChallengeCategoryTileComponent,
+  _widgetbook_workspace_stories_challenge_detail_page_stories.ChallengeDetailPageComponent,
+  _widgetbook_workspace_stories_challenge_event_group_stories.ChallengeEventGroupComponent,
+  _widgetbook_workspace_stories_challenge_reward_card_stories.ChallengeRewardCardComponent,
   _widgetbook_workspace_stories_dapp_card_stories.DappCardComponent,
+  _widgetbook_workspace_stories_dapps_app_bar_prototype_stories.DappsAppBarPrototypeComponent,
   _widgetbook_workspace_stories_dropdown_chain_stories.DropdownChainComponent,
   _widgetbook_workspace_stories_dropdown_chip_stories.DropdownChipComponent,
-  _widgetbook_workspace_stories_dropdown_sheet_stories
-      .DropdownSheetDemoComponent,
+  _widgetbook_workspace_stories_dropdown_sheet_stories.DropdownSheetDemoComponent,
   _widgetbook_workspace_stories_empty_state_stories.EmptyStateComponent,
-  _widgetbook_workspace_stories_epoch_performance_page_stories
-      .EpochPerformancePageComponent,
-  _widgetbook_workspace_stories_full_page_error_state_stories
-      .FullPageErrorStateComponent,
+  _widgetbook_workspace_stories_epoch_performance_page_stories.EpochPerformancePageComponent,
+  _widgetbook_workspace_stories_full_page_error_state_stories.FullPageErrorStateComponent,
   _widgetbook_workspace_stories_icon_badge_stories.IconBadgeComponent,
   _widgetbook_workspace_stories_info_row_stories.InfoRowComponent,
-  _widgetbook_workspace_stories_leaderboard_stats_card_stories
-      .LeaderboardStatsCardComponent,
-  _widgetbook_workspace_stories_list_section_header_stories
-      .ListSectionHeaderComponent,
+  _widgetbook_workspace_stories_leaderboard_stats_card_stories.LeaderboardStatsCardComponent,
+  _widgetbook_workspace_stories_list_section_header_stories.ListSectionHeaderComponent,
+  _widgetbook_workspace_stories_node_sync_detail_page_stories.NodeSyncDetailPageComponent,
   _widgetbook_workspace_stories_rank_badge_stories.RankBadgeComponent,
   _widgetbook_workspace_stories_result_page_stories.ResultPageComponent,
   _widgetbook_workspace_stories_score_header_stories.ScoreHeaderComponent,
+  _widgetbook_workspace_stories_settings_detail_page_stories.SettingsDetailPageComponent,
   _widgetbook_workspace_stories_sheet_layout_stories.SheetLayoutComponent,
   _widgetbook_workspace_stories_shimmer_block_stories.ShimmerBlockComponent,
-  _widgetbook_workspace_stories_shimmer_card_skeleton_stories
-      .ShimmerCardSkeletonComponent,
-  _widgetbook_workspace_stories_shimmer_list_tile_stories
-      .ShimmerListTileComponent,
-  _widgetbook_workspace_stories_slot_assignments_page_stories
-      .SlotAssignmentsPageComponent,
-  _widgetbook_workspace_stories_stale_registration_screen_stories
-      .StaleRegistrationDemoComponent,
+  _widgetbook_workspace_stories_shimmer_card_skeleton_stories.ShimmerCardSkeletonComponent,
+  _widgetbook_workspace_stories_shimmer_list_tile_stories.ShimmerListTileComponent,
+  _widgetbook_workspace_stories_slot_assignments_page_stories.SlotAssignmentsPageComponent,
+  _widgetbook_workspace_stories_stale_registration_screen_stories.StaleRegistrationDemoComponent,
   _widgetbook_workspace_stories_status_badge_stories.StatusBadgeComponent,
-  _widgetbook_workspace_stories_status_text_trailing_stories
-      .StatusTextTrailingComponent,
+  _widgetbook_workspace_stories_status_text_trailing_stories.StatusTextTrailingComponent,
   _widgetbook_workspace_stories_tabs_stories.TabsComponent,
-  _widgetbook_workspace_stories_text_chevron_trailing_stories
-      .TextChevronTrailingComponent,
+  _widgetbook_workspace_stories_testnet_profile_page_stories.TestnetProfilePageDemoComponent,
+  _widgetbook_workspace_stories_text_chevron_trailing_stories.TextChevronTrailingComponent,
   _widgetbook_workspace_stories_text_field_stories.DSTextFieldComponent,
   _widgetbook_workspace_stories_top_app_bar_stories.TopAppBarComponent,
-  _widgetbook_workspace_stories_zk_identity_flow_page_stories
-      .ZkIdentityFlowPageComponent,
-  _widgetbook_workspace_stories_zk_identity_status_card_stories
-      .ZkIdentityStatusCardComponent,
-  _widgetbook_workspace_stories_zk_identity_step_illustration_stories
-      .ZkIdentityStepIllustrationComponent,
+  _widgetbook_workspace_stories_top_status_app_bar_stories.TopStatusAppBarPreviewComponent,
+  _widgetbook_workspace_stories_wallet_app_bar_prototype_stories.WalletAppBarPrototypeComponent,
+  _widgetbook_workspace_stories_zk_identity_flow_page_stories.ZkIdentityFlowPageComponent,
+  _widgetbook_workspace_stories_zk_identity_status_card_stories.ZkIdentityStatusCardComponent,
+  _widgetbook_workspace_stories_zk_identity_step_illustration_stories.ZkIdentityStepIllustrationComponent,
 ];

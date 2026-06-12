@@ -93,6 +93,7 @@ String _generatedFrontmatter() {
     'semanticLight': {
       'technical': _semanticGroup(semantic.technical),
       'flash': _semanticGroup(semantic.flash),
+      'premium': _semanticGroup(semantic.premium),
       'community': _semanticGroup(semantic.community),
       'success': _semanticGroup(semantic.success),
       'warning': _semanticGroup(semantic.warning),

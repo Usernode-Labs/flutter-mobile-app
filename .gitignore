@@ -32,6 +32,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+widgetbook/build/
 
 # Symbolication related
 app.*.symbols
@@ -90,3 +91,6 @@ lib/design_system/.archive/
 
 # Local-only worktree ergonomics hook (see /tmp/post-checkout.backup or .githooks on main checkout)
 .githooks/post-checkout
+
+# Local codebase understanding snapshots
+.omm/codebase-lens/

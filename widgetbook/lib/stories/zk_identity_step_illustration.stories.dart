@@ -5,7 +5,9 @@ import 'package:crypto_mobile_app/design_system/src/zk_identity_step_illustratio
 
 part 'zk_identity_step_illustration.stories.g.dart';
 
-const meta = Meta<ZkIdentityStepIllustration>(path: 'widgets/challenges');
+const meta = Meta<ZkIdentityStepIllustration>(
+  path: 'live app/widgets/challenges',
+);
 
 final $CheckApp = _Story(
   name: 'Check App (Step 0)',

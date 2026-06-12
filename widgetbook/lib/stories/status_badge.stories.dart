@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/status_badge.dart';
 
 part 'status_badge.stories.g.dart';
 
-const meta = Meta<StatusBadge>(path: 'widgets/indicators');
+const meta = Meta<StatusBadge>(path: 'live app/widgets/indicators');
 
 final $Default = _Story(
   args: _Args(

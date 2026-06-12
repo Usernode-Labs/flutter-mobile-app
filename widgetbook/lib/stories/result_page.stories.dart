@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/result_page.dart';
 
 part 'result_page.stories.g.dart';
 
-const meta = Meta<ResultPage>(path: 'pages/outcomes');
+const meta = Meta<ResultPage>(path: 'live app/pages/outcomes');
 
 final $Success = _Story(
   name: 'Success',

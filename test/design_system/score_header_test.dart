@@ -102,6 +102,48 @@ void main() {
       expect(find.byType(Button), findsNothing);
     });
 
+    testWidgets('hides countdown row when showCountdown is false',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const ScoreHeader(
+          score: '8,000',
+          scoreLabel: 'points',
+          showCountdown: false,
+        ),
+      ));
+
+      expect(find.text('ENDS IN'), findsNothing);
+      expect(find.text('--'), findsNothing);
+    });
+
+    testWidgets('renders custom footer', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ScoreHeader(
+          score: '8,000',
+          scoreLabel: 'points',
+          showCountdown: false,
+          footer: Text('All Events'),
+        ),
+      ));
+
+      expect(find.text('All Events'), findsOneWidget);
+    });
+
+    testWidgets('custom footer replaces CTA slot', (tester) async {
+      await tester.pumpWidget(wrap(
+        const ScoreHeader(
+          score: '8,000',
+          scoreLabel: 'points',
+          ctaLabel: 'View in Leaderboard',
+          footer: Text('All Events'),
+        ),
+      ));
+
+      expect(find.text('All Events'), findsOneWidget);
+      expect(find.text('View in Leaderboard'), findsNothing);
+      expect(find.byType(Button), findsNothing);
+    });
+
     testWidgets('onCtaTap fires callback', (tester) async {
       var tapped = false;
       await tester.pumpWidget(wrap(

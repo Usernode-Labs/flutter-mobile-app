@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/shimmer_block.dart';
 
 part 'shimmer_block.stories.g.dart';
 
-const meta = Meta<ShimmerBlock>(path: 'widgets/indicators');
+const meta = Meta<ShimmerBlock>(path: 'live app/widgets/indicators');
 
 final $Default = _Story(
   args: _Args(width: DoubleArg(200), height: DoubleArg(20)),

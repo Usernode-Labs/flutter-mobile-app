@@ -56,6 +56,13 @@ colors:
       onColorContainer: "#774500"
       colorSurface: "#ECE8E1"
       onColorSurface: "#875300"
+    premium:
+      color: "#000000"
+      onColor: "#FFC900"
+      colorContainer: "#FFF3D2"
+      onColorContainer: "#000000"
+      colorSurface: "#FFC900"
+      onColorSurface: "#000000"
     community:
       color: "#146D32"
       onColor: "#FFFFFF"

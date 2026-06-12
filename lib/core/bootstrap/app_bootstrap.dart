@@ -128,6 +128,9 @@ class AppBootstrap {
     ObservabilityReportingService.instance.configureMobileContextCollector(
       MetricsCollectorService.instance,
     );
+    ObservabilityReportingService.instance.configureNodeRuntimeActiveGetter(
+      () => RustBackendService.instance.isRuntimeActive,
+    );
 
     if (registerLifecycleObserver) {
       await AppSleepService.instance.initializeForInteractiveApp();

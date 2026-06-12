@@ -195,6 +195,68 @@ void main() {
       expect(powerPayload.containsKey('device'), isFalse);
     });
 
+    test('mobile context snapshots are suppressed while node runtime sleeps',
+        () async {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(
+        records,
+        isNodeRuntimeActive: () => false,
+      );
+
+      await service.reportRuntimeMobileContextSnapshot(
+        reason: 'foreground',
+        eventData: {'lifecycle_state': 'resumed'},
+      );
+      await service.reportPowerNetworkServiceContextSnapshot(
+        reason: 'periodic',
+        force: true,
+      );
+
+      expect(records, isEmpty);
+
+      service.recordEvent(
+        event: 'app_sleep_control',
+        details: {'state': 'sleeping'},
+      );
+
+      expect(records, hasLength(1));
+      expect(records.single.event, 'app_sleep_control');
+      expect(records.single.payload, {'state': 'sleeping'});
+    });
+
+    test('node resume restarts mobile context with immediate fresh snapshots',
+        () async {
+      final records = <_CapturedObservabilityRecord>[];
+      var nodeRuntimeActive = false;
+      final service = _service(
+        records,
+        isNodeRuntimeActive: () => nodeRuntimeActive,
+      );
+
+      await service.startMobileContextSnapshotReporting(
+        initialReason: 'startup',
+      );
+      expect(records, isEmpty);
+
+      nodeRuntimeActive = true;
+      await service.resumeMobileContextSnapshotReportingAfterNodeResume();
+
+      expect(records, hasLength(2));
+      expect(records.map((record) => record.event).toList(), [
+        'app_mobile_context_snapshot',
+        'app_mobile_context_snapshot',
+      ]);
+      expect(records[0].payload['event_data'], {
+        'snapshot_reason': 'node_wake',
+      });
+      expect(records[0].payload.containsKey('runtime'), isTrue);
+      expect(records[1].payload['event_data'], {
+        'snapshot_reason': 'node_wake',
+      });
+      expect(records[1].payload.containsKey('battery'), isTrue);
+      expect(records[1].payload.containsKey('network'), isTrue);
+    });
+
     test('semantic record methods own observability kind selection', () {
       final records = <_CapturedObservabilityRecord>[];
       final service = _service(records);
@@ -470,10 +532,12 @@ ObservabilityReportingService _service(
   List<_CapturedObservabilityRecord> records, {
   bool nodeInitialized = true,
   ObservabilityRecordClient? record,
+  NodeRuntimeActiveGetter? isNodeRuntimeActive,
 }) {
   final service = ObservabilityReportingService.test(
     collector: _FakeMobileContextCollector(),
     canRecord: () => true,
+    isNodeRuntimeActive: isNodeRuntimeActive,
     record: record ??
         ({
           required FlutterObservabilityKind kind,

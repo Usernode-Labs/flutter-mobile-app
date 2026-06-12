@@ -84,6 +84,7 @@ class RustBackendService {
   NodeControl? _control;
   NodeRpcClient? _rpc;
   bool get isRunning => _nodeRunning;
+  bool get isRuntimeActive => _nodeRunning && !_nodePaused;
   String? get instanceId => _instanceId;
   int? get nodeClockDriftMs => _nodeClockDriftMs;
   int? get lastNodeTimeMs => _lastNodeTimeMs;
@@ -485,14 +486,24 @@ class RustBackendService {
 
   Future<void> resumeNode() async {
     _log.info('Resuming node');
+    final wasPaused = _nodePaused;
     _nodePaused = false;
     _control?.resume();
+    if (wasPaused && _nodeRunning) {
+      await ObservabilityReportingService.instance
+          .resumeMobileContextSnapshotReportingAfterNodeResume();
+    }
   }
 
   Future<void> pauseNode() async {
     _log.info('Pausing node');
+    final wasRuntimeActive = isRuntimeActive;
     _nodePaused = true;
     _control?.pause();
+    if (wasRuntimeActive) {
+      await ObservabilityReportingService.instance
+          .pauseMobileContextSnapshotReportingForNodePause();
+    }
   }
 
   Future<void> stopNode() async {

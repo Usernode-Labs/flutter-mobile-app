@@ -124,6 +124,8 @@ const _testChallenges = [
   ),
   ChallengeDto(
     id: 3,
+    eventId: 11,
+    eventName: 'Event 11',
     category: 'flash',
     goal: 'Quick Challenge',
     task: 'A missed flash challenge.',

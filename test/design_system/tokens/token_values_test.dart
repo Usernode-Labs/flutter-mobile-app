@@ -44,7 +44,7 @@ void main() {
     test('medium matches kAlphaMedium', () => expect(opacity.medium, 0.12));
     test('strong matches kAlphaStrong', () => expect(opacity.strong, 0.20));
     test('disabled matches kAlphaDisabled',
-        () => expect(opacity.disabled, 0.30));
+        () => expect(opacity.disabled, 0.38));
     test('secondary matches kAlphaSecondary',
         () => expect(opacity.secondary, 0.40));
   });

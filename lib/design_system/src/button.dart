@@ -90,9 +90,12 @@ class Button extends StatelessWidget {
             dimension: sizing.iconSmall,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: variant == ButtonVariant.primary
-                  ? colors.onPrimary
-                  : colors.onSurface,
+              color: switch (variant) {
+                ButtonVariant.primary => colors.onPrimary,
+                ButtonVariant.tonal => colors.onSecondaryContainer,
+                ButtonVariant.outlined => colors.onSurface,
+                ButtonVariant.surface => colors.onSurface,
+              },
             ),
           )
         : Text(label);
@@ -148,8 +151,16 @@ class Button extends StatelessWidget {
         );
 
       case ButtonVariant.tonal:
-        // FilledButton.tonal defaults match our tonal spec — no overrides.
-        final style = baseStyle;
+        final style = baseStyle.copyWith(
+          backgroundColor: stateColor(
+            enabled: colors.secondaryContainer,
+            disabled: disabledBackground,
+          ),
+          foregroundColor: stateColor(
+            enabled: colors.onSecondaryContainer,
+            disabled: disabledForeground,
+          ),
+        );
         if (!isLoading && leadingIcon != null) {
           return FilledButton.tonalIcon(
             onPressed: effectiveOnTap,

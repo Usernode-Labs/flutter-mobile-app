@@ -232,9 +232,11 @@ class _NetworkSwitcherDialogState extends State<NetworkSwitcherDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.commonCancel),
+        Button(
+          label: l10n.commonCancel,
+          size: ButtonSize.small,
+          variant: ButtonVariant.outlined,
+          onTap: () => Navigator.of(context).pop(),
         ),
         Button(
           label: selectedNetwork == widget.currentNetwork

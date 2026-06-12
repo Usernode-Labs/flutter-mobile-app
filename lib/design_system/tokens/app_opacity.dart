@@ -16,7 +16,7 @@ class AppOpacity extends ThemeExtension<AppOpacity> {
         subtle: 0.08,
         medium: 0.12,
         strong: 0.20,
-        disabled: 0.30,
+        disabled: 0.38,
         secondary: 0.40,
       );
 

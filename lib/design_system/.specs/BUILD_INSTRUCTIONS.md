@@ -1,6 +1,6 @@
 # Widget Build Instructions
 
-These instructions are consumed by Claude Code during the widget-from-figma pipeline.
+These instructions are consumed by `usernode-ds-build-widget` during DS widget build and review work.
 
 Read a `.spec.yaml` file from this directory and produce a complete design system widget. Use Dart MCP tools throughout — see "Dart MCP Tools" section below for prescribed usage.
 

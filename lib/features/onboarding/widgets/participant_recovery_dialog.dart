@@ -176,9 +176,11 @@ class _ParticipantRecoveryDialogState
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-            child: Text(l10n.participantRecoveryLater),
+          Button(
+            label: l10n.participantRecoveryLater,
+            size: ButtonSize.small,
+            variant: ButtonVariant.outlined,
+            onTap: _submitting ? null : () => Navigator.of(context).pop(),
           ),
           Button(
             label: l10n.participantRecoveryRestore,

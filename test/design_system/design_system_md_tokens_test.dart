@@ -73,7 +73,8 @@ String _generatedFrontmatter() {
   final opacity = AppOpacity.standard();
   final borders = AppBorders.standard();
   final animation = AppAnimation.standard();
-  final semantic = AppSemanticColors.light();
+  final semanticLight = AppSemanticColors.light();
+  final semanticDark = AppSemanticColors.dark();
 
   final buffer = StringBuffer()
     ..writeln('---')
@@ -91,11 +92,18 @@ String _generatedFrontmatter() {
     'materialLight': _schemeMap(ColorIsExpensiveTheme.lightScheme()),
     'materialDark': _schemeMap(ColorIsExpensiveTheme.darkScheme()),
     'semanticLight': {
-      'technical': _semanticGroup(semantic.technical),
-      'flash': _semanticGroup(semantic.flash),
-      'community': _semanticGroup(semantic.community),
-      'success': _semanticGroup(semantic.success),
-      'warning': _semanticGroup(semantic.warning),
+      'technical': _semanticGroup(semanticLight.technical),
+      'flash': _semanticGroup(semanticLight.flash),
+      'community': _semanticGroup(semanticLight.community),
+      'success': _semanticGroup(semanticLight.success),
+      'warning': _semanticGroup(semanticLight.warning),
+    },
+    'semanticDark': {
+      'technical': _semanticGroup(semanticDark.technical),
+      'flash': _semanticGroup(semanticDark.flash),
+      'community': _semanticGroup(semanticDark.community),
+      'success': _semanticGroup(semanticDark.success),
+      'warning': _semanticGroup(semanticDark.warning),
     },
   });
 

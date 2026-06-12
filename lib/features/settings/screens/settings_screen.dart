@@ -341,19 +341,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.commonCancel),
+          Button(
+            label: l10n.commonCancel,
+            size: ButtonSize.small,
+            variant: ButtonVariant.outlined,
+            onTap: () => Navigator.of(ctx).pop(false),
           ),
-          TextButton(
-            onPressed: () {
+          Button(
+            label: l10n.commonOk,
+            size: ButtonSize.small,
+            onTap: () {
               if (pinController.text == AppConfig.networkSwitcherCode) {
                 Navigator.of(ctx).pop(true);
               } else {
                 Navigator.of(ctx).pop(false);
               }
             },
-            child: Text(l10n.commonOk),
           ),
         ],
       ),
@@ -415,19 +418,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         actions: [
           if (defaultTargetPlatform == TargetPlatform.iOS)
-            TextButton(
-              onPressed: () {
+            Button(
+              label: l10n.commonOk,
+              size: ButtonSize.small,
+              onTap: () {
                 Navigator.of(ctx).pop();
               },
-              child: Text(l10n.commonOk),
             )
           else
-            TextButton(
-              onPressed: () {
+            Button(
+              label: l10n.networkCloseApp,
+              size: ButtonSize.small,
+              variant: ButtonVariant.primary,
+              onTap: () {
                 Navigator.of(ctx).pop();
                 SystemNavigator.pop();
               },
-              child: Text(l10n.networkCloseApp),
             ),
         ],
       ),

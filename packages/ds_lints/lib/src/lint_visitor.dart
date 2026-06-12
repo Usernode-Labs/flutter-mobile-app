@@ -98,6 +98,8 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     'AppCard',
     'FilledButton',
     'OutlinedButton',
+    'TextButton',
+    'ElevatedButton',
   };
 
   void _dispatch(
@@ -131,6 +133,8 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
         _checkTileCardVerticalInset(node, args);
       case 'FilledButton':
       case 'OutlinedButton':
+      case 'TextButton':
+      case 'ElevatedButton':
         _checkPreferDsButton(node, typeName);
     }
   }

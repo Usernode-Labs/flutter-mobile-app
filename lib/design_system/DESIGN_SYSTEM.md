@@ -77,6 +77,42 @@ colors:
       onColorContainer: "#874900"
       colorSurface: "#EEE8E1"
       onColorSurface: "#9C5700"
+  semanticDark:
+    technical:
+      color: "#AEBCFF"
+      onColor: "#002A8F"
+      colorContainer: "#003EBA"
+      onColorContainer: "#CBD1FF"
+      colorSurface: "#27282D"
+      onColorSurface: "#AEBCFF"
+    flash:
+      color: "#FBBB4B"
+      onColor: "#502700"
+      colorContainer: "#6C3C00"
+      onColorContainer: "#FFCA69"
+      colorSurface: "#2D281F"
+      onColorSurface: "#FBBB4B"
+    community:
+      color: "#92D69C"
+      onColor: "#003B0D"
+      colorContainer: "#00541D"
+      onColorContainer: "#A2E0AB"
+      colorSurface: "#252A25"
+      onColorSurface: "#92D69C"
+    success:
+      color: "#95D690"
+      onColor: "#003B00"
+      colorContainer: "#00540C"
+      onColorContainer: "#A5E0A0"
+      colorSurface: "#252A24"
+      onColorSurface: "#95D690"
+    warning:
+      color: "#FFB95D"
+      onColor: "#5C2E00"
+      colorContainer: "#7A4100"
+      onColorContainer: "#FFD5A0"
+      colorSurface: "#2D2820"
+      onColorSurface: "#FFB95D"
 typography:
   mono:
     fontFamily: IBMPlexMono
@@ -123,7 +159,7 @@ opacity:
   subtle: 0.08
   medium: 0.12
   strong: 0.2
-  disabled: 0.3
+  disabled: 0.38
   secondary: 0.4
 borders:
   width: 1px

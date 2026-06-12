@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../tokens/app_borders.dart';
+import '../tokens/app_opacity.dart';
 import 'nav_indicator_shapes.dart';
 
 /// Data class for a single bottom navigation item.
@@ -237,17 +238,18 @@ class BottomNav extends StatelessWidget {
   }
 
   // Mirrors M3's default NavigationBar label color logic (selected uses
-  // onSurface, unselected uses onSurfaceVariant, disabled fades to 38%),
+  // onSurface, unselected uses onSurfaceVariant, disabled uses AppOpacity),
   // but swaps the base style from labelMedium to labelSmall so the text
   // is one M3 step smaller. Passing widget-level [labelTextStyle] fully
   // bypasses the theme/defaults chain, so we have to provide colors too.
   WidgetStateProperty<TextStyle?> _compactLabelTextStyle(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final opacity = Theme.of(context).extension<AppOpacity>()!;
     final base = Theme.of(context).textTheme.labelSmall;
     return WidgetStateProperty.resolveWith<TextStyle?>((states) {
       final Color color;
       if (states.contains(WidgetState.disabled)) {
-        color = colors.onSurfaceVariant.withValues(alpha: 0.38);
+        color = colors.onSurfaceVariant.withValues(alpha: opacity.disabled);
       } else if (states.contains(WidgetState.selected)) {
         color = colors.onSurface;
       } else {

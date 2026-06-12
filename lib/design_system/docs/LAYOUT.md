@@ -128,6 +128,20 @@ screen margin + card padding + widget padding + leading width + gap = offset
 - Edge fades should be cheap decoration (`Stack` + `Align` + `LinearGradient`) unless interaction requires more.
 - Expose a `ScrollController` when scroll-to-top, keyboard navigation, or programmatic scrolling is expected.
 
+### Open Gaps
+
+| Gap | Status | Decision |
+|-----|--------|----------|
+| Snap-to-position physics | Open | Do not introduce a generic snap system until a real screen proves the need. Prefer native scroll behavior. |
+| Scroll-driven item animations | Open | Keep per-screen and lightweight. New animation patterns need motion/a11y review and `MediaQuery.disableAnimations` handling. |
+
+### Package Decision: `sliver_tools`
+
+Rejected for now. The current scroll stack uses Flutter SDK slivers plus
+`ParallaxSurfaceLayout`, which already covers pinned bars, grouped surfaces,
+fills, and nested bodies. Reconsider `sliver_tools` only when an approved
+pattern needs behavior the SDK cannot express cleanly.
+
 ## SafeArea Rules
 
 | Screen type | SafeArea handling |

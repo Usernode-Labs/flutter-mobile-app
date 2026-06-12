@@ -276,32 +276,14 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
           ),
         ),
       ),
-      trailing: TextButton(
-        onPressed: () => _showComingSoonModal(context),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.symmetric(
-              horizontal: spacing.space8, vertical: spacing.space4),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      trailing: Button(
+        label: 'View',
+        size: ButtonSize.small,
+        leadingIcon: Icon(
+          Symbols.arrow_forward_sharp,
+          size: sizing.iconXSmall,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'View',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(width: spacing.space4),
-            Icon(
-              Symbols.arrow_forward_sharp,
-              size: sizing.iconXSmall,
-              color: colorScheme.primary,
-            ),
-          ],
-        ),
+        onTap: () => _showComingSoonModal(context),
       ),
     );
   }
@@ -334,9 +316,10 @@ class _MempoolDetailsScreenState extends ConsumerState<MempoolDetailsScreen> {
             textAlign: TextAlign.center,
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
+            Button(
+              label: 'OK',
+              size: ButtonSize.small,
+              onTap: () => Navigator.of(context).pop(),
             ),
           ],
         );

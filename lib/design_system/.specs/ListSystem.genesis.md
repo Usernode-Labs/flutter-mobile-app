@@ -1,5 +1,9 @@
 # ListSystem — Genesis Document
 
+> Archived pattern reference only. There is no public `ListSystem` widget,
+> barrel export, or catalog row; screens should use M3 `ListTile` plus the
+> focused DS slot widgets referenced below.
+
 **Figma source**: [Testnet App — List variants](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=3448-15182)
 ---
 

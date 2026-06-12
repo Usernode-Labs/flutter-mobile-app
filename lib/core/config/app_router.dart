@@ -26,6 +26,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_s
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
@@ -372,15 +373,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Text('dApp not found'),
-                            TextButton(
-                              onPressed: () {
+                            Button(
+                              label: 'Back',
+                              size: ButtonSize.small,
+                              onTap: () {
                                 if (context.canPop()) {
                                   context.pop();
                                 } else {
                                   context.go(AppRoutes.home);
                                 }
                               },
-                              child: const Text('Back'),
                             ),
                           ],
                         ),

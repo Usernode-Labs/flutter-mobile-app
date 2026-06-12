@@ -25,8 +25,13 @@ CODEX_GLOBAL=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --agent)
+      if [ "$#" -lt 2 ]; then
+        echo "--agent requires claude, codex, agents, or all" >&2
+        usage >&2
+        exit 2
+      fi
       shift
-      AGENT="${1:-}"
+      AGENT="$1"
       ;;
     --force)
       FORCE=1

@@ -247,6 +247,35 @@ void main() {
       expect(spinner.color, equals(theme.colorScheme.onSurface));
     });
 
+    testWidgets('loading tonal variant keeps enabled fill and spinner color',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        Button(
+          label: 'Loading Tonal',
+          variant: ButtonVariant.tonal,
+          isLoading: true,
+          onTap: () {},
+        ),
+      ));
+
+      final theme = themeWithExtensions();
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(button.onPressed, isNull);
+
+      final material = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(Material),
+        ),
+      );
+      expect(material.color, equals(theme.colorScheme.secondaryContainer));
+
+      final spinner = tester.widget<CircularProgressIndicator>(
+        find.byType(CircularProgressIndicator),
+      );
+      expect(spinner.color, equals(theme.colorScheme.onSecondaryContainer));
+    });
+
     testWidgets('disabled primary variant uses disabled colors',
         (tester) async {
       await tester.pumpWidget(wrap(

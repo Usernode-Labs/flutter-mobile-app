@@ -71,6 +71,7 @@ All new design system work lives in `lib/design_system/`.
 - Prefer lean, surgical approaches. Start with the simplest viable solution and iterate.
 - Before a multi-step implementation, do a quick feasibility check of environment, dependencies, and platform constraints.
 - Before stashing or switching branches with staged changes, commit current work first or confirm with the user.
+- Pre-commit runs format checks, `flutter analyze`, and scoped `ds_lints` on staged DS/feature Dart files.
 - If pre-commit hooks fail on unrelated environmental issues, diagnose once; if bypassing with `--no-verify`, report exactly why.
 - After modifying Dart files, run formatting and analyzer checks before considering the task done.
 

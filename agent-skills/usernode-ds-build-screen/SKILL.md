@@ -21,8 +21,14 @@ Use this for feature screens under `lib/features/` or DS-backed page surfaces.
    - Prefer M3 components directly for containers and controls.
    - Compose existing DS slot widgets.
    - Ask for explicit approval before creating new DS patterns.
-6. Implement the approved screen with localized strings, providers in feature layers, and no business logic in widgets.
-7. Audit:
+6. Responsive and platform fit:
+   - Use `LayoutBuilder` or available constraints for adaptive choices; do not branch on hardware type or top-level orientation.
+   - Constrain full-width content on large screens instead of letting forms, lists, or text stretch indefinitely.
+   - Use lazy builders for long or unknown lists.
+   - Respect Android edge-to-edge, IME, and system-bar behavior through existing SafeArea, scaffold, scroll-padding, and `MediaQuery.viewInsets` patterns.
+   - Keep primary CTAs reachable, keyboard-safe, and clear of the home indicator.
+7. Implement the approved screen with localized strings, providers in feature layers, and no business logic in widgets.
+8. Audit:
 
    ```bash
    bash tool/screen-audit.sh <path/to/screen.dart>

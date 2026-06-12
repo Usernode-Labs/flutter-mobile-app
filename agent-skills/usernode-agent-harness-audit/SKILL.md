@@ -34,8 +34,12 @@ External harnesses are references, not authority.
    - `tool/agent-setup.sh`, `tool/verify-widget.sh`, `tool/screen-audit.sh`;
    - `.githooks/pre-commit` and CI workflows when enforcement is in scope.
 3. Load `references/benchmarks.yaml` and select only the benchmark entries relevant to the scope.
-4. If the user asks for latest/current status, refresh the selected upstreams with web or shallow clones and record the date/commit/tag used.
-5. Score each comparison dimension:
+   - Prefer `active` tier sources for recurring audits.
+   - Use `narrow` tier sources only for the listed specialty.
+   - Treat `private_manual` sources as manually reviewed taste input, never as installable project skills.
+4. For full harness audits, load `references/harness_cujs.md` and use the CUJs as the acceptance frame.
+5. If the user asks for latest/current status, refresh the selected upstreams with web or shallow clones and record the date/commit/tag used in the audit output.
+6. Score each comparison dimension:
    - `progressive_disclosure`: metadata is small; details load just in time;
    - `trigger_hygiene`: descriptions are specific and do not steal unrelated work;
    - `identity_preservation`: external ideas cannot override Usernode constraints;
@@ -85,10 +89,11 @@ Each benchmark entry should include:
 - `name`
 - `source`
 - `kind`
+- `tier`
 - `track`
 - `use_for`
 - `do_not_use_for`
 - `identity_filter`
 - `adoption_tests`
 
-Keep the registry curated. Adding a source requires a clear job it performs better than the current Usernode harness.
+Keep the registry curated. Adding a source requires a clear job it performs better than the current Usernode harness. When refreshing an upstream, record the checked commit, tag, or docs date in `latest_snapshots` or the entry `track`.

@@ -42,4 +42,5 @@ Build presentation-only design-system widgets in `lib/design_system/`.
 - Use `Theme.of(context).extension<T>()!` for DS tokens and `Theme.of(context).textTheme` for typography.
 - Use M3 components directly at screen level. DS widgets should be slot widgets or genuine custom gaps, not wrappers around M3 containers.
 - Use `widgetbook/lib/stories/`, not stale `lib/design_system/widgetbook/` or `widgetbook/lib/use_cases/`.
+- Keep Widgetbook as the canonical preview/catalog surface. Do not add Flutter Widget Previewer `@Preview` annotations or `package:flutter/widget_previews.dart` for DS widgets unless the project explicitly adopts that system later.
 - For text-only inputs, proceed only after explicit user override and preserve uncertainty in `pattern_decision`.

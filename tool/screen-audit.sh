@@ -58,6 +58,7 @@ HAS_MODAL=$(grep -c 'showModalBottomSheet\|BottomSheet\|SheetLayout' "$FILE" 2>/
 HAS_NESTED_SCROLL=$(grep -c 'NestedScrollView\|nestedBody' "$FILE" 2>/dev/null || true)
 HAS_CUSTOM_SCROLL=$(grep -c 'CustomScrollView' "$FILE" 2>/dev/null || true)
 HAS_LISTVIEW=$(grep -c 'ListView' "$FILE" 2>/dev/null || true)
+HAS_GRIDVIEW=$(grep -c 'GridView' "$FILE" 2>/dev/null || true)
 HAS_SINGLE_SCROLL=$(grep -c 'SingleChildScrollView' "$FILE" 2>/dev/null || true)
 
 SCREEN_TYPE="tab"
@@ -172,7 +173,7 @@ else
   check "State handling" 0 ""
 fi
 
-small_targets=$(grep -nE 'height:.*(space24|space32|iconSmall|iconRegular|[0-3][0-9]\.0)|width:.*(space24|space32|iconSmall|iconRegular|[0-3][0-9]\.0)' "$FILE" 2>/dev/null | head -5)
+small_targets=$(grep -nE 'height:.*(space24|space32|iconSmall|iconRegular|[0-3][0-9]\.0)|width:.*(space24|space32|iconSmall|iconRegular|[0-3][0-9]\.0)' "$FILE" 2>/dev/null | grep -vE 'SizedBox\(height:|SizedBox\(width:|SliverToBoxAdapter\(child: SizedBox' | head -5)
 if [ -n "$small_targets" ]; then
   warn "Taste: 48dp tap targets" "Review interactive targets near: $(echo "$small_targets" | head -3)"
 else
@@ -217,6 +218,78 @@ if grep -qE 'GestureDetector|InkWell|InkResponse' "$FILE"; then
   fi
 else
   check "Taste: no gesture-only affordances" 0 ""
+fi
+
+orientation_layout=$(grep -nE 'OrientationBuilder|MediaQuery\.orientationOf|MediaQuery\.of\(context\)\.orientation' "$FILE" 2>/dev/null | head -5)
+if [ -n "$orientation_layout" ]; then
+  warn "Layout: available-width decisions" "Orientation-based layout found; prefer LayoutBuilder/constraints: $(echo "$orientation_layout" | head -3)"
+else
+  check "Layout: available-width decisions" 0 ""
+fi
+
+eager_lists=$(grep -nE '\b(ListView|GridView)[[:space:]]*\(' "$FILE" 2>/dev/null | grep -vE '\.(builder|separated|custom)[[:space:]]*\(' | head -5)
+if [ -n "$eager_lists" ]; then
+  warn "Layout: lazy list builders" "Eager ListView/GridView found; verify item count is small and bounded: $(echo "$eager_lists" | head -3)"
+else
+  check "Layout: lazy list builders" 0 ""
+fi
+
+if [ "$HAS_LISTVIEW" -gt 0 ] || [ "$HAS_GRIDVIEW" -gt 0 ]; then
+  if grep -qE 'Expanded|Flexible|Sliver|SizedBox|ConstrainedBox' "$FILE"; then
+    check "Layout: scroll constraints" 0 ""
+  else
+    warn "Layout: scroll constraints" "Scrollable found without obvious bounding widget; review for unbounded viewport errors"
+  fi
+else
+  check "Layout: scroll constraints (N/A)" 0 ""
+fi
+
+if grep -q 'IconButton' "$FILE"; then
+  if grep -qE 'tooltip:|Semantics|semanticLabel' "$FILE"; then
+    check "A11y: icon labels" 0 ""
+  else
+    warn "A11y: icon labels" "IconButton found without obvious tooltip or Semantics label"
+  fi
+else
+  check "A11y: icon labels (N/A)" 0 ""
+fi
+
+if grep -qE '\bImage\.(asset|network|file|memory)[[:space:]]*\(' "$FILE"; then
+  if grep -qE 'semanticLabel:|excludeFromSemantics: true|Semantics' "$FILE"; then
+    check "A11y: image semantics" 0 ""
+  else
+    warn "A11y: image semantics" "Image widget found without obvious semanticLabel or decorative exclusion"
+  fi
+else
+  check "A11y: image semantics (N/A)" 0 ""
+fi
+
+if grep -qE 'Dismissible|ReorderableListView|Draggable|LongPressDraggable' "$FILE"; then
+  if grep -qE 'delete|Delete|remove|Remove|move|Move|IconButton|TextButton|FilledButton|OutlinedButton' "$FILE"; then
+    check "A11y: drag alternatives" 0 ""
+  else
+    warn "A11y: drag alternatives" "Drag/swipe pattern found; verify same-screen non-drag alternative"
+  fi
+else
+  check "A11y: drag alternatives (N/A)" 0 ""
+fi
+
+fixed_text=$(grep -nE 'height:[[:space:]]*([0-9]|[a-zA-Z_][a-zA-Z0-9_]*\.)|SizedBox[[:space:]]*\([^)]*height:' "$FILE" 2>/dev/null | grep -vE 'SizedBox\(height:[^,)]*\)[,;]?$|SliverToBoxAdapter\(child: SizedBox' | head -5)
+if [ -n "$fixed_text" ] && grep -q '\bText[[:space:]]*(' "$FILE"; then
+  warn "A11y: text scaling" "Fixed-height containers found near text-heavy screen; verify large text does not clip: $(echo "$fixed_text" | head -3)"
+else
+  check "A11y: text scaling" 0 ""
+fi
+
+motion_widgets=$(grep -nE 'AnimationController|AnimatedContainer|Hero[[:space:]]*\(|PageRouteBuilder|AnimatedSwitcher|AnimatedOpacity' "$FILE" 2>/dev/null | head -5)
+if [ -n "$motion_widgets" ]; then
+  if grep -q 'disableAnimations' "$FILE"; then
+    check "A11y: reduced motion" 0 ""
+  else
+    warn "A11y: reduced motion" "Animation widgets found; verify MediaQuery.disableAnimations is respected: $(echo "$motion_widgets" | head -3)"
+  fi
+else
+  check "A11y: reduced motion (N/A)" 0 ""
 fi
 
 ensure_ds_lints_deps

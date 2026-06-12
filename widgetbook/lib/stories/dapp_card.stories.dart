@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/dapp_card.dart';
 
 part 'dapp_card.stories.g.dart';
 
-const meta = Meta<DappCard>(path: 'widgets/dapps');
+const meta = Meta<DappCard>(path: 'live app/widgets/dapps');
 
 final $Default = _Story(
   args: _Args(

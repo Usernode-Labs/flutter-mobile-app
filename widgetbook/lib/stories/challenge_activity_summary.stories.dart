@@ -5,7 +5,9 @@ import 'package:crypto_mobile_app/design_system/src/challenge_activity_summary.d
 
 part 'challenge_activity_summary.stories.g.dart';
 
-const meta = Meta<ChallengeActivitySummary>(path: 'widgets/challenges');
+const meta = Meta<ChallengeActivitySummary>(
+  path: 'live app/widgets/challenges',
+);
 
 final $Default = _Story(
   name: 'Default',

@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/dropdown_chip.dart';
 
 part 'dropdown_chain.stories.g.dart';
 
-const meta = Meta<DropdownChain>(path: 'widgets/chips');
+const meta = Meta<DropdownChain>(path: 'live app/widgets/chips');
 
 final $Default = _Story(
   args: _Args(

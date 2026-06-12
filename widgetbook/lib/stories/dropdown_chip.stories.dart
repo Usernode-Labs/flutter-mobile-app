@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/dropdown_chip.dart';
 part 'dropdown_chip.stories.g.dart';
 
 const meta = MetaWithArgs<DropdownChip, DropdownChipStoryModel>(
-  path: 'widgets/chips',
+  path: 'live app/widgets/chips',
 );
 
 final defaults = _Defaults(builder: _buildDropdownChip);

@@ -10,7 +10,7 @@ import 'package:crypto_mobile_app/design_system/src/status_badge.dart';
 
 part 'challenge_detail_page.stories.g.dart';
 
-const meta = Meta<ChallengeDetailPage>(path: 'pages/challenges');
+const meta = Meta<ChallengeDetailPage>(path: 'live app/pages/challenges');
 
 const _technicalRewardCard = ChallengeRewardCard(
   category: ChallengeCategory.technical,

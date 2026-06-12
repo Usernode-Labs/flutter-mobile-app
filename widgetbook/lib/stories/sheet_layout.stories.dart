@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/sheet_layout.dart';
 
 part 'sheet_layout.stories.g.dart';
 
-const meta = Meta<SheetLayout>(path: 'widgets/data-display');
+const meta = Meta<SheetLayout>(path: 'live app/widgets/data-display');
 
 Widget _reviewSurface(Widget child) {
   return Align(

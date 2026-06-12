@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/design_system/src/challenge_category_tile.dart
 
 part 'challenge_category_tile.stories.g.dart';
 
-const meta = Meta<ChallengeCategoryTile>(path: 'widgets/challenges');
+const meta = Meta<ChallengeCategoryTile>(path: 'live app/widgets/challenges');
 
 final $Default = _Story(
   name: 'Default',

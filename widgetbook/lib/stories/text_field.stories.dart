@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/design_system/src/text_field.dart';
 
 part 'text_field.stories.g.dart';
 
-const meta = Meta<DSTextField>(path: 'widgets/inputs');
+const meta = Meta<DSTextField>(path: 'live app/widgets/inputs');
 
 Widget _reviewSurface(Widget child) {
   return Align(

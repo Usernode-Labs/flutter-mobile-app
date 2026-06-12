@@ -58,6 +58,7 @@ class TopAppBarStory extends Story<TopAppBar, TopAppBarArgs> {
                actions: args.actions,
                image: args.image,
                subtitle: args.subtitle,
+               backgroundColor: args.backgroundColor,
              ),
        );
 }
@@ -72,6 +73,7 @@ class TopAppBarArgs extends StoryArgs<TopAppBar> {
     Arg<List<Widget>?>? actions,
     Arg<Widget?>? image,
     Arg<String?>? subtitle,
+    Arg<Color?>? backgroundColor,
   }) : this.keyArg = $initArg('key', key, null),
        this.titleArg = $initArg('title', title, StringArg(''))!,
        this.sizeArg = $initArg(
@@ -90,6 +92,11 @@ class TopAppBarArgs extends StoryArgs<TopAppBar> {
          'subtitle',
          subtitle,
          NullableStringArg(null),
+       )!,
+       this.backgroundColorArg = $initArg(
+         'backgroundColor',
+         backgroundColor,
+         NullableColorArg(null),
        )!;
 
   TopAppBarArgs.fixed({
@@ -101,6 +108,7 @@ class TopAppBarArgs extends StoryArgs<TopAppBar> {
     List<Widget>? actions,
     Widget? image,
     String? subtitle = null,
+    Color? backgroundColor = null,
   }) : this.keyArg = key == null ? null : Arg.fixed(key),
        this.titleArg = Arg.fixed(title),
        this.sizeArg = Arg.fixed(size),
@@ -110,7 +118,10 @@ class TopAppBarArgs extends StoryArgs<TopAppBar> {
            : Arg.fixed(onLeadingTap),
        this.actionsArg = actions == null ? null : Arg.fixed(actions),
        this.imageArg = image == null ? null : Arg.fixed(image),
-       this.subtitleArg = subtitle == null ? null : Arg.fixed(subtitle);
+       this.subtitleArg = subtitle == null ? null : Arg.fixed(subtitle),
+       this.backgroundColorArg = backgroundColor == null
+           ? null
+           : Arg.fixed(backgroundColor);
 
   final Arg<Key?>? keyArg;
 
@@ -128,6 +139,8 @@ class TopAppBarArgs extends StoryArgs<TopAppBar> {
 
   final Arg<String?>? subtitleArg;
 
+  final Arg<Color?>? backgroundColorArg;
+
   Key? get key => keyArg?.value;
 
   String get title => titleArg.value;
@@ -144,6 +157,8 @@ class TopAppBarArgs extends StoryArgs<TopAppBar> {
 
   String? get subtitle => subtitleArg?.value;
 
+  Color? get backgroundColor => backgroundColorArg?.value;
+
   @override
   List<Arg?> get list => [
     keyArg,
@@ -154,5 +169,6 @@ class TopAppBarArgs extends StoryArgs<TopAppBar> {
     actionsArg,
     imageArg,
     subtitleArg,
+    backgroundColorArg,
   ];
 }

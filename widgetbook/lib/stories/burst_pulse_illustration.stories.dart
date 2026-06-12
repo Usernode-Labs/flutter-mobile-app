@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/burst_pulse_illustration.dar
 
 part 'burst_pulse_illustration.stories.g.dart';
 
-const meta = Meta<BurstPulseIllustration>(path: 'widgets/wallet');
+const meta = Meta<BurstPulseIllustration>(path: 'live app/widgets/wallet');
 
 final $Default = _Story(
   args: _Args(

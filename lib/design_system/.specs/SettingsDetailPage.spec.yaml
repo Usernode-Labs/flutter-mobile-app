@@ -1,0 +1,40 @@
+meta:
+  name: SettingsDetailPage
+  input_type: figma
+  reference: https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=3964-6052
+  text_only_override: false
+intent:
+  summary: >
+    Explore the future Settings experience as a pushed detail page, not a
+    bottom-navigation root. Keep the shell white and reduce nested card
+    surfaces, preserving only the top status container for the all-good or
+    action-needed state.
+  scope: screen
+  target: new
+pattern_decision:
+  operating_mode: exploration
+  session_shape: glance
+  trust_level: normal
+  device_context: one-handed mobile first, small-screen safe
+  screen_type: detail
+  navigation_model: pushed page with back affordance
+  sheet_vs_dialog_vs_page: >
+    Use a pushed detail page because settings contains multiple rows, toggles,
+    diagnostics, and future drill-down paths. Sheets remain for bounded choices
+    such as theme selection.
+  chosen_pattern: >
+    White detail-page shell with a pinned top app bar, a single semantic status
+    surface at the top, and uncarded ListTile sections below.
+  cta_placement: >
+    No primary CTA. Row-level actions stay inline; destructive or advanced
+    actions remain explicit rows with visible affordances.
+  escape_route: Back arrow in the top app bar.
+  rejected_alternatives:
+    - pattern: root tab
+      reason: Settings is being migrated away from top-level app navigation.
+    - pattern: nested card sections
+      reason: The Figma shell uses a white top surface and the target direction is to reduce redundant containers.
+    - pattern: modal or bottom sheet
+      reason: The content is too broad and navigational for a bounded reversible choice.
+  uncertainty:
+    - The Figma node is a shell only; row content is derived from the current SettingsScreen and Widgetbook mock data.

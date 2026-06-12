@@ -66,6 +66,9 @@ class ScoreHeaderStory extends Story<ScoreHeader, ScoreHeaderArgs> {
                communityGlowIntensity: args.communityGlowIntensity,
                countdownOpacity: args.countdownOpacity,
                countdownTextMode: args.countdownTextMode,
+               showCountdown: args.showCountdown,
+               density: args.density,
+               footer: args.footer,
              ),
        );
 }
@@ -89,6 +92,9 @@ class ScoreHeaderArgs extends StoryArgs<ScoreHeader> {
     Arg<double?>? communityGlowIntensity,
     Arg<double>? countdownOpacity,
     Arg<CountdownTextMode>? countdownTextMode,
+    Arg<bool>? showCountdown,
+    Arg<ScoreHeaderDensity>? density,
+    Arg<Widget?>? footer,
   }) : this.keyArg = $initArg('key', key, null),
        this.scoreArg = $initArg('score', score, StringArg(''))!,
        this.scoreLabelArg = $initArg('scoreLabel', scoreLabel, StringArg(''))!,
@@ -159,7 +165,21 @@ class ScoreHeaderArgs extends StoryArgs<ScoreHeader> {
            CountdownTextMode.normal,
            values: CountdownTextMode.values,
          ),
-       )!;
+       )!,
+       this.showCountdownArg = $initArg(
+         'showCountdown',
+         showCountdown,
+         BoolArg(true),
+       )!,
+       this.densityArg = $initArg(
+         'density',
+         density,
+         EnumArg<ScoreHeaderDensity>(
+           ScoreHeaderDensity.standard,
+           values: ScoreHeaderDensity.values,
+         ),
+       )!,
+       this.footerArg = $initArg('footer', footer, null);
 
   ScoreHeaderArgs.fixed({
     Key? key,
@@ -179,6 +199,9 @@ class ScoreHeaderArgs extends StoryArgs<ScoreHeader> {
     double? communityGlowIntensity = null,
     double countdownOpacity = 1.0,
     CountdownTextMode countdownTextMode = CountdownTextMode.normal,
+    bool showCountdown = true,
+    ScoreHeaderDensity density = ScoreHeaderDensity.standard,
+    Widget? footer,
   }) : this.keyArg = key == null ? null : Arg.fixed(key),
        this.scoreArg = Arg.fixed(score),
        this.scoreLabelArg = Arg.fixed(scoreLabel),
@@ -207,7 +230,10 @@ class ScoreHeaderArgs extends StoryArgs<ScoreHeader> {
            ? null
            : Arg.fixed(communityGlowIntensity),
        this.countdownOpacityArg = Arg.fixed(countdownOpacity),
-       this.countdownTextModeArg = Arg.fixed(countdownTextMode);
+       this.countdownTextModeArg = Arg.fixed(countdownTextMode),
+       this.showCountdownArg = Arg.fixed(showCountdown),
+       this.densityArg = Arg.fixed(density),
+       this.footerArg = footer == null ? null : Arg.fixed(footer);
 
   final Arg<Key?>? keyArg;
 
@@ -243,6 +269,12 @@ class ScoreHeaderArgs extends StoryArgs<ScoreHeader> {
 
   final Arg<CountdownTextMode> countdownTextModeArg;
 
+  final Arg<bool> showCountdownArg;
+
+  final Arg<ScoreHeaderDensity> densityArg;
+
+  final Arg<Widget?>? footerArg;
+
   Key? get key => keyArg?.value;
 
   String get score => scoreArg.value;
@@ -277,6 +309,12 @@ class ScoreHeaderArgs extends StoryArgs<ScoreHeader> {
 
   CountdownTextMode get countdownTextMode => countdownTextModeArg.value;
 
+  bool get showCountdown => showCountdownArg.value;
+
+  ScoreHeaderDensity get density => densityArg.value;
+
+  Widget? get footer => footerArg?.value;
+
   @override
   List<Arg?> get list => [
     keyArg,
@@ -296,5 +334,8 @@ class ScoreHeaderArgs extends StoryArgs<ScoreHeader> {
     communityGlowIntensityArg,
     countdownOpacityArg,
     countdownTextModeArg,
+    showCountdownArg,
+    densityArg,
+    footerArg,
   ];
 }

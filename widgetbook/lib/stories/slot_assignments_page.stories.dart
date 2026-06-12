@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/slot_assignments_page.dart';
 
 part 'slot_assignments_page.stories.g.dart';
 
-const meta = Meta<SlotAssignmentsPage>(path: 'pages/performance');
+const meta = Meta<SlotAssignmentsPage>(path: 'live app/pages/performance');
 
 final $Default = _Story(
   args: _Args(

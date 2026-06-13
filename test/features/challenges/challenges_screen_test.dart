@@ -100,6 +100,8 @@ class _MockSeasonsController extends SeasonsController {
 const _testChallenges = [
   ChallengeDto(
     id: 1,
+    eventId: 10,
+    eventName: 'Event 10',
     category: 'technical',
     goal: 'Produce Every Block',
     task: 'Successfully produce every block assigned.',
@@ -111,6 +113,8 @@ const _testChallenges = [
   ),
   ChallengeDto(
     id: 2,
+    eventId: 10,
+    eventName: 'Event 10',
     category: 'community',
     goal: 'Prove Humanity',
     task: 'Complete the humanity verification.',
@@ -124,6 +128,8 @@ const _testChallenges = [
   ),
   ChallengeDto(
     id: 3,
+    eventId: 11,
+    eventName: 'Event 11',
     category: 'flash',
     goal: 'Quick Challenge',
     task: 'A missed flash challenge.',

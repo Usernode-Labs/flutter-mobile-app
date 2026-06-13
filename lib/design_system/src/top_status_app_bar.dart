@@ -391,12 +391,18 @@ class _TopStatusAction extends StatelessWidget {
     final iconSize = lerpDouble(sizing.iconSmall, sizing.iconRegular, t)!;
     final horizontalPadding = lerpDouble(spacing.space16, spacing.space8, t)!;
     final gap = spacing.space8 * labelProgress;
+    final enabled = onPressed != null;
     final minVisualWidth = lerpDouble(
       sizing.iconContainerXLarge,
       sizing.iconContainerSmall,
       t,
     )!;
-    final effectiveForeground = foregroundColor ?? colors.onSecondaryContainer;
+    final effectiveForeground = enabled
+        ? foregroundColor ?? colors.onSecondaryContainer
+        : colors.onSurface.withValues(alpha: 0.38);
+    final effectiveBackground = enabled
+        ? colors.secondaryContainer
+        : colors.onSurface.withValues(alpha: 0.12);
     final labelWidget = showLabel
         ? _MorphingStatusActionLabel(
             label: label,
@@ -425,38 +431,34 @@ class _TopStatusAction extends StatelessWidget {
 
     return Tooltip(
       message: tooltip,
-      child: Semantics(
-        button: true,
-        label: tooltip,
-        child: ConstrainedBox(
-          key: hitKey,
-          constraints: BoxConstraints(
-            minWidth: sizing.iconContainerRegular,
-            minHeight: sizing.iconContainerRegular,
-          ),
-          child: Align(
-            alignment: alignment,
-            child: Material(
-              key: visualKey,
-              color: colors.secondaryContainer,
-              shape: const StadiumBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: onPressed,
-                customBorder: const StadiumBorder(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: minVisualWidth),
-                  child: SizedBox(
-                    height: sizing.buttonHeightSmall,
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: horizontalPadding,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: children,
-                      ),
+      child: ConstrainedBox(
+        key: hitKey,
+        constraints: BoxConstraints(
+          minWidth: sizing.iconContainerRegular,
+          minHeight: sizing.iconContainerRegular,
+        ),
+        child: Align(
+          alignment: alignment,
+          child: Material(
+            key: visualKey,
+            color: effectiveBackground,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minVisualWidth),
+                child: SizedBox(
+                  height: sizing.buttonHeightSmall,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: children,
                     ),
                   ),
                 ),

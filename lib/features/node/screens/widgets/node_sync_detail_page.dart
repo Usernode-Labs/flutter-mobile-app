@@ -278,7 +278,7 @@ class _NodeSyncProgress extends StatelessWidget {
           ),
         ),
         AppProgressBar(
-          value: data.progress.clamp(0.0, 1.0).toDouble(),
+          value: data.progress.clamp(0.0, 1.0),
           backgroundColor: colors.surfaceContainerHighest,
           valueColor: colors.primary,
           height: spacing.space8,
@@ -405,8 +405,8 @@ class _NodeSyncTrailing extends StatelessWidget {
   return switch (tone) {
     NodeSyncTone.connecting => (
         icon: Symbols.hourglass_empty_sharp,
-        background: semantic.warning.colorContainer,
-        foreground: semantic.warning.onColorContainer,
+        background: semantic.technical.colorContainer,
+        foreground: semantic.technical.onColorContainer,
       ),
     NodeSyncTone.syncing => (
         icon: Symbols.sync_sharp,

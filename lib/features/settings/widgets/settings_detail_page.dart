@@ -142,7 +142,7 @@ class SettingsDetailPage extends StatelessWidget {
             title: Text(title, overflow: TextOverflow.ellipsis),
             actions: [
               IconButton(
-                tooltip: title,
+                tooltip: 'Settings',
                 onPressed: onSettingsTap,
                 icon: Icon(
                   Symbols.settings_sharp,
@@ -211,6 +211,8 @@ class _SettingsStatusSurface extends StatelessWidget {
                 ),
                 Text(
                   data.headline,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.displaySmall?.copyWith(
                     color: group.onColorSurface,
                     fontFamily: kMonoFontFamily,

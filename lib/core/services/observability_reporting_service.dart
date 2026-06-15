@@ -235,12 +235,17 @@ class ObservabilityReportingService {
     int? globalSlot,
     int? epoch,
     int? slotTimeMs,
+    int? rustSlotTimeMs,
+    int? localSlotTimeMs,
     int? leadMs,
     String? schedulerReason,
     bool? nodeRunning,
     int? rustWakeTimeMs,
     int? localWakeTimeMs,
     int? clockDriftMs,
+    int? nodeTimeMsAtSchedule,
+    int? systemTimeMsAtSchedule,
+    int? clockDriftSampleAgeMs,
     String? failureReason,
   }) {
     return recordEvent(
@@ -251,6 +256,8 @@ class ObservabilityReportingService {
         if (globalSlot != null) 'global_slot': globalSlot,
         if (epoch != null) 'epoch': epoch,
         if (slotTimeMs != null) 'slot_time_ms': slotTimeMs,
+        if (rustSlotTimeMs != null) 'rust_slot_time_ms': rustSlotTimeMs,
+        if (localSlotTimeMs != null) 'local_slot_time_ms': localSlotTimeMs,
         'scheduled_at_ms': scheduledAtMs,
         'alarm_time_ms': alarmTimeMs,
         'requested_delay_ms': requestedDelayMs,
@@ -263,6 +270,12 @@ class ObservabilityReportingService {
         if (rustWakeTimeMs != null) 'rust_wake_time_ms': rustWakeTimeMs,
         if (localWakeTimeMs != null) 'local_wake_time_ms': localWakeTimeMs,
         if (clockDriftMs != null) 'clock_drift_ms': clockDriftMs,
+        if (nodeTimeMsAtSchedule != null)
+          'node_time_ms_at_schedule': nodeTimeMsAtSchedule,
+        if (systemTimeMsAtSchedule != null)
+          'system_time_ms_at_schedule': systemTimeMsAtSchedule,
+        if (clockDriftSampleAgeMs != null)
+          'clock_drift_sample_age_ms': clockDriftSampleAgeMs,
         if (failureReason != null) 'failure_reason': failureReason,
       },
     );
@@ -277,6 +290,11 @@ class ObservabilityReportingService {
     int? globalSlot,
     int? alarmTimeMs,
     int? latencyMs,
+    int? nativeTriggerAtMs,
+    int? triggerElapsedRealtimeMs,
+    int? receiverElapsedRealtimeMs,
+    int? nativeDeliveryLatencyMs,
+    int? elapsedDeliveryLatencyMs,
     bool? nodeRunning,
     int? batteryLevel,
     String? networkState,
@@ -292,6 +310,16 @@ class ObservabilityReportingService {
         if (alarmTimeMs != null) 'alarm_time_ms': alarmTimeMs,
         'fired_at_ms': firedAtMs,
         if (latencyMs != null) 'latency_ms': latencyMs,
+        if (nativeTriggerAtMs != null)
+          'native_trigger_at_ms': nativeTriggerAtMs,
+        if (triggerElapsedRealtimeMs != null)
+          'trigger_elapsed_realtime_ms': triggerElapsedRealtimeMs,
+        if (receiverElapsedRealtimeMs != null)
+          'receiver_elapsed_realtime_ms': receiverElapsedRealtimeMs,
+        if (nativeDeliveryLatencyMs != null)
+          'native_delivery_latency_ms': nativeDeliveryLatencyMs,
+        if (elapsedDeliveryLatencyMs != null)
+          'elapsed_delivery_latency_ms': elapsedDeliveryLatencyMs,
         'platform': platform,
         if (nodeRunning != null) 'node_running': nodeRunning,
         if (batteryLevel != null) 'battery_level': batteryLevel,

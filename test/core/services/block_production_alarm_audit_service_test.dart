@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/src/rust/observability.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,7 +51,8 @@ void main() {
       );
     });
 
-    test('does not reschedule past slot_wake alarms and emits too_late',
+    test(
+        'classifies past slot_wake alarm with no receiver and no pending intent',
         () async {
       final harness = _AuditHarness(
         epoch: const AlarmAuditEpochSnapshot(
@@ -64,11 +66,47 @@ void main() {
       final result = await harness.service.audit(reason: 'foreground_resume');
 
       expect(result.expectedSlotWakeCount, 0);
-      expect(result.tooLateCount, 1);
+      expect(result.missingCount, 0);
       expect(harness.scheduledAlarms, isEmpty);
-      final tooLate = harness.events('alarm_audit_missing_too_late').single;
-      expect(tooLate['alarm_id'], 'slot_42');
-      expect(tooLate['lateness_ms'], 500);
+      final missing =
+          harness.events('alarm_audit_past_missing_no_receiver').single;
+      expect(missing['alarm_id'], 'slot_42');
+      expect(missing['past_alarm_age_ms'], 500);
+      expect(missing['native_pending_intent_exists'], isFalse);
+      final completed = harness.events('alarm_audit_completed').single;
+      expect(completed['past_slot_wake_count'], 1);
+      expect(completed['past_missing_no_receiver_count'], 1);
+    });
+
+    test(
+        'classifies past slot_wake alarm delivered after slot as receiver late',
+        () async {
+      final harness = _AuditHarness(
+        debugStates: const {
+          'slot_42': AlarmDebugState(
+            alarmId: 'slot_42',
+            pendingIntentExists: false,
+            receiverEnteredAtMs: 9600,
+            receiverLatencyMs: 1100,
+          ),
+        },
+        epoch: const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          wonSlots: [
+            AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 9500),
+          ],
+        ),
+      );
+
+      final result = await harness.service.audit(reason: 'foreground_resume');
+
+      expect(result.expectedSlotWakeCount, 0);
+      expect(harness.scheduledAlarms, isEmpty);
+      final late = harness.events('alarm_audit_past_receiver_late').single;
+      expect(late['alarm_id'], 'slot_42');
+      expect(late['delivery_latency_ms'], 1100);
+      expect(late['slot_delta_ms'], 100);
+      expect(late['ledger_receiver_entered_at_ms'], 9600);
     });
 
     test('handles no won slots', () async {
@@ -235,16 +273,22 @@ class _AuditHarness {
     ),
     this.epochCompleter,
     Set<String>? presentAlarms,
+    Map<String, AlarmDebugState>? debugStates,
     this.nodeRunning = true,
     this.recoveryRetryDelays,
     this.scheduleRecoveryRetry,
-  }) : presentAlarms = presentAlarms ?? <String>{} {
+  })  : presentAlarms = presentAlarms ?? <String>{},
+        debugStates = debugStates ?? const <String, AlarmDebugState>{} {
     service = BlockProductionAlarmAuditService.test(
       initializeAlarmService: () async => true,
       refreshPermissions: () async => exactAlarmPermission,
       hasExactAlarmPermission: () async => exactAlarmPermission,
-      hasScheduledAlarm: (alarmId) async =>
-          this.presentAlarms.contains(alarmId),
+      getAlarmDebugState: (alarmId) async =>
+          this.debugStates[alarmId] ??
+          AlarmDebugState(
+            alarmId: alarmId,
+            pendingIntentExists: this.presentAlarms.contains(alarmId),
+          ),
       scheduleAlarm: ({
         required alarmId,
         required slotNumber,
@@ -299,6 +343,8 @@ class _AuditHarness {
       nowMs: () => nowMs,
       rustToLocalTimeMs: (rustTimeMs, clockDriftMs) =>
           rustTimeMs + clockDriftMs,
+      lastNodeTimeMs: () => nodeTimeMs,
+      lastNodeClockSampleSystemTimeMs: () => nodeClockSampleSystemTimeMs,
       isAndroid: () => true,
       appState: () => 'foreground',
       platformVersion: () => 'android-test',
@@ -317,11 +363,14 @@ class _AuditHarness {
   bool nodeRunning;
   final int clockDriftMs = 0;
   final int nowMs = 10000;
+  final int nodeTimeMs = 9950;
+  final int nodeClockSampleSystemTimeMs = 9950;
   final AlarmAuditEpochSnapshot? epoch;
   final Completer<AlarmAuditEpochSnapshot?>? epochCompleter;
   final List<Duration>? recoveryRetryDelays;
   final AlarmAuditRecoveryRetryScheduler? scheduleRecoveryRetry;
   final Set<String> presentAlarms;
+  final Map<String, AlarmDebugState> debugStates;
   final records = <_CapturedObservabilityRecord>[];
   final scheduledAlarms = <_ScheduledAlarm>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];

@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import android.app.NotificationManager
@@ -46,6 +47,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val alarmId = intent.getStringExtra("alarmId")
         val slotNumber = intent.getIntExtra("slotNumber", -1)
         val scheduledTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
+        val nativeScheduledAtMs = optionalLongExtra(intent, "nativeScheduledAtMs")
+        val scheduledElapsedRealtimeMs = optionalLongExtra(intent, "scheduledElapsedRealtimeMs")
+        val nativeTriggerAtMs = optionalLongExtra(intent, "nativeTriggerAtMs")
+        val triggerElapsedRealtimeMs = optionalLongExtra(intent, "triggerElapsedRealtimeMs")
         val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
         val globalSlot = optionalLongExtra(intent, "globalSlot")
             ?: optionalLongExtra(intent, "global_slot")
@@ -65,7 +70,27 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         val currentTime = System.currentTimeMillis()
+        val receiverElapsedRealtimeMs = SystemClock.elapsedRealtime()
         val latencyMs = if (scheduledTimeMs > 0) currentTime - scheduledTimeMs else 0L
+        val nativeDeliveryLatencyMs = nativeTriggerAtMs?.let { currentTime - it }
+        val elapsedDeliveryLatencyMs =
+            triggerElapsedRealtimeMs?.let { receiverElapsedRealtimeMs - it }
+        AlarmLedger(context).recordReceiverEntered(
+            alarmId = alarmId,
+            slotNumber = slotNumber,
+            alarmTimeMs = scheduledTimeMs,
+            nativeTriggerAtMs = nativeTriggerAtMs,
+            receiverEnteredAtMs = currentTime,
+            receiverElapsedRealtimeMs = receiverElapsedRealtimeMs,
+            receiverLatencyMs = latencyMs,
+            nativeDeliveryLatencyMs = nativeDeliveryLatencyMs,
+            elapsedDeliveryLatencyMs = elapsedDeliveryLatencyMs,
+            triggerElapsedRealtimeMs = triggerElapsedRealtimeMs,
+            globalSlot = globalSlot,
+            purpose = purpose,
+            schedulerReason = reason,
+            nodeRunning = nodeRunning
+        )
         Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for slot $slotNumber (latency: ${latencyMs}ms)")
 
         // Take the native wakelock before handing control to Flutter so the
@@ -82,6 +107,13 @@ class AlarmReceiver : BroadcastReceiver() {
             "networkState" to "unknown",
             "nodeRunning" to nodeRunning
         )
+        nativeScheduledAtMs?.let { eventData["nativeScheduledAtMs"] = it }
+        scheduledElapsedRealtimeMs?.let { eventData["scheduledElapsedRealtimeMs"] = it }
+        nativeTriggerAtMs?.let { eventData["nativeTriggerAtMs"] = it }
+        triggerElapsedRealtimeMs?.let { eventData["triggerElapsedRealtimeMs"] = it }
+        eventData["receiverElapsedRealtimeMs"] = receiverElapsedRealtimeMs
+        nativeDeliveryLatencyMs?.let { eventData["nativeDeliveryLatencyMs"] = it }
+        elapsedDeliveryLatencyMs?.let { eventData["elapsedDeliveryLatencyMs"] = it }
         globalSlot?.let { eventData["globalSlot"] = it }
         reason?.let { eventData["reason"] = it }
         purpose?.let { eventData["purpose"] = it }
@@ -98,6 +130,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 eventData
             )
         }
+        AlarmLedger(context).recordFlutterEventSent(alarmId, System.currentTimeMillis())
 
         // Start foreground service to keep app alive during monitoring
         Log.d(TAG, "[AlarmReceiver] Starting SlotMonitoringService")
@@ -107,6 +140,13 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("slotNumber", slotNumber)
             putExtra("nodeRunning", nodeRunning)
             putExtra("alarmTimeMs", scheduledTimeMs)
+            nativeScheduledAtMs?.let { putExtra("nativeScheduledAtMs", it) }
+            scheduledElapsedRealtimeMs?.let { putExtra("scheduledElapsedRealtimeMs", it) }
+            nativeTriggerAtMs?.let { putExtra("nativeTriggerAtMs", it) }
+            triggerElapsedRealtimeMs?.let { putExtra("triggerElapsedRealtimeMs", it) }
+            putExtra("receiverElapsedRealtimeMs", receiverElapsedRealtimeMs)
+            nativeDeliveryLatencyMs?.let { putExtra("nativeDeliveryLatencyMs", it) }
+            elapsedDeliveryLatencyMs?.let { putExtra("elapsedDeliveryLatencyMs", it) }
             globalSlot?.let { putExtra("globalSlot", it) }
             reason?.let { putExtra("reason", it) }
             purpose?.let { putExtra("purpose", it) }

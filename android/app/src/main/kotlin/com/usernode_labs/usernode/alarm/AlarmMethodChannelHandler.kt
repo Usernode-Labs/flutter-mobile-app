@@ -189,6 +189,15 @@ class AlarmMethodChannelHandler(context: Context) {
 
                 result.success(alarmScheduler.hasScheduledAlarm(alarmId))
             }
+            "getAlarmDebugState" -> {
+                val alarmId = call.argument<String>("alarmId")
+                if (alarmId == null) {
+                    result.error("INVALID_ARGS", "Missing alarmId", null)
+                    return
+                }
+
+                result.success(alarmScheduler.getAlarmDebugState(alarmId))
+            }
             "startForegroundService" -> {
                 val title = call.argument<String>("title")
                 val message = call.argument<String>("message")

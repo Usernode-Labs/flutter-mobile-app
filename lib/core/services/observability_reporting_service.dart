@@ -21,18 +21,23 @@ typedef _MobileContextCollectorCall = Future<Map<String, dynamic>> Function({
   Map<String, dynamic>? eventData,
 });
 
+typedef NodeRuntimeActiveGetter = bool Function();
+
 class ObservabilityReportingService {
   ObservabilityReportingService._()
       : _record = observabilityRecord,
-        _canRecordOverride = null;
+        _canRecordOverride = null,
+        _isNodeRuntimeActive = null;
 
   ObservabilityReportingService.test({
     required MobileContextSnapshotCollector collector,
     required ObservabilityRecordClient record,
     bool Function()? canRecord,
+    NodeRuntimeActiveGetter? isNodeRuntimeActive,
   })  : _collector = collector,
         _record = record,
-        _canRecordOverride = canRecord;
+        _canRecordOverride = canRecord,
+        _isNodeRuntimeActive = isNodeRuntimeActive;
 
   static final ObservabilityReportingService instance =
       ObservabilityReportingService._();
@@ -46,6 +51,7 @@ class ObservabilityReportingService {
 
   final ObservabilityRecordClient _record;
   final bool Function()? _canRecordOverride;
+  NodeRuntimeActiveGetter? _isNodeRuntimeActive;
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   MobileContextSnapshotCollector? _collector;
@@ -77,6 +83,10 @@ class ObservabilityReportingService {
   void configureMobileContextCollector(
       MobileContextSnapshotCollector collector) {
     _collector = collector;
+  }
+
+  void configureNodeRuntimeActiveGetter(NodeRuntimeActiveGetter getter) {
+    _isNodeRuntimeActive = getter;
   }
 
   Future<void> reportNodeInitialized({
@@ -188,6 +198,16 @@ class ObservabilityReportingService {
     _connectivitySubscription = null;
     _mobileContextReportingStarted = false;
     _powerNetworkServiceSnapshotInFlight = false;
+  }
+
+  Future<void> pauseMobileContextSnapshotReportingForNodePause() async {
+    await stopMobileContextSnapshotReporting();
+  }
+
+  Future<void> resumeMobileContextSnapshotReportingAfterNodeResume() async {
+    await startMobileContextSnapshotReporting(
+      initialReason: 'node_wake',
+    );
   }
 
   FlutterObservabilityRecordResult recordEvent({
@@ -451,7 +471,22 @@ class ObservabilityReportingService {
       (!AppConfig.viewOnly &&
           AppConfig.observabilityHubBaseUrl.trim().isNotEmpty);
 
-  bool get _canReportMobileContextSnapshots => _canRecordObservability;
+  bool get _canReportMobileContextSnapshots =>
+      _canRecordObservability && _isNodeRuntimeActiveForMobileContext;
+
+  bool get _isNodeRuntimeActiveForMobileContext {
+    final isActive = _isNodeRuntimeActive;
+    if (isActive == null) {
+      return true;
+    }
+
+    try {
+      return isActive();
+    } catch (e) {
+      _log.debug('Failed to read node runtime active state: $e');
+      return false;
+    }
+  }
 
   void _handleBatteryStateChanged(BatteryState state) {
     final now = DateTime.now();

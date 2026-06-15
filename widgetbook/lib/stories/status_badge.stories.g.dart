@@ -46,15 +46,16 @@ class StatusBadgeStory extends Story<StatusBadge, StatusBadgeArgs> {
     StoryWidgetBuilder<StatusBadge, StatusBadgeArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? StatusBadgeArgs(),
-          builder: builder ??
-              (context, args) => StatusBadge(
-                    key: args.key,
-                    label: args.label,
-                    variant: args.variant,
-                    icon: args.icon,
-                  ),
-        );
+         args: args ?? StatusBadgeArgs(),
+         builder:
+             builder ??
+             (context, args) => StatusBadge(
+               key: args.key,
+               label: args.label,
+               variant: args.variant,
+               icon: args.icon,
+             ),
+       );
 }
 
 class StatusBadgeArgs extends StoryArgs<StatusBadge> {
@@ -63,27 +64,27 @@ class StatusBadgeArgs extends StoryArgs<StatusBadge> {
     Arg<String>? label,
     Arg<StatusBadgeVariant>? variant,
     Arg<IconData?>? icon,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.labelArg = $initArg('label', label, StringArg(''))!,
-        this.variantArg = $initArg(
-          'variant',
-          variant,
-          EnumArg<StatusBadgeVariant>(
-            StatusBadgeVariant.success,
-            values: StatusBadgeVariant.values,
-          ),
-        )!,
-        this.iconArg = $initArg('icon', icon, null);
+  }) : this.keyArg = $initArg('key', key, null),
+       this.labelArg = $initArg('label', label, StringArg(''))!,
+       this.variantArg = $initArg(
+         'variant',
+         variant,
+         EnumArg<StatusBadgeVariant>(
+           StatusBadgeVariant.success,
+           values: StatusBadgeVariant.values,
+         ),
+       )!,
+       this.iconArg = $initArg('icon', icon, null);
 
   StatusBadgeArgs.fixed({
     Key? key,
     String label = '',
     StatusBadgeVariant variant = StatusBadgeVariant.success,
     IconData? icon,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.labelArg = Arg.fixed(label),
-        this.variantArg = Arg.fixed(variant),
-        this.iconArg = icon == null ? null : Arg.fixed(icon);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.labelArg = Arg.fixed(label),
+       this.variantArg = Arg.fixed(variant),
+       this.iconArg = icon == null ? null : Arg.fixed(icon);
 
   final Arg<Key?>? keyArg;
 

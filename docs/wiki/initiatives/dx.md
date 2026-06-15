@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-08 ([tracker #387](https://github.com/Usernode-Labs/flutter-mobile-app/issues/387))_
+_Last synced: 2026-06-12 ([tracker #387](https://github.com/Usernode-Labs/flutter-mobile-app/issues/387))_
 
 ## Phase status
 
@@ -27,6 +27,9 @@ _Last synced: 2026-06-08 ([tracker #387](https://github.com/Usernode-Labs/flutte
 ### Pull requests
 
 - [#371](https://github.com/Usernode-Labs/flutter-mobile-app/pull/371) DS Evolution: DESIGN.md + Widgetbook v4 + ds_lints + Marionette MCP
+
+## Recent activity (30d)
+
 - [#390](https://github.com/Usernode-Labs/flutter-mobile-app/pull/390) docs: Mainnet Maturity Matrix wiki — pages + priorities + idea pattern
 
 ## Related discussions

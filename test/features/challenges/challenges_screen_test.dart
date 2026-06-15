@@ -100,6 +100,8 @@ class _MockSeasonsController extends SeasonsController {
 const _testChallenges = [
   ChallengeDto(
     id: 1,
+    eventId: 10,
+    eventName: 'Event 10',
     category: 'technical',
     goal: 'Produce Every Block',
     task: 'Successfully produce every block assigned.',
@@ -111,6 +113,8 @@ const _testChallenges = [
   ),
   ChallengeDto(
     id: 2,
+    eventId: 10,
+    eventName: 'Event 10',
     category: 'community',
     goal: 'Prove Humanity',
     task: 'Complete the humanity verification.',
@@ -287,10 +291,12 @@ void main() {
     });
 
     testWidgets('shows missed challenges when tab tapped', (tester) async {
-      await tester.pumpWidget(_buildTestApp(challengeData: _testChallenges));
+      await tester.pumpWidget(
+        _buildTestApp(challengeData: [_testChallenges[0], _testChallenges[2]]),
+      );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Missed'));
+      await tester.tapAt(tester.getCenter(find.byType(Tab).at(2)));
       await tester.pumpAndSettle();
 
       expect(find.text('Quick Challenge'), findsOneWidget);

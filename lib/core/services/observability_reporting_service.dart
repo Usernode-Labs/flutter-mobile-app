@@ -21,18 +21,23 @@ typedef _MobileContextCollectorCall = Future<Map<String, dynamic>> Function({
   Map<String, dynamic>? eventData,
 });
 
+typedef NodeRuntimeActiveGetter = bool Function();
+
 class ObservabilityReportingService {
   ObservabilityReportingService._()
       : _record = observabilityRecord,
-        _canRecordOverride = null;
+        _canRecordOverride = null,
+        _isNodeRuntimeActive = null;
 
   ObservabilityReportingService.test({
     required MobileContextSnapshotCollector collector,
     required ObservabilityRecordClient record,
     bool Function()? canRecord,
+    NodeRuntimeActiveGetter? isNodeRuntimeActive,
   })  : _collector = collector,
         _record = record,
-        _canRecordOverride = canRecord;
+        _canRecordOverride = canRecord,
+        _isNodeRuntimeActive = isNodeRuntimeActive;
 
   static final ObservabilityReportingService instance =
       ObservabilityReportingService._();
@@ -46,6 +51,7 @@ class ObservabilityReportingService {
 
   final ObservabilityRecordClient _record;
   final bool Function()? _canRecordOverride;
+  NodeRuntimeActiveGetter? _isNodeRuntimeActive;
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   MobileContextSnapshotCollector? _collector;
@@ -77,6 +83,10 @@ class ObservabilityReportingService {
   void configureMobileContextCollector(
       MobileContextSnapshotCollector collector) {
     _collector = collector;
+  }
+
+  void configureNodeRuntimeActiveGetter(NodeRuntimeActiveGetter getter) {
+    _isNodeRuntimeActive = getter;
   }
 
   Future<void> reportNodeInitialized({
@@ -190,6 +200,16 @@ class ObservabilityReportingService {
     _powerNetworkServiceSnapshotInFlight = false;
   }
 
+  Future<void> pauseMobileContextSnapshotReportingForNodePause() async {
+    await stopMobileContextSnapshotReporting();
+  }
+
+  Future<void> resumeMobileContextSnapshotReportingAfterNodeResume() async {
+    await startMobileContextSnapshotReporting(
+      initialReason: 'node_wake',
+    );
+  }
+
   FlutterObservabilityRecordResult recordEvent({
     required String event,
     Map<String, dynamic>? details,
@@ -235,12 +255,17 @@ class ObservabilityReportingService {
     int? globalSlot,
     int? epoch,
     int? slotTimeMs,
+    int? rustSlotTimeMs,
+    int? localSlotTimeMs,
     int? leadMs,
     String? schedulerReason,
     bool? nodeRunning,
     int? rustWakeTimeMs,
     int? localWakeTimeMs,
     int? clockDriftMs,
+    int? nodeTimeMsAtSchedule,
+    int? systemTimeMsAtSchedule,
+    int? clockDriftSampleAgeMs,
     String? failureReason,
   }) {
     return recordEvent(
@@ -251,6 +276,8 @@ class ObservabilityReportingService {
         if (globalSlot != null) 'global_slot': globalSlot,
         if (epoch != null) 'epoch': epoch,
         if (slotTimeMs != null) 'slot_time_ms': slotTimeMs,
+        if (rustSlotTimeMs != null) 'rust_slot_time_ms': rustSlotTimeMs,
+        if (localSlotTimeMs != null) 'local_slot_time_ms': localSlotTimeMs,
         'scheduled_at_ms': scheduledAtMs,
         'alarm_time_ms': alarmTimeMs,
         'requested_delay_ms': requestedDelayMs,
@@ -263,6 +290,12 @@ class ObservabilityReportingService {
         if (rustWakeTimeMs != null) 'rust_wake_time_ms': rustWakeTimeMs,
         if (localWakeTimeMs != null) 'local_wake_time_ms': localWakeTimeMs,
         if (clockDriftMs != null) 'clock_drift_ms': clockDriftMs,
+        if (nodeTimeMsAtSchedule != null)
+          'node_time_ms_at_schedule': nodeTimeMsAtSchedule,
+        if (systemTimeMsAtSchedule != null)
+          'system_time_ms_at_schedule': systemTimeMsAtSchedule,
+        if (clockDriftSampleAgeMs != null)
+          'clock_drift_sample_age_ms': clockDriftSampleAgeMs,
         if (failureReason != null) 'failure_reason': failureReason,
       },
     );
@@ -277,6 +310,11 @@ class ObservabilityReportingService {
     int? globalSlot,
     int? alarmTimeMs,
     int? latencyMs,
+    int? nativeTriggerAtMs,
+    int? triggerElapsedRealtimeMs,
+    int? receiverElapsedRealtimeMs,
+    int? nativeDeliveryLatencyMs,
+    int? elapsedDeliveryLatencyMs,
     bool? nodeRunning,
     int? batteryLevel,
     String? networkState,
@@ -292,6 +330,16 @@ class ObservabilityReportingService {
         if (alarmTimeMs != null) 'alarm_time_ms': alarmTimeMs,
         'fired_at_ms': firedAtMs,
         if (latencyMs != null) 'latency_ms': latencyMs,
+        if (nativeTriggerAtMs != null)
+          'native_trigger_at_ms': nativeTriggerAtMs,
+        if (triggerElapsedRealtimeMs != null)
+          'trigger_elapsed_realtime_ms': triggerElapsedRealtimeMs,
+        if (receiverElapsedRealtimeMs != null)
+          'receiver_elapsed_realtime_ms': receiverElapsedRealtimeMs,
+        if (nativeDeliveryLatencyMs != null)
+          'native_delivery_latency_ms': nativeDeliveryLatencyMs,
+        if (elapsedDeliveryLatencyMs != null)
+          'elapsed_delivery_latency_ms': elapsedDeliveryLatencyMs,
         'platform': platform,
         if (nodeRunning != null) 'node_running': nodeRunning,
         if (batteryLevel != null) 'battery_level': batteryLevel,
@@ -423,7 +471,22 @@ class ObservabilityReportingService {
       (!AppConfig.viewOnly &&
           AppConfig.observabilityHubBaseUrl.trim().isNotEmpty);
 
-  bool get _canReportMobileContextSnapshots => _canRecordObservability;
+  bool get _canReportMobileContextSnapshots =>
+      _canRecordObservability && _isNodeRuntimeActiveForMobileContext;
+
+  bool get _isNodeRuntimeActiveForMobileContext {
+    final isActive = _isNodeRuntimeActive;
+    if (isActive == null) {
+      return true;
+    }
+
+    try {
+      return isActive();
+    } catch (e) {
+      _log.debug('Failed to read node runtime active state: $e');
+      return false;
+    }
+  }
 
   void _handleBatteryStateChanged(BatteryState state) {
     final now = DateTime.now();

@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-08 ([tracker #381](https://github.com/Usernode-Labs/flutter-mobile-app/issues/381))_
+_Last synced: 2026-06-12 ([tracker #381](https://github.com/Usernode-Labs/flutter-mobile-app/issues/381))_
 
 ## Phase status
 
@@ -19,6 +19,7 @@ _Last synced: 2026-06-08 ([tracker #381](https://github.com/Usernode-Labs/flutte
 ### Issues
 
 - [#354](https://github.com/Usernode-Labs/flutter-mobile-app/issues/354) Simplify challenge categorization — remove enabled/completed theatre
+- [#449](https://github.com/Usernode-Labs/flutter-mobile-app/issues/449) Active challenges as atomic cards
 
 ## Related discussions
 

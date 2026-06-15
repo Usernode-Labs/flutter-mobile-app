@@ -56,15 +56,16 @@ class ShimmerBlockStory extends Story<ShimmerBlock, ShimmerBlockArgs> {
     StoryWidgetBuilder<ShimmerBlock, ShimmerBlockArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? ShimmerBlockArgs(),
-          builder: builder ??
-              (context, args) => ShimmerBlock(
-                    key: args.key,
-                    width: args.width,
-                    height: args.height,
-                    borderRadius: args.borderRadius,
-                  ),
-        );
+         args: args ?? ShimmerBlockArgs(),
+         builder:
+             builder ??
+             (context, args) => ShimmerBlock(
+               key: args.key,
+               width: args.width,
+               height: args.height,
+               borderRadius: args.borderRadius,
+             ),
+       );
 }
 
 class ShimmerBlockArgs extends StoryArgs<ShimmerBlock> {
@@ -73,21 +74,22 @@ class ShimmerBlockArgs extends StoryArgs<ShimmerBlock> {
     Arg<double>? width,
     Arg<double>? height,
     Arg<BorderRadius?>? borderRadius,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.widthArg = $initArg('width', width, DoubleArg(0.0))!,
-        this.heightArg = $initArg('height', height, DoubleArg(0.0))!,
-        this.borderRadiusArg = $initArg('borderRadius', borderRadius, null);
+  }) : this.keyArg = $initArg('key', key, null),
+       this.widthArg = $initArg('width', width, DoubleArg(0.0))!,
+       this.heightArg = $initArg('height', height, DoubleArg(0.0))!,
+       this.borderRadiusArg = $initArg('borderRadius', borderRadius, null);
 
   ShimmerBlockArgs.fixed({
     Key? key,
     double width = 0.0,
     double height = 0.0,
     BorderRadius? borderRadius,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.widthArg = Arg.fixed(width),
-        this.heightArg = Arg.fixed(height),
-        this.borderRadiusArg =
-            borderRadius == null ? null : Arg.fixed(borderRadius);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.widthArg = Arg.fixed(width),
+       this.heightArg = Arg.fixed(height),
+       this.borderRadiusArg = borderRadius == null
+           ? null
+           : Arg.fixed(borderRadius);
 
   final Arg<Key?>? keyArg;
 

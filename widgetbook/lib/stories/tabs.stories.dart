@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/tabs.dart';
 
 part 'tabs.stories.g.dart';
 
-const meta = Meta<Tabs>(path: 'widgets/navigation');
+const meta = Meta<Tabs>(path: 'live app/widgets/navigation');
 
 final $Default = _Story(
   name: 'Default',

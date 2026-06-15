@@ -47,17 +47,18 @@ class IconBadgeStory extends Story<IconBadge, IconBadgeArgs> {
     StoryWidgetBuilder<IconBadge, IconBadgeArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => IconBadge(
-                    key: args.key,
-                    icon: args.icon,
-                    size: args.size,
-                    surfaceSize: args.surfaceSize,
-                    backgroundColor: args.backgroundColor,
-                    iconColor: args.iconColor,
-                    borderRadius: args.borderRadius,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => IconBadge(
+               key: args.key,
+               icon: args.icon,
+               size: args.size,
+               surfaceSize: args.surfaceSize,
+               backgroundColor: args.backgroundColor,
+               iconColor: args.iconColor,
+               borderRadius: args.borderRadius,
+             ),
+       );
 }
 
 class IconBadgeArgs extends StoryArgs<IconBadge> {
@@ -69,25 +70,25 @@ class IconBadgeArgs extends StoryArgs<IconBadge> {
     Arg<Color?>? backgroundColor,
     Arg<Color?>? iconColor,
     Arg<BorderRadius?>? borderRadius,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.iconArg = $initArg('icon', icon, null)!,
-        this.sizeArg = $initArg('size', size, NullableDoubleArg(null))!,
-        this.surfaceSizeArg = $initArg(
-          'surfaceSize',
-          surfaceSize,
-          NullableDoubleArg(null),
-        )!,
-        this.backgroundColorArg = $initArg(
-          'backgroundColor',
-          backgroundColor,
-          NullableColorArg(null),
-        )!,
-        this.iconColorArg = $initArg(
-          'iconColor',
-          iconColor,
-          NullableColorArg(null),
-        )!,
-        this.borderRadiusArg = $initArg('borderRadius', borderRadius, null);
+  }) : this.keyArg = $initArg('key', key, null),
+       this.iconArg = $initArg('icon', icon, null)!,
+       this.sizeArg = $initArg('size', size, NullableDoubleArg(null))!,
+       this.surfaceSizeArg = $initArg(
+         'surfaceSize',
+         surfaceSize,
+         NullableDoubleArg(null),
+       )!,
+       this.backgroundColorArg = $initArg(
+         'backgroundColor',
+         backgroundColor,
+         NullableColorArg(null),
+       )!,
+       this.iconColorArg = $initArg(
+         'iconColor',
+         iconColor,
+         NullableColorArg(null),
+       )!,
+       this.borderRadiusArg = $initArg('borderRadius', borderRadius, null);
 
   IconBadgeArgs.fixed({
     Key? key,
@@ -97,16 +98,19 @@ class IconBadgeArgs extends StoryArgs<IconBadge> {
     Color? backgroundColor = null,
     Color? iconColor = null,
     BorderRadius? borderRadius,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.iconArg = Arg.fixed(icon),
-        this.sizeArg = size == null ? null : Arg.fixed(size),
-        this.surfaceSizeArg =
-            surfaceSize == null ? null : Arg.fixed(surfaceSize),
-        this.backgroundColorArg =
-            backgroundColor == null ? null : Arg.fixed(backgroundColor),
-        this.iconColorArg = iconColor == null ? null : Arg.fixed(iconColor),
-        this.borderRadiusArg =
-            borderRadius == null ? null : Arg.fixed(borderRadius);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.iconArg = Arg.fixed(icon),
+       this.sizeArg = size == null ? null : Arg.fixed(size),
+       this.surfaceSizeArg = surfaceSize == null
+           ? null
+           : Arg.fixed(surfaceSize),
+       this.backgroundColorArg = backgroundColor == null
+           ? null
+           : Arg.fixed(backgroundColor),
+       this.iconColorArg = iconColor == null ? null : Arg.fixed(iconColor),
+       this.borderRadiusArg = borderRadius == null
+           ? null
+           : Arg.fixed(borderRadius);
 
   final Arg<Key?>? keyArg;
 
@@ -138,12 +142,12 @@ class IconBadgeArgs extends StoryArgs<IconBadge> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        iconArg,
-        sizeArg,
-        surfaceSizeArg,
-        backgroundColorArg,
-        iconColorArg,
-        borderRadiusArg,
-      ];
+    keyArg,
+    iconArg,
+    sizeArg,
+    surfaceSizeArg,
+    backgroundColorArg,
+    iconColorArg,
+    borderRadiusArg,
+  ];
 }

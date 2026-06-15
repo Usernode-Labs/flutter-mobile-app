@@ -56,6 +56,7 @@ export 'src/tabs.dart';
 export 'src/text_chevron_trailing.dart';
 export 'src/text_field.dart';
 export 'src/top_app_bar.dart';
+export 'src/top_status_app_bar.dart';
 export 'src/zk_identity_flow_page.dart';
 export 'src/zk_identity_status_card.dart';
 export 'src/zk_identity_step_illustration.dart';

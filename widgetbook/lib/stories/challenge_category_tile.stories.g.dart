@@ -11,19 +11,19 @@ part of 'challenge_category_tile.stories.dart';
 // StoryGenerator
 // **************************************************************************
 
-typedef _Component
-    = Component<ChallengeCategoryTile, ChallengeCategoryTileArgs>;
+typedef _Component =
+    Component<ChallengeCategoryTile, ChallengeCategoryTileArgs>;
 typedef _Scenario = ChallengeCategoryTileScenario;
 typedef _Defaults = ChallengeCategoryTileDefaults;
 typedef _Story = ChallengeCategoryTileStory;
 typedef _Args = ChallengeCategoryTileArgs;
 final ChallengeCategoryTileComponent =
     Component<ChallengeCategoryTile, ChallengeCategoryTileArgs>(
-  name: meta.name ?? 'ChallengeCategoryTile',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''An expandable list tile that groups sub-challenges by category.
+      name: meta.name ?? 'ChallengeCategoryTile',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''An expandable list tile that groups sub-challenges by category.
 
 Shows a category icon, name, remaining/completed counts, and total points.
 Expands to reveal individual challenge chips styled as completed (disabled)
@@ -33,12 +33,12 @@ Built on M3 [ExpansionTile] — inherits header layout from [ListTileThemeData]
 and expansion styling from [ExpansionTileThemeData].
 
 Presentation-only — takes all state via constructor params.''',
-  stories: [$Default..$generatedName = 'Default'],
-);
-typedef ChallengeCategoryTileScenario
-    = Scenario<ChallengeCategoryTile, ChallengeCategoryTileArgs>;
-typedef ChallengeCategoryTileDefaults
-    = Defaults<ChallengeCategoryTile, ChallengeCategoryTileArgs>;
+      stories: [$Default..$generatedName = 'Default'],
+    );
+typedef ChallengeCategoryTileScenario =
+    Scenario<ChallengeCategoryTile, ChallengeCategoryTileArgs>;
+typedef ChallengeCategoryTileDefaults =
+    Defaults<ChallengeCategoryTile, ChallengeCategoryTileArgs>;
 
 class ChallengeCategoryTileStory
     extends Story<ChallengeCategoryTile, ChallengeCategoryTileArgs> {
@@ -48,22 +48,23 @@ class ChallengeCategoryTileStory
     super.modes,
     required super.args,
     StoryWidgetBuilder<ChallengeCategoryTile, ChallengeCategoryTileArgs>?
-        builder,
+    builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => ChallengeCategoryTile(
-                    key: args.key,
-                    categoryIcon: args.categoryIcon,
-                    categoryName: args.categoryName,
-                    remainingCount: args.remainingCount,
-                    completedCount: args.completedCount,
-                    pointsLabel: args.pointsLabel,
-                    challenges: args.challenges,
-                    initiallyExpanded: args.initiallyExpanded,
-                    onExpansionChanged: args.onExpansionChanged,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => ChallengeCategoryTile(
+               key: args.key,
+               categoryIcon: args.categoryIcon,
+               categoryName: args.categoryName,
+               remainingCount: args.remainingCount,
+               completedCount: args.completedCount,
+               pointsLabel: args.pointsLabel,
+               challenges: args.challenges,
+               initiallyExpanded: args.initiallyExpanded,
+               onExpansionChanged: args.onExpansionChanged,
+             ),
+       );
 }
 
 class ChallengeCategoryTileArgs extends StoryArgs<ChallengeCategoryTile> {
@@ -77,39 +78,39 @@ class ChallengeCategoryTileArgs extends StoryArgs<ChallengeCategoryTile> {
     required Arg<List<ChallengeCategoryItem>> challenges,
     Arg<bool>? initiallyExpanded,
     Arg<void Function(bool)?>? onExpansionChanged,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.categoryIconArg = $initArg('categoryIcon', categoryIcon, null)!,
-        this.categoryNameArg = $initArg(
-          'categoryName',
-          categoryName,
-          StringArg(''),
-        )!,
-        this.remainingCountArg = $initArg(
-          'remainingCount',
-          remainingCount,
-          IntArg(0),
-        )!,
-        this.completedCountArg = $initArg(
-          'completedCount',
-          completedCount,
-          IntArg(0),
-        )!,
-        this.pointsLabelArg = $initArg(
-          'pointsLabel',
-          pointsLabel,
-          StringArg(''),
-        )!,
-        this.challengesArg = $initArg('challenges', challenges, null)!,
-        this.initiallyExpandedArg = $initArg(
-          'initiallyExpanded',
-          initiallyExpanded,
-          BoolArg(false),
-        )!,
-        this.onExpansionChangedArg = $initArg(
-          'onExpansionChanged',
-          onExpansionChanged,
-          null,
-        );
+  }) : this.keyArg = $initArg('key', key, null),
+       this.categoryIconArg = $initArg('categoryIcon', categoryIcon, null)!,
+       this.categoryNameArg = $initArg(
+         'categoryName',
+         categoryName,
+         StringArg(''),
+       )!,
+       this.remainingCountArg = $initArg(
+         'remainingCount',
+         remainingCount,
+         IntArg(0),
+       )!,
+       this.completedCountArg = $initArg(
+         'completedCount',
+         completedCount,
+         IntArg(0),
+       )!,
+       this.pointsLabelArg = $initArg(
+         'pointsLabel',
+         pointsLabel,
+         StringArg(''),
+       )!,
+       this.challengesArg = $initArg('challenges', challenges, null)!,
+       this.initiallyExpandedArg = $initArg(
+         'initiallyExpanded',
+         initiallyExpanded,
+         BoolArg(false),
+       )!,
+       this.onExpansionChangedArg = $initArg(
+         'onExpansionChanged',
+         onExpansionChanged,
+         null,
+       );
 
   ChallengeCategoryTileArgs.fixed({
     Key? key,
@@ -121,16 +122,17 @@ class ChallengeCategoryTileArgs extends StoryArgs<ChallengeCategoryTile> {
     required List<ChallengeCategoryItem> challenges,
     bool initiallyExpanded = false,
     void Function(bool)? onExpansionChanged,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.categoryIconArg = Arg.fixed(categoryIcon),
-        this.categoryNameArg = Arg.fixed(categoryName),
-        this.remainingCountArg = Arg.fixed(remainingCount),
-        this.completedCountArg = Arg.fixed(completedCount),
-        this.pointsLabelArg = Arg.fixed(pointsLabel),
-        this.challengesArg = Arg.fixed(challenges),
-        this.initiallyExpandedArg = Arg.fixed(initiallyExpanded),
-        this.onExpansionChangedArg =
-            onExpansionChanged == null ? null : Arg.fixed(onExpansionChanged);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.categoryIconArg = Arg.fixed(categoryIcon),
+       this.categoryNameArg = Arg.fixed(categoryName),
+       this.remainingCountArg = Arg.fixed(remainingCount),
+       this.completedCountArg = Arg.fixed(completedCount),
+       this.pointsLabelArg = Arg.fixed(pointsLabel),
+       this.challengesArg = Arg.fixed(challenges),
+       this.initiallyExpandedArg = Arg.fixed(initiallyExpanded),
+       this.onExpansionChangedArg = onExpansionChanged == null
+           ? null
+           : Arg.fixed(onExpansionChanged);
 
   final Arg<Key?>? keyArg;
 
@@ -170,14 +172,14 @@ class ChallengeCategoryTileArgs extends StoryArgs<ChallengeCategoryTile> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        categoryIconArg,
-        categoryNameArg,
-        remainingCountArg,
-        completedCountArg,
-        pointsLabelArg,
-        challengesArg,
-        initiallyExpandedArg,
-        onExpansionChangedArg,
-      ];
+    keyArg,
+    categoryIconArg,
+    categoryNameArg,
+    remainingCountArg,
+    completedCountArg,
+    pointsLabelArg,
+    challengesArg,
+    initiallyExpandedArg,
+    onExpansionChangedArg,
+  ];
 }

@@ -18,18 +18,18 @@ typedef _Story = ListSectionHeaderStory;
 typedef _Args = ListSectionHeaderArgs;
 final ListSectionHeaderComponent =
     Component<ListSectionHeader, ListSectionHeaderArgs>(
-  name: meta.name ?? 'ListSectionHeader',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''Section header for grouped lists — renders [title] in `labelLarge` /
+      name: meta.name ?? 'ListSectionHeader',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''Section header for grouped lists — renders [title] in `labelLarge` /
 `onSurfaceVariant` with bottom spacing.''',
-  stories: [$Default..$generatedName = 'Default'],
-);
-typedef ListSectionHeaderScenario
-    = Scenario<ListSectionHeader, ListSectionHeaderArgs>;
-typedef ListSectionHeaderDefaults
-    = Defaults<ListSectionHeader, ListSectionHeaderArgs>;
+      stories: [$Default..$generatedName = 'Default'],
+    );
+typedef ListSectionHeaderScenario =
+    Scenario<ListSectionHeader, ListSectionHeaderArgs>;
+typedef ListSectionHeaderDefaults =
+    Defaults<ListSectionHeader, ListSectionHeaderArgs>;
 
 class ListSectionHeaderStory
     extends Story<ListSectionHeader, ListSectionHeaderArgs> {
@@ -41,21 +41,22 @@ class ListSectionHeaderStory
     StoryWidgetBuilder<ListSectionHeader, ListSectionHeaderArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? ListSectionHeaderArgs(),
-          builder: builder ??
-              (context, args) =>
-                  ListSectionHeader(key: args.key, title: args.title),
-        );
+         args: args ?? ListSectionHeaderArgs(),
+         builder:
+             builder ??
+             (context, args) =>
+                 ListSectionHeader(key: args.key, title: args.title),
+       );
 }
 
 class ListSectionHeaderArgs extends StoryArgs<ListSectionHeader> {
   ListSectionHeaderArgs({Arg<Key?>? key, Arg<String>? title})
-      : this.keyArg = $initArg('key', key, null),
-        this.titleArg = $initArg('title', title, StringArg(''))!;
+    : this.keyArg = $initArg('key', key, null),
+      this.titleArg = $initArg('title', title, StringArg(''))!;
 
   ListSectionHeaderArgs.fixed({Key? key, String title = ''})
-      : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.titleArg = Arg.fixed(title);
+    : this.keyArg = key == null ? null : Arg.fixed(key),
+      this.titleArg = Arg.fixed(title);
 
   final Arg<Key?>? keyArg;
 

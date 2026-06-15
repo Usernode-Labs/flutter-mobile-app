@@ -84,6 +84,13 @@ class SlotMonitoringService : Service() {
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
                 val alarmTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
+                val nativeScheduledAtMs = optionalLongExtra(intent, "nativeScheduledAtMs")
+                val scheduledElapsedRealtimeMs = optionalLongExtra(intent, "scheduledElapsedRealtimeMs")
+                val nativeTriggerAtMs = optionalLongExtra(intent, "nativeTriggerAtMs")
+                val triggerElapsedRealtimeMs = optionalLongExtra(intent, "triggerElapsedRealtimeMs")
+                val receiverElapsedRealtimeMs = optionalLongExtra(intent, "receiverElapsedRealtimeMs")
+                val nativeDeliveryLatencyMs = optionalLongExtra(intent, "nativeDeliveryLatencyMs")
+                val elapsedDeliveryLatencyMs = optionalLongExtra(intent, "elapsedDeliveryLatencyMs")
                 val reason = intent.getStringExtra("reason")
                 val purpose = intent.getStringExtra("purpose")
                 Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId, nodeRunning=$nodeRunning")
@@ -107,6 +114,13 @@ class SlotMonitoringService : Service() {
                     "networkState" to "unknown",
                     "nodeRunning" to nodeRunning
                 )
+                nativeScheduledAtMs?.let { eventData["nativeScheduledAtMs"] = it }
+                scheduledElapsedRealtimeMs?.let { eventData["scheduledElapsedRealtimeMs"] = it }
+                nativeTriggerAtMs?.let { eventData["nativeTriggerAtMs"] = it }
+                triggerElapsedRealtimeMs?.let { eventData["triggerElapsedRealtimeMs"] = it }
+                receiverElapsedRealtimeMs?.let { eventData["receiverElapsedRealtimeMs"] = it }
+                nativeDeliveryLatencyMs?.let { eventData["nativeDeliveryLatencyMs"] = it }
+                elapsedDeliveryLatencyMs?.let { eventData["elapsedDeliveryLatencyMs"] = it }
                 globalSlot?.let { eventData["globalSlot"] = it }
                 reason?.let { eventData["reason"] = it }
                 purpose?.let { eventData["purpose"] = it }

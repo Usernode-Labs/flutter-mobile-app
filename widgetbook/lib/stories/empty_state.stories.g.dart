@@ -45,16 +45,17 @@ class EmptyStateStory extends Story<EmptyState, EmptyStateArgs> {
     StoryWidgetBuilder<EmptyState, EmptyStateArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? EmptyStateArgs(),
-          builder: builder ??
-              (context, args) => EmptyState(
-                    key: args.key,
-                    icon: args.icon,
-                    title: args.title,
-                    subtitle: args.subtitle,
-                    action: args.action,
-                  ),
-        );
+         args: args ?? EmptyStateArgs(),
+         builder:
+             builder ??
+             (context, args) => EmptyState(
+               key: args.key,
+               icon: args.icon,
+               title: args.title,
+               subtitle: args.subtitle,
+               action: args.action,
+             ),
+       );
 }
 
 class EmptyStateArgs extends StoryArgs<EmptyState> {
@@ -64,15 +65,15 @@ class EmptyStateArgs extends StoryArgs<EmptyState> {
     Arg<String>? title,
     Arg<String?>? subtitle,
     Arg<Widget?>? action,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.iconArg = $initArg('icon', icon, null),
-        this.titleArg = $initArg('title', title, StringArg(''))!,
-        this.subtitleArg = $initArg(
-          'subtitle',
-          subtitle,
-          NullableStringArg(null),
-        )!,
-        this.actionArg = $initArg('action', action, null);
+  }) : this.keyArg = $initArg('key', key, null),
+       this.iconArg = $initArg('icon', icon, null),
+       this.titleArg = $initArg('title', title, StringArg(''))!,
+       this.subtitleArg = $initArg(
+         'subtitle',
+         subtitle,
+         NullableStringArg(null),
+       )!,
+       this.actionArg = $initArg('action', action, null);
 
   EmptyStateArgs.fixed({
     Key? key,
@@ -80,11 +81,11 @@ class EmptyStateArgs extends StoryArgs<EmptyState> {
     String title = '',
     String? subtitle = null,
     Widget? action,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.iconArg = icon == null ? null : Arg.fixed(icon),
-        this.titleArg = Arg.fixed(title),
-        this.subtitleArg = subtitle == null ? null : Arg.fixed(subtitle),
-        this.actionArg = action == null ? null : Arg.fixed(action);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.iconArg = icon == null ? null : Arg.fixed(icon),
+       this.titleArg = Arg.fixed(title),
+       this.subtitleArg = subtitle == null ? null : Arg.fixed(subtitle),
+       this.actionArg = action == null ? null : Arg.fixed(action);
 
   final Arg<Key?>? keyArg;
 

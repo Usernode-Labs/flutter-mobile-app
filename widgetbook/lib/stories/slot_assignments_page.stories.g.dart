@@ -18,25 +18,25 @@ typedef _Story = SlotAssignmentsPageStory;
 typedef _Args = SlotAssignmentsPageArgs;
 final SlotAssignmentsPageComponent =
     Component<SlotAssignmentsPage, SlotAssignmentsPageArgs>(
-  name: meta.name ?? 'SlotAssignmentsPage',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''A full-page slot assignments view with epoch progress header, filter chips,
+      name: meta.name ?? 'SlotAssignmentsPage',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''A full-page slot assignments view with epoch progress header, filter chips,
 and a scrollable list of slot items.
 
 Presentation-only: all data comes through constructor parameters.
 The feature screen in `lib/features/` wires state to this widget.''',
-  stories: [
-    $Default..$generatedName = 'Default',
-    $WithHighlight..$generatedName = 'WithHighlight',
-    $Empty..$generatedName = 'Empty',
-  ],
-);
-typedef SlotAssignmentsPageScenario
-    = Scenario<SlotAssignmentsPage, SlotAssignmentsPageArgs>;
-typedef SlotAssignmentsPageDefaults
-    = Defaults<SlotAssignmentsPage, SlotAssignmentsPageArgs>;
+      stories: [
+        $Default..$generatedName = 'Default',
+        $WithHighlight..$generatedName = 'WithHighlight',
+        $Empty..$generatedName = 'Empty',
+      ],
+    );
+typedef SlotAssignmentsPageScenario =
+    Scenario<SlotAssignmentsPage, SlotAssignmentsPageArgs>;
+typedef SlotAssignmentsPageDefaults =
+    Defaults<SlotAssignmentsPage, SlotAssignmentsPageArgs>;
 
 class SlotAssignmentsPageStory
     extends Story<SlotAssignmentsPage, SlotAssignmentsPageArgs> {
@@ -48,22 +48,23 @@ class SlotAssignmentsPageStory
     StoryWidgetBuilder<SlotAssignmentsPage, SlotAssignmentsPageArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => SlotAssignmentsPage(
-                    key: args.key,
-                    title: args.title,
-                    epochLabel: args.epochLabel,
-                    slotProgressLeftLabel: args.slotProgressLeftLabel,
-                    slotProgress: args.slotProgress,
-                    filters: args.filters,
-                    onFilterTap: args.onFilterTap,
-                    items: args.items,
-                    slotProgressRightLabel: args.slotProgressRightLabel,
-                    onItemTap: args.onItemTap,
-                    onBackTap: args.onBackTap,
-                    highlightIndex: args.highlightIndex,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => SlotAssignmentsPage(
+               key: args.key,
+               title: args.title,
+               epochLabel: args.epochLabel,
+               slotProgressLeftLabel: args.slotProgressLeftLabel,
+               slotProgress: args.slotProgress,
+               filters: args.filters,
+               onFilterTap: args.onFilterTap,
+               items: args.items,
+               slotProgressRightLabel: args.slotProgressRightLabel,
+               onItemTap: args.onItemTap,
+               onBackTap: args.onBackTap,
+               highlightIndex: args.highlightIndex,
+             ),
+       );
 }
 
 class SlotAssignmentsPageArgs extends StoryArgs<SlotAssignmentsPage> {
@@ -80,34 +81,34 @@ class SlotAssignmentsPageArgs extends StoryArgs<SlotAssignmentsPage> {
     Arg<void Function(int)?>? onItemTap,
     Arg<void Function()?>? onBackTap,
     Arg<int?>? highlightIndex,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.titleArg = $initArg('title', title, StringArg(''))!,
-        this.epochLabelArg = $initArg('epochLabel', epochLabel, StringArg(''))!,
-        this.slotProgressLeftLabelArg = $initArg(
-          'slotProgressLeftLabel',
-          slotProgressLeftLabel,
-          StringArg(''),
-        )!,
-        this.slotProgressArg = $initArg(
-          'slotProgress',
-          slotProgress,
-          DoubleArg(0.0),
-        )!,
-        this.filtersArg = $initArg('filters', filters, null)!,
-        this.onFilterTapArg = $initArg('onFilterTap', onFilterTap, null)!,
-        this.itemsArg = $initArg('items', items, null)!,
-        this.slotProgressRightLabelArg = $initArg(
-          'slotProgressRightLabel',
-          slotProgressRightLabel,
-          NullableStringArg(null),
-        )!,
-        this.onItemTapArg = $initArg('onItemTap', onItemTap, null),
-        this.onBackTapArg = $initArg('onBackTap', onBackTap, null),
-        this.highlightIndexArg = $initArg(
-          'highlightIndex',
-          highlightIndex,
-          NullableIntArg(null),
-        )!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.titleArg = $initArg('title', title, StringArg(''))!,
+       this.epochLabelArg = $initArg('epochLabel', epochLabel, StringArg(''))!,
+       this.slotProgressLeftLabelArg = $initArg(
+         'slotProgressLeftLabel',
+         slotProgressLeftLabel,
+         StringArg(''),
+       )!,
+       this.slotProgressArg = $initArg(
+         'slotProgress',
+         slotProgress,
+         DoubleArg(0.0),
+       )!,
+       this.filtersArg = $initArg('filters', filters, null)!,
+       this.onFilterTapArg = $initArg('onFilterTap', onFilterTap, null)!,
+       this.itemsArg = $initArg('items', items, null)!,
+       this.slotProgressRightLabelArg = $initArg(
+         'slotProgressRightLabel',
+         slotProgressRightLabel,
+         NullableStringArg(null),
+       )!,
+       this.onItemTapArg = $initArg('onItemTap', onItemTap, null),
+       this.onBackTapArg = $initArg('onBackTap', onBackTap, null),
+       this.highlightIndexArg = $initArg(
+         'highlightIndex',
+         highlightIndex,
+         NullableIntArg(null),
+       )!;
 
   SlotAssignmentsPageArgs.fixed({
     Key? key,
@@ -122,21 +123,22 @@ class SlotAssignmentsPageArgs extends StoryArgs<SlotAssignmentsPage> {
     void Function(int)? onItemTap,
     void Function()? onBackTap,
     int? highlightIndex = null,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.titleArg = Arg.fixed(title),
-        this.epochLabelArg = Arg.fixed(epochLabel),
-        this.slotProgressLeftLabelArg = Arg.fixed(slotProgressLeftLabel),
-        this.slotProgressArg = Arg.fixed(slotProgress),
-        this.filtersArg = Arg.fixed(filters),
-        this.onFilterTapArg = Arg.fixed(onFilterTap),
-        this.itemsArg = Arg.fixed(items),
-        this.slotProgressRightLabelArg = slotProgressRightLabel == null
-            ? null
-            : Arg.fixed(slotProgressRightLabel),
-        this.onItemTapArg = onItemTap == null ? null : Arg.fixed(onItemTap),
-        this.onBackTapArg = onBackTap == null ? null : Arg.fixed(onBackTap),
-        this.highlightIndexArg =
-            highlightIndex == null ? null : Arg.fixed(highlightIndex);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.titleArg = Arg.fixed(title),
+       this.epochLabelArg = Arg.fixed(epochLabel),
+       this.slotProgressLeftLabelArg = Arg.fixed(slotProgressLeftLabel),
+       this.slotProgressArg = Arg.fixed(slotProgress),
+       this.filtersArg = Arg.fixed(filters),
+       this.onFilterTapArg = Arg.fixed(onFilterTap),
+       this.itemsArg = Arg.fixed(items),
+       this.slotProgressRightLabelArg = slotProgressRightLabel == null
+           ? null
+           : Arg.fixed(slotProgressRightLabel),
+       this.onItemTapArg = onItemTap == null ? null : Arg.fixed(onItemTap),
+       this.onBackTapArg = onBackTap == null ? null : Arg.fixed(onBackTap),
+       this.highlightIndexArg = highlightIndex == null
+           ? null
+           : Arg.fixed(highlightIndex);
 
   final Arg<Key?>? keyArg;
 
@@ -188,17 +190,17 @@ class SlotAssignmentsPageArgs extends StoryArgs<SlotAssignmentsPage> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        titleArg,
-        epochLabelArg,
-        slotProgressLeftLabelArg,
-        slotProgressArg,
-        filtersArg,
-        onFilterTapArg,
-        itemsArg,
-        slotProgressRightLabelArg,
-        onItemTapArg,
-        onBackTapArg,
-        highlightIndexArg,
-      ];
+    keyArg,
+    titleArg,
+    epochLabelArg,
+    slotProgressLeftLabelArg,
+    slotProgressArg,
+    filtersArg,
+    onFilterTapArg,
+    itemsArg,
+    slotProgressRightLabelArg,
+    onItemTapArg,
+    onBackTapArg,
+    highlightIndexArg,
+  ];
 }

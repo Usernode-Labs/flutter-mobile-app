@@ -11,30 +11,30 @@ part of 'stale_registration_screen.stories.dart';
 // StoryGenerator
 // **************************************************************************
 
-typedef _Component
-    = Component<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
+typedef _Component =
+    Component<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
 typedef _Scenario = StaleRegistrationDemoScenario;
 typedef _Defaults = StaleRegistrationDemoDefaults;
 typedef _Story = StaleRegistrationDemoStory;
 typedef _Args = StaleRegistrationDemoArgs;
 final StaleRegistrationDemoComponent =
     Component<StaleRegistrationDemo, StaleRegistrationDemoArgs>(
-  name: meta.name ?? 'StaleRegistrationDemo',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''Wrapper to give StaleRegistration stories a distinct component identity
+      name: meta.name ?? 'StaleRegistrationDemo',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''Wrapper to give StaleRegistration stories a distinct component identity
 from the generic FullPageErrorState stories.''',
-  stories: [
-    $Default..$generatedName = 'Default',
-    $NoRetry..$generatedName = 'NoRetry',
-    $MinimalError..$generatedName = 'MinimalError',
-  ],
-);
-typedef StaleRegistrationDemoScenario
-    = Scenario<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
-typedef StaleRegistrationDemoDefaults
-    = Defaults<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
+      stories: [
+        $Default..$generatedName = 'Default',
+        $NoRetry..$generatedName = 'NoRetry',
+        $MinimalError..$generatedName = 'MinimalError',
+      ],
+    );
+typedef StaleRegistrationDemoScenario =
+    Scenario<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
+typedef StaleRegistrationDemoDefaults =
+    Defaults<StaleRegistrationDemo, StaleRegistrationDemoArgs>;
 
 class StaleRegistrationDemoStory
     extends Story<StaleRegistrationDemo, StaleRegistrationDemoArgs> {
@@ -44,19 +44,20 @@ class StaleRegistrationDemoStory
     super.modes,
     StaleRegistrationDemoArgs? args,
     StoryWidgetBuilder<StaleRegistrationDemo, StaleRegistrationDemoArgs>?
-        builder,
+    builder,
     super.scenarios,
   }) : super(
-          args: args ?? StaleRegistrationDemoArgs(),
-          builder: builder ??
-              (context, args) => StaleRegistrationDemo(
-                    key: args.key,
-                    message: args.message,
-                    detail: args.detail,
-                    onRetry: args.onRetry,
-                    retryLabel: args.retryLabel,
-                  ),
-        );
+         args: args ?? StaleRegistrationDemoArgs(),
+         builder:
+             builder ??
+             (context, args) => StaleRegistrationDemo(
+               key: args.key,
+               message: args.message,
+               detail: args.detail,
+               onRetry: args.onRetry,
+               retryLabel: args.retryLabel,
+             ),
+       );
 }
 
 class StaleRegistrationDemoArgs extends StoryArgs<StaleRegistrationDemo> {
@@ -66,15 +67,15 @@ class StaleRegistrationDemoArgs extends StoryArgs<StaleRegistrationDemo> {
     Arg<String?>? detail,
     Arg<void Function()?>? onRetry,
     Arg<String>? retryLabel,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.messageArg = $initArg('message', message, StringArg(''))!,
-        this.detailArg = $initArg('detail', detail, NullableStringArg(null))!,
-        this.onRetryArg = $initArg('onRetry', onRetry, null),
-        this.retryLabelArg = $initArg(
-          'retryLabel',
-          retryLabel,
-          StringArg('Retry'),
-        )!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.messageArg = $initArg('message', message, StringArg(''))!,
+       this.detailArg = $initArg('detail', detail, NullableStringArg(null))!,
+       this.onRetryArg = $initArg('onRetry', onRetry, null),
+       this.retryLabelArg = $initArg(
+         'retryLabel',
+         retryLabel,
+         StringArg('Retry'),
+       )!;
 
   StaleRegistrationDemoArgs.fixed({
     Key? key,
@@ -82,11 +83,11 @@ class StaleRegistrationDemoArgs extends StoryArgs<StaleRegistrationDemo> {
     String? detail = null,
     void Function()? onRetry,
     String retryLabel = 'Retry',
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.messageArg = Arg.fixed(message),
-        this.detailArg = detail == null ? null : Arg.fixed(detail),
-        this.onRetryArg = onRetry == null ? null : Arg.fixed(onRetry),
-        this.retryLabelArg = Arg.fixed(retryLabel);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.messageArg = Arg.fixed(message),
+       this.detailArg = detail == null ? null : Arg.fixed(detail),
+       this.onRetryArg = onRetry == null ? null : Arg.fixed(onRetry),
+       this.retryLabelArg = Arg.fixed(retryLabel);
 
   final Arg<Key?>? keyArg;
 
@@ -110,10 +111,10 @@ class StaleRegistrationDemoArgs extends StoryArgs<StaleRegistrationDemo> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        messageArg,
-        detailArg,
-        onRetryArg,
-        retryLabelArg,
-      ];
+    keyArg,
+    messageArg,
+    detailArg,
+    onRetryArg,
+    retryLabelArg,
+  ];
 }

@@ -31,6 +31,15 @@ enum ScoreHeaderVariant {
   glow,
 }
 
+/// Vertical spacing density for [ScoreHeader].
+enum ScoreHeaderDensity {
+  /// Standard hero spacing.
+  standard,
+
+  /// Tighter spacing for contained/profile contexts.
+  compact,
+}
+
 /// A centered score display with circular progress arc, rank label,
 /// countdown timer, and CTA button.
 ///
@@ -56,6 +65,9 @@ class ScoreHeader extends StatelessWidget {
     this.communityGlowIntensity,
     this.countdownOpacity = 1.0,
     this.countdownTextMode = CountdownTextMode.normal,
+    this.showCountdown = true,
+    this.density = ScoreHeaderDensity.standard,
+    this.footer,
   });
 
   /// The score value displayed prominently, e.g. "8,000".
@@ -106,14 +118,39 @@ class ScoreHeader extends StatelessWidget {
   /// Which text the countdown row displays (normal / catchingUp / caughtUp).
   final CountdownTextMode countdownTextMode;
 
+  /// Whether to render the countdown row under the score circle.
+  ///
+  /// Defaults to true to preserve the current Challenges header behavior.
+  final bool showCountdown;
+
+  /// Vertical spacing density.
+  final ScoreHeaderDensity density;
+
+  /// Optional custom footer rendered below the gauge.
+  ///
+  /// When provided, this replaces the legacy CTA button slot.
+  final Widget? footer;
+
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final isCompact = density == ScoreHeaderDensity.compact;
+    final topGap = isCompact ? spacing.space24 : spacing.space32;
+    final countdownGap = isCompact ? spacing.space16 : spacing.space24;
+    final footerGap = isCompact
+        ? spacing.space16
+        : showCountdown
+            ? spacing.space32 + spacing.space8
+            : spacing.space24;
+    final actionGap =
+        isCompact ? spacing.space24 : spacing.space32 + spacing.space8;
+    final bottomGap =
+        isCompact ? spacing.space24 : spacing.space32 + spacing.space8;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(height: spacing.space32),
+        SizedBox(height: topGap),
         _ScoreCircle(
           score: score,
           scoreLabel: scoreLabel,
@@ -126,22 +163,25 @@ class ScoreHeader extends StatelessWidget {
           flashGlowIntensity: flashGlowIntensity,
           communityGlowIntensity: communityGlowIntensity,
         ),
-        SizedBox(height: spacing.space24),
-        _CountdownRow(
-          label: countdownLabel ?? 'ENDS IN',
-          time: countdownTime ?? '--',
-          opacity: countdownOpacity,
-          textMode: countdownTextMode,
-        ),
-        if (ctaLabel != null)
-          SizedBox(height: spacing.space32 + spacing.space8),
-        if (ctaLabel != null)
+        if (showCountdown) ...[
+          SizedBox(height: countdownGap),
+          _CountdownRow(
+            label: countdownLabel ?? 'ENDS IN',
+            time: countdownTime ?? '--',
+            opacity: countdownOpacity,
+            textMode: countdownTextMode,
+          ),
+        ],
+        if (footer != null) SizedBox(height: footerGap),
+        if (footer != null) footer!,
+        if (footer == null && ctaLabel != null) SizedBox(height: actionGap),
+        if (footer == null && ctaLabel != null)
           Button(
             label: ctaLabel!,
             onTap: onCtaTap,
             variant: ButtonVariant.outlined,
           ),
-        SizedBox(height: spacing.space32 + spacing.space8),
+        SizedBox(height: bottomGap),
       ],
     );
   }

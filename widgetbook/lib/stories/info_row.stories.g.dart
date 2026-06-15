@@ -45,19 +45,20 @@ class InfoRowStory extends Story<InfoRow, InfoRowArgs> {
     StoryWidgetBuilder<InfoRow, InfoRowArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? InfoRowArgs(),
-          builder: builder ??
-              (context, args) => InfoRow(
-                    key: args.key,
-                    label: args.label,
-                    value: args.value,
-                    valueStyle: args.valueStyle,
-                    trailing: args.trailing,
-                    onTap: args.onTap,
-                    showDivider: args.showDivider,
-                    contentPadding: args.contentPadding,
-                  ),
-        );
+         args: args ?? InfoRowArgs(),
+         builder:
+             builder ??
+             (context, args) => InfoRow(
+               key: args.key,
+               label: args.label,
+               value: args.value,
+               valueStyle: args.valueStyle,
+               trailing: args.trailing,
+               onTap: args.onTap,
+               showDivider: args.showDivider,
+               contentPadding: args.contentPadding,
+             ),
+       );
 }
 
 class InfoRowArgs extends StoryArgs<InfoRow> {
@@ -70,22 +71,22 @@ class InfoRowArgs extends StoryArgs<InfoRow> {
     Arg<void Function()?>? onTap,
     Arg<bool>? showDivider,
     Arg<EdgeInsetsGeometry?>? contentPadding,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.labelArg = $initArg('label', label, StringArg(''))!,
-        this.valueArg = $initArg('value', value, StringArg(''))!,
-        this.valueStyleArg = $initArg('valueStyle', valueStyle, null),
-        this.trailingArg = $initArg('trailing', trailing, null),
-        this.onTapArg = $initArg('onTap', onTap, null),
-        this.showDividerArg = $initArg(
-          'showDivider',
-          showDivider,
-          BoolArg(true),
-        )!,
-        this.contentPaddingArg = $initArg(
-          'contentPadding',
-          contentPadding,
-          null,
-        );
+  }) : this.keyArg = $initArg('key', key, null),
+       this.labelArg = $initArg('label', label, StringArg(''))!,
+       this.valueArg = $initArg('value', value, StringArg(''))!,
+       this.valueStyleArg = $initArg('valueStyle', valueStyle, null),
+       this.trailingArg = $initArg('trailing', trailing, null),
+       this.onTapArg = $initArg('onTap', onTap, null),
+       this.showDividerArg = $initArg(
+         'showDivider',
+         showDivider,
+         BoolArg(true),
+       )!,
+       this.contentPaddingArg = $initArg(
+         'contentPadding',
+         contentPadding,
+         null,
+       );
 
   InfoRowArgs.fixed({
     Key? key,
@@ -96,15 +97,16 @@ class InfoRowArgs extends StoryArgs<InfoRow> {
     void Function()? onTap,
     bool showDivider = true,
     EdgeInsetsGeometry? contentPadding,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.labelArg = Arg.fixed(label),
-        this.valueArg = Arg.fixed(value),
-        this.valueStyleArg = valueStyle == null ? null : Arg.fixed(valueStyle),
-        this.trailingArg = trailing == null ? null : Arg.fixed(trailing),
-        this.onTapArg = onTap == null ? null : Arg.fixed(onTap),
-        this.showDividerArg = Arg.fixed(showDivider),
-        this.contentPaddingArg =
-            contentPadding == null ? null : Arg.fixed(contentPadding);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.labelArg = Arg.fixed(label),
+       this.valueArg = Arg.fixed(value),
+       this.valueStyleArg = valueStyle == null ? null : Arg.fixed(valueStyle),
+       this.trailingArg = trailing == null ? null : Arg.fixed(trailing),
+       this.onTapArg = onTap == null ? null : Arg.fixed(onTap),
+       this.showDividerArg = Arg.fixed(showDivider),
+       this.contentPaddingArg = contentPadding == null
+           ? null
+           : Arg.fixed(contentPadding);
 
   final Arg<Key?>? keyArg;
 
@@ -140,13 +142,13 @@ class InfoRowArgs extends StoryArgs<InfoRow> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        labelArg,
-        valueArg,
-        valueStyleArg,
-        trailingArg,
-        onTapArg,
-        showDividerArg,
-        contentPaddingArg,
-      ];
+    keyArg,
+    labelArg,
+    valueArg,
+    valueStyleArg,
+    trailingArg,
+    onTapArg,
+    showDividerArg,
+    contentPaddingArg,
+  ];
 }

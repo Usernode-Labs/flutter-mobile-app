@@ -18,22 +18,22 @@ typedef _Story = ZkIdentityStatusCardStory;
 typedef _Args = ZkIdentityStatusCardArgs;
 final ZkIdentityStatusCardComponent =
     Component<ZkIdentityStatusCard, ZkIdentityStatusCardArgs>(
-  name: meta.name ?? 'ZkIdentityStatusCard',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''A card showing proof detail rows as [ListTile]s with [IconBadge] leading.
+      name: meta.name ?? 'ZkIdentityStatusCard',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''A card showing proof detail rows as [ListTile]s with [IconBadge] leading.
 
 Follows the same pattern as [BlockProductionStatusCard]:
 [AppCard] → [Column] of [ListTile] rows.
 
 Presentation-only — takes all state via constructor params.''',
-  stories: [$Default..$generatedName = 'Default'],
-);
-typedef ZkIdentityStatusCardScenario
-    = Scenario<ZkIdentityStatusCard, ZkIdentityStatusCardArgs>;
-typedef ZkIdentityStatusCardDefaults
-    = Defaults<ZkIdentityStatusCard, ZkIdentityStatusCardArgs>;
+      stories: [$Default..$generatedName = 'Default'],
+    );
+typedef ZkIdentityStatusCardScenario =
+    Scenario<ZkIdentityStatusCard, ZkIdentityStatusCardArgs>;
+typedef ZkIdentityStatusCardDefaults =
+    Defaults<ZkIdentityStatusCard, ZkIdentityStatusCardArgs>;
 
 class ZkIdentityStatusCardStory
     extends Story<ZkIdentityStatusCard, ZkIdentityStatusCardArgs> {
@@ -45,22 +45,23 @@ class ZkIdentityStatusCardStory
     StoryWidgetBuilder<ZkIdentityStatusCard, ZkIdentityStatusCardArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) =>
-                  ZkIdentityStatusCard(key: args.key, data: args.data),
-        );
+         builder:
+             builder ??
+             (context, args) =>
+                 ZkIdentityStatusCard(key: args.key, data: args.data),
+       );
 }
 
 class ZkIdentityStatusCardArgs extends StoryArgs<ZkIdentityStatusCard> {
   ZkIdentityStatusCardArgs({
     Arg<Key?>? key,
     required Arg<ZkIdentityStatusData> data,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.dataArg = $initArg('data', data, null)!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.dataArg = $initArg('data', data, null)!;
 
   ZkIdentityStatusCardArgs.fixed({Key? key, required ZkIdentityStatusData data})
-      : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.dataArg = Arg.fixed(data);
+    : this.keyArg = key == null ? null : Arg.fixed(key),
+      this.dataArg = Arg.fixed(data);
 
   final Arg<Key?>? keyArg;
 

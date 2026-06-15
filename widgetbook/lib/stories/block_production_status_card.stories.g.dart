@@ -11,30 +11,30 @@ part of 'block_production_status_card.stories.dart';
 // StoryGenerator
 // **************************************************************************
 
-typedef _Component
-    = Component<BlockProductionStatusCard, BlockProductionStatusCardArgs>;
+typedef _Component =
+    Component<BlockProductionStatusCard, BlockProductionStatusCardArgs>;
 typedef _Scenario = BlockProductionStatusCardScenario;
 typedef _Defaults = BlockProductionStatusCardDefaults;
 typedef _Story = BlockProductionStatusCardStory;
 typedef _Args = BlockProductionStatusCardArgs;
 final BlockProductionStatusCardComponent =
     Component<BlockProductionStatusCard, BlockProductionStatusCardArgs>(
-  name: meta.name ?? 'BlockProductionStatusCard',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''A card showing 4 [ListTile] rows for block production pipeline readiness.
+      name: meta.name ?? 'BlockProductionStatusCard',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''A card showing 4 [ListTile] rows for block production pipeline readiness.
 
 Presentation-only — takes all state via constructor params.''',
-  stories: [
-    $Default..$generatedName = 'Default',
-    $WithMissedBlocks..$generatedName = 'WithMissedBlocks',
-  ],
-);
-typedef BlockProductionStatusCardScenario
-    = Scenario<BlockProductionStatusCard, BlockProductionStatusCardArgs>;
-typedef BlockProductionStatusCardDefaults
-    = Defaults<BlockProductionStatusCard, BlockProductionStatusCardArgs>;
+      stories: [
+        $Default..$generatedName = 'Default',
+        $WithMissedBlocks..$generatedName = 'WithMissedBlocks',
+      ],
+    );
+typedef BlockProductionStatusCardScenario =
+    Scenario<BlockProductionStatusCard, BlockProductionStatusCardArgs>;
+typedef BlockProductionStatusCardDefaults =
+    Defaults<BlockProductionStatusCard, BlockProductionStatusCardArgs>;
 
 class BlockProductionStatusCardStory
     extends Story<BlockProductionStatusCard, BlockProductionStatusCardArgs> {
@@ -43,15 +43,18 @@ class BlockProductionStatusCardStory
     super.setup,
     super.modes,
     required super.args,
-    StoryWidgetBuilder<BlockProductionStatusCard,
-            BlockProductionStatusCardArgs>?
-        builder,
+    StoryWidgetBuilder<
+      BlockProductionStatusCard,
+      BlockProductionStatusCardArgs
+    >?
+    builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) =>
-                  BlockProductionStatusCard(key: args.key, data: args.data),
-        );
+         builder:
+             builder ??
+             (context, args) =>
+                 BlockProductionStatusCard(key: args.key, data: args.data),
+       );
 }
 
 class BlockProductionStatusCardArgs
@@ -59,14 +62,14 @@ class BlockProductionStatusCardArgs
   BlockProductionStatusCardArgs({
     Arg<Key?>? key,
     required Arg<BlockProductionStatusData> data,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.dataArg = $initArg('data', data, null)!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.dataArg = $initArg('data', data, null)!;
 
   BlockProductionStatusCardArgs.fixed({
     Key? key,
     required BlockProductionStatusData data,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.dataArg = Arg.fixed(data);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.dataArg = Arg.fixed(data);
 
   final Arg<Key?>? keyArg;
 

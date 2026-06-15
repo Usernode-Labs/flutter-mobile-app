@@ -43,13 +43,14 @@ class SheetLayoutStory extends Story<SheetLayout, SheetLayoutArgs> {
     StoryWidgetBuilder<SheetLayout, SheetLayoutArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => SheetLayout(
-                    key: args.key,
-                    title: args.title,
-                    child: args.child,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => SheetLayout(
+               key: args.key,
+               title: args.title,
+               child: args.child,
+             ),
+       );
 }
 
 class SheetLayoutArgs extends StoryArgs<SheetLayout> {
@@ -57,14 +58,14 @@ class SheetLayoutArgs extends StoryArgs<SheetLayout> {
     Arg<Key?>? key,
     Arg<String?>? title,
     required Arg<Widget> child,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.titleArg = $initArg('title', title, NullableStringArg(null))!,
-        this.childArg = $initArg('child', child, null)!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.titleArg = $initArg('title', title, NullableStringArg(null))!,
+       this.childArg = $initArg('child', child, null)!;
 
   SheetLayoutArgs.fixed({Key? key, String? title = null, required Widget child})
-      : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.titleArg = title == null ? null : Arg.fixed(title),
-        this.childArg = Arg.fixed(child);
+    : this.keyArg = key == null ? null : Arg.fixed(key),
+      this.titleArg = title == null ? null : Arg.fixed(title),
+      this.childArg = Arg.fixed(child);
 
   final Arg<Key?>? keyArg;
 

@@ -18,10 +18,10 @@ typedef _Story = DropdownChipStory;
 typedef _Args = DropdownChipStoryModelArgs;
 final DropdownChipComponent =
     Component<DropdownChip, DropdownChipStoryModelArgs>(
-  name: meta.name ?? 'DropdownChip',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment: r'''A lean filter chip with a dropdown chevron.
+      name: meta.name ?? 'DropdownChip',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment: r'''A lean filter chip with a dropdown chevron.
 
 Used for filter rows where the user taps to select from options via a
 bottom sheet or menu. Supports three visual variants ([ChipVariant]) and
@@ -29,16 +29,16 @@ two sizes ([ChipSize]), mirroring the [Button] widget's organization.
 
 Presentation-only — the screen manages selection state and passes the
 current label.''',
-  stories: [
-    $Default..$generatedName = 'Default',
-    $Surface..$generatedName = 'Surface',
-    $Disabled..$generatedName = 'Disabled',
-  ],
-);
-typedef DropdownChipScenario
-    = Scenario<DropdownChip, DropdownChipStoryModelArgs>;
-typedef DropdownChipDefaults
-    = Defaults<DropdownChip, DropdownChipStoryModelArgs>;
+      stories: [
+        $Default..$generatedName = 'Default',
+        $Surface..$generatedName = 'Surface',
+        $Disabled..$generatedName = 'Disabled',
+      ],
+    );
+typedef DropdownChipScenario =
+    Scenario<DropdownChip, DropdownChipStoryModelArgs>;
+typedef DropdownChipDefaults =
+    Defaults<DropdownChip, DropdownChipStoryModelArgs>;
 
 class DropdownChipStory
     extends Story<DropdownChip, DropdownChipStoryModelArgs> {
@@ -50,9 +50,9 @@ class DropdownChipStory
     StoryWidgetBuilder<DropdownChip, DropdownChipStoryModelArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? DropdownChipStoryModelArgs(),
-          builder: builder ?? defaults.builder!,
-        );
+         args: args ?? DropdownChipStoryModelArgs(),
+         builder: builder ?? defaults.builder!,
+       );
 }
 
 class DropdownChipStoryModelArgs extends StoryArgs<DropdownChip> {
@@ -64,26 +64,25 @@ class DropdownChipStoryModelArgs extends StoryArgs<DropdownChip> {
     Arg<ChipSize>? size,
     Arg<bool>? enabled,
     Arg<Color?>? borderColor,
-  })  : this.labelArg = $initArg('label', label, StringArg('Season 2'))!,
-        this.onTapArg = $initArg('onTap', onTap, null),
-        this.expandedArg = $initArg('expanded', expanded, BoolArg(false))!,
-        this.variantArg = $initArg(
-          'variant',
-          variant,
-          EnumArg<ChipVariant>(ChipVariant.outlined,
-              values: ChipVariant.values),
-        )!,
-        this.sizeArg = $initArg(
-          'size',
-          size,
-          EnumArg<ChipSize>(ChipSize.regular, values: ChipSize.values),
-        )!,
-        this.enabledArg = $initArg('enabled', enabled, BoolArg(true))!,
-        this.borderColorArg = $initArg(
-          'borderColor',
-          borderColor,
-          NullableColorArg(null),
-        )!;
+  }) : this.labelArg = $initArg('label', label, StringArg('Season 2'))!,
+       this.onTapArg = $initArg('onTap', onTap, null),
+       this.expandedArg = $initArg('expanded', expanded, BoolArg(false))!,
+       this.variantArg = $initArg(
+         'variant',
+         variant,
+         EnumArg<ChipVariant>(ChipVariant.outlined, values: ChipVariant.values),
+       )!,
+       this.sizeArg = $initArg(
+         'size',
+         size,
+         EnumArg<ChipSize>(ChipSize.regular, values: ChipSize.values),
+       )!,
+       this.enabledArg = $initArg('enabled', enabled, BoolArg(true))!,
+       this.borderColorArg = $initArg(
+         'borderColor',
+         borderColor,
+         NullableColorArg(null),
+       )!;
 
   DropdownChipStoryModelArgs.fixed({
     String label = 'Season 2',
@@ -93,14 +92,15 @@ class DropdownChipStoryModelArgs extends StoryArgs<DropdownChip> {
     ChipSize size = ChipSize.regular,
     bool enabled = true,
     Color? borderColor = null,
-  })  : this.labelArg = Arg.fixed(label),
-        this.onTapArg = onTap == null ? null : Arg.fixed(onTap),
-        this.expandedArg = Arg.fixed(expanded),
-        this.variantArg = Arg.fixed(variant),
-        this.sizeArg = Arg.fixed(size),
-        this.enabledArg = Arg.fixed(enabled),
-        this.borderColorArg =
-            borderColor == null ? null : Arg.fixed(borderColor);
+  }) : this.labelArg = Arg.fixed(label),
+       this.onTapArg = onTap == null ? null : Arg.fixed(onTap),
+       this.expandedArg = Arg.fixed(expanded),
+       this.variantArg = Arg.fixed(variant),
+       this.sizeArg = Arg.fixed(size),
+       this.enabledArg = Arg.fixed(enabled),
+       this.borderColorArg = borderColor == null
+           ? null
+           : Arg.fixed(borderColor);
 
   final Arg<String> labelArg;
 
@@ -132,12 +132,12 @@ class DropdownChipStoryModelArgs extends StoryArgs<DropdownChip> {
 
   @override
   List<Arg?> get list => [
-        labelArg,
-        onTapArg,
-        expandedArg,
-        variantArg,
-        sizeArg,
-        enabledArg,
-        borderColorArg,
-      ];
+    labelArg,
+    onTapArg,
+    expandedArg,
+    variantArg,
+    sizeArg,
+    enabledArg,
+    borderColorArg,
+  ];
 }

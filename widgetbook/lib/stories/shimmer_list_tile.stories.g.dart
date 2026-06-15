@@ -16,8 +16,7 @@ typedef _Scenario = ShimmerListTileScenario;
 typedef _Defaults = ShimmerListTileDefaults;
 typedef _Story = ShimmerListTileStory;
 typedef _Args = ShimmerListTileArgs;
-final ShimmerListTileComponent =
-    Component<ShimmerListTile, ShimmerListTileArgs>(
+final ShimmerListTileComponent = Component<ShimmerListTile, ShimmerListTileArgs>(
   name: meta.name ?? 'ShimmerListTile',
   path: meta.path ?? 'stories',
   docsBuilder: meta.docsBuilder,
@@ -36,10 +35,10 @@ with real tiles.''',
     $NoTrailing..$generatedName = 'NoTrailing',
   ],
 );
-typedef ShimmerListTileScenario
-    = Scenario<ShimmerListTile, ShimmerListTileArgs>;
-typedef ShimmerListTileDefaults
-    = Defaults<ShimmerListTile, ShimmerListTileArgs>;
+typedef ShimmerListTileScenario =
+    Scenario<ShimmerListTile, ShimmerListTileArgs>;
+typedef ShimmerListTileDefaults =
+    Defaults<ShimmerListTile, ShimmerListTileArgs>;
 
 class ShimmerListTileStory extends Story<ShimmerListTile, ShimmerListTileArgs> {
   ShimmerListTileStory({
@@ -50,14 +49,15 @@ class ShimmerListTileStory extends Story<ShimmerListTile, ShimmerListTileArgs> {
     StoryWidgetBuilder<ShimmerListTile, ShimmerListTileArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? ShimmerListTileArgs(),
-          builder: builder ??
-              (context, args) => ShimmerListTile(
-                    key: args.key,
-                    isThreeLine: args.isThreeLine,
-                    hasTrailing: args.hasTrailing,
-                  ),
-        );
+         args: args ?? ShimmerListTileArgs(),
+         builder:
+             builder ??
+             (context, args) => ShimmerListTile(
+               key: args.key,
+               isThreeLine: args.isThreeLine,
+               hasTrailing: args.hasTrailing,
+             ),
+       );
 }
 
 class ShimmerListTileArgs extends StoryArgs<ShimmerListTile> {
@@ -65,25 +65,25 @@ class ShimmerListTileArgs extends StoryArgs<ShimmerListTile> {
     Arg<Key?>? key,
     Arg<bool>? isThreeLine,
     Arg<bool>? hasTrailing,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.isThreeLineArg = $initArg(
-          'isThreeLine',
-          isThreeLine,
-          BoolArg(true),
-        )!,
-        this.hasTrailingArg = $initArg(
-          'hasTrailing',
-          hasTrailing,
-          BoolArg(true),
-        )!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.isThreeLineArg = $initArg(
+         'isThreeLine',
+         isThreeLine,
+         BoolArg(true),
+       )!,
+       this.hasTrailingArg = $initArg(
+         'hasTrailing',
+         hasTrailing,
+         BoolArg(true),
+       )!;
 
   ShimmerListTileArgs.fixed({
     Key? key,
     bool isThreeLine = true,
     bool hasTrailing = true,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.isThreeLineArg = Arg.fixed(isThreeLine),
-        this.hasTrailingArg = Arg.fixed(hasTrailing);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.isThreeLineArg = Arg.fixed(isThreeLine),
+       this.hasTrailingArg = Arg.fixed(hasTrailing);
 
   final Arg<Key?>? keyArg;
 

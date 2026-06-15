@@ -46,17 +46,18 @@ class BottomNavStory extends Story<BottomNav, BottomNavArgs> {
     StoryWidgetBuilder<BottomNav, BottomNavArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => BottomNav(
-                    key: args.key,
-                    items: args.items,
-                    selectedIndex: args.selectedIndex,
-                    onItemSelected: args.onItemSelected,
-                    onItemLongPress: args.onItemLongPress,
-                    longPressDuration: args.longPressDuration,
-                    topBorder: args.topBorder,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => BottomNav(
+               key: args.key,
+               items: args.items,
+               selectedIndex: args.selectedIndex,
+               onItemSelected: args.onItemSelected,
+               onItemLongPress: args.onItemLongPress,
+               longPressDuration: args.longPressDuration,
+               topBorder: args.topBorder,
+             ),
+       );
 }
 
 class BottomNavArgs extends StoryArgs<BottomNav> {
@@ -68,29 +69,29 @@ class BottomNavArgs extends StoryArgs<BottomNav> {
     Arg<void Function(int)?>? onItemLongPress,
     Arg<Duration>? longPressDuration,
     Arg<bool>? topBorder,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.itemsArg = $initArg('items', items, null)!,
-        this.selectedIndexArg = $initArg(
-          'selectedIndex',
-          selectedIndex,
-          IntArg(0),
-        )!,
-        this.onItemSelectedArg = $initArg(
-          'onItemSelected',
-          onItemSelected,
-          null,
-        ),
-        this.onItemLongPressArg = $initArg(
-          'onItemLongPress',
-          onItemLongPress,
-          null,
-        ),
-        this.longPressDurationArg = $initArg(
-          'longPressDuration',
-          longPressDuration,
-          DurationArg(const Duration(seconds: 3)),
-        )!,
-        this.topBorderArg = $initArg('topBorder', topBorder, BoolArg(true))!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.itemsArg = $initArg('items', items, null)!,
+       this.selectedIndexArg = $initArg(
+         'selectedIndex',
+         selectedIndex,
+         IntArg(0),
+       )!,
+       this.onItemSelectedArg = $initArg(
+         'onItemSelected',
+         onItemSelected,
+         null,
+       ),
+       this.onItemLongPressArg = $initArg(
+         'onItemLongPress',
+         onItemLongPress,
+         null,
+       ),
+       this.longPressDurationArg = $initArg(
+         'longPressDuration',
+         longPressDuration,
+         DurationArg(const Duration(seconds: 3)),
+       )!,
+       this.topBorderArg = $initArg('topBorder', topBorder, BoolArg(true))!;
 
   BottomNavArgs.fixed({
     Key? key,
@@ -100,15 +101,17 @@ class BottomNavArgs extends StoryArgs<BottomNav> {
     void Function(int)? onItemLongPress,
     Duration longPressDuration = const Duration(seconds: 3),
     bool topBorder = true,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.itemsArg = Arg.fixed(items),
-        this.selectedIndexArg = Arg.fixed(selectedIndex),
-        this.onItemSelectedArg =
-            onItemSelected == null ? null : Arg.fixed(onItemSelected),
-        this.onItemLongPressArg =
-            onItemLongPress == null ? null : Arg.fixed(onItemLongPress),
-        this.longPressDurationArg = Arg.fixed(longPressDuration),
-        this.topBorderArg = Arg.fixed(topBorder);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.itemsArg = Arg.fixed(items),
+       this.selectedIndexArg = Arg.fixed(selectedIndex),
+       this.onItemSelectedArg = onItemSelected == null
+           ? null
+           : Arg.fixed(onItemSelected),
+       this.onItemLongPressArg = onItemLongPress == null
+           ? null
+           : Arg.fixed(onItemLongPress),
+       this.longPressDurationArg = Arg.fixed(longPressDuration),
+       this.topBorderArg = Arg.fixed(topBorder);
 
   final Arg<Key?>? keyArg;
 
@@ -140,12 +143,12 @@ class BottomNavArgs extends StoryArgs<BottomNav> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        itemsArg,
-        selectedIndexArg,
-        onItemSelectedArg,
-        onItemLongPressArg,
-        longPressDurationArg,
-        topBorderArg,
-      ];
+    keyArg,
+    itemsArg,
+    selectedIndexArg,
+    onItemSelectedArg,
+    onItemLongPressArg,
+    longPressDurationArg,
+    topBorderArg,
+  ];
 }

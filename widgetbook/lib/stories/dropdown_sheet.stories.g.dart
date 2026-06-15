@@ -18,21 +18,21 @@ typedef _Story = DropdownSheetDemoStory;
 typedef _Args = DropdownSheetDemoArgs;
 final DropdownSheetDemoComponent =
     Component<DropdownSheetDemo, DropdownSheetDemoArgs>(
-  name: meta.name ?? 'DropdownSheetDemo',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''Wrapper widget for showcasing showDropdownSheet() in Widgetbook.
+      name: meta.name ?? 'DropdownSheetDemo',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''Wrapper widget for showcasing showDropdownSheet() in Widgetbook.
 Since showDropdownSheet is a function, not a widget, we wrap it.''',
-  stories: [
-    $Default..$generatedName = 'Default',
-    $WithDivider..$generatedName = 'WithDivider',
-  ],
-);
-typedef DropdownSheetDemoScenario
-    = Scenario<DropdownSheetDemo, DropdownSheetDemoArgs>;
-typedef DropdownSheetDemoDefaults
-    = Defaults<DropdownSheetDemo, DropdownSheetDemoArgs>;
+      stories: [
+        $Default..$generatedName = 'Default',
+        $WithDivider..$generatedName = 'WithDivider',
+      ],
+    );
+typedef DropdownSheetDemoScenario =
+    Scenario<DropdownSheetDemo, DropdownSheetDemoArgs>;
+typedef DropdownSheetDemoDefaults =
+    Defaults<DropdownSheetDemo, DropdownSheetDemoArgs>;
 
 class DropdownSheetDemoStory
     extends Story<DropdownSheetDemo, DropdownSheetDemoArgs> {
@@ -44,15 +44,16 @@ class DropdownSheetDemoStory
     StoryWidgetBuilder<DropdownSheetDemo, DropdownSheetDemoArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => DropdownSheetDemo(
-                    key: args.key,
-                    labels: args.labels,
-                    title: args.title,
-                    selectedIndex: args.selectedIndex,
-                    dividerAfterIndex: args.dividerAfterIndex,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => DropdownSheetDemo(
+               key: args.key,
+               labels: args.labels,
+               title: args.title,
+               selectedIndex: args.selectedIndex,
+               dividerAfterIndex: args.dividerAfterIndex,
+             ),
+       );
 }
 
 class DropdownSheetDemoArgs extends StoryArgs<DropdownSheetDemo> {
@@ -62,19 +63,19 @@ class DropdownSheetDemoArgs extends StoryArgs<DropdownSheetDemo> {
     Arg<String?>? title,
     Arg<int?>? selectedIndex,
     Arg<int?>? dividerAfterIndex,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.labelsArg = $initArg('labels', labels, null)!,
-        this.titleArg = $initArg('title', title, NullableStringArg(null))!,
-        this.selectedIndexArg = $initArg(
-          'selectedIndex',
-          selectedIndex,
-          NullableIntArg(null),
-        )!,
-        this.dividerAfterIndexArg = $initArg(
-          'dividerAfterIndex',
-          dividerAfterIndex,
-          NullableIntArg(null),
-        )!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.labelsArg = $initArg('labels', labels, null)!,
+       this.titleArg = $initArg('title', title, NullableStringArg(null))!,
+       this.selectedIndexArg = $initArg(
+         'selectedIndex',
+         selectedIndex,
+         NullableIntArg(null),
+       )!,
+       this.dividerAfterIndexArg = $initArg(
+         'dividerAfterIndex',
+         dividerAfterIndex,
+         NullableIntArg(null),
+       )!;
 
   DropdownSheetDemoArgs.fixed({
     Key? key,
@@ -82,13 +83,15 @@ class DropdownSheetDemoArgs extends StoryArgs<DropdownSheetDemo> {
     String? title = null,
     int? selectedIndex = null,
     int? dividerAfterIndex = null,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.labelsArg = Arg.fixed(labels),
-        this.titleArg = title == null ? null : Arg.fixed(title),
-        this.selectedIndexArg =
-            selectedIndex == null ? null : Arg.fixed(selectedIndex),
-        this.dividerAfterIndexArg =
-            dividerAfterIndex == null ? null : Arg.fixed(dividerAfterIndex);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.labelsArg = Arg.fixed(labels),
+       this.titleArg = title == null ? null : Arg.fixed(title),
+       this.selectedIndexArg = selectedIndex == null
+           ? null
+           : Arg.fixed(selectedIndex),
+       this.dividerAfterIndexArg = dividerAfterIndex == null
+           ? null
+           : Arg.fixed(dividerAfterIndex);
 
   final Arg<Key?>? keyArg;
 
@@ -112,10 +115,10 @@ class DropdownSheetDemoArgs extends StoryArgs<DropdownSheetDemo> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        labelsArg,
-        titleArg,
-        selectedIndexArg,
-        dividerAfterIndexArg,
-      ];
+    keyArg,
+    labelsArg,
+    titleArg,
+    selectedIndexArg,
+    dividerAfterIndexArg,
+  ];
 }

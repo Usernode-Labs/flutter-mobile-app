@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/button.dart';
 
 part 'button.stories.g.dart';
 
-const meta = Meta<Button>(path: 'widgets/buttons');
+const meta = Meta<Button>(path: 'live app/widgets/buttons');
 
 final $Playground = _Story(
   name: 'Playground',

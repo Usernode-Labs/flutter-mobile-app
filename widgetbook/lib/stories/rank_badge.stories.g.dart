@@ -45,20 +45,21 @@ class RankBadgeStory extends Story<RankBadge, RankBadgeArgs> {
     StoryWidgetBuilder<RankBadge, RankBadgeArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? RankBadgeArgs(),
-          builder: builder ??
-              (context, args) => RankBadge(key: args.key, rank: args.rank),
-        );
+         args: args ?? RankBadgeArgs(),
+         builder:
+             builder ??
+             (context, args) => RankBadge(key: args.key, rank: args.rank),
+       );
 }
 
 class RankBadgeArgs extends StoryArgs<RankBadge> {
   RankBadgeArgs({Arg<Key?>? key, Arg<String>? rank})
-      : this.keyArg = $initArg('key', key, null),
-        this.rankArg = $initArg('rank', rank, StringArg(''))!;
+    : this.keyArg = $initArg('key', key, null),
+      this.rankArg = $initArg('rank', rank, StringArg(''))!;
 
   RankBadgeArgs.fixed({Key? key, String rank = ''})
-      : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.rankArg = Arg.fixed(rank);
+    : this.keyArg = key == null ? null : Arg.fixed(key),
+      this.rankArg = Arg.fixed(rank);
 
   final Arg<Key?>? keyArg;
 

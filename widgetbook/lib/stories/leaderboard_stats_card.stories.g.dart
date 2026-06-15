@@ -18,11 +18,11 @@ typedef _Story = LeaderboardStatsCardStory;
 typedef _Args = LeaderboardStatsCardArgs;
 final LeaderboardStatsCardComponent =
     Component<LeaderboardStatsCard, LeaderboardStatsCardArgs>(
-  name: meta.name ?? 'LeaderboardStatsCard',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''A stats summary card with dot-matrix distribution chart for the leaderboard.
+      name: meta.name ?? 'LeaderboardStatsCard',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''A stats summary card with dot-matrix distribution chart for the leaderboard.
 
 Composes three private sub-widgets:
 - `_StatBox` — bordered container with uppercase label + monospace value
@@ -31,12 +31,12 @@ Composes three private sub-widgets:
 
 Presentation-only — takes all state via constructor params.
 Manages local UI state for bucket selection (tap to explore).''',
-  stories: [$Default..$generatedName = 'Default'],
-);
-typedef LeaderboardStatsCardScenario
-    = Scenario<LeaderboardStatsCard, LeaderboardStatsCardArgs>;
-typedef LeaderboardStatsCardDefaults
-    = Defaults<LeaderboardStatsCard, LeaderboardStatsCardArgs>;
+      stories: [$Default..$generatedName = 'Default'],
+    );
+typedef LeaderboardStatsCardScenario =
+    Scenario<LeaderboardStatsCard, LeaderboardStatsCardArgs>;
+typedef LeaderboardStatsCardDefaults =
+    Defaults<LeaderboardStatsCard, LeaderboardStatsCardArgs>;
 
 class LeaderboardStatsCardStory
     extends Story<LeaderboardStatsCard, LeaderboardStatsCardArgs> {
@@ -48,24 +48,25 @@ class LeaderboardStatsCardStory
     StoryWidgetBuilder<LeaderboardStatsCard, LeaderboardStatsCardArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => LeaderboardStatsCard(
-                    key: args.key,
-                    totalPoints: args.totalPoints,
-                    totalPointsLabel: args.totalPointsLabel,
-                    rank: args.rank,
-                    rankLabel: args.rankLabel,
-                    distributionCounts: args.distributionCounts,
-                    userBucketIndex: args.userBucketIndex,
-                    minScoreLabel: args.minScoreLabel,
-                    userScoreLabel: args.userScoreLabel,
-                    maxScoreLabel: args.maxScoreLabel,
-                    calloutTitle: args.calloutTitle,
-                    calloutBody: args.calloutBody,
-                    bucketScoreLabels: args.bucketScoreLabels,
-                    onBucketTapped: args.onBucketTapped,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => LeaderboardStatsCard(
+               key: args.key,
+               totalPoints: args.totalPoints,
+               totalPointsLabel: args.totalPointsLabel,
+               rank: args.rank,
+               rankLabel: args.rankLabel,
+               distributionCounts: args.distributionCounts,
+               userBucketIndex: args.userBucketIndex,
+               minScoreLabel: args.minScoreLabel,
+               userScoreLabel: args.userScoreLabel,
+               maxScoreLabel: args.maxScoreLabel,
+               calloutTitle: args.calloutTitle,
+               calloutBody: args.calloutBody,
+               bucketScoreLabels: args.bucketScoreLabels,
+               onBucketTapped: args.onBucketTapped,
+             ),
+       );
 }
 
 class LeaderboardStatsCardArgs extends StoryArgs<LeaderboardStatsCard> {
@@ -84,64 +85,64 @@ class LeaderboardStatsCardArgs extends StoryArgs<LeaderboardStatsCard> {
     Arg<String?>? calloutBody,
     Arg<List<String>?>? bucketScoreLabels,
     Arg<void Function(int?)?>? onBucketTapped,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.totalPointsArg = $initArg(
-          'totalPoints',
-          totalPoints,
-          StringArg(''),
-        )!,
-        this.totalPointsLabelArg = $initArg(
-          'totalPointsLabel',
-          totalPointsLabel,
-          StringArg(''),
-        )!,
-        this.rankArg = $initArg('rank', rank, StringArg(''))!,
-        this.rankLabelArg = $initArg('rankLabel', rankLabel, StringArg(''))!,
-        this.distributionCountsArg = $initArg(
-          'distributionCounts',
-          distributionCounts,
-          null,
-        )!,
-        this.userBucketIndexArg = $initArg(
-          'userBucketIndex',
-          userBucketIndex,
-          IntArg(0),
-        )!,
-        this.minScoreLabelArg = $initArg(
-          'minScoreLabel',
-          minScoreLabel,
-          NullableStringArg(null),
-        )!,
-        this.userScoreLabelArg = $initArg(
-          'userScoreLabel',
-          userScoreLabel,
-          NullableStringArg(null),
-        )!,
-        this.maxScoreLabelArg = $initArg(
-          'maxScoreLabel',
-          maxScoreLabel,
-          NullableStringArg(null),
-        )!,
-        this.calloutTitleArg = $initArg(
-          'calloutTitle',
-          calloutTitle,
-          NullableStringArg(null),
-        )!,
-        this.calloutBodyArg = $initArg(
-          'calloutBody',
-          calloutBody,
-          NullableStringArg(null),
-        )!,
-        this.bucketScoreLabelsArg = $initArg(
-          'bucketScoreLabels',
-          bucketScoreLabels,
-          null,
-        ),
-        this.onBucketTappedArg = $initArg(
-          'onBucketTapped',
-          onBucketTapped,
-          null,
-        );
+  }) : this.keyArg = $initArg('key', key, null),
+       this.totalPointsArg = $initArg(
+         'totalPoints',
+         totalPoints,
+         StringArg(''),
+       )!,
+       this.totalPointsLabelArg = $initArg(
+         'totalPointsLabel',
+         totalPointsLabel,
+         StringArg(''),
+       )!,
+       this.rankArg = $initArg('rank', rank, StringArg(''))!,
+       this.rankLabelArg = $initArg('rankLabel', rankLabel, StringArg(''))!,
+       this.distributionCountsArg = $initArg(
+         'distributionCounts',
+         distributionCounts,
+         null,
+       )!,
+       this.userBucketIndexArg = $initArg(
+         'userBucketIndex',
+         userBucketIndex,
+         IntArg(0),
+       )!,
+       this.minScoreLabelArg = $initArg(
+         'minScoreLabel',
+         minScoreLabel,
+         NullableStringArg(null),
+       )!,
+       this.userScoreLabelArg = $initArg(
+         'userScoreLabel',
+         userScoreLabel,
+         NullableStringArg(null),
+       )!,
+       this.maxScoreLabelArg = $initArg(
+         'maxScoreLabel',
+         maxScoreLabel,
+         NullableStringArg(null),
+       )!,
+       this.calloutTitleArg = $initArg(
+         'calloutTitle',
+         calloutTitle,
+         NullableStringArg(null),
+       )!,
+       this.calloutBodyArg = $initArg(
+         'calloutBody',
+         calloutBody,
+         NullableStringArg(null),
+       )!,
+       this.bucketScoreLabelsArg = $initArg(
+         'bucketScoreLabels',
+         bucketScoreLabels,
+         null,
+       ),
+       this.onBucketTappedArg = $initArg(
+         'onBucketTapped',
+         onBucketTapped,
+         null,
+       );
 
   LeaderboardStatsCardArgs.fixed({
     Key? key,
@@ -158,27 +159,34 @@ class LeaderboardStatsCardArgs extends StoryArgs<LeaderboardStatsCard> {
     String? calloutBody = null,
     List<String>? bucketScoreLabels,
     void Function(int?)? onBucketTapped,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.totalPointsArg = Arg.fixed(totalPoints),
-        this.totalPointsLabelArg = Arg.fixed(totalPointsLabel),
-        this.rankArg = Arg.fixed(rank),
-        this.rankLabelArg = Arg.fixed(rankLabel),
-        this.distributionCountsArg = Arg.fixed(distributionCounts),
-        this.userBucketIndexArg = Arg.fixed(userBucketIndex),
-        this.minScoreLabelArg =
-            minScoreLabel == null ? null : Arg.fixed(minScoreLabel),
-        this.userScoreLabelArg =
-            userScoreLabel == null ? null : Arg.fixed(userScoreLabel),
-        this.maxScoreLabelArg =
-            maxScoreLabel == null ? null : Arg.fixed(maxScoreLabel),
-        this.calloutTitleArg =
-            calloutTitle == null ? null : Arg.fixed(calloutTitle),
-        this.calloutBodyArg =
-            calloutBody == null ? null : Arg.fixed(calloutBody),
-        this.bucketScoreLabelsArg =
-            bucketScoreLabels == null ? null : Arg.fixed(bucketScoreLabels),
-        this.onBucketTappedArg =
-            onBucketTapped == null ? null : Arg.fixed(onBucketTapped);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.totalPointsArg = Arg.fixed(totalPoints),
+       this.totalPointsLabelArg = Arg.fixed(totalPointsLabel),
+       this.rankArg = Arg.fixed(rank),
+       this.rankLabelArg = Arg.fixed(rankLabel),
+       this.distributionCountsArg = Arg.fixed(distributionCounts),
+       this.userBucketIndexArg = Arg.fixed(userBucketIndex),
+       this.minScoreLabelArg = minScoreLabel == null
+           ? null
+           : Arg.fixed(minScoreLabel),
+       this.userScoreLabelArg = userScoreLabel == null
+           ? null
+           : Arg.fixed(userScoreLabel),
+       this.maxScoreLabelArg = maxScoreLabel == null
+           ? null
+           : Arg.fixed(maxScoreLabel),
+       this.calloutTitleArg = calloutTitle == null
+           ? null
+           : Arg.fixed(calloutTitle),
+       this.calloutBodyArg = calloutBody == null
+           ? null
+           : Arg.fixed(calloutBody),
+       this.bucketScoreLabelsArg = bucketScoreLabels == null
+           ? null
+           : Arg.fixed(bucketScoreLabels),
+       this.onBucketTappedArg = onBucketTapped == null
+           ? null
+           : Arg.fixed(onBucketTapped);
 
   final Arg<Key?>? keyArg;
 
@@ -238,19 +246,19 @@ class LeaderboardStatsCardArgs extends StoryArgs<LeaderboardStatsCard> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        totalPointsArg,
-        totalPointsLabelArg,
-        rankArg,
-        rankLabelArg,
-        distributionCountsArg,
-        userBucketIndexArg,
-        minScoreLabelArg,
-        userScoreLabelArg,
-        maxScoreLabelArg,
-        calloutTitleArg,
-        calloutBodyArg,
-        bucketScoreLabelsArg,
-        onBucketTappedArg,
-      ];
+    keyArg,
+    totalPointsArg,
+    totalPointsLabelArg,
+    rankArg,
+    rankLabelArg,
+    distributionCountsArg,
+    userBucketIndexArg,
+    minScoreLabelArg,
+    userScoreLabelArg,
+    maxScoreLabelArg,
+    calloutTitleArg,
+    calloutBodyArg,
+    bucketScoreLabelsArg,
+    onBucketTappedArg,
+  ];
 }

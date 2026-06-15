@@ -18,21 +18,21 @@ typedef _Story = ZkIdentityFlowPageStory;
 typedef _Args = ZkIdentityFlowPageArgs;
 final ZkIdentityFlowPageComponent =
     Component<ZkIdentityFlowPage, ZkIdentityFlowPageArgs>(
-  name: meta.name ?? 'ZkIdentityFlowPage',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment: null,
-  stories: [
-    $StepOne..$generatedName = 'StepOne',
-    $StepTwoInProgress..$generatedName = 'StepTwoInProgress',
-    $Completed..$generatedName = 'Completed',
-    $Failed..$generatedName = 'Failed',
-  ],
-);
-typedef ZkIdentityFlowPageScenario
-    = Scenario<ZkIdentityFlowPage, ZkIdentityFlowPageArgs>;
-typedef ZkIdentityFlowPageDefaults
-    = Defaults<ZkIdentityFlowPage, ZkIdentityFlowPageArgs>;
+      name: meta.name ?? 'ZkIdentityFlowPage',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment: null,
+      stories: [
+        $StepOne..$generatedName = 'StepOne',
+        $StepTwoInProgress..$generatedName = 'StepTwoInProgress',
+        $Completed..$generatedName = 'Completed',
+        $Failed..$generatedName = 'Failed',
+      ],
+    );
+typedef ZkIdentityFlowPageScenario =
+    Scenario<ZkIdentityFlowPage, ZkIdentityFlowPageArgs>;
+typedef ZkIdentityFlowPageDefaults =
+    Defaults<ZkIdentityFlowPage, ZkIdentityFlowPageArgs>;
 
 class ZkIdentityFlowPageStory
     extends Story<ZkIdentityFlowPage, ZkIdentityFlowPageArgs> {
@@ -44,17 +44,18 @@ class ZkIdentityFlowPageStory
     StoryWidgetBuilder<ZkIdentityFlowPage, ZkIdentityFlowPageArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => ZkIdentityFlowPage(
-                    key: args.key,
-                    steps: args.steps,
-                    currentStepIndex: args.currentStepIndex,
-                    centerActiveContent: args.centerActiveContent,
-                    activeStepContent: args.activeStepContent,
-                    bottomAction: args.bottomAction,
-                    onBack: args.onBack,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => ZkIdentityFlowPage(
+               key: args.key,
+               steps: args.steps,
+               currentStepIndex: args.currentStepIndex,
+               centerActiveContent: args.centerActiveContent,
+               activeStepContent: args.activeStepContent,
+               bottomAction: args.bottomAction,
+               onBack: args.onBack,
+             ),
+       );
 }
 
 class ZkIdentityFlowPageArgs extends StoryArgs<ZkIdentityFlowPage> {
@@ -66,25 +67,25 @@ class ZkIdentityFlowPageArgs extends StoryArgs<ZkIdentityFlowPage> {
     Arg<Widget?>? activeStepContent,
     Arg<Widget?>? bottomAction,
     Arg<void Function()?>? onBack,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.stepsArg = $initArg('steps', steps, null)!,
-        this.currentStepIndexArg = $initArg(
-          'currentStepIndex',
-          currentStepIndex,
-          IntArg(0),
-        )!,
-        this.centerActiveContentArg = $initArg(
-          'centerActiveContent',
-          centerActiveContent,
-          BoolArg(false),
-        )!,
-        this.activeStepContentArg = $initArg(
-          'activeStepContent',
-          activeStepContent,
-          null,
-        ),
-        this.bottomActionArg = $initArg('bottomAction', bottomAction, null),
-        this.onBackArg = $initArg('onBack', onBack, null);
+  }) : this.keyArg = $initArg('key', key, null),
+       this.stepsArg = $initArg('steps', steps, null)!,
+       this.currentStepIndexArg = $initArg(
+         'currentStepIndex',
+         currentStepIndex,
+         IntArg(0),
+       )!,
+       this.centerActiveContentArg = $initArg(
+         'centerActiveContent',
+         centerActiveContent,
+         BoolArg(false),
+       )!,
+       this.activeStepContentArg = $initArg(
+         'activeStepContent',
+         activeStepContent,
+         null,
+       ),
+       this.bottomActionArg = $initArg('bottomAction', bottomAction, null),
+       this.onBackArg = $initArg('onBack', onBack, null);
 
   ZkIdentityFlowPageArgs.fixed({
     Key? key,
@@ -94,15 +95,17 @@ class ZkIdentityFlowPageArgs extends StoryArgs<ZkIdentityFlowPage> {
     Widget? activeStepContent,
     Widget? bottomAction,
     void Function()? onBack,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.stepsArg = Arg.fixed(steps),
-        this.currentStepIndexArg = Arg.fixed(currentStepIndex),
-        this.centerActiveContentArg = Arg.fixed(centerActiveContent),
-        this.activeStepContentArg =
-            activeStepContent == null ? null : Arg.fixed(activeStepContent),
-        this.bottomActionArg =
-            bottomAction == null ? null : Arg.fixed(bottomAction),
-        this.onBackArg = onBack == null ? null : Arg.fixed(onBack);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.stepsArg = Arg.fixed(steps),
+       this.currentStepIndexArg = Arg.fixed(currentStepIndex),
+       this.centerActiveContentArg = Arg.fixed(centerActiveContent),
+       this.activeStepContentArg = activeStepContent == null
+           ? null
+           : Arg.fixed(activeStepContent),
+       this.bottomActionArg = bottomAction == null
+           ? null
+           : Arg.fixed(bottomAction),
+       this.onBackArg = onBack == null ? null : Arg.fixed(onBack);
 
   final Arg<Key?>? keyArg;
 
@@ -134,12 +137,12 @@ class ZkIdentityFlowPageArgs extends StoryArgs<ZkIdentityFlowPage> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        stepsArg,
-        currentStepIndexArg,
-        centerActiveContentArg,
-        activeStepContentArg,
-        bottomActionArg,
-        onBackArg,
-      ];
+    keyArg,
+    stepsArg,
+    currentStepIndexArg,
+    centerActiveContentArg,
+    activeStepContentArg,
+    bottomActionArg,
+    onBackArg,
+  ];
 }

@@ -43,18 +43,19 @@ class ButtonStory extends Story<Button, ButtonArgs> {
     StoryWidgetBuilder<Button, ButtonArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? ButtonArgs(),
-          builder: builder ??
-              (context, args) => Button(
-                    key: args.key,
-                    label: args.label,
-                    onTap: args.onTap,
-                    leadingIcon: args.leadingIcon,
-                    size: args.size,
-                    variant: args.variant,
-                    isLoading: args.isLoading,
-                  ),
-        );
+         args: args ?? ButtonArgs(),
+         builder:
+             builder ??
+             (context, args) => Button(
+               key: args.key,
+               label: args.label,
+               onTap: args.onTap,
+               leadingIcon: args.leadingIcon,
+               size: args.size,
+               variant: args.variant,
+               isLoading: args.isLoading,
+             ),
+       );
 }
 
 class ButtonArgs extends StoryArgs<Button> {
@@ -66,24 +67,24 @@ class ButtonArgs extends StoryArgs<Button> {
     Arg<ButtonSize>? size,
     Arg<ButtonVariant>? variant,
     Arg<bool>? isLoading,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.labelArg = $initArg('label', label, StringArg(''))!,
-        this.onTapArg = $initArg('onTap', onTap, null),
-        this.leadingIconArg = $initArg('leadingIcon', leadingIcon, null),
-        this.sizeArg = $initArg(
-          'size',
-          size,
-          EnumArg<ButtonSize>(ButtonSize.regular, values: ButtonSize.values),
-        )!,
-        this.variantArg = $initArg(
-          'variant',
-          variant,
-          EnumArg<ButtonVariant>(
-            ButtonVariant.tonal,
-            values: ButtonVariant.values,
-          ),
-        )!,
-        this.isLoadingArg = $initArg('isLoading', isLoading, BoolArg(false))!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.labelArg = $initArg('label', label, StringArg(''))!,
+       this.onTapArg = $initArg('onTap', onTap, null),
+       this.leadingIconArg = $initArg('leadingIcon', leadingIcon, null),
+       this.sizeArg = $initArg(
+         'size',
+         size,
+         EnumArg<ButtonSize>(ButtonSize.regular, values: ButtonSize.values),
+       )!,
+       this.variantArg = $initArg(
+         'variant',
+         variant,
+         EnumArg<ButtonVariant>(
+           ButtonVariant.tonal,
+           values: ButtonVariant.values,
+         ),
+       )!,
+       this.isLoadingArg = $initArg('isLoading', isLoading, BoolArg(false))!;
 
   ButtonArgs.fixed({
     Key? key,
@@ -93,14 +94,15 @@ class ButtonArgs extends StoryArgs<Button> {
     ButtonSize size = ButtonSize.regular,
     ButtonVariant variant = ButtonVariant.tonal,
     bool isLoading = false,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.labelArg = Arg.fixed(label),
-        this.onTapArg = onTap == null ? null : Arg.fixed(onTap),
-        this.leadingIconArg =
-            leadingIcon == null ? null : Arg.fixed(leadingIcon),
-        this.sizeArg = Arg.fixed(size),
-        this.variantArg = Arg.fixed(variant),
-        this.isLoadingArg = Arg.fixed(isLoading);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.labelArg = Arg.fixed(label),
+       this.onTapArg = onTap == null ? null : Arg.fixed(onTap),
+       this.leadingIconArg = leadingIcon == null
+           ? null
+           : Arg.fixed(leadingIcon),
+       this.sizeArg = Arg.fixed(size),
+       this.variantArg = Arg.fixed(variant),
+       this.isLoadingArg = Arg.fixed(isLoading);
 
   final Arg<Key?>? keyArg;
 
@@ -132,12 +134,12 @@ class ButtonArgs extends StoryArgs<Button> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        labelArg,
-        onTapArg,
-        leadingIconArg,
-        sizeArg,
-        variantArg,
-        isLoadingArg,
-      ];
+    keyArg,
+    labelArg,
+    onTapArg,
+    leadingIconArg,
+    sizeArg,
+    variantArg,
+    isLoadingArg,
+  ];
 }

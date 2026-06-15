@@ -46,18 +46,19 @@ class ResultPageStory extends Story<ResultPage, ResultPageArgs> {
     StoryWidgetBuilder<ResultPage, ResultPageArgs>? builder,
     super.scenarios,
   }) : super(
-          args: args ?? ResultPageArgs(),
-          builder: builder ??
-              (context, args) => ResultPage(
-                    key: args.key,
-                    variant: args.variant,
-                    icon: args.icon,
-                    title: args.title,
-                    subtitle: args.subtitle,
-                    primaryAction: args.primaryAction,
-                    secondaryAction: args.secondaryAction,
-                  ),
-        );
+         args: args ?? ResultPageArgs(),
+         builder:
+             builder ??
+             (context, args) => ResultPage(
+               key: args.key,
+               variant: args.variant,
+               icon: args.icon,
+               title: args.title,
+               subtitle: args.subtitle,
+               primaryAction: args.primaryAction,
+               secondaryAction: args.secondaryAction,
+             ),
+       );
 }
 
 class ResultPageArgs extends StoryArgs<ResultPage> {
@@ -69,28 +70,28 @@ class ResultPageArgs extends StoryArgs<ResultPage> {
     Arg<String?>? subtitle,
     Arg<Widget?>? primaryAction,
     Arg<Widget?>? secondaryAction,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.variantArg = $initArg(
-          'variant',
-          variant,
-          EnumArg<ResultPageVariant>(
-            ResultPageVariant.success,
-            values: ResultPageVariant.values,
-          ),
-        )!,
-        this.iconArg = $initArg('icon', icon, null),
-        this.titleArg = $initArg('title', title, StringArg(''))!,
-        this.subtitleArg = $initArg(
-          'subtitle',
-          subtitle,
-          NullableStringArg(null),
-        )!,
-        this.primaryActionArg = $initArg('primaryAction', primaryAction, null),
-        this.secondaryActionArg = $initArg(
-          'secondaryAction',
-          secondaryAction,
-          null,
-        );
+  }) : this.keyArg = $initArg('key', key, null),
+       this.variantArg = $initArg(
+         'variant',
+         variant,
+         EnumArg<ResultPageVariant>(
+           ResultPageVariant.success,
+           values: ResultPageVariant.values,
+         ),
+       )!,
+       this.iconArg = $initArg('icon', icon, null),
+       this.titleArg = $initArg('title', title, StringArg(''))!,
+       this.subtitleArg = $initArg(
+         'subtitle',
+         subtitle,
+         NullableStringArg(null),
+       )!,
+       this.primaryActionArg = $initArg('primaryAction', primaryAction, null),
+       this.secondaryActionArg = $initArg(
+         'secondaryAction',
+         secondaryAction,
+         null,
+       );
 
   ResultPageArgs.fixed({
     Key? key,
@@ -100,15 +101,17 @@ class ResultPageArgs extends StoryArgs<ResultPage> {
     String? subtitle = null,
     Widget? primaryAction,
     Widget? secondaryAction,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.variantArg = Arg.fixed(variant),
-        this.iconArg = icon == null ? null : Arg.fixed(icon),
-        this.titleArg = Arg.fixed(title),
-        this.subtitleArg = subtitle == null ? null : Arg.fixed(subtitle),
-        this.primaryActionArg =
-            primaryAction == null ? null : Arg.fixed(primaryAction),
-        this.secondaryActionArg =
-            secondaryAction == null ? null : Arg.fixed(secondaryAction);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.variantArg = Arg.fixed(variant),
+       this.iconArg = icon == null ? null : Arg.fixed(icon),
+       this.titleArg = Arg.fixed(title),
+       this.subtitleArg = subtitle == null ? null : Arg.fixed(subtitle),
+       this.primaryActionArg = primaryAction == null
+           ? null
+           : Arg.fixed(primaryAction),
+       this.secondaryActionArg = secondaryAction == null
+           ? null
+           : Arg.fixed(secondaryAction);
 
   final Arg<Key?>? keyArg;
 
@@ -140,12 +143,12 @@ class ResultPageArgs extends StoryArgs<ResultPage> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        variantArg,
-        iconArg,
-        titleArg,
-        subtitleArg,
-        primaryActionArg,
-        secondaryActionArg,
-      ];
+    keyArg,
+    variantArg,
+    iconArg,
+    titleArg,
+    subtitleArg,
+    primaryActionArg,
+    secondaryActionArg,
+  ];
 }

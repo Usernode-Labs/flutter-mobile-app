@@ -45,14 +45,15 @@ class DropdownChainStory extends Story<DropdownChain, DropdownChainArgs> {
     StoryWidgetBuilder<DropdownChain, DropdownChainArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => DropdownChain(
-                    key: args.key,
-                    items: args.items,
-                    variant: args.variant,
-                    size: args.size,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => DropdownChain(
+               key: args.key,
+               items: args.items,
+               variant: args.variant,
+               size: args.size,
+             ),
+       );
 }
 
 class DropdownChainArgs extends StoryArgs<DropdownChain> {
@@ -61,28 +62,28 @@ class DropdownChainArgs extends StoryArgs<DropdownChain> {
     required Arg<List<DropdownChainItem>> items,
     Arg<ChipVariant>? variant,
     Arg<ChipSize>? size,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.itemsArg = $initArg('items', items, null)!,
-        this.variantArg = $initArg(
-          'variant',
-          variant,
-          EnumArg<ChipVariant>(ChipVariant.surface, values: ChipVariant.values),
-        )!,
-        this.sizeArg = $initArg(
-          'size',
-          size,
-          EnumArg<ChipSize>(ChipSize.regular, values: ChipSize.values),
-        )!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.itemsArg = $initArg('items', items, null)!,
+       this.variantArg = $initArg(
+         'variant',
+         variant,
+         EnumArg<ChipVariant>(ChipVariant.surface, values: ChipVariant.values),
+       )!,
+       this.sizeArg = $initArg(
+         'size',
+         size,
+         EnumArg<ChipSize>(ChipSize.regular, values: ChipSize.values),
+       )!;
 
   DropdownChainArgs.fixed({
     Key? key,
     required List<DropdownChainItem> items,
     ChipVariant variant = ChipVariant.surface,
     ChipSize size = ChipSize.regular,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.itemsArg = Arg.fixed(items),
-        this.variantArg = Arg.fixed(variant),
-        this.sizeArg = Arg.fixed(size);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.itemsArg = Arg.fixed(items),
+       this.variantArg = Arg.fixed(variant),
+       this.sizeArg = Arg.fixed(size);
 
   final Arg<Key?>? keyArg;
 

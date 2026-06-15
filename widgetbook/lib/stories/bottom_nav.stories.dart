@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/design_system/src/nav_indicator_shapes.dart';
 
 part 'bottom_nav.stories.g.dart';
 
-const meta = Meta<BottomNav>(path: 'widgets/navigation');
+const meta = Meta<BottomNav>(path: 'live app/widgets/navigation');
 
 final $Default = _Story(
   name: 'Default',

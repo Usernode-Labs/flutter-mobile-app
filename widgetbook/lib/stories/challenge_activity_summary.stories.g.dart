@@ -11,27 +11,27 @@ part of 'challenge_activity_summary.stories.dart';
 // StoryGenerator
 // **************************************************************************
 
-typedef _Component
-    = Component<ChallengeActivitySummary, ChallengeActivitySummaryArgs>;
+typedef _Component =
+    Component<ChallengeActivitySummary, ChallengeActivitySummaryArgs>;
 typedef _Scenario = ChallengeActivitySummaryScenario;
 typedef _Defaults = ChallengeActivitySummaryDefaults;
 typedef _Story = ChallengeActivitySummaryStory;
 typedef _Args = ChallengeActivitySummaryArgs;
 final ChallengeActivitySummaryComponent =
     Component<ChallengeActivitySummary, ChallengeActivitySummaryArgs>(
-  name: meta.name ?? 'ChallengeActivitySummary',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment: null,
-  stories: [
-    $Default..$generatedName = 'Default',
-    $NoChallenges..$generatedName = 'NoChallenges',
-  ],
-);
-typedef ChallengeActivitySummaryScenario
-    = Scenario<ChallengeActivitySummary, ChallengeActivitySummaryArgs>;
-typedef ChallengeActivitySummaryDefaults
-    = Defaults<ChallengeActivitySummary, ChallengeActivitySummaryArgs>;
+      name: meta.name ?? 'ChallengeActivitySummary',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment: null,
+      stories: [
+        $Default..$generatedName = 'Default',
+        $NoChallenges..$generatedName = 'NoChallenges',
+      ],
+    );
+typedef ChallengeActivitySummaryScenario =
+    Scenario<ChallengeActivitySummary, ChallengeActivitySummaryArgs>;
+typedef ChallengeActivitySummaryDefaults =
+    Defaults<ChallengeActivitySummary, ChallengeActivitySummaryArgs>;
 
 class ChallengeActivitySummaryStory
     extends Story<ChallengeActivitySummary, ChallengeActivitySummaryArgs> {
@@ -41,20 +41,21 @@ class ChallengeActivitySummaryStory
     super.modes,
     ChallengeActivitySummaryArgs? args,
     StoryWidgetBuilder<ChallengeActivitySummary, ChallengeActivitySummaryArgs>?
-        builder,
+    builder,
     super.scenarios,
   }) : super(
-          args: args ?? ChallengeActivitySummaryArgs(),
-          builder: builder ??
-              (context, args) => ChallengeActivitySummary(
-                    key: args.key,
-                    completedCount: args.completedCount,
-                    missedCount: args.missedCount,
-                    totalCount: args.totalCount,
-                    onViewCompleted: args.onViewCompleted,
-                    onViewMissed: args.onViewMissed,
-                  ),
-        );
+         args: args ?? ChallengeActivitySummaryArgs(),
+         builder:
+             builder ??
+             (context, args) => ChallengeActivitySummary(
+               key: args.key,
+               completedCount: args.completedCount,
+               missedCount: args.missedCount,
+               totalCount: args.totalCount,
+               onViewCompleted: args.onViewCompleted,
+               onViewMissed: args.onViewMissed,
+             ),
+       );
 }
 
 class ChallengeActivitySummaryArgs extends StoryArgs<ChallengeActivitySummary> {
@@ -65,20 +66,20 @@ class ChallengeActivitySummaryArgs extends StoryArgs<ChallengeActivitySummary> {
     Arg<int>? totalCount,
     Arg<void Function()?>? onViewCompleted,
     Arg<void Function()?>? onViewMissed,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.completedCountArg = $initArg(
-          'completedCount',
-          completedCount,
-          IntArg(0),
-        )!,
-        this.missedCountArg = $initArg('missedCount', missedCount, IntArg(0))!,
-        this.totalCountArg = $initArg('totalCount', totalCount, IntArg(0))!,
-        this.onViewCompletedArg = $initArg(
-          'onViewCompleted',
-          onViewCompleted,
-          null,
-        ),
-        this.onViewMissedArg = $initArg('onViewMissed', onViewMissed, null);
+  }) : this.keyArg = $initArg('key', key, null),
+       this.completedCountArg = $initArg(
+         'completedCount',
+         completedCount,
+         IntArg(0),
+       )!,
+       this.missedCountArg = $initArg('missedCount', missedCount, IntArg(0))!,
+       this.totalCountArg = $initArg('totalCount', totalCount, IntArg(0))!,
+       this.onViewCompletedArg = $initArg(
+         'onViewCompleted',
+         onViewCompleted,
+         null,
+       ),
+       this.onViewMissedArg = $initArg('onViewMissed', onViewMissed, null);
 
   ChallengeActivitySummaryArgs.fixed({
     Key? key,
@@ -87,14 +88,16 @@ class ChallengeActivitySummaryArgs extends StoryArgs<ChallengeActivitySummary> {
     int totalCount = 0,
     void Function()? onViewCompleted,
     void Function()? onViewMissed,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.completedCountArg = Arg.fixed(completedCount),
-        this.missedCountArg = Arg.fixed(missedCount),
-        this.totalCountArg = Arg.fixed(totalCount),
-        this.onViewCompletedArg =
-            onViewCompleted == null ? null : Arg.fixed(onViewCompleted),
-        this.onViewMissedArg =
-            onViewMissed == null ? null : Arg.fixed(onViewMissed);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.completedCountArg = Arg.fixed(completedCount),
+       this.missedCountArg = Arg.fixed(missedCount),
+       this.totalCountArg = Arg.fixed(totalCount),
+       this.onViewCompletedArg = onViewCompleted == null
+           ? null
+           : Arg.fixed(onViewCompleted),
+       this.onViewMissedArg = onViewMissed == null
+           ? null
+           : Arg.fixed(onViewMissed);
 
   final Arg<Key?>? keyArg;
 
@@ -122,11 +125,11 @@ class ChallengeActivitySummaryArgs extends StoryArgs<ChallengeActivitySummary> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        completedCountArg,
-        missedCountArg,
-        totalCountArg,
-        onViewCompletedArg,
-        onViewMissedArg,
-      ];
+    keyArg,
+    completedCountArg,
+    missedCountArg,
+    totalCountArg,
+    onViewCompletedArg,
+    onViewMissedArg,
+  ];
 }

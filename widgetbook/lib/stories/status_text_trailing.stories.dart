@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/status_text_trailing.dart';
 
 part 'status_text_trailing.stories.g.dart';
 
-const meta = Meta<StatusTextTrailing>(path: 'widgets/data-display');
+const meta = Meta<StatusTextTrailing>(path: 'live app/widgets/data-display');
 
 final $Default = _Story(
   args: _Args(

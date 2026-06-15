@@ -18,23 +18,23 @@ typedef _Story = EpochPerformancePageStory;
 typedef _Args = EpochPerformancePageArgs;
 final EpochPerformancePageComponent =
     Component<EpochPerformancePage, EpochPerformancePageArgs>(
-  name: meta.name ?? 'EpochPerformancePage',
-  path: meta.path ?? 'stories',
-  docsBuilder: meta.docsBuilder,
-  docComment:
-      r'''A full-page epoch performance view showing epoch progress and metric tiles.
+      name: meta.name ?? 'EpochPerformancePage',
+      path: meta.path ?? 'stories',
+      docsBuilder: meta.docsBuilder,
+      docComment:
+          r'''A full-page epoch performance view showing epoch progress and metric tiles.
 
 Presentation-only: all data comes through constructor parameters.
 The feature screen in `lib/features/` wires state to this widget.''',
-  stories: [
-    $Default..$generatedName = 'Default',
-    $EarlyEpoch..$generatedName = 'EarlyEpoch',
-  ],
-);
-typedef EpochPerformancePageScenario
-    = Scenario<EpochPerformancePage, EpochPerformancePageArgs>;
-typedef EpochPerformancePageDefaults
-    = Defaults<EpochPerformancePage, EpochPerformancePageArgs>;
+      stories: [
+        $Default..$generatedName = 'Default',
+        $EarlyEpoch..$generatedName = 'EarlyEpoch',
+      ],
+    );
+typedef EpochPerformancePageScenario =
+    Scenario<EpochPerformancePage, EpochPerformancePageArgs>;
+typedef EpochPerformancePageDefaults =
+    Defaults<EpochPerformancePage, EpochPerformancePageArgs>;
 
 class EpochPerformancePageStory
     extends Story<EpochPerformancePage, EpochPerformancePageArgs> {
@@ -46,23 +46,24 @@ class EpochPerformancePageStory
     StoryWidgetBuilder<EpochPerformancePage, EpochPerformancePageArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => EpochPerformancePage(
-                    key: args.key,
-                    epochLabel: args.epochLabel,
-                    progress: args.progress,
-                    progressLeftLabel: args.progressLeftLabel,
-                    progressRightLabel: args.progressRightLabel,
-                    performanceLabel: args.performanceLabel,
-                    performanceValue: args.performanceValue,
-                    metrics: args.metrics,
-                    onPickEpoch: args.onPickEpoch,
-                    maxEpoch: args.maxEpoch,
-                    selectedEpoch: args.selectedEpoch,
-                    epochScoreLookup: args.epochScoreLookup,
-                    onBackTap: args.onBackTap,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => EpochPerformancePage(
+               key: args.key,
+               epochLabel: args.epochLabel,
+               progress: args.progress,
+               progressLeftLabel: args.progressLeftLabel,
+               progressRightLabel: args.progressRightLabel,
+               performanceLabel: args.performanceLabel,
+               performanceValue: args.performanceValue,
+               metrics: args.metrics,
+               onPickEpoch: args.onPickEpoch,
+               maxEpoch: args.maxEpoch,
+               selectedEpoch: args.selectedEpoch,
+               epochScoreLookup: args.epochScoreLookup,
+               onBackTap: args.onBackTap,
+             ),
+       );
 }
 
 class EpochPerformancePageArgs extends StoryArgs<EpochPerformancePage> {
@@ -80,43 +81,43 @@ class EpochPerformancePageArgs extends StoryArgs<EpochPerformancePage> {
     Arg<int>? selectedEpoch,
     Arg<String Function(int)?>? epochScoreLookup,
     Arg<void Function()?>? onBackTap,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.epochLabelArg = $initArg('epochLabel', epochLabel, StringArg(''))!,
-        this.progressArg = $initArg('progress', progress, DoubleArg(0.0))!,
-        this.progressLeftLabelArg = $initArg(
-          'progressLeftLabel',
-          progressLeftLabel,
-          StringArg(''),
-        )!,
-        this.progressRightLabelArg = $initArg(
-          'progressRightLabel',
-          progressRightLabel,
-          StringArg(''),
-        )!,
-        this.performanceLabelArg = $initArg(
-          'performanceLabel',
-          performanceLabel,
-          StringArg(''),
-        )!,
-        this.performanceValueArg = $initArg(
-          'performanceValue',
-          performanceValue,
-          StringArg(''),
-        )!,
-        this.metricsArg = $initArg('metrics', metrics, null)!,
-        this.onPickEpochArg = $initArg('onPickEpoch', onPickEpoch, null)!,
-        this.maxEpochArg = $initArg('maxEpoch', maxEpoch, IntArg(0))!,
-        this.selectedEpochArg = $initArg(
-          'selectedEpoch',
-          selectedEpoch,
-          IntArg(0),
-        )!,
-        this.epochScoreLookupArg = $initArg(
-          'epochScoreLookup',
-          epochScoreLookup,
-          null,
-        ),
-        this.onBackTapArg = $initArg('onBackTap', onBackTap, null);
+  }) : this.keyArg = $initArg('key', key, null),
+       this.epochLabelArg = $initArg('epochLabel', epochLabel, StringArg(''))!,
+       this.progressArg = $initArg('progress', progress, DoubleArg(0.0))!,
+       this.progressLeftLabelArg = $initArg(
+         'progressLeftLabel',
+         progressLeftLabel,
+         StringArg(''),
+       )!,
+       this.progressRightLabelArg = $initArg(
+         'progressRightLabel',
+         progressRightLabel,
+         StringArg(''),
+       )!,
+       this.performanceLabelArg = $initArg(
+         'performanceLabel',
+         performanceLabel,
+         StringArg(''),
+       )!,
+       this.performanceValueArg = $initArg(
+         'performanceValue',
+         performanceValue,
+         StringArg(''),
+       )!,
+       this.metricsArg = $initArg('metrics', metrics, null)!,
+       this.onPickEpochArg = $initArg('onPickEpoch', onPickEpoch, null)!,
+       this.maxEpochArg = $initArg('maxEpoch', maxEpoch, IntArg(0))!,
+       this.selectedEpochArg = $initArg(
+         'selectedEpoch',
+         selectedEpoch,
+         IntArg(0),
+       )!,
+       this.epochScoreLookupArg = $initArg(
+         'epochScoreLookup',
+         epochScoreLookup,
+         null,
+       ),
+       this.onBackTapArg = $initArg('onBackTap', onBackTap, null);
 
   EpochPerformancePageArgs.fixed({
     Key? key,
@@ -132,20 +133,21 @@ class EpochPerformancePageArgs extends StoryArgs<EpochPerformancePage> {
     int selectedEpoch = 0,
     String Function(int)? epochScoreLookup,
     void Function()? onBackTap,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.epochLabelArg = Arg.fixed(epochLabel),
-        this.progressArg = Arg.fixed(progress),
-        this.progressLeftLabelArg = Arg.fixed(progressLeftLabel),
-        this.progressRightLabelArg = Arg.fixed(progressRightLabel),
-        this.performanceLabelArg = Arg.fixed(performanceLabel),
-        this.performanceValueArg = Arg.fixed(performanceValue),
-        this.metricsArg = Arg.fixed(metrics),
-        this.onPickEpochArg = Arg.fixed(onPickEpoch),
-        this.maxEpochArg = Arg.fixed(maxEpoch),
-        this.selectedEpochArg = Arg.fixed(selectedEpoch),
-        this.epochScoreLookupArg =
-            epochScoreLookup == null ? null : Arg.fixed(epochScoreLookup),
-        this.onBackTapArg = onBackTap == null ? null : Arg.fixed(onBackTap);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.epochLabelArg = Arg.fixed(epochLabel),
+       this.progressArg = Arg.fixed(progress),
+       this.progressLeftLabelArg = Arg.fixed(progressLeftLabel),
+       this.progressRightLabelArg = Arg.fixed(progressRightLabel),
+       this.performanceLabelArg = Arg.fixed(performanceLabel),
+       this.performanceValueArg = Arg.fixed(performanceValue),
+       this.metricsArg = Arg.fixed(metrics),
+       this.onPickEpochArg = Arg.fixed(onPickEpoch),
+       this.maxEpochArg = Arg.fixed(maxEpoch),
+       this.selectedEpochArg = Arg.fixed(selectedEpoch),
+       this.epochScoreLookupArg = epochScoreLookup == null
+           ? null
+           : Arg.fixed(epochScoreLookup),
+       this.onBackTapArg = onBackTap == null ? null : Arg.fixed(onBackTap);
 
   final Arg<Key?>? keyArg;
 
@@ -201,18 +203,18 @@ class EpochPerformancePageArgs extends StoryArgs<EpochPerformancePage> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        epochLabelArg,
-        progressArg,
-        progressLeftLabelArg,
-        progressRightLabelArg,
-        performanceLabelArg,
-        performanceValueArg,
-        metricsArg,
-        onPickEpochArg,
-        maxEpochArg,
-        selectedEpochArg,
-        epochScoreLookupArg,
-        onBackTapArg,
-      ];
+    keyArg,
+    epochLabelArg,
+    progressArg,
+    progressLeftLabelArg,
+    progressRightLabelArg,
+    performanceLabelArg,
+    performanceValueArg,
+    metricsArg,
+    onPickEpochArg,
+    maxEpochArg,
+    selectedEpochArg,
+    epochScoreLookupArg,
+    onBackTapArg,
+  ];
 }

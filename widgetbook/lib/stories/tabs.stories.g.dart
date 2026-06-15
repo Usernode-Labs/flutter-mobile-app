@@ -46,17 +46,18 @@ class TabsStory extends Story<Tabs, TabsArgs> {
     StoryWidgetBuilder<Tabs, TabsArgs>? builder,
     super.scenarios,
   }) : super(
-          builder: builder ??
-              (context, args) => Tabs(
-                    key: args.key,
-                    tabs: args.tabs,
-                    children: args.children,
-                    initialIndex: args.initialIndex,
-                    onTabChanged: args.onTabChanged,
-                    isScrollable: args.isScrollable,
-                    showDivider: args.showDivider,
-                  ),
-        );
+         builder:
+             builder ??
+             (context, args) => Tabs(
+               key: args.key,
+               tabs: args.tabs,
+               children: args.children,
+               initialIndex: args.initialIndex,
+               onTabChanged: args.onTabChanged,
+               isScrollable: args.isScrollable,
+               showDivider: args.showDivider,
+             ),
+       );
 }
 
 class TabsArgs extends StoryArgs<Tabs> {
@@ -68,25 +69,25 @@ class TabsArgs extends StoryArgs<Tabs> {
     Arg<void Function(int)?>? onTabChanged,
     Arg<bool>? isScrollable,
     Arg<bool>? showDivider,
-  })  : this.keyArg = $initArg('key', key, null),
-        this.tabsArg = $initArg('tabs', tabs, null)!,
-        this.childrenArg = $initArg('children', children, null)!,
-        this.initialIndexArg = $initArg(
-          'initialIndex',
-          initialIndex,
-          IntArg(0),
-        )!,
-        this.onTabChangedArg = $initArg('onTabChanged', onTabChanged, null),
-        this.isScrollableArg = $initArg(
-          'isScrollable',
-          isScrollable,
-          BoolArg(false),
-        )!,
-        this.showDividerArg = $initArg(
-          'showDivider',
-          showDivider,
-          BoolArg(true),
-        )!;
+  }) : this.keyArg = $initArg('key', key, null),
+       this.tabsArg = $initArg('tabs', tabs, null)!,
+       this.childrenArg = $initArg('children', children, null)!,
+       this.initialIndexArg = $initArg(
+         'initialIndex',
+         initialIndex,
+         IntArg(0),
+       )!,
+       this.onTabChangedArg = $initArg('onTabChanged', onTabChanged, null),
+       this.isScrollableArg = $initArg(
+         'isScrollable',
+         isScrollable,
+         BoolArg(false),
+       )!,
+       this.showDividerArg = $initArg(
+         'showDivider',
+         showDivider,
+         BoolArg(true),
+       )!;
 
   TabsArgs.fixed({
     Key? key,
@@ -96,14 +97,15 @@ class TabsArgs extends StoryArgs<Tabs> {
     void Function(int)? onTabChanged,
     bool isScrollable = false,
     bool showDivider = true,
-  })  : this.keyArg = key == null ? null : Arg.fixed(key),
-        this.tabsArg = Arg.fixed(tabs),
-        this.childrenArg = Arg.fixed(children),
-        this.initialIndexArg = Arg.fixed(initialIndex),
-        this.onTabChangedArg =
-            onTabChanged == null ? null : Arg.fixed(onTabChanged),
-        this.isScrollableArg = Arg.fixed(isScrollable),
-        this.showDividerArg = Arg.fixed(showDivider);
+  }) : this.keyArg = key == null ? null : Arg.fixed(key),
+       this.tabsArg = Arg.fixed(tabs),
+       this.childrenArg = Arg.fixed(children),
+       this.initialIndexArg = Arg.fixed(initialIndex),
+       this.onTabChangedArg = onTabChanged == null
+           ? null
+           : Arg.fixed(onTabChanged),
+       this.isScrollableArg = Arg.fixed(isScrollable),
+       this.showDividerArg = Arg.fixed(showDivider);
 
   final Arg<Key?>? keyArg;
 
@@ -135,12 +137,12 @@ class TabsArgs extends StoryArgs<Tabs> {
 
   @override
   List<Arg?> get list => [
-        keyArg,
-        tabsArg,
-        childrenArg,
-        initialIndexArg,
-        onTabChangedArg,
-        isScrollableArg,
-        showDividerArg,
-      ];
+    keyArg,
+    tabsArg,
+    childrenArg,
+    initialIndexArg,
+    onTabChangedArg,
+    isScrollableArg,
+    showDividerArg,
+  ];
 }

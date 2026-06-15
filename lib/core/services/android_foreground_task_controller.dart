@@ -258,6 +258,7 @@ class AndroidForegroundTaskController {
             rustSlotTimeMs - foregroundResumeLead.inMilliseconds,
             'next_won_slot:${nextWon.globalSlot}',
             targetGlobalSlot: nextWon.globalSlot,
+            targetRustSlotTimeMs: rustSlotTimeMs,
             targetSlotTimeMs: localSlotTimeMs,
           );
         } else {
@@ -375,12 +376,14 @@ class AndroidForegroundTaskController {
     int rustWakeTimeMs,
     String reason, {
     int? targetGlobalSlot,
+    int? targetRustSlotTimeMs,
     int? targetSlotTimeMs,
   }) async {
     await scheduleResumeAlarm(
       rustWakeTimeMs: rustWakeTimeMs,
       reason: reason,
       targetGlobalSlot: targetGlobalSlot,
+      targetRustSlotTimeMs: targetRustSlotTimeMs,
       targetSlotTimeMs: targetSlotTimeMs,
       stopMonitoringAfterSchedule: true,
     );
@@ -390,6 +393,7 @@ class AndroidForegroundTaskController {
     required int rustWakeTimeMs,
     required String reason,
     int? targetGlobalSlot,
+    int? targetRustSlotTimeMs,
     int? targetSlotTimeMs,
     bool stopMonitoringAfterSchedule = false,
   }) async {
@@ -419,6 +423,10 @@ class AndroidForegroundTaskController {
       clockDriftMs: clockDriftMs,
     );
     final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final sampleSystemTimeMs =
+        RustBackendService.instance.lastNodeClockSampleSystemTimeMs;
+    final clockDriftSampleAgeMs =
+        sampleSystemTimeMs == null ? null : nowMs - sampleSystemTimeMs;
     final delayMs = localWakeTimeMs - nowMs;
     final success = await PlatformAlarmService.instance.scheduleAlarm(
       alarmId: foregroundResumeAlarmId,
@@ -431,8 +439,16 @@ class AndroidForegroundTaskController {
         'localWakeTimeMs': localWakeTimeMs,
         'clockDriftMs': clockDriftMs,
         'purpose': 'foreground_resume',
+        'systemTimeMsAtSchedule': nowMs,
+        if (RustBackendService.instance.lastNodeTimeMs != null)
+          'nodeTimeMsAtSchedule': RustBackendService.instance.lastNodeTimeMs,
+        if (clockDriftSampleAgeMs != null)
+          'clockDriftSampleAgeMs': clockDriftSampleAgeMs,
         if (targetGlobalSlot != null) 'globalSlot': targetGlobalSlot,
+        if (targetRustSlotTimeMs != null)
+          'rustSlotTimeMs': targetRustSlotTimeMs,
         if (targetSlotTimeMs != null) 'slotTimeMs': targetSlotTimeMs,
+        if (targetSlotTimeMs != null) 'localSlotTimeMs': targetSlotTimeMs,
       },
     );
 

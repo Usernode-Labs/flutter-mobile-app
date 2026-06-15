@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/empty_state.dart';
 
 part 'empty_state.stories.g.dart';
 
-const meta = Meta<EmptyState>(path: 'widgets/indicators');
+const meta = Meta<EmptyState>(path: 'live app/widgets/indicators');
 
 final $Default = _Story(
   args: _Args(

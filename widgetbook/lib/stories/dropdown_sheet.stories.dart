@@ -38,7 +38,7 @@ class DropdownSheetDemo extends StatelessWidget {
   }
 }
 
-const meta = Meta<DropdownSheetDemo>(path: 'widgets/chips');
+const meta = Meta<DropdownSheetDemo>(path: 'live app/widgets/chips');
 
 final $Default = _Story(
   args: _Args(

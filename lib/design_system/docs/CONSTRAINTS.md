@@ -42,6 +42,7 @@ Rules enforced by convention (and eventually by lint). Each constraint has: WHAT
 final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 // semantic.technical  — blue (infrastructure, upcoming slots)
 // semantic.flash      — amber (challenge category)
+// semantic.premium    — yellow (featured rewards, high-value spotlight)
 // semantic.community  — green (challenge category)
 // semantic.success    — green (positive outcomes)
 // semantic.warning    — amber (syncing, permissions)

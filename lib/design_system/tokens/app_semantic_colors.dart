@@ -16,12 +16,14 @@ class SemanticColorGroup {
   final Color colorContainer;
   final Color onColorContainer;
 
-  /// Near-surface tint — solid color with barely perceptible hue.
-  /// Use for large-area backgrounds: card fills, section highlights, list rows.
+  /// Large-area semantic surface.
+  /// Most groups use a near-surface tint. Premium intentionally uses a
+  /// saturated spotlight surface for featured rewards cards.
   final Color colorSurface;
 
-  /// Chromatic text/icon color on [colorSurface].
-  /// Reinforces the semantic when the surface is this subtle.
+  /// Text/icon color on [colorSurface].
+  /// Usually chromatic to reinforce a subtle surface; premium uses black on
+  /// yellow for a deliberate spotlight.
   final Color onColorSurface;
 
   SemanticColorGroup copyWith({
@@ -63,6 +65,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   const AppSemanticColors({
     required this.technical,
     required this.flash,
+    required this.premium,
     required this.community,
     required this.success,
     required this.warning,
@@ -70,6 +73,11 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
 
   final SemanticColorGroup technical;
   final SemanticColorGroup flash;
+
+  /// Premium spotlight color for featured, high-value rewards surfaces.
+  /// Distinct from [flash], which means time-limited energy or challenge type.
+  final SemanticColorGroup premium;
+
   final SemanticColorGroup community;
   final SemanticColorGroup success;
 
@@ -97,6 +105,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           onColorContainer: Color(0xFF774500),
           colorSurface: Color(0xFFECE8E1),
           onColorSurface: Color(0xFF875300),
+        ),
+        premium: SemanticColorGroup(
+          color: Color(0xFF000000),
+          onColor: Color(0xFFFFC900),
+          colorContainer: Color(0xFFFFF3D2),
+          onColorContainer: Color(0xFF000000),
+          colorSurface: Color(0xFFFFC900),
+          onColorSurface: Color(0xFF000000),
         ),
         community: SemanticColorGroup(
           color: Color(0xFF146D32),
@@ -144,6 +160,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorSurface: Color(0xFFE5DFD8),
           onColorSurface: Color(0xFF6C3C00),
         ),
+        premium: SemanticColorGroup(
+          color: Color(0xFF000000),
+          onColor: Color(0xFFFFC900),
+          colorContainer: Color(0xFFFFF3D2),
+          onColorContainer: Color(0xFF000000),
+          colorSurface: Color(0xFFFFC900),
+          onColorSurface: Color(0xFF000000),
+        ),
         community: SemanticColorGroup(
           color: Color(0xFF00541D),
           onColor: Color(0xFFFFFFFF),
@@ -186,6 +210,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           onColorContainer: Color(0xFFFFFFFF),
           colorSurface: Color(0xFFD7D0C9),
           onColorSurface: Color(0xFF502700),
+        ),
+        premium: SemanticColorGroup(
+          color: Color(0xFF000000),
+          onColor: Color(0xFFFFC900),
+          colorContainer: Color(0xFFFFF3D2),
+          onColorContainer: Color(0xFF000000),
+          colorSurface: Color(0xFFFFC900),
+          onColorSurface: Color(0xFF000000),
         ),
         community: SemanticColorGroup(
           color: Color(0xFF003B0D),
@@ -230,6 +262,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorSurface: Color(0xFF2D281F),
           onColorSurface: Color(0xFFFBBB4B),
         ),
+        premium: SemanticColorGroup(
+          color: Color(0xFF000000),
+          onColor: Color(0xFFFFC900),
+          colorContainer: Color(0xFFFFF3D2),
+          onColorContainer: Color(0xFF000000),
+          colorSurface: Color(0xFFFFC900),
+          onColorSurface: Color(0xFF000000),
+        ),
         community: SemanticColorGroup(
           color: Color(0xFF92D69C),
           onColor: Color(0xFF003B0D),
@@ -272,6 +312,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           onColorContainer: Color(0xFF000000),
           colorSurface: Color(0xFF363227),
           onColorSurface: Color(0xFFFFD87B),
+        ),
+        premium: SemanticColorGroup(
+          color: Color(0xFF000000),
+          onColor: Color(0xFFFFC900),
+          colorContainer: Color(0xFFFFF3D2),
+          onColorContainer: Color(0xFF000000),
+          colorSurface: Color(0xFFFFC900),
+          onColorSurface: Color(0xFF000000),
         ),
         community: SemanticColorGroup(
           color: Color(0xFFB6F0BE),
@@ -316,6 +364,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorSurface: Color(0xFF44413A),
           onColorSurface: Color(0xFFFFEDC9),
         ),
+        premium: SemanticColorGroup(
+          color: Color(0xFF000000),
+          onColor: Color(0xFFFFC900),
+          colorContainer: Color(0xFFFFF3D2),
+          onColorContainer: Color(0xFF000000),
+          colorSurface: Color(0xFFFFC900),
+          onColorSurface: Color(0xFF000000),
+        ),
         community: SemanticColorGroup(
           color: Color(0xFFE0F6E2),
           onColor: Color(0xFF000000),
@@ -346,6 +402,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   AppSemanticColors copyWith({
     SemanticColorGroup? technical,
     SemanticColorGroup? flash,
+    SemanticColorGroup? premium,
     SemanticColorGroup? community,
     SemanticColorGroup? success,
     SemanticColorGroup? warning,
@@ -353,6 +410,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       technical: technical ?? this.technical,
       flash: flash ?? this.flash,
+      premium: premium ?? this.premium,
       community: community ?? this.community,
       success: success ?? this.success,
       warning: warning ?? this.warning,
@@ -365,6 +423,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       technical: SemanticColorGroup.lerp(technical, other.technical, t),
       flash: SemanticColorGroup.lerp(flash, other.flash, t),
+      premium: SemanticColorGroup.lerp(premium, other.premium, t),
       community: SemanticColorGroup.lerp(community, other.community, t),
       success: SemanticColorGroup.lerp(success, other.success, t),
       warning: SemanticColorGroup.lerp(warning, other.warning, t),

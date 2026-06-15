@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/zk_identity_flow_page.dart';
 
 part 'zk_identity_flow_page.stories.g.dart';
 
-const meta = Meta<ZkIdentityFlowPage>(path: 'pages/zk-identity');
+const meta = Meta<ZkIdentityFlowPage>(path: 'live app/pages/zk-identity');
 
 final $StepOne = _Story(
   name: 'Step 1 \u2013 Active',

@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/challenge_category_icon.dart
 
 part 'challenge_card.stories.g.dart';
 
-const meta = Meta<ChallengeCard>(path: 'widgets/challenges');
+const meta = Meta<ChallengeCard>(path: 'live app/widgets/challenges');
 
 final $Default = _Story(
   name: 'Default',

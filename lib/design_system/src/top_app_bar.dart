@@ -37,6 +37,7 @@ class TopAppBar extends StatelessWidget {
     this.actions,
     this.image,
     this.subtitle,
+    this.backgroundColor,
   });
 
   /// Primary title text.
@@ -59,6 +60,11 @@ class TopAppBar extends StatelessWidget {
 
   /// Large variant only — secondary text line below the title.
   final String? subtitle;
+
+  /// Optional bar background override.
+  ///
+  /// Defaults to [ColorScheme.surface], matching the app scaffold surface.
+  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +89,7 @@ class TopAppBar extends StatelessWidget {
 
     return SliverAppBar(
       pinned: true,
-      backgroundColor: colors.surface,
+      backgroundColor: backgroundColor ?? colors.surface,
       scrolledUnderElevation: 0,
       leading: _buildLeading(context),
       titleSpacing: 0,

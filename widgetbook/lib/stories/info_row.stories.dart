@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/info_row.dart';
 
 part 'info_row.stories.g.dart';
 
-const meta = Meta<InfoRow>(path: 'widgets/data-display');
+const meta = Meta<InfoRow>(path: 'live app/widgets/data-display');
 
 Widget _reviewSurface(Widget child) {
   return Align(

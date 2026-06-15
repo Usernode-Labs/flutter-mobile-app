@@ -7,7 +7,9 @@ import 'package:crypto_mobile_app/design_system/src/status_badge.dart';
 
 part 'block_production_status_card.stories.g.dart';
 
-const meta = Meta<BlockProductionStatusCard>(path: 'widgets/challenges');
+const meta = Meta<BlockProductionStatusCard>(
+  path: 'live app/widgets/challenges',
+);
 
 final $Default = _Story(
   args: _Args(

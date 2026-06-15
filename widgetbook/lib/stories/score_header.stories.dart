@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/design_system/src/score_header.dart';
 
 part 'score_header.stories.g.dart';
 
-const meta = Meta<ScoreHeader>(path: 'widgets/data-display');
+const meta = Meta<ScoreHeader>(path: 'live app/widgets/data-display');
 
 final $Default = _Story(
   name: 'Default',

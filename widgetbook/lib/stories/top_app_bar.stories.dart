@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/top_app_bar.dart';
 
 part 'top_app_bar.stories.g.dart';
 
-const meta = Meta<TopAppBar>(path: 'widgets/navigation');
+const meta = Meta<TopAppBar>(path: 'live app/widgets/navigation');
 
 final $Small = _Story(
   name: 'Small',

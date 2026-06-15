@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/shimmer_card_skeleton.dart';
 
 part 'shimmer_card_skeleton.stories.g.dart';
 
-const meta = Meta<ShimmerCardSkeleton>(path: 'widgets/indicators');
+const meta = Meta<ShimmerCardSkeleton>(path: 'live app/widgets/indicators');
 
 final $Default = _Story(
   args: _Args(),

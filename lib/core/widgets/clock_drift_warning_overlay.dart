@@ -2,8 +2,7 @@ import 'dart:async';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:flutter/material.dart';
 
@@ -153,9 +152,10 @@ class _ClockDriftWarningOverlayState extends State<ClockDriftWarningOverlay>
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text(l10n.clockDriftDismiss),
+            Button(
+              label: l10n.clockDriftDismiss,
+              size: ButtonSize.small,
+              onTap: () => Navigator.of(dialogContext).pop(),
             ),
           ],
         );

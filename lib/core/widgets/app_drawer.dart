@@ -8,7 +8,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 class AppDrawer extends ConsumerStatefulWidget {
   const AppDrawer({super.key});
@@ -40,19 +40,22 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+          Button(
+            label: 'Cancel',
+            size: ButtonSize.small,
+            variant: ButtonVariant.outlined,
+            onTap: () => Navigator.of(ctx).pop(false),
           ),
-          TextButton(
-            onPressed: () {
+          Button(
+            label: 'OK',
+            size: ButtonSize.small,
+            onTap: () {
               if (pinController.text == AppConfig.networkSwitcherCode) {
                 Navigator.of(ctx).pop(true);
               } else {
                 Navigator.of(ctx).pop(false);
               }
             },
-            child: const Text('OK'),
           ),
         ],
       ),
@@ -138,19 +141,22 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
         ),
         actions: [
           if (Platform.isIOS)
-            TextButton(
-              onPressed: () {
+            Button(
+              label: 'OK',
+              size: ButtonSize.small,
+              onTap: () {
                 Navigator.of(ctx).pop();
               },
-              child: const Text('OK'),
             )
           else
-            TextButton(
-              onPressed: () {
+            Button(
+              label: 'Close App',
+              size: ButtonSize.small,
+              variant: ButtonVariant.primary,
+              onTap: () {
                 Navigator.of(ctx).pop();
                 SystemNavigator.pop();
               },
-              child: const Text('Close App'),
             ),
         ],
       ),
@@ -270,9 +276,10 @@ class _AppDrawerState extends ConsumerState<AppDrawer> {
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(l10n.drawerClose),
+          Button(
+            label: l10n.drawerClose,
+            size: ButtonSize.small,
+            onTap: () => Navigator.of(ctx).pop(),
           )
         ],
       ),

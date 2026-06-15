@@ -110,6 +110,38 @@ screen margin + card padding + widget padding + leading width + gap = offset
 
 **Column/Row `spacing` parameter.** Use `Column(spacing: spacing.space16, ...)` instead of interleaving `SizedBox` widgets. Available since Flutter 3.27; the project targets Flutter 3.35+.
 
+### Current Scroll Usage
+
+| Screen | Pattern | Pinned | Safe-area | Surface inset | Notes |
+|--------|---------|--------|-----------|---------------|-------|
+| Wallet | `ParallaxSurfaceLayout` | AddressBarDelegate | Delegate handles it | `space24` | Single pinned bar |
+| DApps | `ParallaxSurfaceLayout` | None | Auto pinned sliver | `space24` | `safeAreaOverlay` default |
+| Node Status | `ParallaxSurfaceLayout` | None | Auto pinned sliver | `space24` | `safeAreaOverlay` default |
+| Challenges | `ParallaxSurfaceLayout` nested body | ChipBar + TabBar | Delegate handles it | `space16` | `nestedBody` + `surfacePinnedSlivers` |
+| Detail screens | `CustomScrollView` + `TopAppBar` | SliverAppBar | AppBar handles it | n/a | Different pattern |
+
+### Scroll Design Principles
+
+- Slivers for content, boxes for decoration. Use `SliverList` for anything potentially long.
+- Pick one coordination bus per scroll view (`ValueNotifier`, `ScrollController.addListener`, or stream), not several.
+- Declare pinning with `SliverAppBar(pinned: true)`, `SliverPersistentHeader`, or `surfacePinnedSlivers`; avoid ad hoc lerp math in screens.
+- Edge fades should be cheap decoration (`Stack` + `Align` + `LinearGradient`) unless interaction requires more.
+- Expose a `ScrollController` when scroll-to-top, keyboard navigation, or programmatic scrolling is expected.
+
+### Open Gaps
+
+| Gap | Status | Decision |
+|-----|--------|----------|
+| Snap-to-position physics | Open | Do not introduce a generic snap system until a real screen proves the need. Prefer native scroll behavior. |
+| Scroll-driven item animations | Open | Keep per-screen and lightweight. New animation patterns need motion/a11y review and `MediaQuery.disableAnimations` handling. |
+
+### Package Decision: `sliver_tools`
+
+Rejected for now. The current scroll stack uses Flutter SDK slivers plus
+`ParallaxSurfaceLayout`, which already covers pinned bars, grouped surfaces,
+fills, and nested bodies. Reconsider `sliver_tools` only when an approved
+pattern needs behavior the SDK cannot express cleanly.
+
 ## SafeArea Rules
 
 | Screen type | SafeArea handling |

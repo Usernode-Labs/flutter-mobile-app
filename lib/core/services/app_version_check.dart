@@ -256,9 +256,11 @@ class _UpdateDialog extends StatelessWidget {
             ),
             if (!result.isBlocking) ...[
               SizedBox(height: spacing.space8),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Later'),
+              Button(
+                label: 'Later',
+                size: ButtonSize.small,
+                variant: ButtonVariant.outlined,
+                onTap: () => Navigator.of(context).pop(),
               ),
             ],
           ],

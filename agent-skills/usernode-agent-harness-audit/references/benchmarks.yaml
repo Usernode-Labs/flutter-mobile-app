@@ -1,0 +1,226 @@
+version: 2
+updated: "2026-06-12"
+
+curation_policy:
+  purpose: "Benchmark strong external agent harnesses without turning Usernode into a skill collection."
+  default_posture: "reference-only"
+  install_policy:
+    - "Do not install upstream skills as active project skills by default."
+    - "Prefer ignored caches or shallow inspection for benchmarks."
+    - "Promote only distilled, Usernode-specific changes into agent-skills/, tool/, hooks, tests, docs, or CI."
+    - "Public benchmarks are inputs to periodic audits, not ambient discovery sources."
+  identity_filters:
+    - "Usernode DS code and token classes are authoritative."
+    - "M3 first; existing DS patterns second; new patterns need gap proof and human approval."
+    - "Mobile crypto trust, safe areas, keyboard CTAs, sheets, and accessibility outrank generic polish."
+    - "Tool-agnostic enforcement beats agent-specific hooks."
+    - "Context cost must stay low through progressive disclosure."
+
+tiers:
+  active:
+    description: "Recurring public benchmark repos. Refresh these first for full harness or Flutter/mobile DS audits."
+  narrow:
+    description: "Specialty references used only for the named lane."
+  private_manual:
+    description: "Authenticated or non-public references. Manually distill taste ideas; never install as project skills."
+
+latest_snapshots:
+  checked: "2026-06-12"
+  upstreams:
+    flutter-official-skills: "70e2b6b"
+    flutter-evals: "739c590"
+    vgv-ai-flutter-plugin: "ef057c1"
+    android-official-skills: "fe95b6f"
+    material-3-skill: "bc4e480"
+    dart-official-skills: "b8f014a"
+
+benchmarks:
+  - name: flutter-official-skills
+    source: "https://github.com/flutter/skills"
+    kind: "official-framework-skills"
+    tier: "active"
+    track: "main branch or pinned commit; last checked 70e2b6b on 2026-06-12"
+    use_for:
+      - "widget tests"
+      - "responsive and adaptive layout mechanics"
+      - "layout error diagnosis"
+      - "integration-test and Dart/Flutter MCP exploration mechanics"
+      - "go_router and localization references"
+    do_not_use_for:
+      - "Usernode DS authority"
+      - "mobile UX taste"
+      - "token policy"
+      - "install-all active discovery"
+      - "replacing Widgetbook with Flutter Widget Previewer"
+    identity_filter:
+      - "Wrap official Flutter mechanics inside Usernode skills."
+      - "Translate examples to Riverpod, existing routing, Widgetbook, and DS token rules."
+    adoption_tests:
+      - "Does the idea fit a narrow Usernode skill step?"
+      - "Can it run through flutter test, Widgetbook, or a tool script without Flutter MCP?"
+
+  - name: flutter-evals
+    source: "https://github.com/flutter/evals"
+    kind: "official-agent-evaluation-framework"
+    tier: "active"
+    track: "main branch or pinned commit; last checked 739c590 on 2026-06-12"
+    use_for:
+      - "critical user journey structure"
+      - "task/sample/variant vocabulary"
+      - "scoring and acceptance criteria framing"
+      - "comparing context-only, MCP-only, and full-context variants"
+    do_not_use_for:
+      - "adopting Inspect AI or devals runner"
+      - "adding eval sandboxes or CI jobs by default"
+      - "model benchmarking inside product CI"
+    identity_filter:
+      - "Borrow the shape of CUJs and scoring, not the unstable runner."
+      - "Keep Usernode proof in existing scripts, hooks, Widgetbook, and CI."
+    adoption_tests:
+      - "Does it make harness audits more repeatable without new infrastructure?"
+      - "Can a CUJ map to one local command, skill route, or manual check?"
+
+  - name: android-official-skills
+    source: "https://github.com/android/skills"
+    kind: "official-platform-skills"
+    tier: "active"
+    track: "release tag or pinned commit; last checked fe95b6f on 2026-06-12"
+    use_for:
+      - "edge-to-edge and inset reasoning"
+      - "keyboard and IME-safe flow checks"
+      - "adaptive layout and large-screen heuristics"
+      - "navigation and retained-stack vocabulary"
+      - "Android test matrix ideas"
+    do_not_use_for:
+      - "Compose code in Flutter"
+      - "Android-only architecture mandates"
+      - "replacing Usernode mobile taste"
+    identity_filter:
+      - "Translate platform concepts to Flutter SafeArea, MediaQuery, scroll padding, and go_router."
+      - "Keep Usernode compact mobile-first unless product scope expands."
+    adoption_tests:
+      - "Does the rule catch a real mobile failure mode?"
+      - "Can it become a screen-audit checklist or ds_lints rule?"
+
+  - name: vgv-ai-flutter-plugin
+    source: "https://github.com/VeryGoodOpenSource/vgv-ai-flutter-plugin"
+    kind: "production-flutter-plugin"
+    tier: "active"
+    track: "release tag or pinned commit; last checked ef057c1 on 2026-06-12"
+    use_for:
+      - "Flutter accessibility audit structure"
+      - "golden and widget test patterns"
+      - "Material theming reference"
+      - "navigation testing ideas"
+      - "UI package and Widgetbook conventions"
+    do_not_use_for:
+      - "Bloc defaults"
+      - "VGV layered architecture as project authority"
+      - "Claude-specific hooks as enforcement"
+    identity_filter:
+      - "Port ideas into Usernode Riverpod, DS, and tool-agnostic gates."
+      - "Treat accessibility and testing content as reference material, not ambient skill behavior."
+    adoption_tests:
+      - "Does it improve one of our existing quality gates?"
+      - "Can it be expressed without VGV-specific architecture assumptions?"
+
+  - name: material-3-skill
+    source: "https://github.com/hamen/material-3-skill"
+    kind: "community-material-3-reference"
+    tier: "active"
+    track: "release tag or pinned commit; last checked bc4e480 on 2026-06-12"
+    use_for:
+      - "M3 component vocabulary"
+      - "navigation component selection"
+      - "shape, typography, elevation, and color role reminders"
+      - "M3-vs-custom gap proof"
+    do_not_use_for:
+      - "Compose-first code paths"
+      - "dynamic color mandates"
+      - "overriding Usernode semantic color policy"
+      - "Material Expressive defaults without approval"
+    identity_filter:
+      - "Use M3 component reasoning, then implement with Flutter and Usernode tokens."
+    adoption_tests:
+      - "Does it clarify an M3-vs-custom gap proof?"
+
+  - name: dart-official-skills
+    source: "https://github.com/dart-lang/skills"
+    kind: "official-language-skills"
+    tier: "narrow"
+    track: "main branch or pinned commit; last checked b8f014a on 2026-06-12"
+    use_for:
+      - "static analysis workflow"
+      - "unit test structure"
+      - "package conflict resolution"
+      - "Dart language migration references"
+    do_not_use_for:
+      - "Flutter UI decisions"
+      - "Usernode architecture rewrites"
+      - "FRB workflow replacement"
+    identity_filter:
+      - "Use as mechanical Dart guidance only."
+      - "Prefer repo commands from AGENTS.md over generic examples."
+    adoption_tests:
+      - "Does the change improve existing analyzer/test gates?"
+      - "Does it avoid new package or architecture assumptions?"
+
+  - name: mobile-app-ui-design
+    source: "https://github.com/ceorkm/mobile-app-ui-design"
+    kind: "community-mobile-ux-skill"
+    tier: "narrow"
+    track: "main branch or pinned commit"
+    use_for:
+      - "thumb-zone heuristics"
+      - "interaction-cost reduction"
+      - "empty, loading, error, and success state prompts"
+      - "mobile emotion and trust-flow reminders"
+    do_not_use_for:
+      - "generic premium mobile styling"
+      - "glow, blur, rounded-heavy visual defaults"
+      - "replacing Usernode mobile-ux-taste"
+    identity_filter:
+      - "Distill only mobile interaction heuristics into Usernode taste."
+      - "Reject vibe-heavy styling unless approved for this product."
+    adoption_tests:
+      - "Does it improve pattern_decision quality?"
+      - "Does it reduce cognitive load in a real Usernode flow?"
+
+  - name: taste-skill
+    source: "https://github.com/leonxlnx/taste-skill"
+    kind: "external-visual-taste-framework"
+    tier: "narrow"
+    track: "main branch or pinned commit"
+    use_for:
+      - "anti-slop review framing"
+      - "visual polish language"
+      - "before-code design reasoning"
+    do_not_use_for:
+      - "mobile platform correctness"
+      - "Flutter DS enforcement"
+      - "generic frontend style overriding Usernode"
+    identity_filter:
+      - "Use as precedent for hard bans and pattern reasoning, not as project core."
+    adoption_tests:
+      - "Can the idea become a Usernode-specific hard ban or audit line?"
+
+  - name: ui-sh-skills
+    source: "https://ui.sh/skills"
+    kind: "paid-external-taste-skills"
+    tier: "private_manual"
+    track: "authenticated skill API snapshot or manual review date"
+    use_for:
+      - "visual taste references"
+      - "hierarchy, spacing, typography, surface, color, and responsive critique"
+      - "prompting external design review"
+    do_not_use_for:
+      - "Flutter implementation mechanics"
+      - "Tailwind or web component defaults"
+      - "ambient core project skills"
+      - "DS token authority"
+    identity_filter:
+      - "Use as primary private taste reference only."
+      - "Reject any suggestion that fights color-expensive Usernode DS rules."
+    adoption_tests:
+      - "Can the idea be restated as a Usernode taste rule?"
+      - "Does it avoid web/Tailwind assumptions?"

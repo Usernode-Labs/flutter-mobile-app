@@ -120,7 +120,7 @@ void main() {
       ));
 
       final opacityWidget = tester.widget<Opacity>(find.byType(Opacity));
-      expect(opacityWidget.opacity, equals(0.30));
+      expect(opacityWidget.opacity, equals(0.38));
     });
 
     testWidgets('enabled: false ignores onTap', (tester) async {

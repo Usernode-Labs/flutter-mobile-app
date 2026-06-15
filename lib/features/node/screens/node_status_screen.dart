@@ -286,9 +286,10 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
               ?.copyWith(color: colorScheme.onErrorContainer),
         ),
         actions: [
-          TextButton(
-            onPressed: _refresh,
-            child: Text(l10n.retry),
+          Button(
+            label: l10n.retry,
+            size: ButtonSize.small,
+            onTap: _refresh,
           ),
         ],
       ),

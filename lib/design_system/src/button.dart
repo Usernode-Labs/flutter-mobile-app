@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../tokens/app_radii.dart';
 import '../tokens/app_sizing.dart';
+import '../tokens/app_opacity.dart';
 import '../tokens/app_spacing.dart';
 
 /// Button size — controls height.
@@ -71,6 +72,7 @@ class Button extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
+    final opacity = Theme.of(context).extension<AppOpacity>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     final height = switch (size) {
@@ -88,9 +90,12 @@ class Button extends StatelessWidget {
             dimension: sizing.iconSmall,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: variant == ButtonVariant.primary
-                  ? colors.onPrimary
-                  : colors.onSurface,
+              color: switch (variant) {
+                ButtonVariant.primary => colors.onPrimary,
+                ButtonVariant.tonal => colors.onSecondaryContainer,
+                ButtonVariant.outlined => colors.onSurface,
+                ButtonVariant.surface => colors.onSurface,
+              },
             ),
           )
         : Text(label);
@@ -104,21 +109,32 @@ class Button extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
 
+    final disabledBackground =
+        colors.onSurface.withValues(alpha: opacity.medium);
+    final disabledForeground =
+        colors.onSurface.withValues(alpha: opacity.disabled);
+
+    WidgetStateProperty<Color> stateColor({
+      required Color enabled,
+      required Color disabled,
+    }) {
+      return WidgetStateProperty.resolveWith((states) {
+        final disabledState = states.contains(WidgetState.disabled);
+        return disabledState && !isLoading ? disabled : enabled;
+      });
+    }
+
     switch (variant) {
       case ButtonVariant.primary:
         final style = baseStyle.copyWith(
-          backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (!isLoading && states.contains(WidgetState.disabled)) {
-              return colors.onSurface.withValues(alpha: 0.12);
-            }
-            return colors.primary;
-          }),
-          foregroundColor: WidgetStateProperty.resolveWith((states) {
-            if (!isLoading && states.contains(WidgetState.disabled)) {
-              return colors.onSurface.withValues(alpha: 0.38);
-            }
-            return colors.onPrimary;
-          }),
+          backgroundColor: stateColor(
+            enabled: colors.primary,
+            disabled: disabledBackground,
+          ),
+          foregroundColor: stateColor(
+            enabled: colors.onPrimary,
+            disabled: disabledForeground,
+          ),
         );
         if (!isLoading && leadingIcon != null) {
           return FilledButton.icon(
@@ -135,8 +151,16 @@ class Button extends StatelessWidget {
         );
 
       case ButtonVariant.tonal:
-        // FilledButton.tonal defaults match our tonal spec — no overrides.
-        final style = baseStyle;
+        final style = baseStyle.copyWith(
+          backgroundColor: stateColor(
+            enabled: colors.secondaryContainer,
+            disabled: disabledBackground,
+          ),
+          foregroundColor: stateColor(
+            enabled: colors.onSecondaryContainer,
+            disabled: disabledForeground,
+          ),
+        );
         if (!isLoading && leadingIcon != null) {
           return FilledButton.tonalIcon(
             onPressed: effectiveOnTap,
@@ -154,9 +178,16 @@ class Button extends StatelessWidget {
       case ButtonVariant.outlined:
         final style = baseStyle.copyWith(
           backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-          side: WidgetStatePropertyAll(
-            BorderSide(color: colors.outlineVariant),
+          foregroundColor: stateColor(
+            enabled: colors.primary,
+            disabled: disabledForeground,
           ),
+          side: WidgetStateProperty.resolveWith((states) {
+            final color = states.contains(WidgetState.disabled) && !isLoading
+                ? disabledBackground
+                : colors.outlineVariant;
+            return BorderSide(color: color);
+          }),
         );
         if (!isLoading && leadingIcon != null) {
           return OutlinedButton.icon(
@@ -174,9 +205,14 @@ class Button extends StatelessWidget {
 
       case ButtonVariant.surface:
         final style = baseStyle.copyWith(
-          backgroundColor:
-              WidgetStatePropertyAll(colors.surfaceContainerLowest),
-          foregroundColor: WidgetStatePropertyAll(colors.onSurface),
+          backgroundColor: stateColor(
+            enabled: colors.surfaceContainerLowest,
+            disabled: disabledBackground,
+          ),
+          foregroundColor: stateColor(
+            enabled: colors.onSurface,
+            disabled: disabledForeground,
+          ),
         );
         if (!isLoading && leadingIcon != null) {
           return FilledButton.icon(

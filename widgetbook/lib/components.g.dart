@@ -7,6 +7,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:widgetbook/widgetbook.dart' as _widgetbook;
 import 'package:widgetbook_workspace/stories/active_challenge_bands.stories.dart' as _widgetbook_workspace_stories_active_challenge_bands_stories;
+import 'package:widgetbook_workspace/stories/activity_feed_prototype.stories.dart' as _widgetbook_workspace_stories_activity_feed_prototype_stories;
 import 'package:widgetbook_workspace/stories/atomic_challenge_card.stories.dart' as _widgetbook_workspace_stories_atomic_challenge_card_stories;
 import 'package:widgetbook_workspace/stories/atomic_challenge_detail_page.stories.dart' as _widgetbook_workspace_stories_atomic_challenge_detail_page_stories;
 import 'package:widgetbook_workspace/stories/block_production_status_card.stories.dart' as _widgetbook_workspace_stories_block_production_status_card_stories;
@@ -58,6 +59,7 @@ import 'package:widgetbook_workspace/stories/zk_identity_step_illustration.stori
 
 final components = <_widgetbook.Component>[
   _widgetbook_workspace_stories_active_challenge_bands_stories.ActiveChallengeBandsComponent,
+  _widgetbook_workspace_stories_activity_feed_prototype_stories.ActivityFeedPrototypeComponent,
   _widgetbook_workspace_stories_atomic_challenge_card_stories.AtomicChallengeCardComponent,
   _widgetbook_workspace_stories_atomic_challenge_detail_page_stories.AtomicChallengeDetailPageComponent,
   _widgetbook_workspace_stories_block_production_status_card_stories.BlockProductionStatusCardComponent,

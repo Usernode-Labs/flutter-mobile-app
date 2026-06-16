@@ -81,7 +81,7 @@ _Closed milestones move here with a brief retro paragraph. Empty until M1 closes
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-12._
+_Last synced: 2026-06-16._
 
 ## Slice
 

@@ -236,6 +236,16 @@ int? _rewardCeiling(ChallengeDto dto) {
       parseRewardCeiling(formatRewardText(dto.reward));
 }
 
+/// Whether a challenge belongs on the active Challenges surface.
+///
+/// A challenge is "over" when it is explicitly completed or its schedule end is
+/// in the past; over challenges move to Profile (completed) or drop out
+/// (missed) per #440. Everything else — including pending/earned challenges that
+/// are still within their window — stays active.
+bool isChallengeActive(ChallengeDto dto) {
+  return !dto.completed && !_isScheduleExpired(dto);
+}
+
 // ---------------------------------------------------------------------------
 // Band grouping
 // ---------------------------------------------------------------------------

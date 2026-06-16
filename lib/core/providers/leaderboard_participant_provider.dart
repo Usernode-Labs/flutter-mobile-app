@@ -1,14 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 const _participantIdKey = 'leaderboard:participant_id';
 
+/// Synthetic participant/season used when [AppConfig.useMockChallenges] is on,
+/// so the breakdown (and thus per-challenge progress) loads without onboarding.
+const int kMockParticipantId = 1;
+const int kMockSeasonId = 1;
+
 /// Reads the persisted participant ID from SharedPreferences (network-prefixed).
 /// Returns null until onboarding persists the ID.
 final participantIdProvider = FutureProvider<int?>((ref) async {
+  if (AppConfig.useMockChallenges) return kMockParticipantId;
   return loadParticipantId();
 });
 
@@ -28,7 +35,12 @@ Future<int?> loadParticipantId() async {
 
 /// In-memory season/event selection shared across all leaderboard providers.
 final seasonEventContextProvider = StateProvider<SeasonEventContext>(
-  (ref) => const SeasonEventContext(),
+  (ref) => AppConfig.useMockChallenges
+      ? const SeasonEventContext(
+          seasonId: kMockSeasonId,
+          seasonName: 'Season 1',
+        )
+      : const SeasonEventContext(),
 );
 
 /// Set of event IDs the participant has data in (from season-scope breakdown).

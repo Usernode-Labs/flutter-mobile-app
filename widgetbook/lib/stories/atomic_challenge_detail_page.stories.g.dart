@@ -22,17 +22,18 @@ final AtomicChallengeDetailPageComponent =
       name: meta.name ?? 'AtomicChallengeDetailPage',
       path: meta.path ?? 'stories',
       docsBuilder: meta.docsBuilder,
-      docComment:
-          r'''Widgetbook-only exploration of an atomic challenge detail page.
+      docComment: r'''The simplified Fair Rewards challenge detail page.
 
-The detail keeps the compressed challenge card structure intact: goal first,
-then the same progress rail. Supporting copy sits below the rail so the page
-feels like an expansion, not a separate backend record view.''',
-      stories: [
-        $ExpandedAtomic..$generatedName = 'ExpandedAtomic',
-        $BackgroundBlockProduction
-          ..$generatedName = 'BackgroundBlockProduction',
-      ],
+Keeps the compressed card structure intact — goal first, then the same
+[AtomicChallengeRail] — so the page reads as an expansion of the card rather
+than a separate backend record view. Supporting copy ("Why it matters",
+"Available", "How points work", optional "Rules") sits below the rail, and a
+single primary CTA is pinned to the bottom.
+
+Presentation-only: all content arrives via constructor parameters. The
+feature screen resolves challenge data, formats the strings, and wires the
+back / CTA callbacks.''',
+      stories: [$ExpandedAtomic..$generatedName = 'ExpandedAtomic'],
     );
 typedef AtomicChallengeDetailPageScenario =
     Scenario<AtomicChallengeDetailPage, AtomicChallengeDetailInputArgs>;

@@ -89,21 +89,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     }
   }
 
-  void _onBurstTap() {
-    if (_fabOpen) _toggleFab();
-    final balance =
-        ref.read(walletProvider).valueOrNull?.balance.tokenAmount ?? 0;
-    final l10n = AppLocalizations.of(context);
-    // Pre-check: need at least 100 tokens (50 × 1 token + fees buffer)
-    if (balance < 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.burstInsufficientBalance)),
-      );
-      return;
-    }
-    context.push(AppRoutes.walletBurst);
-  }
-
   Widget _buildSpeedDial(
       ThemeData theme, AppLocalizations l10n, AppSpacing spacing) {
     return Column(
@@ -112,12 +97,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
       children: [
         // Mini-FABs revealed when open
         if (_fabOpen) ...[
-          _SpeedDialOption(
-            label: l10n.burstLabel,
-            icon: Symbols.bolt_sharp,
-            onTap: _onBurstTap,
-          ),
-          SizedBox(height: spacing.space12),
           _SpeedDialOption(
             label: l10n.walletSend,
             icon: Symbols.north_east_sharp,
@@ -366,12 +345,6 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
                         variant: ButtonVariant.tonal,
                         label: l10n.walletScan,
                         onTap: () => context.push(AppRoutes.walletScan),
-                      ),
-                      SizedBox(width: spacing.space8),
-                      Button(
-                        variant: ButtonVariant.tonal,
-                        label: l10n.burstLabel,
-                        onTap: _onBurstTap,
                       ),
                     ],
                   ),

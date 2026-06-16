@@ -90,6 +90,15 @@ class AppConfig {
     defaultValue: false,
   );
 
+  // Serve the Fair Rewards challenges surface from in-memory, board-shaped
+  // fixtures (MockChallengesApiService) instead of the live leaderboard API.
+  // On by default while the Fair Rewards backend is not yet available; flip to
+  // false (or pass `--dart-define=USE_MOCK_CHALLENGES=false`) once it ships.
+  static const bool useMockChallenges = bool.fromEnvironment(
+    'USE_MOCK_CHALLENGES',
+    defaultValue: true,
+  );
+
   // URL used by the dApps tab when the user toggles it into "external
   // hub" mode by long-pressing the bottom-nav Dapps icon. The toggle is
   // off by default (so the tab opens to the original list of dapps);

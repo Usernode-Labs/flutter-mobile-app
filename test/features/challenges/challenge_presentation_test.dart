@@ -1,0 +1,227 @@
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
+
+ChallengeDto _dto({
+  int id = 1,
+  String goal = 'Challenge',
+  String reward = '500',
+  ChallengeMetric? metric,
+  String? subCategory,
+  String? scheduleEnd,
+}) {
+  return ChallengeDto(
+    id: id,
+    category: 'community',
+    goal: goal,
+    task: goal,
+    reward: reward,
+    metric: metric,
+    subCategory: subCategory,
+    scheduleEnd: scheduleEnd,
+    enabled: true,
+    completed: false,
+  );
+}
+
+EnrichedChallenge _enriched(ChallengeDto dto) => EnrichedChallenge(dto: dto);
+
+void main() {
+  group('mapToAtomicCard (explicit progress)', () {
+    test('binary open → checkbox rail, open phase, null fill', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Fill in survey',
+          reward: '500',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.binary,
+            target: 1,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.none,
+        ),
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.checkbox);
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.fill, isNull);
+      expect(card.leftText, 'Not done');
+      expect(card.rightText, '500 pts');
+    });
+
+    test('binary pending → pendingFinalization, "pending 500 pts"', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.binary,
+            target: 1,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.pending,
+          pendingPoints: 500,
+          description: 'Submitted',
+        ),
+      );
+
+      expect(card.phase, AtomicChallengePhase.pendingFinalization);
+      expect(card.leftText, 'Submitted');
+      expect(card.rightText, 'pending 500 pts');
+    });
+
+    test('count in progress → standard rail, fraction fill + texts', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Give kudos',
+          reward: '1500',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            target: 5,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.inProgress,
+          current: 2,
+          target: 5,
+          earnedPoints: 400,
+        ),
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.standard);
+      expect(card.phase, AtomicChallengePhase.inProgress);
+      expect(card.fill, closeTo(0.4, 1e-9));
+      expect(card.leftText, '2 / 5');
+      expect(card.rightText, '400 / 1,500 pts');
+    });
+
+    test('count pending → "5 / 5" + "pending 1,500 pts", full fill', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          reward: '1500',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            target: 5,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.pending,
+          current: 5,
+          target: 5,
+          pendingPoints: 1500,
+        ),
+      );
+
+      expect(card.leftText, '5 / 5');
+      expect(card.rightText, 'pending 1,500 pts');
+      expect(card.fill, 1.0);
+    });
+
+    test('rank pending with no points → "waiting review", null fill', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Top 3 most-voted ideas',
+          reward: '0',
+          metric: const ChallengeMetric(kind: ChallengeMetricKind.rank),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.pending,
+          description: 'Joined',
+        ),
+      );
+
+      expect(card.leftText, 'Joined');
+      expect(card.rightText, 'waiting review');
+      expect(card.fill, isNull);
+    });
+
+    test('produce-blocks → technicalOngoing, "% success" + "Earned … pts"', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Produce Every Block',
+          reward: '6500',
+          subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+          metric: const ChallengeMetric(kind: ChallengeMetricKind.percentage),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.inProgress,
+          current: 90,
+          earnedPoints: 10550,
+        ),
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.technicalOngoing);
+      expect(card.fill, isNull);
+      expect(card.leftText, '90% success');
+      expect(card.rightText, 'Earned 10,550 pts');
+    });
+  });
+
+  group('mapToAtomicCard (generic fallback, no progress)', () {
+    test('no metric, no points → open checkbox with ceiling reward', () {
+      final card = mapToAtomicCard(_enriched(_dto(reward: '500')));
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.checkbox);
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.leftText, 'Not done');
+      expect(card.rightText, '500 pts');
+    });
+  });
+
+  group('buildChallengeBands', () {
+    final now = DateTime.utc(2026, 6, 16, 12);
+    String endsIn(Duration d) => now.add(d).toIso8601String();
+
+    test('groups into Featured / Today / This week / Season', () {
+      final challenges = [
+        _enriched(_dto(
+            id: 1,
+            goal: 'Featured one',
+            scheduleEnd: endsIn(
+              const Duration(days: 10),
+            ))),
+        _enriched(_dto(
+            id: 2,
+            goal: 'Due soon',
+            scheduleEnd: endsIn(
+              const Duration(hours: 5, minutes: 1),
+            ))),
+        _enriched(_dto(
+            id: 3,
+            goal: 'This week one',
+            scheduleEnd: endsIn(
+              const Duration(days: 4, hours: 1),
+            ))),
+        _enriched(_dto(
+            id: 4,
+            goal: 'Long haul',
+            scheduleEnd: endsIn(
+              const Duration(days: 30),
+            ))),
+      ];
+
+      final bands = buildChallengeBands(challenges, now: now);
+
+      expect(bands.map((b) => b.title).toList(),
+          ['Featured', 'Today', 'This week', 'Season']);
+      expect(bands.first.cards.single.featured, isTrue);
+      expect(bands.first.cards.single.title, 'Featured one');
+      expect(bands[1].deadlineText, '5h left');
+      expect(bands[2].deadlineText, '4d left');
+      expect(bands[3].cards.single.title, 'Long haul');
+    });
+
+    test('empty input yields no bands', () {
+      expect(buildChallengeBands(const [], now: now), isEmpty);
+    });
+  });
+}

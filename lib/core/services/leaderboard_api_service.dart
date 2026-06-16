@@ -9,6 +9,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
+import 'package:crypto_mobile_app/core/services/mock_challenges_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
@@ -393,7 +394,11 @@ class LeaderboardApiService {
 // ---------------------------------------------------------------------------
 
 final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
-  final service = LeaderboardApiService();
+  // Drop-in mock while the Fair Rewards backend is not yet available. Same
+  // public surface, so providers and screens are unaffected by the swap.
+  final service = AppConfig.useMockChallenges
+      ? MockChallengesApiService()
+      : LeaderboardApiService();
   ref.onDispose(service.dispose);
   return service;
 });

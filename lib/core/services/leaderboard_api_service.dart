@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -19,13 +21,24 @@ class LeaderboardApiService {
     String? baseUrl,
     http.Client? httpClient,
     bool? writesEnabled,
+    int? maxGetRetries,
+    Duration? retryBaseDelay,
   })  : _baseUrl = baseUrl ?? AppConfig.leaderboardApiBaseUrl,
         _http = httpClient ?? createAppHttpClient(),
-        _writesEnabled = writesEnabled ?? !AppConfig.viewOnly;
+        _writesEnabled = writesEnabled ?? !AppConfig.viewOnly,
+        _maxGetRetries = maxGetRetries ?? 2,
+        _retryBaseDelay = retryBaseDelay ?? const Duration(milliseconds: 300);
 
   final String _baseUrl;
   final http.Client _http;
   final bool _writesEnabled;
+
+  /// Number of additional attempts for idempotent GETs after the first one.
+  /// Writes (POST) are never retried to avoid duplicate side effects.
+  final int _maxGetRetries;
+
+  /// Base delay for exponential backoff between GET retries.
+  final Duration _retryBaseDelay;
 
   static const _jsonHeaders = {
     'Content-Type': 'application/json',
@@ -212,7 +225,8 @@ class LeaderboardApiService {
         : uri;
     _log.trace('GET $url');
 
-    final resp = await _send(() => _http.get(url, headers: _acceptJson));
+    final resp =
+        await _sendWithRetry(() => _http.get(url, headers: _acceptJson));
     return _parseEnvelope(resp, url);
   }
 
@@ -241,20 +255,72 @@ class LeaderboardApiService {
   }
 
   Future<http.Response> _send(
-    Future<http.Response> Function() fn,
-  ) async {
+    Future<http.Response> Function() fn, {
+    bool reportErrors = true,
+  }) async {
     try {
       return await fn().timeout(AppConfig.leaderboardApiTimeout);
     } catch (e, stackTrace) {
       _log.warn('Request failed: $e');
-      await SentryUtil.captureError(
-        e,
-        stackTrace,
-        tag: 'leaderboard_api',
-      );
+      // Only report to Sentry when the failure is terminal — transient errors
+      // that a retry recovers from would otherwise be noise.
+      if (reportErrors) {
+        await SentryUtil.captureError(
+          e,
+          stackTrace,
+          tag: 'leaderboard_api',
+        );
+      }
       rethrow;
     }
   }
+
+  /// Sends an idempotent request, retrying transient failures with exponential
+  /// backoff. Retries on connection errors/timeouts and on 429/5xx responses.
+  ///
+  /// Non-transient responses (e.g. 4xx other than 429, or any 2xx) are returned
+  /// to the caller for normal parsing. Sentry only sees a transport error once
+  /// the retries are exhausted; intermediate retryable HTTP statuses are not
+  /// captured here (the final one is captured by [_parseEnvelope]).
+  Future<http.Response> _sendWithRetry(
+    Future<http.Response> Function() fn,
+  ) async {
+    var attempt = 0;
+    while (true) {
+      final isLastAttempt = attempt >= _maxGetRetries;
+      try {
+        final resp = await _send(fn, reportErrors: isLastAttempt);
+        if (!isLastAttempt && _isRetryableStatus(resp.statusCode)) {
+          attempt++;
+          _log.debug('Retrying GET after HTTP ${resp.statusCode} '
+              '(attempt $attempt/$_maxGetRetries)');
+          await Future.delayed(_backoff(attempt));
+          continue;
+        }
+        return resp;
+      } catch (e) {
+        if (!isLastAttempt && _isRetryableError(e)) {
+          attempt++;
+          _log.debug('Retrying GET after error "$e" '
+              '(attempt $attempt/$_maxGetRetries)');
+          await Future.delayed(_backoff(attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
+  }
+
+  /// Exponential backoff for retry [attempt] (1-based): base, 2×base, 4×base…
+  Duration _backoff(int attempt) => _retryBaseDelay * (1 << (attempt - 1));
+
+  static bool _isRetryableStatus(int statusCode) =>
+      statusCode == 429 || statusCode >= 500;
+
+  static bool _isRetryableError(Object error) =>
+      error is TimeoutException ||
+      error is SocketException ||
+      error is http.ClientException;
 
   Future<dynamic> _parseEnvelope(http.Response resp, Uri url) async {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {

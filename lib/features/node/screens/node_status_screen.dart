@@ -245,26 +245,53 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final l10n = AppLocalizations.of(context);
+    // Shown as a pushed detail (e.g. from the Challenges top bar): give it a
+    // back affordance, mirroring the Profile/Settings pages.
+    final canPop = context.canPop();
 
     return Scaffold(
       drawer: const AppDrawer(),
-      body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
-        scrollFractionNotifier: _scrollFraction,
-        onRefresh: _refresh,
-        title: l10n.nodeStatusTitle,
-        header: _buildCentralStatusIndicator(context),
-        surfaceSlivers: [
-          if (_error != null)
-            SliverToBoxAdapter(
-                child: _buildErrorSection(theme, colorScheme, l10n)),
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.space24),
-            sliver: SliverToBoxAdapter(
-                child: _buildBlockSyncProgressSection(context)),
+      body: Stack(
+        children: [
+          ParallaxSurfaceLayout(
+            headerHeight: kScreenHeaderHeight,
+            scrollFractionNotifier: _scrollFraction,
+            onRefresh: _refresh,
+            title: l10n.nodeStatusTitle,
+            header: _buildCentralStatusIndicator(context),
+            surfaceSlivers: [
+              if (_error != null)
+                SliverToBoxAdapter(
+                    child: _buildErrorSection(theme, colorScheme, l10n)),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+                sliver: SliverToBoxAdapter(
+                    child: _buildBlockSyncProgressSection(context)),
+              ),
+              SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
+              SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
+            ],
           ),
-          SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
-          SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
+          if (canPop)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.all(spacing.space8),
+                  child: Material(
+                    color: colorScheme.surfaceContainerHighest,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: IconButton(
+                      onPressed: () => context.pop(),
+                      icon: const Icon(Symbols.arrow_back_sharp),
+                      tooltip: 'Back',
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

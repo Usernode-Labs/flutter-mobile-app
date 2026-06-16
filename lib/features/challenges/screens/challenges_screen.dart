@@ -8,13 +8,12 @@ import 'package:crypto_mobile_app/core/providers/challenge_bands_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
-import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
+import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
-import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
 
 /// The Fair Rewards Challenges surface: a top status bar (profile + node entry
 /// points) over perceived-time bands of atomic challenge cards.
@@ -49,17 +48,7 @@ class ChallengesScreen extends ConsumerWidget {
         ) ??
         l10n.navChallenges;
 
-    final nodeState = ref.watch(
-      nodeStatusProvider.select((s) => s.valueOrNull?.syncStatus.state),
-    );
-    final nodeStatus = switch (nodeState) {
-      NodeConnectionState.synced => TopStatusNodeStatus.synced,
-      NodeConnectionState.connecting ||
-      NodeConnectionState.syncing =>
-        TopStatusNodeStatus.connecting,
-      // error or not-yet-loaded → offline.
-      NodeConnectionState.error || null => TopStatusNodeStatus.offline,
-    };
+    final nodeStatus = ref.watch(topStatusNodeStatusProvider);
 
     return Scaffold(
       backgroundColor: colors.surfaceContainerLow,

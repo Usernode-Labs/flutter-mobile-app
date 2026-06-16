@@ -10,12 +10,13 @@ import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
@@ -202,44 +203,116 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     final nodeStatus = ref.watch(nodeStatusProvider);
     final isEmpty = walletState.valueOrNull?.recent.isEmpty ?? false;
 
-    final safeTop = MediaQuery.of(context).padding.top;
-    final pinnedHeight = AddressBarDelegate.computeHeight(safeTop, spacing);
-
     return Scaffold(
-      body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
+      body: RefreshIndicator(
         onRefresh: _onRefresh,
-        scrollFractionNotifier: _scrollFraction,
-        pinnedHeadersHeight: pinnedHeight,
-        pinnedHeaderSlivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: AddressBarDelegate(
-              topPadding: safeTop,
-              spacing: spacing,
-              scrollFractionNotifier: _scrollFraction,
-              address: _address,
-              onCopy: () {
-                Clipboard.setData(ClipboardData(text: _address));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.walletAddressCopied)),
-                );
-              },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            TopStatusAppBar.large(
+              title: l10n.navWallet,
+              nodeStatus: ref.watch(topStatusNodeStatusProvider),
+              onProfilePressed: () => context.push(AppRoutes.profile),
+              onNodePressed: () => context.push(AppRoutes.mainNode),
             ),
-          )
-        ],
-        header: Padding(
-          padding: EdgeInsets.only(top: spacing.space32),
-          child: _BalanceSection(
-            walletState: walletState,
-            nodeStatus: nodeStatus,
-            l10n: l10n,
-          ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.space16,
+                0,
+                spacing.space16,
+                spacing.space12,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: AppCard(
+                  color: theme.colorScheme.surfaceContainerLowest,
+                  padding: EdgeInsets.all(spacing.space16),
+                  child: _BalanceSection(
+                    walletState: walletState,
+                    nodeStatus: nodeStatus,
+                    l10n: l10n,
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.space16,
+                0,
+                spacing.space16,
+                spacing.space12,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _buildAddressRow(theme, l10n, spacing),
+              ),
+            ),
+            ..._buildSurfaceSlivers(walletState, l10n, theme, spacing),
+          ],
         ),
-        surfaceSlivers: _buildSurfaceSlivers(walletState, l10n, theme, spacing),
       ),
       floatingActionButton:
           isEmpty ? null : _buildSpeedDial(theme, l10n, spacing),
+    );
+  }
+
+  Widget _buildAddressRow(
+    ThemeData theme,
+    AppLocalizations l10n,
+    AppSpacing spacing,
+  ) {
+    final colors = theme.colorScheme;
+    final sizing = theme.extension<AppSizing>()!;
+    final textTheme = theme.textTheme;
+
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.space16,
+        vertical: spacing.space12,
+      ),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Symbols.account_balance_wallet_sharp,
+            size: sizing.iconContainerSmall,
+          ),
+          SizedBox(width: spacing.space16),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.walletMyAddress,
+                  style: textTheme.labelLarge?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(height: spacing.space4),
+                Text(
+                  _address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: colors.onSurface,
+                    fontFamily: kMonoFontFamily,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: spacing.space8),
+          IconButton(
+            tooltip: l10n.walletMyAddress,
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _address));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.walletAddressCopied)),
+              );
+            },
+            icon: const Icon(Symbols.content_copy_sharp),
+          ),
+        ],
+      ),
     );
   }
 

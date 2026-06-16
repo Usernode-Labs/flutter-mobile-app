@@ -1,10 +1,14 @@
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 class DappsScreen extends ConsumerStatefulWidget {
@@ -50,19 +54,22 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final dappsAsync = ref.watch(dappsProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _onRefresh,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: _buildSurfaceSlivers(
-              dappsAsync,
-              spacing,
-              sizing,
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            TopStatusAppBar.large(
+              title: l10n.navDapps,
+              nodeStatus: ref.watch(topStatusNodeStatusProvider),
+              onProfilePressed: () => context.push(AppRoutes.profile),
+              onNodePressed: () => context.push(AppRoutes.mainNode),
             ),
-          ),
+            ..._buildSurfaceSlivers(dappsAsync, spacing, sizing),
+          ],
         ),
       ),
     );

@@ -246,6 +246,7 @@ Shape values come from `AppRadii`.
 
 | Widget | Source | Genesis |
 |--------|--------|---------|
+| `AtomicChallengeCard` | Board (Season 1/2 Product Push) | [genesis](.specs/AtomicChallengeCard.genesis.md) |
 | `BlockProductionStatusCard` | Code | [genesis](.specs/BlockProductionStatusCard.genesis.md) |
 | `BottomNav` | Code | [genesis](.specs/BottomNav.genesis.md) |
 | `BurstPulseIllustration` | Code | [genesis](.specs/BurstPulseIllustration.genesis.md) |

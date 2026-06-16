@@ -1,0 +1,166 @@
+import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'helpers/ds_test_helpers.dart';
+
+void main() {
+  Widget wrap(Widget child) {
+    return MaterialApp(
+      theme: themeWithExtensions(),
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(width: 360, child: child),
+        ),
+      ),
+    );
+  }
+
+  group('AtomicChallengeCard', () {
+    testWidgets('renders title, left and right text', (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Give kudos',
+          leftText: '2 / 5',
+          rightText: '400 / 1,500 pts',
+          phase: AtomicChallengePhase.inProgress,
+          fill: 0.4,
+          onTap: () {},
+        ),
+      ));
+
+      expect(find.text('Give kudos'), findsOneWidget);
+      // The fraction left text is rendered via Text.rich; the reward text is plain.
+      expect(find.text('400 / 1,500 pts'), findsOneWidget);
+    });
+
+    testWidgets('whole card is tappable', (tester) async {
+      var tapped = false;
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Fill in survey',
+          leftText: 'Not done',
+          rightText: '500 pts',
+          phase: AtomicChallengePhase.open,
+          fill: 0,
+          railTreatment: AtomicChallengeRailTreatment.checkbox,
+          onTap: () => tapped = true,
+        ),
+      ));
+
+      await tester.tap(find.byType(AtomicChallengeCard));
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('checkbox rail shows unchecked icon when not completed',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Fill in survey',
+          leftText: 'Not done',
+          rightText: '500 pts',
+          phase: AtomicChallengePhase.open,
+          fill: 0,
+          railTreatment: AtomicChallengeRailTreatment.checkbox,
+          onTap: () {},
+        ),
+      ));
+
+      expect(
+        find.byIcon(Symbols.radio_button_unchecked_sharp),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('checkbox rail shows completed icon when completed',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Fill in survey',
+          leftText: 'Done',
+          rightText: '500 pts',
+          phase: AtomicChallengePhase.completed,
+          fill: 1,
+          railTreatment: AtomicChallengeRailTreatment.checkbox,
+          onTap: () {},
+        ),
+      ));
+
+      expect(find.byIcon(Symbols.task_alt_sharp), findsOneWidget);
+    });
+
+    testWidgets('null fill renders a state-only rail (no progress indicator)',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Propose an app change',
+          leftText: 'Submitted',
+          rightText: 'waiting review',
+          phase: AtomicChallengePhase.pendingFinalization,
+          fill: null,
+          onTap: () {},
+        ),
+      ));
+
+      expect(find.text('waiting review'), findsOneWidget);
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      // null fill must not paint fake progress.
+      expect(indicator.value, 0.0);
+    });
+
+    testWidgets('out-of-range fill is clamped to 0..1', (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Give kudos',
+          leftText: '9 / 5',
+          rightText: '400 / 1,500 pts',
+          phase: AtomicChallengePhase.inProgress,
+          fill: 1.8,
+          onTap: () {},
+        ),
+      ));
+
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      expect(indicator.value, 1.0);
+    });
+
+    testWidgets('technicalOngoing rail renders an animated ongoing frame',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Produce Every Block',
+          leftText: '90% success',
+          rightText: 'Earned 10,550.1 pts',
+          phase: AtomicChallengePhase.inProgress,
+          fill: null,
+          railTreatment: AtomicChallengeRailTreatment.technicalOngoing,
+          onTap: () {},
+        ),
+      ));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byType(OngoingRailFrame), findsOneWidget);
+    });
+
+    testWidgets('list-item treatment omits the Card container', (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Use dApps',
+          leftText: '7 / 20',
+          rightText: '350 / 1,000 pts',
+          phase: AtomicChallengePhase.inProgress,
+          fill: 0.35,
+          cardTreatment: AtomicChallengeCardTreatment.listItem,
+          onTap: () {},
+        ),
+      ));
+
+      expect(find.byType(Card), findsNothing);
+      expect(find.text('Use dApps'), findsOneWidget);
+    });
+  });
+}

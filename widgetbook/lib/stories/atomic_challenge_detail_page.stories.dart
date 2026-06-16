@@ -4,8 +4,6 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
-import 'atomic_challenge_card.stories.dart';
-
 part 'atomic_challenge_detail_page.stories.g.dart';
 
 const meta =

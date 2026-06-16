@@ -23,11 +23,15 @@ final AtomicChallengeCardComponent =
       path: meta.path ?? 'stories',
       docsBuilder: meta.docsBuilder,
       docComment:
-          r'''Widgetbook-only exploration of the atomic challenge rail model.
+          r'''A compact, scannable challenge card for the Fair Rewards challenge surface.
 
 Each card represents exactly one earning mechanic and one verification path.
-Pending labels are reserved for the finalization gap after the user action
-is complete.''',
+The card is presentation-only — it carries a title and one progress/reward
+rail, with the whole card as the tap target. Task instructions, requirements,
+and CTAs live on the challenge detail page, not here.
+
+Pending labels are reserved for the finalization gap after the user action is
+complete (see [AtomicChallengePhase.pendingFinalization]).''',
       stories: [
         $AtomicRail..$generatedName = 'AtomicRail',
         $BackgroundBlockProduction

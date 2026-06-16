@@ -588,4 +588,144 @@ void main() {
       );
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Retry (GET-only)
+  // -------------------------------------------------------------------------
+
+  group('retry', () {
+    Map<String, dynamic> breakdownEnvelope() => _envelope({
+          'scope': 'global',
+          'display_name': 'Alice',
+          'total_points': 1000,
+          'offchain_points': 200,
+        });
+
+    test('retries a GET after a transient 503 and then succeeds', () async {
+      var attempts = 0;
+      final client = MockClient((request) async {
+        attempts++;
+        if (attempts == 1) {
+          return http.Response(
+            jsonEncode({'error': 'Service unavailable'}),
+            503,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          jsonEncode(breakdownEnvelope()),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        retryBaseDelay: Duration.zero,
+      );
+
+      final result = await service.getBreakdown(participantId: 42);
+
+      expect(attempts, 2);
+      expect(result.totalPoints, 1000);
+    });
+
+    test('retries a GET after a transient connection error', () async {
+      var attempts = 0;
+      final client = MockClient((request) async {
+        attempts++;
+        if (attempts == 1) {
+          throw TimeoutException('Request timed out');
+        }
+        return http.Response(
+          jsonEncode(breakdownEnvelope()),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        retryBaseDelay: Duration.zero,
+      );
+
+      final result = await service.getBreakdown(participantId: 42);
+
+      expect(attempts, 2);
+      expect(result.totalPoints, 1000);
+    });
+
+    test('gives up after exhausting retries on persistent 500', () async {
+      var attempts = 0;
+      final client = MockClient((request) async {
+        attempts++;
+        return http.Response('Internal server error', 500);
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        maxGetRetries: 2,
+        retryBaseDelay: Duration.zero,
+      );
+
+      await expectLater(
+        () => service.getBreakdown(participantId: 42),
+        throwsA(
+          isA<LeaderboardApiException>()
+              .having((e) => e.statusCode, 'statusCode', 500),
+        ),
+      );
+      expect(attempts, 3); // 1 initial + 2 retries
+    });
+
+    test('does NOT retry a POST (write) on a transient 503', () async {
+      var attempts = 0;
+      final client = MockClient((request) async {
+        attempts++;
+        return http.Response(
+          jsonEncode({'error': 'Service unavailable'}),
+          503,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        writesEnabled: true,
+        retryBaseDelay: Duration.zero,
+      );
+
+      await expectLater(
+        () => service.register(
+          registrationCode: 'code',
+          identifier: 'id',
+        ),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+      expect(attempts, 1);
+    });
+
+    test('does NOT retry a non-transient 4xx', () async {
+      var attempts = 0;
+      final client = MockClient((request) async {
+        attempts++;
+        return http.Response(
+          jsonEncode({'error': 'Participant not found'}),
+          404,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        retryBaseDelay: Duration.zero,
+      );
+
+      await expectLater(
+        () => service.getBreakdown(participantId: 999),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+      expect(attempts, 1);
+    });
+  });
 }

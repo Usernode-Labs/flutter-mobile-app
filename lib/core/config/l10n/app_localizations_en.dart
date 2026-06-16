@@ -1876,56 +1876,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Each slot has a ~5-seconds window. If your device doesn\'\'t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"';
 
   @override
-  String get burstTitle => 'Burst Transactions';
-
-  @override
-  String get burstLabel => 'Burst';
-
-  @override
-  String get burstInsufficientBalance =>
-      'Insufficient balance for burst (need ≥100 tokens)';
-
-  @override
-  String burstProgress(int completed, int total) {
-    return 'Sending $completed/$total...';
-  }
-
-  @override
-  String burstElapsed(String time) {
-    return 'Elapsed: $time';
-  }
-
-  @override
-  String burstFailedCount(int count) {
-    return '$count failed';
-  }
-
-  @override
-  String get burstCancel => 'Cancel';
-
-  @override
-  String get burstSuccessTitle => 'Burst Complete';
-
-  @override
-  String burstSuccessSubtitle(int count, String time) {
-    return '$count transactions sent in $time';
-  }
-
-  @override
-  String get burstFailureTitle => 'Burst Failed';
-
-  @override
-  String get burstMixedTitle => 'Burst Partially Complete';
-
-  @override
-  String burstMixedSubtitle(int succeeded, int failed, String time) {
-    return '$succeeded succeeded, $failed failed in $time';
-  }
-
-  @override
-  String get burstDone => 'Done';
-
-  @override
   String get blockAppliedLocally => 'Applied Locally';
 
   @override

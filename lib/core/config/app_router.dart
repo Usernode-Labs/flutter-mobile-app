@@ -38,7 +38,6 @@ import 'package:crypto_mobile_app/features/wallet/screens/scan_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/burst/burst_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
@@ -74,7 +73,6 @@ class AppRoutes {
   // Wallet routes
   static const walletSend = '/wallet/send';
   static const walletScan = '/wallet/scan';
-  static const walletBurst = '/wallet/burst';
   static const walletSendSuccess = '/wallet/send/success';
   static const walletSendFailed = '/wallet/send/failed';
 
@@ -280,10 +278,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.httpDebugLogs,
         builder: (context, state) => const HttpDebugLogsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.walletBurst,
-        builder: (context, state) => const BurstScreen(),
       ),
       GoRoute(
         path: AppRoutes.walletSendSuccess,

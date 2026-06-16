@@ -142,25 +142,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         indicatorColor: semantic.community.color,
         indicatorFillColor: semantic.community.colorContainer,
       ),
-      BottomNavItem(
-        icon: Symbols.check_circle_sharp,
-        label: l10n.navNodeStatus,
-        indicatorShape: NavIndicatorShape.hexagon,
-        indicatorColor: semantic.technical.color,
-        indicatorFillColor: semantic.technical.colorContainer,
-      ),
-      BottomNavItem(
-        icon: Symbols.settings_sharp,
-        label: l10n.navSettings,
-        indicatorShape: NavIndicatorShape.hexagon,
-        indicatorColor: semantic.technical.color,
-        indicatorFillColor: semantic.technical.colorContainer,
-      ),
+      // Node status and Settings moved out of the bottom nav: node is reached
+      // from the Challenges top bar, Settings from the Profile screen
+      // (Fair Rewards shell, #449 / discussion #440).
     ];
 
     Widget bottomNav = BottomNav(
       items: items,
-      selectedIndex: index,
+      // The IndexedStack still hosts node/settings (indices 3-4) for routes,
+      // but they are no longer bottom-nav destinations — clamp so an off-nav
+      // tab index never overflows the slimmed item list.
+      selectedIndex: index.clamp(0, items.length - 1),
       onItemSelected: (i) {
         ref.read(currentHomeTabProvider.notifier).state = i;
       },

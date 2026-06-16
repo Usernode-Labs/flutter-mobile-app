@@ -1,4 +1,6 @@
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart'
+    show kMockParticipantId;
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 
 /// A drop-in [LeaderboardApiService] that serves in-memory, board-shaped
@@ -76,6 +78,54 @@ class MockChallengesApiService extends LeaderboardApiService {
       totalParticipants: 1280,
       seasonId: _mockSeasonId,
       seasonName: _seasonName,
+    );
+  }
+
+  @override
+  Future<LeaderboardResult> getLeaderboard({
+    required int seasonId,
+    int? eventId,
+    int page = 1,
+    int perPage = 50,
+  }) async {
+    LeaderboardEntry entry(
+      int rank,
+      int id,
+      String name,
+      int points, {
+      bool you = false,
+    }) {
+      return LeaderboardEntry(
+        rank: rank,
+        participantId: you ? kMockParticipantId : id,
+        displayName: name,
+        totalPoints: points,
+        offchainPoints: points,
+        totalProducedBlocks: 0,
+        vrfTotalWonSlots: 0,
+        successRate: 0,
+        eventsParticipated: 1,
+      );
+    }
+
+    final entries = [
+      entry(1, 1001, 'node-alpha', 18420),
+      entry(2, 1002, 'blocksmith', 16800),
+      entry(3, 1003, 'epoch-runner', 15250),
+      entry(44, kMockParticipantId, 'You', 8000, you: true),
+      entry(45, 1005, 'testnet-node', 7960),
+    ];
+
+    return LeaderboardResult(
+      season: const LeaderboardSeason(id: _mockSeasonId, name: _seasonName),
+      events: const [],
+      entries: entries,
+      pagination: PaginationInfo(
+        page: page,
+        perPage: perPage,
+        total: entries.length,
+        totalPages: 1,
+      ),
     );
   }
 

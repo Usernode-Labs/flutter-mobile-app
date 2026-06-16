@@ -12,6 +12,8 @@ import 'package:crypto_mobile_app/features/onboarding/screens/notification_permi
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_setup_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_battery_complete_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
+import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
@@ -82,6 +84,10 @@ class AppRoutes {
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
+
+  // Profile (Fair Rewards shell): "what I earned" + Settings entry.
+  static const profile = '/profile';
+  static const profileSettings = '/profile/settings';
   static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
   static const deviceBenchmark = '/settings/device-benchmark';
@@ -338,6 +344,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.leaderboard,
         builder: (context, state) => const LeaderboardScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileSettings,
+        // SettingsScreen is a bare root Scaffold; wrap it with a back app bar
+        // so it works as a pushed page from Profile.
+        builder: (context, state) => Scaffold(
+          appBar: AppBar(title: const Text('Settings')),
+          body: const SettingsScreen(),
+        ),
       ),
       GoRoute(
         path: AppRoutes.dapps,

@@ -58,8 +58,7 @@ class ChallengesScreen extends ConsumerWidget {
               profileLabel: profileLabel,
               // TODO(fair-rewards): drive from nodeStatusProvider.
               nodeStatus: TopStatusNodeStatus.synced,
-              // TODO(fair-rewards): repoint to AppRoutes.profile in Phase 4.
-              onProfilePressed: () => context.push(AppRoutes.leaderboard),
+              onProfilePressed: () => context.push(AppRoutes.profile),
               onNodePressed: () => context.push(AppRoutes.mainNode),
             ),
             if (hasError)

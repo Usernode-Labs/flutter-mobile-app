@@ -18,8 +18,8 @@ import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dar
 /// The Fair Rewards Challenges surface: a top status bar (profile + node entry
 /// points) over perceived-time bands of atomic challenge cards.
 ///
-/// Active work only — completed challenges live in Profile (#440). Cards route
-/// attention; the task/CTA live on the detail screen.
+/// Deadline-grouped challenge stream. Cards route attention; the task/CTA live
+/// on the detail screen.
 class ChallengesScreen extends ConsumerWidget {
   const ChallengesScreen({super.key});
 
@@ -53,6 +53,8 @@ class ChallengesScreen extends ConsumerWidget {
     return Scaffold(
       // No backgroundColor override → DS scaffold grey (surface). Top-level
       // tab roots share this substrate; nested pages use white surfaces.
+      // SafeArea/top inset is owned by TopStatusAppBar.large; adding one here
+      // would double-inset the pinned header.
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         child: CustomScrollView(

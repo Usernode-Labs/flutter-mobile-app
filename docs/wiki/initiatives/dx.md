@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-16 ([tracker #387](https://github.com/Usernode-Labs/flutter-mobile-app/issues/387))_
+_Last synced: 2026-06-18 ([tracker #387](https://github.com/Usernode-Labs/flutter-mobile-app/issues/387))_
 
 ## Phase status
 
@@ -23,6 +23,7 @@ _Last synced: 2026-06-16 ([tracker #387](https://github.com/Usernode-Labs/flutte
 - [#369](https://github.com/Usernode-Labs/flutter-mobile-app/issues/369) DS Evolution: DESIGN.md + Widgetbook v4 + Composition Playbooks + ds_lints + Marionette MCP
 - [#372](https://github.com/Usernode-Labs/flutter-mobile-app/issues/372) Testing Evolution: Widgetbook Scenarios + Integration Tests + Marionette
 - [#409](https://github.com/Usernode-Labs/flutter-mobile-app/issues/409) Wire Sentry: enable telemetry flags + connect Sentry MCP (Opportunity E Step 0)
+- [#462](https://github.com/Usernode-Labs/flutter-mobile-app/issues/462) Promote AppCard into the DS as a tokenized, Card-free surface primitive (story + test)
 
 ### Pull requests
 

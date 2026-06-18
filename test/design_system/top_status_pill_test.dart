@@ -26,20 +26,74 @@ void main() {
     expect(taps, 1);
   });
 
-  testWidgets('node pill resolves the status word and icon to match the bar', (
+  testWidgets('node pill resolves canonical status words icons and surfaces', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      wrap(
-        TopStatusPill.node(
-          status: TopStatusNodeStatus.connecting,
-          onPressed: () {},
+    Future<void> pumpStatus(TopStatusNodeStatus status) {
+      return tester.pumpWidget(
+        wrap(
+          TopStatusPill.node(
+            status: status,
+            onPressed: () {},
+          ),
         ),
-      ),
-    );
+      );
+    }
 
-    expect(find.text('Connecting'), findsOneWidget);
-    expect(find.byIcon(Symbols.sync_sharp), findsOneWidget);
+    await pumpStatus(TopStatusNodeStatus.synced);
+
+    final theme = Theme.of(tester.element(find.byType(TopStatusPill)));
+    final colors = theme.colorScheme;
+    final semantic = theme.extension<AppSemanticColors>()!;
+    final cases = [
+      (
+        status: TopStatusNodeStatus.synced,
+        label: 'Synced',
+        icon: Symbols.check_sharp,
+        background: semantic.success.colorContainer,
+        foreground: semantic.success.onColorContainer,
+      ),
+      (
+        status: TopStatusNodeStatus.connecting,
+        label: 'Connecting',
+        icon: Symbols.hourglass_empty_sharp,
+        background: semantic.warning.colorContainer,
+        foreground: semantic.warning.onColorContainer,
+      ),
+      (
+        status: TopStatusNodeStatus.syncing,
+        label: 'Syncing',
+        icon: Symbols.hourglass_empty_sharp,
+        background: semantic.warning.colorContainer,
+        foreground: semantic.warning.onColorContainer,
+      ),
+      (
+        status: TopStatusNodeStatus.offline,
+        label: 'Offline',
+        icon: Symbols.close_sharp,
+        background: colors.errorContainer,
+        foreground: colors.onErrorContainer,
+      ),
+    ];
+
+    for (final testCase in cases) {
+      await pumpStatus(testCase.status);
+
+      final visual = tester
+          .widgetList<Material>(
+            find.descendant(
+              of: find.byType(TopStatusPill),
+              matching: find.byType(Material),
+            ),
+          )
+          .last;
+      final icon = tester.widget<Icon>(find.byIcon(testCase.icon));
+
+      expect(find.text(testCase.label), findsOneWidget);
+      expect(find.byIcon(testCase.icon), findsOneWidget);
+      expect(visual.color, equals(testCase.background));
+      expect(icon.color, equals(testCase.foreground));
+    }
   });
 
   testWidgets('node pill honours an explicit empty label (icon-only)', (
@@ -56,7 +110,7 @@ void main() {
     );
 
     expect(find.text('Synced'), findsNothing);
-    expect(find.byIcon(Symbols.check_circle_sharp), findsOneWidget);
+    expect(find.byIcon(Symbols.check_sharp), findsOneWidget);
   });
 
   testWidgets('keeps a >=48dp tap target', (tester) async {

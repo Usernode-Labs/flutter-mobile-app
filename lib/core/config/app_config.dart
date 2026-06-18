@@ -99,6 +99,15 @@ class AppConfig {
     defaultValue: true,
   );
 
+  // Repeatable visual verification fixture for challenge UI state matrices.
+  // Only affects MockChallengesApiService when explicitly set to "matrix".
+  static const String challengeUiVisualFixture = String.fromEnvironment(
+    'CHALLENGE_UI_VISUAL_FIXTURE',
+    defaultValue: '',
+  );
+  static bool get useChallengeUiVisualMatrix =>
+      challengeUiVisualFixture == 'matrix';
+
   // URL used by the dApps tab when the user toggles it into "external
   // hub" mode by long-pressing the bottom-nav Dapps icon. The toggle is
   // off by default (so the tab opens to the original list of dapps);

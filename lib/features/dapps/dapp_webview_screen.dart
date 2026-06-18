@@ -10,7 +10,6 @@ import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/src/top_status_app_bar.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_borders.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -519,7 +518,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _controller.setBackgroundColor(Theme.of(context).colorScheme.surface);
+    _controller.setBackgroundColor(
+        Theme.of(context).colorScheme.surfaceContainerLowest);
   }
 
   @override
@@ -1110,18 +1110,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Tab root (embedded hub home) shows the shared shell affordances; once
-    // the user drills into a dapp (web history exists) the bar becomes the
-    // browser chrome. Only the `appBar:` swaps — the WebViewWidget body stays
-    // mounted, so flipping modes never reloads the page.
+    // Tab root (embedded hub home) shows compact shared shell affordances; once
+    // the user drills into a dapp (web history exists) the bar becomes white
+    // pushed-detail chrome. Only the `appBar:` swaps — the WebViewWidget body
+    // stays mounted, so flipping modes never reloads the page.
     //
     // The webview lives directly in the Scaffold body (NOT inside a
     // CustomScrollView/SliverFillRemaining): hosting the WebView's SurfaceView
     // platform view inside a scrollable starves it of buffers and ANRs the app
     // (BLASTBufferQueue "can't acquire next buffer"). That rules out the
-    // sliver-based TopStatusAppBar here, so the shell bar is reproduced with a
-    // Material AppBar carrying the same TopStatusPill affordances.
+    // sliver-based TopStatusAppBar here, so the root uses the preferred-size
+    // compact variant instead.
     final isShellRoot = widget.embedded && !_canGoBack;
+    final colors = Theme.of(context).colorScheme;
 
     return PopScope(
       // Take over the route-pop handler so the device/system back button
@@ -1136,67 +1137,65 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         await _handleBack();
       },
       child: Scaffold(
+        backgroundColor: colors.surfaceContainerLowest,
         appBar: isShellRoot
             ? _buildShellAppBar(context)
             : _buildBrowserAppBar(context),
-        body: WebViewWidget(controller: _controller),
+        body: ColoredBox(
+          color: colors.surfaceContainerLowest,
+          child: WebViewWidget(controller: _controller),
+        ),
       ),
     );
   }
 
-  /// Tab-root shell bar: reproduces the Challenges/Wallet TopStatusAppBar
-  /// affordances (Profile + node pills via [TopStatusPill]) on a Material
-  /// AppBar, since the sliver variant can't host the full-bleed webview body.
-  /// No browser chrome (those belong to the drilled-in nested view).
+  /// Tab-root shell bar: the compact TopStatusAppBar shape used by app roots,
+  /// exposed as a preferred-size widget so the WebView can stay out of slivers.
   PreferredSizeWidget _buildShellAppBar(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final borders = Theme.of(context).extension<AppBorders>()!;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
     final l10n = AppLocalizations.of(context);
 
-    return AppBar(
-      automaticallyImplyLeading: false,
-      backgroundColor: colors.surfaceContainerLowest,
-      surfaceTintColor: Colors.transparent,
-      scrolledUnderElevation: 0,
-      centerTitle: true,
-      titleSpacing: 0,
-      leadingWidth: spacing.space16 + sizing.iconContainerXLarge,
-      leading: Padding(
-        padding: EdgeInsetsDirectional.only(start: spacing.space16),
-        child: TopStatusPill.profile(
-          onPressed: () => context.push(AppRoutes.profile),
-        ),
-      ),
-      title: Text(
-        l10n.navDapps,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      actions: [
-        Padding(
-          padding: EdgeInsetsDirectional.only(end: spacing.space16),
-          child: TopStatusPill.node(
-            status: ref.watch(topStatusNodeStatusProvider),
-            onPressed: () => context.push(AppRoutes.mainNode),
-          ),
-        ),
-      ],
-      shape: Border(
-        bottom: BorderSide(
-          color: colors.onSurface.withValues(alpha: borders.opacity),
-          width: borders.width,
-        ),
-      ),
+    return TopStatusAppBar.scaffoldCompact(
+      title: l10n.navDapps,
+      nodeStatus: ref.watch(topStatusNodeStatusProvider),
+      onProfilePressed: () => context.push(AppRoutes.profile),
+      onNodePressed: () => context.push(AppRoutes.mainNode),
     );
+  }
+
+  IconButton _buildBrowserLeading(BuildContext context, AppSizing sizing) {
+    if (widget.embedded) {
+      return IconButton(
+        tooltip: 'Back',
+        onPressed: _handleBack,
+        icon: Icon(Symbols.arrow_back_sharp, size: sizing.iconRegular),
+      );
+    }
+
+    return IconButton(
+      tooltip: 'Home',
+      onPressed: () => Navigator.of(context).pop(),
+      icon: Icon(Symbols.home_sharp, size: sizing.iconRegular),
+    );
+  }
+
+  List<Widget> _buildBrowserActions(BuildContext context) {
+    return [
+      const NodeStatusIcon(),
+      IconButton(
+        tooltip: 'Transaction log',
+        onPressed: _openTxDebugPanel,
+        icon: const Icon(Symbols.receipt_long),
+      ),
+    ];
   }
 
   /// Drilled-in / non-embedded browser chrome: back, live page title (tap for
   /// the URL editor), loading bar, node indicator, and the transaction log.
   PreferredSizeWidget _buildBrowserAppBar(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final showLoading = _progress < 100;
 
     final bottomWidgets = <Widget>[
@@ -1254,21 +1253,16 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     return AppBar(
       automaticallyImplyLeading: false,
+      backgroundColor: colors.surfaceContainerLowest,
+      foregroundColor: colors.onSurface,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      toolbarHeight: sizing.iconContainerXLarge,
       // Embedded nested view drills back through web history (mirrors the
       // Profile/Node pushed-page back button); non-embedded jumps to the
       // dapp list. The system back button still walks history via
       // PopScope.onPopInvokedWithResult above.
-      leading: widget.embedded
-          ? IconButton(
-              tooltip: 'Back',
-              onPressed: _handleBack,
-              icon: const Icon(Symbols.arrow_back_sharp),
-            )
-          : IconButton(
-              tooltip: 'Home',
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Symbols.home_sharp),
-            ),
+      leading: _buildBrowserLeading(context, sizing),
       title: GestureDetector(
         onTap: _toggleUrlEditor,
         behavior: HitTestBehavior.opaque,
@@ -1279,14 +1273,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         ),
       ),
       titleSpacing: 0,
-      actions: [
-        const NodeStatusIcon(),
-        IconButton(
-          tooltip: 'Transaction log',
-          onPressed: _openTxDebugPanel,
-          icon: const Icon(Symbols.receipt_long),
-        ),
-      ],
+      actions: _buildBrowserActions(context),
+      actionsPadding: EdgeInsetsDirectional.only(end: spacing.space16),
       bottom: bottomWidgets.isEmpty
           ? null
           : PreferredSize(
@@ -1294,7 +1282,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
                 (showLoading ? 2 : 0) + (_showUrlEditor ? 62 : 0),
               ),
               child: DecoratedBox(
-                decoration: BoxDecoration(color: theme.colorScheme.surface),
+                decoration: BoxDecoration(color: colors.surfaceContainerLowest),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: bottomWidgets,

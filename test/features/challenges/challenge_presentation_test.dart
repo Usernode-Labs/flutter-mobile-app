@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/services/challenge_ui_visual_fixture.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
@@ -28,6 +29,136 @@ ChallengeDto _dto({
 }
 
 EnrichedChallenge _enriched(ChallengeDto dto) => EnrichedChallenge(dto: dto);
+
+AtomicChallengePhase _expectedPhase(ChallengeVisualUiPhase phase) =>
+    switch (phase) {
+      ChallengeVisualUiPhase.open => AtomicChallengePhase.open,
+      ChallengeVisualUiPhase.inProgress => AtomicChallengePhase.inProgress,
+      ChallengeVisualUiPhase.pending =>
+        AtomicChallengePhase.pendingFinalization,
+      ChallengeVisualUiPhase.completed => AtomicChallengePhase.completed,
+    };
+
+AtomicChallengeRailTreatment _expectedRail(ChallengeVisualMetricType type) =>
+    switch (type) {
+      ChallengeVisualMetricType.binary => AtomicChallengeRailTreatment.checkbox,
+      ChallengeVisualMetricType.technicalOngoing =>
+        AtomicChallengeRailTreatment.technicalOngoing,
+      ChallengeVisualMetricType.count ||
+      ChallengeVisualMetricType.sum ||
+      ChallengeVisualMetricType.percentage ||
+      ChallengeVisualMetricType.rank =>
+        AtomicChallengeRailTreatment.standard,
+    };
+
+double? _expectedFill(ChallengeVisualMatrixCase fixtureCase) {
+  return switch (fixtureCase.metricType) {
+    ChallengeVisualMetricType.count || ChallengeVisualMetricType.sum => switch (
+          fixtureCase.phase) {
+        ChallengeVisualUiPhase.inProgress => 0.4,
+        ChallengeVisualUiPhase.pending ||
+        ChallengeVisualUiPhase.completed =>
+          1.0,
+        ChallengeVisualUiPhase.open => null,
+      },
+    ChallengeVisualMetricType.percentage => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.inProgress => 0.62,
+        ChallengeVisualUiPhase.pending ||
+        ChallengeVisualUiPhase.completed =>
+          1.0,
+        ChallengeVisualUiPhase.open => null,
+      },
+    ChallengeVisualMetricType.binary ||
+    ChallengeVisualMetricType.rank ||
+    ChallengeVisualMetricType.technicalOngoing =>
+      null,
+  };
+}
+
+String _expectedLeftText(ChallengeVisualMatrixCase fixtureCase) {
+  return switch (fixtureCase.metricType) {
+    ChallengeVisualMetricType.binary => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => 'Not done',
+        ChallengeVisualUiPhase.inProgress => 'Started',
+        ChallengeVisualUiPhase.pending => 'Submitted',
+        ChallengeVisualUiPhase.completed => 'Done',
+      },
+    ChallengeVisualMetricType.count => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => 'Not done',
+        ChallengeVisualUiPhase.inProgress => '2 / 5',
+        ChallengeVisualUiPhase.pending ||
+        ChallengeVisualUiPhase.completed =>
+          '5 / 5',
+      },
+    ChallengeVisualMetricType.sum => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => 'Not done',
+        ChallengeVisualUiPhase.inProgress => '40 / 100',
+        ChallengeVisualUiPhase.pending ||
+        ChallengeVisualUiPhase.completed =>
+          '100 / 100',
+      },
+    ChallengeVisualMetricType.percentage => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => 'Not done',
+        ChallengeVisualUiPhase.inProgress => '62% success',
+        ChallengeVisualUiPhase.pending ||
+        ChallengeVisualUiPhase.completed =>
+          '100% success',
+      },
+    ChallengeVisualMetricType.rank => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => 'Not done',
+        ChallengeVisualUiPhase.inProgress => 'Rank 7',
+        ChallengeVisualUiPhase.pending => 'Rank submitted',
+        ChallengeVisualUiPhase.completed => 'Rank 3',
+      },
+    ChallengeVisualMetricType.technicalOngoing => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => 'Not done',
+        ChallengeVisualUiPhase.inProgress => '90% success',
+        ChallengeVisualUiPhase.pending => '100% success',
+        ChallengeVisualUiPhase.completed => '98% success',
+      },
+  };
+}
+
+String _expectedRightText(ChallengeVisualMatrixCase fixtureCase) {
+  return switch (fixtureCase.metricType) {
+    ChallengeVisualMetricType.binary => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => '500 pts',
+        ChallengeVisualUiPhase.inProgress => '500 pts',
+        ChallengeVisualUiPhase.pending => 'pending 500 pts',
+        ChallengeVisualUiPhase.completed => 'completed 500 pts',
+      },
+    ChallengeVisualMetricType.count => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => '1,500 pts',
+        ChallengeVisualUiPhase.inProgress => '400 / 1,500 pts',
+        ChallengeVisualUiPhase.pending => 'pending 1,500 pts',
+        ChallengeVisualUiPhase.completed => 'completed 1,500 pts',
+      },
+    ChallengeVisualMetricType.sum => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => '2,000 pts',
+        ChallengeVisualUiPhase.inProgress => '800 / 2,000 pts',
+        ChallengeVisualUiPhase.pending => 'pending 2,000 pts',
+        ChallengeVisualUiPhase.completed => 'completed 2,000 pts',
+      },
+    ChallengeVisualMetricType.percentage => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => '2,500 pts',
+        ChallengeVisualUiPhase.inProgress => '1,200 / 2,500 pts',
+        ChallengeVisualUiPhase.pending => 'pending 2,500 pts',
+        ChallengeVisualUiPhase.completed => 'completed 2,500 pts',
+      },
+    ChallengeVisualMetricType.rank => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => '3,000 pts',
+        ChallengeVisualUiPhase.inProgress => '1,000 / 3,000 pts',
+        ChallengeVisualUiPhase.pending => 'pending 3,000 pts',
+        ChallengeVisualUiPhase.completed => 'completed 3,000 pts',
+      },
+    ChallengeVisualMetricType.technicalOngoing => switch (fixtureCase.phase) {
+        ChallengeVisualUiPhase.open => 'Earned 0 pts',
+        ChallengeVisualUiPhase.inProgress => 'Earned 4,050 pts',
+        ChallengeVisualUiPhase.pending => 'Earned 6,500 pts',
+        ChallengeVisualUiPhase.completed => 'Earned 6,500 pts',
+      },
+  };
+}
 
 void main() {
   group('mapToAtomicCard (explicit progress)', () {
@@ -164,6 +295,30 @@ void main() {
       expect(card.leftText, '90% success');
       expect(card.rightText, 'Earned 10,550 pts');
     });
+  });
+
+  group('mapToAtomicCard (visual matrix)', () {
+    for (final fixtureCase in ChallengeUiVisualFixture.allCases) {
+      test('${fixtureCase.metricType.name} ${fixtureCase.phase.name}', () {
+        final card = mapToAtomicCard(
+          _enriched(fixtureCase.challenge),
+          progress: fixtureCase.progress,
+        );
+
+        expect(card.phase, _expectedPhase(fixtureCase.phase));
+        expect(card.railTreatment, _expectedRail(fixtureCase.metricType));
+
+        final expectedFill = _expectedFill(fixtureCase);
+        if (expectedFill == null) {
+          expect(card.fill, isNull);
+        } else {
+          expect(card.fill, closeTo(expectedFill, 1e-9));
+        }
+
+        expect(card.leftText, _expectedLeftText(fixtureCase));
+        expect(card.rightText, _expectedRightText(fixtureCase));
+      });
+    }
   });
 
   group('mapToAtomicCard (generic fallback, no progress)', () {

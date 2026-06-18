@@ -27,8 +27,6 @@ final challengeBandsProvider = Provider<ChallengeBandsResult?>((ref) {
   final breakdown = ref.watch(breakdownProvider.select((s) => s.valueOrNull));
   final activities = extractActivities(breakdown);
   final enriched = enrichChallenges(challenges, activities);
-  final active =
-      enriched.where((c) => isChallengeActive(c.dto)).toList(growable: false);
 
   final progress = breakdown?.challengeProgress;
   final progressById = (progress == null || progress.isEmpty)
@@ -36,7 +34,7 @@ final challengeBandsProvider = Provider<ChallengeBandsResult?>((ref) {
       : {for (final p in progress) p.challengeId: p};
 
   return (
-    bands: buildChallengeBands(active, progressById: progressById),
+    bands: buildChallengeBands(enriched, progressById: progressById),
     byId: {for (final c in enriched) c.dto.id: c},
   );
 });

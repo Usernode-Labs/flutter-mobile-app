@@ -70,6 +70,8 @@ ChallengeDto _ch(
   Duration endsIn, {
   ChallengeMetric? metric,
   String reward = '500',
+  bool completed = false,
+  int activitiesTotal = 0,
 }) {
   final now = DateTime.now();
   return ChallengeDto(
@@ -80,7 +82,8 @@ ChallengeDto _ch(
     reward: reward,
     metric: metric,
     enabled: true,
-    completed: false,
+    completed: completed,
+    activitiesTotal: activitiesTotal,
     scheduleStart: now.subtract(const Duration(days: 2)).toIso8601String(),
     scheduleEnd: now.add(endsIn).toIso8601String(),
   );
@@ -182,6 +185,49 @@ void main() {
       expect(find.text('Propose an app change'), findsOneWidget);
       expect(find.text('Fill in survey'), findsOneWidget);
       expect(find.text('Give kudos'), findsOneWidget);
+    });
+
+    testWidgets('keeps completed challenges in the deadline stream',
+        (tester) async {
+      final completed = _ch(
+        104,
+        'Finish survey',
+        const Duration(days: 8),
+        completed: true,
+        activitiesTotal: 500,
+        metric: const ChallengeMetric(kind: ChallengeMetricKind.binary),
+      );
+      final breakdown = BreakdownResult(
+        scope: 'season',
+        displayName: 'Season 1',
+        totalPoints: 8500,
+        offchainPoints: 8500,
+        challengeProgress: [
+          ..._breakdown().challengeProgress!,
+          const ChallengeProgress(
+            challengeId: 104,
+            state: ChallengeProgressState.earned,
+            earnedPoints: 500,
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _app(
+            challengeData: [..._challenges(), completed],
+            breakdownData: breakdown),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.scrollUntilVisible(
+        find.text('Finish survey'),
+        300,
+        scrollable: find.byType(Scrollable),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Finish survey'), findsOneWidget);
+      expect(find.text('completed 500 pts'), findsOneWidget);
     });
 
     testWidgets('shows shimmer while loading', (tester) async {

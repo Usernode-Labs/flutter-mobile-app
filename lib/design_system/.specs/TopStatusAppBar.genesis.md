@@ -48,8 +48,14 @@
 ### Node Icons
 
 - **What Figma showed**: `check_circle` for synced. The provided node-state frame (`3964:6154`) is empty in the Figma API.
-- **What we implemented**: `check_circle` for synced, `sync` for connecting, and `wifi_off` for offline.
-- **Why**: The synced icon is visible in the large/compact nodes. The other two are the closest Material Symbols sharp icons for the states named in the brief, matching the rest of the current mobile navigation system.
+- **What we implemented**: Node Status page parity: `check` for synced, `hourglass_empty` for connecting/syncing, and `close` for offline.
+- **Why**: The app bar, root status pills, compact node icon, and Node Status hero should use one shared visual language so status can be scanned without translating between surfaces.
+
+### Semantic State Surfaces
+
+- **What Figma showed**: State icons should read as a compact status affordance, not just standalone colored glyphs.
+- **What we implemented**: Synced uses `AppSemanticColors.success.colorContainer` / `onColorContainer`; connecting and syncing use `AppSemanticColors.warning.colorContainer` / `onColorContainer`; offline uses `ColorScheme.errorContainer` / `onErrorContainer`.
+- **Why**: These semantic surfaces match the Node Status hero and the compact live `NodeStatusIcon`, including the normal synced state's green success surface.
 
 ## Token Mapping
 
@@ -67,9 +73,12 @@
 | Collapsed top surface | `ColorScheme.surfaceContainerLowest` | Fades in with scroll progress; matches BottomNav |
 | Bottom divider | `AppBorders.width` / `AppBorders.opacity` | Fades in with collapsed surface |
 | Tonal button fill | M3 `FilledButton.tonal` / `IconButton.filledTonal` | Uses theme defaults |
-| Synced icon | `Symbols.check_circle_sharp` | From Figma |
-| Connecting icon | `Symbols.sync_sharp` | Brief-derived |
-| Offline icon | `Symbols.wifi_off_sharp` | Brief-derived |
+| Synced node surface | `AppSemanticColors.success.colorContainer` / `onColorContainer` | Matches Node Status hero |
+| Connecting/syncing node surface | `AppSemanticColors.warning.colorContainer` / `onColorContainer` | Matches Node Status hero |
+| Offline node surface | `ColorScheme.errorContainer` / `onErrorContainer` | Matches Node Status hero |
+| Synced icon | `Symbols.check_sharp` | Node Status hero parity |
+| Connecting/syncing icon | `Symbols.hourglass_empty_sharp` | Node Status hero parity |
+| Offline icon | `Symbols.close_sharp` | Node Status hero parity |
 
 ## Quality Notes
 

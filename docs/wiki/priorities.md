@@ -81,7 +81,7 @@ _Closed milestones move here with a brief retro paragraph. Empty until M1 closes
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-16._
+_Last synced: 2026-06-18._
 
 ## Slice
 
@@ -100,6 +100,6 @@ _No open milestones. Create GitHub Milestones (`M1`, `M2`, …) and tag slice is
 | wallet | 3 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Awallet%20no%3Amilestone)) |
 | bridge | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Abridge%20no%3Amilestone)) |
 | dex | 1 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Adex%20no%3Amilestone)) |
-| dx | 6 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Adx%20no%3Amilestone)) |
+| dx | 7 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Adx%20no%3Amilestone)) |
 | leaderboard | 4 ([filter](https://github.com/Usernode-Labs/flutter-mobile-app/issues?q=is%3Aopen%20is%3Aissue%20label%3Ainit%3Aleaderboard%20no%3Amilestone)) |
 <!-- auto:end -->

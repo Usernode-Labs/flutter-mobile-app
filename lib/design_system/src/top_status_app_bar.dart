@@ -3,6 +3,8 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+
 import '../tokens/app_borders.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
@@ -15,6 +17,9 @@ enum TopStatusAppBarSize {
 
   /// Native Material 3 compact top app bar.
   compact,
+
+  /// Compact top app bar for `Scaffold.appBar` slots.
+  scaffoldCompact,
 }
 
 /// Node status surfaced by [TopStatusAppBar].
@@ -22,8 +27,11 @@ enum TopStatusNodeStatus {
   /// Node is connected and synced.
   synced,
 
-  /// Node is connecting or catching up.
+  /// Node is connecting to peers.
   connecting,
+
+  /// Node is connected and catching up.
+  syncing,
 
   /// Node is offline.
   offline,
@@ -51,7 +59,7 @@ const _kTopStatusNodeLabelOpacityKey =
 /// The widget delegates top inset handling, pinning, title placement, and large
 /// title collapse to Flutter's Material app bar implementations. Only the
 /// profile/node action slots are product-specific.
-class TopStatusAppBar extends StatelessWidget {
+class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
   /// Creates a large M3 top status app bar.
   const TopStatusAppBar.large({
     super.key,
@@ -74,6 +82,18 @@ class TopStatusAppBar extends StatelessWidget {
     this.backgroundColor,
     this.forceTransparent = false,
   })  : size = TopStatusAppBarSize.compact,
+        profileLabel = null;
+
+  /// Creates a compact top status app bar for a `Scaffold.appBar` slot.
+  const TopStatusAppBar.scaffoldCompact({
+    super.key,
+    required this.title,
+    required this.onProfilePressed,
+    required this.onNodePressed,
+    this.nodeStatus = TopStatusNodeStatus.synced,
+    this.backgroundColor,
+    this.forceTransparent = false,
+  })  : size = TopStatusAppBarSize.scaffoldCompact,
         profileLabel = null;
 
   /// Visible screen title.
@@ -101,17 +121,29 @@ class TopStatusAppBar extends StatelessWidget {
   final bool forceTransparent;
 
   @override
+  Size get preferredSize {
+    return switch (size) {
+      TopStatusAppBarSize.large =>
+        const Size.fromHeight(_kTopStatusLargeExpandedHeight),
+      TopStatusAppBarSize.compact => const Size.fromHeight(kToolbarHeight),
+      TopStatusAppBarSize.scaffoldCompact =>
+        const Size.fromHeight(_kTopStatusLargeCollapsedHeight),
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
     return switch (size) {
       TopStatusAppBarSize.large => _buildLarge(context),
       TopStatusAppBarSize.compact => _buildCompact(context),
+      TopStatusAppBarSize.scaffoldCompact => _buildScaffoldCompact(context),
     };
   }
 
   Widget _buildLarge(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final effectiveSurface = backgroundColor ?? colors.surfaceContainerLowest;
-    final node = _NodeStatusVisual.resolve(context, nodeStatus);
+    final node = TopStatusNodeVisual.resolve(context, nodeStatus);
     final topPadding = MediaQuery.paddingOf(context).top;
 
     return SliverPersistentHeader(
@@ -137,7 +169,7 @@ class TopStatusAppBar extends StatelessWidget {
     final effectiveBackground = forceTransparent
         ? Colors.transparent
         : backgroundColor ?? colors.surfaceContainerLowest;
-    final node = _NodeStatusVisual.resolve(context, nodeStatus);
+    final node = TopStatusNodeVisual.resolve(context, nodeStatus);
 
     return SliverAppBar(
       pinned: true,
@@ -166,6 +198,7 @@ class TopStatusAppBar extends StatelessWidget {
           label: node.label,
           tooltip: node.tooltip,
           foregroundColor: node.foregroundColor,
+          backgroundColor: node.backgroundColor,
           onPressed: onNodePressed,
           progress: 1,
           showLabel: false,
@@ -188,6 +221,72 @@ class TopStatusAppBar extends StatelessWidget {
               ),
             ),
       forceMaterialTransparency: forceTransparent,
+    );
+  }
+
+  Widget _buildScaffoldCompact(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final effectiveBackground = forceTransparent
+        ? Colors.transparent
+        : backgroundColor ?? colors.surfaceContainerLowest;
+    final node = TopStatusNodeVisual.resolve(context, nodeStatus);
+
+    return AppBar(
+      automaticallyImplyLeading: false,
+      centerTitle: true,
+      toolbarHeight: _kTopStatusLargeCollapsedHeight,
+      leadingWidth: spacing.space16 + sizing.iconContainerRegular,
+      leading: Padding(
+        padding: EdgeInsetsDirectional.only(start: spacing.space16),
+        child: _TopStatusAction(
+          icon: Symbols.account_circle_sharp,
+          label: 'Profile',
+          tooltip: 'Profile',
+          onPressed: onProfilePressed,
+          progress: 1,
+          showLabel: false,
+          alignment: AlignmentDirectional.centerStart,
+          hitKey: _kTopStatusProfileHitKey,
+          visualKey: _kTopStatusProfileVisualKey,
+          iconKey: _kTopStatusProfileIconKey,
+        ),
+      ),
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      titleSpacing: 0,
+      actions: [
+        Padding(
+          padding: EdgeInsetsDirectional.only(end: spacing.space16),
+          child: _TopStatusAction(
+            icon: node.icon,
+            label: node.label,
+            tooltip: node.tooltip,
+            foregroundColor: node.foregroundColor,
+            backgroundColor: node.backgroundColor,
+            onPressed: onNodePressed,
+            progress: 1,
+            showLabel: false,
+            alignment: AlignmentDirectional.centerEnd,
+            hitKey: _kTopStatusNodeHitKey,
+            visualKey: _kTopStatusNodeVisualKey,
+            iconKey: _kTopStatusNodeIconKey,
+          ),
+        ),
+      ],
+      backgroundColor: effectiveBackground,
+      foregroundColor: colors.onSurface,
+      surfaceTintColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      shape: forceTransparent
+          ? null
+          : Border(
+              bottom: BorderSide(
+                color: colors.onSurface.withValues(alpha: borders.opacity),
+                width: borders.width,
+              ),
+            ),
     );
   }
 }
@@ -247,12 +346,14 @@ class TopStatusPill extends StatelessWidget {
     final String tooltip;
     var label = this.label;
     Color? statusForeground;
+    Color? statusBackground;
     final nodeStatus = _nodeStatus;
     if (nodeStatus != null) {
-      final visual = _NodeStatusVisual.resolve(context, nodeStatus);
+      final visual = TopStatusNodeVisual.resolve(context, nodeStatus);
       icon = visual.icon;
       tooltip = visual.tooltip;
       statusForeground = visual.foregroundColor;
+      statusBackground = visual.backgroundColor;
       label ??= visual.label;
     } else {
       icon = _icon!;
@@ -263,7 +364,7 @@ class TopStatusPill extends StatelessWidget {
         ? statusForeground ?? colors.onSecondaryContainer
         : colors.onSurface.withValues(alpha: 0.38);
     final background = enabled
-        ? colors.secondaryContainer
+        ? statusBackground ?? colors.secondaryContainer
         : colors.onSurface.withValues(alpha: 0.12);
 
     final iconWidget = Icon(icon, size: sizing.iconSmall, color: foreground);
@@ -342,7 +443,7 @@ class _TopStatusLargeAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   final String title;
   final String profileLabel;
-  final _NodeStatusVisual node;
+  final TopStatusNodeVisual node;
   final VoidCallback? onProfilePressed;
   final VoidCallback? onNodePressed;
   final Color backgroundColor;
@@ -422,6 +523,7 @@ class _TopStatusLargeAppBarDelegate extends SliverPersistentHeaderDelegate {
               label: node.label,
               tooltip: node.tooltip,
               foregroundColor: node.foregroundColor,
+              backgroundColor: node.backgroundColor,
               onPressed: onNodePressed,
               progress: progress,
               iconAfterLabel: true,
@@ -498,6 +600,7 @@ class _TopStatusAction extends StatelessWidget {
     required this.iconKey,
     this.labelOpacityKey,
     this.foregroundColor,
+    this.backgroundColor,
     this.iconAfterLabel = false,
     this.showLabel = true,
   });
@@ -513,6 +616,7 @@ class _TopStatusAction extends StatelessWidget {
   final Key iconKey;
   final Key? labelOpacityKey;
   final Color? foregroundColor;
+  final Color? backgroundColor;
   final bool iconAfterLabel;
   final bool showLabel;
 
@@ -537,7 +641,7 @@ class _TopStatusAction extends StatelessWidget {
         ? foregroundColor ?? colors.onSecondaryContainer
         : colors.onSurface.withValues(alpha: 0.38);
     final effectiveBackground = enabled
-        ? colors.secondaryContainer
+        ? backgroundColor ?? colors.secondaryContainer
         : colors.onSurface.withValues(alpha: 0.12);
     final labelWidget = showLabel
         ? _MorphingStatusActionLabel(
@@ -641,55 +745,79 @@ class _MorphingStatusActionLabel extends StatelessWidget {
   }
 }
 
-class _NodeStatusVisual {
-  const _NodeStatusVisual({
+/// Canonical visual language for node status affordances.
+///
+/// This mirrors the Node Status page hero so root chrome, status pills, and
+/// compact node icons all speak the same icon / label / color language.
+class TopStatusNodeVisual {
+  const TopStatusNodeVisual({
     required this.icon,
     required this.label,
     required this.tooltip,
-    this.foregroundColor,
+    required this.foregroundColor,
+    required this.backgroundColor,
   });
 
   final IconData icon;
   final String label;
   final String tooltip;
-  final Color? foregroundColor;
+  final Color foregroundColor;
+  final Color backgroundColor;
 
   @override
   bool operator ==(Object other) {
-    return other is _NodeStatusVisual &&
+    return other is TopStatusNodeVisual &&
         other.icon == icon &&
         other.label == label &&
         other.tooltip == tooltip &&
-        other.foregroundColor == foregroundColor;
+        other.foregroundColor == foregroundColor &&
+        other.backgroundColor == backgroundColor;
   }
 
   @override
-  int get hashCode => Object.hash(icon, label, tooltip, foregroundColor);
+  int get hashCode =>
+      Object.hash(icon, label, tooltip, foregroundColor, backgroundColor);
 
-  static _NodeStatusVisual resolve(
+  /// Resolves a node status into the shared icon, label, and semantic colors.
+  static TopStatusNodeVisual resolve(
     BuildContext context,
     TopStatusNodeStatus status,
   ) {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final l10n = Localizations.of<AppLocalizations>(
+      context,
+      AppLocalizations,
+    );
 
     return switch (status) {
-      TopStatusNodeStatus.synced => const _NodeStatusVisual(
-          icon: Symbols.check_circle_sharp,
-          label: 'Synced',
-          tooltip: 'Node synced',
+      TopStatusNodeStatus.synced => TopStatusNodeVisual(
+          icon: Symbols.check_sharp,
+          label: l10n?.nodeSynced ?? 'Synced',
+          tooltip: l10n?.nodeSynced ?? 'Synced',
+          foregroundColor: semantic.success.onColorContainer,
+          backgroundColor: semantic.success.colorContainer,
         ),
-      TopStatusNodeStatus.connecting => _NodeStatusVisual(
-          icon: Symbols.sync_sharp,
-          label: 'Connecting',
-          tooltip: 'Node connecting',
-          foregroundColor: semantic.technical.color,
+      TopStatusNodeStatus.connecting => TopStatusNodeVisual(
+          icon: Symbols.hourglass_empty_sharp,
+          label: l10n?.nodeConnecting ?? 'Connecting',
+          tooltip: l10n?.nodeConnecting ?? 'Connecting',
+          foregroundColor: semantic.warning.onColorContainer,
+          backgroundColor: semantic.warning.colorContainer,
         ),
-      TopStatusNodeStatus.offline => _NodeStatusVisual(
-          icon: Symbols.wifi_off_sharp,
-          label: 'Offline',
-          tooltip: 'Node offline',
-          foregroundColor: colors.error,
+      TopStatusNodeStatus.syncing => TopStatusNodeVisual(
+          icon: Symbols.hourglass_empty_sharp,
+          label: l10n?.nodeSyncing ?? 'Syncing',
+          tooltip: l10n?.nodeSyncing ?? 'Syncing',
+          foregroundColor: semantic.warning.onColorContainer,
+          backgroundColor: semantic.warning.colorContainer,
+        ),
+      TopStatusNodeStatus.offline => TopStatusNodeVisual(
+          icon: Symbols.close_sharp,
+          label: l10n?.nodeOffline ?? 'Offline',
+          tooltip: l10n?.nodeOffline ?? 'Offline',
+          foregroundColor: colors.onErrorContainer,
+          backgroundColor: colors.errorContainer,
         ),
     };
   }

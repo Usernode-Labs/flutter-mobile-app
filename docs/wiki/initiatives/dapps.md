@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-16 ([tracker #382](https://github.com/Usernode-Labs/flutter-mobile-app/issues/382))_
+_Last synced: 2026-06-18 ([tracker #382](https://github.com/Usernode-Labs/flutter-mobile-app/issues/382))_
 
 ## Phase status
 
@@ -20,11 +20,13 @@ _No active issues or pull requests._
 
 ## Recent activity (30d)
 
+- [#352](https://github.com/Usernode-Labs/flutter-mobile-app/pull/352) improve dapp transaction logger
 - [#425](https://github.com/Usernode-Labs/flutter-mobile-app/pull/425) [codex] Remove dApps coming soon gate
 
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
+- #417 Re-scope init:mini-apps: from dApp host to social agentic app framework
 <!-- auto:end -->
 
 ## Overview

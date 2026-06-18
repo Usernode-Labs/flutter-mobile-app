@@ -1,6 +1,8 @@
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart'
     show kMockParticipantId;
+import 'package:crypto_mobile_app/core/services/challenge_ui_visual_fixture.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 
 /// A drop-in [LeaderboardApiService] that serves in-memory, board-shaped
@@ -28,6 +30,10 @@ class MockChallengesApiService extends LeaderboardApiService {
     bool? activeOnly,
     bool? onlyScheduled,
   }) async {
+    if (AppConfig.useChallengeUiVisualMatrix) {
+      return ChallengeUiVisualFixture.challenges();
+    }
+
     return _challenges();
   }
 
@@ -37,6 +43,10 @@ class MockChallengesApiService extends LeaderboardApiService {
     int? seasonId,
     int? eventId,
   }) async {
+    if (AppConfig.useChallengeUiVisualMatrix) {
+      return ChallengeUiVisualFixture.breakdown();
+    }
+
     return BreakdownResult(
       scope: 'season',
       displayName: _seasonName,
@@ -54,6 +64,10 @@ class MockChallengesApiService extends LeaderboardApiService {
     bool? onlyActiveEvents,
     bool? onlyCurrentEvents,
   }) async {
+    if (AppConfig.useChallengeUiVisualMatrix) {
+      return ChallengeUiVisualFixture.seasons();
+    }
+
     return const [
       SeasonDto(
         id: _mockSeasonId,
@@ -70,6 +84,10 @@ class MockChallengesApiService extends LeaderboardApiService {
     int? seasonId,
     int? eventId,
   }) async {
+    if (AppConfig.useChallengeUiVisualMatrix) {
+      return ChallengeUiVisualFixture.ranking();
+    }
+
     return const RankingResult(
       scope: 'season',
       rank: 44,
@@ -88,6 +106,13 @@ class MockChallengesApiService extends LeaderboardApiService {
     int page = 1,
     int perPage = 50,
   }) async {
+    if (AppConfig.useChallengeUiVisualMatrix) {
+      return ChallengeUiVisualFixture.leaderboard(
+        page: page,
+        perPage: perPage,
+      );
+    }
+
     LeaderboardEntry entry(
       int rank,
       int id,

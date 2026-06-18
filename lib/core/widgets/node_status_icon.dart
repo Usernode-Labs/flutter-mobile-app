@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/node/screens/widgets/node_status_summary_modal.dart';
 
-/// Icon button that displays current node sync status as a colored circle
+/// Icon button that displays current node sync status as a compact circle
 /// using the shared [TopStatusNodeVisual] mapping.
 class NodeStatusIcon extends ConsumerWidget {
   const NodeStatusIcon({super.key});
@@ -33,7 +33,11 @@ class NodeStatusIcon extends ConsumerWidget {
       hasRealError: hasRealError,
       nullStatus: TopStatusNodeStatus.connecting,
     );
-    final visual = TopStatusNodeVisual.resolve(context, visualStatus);
+    final visual = TopStatusNodeVisual.resolve(
+      context,
+      visualStatus,
+      intent: TopStatusNodeVisualIntent.chrome,
+    );
 
     return IconButton(
       constraints: BoxConstraints(

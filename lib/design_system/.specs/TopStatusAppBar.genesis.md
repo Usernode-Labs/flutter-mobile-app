@@ -48,14 +48,14 @@
 ### Node Icons
 
 - **What Figma showed**: `check_circle` for synced. The provided node-state frame (`3964:6154`) is empty in the Figma API.
-- **What we implemented**: Node Status page parity: `check` for synced, `hourglass_empty` for connecting/syncing, and `close` for offline.
-- **Why**: The app bar, root status pills, compact node icon, and Node Status hero should use one shared visual language so status can be scanned without translating between surfaces.
+- **What we implemented**: Node Status page parity for language/icons: `check` for synced, `hourglass_empty` for connecting/syncing, and `close` for offline.
+- **Why**: The app bar, root status pills, compact node icon, and Node Status hero should use one shared label/icon language so status can be scanned without translating between surfaces.
 
 ### Semantic State Surfaces
 
 - **What Figma showed**: State icons should read as a compact status affordance, not just standalone colored glyphs.
-- **What we implemented**: Synced uses `AppSemanticColors.success.colorContainer` / `onColorContainer`; connecting and syncing use `AppSemanticColors.warning.colorContainer` / `onColorContainer`; offline uses `ColorScheme.errorContainer` / `onErrorContainer`.
-- **Why**: These semantic surfaces match the Node Status hero and the compact live `NodeStatusIcon`, including the normal synced state's green success surface.
+- **What we implemented**: Chrome treats synced as the quiet, all-good state and uses the same neutral surface as the profile action. Connecting and syncing use `AppSemanticColors.warning.colorContainer` / `onColorContainer`; offline uses `ColorScheme.errorContainer` / `onErrorContainer`. Explicit Node Status content may still use the green success surface for synced status.
+- **Why**: Synced does not require user attention in app chrome, while connecting/syncing/offline should remain visually actionable.
 
 ## Token Mapping
 
@@ -73,7 +73,8 @@
 | Collapsed top surface | `ColorScheme.surfaceContainerLowest` | Fades in with scroll progress; matches BottomNav |
 | Bottom divider | `AppBorders.width` / `AppBorders.opacity` | Fades in with collapsed surface |
 | Tonal button fill | M3 `FilledButton.tonal` / `IconButton.filledTonal` | Uses theme defaults |
-| Synced node surface | `AppSemanticColors.success.colorContainer` / `onColorContainer` | Matches Node Status hero |
+| Synced node surface in chrome | `ColorScheme.secondaryContainer` / `onSecondaryContainer` | Matches profile action; all-good state stays quiet |
+| Synced node surface in status content | `AppSemanticColors.success.colorContainer` / `onColorContainer` | Matches Node Status hero |
 | Connecting/syncing node surface | `AppSemanticColors.warning.colorContainer` / `onColorContainer` | Matches Node Status hero |
 | Offline node surface | `ColorScheme.errorContainer` / `onErrorContainer` | Matches Node Status hero |
 | Synced icon | `Symbols.check_sharp` | Node Status hero parity |

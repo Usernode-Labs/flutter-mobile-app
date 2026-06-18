@@ -37,6 +37,16 @@ enum TopStatusNodeStatus {
   offline,
 }
 
+/// Rendering context for [TopStatusNodeVisual].
+enum TopStatusNodeVisualIntent {
+  /// Quiet shell chrome. The healthy `synced` state is neutral so it does not
+  /// compete for attention with warning/error states.
+  chrome,
+
+  /// Explicit status content. All states keep their semantic status surfaces.
+  status,
+}
+
 const _kTopStatusLargeCollapsedHeight = 64.0;
 const _kTopStatusLargeExpandedHeight = 152.0;
 
@@ -143,7 +153,11 @@ class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget _buildLarge(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final effectiveSurface = backgroundColor ?? colors.surfaceContainerLowest;
-    final node = TopStatusNodeVisual.resolve(context, nodeStatus);
+    final node = TopStatusNodeVisual.resolve(
+      context,
+      nodeStatus,
+      intent: TopStatusNodeVisualIntent.chrome,
+    );
     final topPadding = MediaQuery.paddingOf(context).top;
 
     return SliverPersistentHeader(
@@ -169,7 +183,11 @@ class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
     final effectiveBackground = forceTransparent
         ? Colors.transparent
         : backgroundColor ?? colors.surfaceContainerLowest;
-    final node = TopStatusNodeVisual.resolve(context, nodeStatus);
+    final node = TopStatusNodeVisual.resolve(
+      context,
+      nodeStatus,
+      intent: TopStatusNodeVisualIntent.chrome,
+    );
 
     return SliverAppBar(
       pinned: true,
@@ -232,7 +250,11 @@ class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
     final effectiveBackground = forceTransparent
         ? Colors.transparent
         : backgroundColor ?? colors.surfaceContainerLowest;
-    final node = TopStatusNodeVisual.resolve(context, nodeStatus);
+    final node = TopStatusNodeVisual.resolve(
+      context,
+      nodeStatus,
+      intent: TopStatusNodeVisualIntent.chrome,
+    );
 
     return AppBar(
       automaticallyImplyLeading: false,
@@ -349,7 +371,11 @@ class TopStatusPill extends StatelessWidget {
     Color? statusBackground;
     final nodeStatus = _nodeStatus;
     if (nodeStatus != null) {
-      final visual = TopStatusNodeVisual.resolve(context, nodeStatus);
+      final visual = TopStatusNodeVisual.resolve(
+        context,
+        nodeStatus,
+        intent: TopStatusNodeVisualIntent.chrome,
+      );
       icon = visual.icon;
       tooltip = visual.tooltip;
       statusForeground = visual.foregroundColor;
@@ -747,8 +773,8 @@ class _MorphingStatusActionLabel extends StatelessWidget {
 
 /// Canonical visual language for node status affordances.
 ///
-/// This mirrors the Node Status page hero so root chrome, status pills, and
-/// compact node icons all speak the same icon / label / color language.
+/// Labels and icons match the Node Status page. Chrome renders the healthy
+/// `synced` state neutrally so only warning/error states ask for attention.
 class TopStatusNodeVisual {
   const TopStatusNodeVisual({
     required this.icon,
@@ -781,8 +807,9 @@ class TopStatusNodeVisual {
   /// Resolves a node status into the shared icon, label, and semantic colors.
   static TopStatusNodeVisual resolve(
     BuildContext context,
-    TopStatusNodeStatus status,
-  ) {
+    TopStatusNodeStatus status, {
+    TopStatusNodeVisualIntent intent = TopStatusNodeVisualIntent.status,
+  }) {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final l10n = Localizations.of<AppLocalizations>(
@@ -795,8 +822,12 @@ class TopStatusNodeVisual {
           icon: Symbols.check_sharp,
           label: l10n?.nodeSynced ?? 'Synced',
           tooltip: l10n?.nodeSynced ?? 'Synced',
-          foregroundColor: semantic.success.onColorContainer,
-          backgroundColor: semantic.success.colorContainer,
+          foregroundColor: intent == TopStatusNodeVisualIntent.chrome
+              ? colors.onSecondaryContainer
+              : semantic.success.onColorContainer,
+          backgroundColor: intent == TopStatusNodeVisualIntent.chrome
+              ? colors.secondaryContainer
+              : semantic.success.colorContainer,
         ),
       TopStatusNodeStatus.connecting => TopStatusNodeVisual(
           icon: Symbols.hourglass_empty_sharp,

@@ -270,8 +270,8 @@ void main() {
         status: TopStatusNodeStatus.synced,
         label: 'Synced',
         icon: Symbols.check_sharp,
-        background: semantic.success.colorContainer,
-        foreground: semantic.success.onColorContainer,
+        background: colors.secondaryContainer,
+        foreground: colors.onSecondaryContainer,
       ),
       (
         status: TopStatusNodeStatus.connecting,
@@ -307,6 +307,30 @@ void main() {
       expect(visual.color, equals(testCase.background));
       expect(icon.color, equals(testCase.foreground));
     }
+  });
+
+  testWidgets('status intent keeps synced semantically green', (tester) async {
+    await tester.pumpWidget(
+      wrap(
+        const TopStatusAppBar.large(
+          title: 'Season 1',
+          nodeStatus: TopStatusNodeStatus.synced,
+          onProfilePressed: null,
+          onNodePressed: null,
+        ),
+      ),
+    );
+
+    final context = tester.element(find.byType(TopStatusAppBar));
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+
+    final visual = TopStatusNodeVisual.resolve(
+      context,
+      TopStatusNodeStatus.synced,
+    );
+
+    expect(visual.backgroundColor, equals(semantic.success.colorContainer));
+    expect(visual.foregroundColor, equals(semantic.success.onColorContainer));
   });
 
   testWidgets('fires profile and node callbacks in expanded and collapsed bars',

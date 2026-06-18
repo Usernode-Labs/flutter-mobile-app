@@ -192,6 +192,142 @@ class TopStatusAppBar extends StatelessWidget {
   }
 }
 
+/// A standalone stadium status pill matching the action affordances used
+/// inside [TopStatusAppBar].
+///
+/// For surfaces that present the shell's profile/node entry points but cannot
+/// host the full (sliver) app bar — e.g. the dApps WebView hub root, which is
+/// a `Scaffold`/`AppBar` over a platform view. Use [TopStatusPill.profile] for
+/// the profile entry point and [TopStatusPill.node] for a node pill whose
+/// icon / label / colour resolve identically to the app bar's node action.
+class TopStatusPill extends StatelessWidget {
+  /// Profile entry-point pill. Renders icon-only when [label] is null.
+  const TopStatusPill.profile({
+    super.key,
+    required this.onPressed,
+    this.label,
+  })  : _icon = Symbols.account_circle_sharp,
+        _tooltip = 'Profile',
+        _nodeStatus = null,
+        _iconAfterLabel = false;
+
+  /// Node-status pill; visual resolved to match [TopStatusAppBar]. Falls back
+  /// to the resolved status word (Synced/Connecting/Offline) when [label] is
+  /// null; pass `label: ''` for an icon-only node pill.
+  const TopStatusPill.node({
+    super.key,
+    required TopStatusNodeStatus status,
+    required this.onPressed,
+    this.label,
+  })  : _icon = null,
+        _tooltip = null,
+        _nodeStatus = status,
+        _iconAfterLabel = true;
+
+  /// Tap handler; a null handler renders the pill disabled.
+  final VoidCallback? onPressed;
+
+  /// Optional label shown beside the icon.
+  final String? label;
+
+  final IconData? _icon;
+  final String? _tooltip;
+  final TopStatusNodeStatus? _nodeStatus;
+  final bool _iconAfterLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final enabled = onPressed != null;
+
+    final IconData icon;
+    final String tooltip;
+    var label = this.label;
+    Color? statusForeground;
+    final nodeStatus = _nodeStatus;
+    if (nodeStatus != null) {
+      final visual = _NodeStatusVisual.resolve(context, nodeStatus);
+      icon = visual.icon;
+      tooltip = visual.tooltip;
+      statusForeground = visual.foregroundColor;
+      label ??= visual.label;
+    } else {
+      icon = _icon!;
+      tooltip = _tooltip!;
+    }
+
+    final foreground = enabled
+        ? statusForeground ?? colors.onSecondaryContainer
+        : colors.onSurface.withValues(alpha: 0.38);
+    final background = enabled
+        ? colors.secondaryContainer
+        : colors.onSurface.withValues(alpha: 0.12);
+
+    final iconWidget = Icon(icon, size: sizing.iconSmall, color: foreground);
+    final labelWidget = (label == null || label.isEmpty)
+        ? null
+        : Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: textTheme.labelLarge?.copyWith(color: foreground),
+          );
+
+    final children = <Widget>[
+      if (_iconAfterLabel && labelWidget != null) ...[
+        labelWidget,
+        SizedBox(width: spacing.space8),
+      ],
+      iconWidget,
+      if (!_iconAfterLabel && labelWidget != null) ...[
+        SizedBox(width: spacing.space8),
+        labelWidget,
+      ],
+    ];
+
+    return Tooltip(
+      message: tooltip,
+      child: ConstrainedBox(
+        // Keep the tap target ≥48dp even though the visible pill is shorter.
+        constraints: BoxConstraints(
+          minWidth: sizing.iconContainerRegular,
+          minHeight: sizing.iconContainerRegular,
+        ),
+        child: Center(
+          child: Material(
+            color: background,
+            shape: const StadiumBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              customBorder: const StadiumBorder(),
+              child: ConstrainedBox(
+                constraints:
+                    BoxConstraints(minWidth: sizing.iconContainerSmall),
+                child: SizedBox(
+                  height: sizing.buttonHeightSmall,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: spacing.space12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: children,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _TopStatusLargeAppBarDelegate extends SliverPersistentHeaderDelegate {
   const _TopStatusLargeAppBarDelegate({
     required this.title,

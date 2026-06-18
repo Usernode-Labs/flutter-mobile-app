@@ -51,7 +51,8 @@ class ChallengesScreen extends ConsumerWidget {
     final nodeStatus = ref.watch(topStatusNodeStatusProvider);
 
     return Scaffold(
-      backgroundColor: colors.surfaceContainerLow,
+      // No backgroundColor override → DS scaffold grey (surface). Top-level
+      // tab roots share this substrate; nested pages use white surfaces.
       body: RefreshIndicator(
         onRefresh: () => _refresh(ref),
         child: CustomScrollView(

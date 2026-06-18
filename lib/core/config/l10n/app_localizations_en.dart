@@ -703,6 +703,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodeStatusTitle => 'Node Status';
 
   @override
+  String get nodeSectionNetwork => 'Network';
+
+  @override
+  String get nodeSectionChainState => 'Chain state';
+
+  @override
   String get nodePeerIdCopied => 'Peer ID copied to clipboard';
 
   @override
@@ -1558,6 +1564,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get walletMyAddress => 'My address';
+
+  @override
+  String get walletReceive => 'Receive';
+
+  @override
+  String get walletCopyAddress => 'Copy address';
 
   @override
   String get walletRecipientAddress => 'Recipient address';

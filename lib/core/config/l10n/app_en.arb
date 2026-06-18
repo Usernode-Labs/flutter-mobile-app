@@ -962,6 +962,14 @@
   "@nodeStatusTitle": {
     "description": "Node status screen title"
   },
+  "nodeSectionNetwork": "Network",
+  "@nodeSectionNetwork": {
+    "description": "Node status section header grouping peer/epoch/mempool rows"
+  },
+  "nodeSectionChainState": "Chain state",
+  "@nodeSectionChainState": {
+    "description": "Node status section header grouping VRF/best-tip rows"
+  },
   "nodePeerIdCopied": "Peer ID copied to clipboard",
   "@nodePeerIdCopied": {
     "description": "Peer ID copied snackbar message"
@@ -2115,6 +2123,14 @@
   "walletMyAddress": "My address",
   "@walletMyAddress": {
     "description": "Label in the wallet address bar"
+  },
+  "walletReceive": "Receive",
+  "@walletReceive": {
+    "description": "Title/tooltip for the receive (address QR) sheet"
+  },
+  "walletCopyAddress": "Copy address",
+  "@walletCopyAddress": {
+    "description": "Button to copy the wallet address from the receive sheet"
   },
   "walletRecipientAddress": "Recipient address",
   "@walletRecipientAddress": {

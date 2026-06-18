@@ -1288,6 +1288,18 @@ abstract class AppLocalizations {
   /// **'Node Status'**
   String get nodeStatusTitle;
 
+  /// Node status section header grouping peer/epoch/mempool rows
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get nodeSectionNetwork;
+
+  /// Node status section header grouping VRF/best-tip rows
+  ///
+  /// In en, this message translates to:
+  /// **'Chain state'**
+  String get nodeSectionChainState;
+
   /// Peer ID copied snackbar message
   ///
   /// In en, this message translates to:
@@ -2799,6 +2811,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'My address'**
   String get walletMyAddress;
+
+  /// Title/tooltip for the receive (address QR) sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Receive'**
+  String get walletReceive;
+
+  /// Button to copy the wallet address from the receive sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address'**
+  String get walletCopyAddress;
 
   /// Hint text for recipient address field
   ///

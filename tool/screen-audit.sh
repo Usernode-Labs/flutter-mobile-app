@@ -53,6 +53,7 @@ ensure_ds_lints_deps() {
 
 HAS_PSL=$(grep -c 'ParallaxSurfaceLayout' "$FILE" 2>/dev/null || true)
 HAS_TOP_APP_BAR=$(grep -c 'TopAppBar' "$FILE" 2>/dev/null || true)
+HAS_SLIVER_APP_BAR=$(grep -c 'SliverAppBar' "$FILE" 2>/dev/null || true)
 HAS_SAFE_AREA=$(grep -c 'SafeArea' "$FILE" 2>/dev/null || true)
 HAS_MODAL=$(grep -c 'showModalBottomSheet\|BottomSheet\|SheetLayout' "$FILE" 2>/dev/null || true)
 HAS_NESTED_SCROLL=$(grep -c 'NestedScrollView\|nestedBody' "$FILE" 2>/dev/null || true)
@@ -64,7 +65,7 @@ HAS_SINGLE_SCROLL=$(grep -c 'SingleChildScrollView' "$FILE" 2>/dev/null || true)
 SCREEN_TYPE="tab"
 if [ "$HAS_PSL" -gt 0 ]; then
   SCREEN_TYPE="psl"
-elif [ "$HAS_TOP_APP_BAR" -gt 0 ]; then
+elif [ "$HAS_TOP_APP_BAR" -gt 0 ] || [ "$HAS_SLIVER_APP_BAR" -gt 0 ]; then
   SCREEN_TYPE="detail"
 elif [ "$HAS_MODAL" -gt 0 ] && [ "$HAS_SAFE_AREA" -eq 0 ] && [ "$HAS_CUSTOM_SCROLL" -eq 0 ]; then
   SCREEN_TYPE="modal"

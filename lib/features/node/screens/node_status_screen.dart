@@ -11,7 +11,6 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
-import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
@@ -35,7 +34,6 @@ class NodeStatusScreen extends ConsumerStatefulWidget {
 }
 
 class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
-  final _scaffoldKey = GlobalKey<ScaffoldState>();
   final _appSleepService = AppSleepService.instance;
 
   // State flags
@@ -249,17 +247,16 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     // Non-row content is inset to space16; ListTiles get the same inset from
     // the theme's contentPadding, so rows align with headers at the page edge.
     final hPad = EdgeInsets.symmetric(horizontal: spacing.space16);
-    // Pushed detail (from the Challenges/Wallet/dApps top bar) → back; the
-    // drawer stays reachable via the settings action.
+    // Pushed detail (from the Challenges/Wallet/dApps top bar) → back. When
+    // embedded as a root tab, keep the title aligned to the page keyline
+    // without exposing the old build-info drawer.
     final canPop = context.canPop();
 
     // Detail pattern (mirrors the `NodeSyncDetailPage` prototype): a flat white
     // surface with a raw SliverAppBar, no parallax header or card containers —
     // content sits directly on white, grouped only by section headers.
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: colorScheme.surfaceContainerLowest,
-      drawer: const AppDrawer(),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: CustomScrollView(
@@ -273,29 +270,22 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
               surfaceTintColor: Colors.transparent,
               scrolledUnderElevation: 0,
               toolbarHeight: sizing.iconContainerXLarge,
-              leading: IconButton(
-                tooltip: canPop ? 'Back' : null,
-                onPressed: canPop
-                    ? () => context.pop()
-                    : () => _scaffoldKey.currentState?.openDrawer(),
-                icon: Icon(
-                  canPop ? Symbols.arrow_back_sharp : Symbols.menu_sharp,
-                  size: sizing.iconRegular,
-                ),
-              ),
+              leadingWidth: canPop ? null : spacing.space16,
+              leading: canPop
+                  ? IconButton(
+                      tooltip: 'Back',
+                      onPressed: () => context.pop(),
+                      icon: Icon(
+                        Symbols.arrow_back_sharp,
+                        size: sizing.iconRegular,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
               titleSpacing: 0,
               title: Text(
                 l10n.nodeStatusTitle,
                 overflow: TextOverflow.ellipsis,
               ),
-              actions: [
-                IconButton(
-                  tooltip: l10n.nodeStatusTitle,
-                  onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                  icon: Icon(Symbols.settings_sharp, size: sizing.iconRegular),
-                ),
-                SizedBox(width: spacing.space4),
-              ],
             ),
             SliverList.list(
               children: [

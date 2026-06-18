@@ -86,6 +86,7 @@ class TopAppBar extends StatelessWidget {
   Widget _buildSmall(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     return SliverAppBar(
       pinned: true,
@@ -99,6 +100,7 @@ class TopAppBar extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
       ),
       actions: actions,
+      actionsPadding: EdgeInsetsDirectional.only(end: spacing.space16),
     );
   }
 
@@ -204,7 +206,7 @@ class _LargeFlexibleContent extends StatelessWidget {
                   ),
                 ),
                 if (actions != null) ...actions!,
-                SizedBox(width: spacing.space4),
+                SizedBox(width: spacing.space16),
               ],
             ),
           ),

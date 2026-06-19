@@ -4,8 +4,8 @@ description: A New Layer 1 Operated & Secured by users from their phones.
 version: 0.3.1+1200
 publish_to: none
 environment:
-  sdk: ">=3.3.0 <4.0.0"
-  flutter: ">=3.35.0"
+  sdk: ">=3.10.0 <4.0.0"
+  flutter: ">=3.38.1"
 dependencies:
   flutter:
     sdk: flutter
@@ -41,6 +41,7 @@ dependencies:
   webview_flutter: "^4.10.0"
   flutter_markdown: "^0.7.6"
   mobile_scanner: "^7.0.0"
+  flutter_local_notifications: "^22.0.1"
   material_symbols_icons: ^4.2906.0
   marionette_flutter: ^0.5.0
 dev_dependencies:

@@ -57,6 +57,7 @@ if (keystorePropertiesFile.exists()) {
         applicationId "com.usernode_labs.usernode"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
+        multiDexEnabled true
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
 
@@ -114,6 +115,6 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 dependencies {
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
     testImplementation 'junit:junit:4.13.2'
 }

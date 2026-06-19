@@ -29,7 +29,6 @@ dependencies:
   http: "^1.1.0"
   package_info_plus: "^9.0.0"
   device_info_plus: "^9.0.0"
-  image_picker: "^1.0.0"
   freezed_annotation: "^2.4.4"
   logger: "^2.0.0"
   collection: any
@@ -39,16 +38,14 @@ dependencies:
   permission_handler: "^11.0.0"
   crypto: "^3.0.3"
   url_launcher: "^6.2.0"
-  app_links: "^6.4.0"
   webview_flutter: "^4.10.0"
   flutter_markdown: "^0.7.6"
   mobile_scanner: "^7.0.0"
   material_symbols_icons: ^4.2906.0
+  marionette_flutter: ^0.5.0
 dev_dependencies:
   flutter_lints: "^5.0.0"
   flutter_test:
-    sdk: flutter
-  integration_test:
     sdk: flutter
   freezed: "^2.5.2"
   build_runner: "^2.4.11"

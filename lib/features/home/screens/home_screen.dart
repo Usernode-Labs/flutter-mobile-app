@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/activity/providers/activity_providers.dart';
+import 'package:crypto_mobile_app/features/activity/screens/activity_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
@@ -20,10 +22,7 @@ import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_pro
 import 'package:crypto_mobile_app/features/zk_identity/zk_identity_status_mapper.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({
-    super.key,
-    this.initialTab = HomeTab.challenges,
-  });
+  const HomeScreen({super.key, this.initialTab = HomeTab.challenges});
 
   final int initialTab;
 
@@ -94,6 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               index: index,
               children: const [
                 ChallengesScreen(),
+                ActivityScreen(),
                 WalletScreen(),
                 DappsScreen(),
                 NodeStatusScreen(),
@@ -129,6 +129,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         indicatorFillColor: semantic.flash.colorContainer,
       ),
       BottomNavItem(
+        icon: Symbols.notifications_sharp,
+        label: l10n.navActivity,
+        indicatorShape: NavIndicatorShape.circle,
+        indicatorColor: semantic.technical.color,
+        indicatorFillColor: semantic.technical.colorContainer,
+        badgeCount: ref.watch(activityUnreadCountProvider),
+      ),
+      BottomNavItem(
         icon: Symbols.account_balance_wallet_sharp,
         label: l10n.navWallet,
         indicatorShape: NavIndicatorShape.circle,
@@ -147,14 +155,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // (Fair Rewards shell, #449 / discussion #440).
     ];
 
+    const bottomTabs = [
+      HomeTab.challenges,
+      HomeTab.activity,
+      HomeTab.wallet,
+      HomeTab.dapps,
+    ];
+    final selectedBottomIndex = bottomTabs.contains(index)
+        ? bottomTabs.indexOf(index)
+        : bottomTabs.indexOf(HomeTab.activity);
+
     Widget bottomNav = BottomNav(
       items: items,
-      // The IndexedStack still hosts node/settings (indices 3-4) for routes,
-      // but they are no longer bottom-nav destinations — clamp so an off-nav
-      // tab index never overflows the slimmed item list.
-      selectedIndex: index.clamp(0, items.length - 1),
+      selectedIndex: selectedBottomIndex,
       onItemSelected: (i) {
-        ref.read(currentHomeTabProvider.notifier).state = i;
+        ref.read(currentHomeTabProvider.notifier).state = bottomTabs[i];
       },
       topBorder: !isInternal,
     );
@@ -231,8 +246,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           }
 
           // Success dialog — show status card from registration data.
-          final registration =
-              ref.read(zkIdentityRegistrationProvider).valueOrNull;
+          final registration = ref
+              .read(zkIdentityRegistrationProvider)
+              .valueOrNull;
 
           return AlertDialog(
             title: Text(l10n.zkIdentityResultSuccessTitle),
@@ -250,9 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       onCopyProofId: registration.nullifierHex != null
                           ? () {
                               Clipboard.setData(
-                                ClipboardData(
-                                  text: registration.nullifierHex!,
-                                ),
+                                ClipboardData(text: registration.nullifierHex!),
                               );
                               ScaffoldMessenger.of(ctx).showSnackBar(
                                 const SnackBar(content: Text('Copied')),

@@ -1,0 +1,20 @@
+name: ActivityScreen
+type: feature_screen
+source_discussion: https://github.com/Usernode-Labs/flutter-mobile-app/discussions/440
+pattern_decision:
+  operating_mode: quick check + trust recovery
+  session_shape: glanceable, interruptible, one-handed mobile
+  trust_level: elevated for production setup and dApp/action-needed events
+  device_context: one-handed mobile first, small-screen safe
+  screen_type: root tab
+  navigation_model: bottom-nav root; cards either route to a real source or stay informational
+  sheet_vs_dialog_vs_page: root page only; no notification detail page, no modal
+  cta_placement: no repeated CTA on feed cards; whole card routes only when source exists
+  keyboard_safe_area: no keyboard entry; root shell owns bottom nav safe area
+  escape_route: bottom nav remains available from Activity root
+  rejected_alternatives:
+    - notification_as_source_of_truth: OS notifications disappear and cannot be the ledger
+    - ntfy_shaped_domain_model: useful as event-source inspiration but wrong app model
+    - arbitrary_dapp_firehose: native app must gate route, category, priority, expiry, dedupe
+    - pushed_notification_detail: feed cards must be self-contained receipts, not summaries of hidden pages
+    - six_item_bottom_nav: exceeds current DS BottomNav contract and hurts small-screen scan

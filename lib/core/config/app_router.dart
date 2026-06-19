@@ -29,6 +29,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/core/config/app_navigator.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
@@ -81,6 +82,7 @@ class AppRoutes {
   static const walletSendFailed = '/wallet/send/failed';
 
   // Challenge routes
+  static const challenges = '/challenges';
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
@@ -88,6 +90,9 @@ class AppRoutes {
   // Profile (Fair Rewards shell): "what I earned" + Settings entry.
   static const profile = '/profile';
   static const profileSettings = '/profile/settings';
+
+  // Activity ledger routes.
+  static const activity = '/activity';
   static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
   static const deviceBenchmark = '/settings/device-benchmark';
@@ -97,7 +102,6 @@ class AppRoutes {
   static const httpDebugLogs = '/settings/http-debug-logs';
 
   static String dappDetailFor(String slug) => '/dapps/$slug';
-
   // ZK Identity
   static const zkIdentityDetail = '/challenges/zk-identity';
   static const zkIdentityFlow = '/challenges/zk-identity/flow';
@@ -115,27 +119,24 @@ class AppRoutes {
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(this._ref) {
     // Listen to hasAnyAccountProvider changes
-    _ref.listen<AsyncValue<bool>>(
-      hasAnyAccountProvider,
-      (previous, next) {
-        // Notify GoRouter to re-run its redirect logic when account state changes
-        notifyListeners();
-      },
-    );
+    _ref.listen<AsyncValue<bool>>(hasAnyAccountProvider, (previous, next) {
+      // Notify GoRouter to re-run its redirect logic when account state changes
+      notifyListeners();
+    });
     // Listen to hasCompletedOnboardingProvider changes
-    _ref.listen<AsyncValue<bool>>(
-      hasCompletedOnboardingProvider,
-      (previous, next) {
-        notifyListeners();
-      },
-    );
+    _ref.listen<AsyncValue<bool>>(hasCompletedOnboardingProvider, (
+      previous,
+      next,
+    ) {
+      notifyListeners();
+    });
     // Listen to registration freshness changes (stale detection)
-    _ref.listen<RegistrationFreshness>(
-      registrationFreshnessProvider,
-      (previous, next) {
-        notifyListeners();
-      },
-    );
+    _ref.listen<RegistrationFreshness>(registrationFreshnessProvider, (
+      previous,
+      next,
+    ) {
+      notifyListeners();
+    });
   }
 
   final Ref _ref;
@@ -147,13 +148,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 }
 
-// Create a stable navigator key outside the provider
-final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
-
-/// Getter to expose the navigator key for external navigation
-/// This is used by the notification tap handler to navigate from outside the widget tree
-GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
-
 final appRouterProvider = Provider<GoRouter>((ref) {
   // Watch providers to make router reactive and capture their values
   final hasAnyAccountAsync = ref.watch(hasAnyAccountProvider);
@@ -163,7 +157,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.watch(leaderboardBootstrapProvider);
 
   return GoRouter(
-    navigatorKey: _navigatorKey,
+    navigatorKey: appNavigatorKey,
     observers: SentryUtil.navigatorObservers(),
     initialLocation: AppRoutes.splash,
     refreshListenable: GoRouterRefreshStream(ref),
@@ -312,6 +306,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: AppRoutes.challenges,
+        builder: (context, state) =>
+            const HomeScreen(initialTab: HomeTab.challenges),
+      ),
+      GoRoute(
         path: AppRoutes.zkIdentityDetail,
         builder: (context, state) => const ZkIdentityDetailScreen(),
       ),
@@ -359,10 +358,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: AppRoutes.activity,
+        builder: (context, state) =>
+            const HomeScreen(initialTab: HomeTab.activity),
+      ),
+      GoRoute(
         path: AppRoutes.dapps,
-        builder: (context, state) => const HomeScreen(
-          initialTab: HomeTab.dapps,
-        ),
+        builder: (context, state) =>
+            const HomeScreen(initialTab: HomeTab.dapps),
       ),
       GoRoute(
         path: AppRoutes.dappDetail,
@@ -377,13 +380,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 ),
                 error: (error, _) => Scaffold(
                   appBar: AppBar(),
-                  body: Center(
-                    child: Text('Failed to load dApp: $error'),
-                  ),
+                  body: Center(child: Text('Failed to load dApp: $error')),
                 ),
                 data: (_) {
-                  final dapp =
-                      slug == null ? null : ref.watch(dappBySlugProvider(slug));
+                  final dapp = slug == null
+                      ? null
+                      : ref.watch(dappBySlugProvider(slug));
                   if (dapp == null) {
                     return Scaffold(
                       appBar: AppBar(),
@@ -409,7 +411,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     );
                   }
 
-                  return DappWebViewScreen(url: dapp.url, name: dapp.name);
+                  return DappWebViewScreen(
+                    url: dapp.url,
+                    name: dapp.name,
+                    dappSlug: dapp.slug,
+                  );
                 },
               );
             },
@@ -431,7 +437,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final requestUri = state.uri;
 
       _log.trace(
-          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
+        'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding',
+      );
 
       if (shouldBlockUsernodeDeepLink(requestUri)) {
         _log.warn('Blocked unsupported app deep link: $requestUri');
@@ -454,7 +461,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isPublicRoute = publicRoutes.contains(currentLocation);
       _log.trace(
-          'Route $currentLocation is ${isPublicRoute ? "public" : "private"}');
+        'Route $currentLocation is ${isPublicRoute ? "public" : "private"}',
+      );
 
       // No account exists
       if (!hasAny) {

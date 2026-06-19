@@ -14,6 +14,8 @@ import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
+import 'package:crypto_mobile_app/features/activity/providers/activity_providers.dart';
+import 'package:crypto_mobile_app/features/dapps/application/dapp_notification_bridge.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
@@ -93,24 +95,21 @@ class _TxRecord {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'sentAt': sentAt.millisecondsSinceEpoch,
-        'from': from,
-        'to': to,
-        'amount': amount.toString(),
-        'memo': memo,
-        'status': status.name,
-        if (errorMessage != null) 'error': errorMessage,
-        if (confirmedAt != null)
-          'confirmedAt': confirmedAt!.millisecondsSinceEpoch,
-        if (inclusionLatencyMs != null)
-          'inclusionLatencyMs': inclusionLatencyMs,
-        if (blockHeight != null) 'blockHeight': blockHeight,
-        if (onChainTimestampMs != null)
-          'onChainTimestampMs': onChainTimestampMs,
-        if (onChainStatus != null) 'onChainStatus': onChainStatus,
-        if (dappObservedAtMs != null) 'dappObservedAtMs': dappObservedAtMs,
-      };
+    'id': id,
+    'sentAt': sentAt.millisecondsSinceEpoch,
+    'from': from,
+    'to': to,
+    'amount': amount.toString(),
+    'memo': memo,
+    'status': status.name,
+    if (errorMessage != null) 'error': errorMessage,
+    if (confirmedAt != null) 'confirmedAt': confirmedAt!.millisecondsSinceEpoch,
+    if (inclusionLatencyMs != null) 'inclusionLatencyMs': inclusionLatencyMs,
+    if (blockHeight != null) 'blockHeight': blockHeight,
+    if (onChainTimestampMs != null) 'onChainTimestampMs': onChainTimestampMs,
+    if (onChainStatus != null) 'onChainStatus': onChainStatus,
+    if (dappObservedAtMs != null) 'dappObservedAtMs': dappObservedAtMs,
+  };
 
   // ── Latency helpers ─────────────────────────────────────────────────────
   //
@@ -186,6 +185,7 @@ class _TxRecord {
 class DappWebViewScreen extends ConsumerStatefulWidget {
   final String url;
   final String name;
+  final String? dappSlug;
 
   /// When true, the AppBar's leading "Home" button is hidden. Set this when
   /// the screen is mounted as the root of a bottom-nav tab (not pushed on
@@ -197,6 +197,7 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
     super.key,
     required this.url,
     required this.name,
+    this.dappSlug,
     this.embedded = false,
   });
 
@@ -287,8 +288,9 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
       for (final entry in map.entries) {
-        _txRecords[entry.key] =
-            _TxRecord.fromJson(entry.value as Map<String, dynamic>);
+        _txRecords[entry.key] = _TxRecord.fromJson(
+          entry.value as Map<String, dynamic>,
+        );
       }
     } catch (_) {}
   }
@@ -438,6 +440,11 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
               return;
             }
 
+            if (method == 'notify') {
+              await _handleDappNotify(id, payload);
+              return;
+            }
+
             if (id == null) return;
 
             if (method == 'getNodeAddress') {
@@ -519,7 +526,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _controller.setBackgroundColor(
-        Theme.of(context).colorScheme.surfaceContainerLowest);
+      Theme.of(context).colorScheme.surfaceContainerLowest,
+    );
   }
 
   @override
@@ -610,7 +618,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     required Object? value,
     required String? error,
   }) async {
-    final js = 'window.__usernodeResolve(${jsonEncode(id)},'
+    final js =
+        'window.__usernodeResolve(${jsonEncode(id)},'
         ' ${jsonEncode(value)}, ${jsonEncode(error)});';
     try {
       await _controller.runJavaScript(js);
@@ -619,8 +628,53 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     }
   }
 
+  Future<void> _handleDappNotify(
+    String? id,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final event = DappNotificationBridgePayload.parse(
+        payload: payload,
+        dappName: widget.name,
+        nativeTargetRoute: _dappNotificationTargetRoute(),
+      );
+      await ref.read(activityControllerProvider.notifier).inject(event);
+      if (id != null) {
+        await _resolveJsPromise(
+          id: id,
+          value: const {'recorded': true},
+          error: null,
+        );
+      }
+    } on DappNotificationBridgeParseException catch (e) {
+      debugPrint('[Usernode JS-channel] notify rejected: ${e.message}');
+      if (id != null) {
+        await _resolveJsPromise(id: id, value: null, error: e.message);
+      }
+    } catch (e, st) {
+      debugPrint('[Usernode JS-channel] notify failed: $e\n$st');
+      if (id != null) {
+        await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: 'Failed to record notification',
+        );
+      }
+    }
+  }
+
+  String _dappNotificationTargetRoute() {
+    final slug = widget.dappSlug?.trim();
+    if (slug != null && slug.isNotEmpty) {
+      return AppRoutes.dappDetailFor(slug);
+    }
+    return AppRoutes.dapps;
+  }
+
   Future<void> _handleSendTransaction(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     final args = payload['args'];
     if (args is! Map<String, dynamic>) {
       await _resolveJsPromise(id: id, value: null, error: 'Missing args');
@@ -678,15 +732,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     );
 
     if (!userConfirmed) {
-      _addRecord(_TxRecord(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        sentAt: DateTime.now(),
-        from: fromAddress,
-        to: destinationPubkey,
-        amount: amount,
-        memo: memoString,
-        status: _TxStatus.denied,
-      ));
+      _addRecord(
+        _TxRecord(
+          id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+          sentAt: DateTime.now(),
+          from: fromAddress,
+          to: destinationPubkey,
+          amount: amount,
+          memo: memoString,
+          status: _TxStatus.denied,
+        ),
+      );
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -697,21 +753,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     if (AppConfig.viewOnly) {
       const errorMessage = 'Transactions are disabled in view-only mode.';
-      _addRecord(_TxRecord(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        sentAt: DateTime.now(),
-        from: fromAddress,
-        to: destinationPubkey,
-        amount: amount,
-        memo: memoString,
-        status: _TxStatus.error,
-        errorMessage: errorMessage,
-      ));
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: errorMessage,
+      _addRecord(
+        _TxRecord(
+          id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+          sentAt: DateTime.now(),
+          from: fromAddress,
+          to: destinationPubkey,
+          amount: amount,
+          memo: memoString,
+          status: _TxStatus.error,
+          errorMessage: errorMessage,
+        ),
       );
+      await _resolveJsPromise(id: id, value: null, error: errorMessage);
       return;
     }
 
@@ -729,26 +783,28 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     }
 
     final resp = await rpc.wallet().txSend(
-          fromPkHash: fromPkHash,
-          amount: amount,
-          toPkHash: toPkHash,
-          memo: memo,
-        );
+      fromPkHash: fromPkHash,
+      amount: amount,
+      toPkHash: toPkHash,
+      memo: memo,
+    );
 
     final rpcError = resp?.error;
     final isQueued = rpcError == null || rpcError.isEmpty;
     final recordId =
         resp?.txId ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
-    _addRecord(_TxRecord(
-      id: recordId,
-      sentAt: DateTime.now(),
-      from: fromAddress,
-      to: destinationPubkey,
-      amount: amount,
-      memo: memoString,
-      status: isQueued ? _TxStatus.queued : _TxStatus.error,
-      errorMessage: rpcError,
-    ));
+    _addRecord(
+      _TxRecord(
+        id: recordId,
+        sentAt: DateTime.now(),
+        from: fromAddress,
+        to: destinationPubkey,
+        amount: amount,
+        memo: memoString,
+        status: isQueued ? _TxStatus.queued : _TxStatus.error,
+        errorMessage: rpcError,
+      ),
+    );
 
     if (isQueued && resp?.txId != null) {
       _ensureConfirmPoller();
@@ -765,7 +821,9 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<void> _handleSignMessage(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     final args = payload['args'];
     if (args is! Map<String, dynamic>) {
       await _resolveJsPromise(id: id, value: null, error: 'Missing args');
@@ -828,11 +886,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         error: null,
       );
     } catch (e) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Signing failed: $e',
-      );
+      await _resolveJsPromise(id: id, value: null, error: 'Signing failed: $e');
     }
   }
 
@@ -880,8 +934,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
                     'prove you own this wallet. No transaction will be sent '
                     'and no tokens will be spent.',
                     style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const Spacer(),
@@ -911,14 +965,14 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         },
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
-            position: Tween(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            )),
+            position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  ),
+                ),
             child: child,
           );
         },
@@ -963,17 +1017,16 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     try {
       if (_cachedChainId == null) {
-        final chainRes =
-            await http.get(base.resolve('/explorer-api/active_chain'));
+        final chainRes = await http.get(
+          base.resolve('/explorer-api/active_chain'),
+        );
         if (chainRes.statusCode != 200) return;
         final chainData = jsonDecode(chainRes.body) as Map<String, dynamic>;
         _cachedChainId = chainData['chain_id'] as String?;
         if (_cachedChainId == null) return;
       }
 
-      final earliest = pending.values.reduce(
-        (a, b) => a.isBefore(b) ? a : b,
-      );
+      final earliest = pending.values.reduce((a, b) => a.isBefore(b) ? a : b);
       final fromTs = earliest.millisecondsSinceEpoch - 60000;
 
       final txUrl = base.resolve('/explorer-api/$_cachedChainId/transactions');
@@ -1093,14 +1146,14 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         ),
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
-            position: Tween(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            )),
+            position: Tween(begin: const Offset(0, 1), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  ),
+                ),
             child: child,
           );
         },
@@ -1299,11 +1352,47 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   // to app, not out of the dapp) and only falls through to popping
   // the Flutter route once the WebView is at its root.
   Future<void> _handleBack() async {
-    if (await _controller.canGoBack()) {
-      await _controller.goBack();
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (await _isAtInitialRequest()) {
+      if (mounted && navigator.canPop()) {
+        navigator.pop();
+      }
       return;
     }
-    if (mounted) Navigator.of(context).pop();
+
+    if (await _controller.canGoBack()) {
+      await _controller.goBack();
+      await _refreshCanGoBack();
+      return;
+    }
+    if (mounted && navigator.canPop()) navigator.pop();
+  }
+
+  Future<bool> _isAtInitialRequest() async {
+    try {
+      final current = Uri.tryParse(await _controller.currentUrl() ?? '');
+      if (current == null) return false;
+      return _sameNavigationTarget(current, parseDappUrl(widget.url));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static bool _sameNavigationTarget(Uri left, Uri right) {
+    return left.scheme == right.scheme &&
+        left.host == right.host &&
+        left.port == right.port &&
+        _normalizedPath(left) == _normalizedPath(right) &&
+        left.query == right.query &&
+        left.fragment == right.fragment;
+  }
+
+  static String _normalizedPath(Uri uri) {
+    final path = uri.path.isEmpty ? '/' : uri.path;
+    if (path.length > 1 && path.endsWith('/')) {
+      return path.substring(0, path.length - 1);
+    }
+    return path;
   }
 }
 
@@ -1395,8 +1484,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
     try {
       final base = widget.explorerOrigin;
-      final chainRes =
-          await http.get(base.resolve('/explorer-api/active_chain'));
+      final chainRes = await http.get(
+        base.resolve('/explorer-api/active_chain'),
+      );
       if (chainRes.statusCode != 200) {
         throw Exception('Chain discovery failed (${chainRes.statusCode})');
       }
@@ -1404,9 +1494,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       final chainId = chainData['chain_id'] as String?;
       if (chainId == null) throw Exception('No chain_id in response');
 
-      final earliest = pending.values.reduce(
-        (a, b) => a.isBefore(b) ? a : b,
-      );
+      final earliest = pending.values.reduce((a, b) => a.isBefore(b) ? a : b);
       final fromTs = earliest.millisecondsSinceEpoch - 60000;
 
       final txUrl = base.resolve('/explorer-api/$chainId/transactions');
@@ -1497,8 +1585,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                 ),
                 child: Text(
                   'Explorer fetch failed: $_fetchError',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.error),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
                 ),
               ),
             Expanded(
@@ -1512,8 +1601,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                           Center(
                             child: Text(
                               'No transactions yet',
-                              style: theme.textTheme.bodyMedium
-                                  ?.copyWith(color: muted),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: muted,
+                              ),
                             ),
                           ),
                         ],
@@ -1525,19 +1615,22 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                         itemBuilder: (ctx, index) {
                           final rec = records[index];
                           final isExpanded = _expandedIndex == index;
-                          final isConfirmed = rec.status == _TxStatus.queued &&
+                          final isConfirmed =
+                              rec.status == _TxStatus.queued &&
                               rec.onChainStatus == 'confirmed';
 
-                          final (Color badgeColor, String badgeLabel) =
-                              switch (rec.status) {
+                          final (
+                            Color badgeColor,
+                            String badgeLabel,
+                          ) = switch (rec.status) {
                             _TxStatus.denied => (
-                                theme.colorScheme.error,
-                                'Denied'
-                              ),
+                              theme.colorScheme.error,
+                              'Denied',
+                            ),
                             _TxStatus.error => (
-                                theme.colorScheme.error,
-                                'Error'
-                              ),
+                              theme.colorScheme.error,
+                              'Error',
+                            ),
                             _TxStatus.queued
                                 when rec.onChainStatus == 'confirmed' =>
                               (const Color(0xFF4CAF50), 'Confirmed'),
@@ -1545,9 +1638,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                 when rec.onChainStatus == 'orphaned' =>
                               (theme.colorScheme.error, 'Orphaned'),
                             _TxStatus.queued => (
-                                const Color(0xFFFFA726),
-                                'Pending'
-                              ),
+                              const Color(0xFFFFA726),
+                              'Pending',
+                            ),
                           };
 
                           String memoType = '';
@@ -1561,10 +1654,10 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                           final ageStr = age.inMinutes < 1
                               ? 'sent ${age.inSeconds}s ago'
                               : age.inHours < 1
-                                  ? 'sent ${age.inMinutes}m ago'
-                                  : age.inDays < 1
-                                      ? 'sent ${age.inHours}h ago'
-                                      : 'sent ${age.inDays}d ago';
+                              ? 'sent ${age.inMinutes}m ago'
+                              : age.inDays < 1
+                              ? 'sent ${age.inHours}h ago'
+                              : 'sent ${age.inDays}d ago';
 
                           // Header pill: fastest "total" signal we have for
                           // a confirmed tx (best of explorer/dapp, then
@@ -1585,8 +1678,9 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                             }
                           }
 
-                          final txHash =
-                              rec.id.startsWith('local_') ? null : rec.id;
+                          final txHash = rec.id.startsWith('local_')
+                              ? null
+                              : rec.id;
 
                           return Padding(
                             padding: EdgeInsets.only(bottom: spacing.space8),
@@ -1600,7 +1694,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                 padding: EdgeInsets.all(spacing.space12),
                                 decoration: BoxDecoration(
                                   color: theme
-                                      .colorScheme.surfaceContainerHighest
+                                      .colorScheme
+                                      .surfaceContainerHighest
                                       .withAlpha(100),
                                   borderRadius: radii.borderRadiusMedium,
                                   border: Border.all(
@@ -1627,24 +1722,26 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                             badgeLabel,
                                             style: theme.textTheme.labelSmall
                                                 ?.copyWith(
-                                              color: badgeColor,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                                  color: badgeColor,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                           ),
                                         ),
                                         const Spacer(),
                                         if (confirmTimeStr != null)
                                           Padding(
-                                            padding:
-                                                const EdgeInsets.only(right: 6),
+                                            padding: const EdgeInsets.only(
+                                              right: 6,
+                                            ),
                                             child: Text(
                                               '\u{23F1} $confirmTimeStr',
                                               style: theme.textTheme.labelSmall
                                                   ?.copyWith(
-                                                color: _latencyColor(
-                                                    confirmTotalSecs ?? 0),
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                                    color: _latencyColor(
+                                                      confirmTotalSecs ?? 0,
+                                                    ),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                             ),
                                           ),
                                         Text(
@@ -1662,8 +1759,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                             'To: ${_truncate(rec.to, 20)}',
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
-                                              fontFamily: kMonoFontFamily,
-                                            ),
+                                                  fontFamily: kMonoFontFamily,
+                                                ),
                                           ),
                                         ),
                                         Text(
@@ -1675,7 +1772,8 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                     if (memoType.isNotEmpty)
                                       Padding(
                                         padding: EdgeInsets.only(
-                                            top: spacing.space4),
+                                          top: spacing.space4,
+                                        ),
                                         child: Text(
                                           'type: $memoType',
                                           style: theme.textTheme.labelSmall
@@ -1685,27 +1783,29 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                     if (txHash != null && txHash.isNotEmpty)
                                       Padding(
                                         padding: EdgeInsets.only(
-                                            top: spacing.space4),
+                                          top: spacing.space4,
+                                        ),
                                         child: Text(
                                           'tx: ${_truncate(txHash, 24)}',
                                           style: theme.textTheme.labelSmall
                                               ?.copyWith(
-                                            fontFamily: kMonoFontFamily,
-                                            color: muted,
-                                          ),
+                                                fontFamily: kMonoFontFamily,
+                                                color: muted,
+                                              ),
                                         ),
                                       ),
                                     if (rec.status == _TxStatus.error &&
                                         rec.errorMessage != null)
                                       Padding(
                                         padding: EdgeInsets.only(
-                                            top: spacing.space4),
+                                          top: spacing.space4,
+                                        ),
                                         child: Text(
                                           rec.errorMessage!,
                                           style: theme.textTheme.labelSmall
                                               ?.copyWith(
-                                            color: theme.colorScheme.error,
-                                          ),
+                                                color: theme.colorScheme.error,
+                                              ),
                                         ),
                                       ),
                                     if (isExpanded) ...[
@@ -1718,21 +1818,47 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
                                           muted: muted,
                                           rec: rec,
                                         ),
-                                      _detailRow(theme, muted, 'From', rec.from,
-                                          mono: true),
-                                      _detailRow(theme, muted, 'To', rec.to,
-                                          mono: true),
-                                      _detailRow(theme, muted, 'Amount',
-                                          rec.amount.toString()),
+                                      _detailRow(
+                                        theme,
+                                        muted,
+                                        'From',
+                                        rec.from,
+                                        mono: true,
+                                      ),
+                                      _detailRow(
+                                        theme,
+                                        muted,
+                                        'To',
+                                        rec.to,
+                                        mono: true,
+                                      ),
+                                      _detailRow(
+                                        theme,
+                                        muted,
+                                        'Amount',
+                                        rec.amount.toString(),
+                                      ),
                                       if (txHash != null && txHash.isNotEmpty)
                                         _detailRow(
-                                            theme, muted, 'Tx Hash', txHash,
-                                            mono: true),
+                                          theme,
+                                          muted,
+                                          'Tx Hash',
+                                          txHash,
+                                          mono: true,
+                                        ),
                                       if (rec.blockHeight != null)
-                                        _detailRow(theme, muted, 'Block',
-                                            rec.blockHeight.toString()),
-                                      _detailRow(theme, muted, 'Memo',
-                                          _formatMemo(rec.memo)),
+                                        _detailRow(
+                                          theme,
+                                          muted,
+                                          'Block',
+                                          rec.blockHeight.toString(),
+                                        ),
+                                      _detailRow(
+                                        theme,
+                                        muted,
+                                        'Memo',
+                                        _formatMemo(rec.memo),
+                                      ),
                                     ],
                                   ],
                                 ),
@@ -1779,8 +1905,10 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label,
-                style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(color: muted),
+            ),
             const SizedBox(height: 2),
             Text(
               value,
@@ -1823,8 +1951,10 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: theme.textTheme.labelSmall?.copyWith(color: muted)),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(color: muted),
+          ),
           const SizedBox(height: 2),
           SelectableText(
             value,

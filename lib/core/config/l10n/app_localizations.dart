@@ -62,7 +62,7 @@ import 'app_localizations_en.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -85,11 +85,11 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
@@ -1672,11 +1672,53 @@ abstract class AppLocalizations {
   /// **'Challenges'**
   String get navChallenges;
 
+  /// Navigation bar label for activity tab
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get navActivity;
+
   /// Navigation bar label for settings tab
   ///
   /// In en, this message translates to:
   /// **'Settings'**
   String get navSettings;
+
+  /// Title for the Activity feed screen
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get activityTitle;
+
+  /// Error message when the Activity feed cannot load
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load activity'**
+  String get activityLoadError;
+
+  /// Empty-state title for the Activity feed
+  ///
+  /// In en, this message translates to:
+  /// **'No activity yet'**
+  String get activityEmptyTitle;
+
+  /// Empty-state body for the Activity feed
+  ///
+  /// In en, this message translates to:
+  /// **'Important Usernode events will appear here as a receipt trail.'**
+  String get activityEmptyBody;
+
+  /// Accessibility state label for an unread Activity record
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get activitySemanticUnread;
+
+  /// Accessibility state label for a pinned Activity record that needs attention
+  ///
+  /// In en, this message translates to:
+  /// **'Needs attention'**
+  String get activitySemanticNeedsAttention;
 
   /// Claim account button text
   ///
@@ -2127,6 +2169,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{days} days ago'**
   String timeDaysAgo(int days);
+
+  /// Compact timestamp for activity that just happened
+  ///
+  /// In en, this message translates to:
+  /// **'now'**
+  String get timeCompactNow;
+
+  /// Compact timestamp for activity minutes ago
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m ago'**
+  String timeCompactMinutesAgo(int minutes);
+
+  /// Compact timestamp for activity hours ago
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h ago'**
+  String timeCompactHoursAgo(int hours);
+
+  /// Compact timestamp for activity days ago
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d ago'**
+  String timeCompactDaysAgo(int days);
 
   /// Mempool total stat label
   ///
@@ -3900,8 +3966,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

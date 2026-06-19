@@ -1262,11 +1262,38 @@
   "@navChallenges": {
     "description": "Navigation bar label for challenges tab"
   },
+  "navActivity": "Activity",
+  "@navActivity": {
+    "description": "Navigation bar label for activity tab"
+  },
   "navSettings": "Settings",
   "@navSettings": {
     "description": "Navigation bar label for settings tab"
   },
-
+  "activityTitle": "Activity",
+  "@activityTitle": {
+    "description": "Title for the Activity feed screen"
+  },
+  "activityLoadError": "Failed to load activity",
+  "@activityLoadError": {
+    "description": "Error message when the Activity feed cannot load"
+  },
+  "activityEmptyTitle": "No activity yet",
+  "@activityEmptyTitle": {
+    "description": "Empty-state title for the Activity feed"
+  },
+  "activityEmptyBody": "Important Usernode events will appear here as a receipt trail.",
+  "@activityEmptyBody": {
+    "description": "Empty-state body for the Activity feed"
+  },
+  "activitySemanticUnread": "Unread",
+  "@activitySemanticUnread": {
+    "description": "Accessibility state label for an unread Activity record"
+  },
+  "activitySemanticNeedsAttention": "Needs attention",
+  "@activitySemanticNeedsAttention": {
+    "description": "Accessibility state label for a pinned Activity record that needs attention"
+  },
   "welcomeClaimAccount": "Claim your account",
   "@welcomeClaimAccount": {
     "description": "Claim account button text"
@@ -1610,6 +1637,31 @@
   "timeDaysAgo": "{days} days ago",
   "@timeDaysAgo": {
     "description": "Time display for days ago",
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+  "timeCompactNow": "now",
+  "@timeCompactNow": {
+    "description": "Compact timestamp for activity that just happened"
+  },
+  "timeCompactMinutesAgo": "{minutes}m ago",
+  "@timeCompactMinutesAgo": {
+    "description": "Compact timestamp for activity minutes ago",
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "timeCompactHoursAgo": "{hours}h ago",
+  "@timeCompactHoursAgo": {
+    "description": "Compact timestamp for activity hours ago",
+    "placeholders": {
+      "hours": {"type": "int"}
+    }
+  },
+  "timeCompactDaysAgo": "{days}d ago",
+  "@timeCompactDaysAgo": {
+    "description": "Compact timestamp for activity days ago",
     "placeholders": {
       "days": {"type": "int"}
     }

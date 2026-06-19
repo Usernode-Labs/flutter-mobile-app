@@ -5,17 +5,22 @@ import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 void main() {
   group('isAllowedAppDeepLinkPath', () {
     test('allows shipped challenge and dApp routes', () {
+      expect(isAllowedAppDeepLinkPath('/challenges'), true);
       expect(isAllowedAppDeepLinkPath('/challenges/leaderboard'), true);
       expect(isAllowedAppDeepLinkPath('/challenges/zk-identity'), true);
       expect(isAllowedAppDeepLinkPath('/challenges/zk-identity/flow'), true);
       expect(isAllowedAppDeepLinkPath('/dapps'), true);
       expect(isAllowedAppDeepLinkPath('/dapps/opinion-market'), true);
+      expect(isAllowedAppDeepLinkPath('/main/node'), true);
+      expect(isAllowedAppDeepLinkPath('/profile/settings'), true);
     });
 
     test('rejects sensitive or unknown routes', () {
       expect(isAllowedAppDeepLinkPath('/wallet/send'), false);
       expect(isAllowedAppDeepLinkPath('/settings'), false);
-      expect(isAllowedAppDeepLinkPath('/main/node'), false);
+      expect(isAllowedAppDeepLinkPath('/profile'), false);
+      expect(isAllowedAppDeepLinkPath('/settings/device-benchmark'), false);
+      expect(isAllowedAppDeepLinkPath('/challenges/detail'), false);
       expect(isAllowedAppDeepLinkPath('/challenges/not-yet-shipped'), false);
       expect(isAllowedAppDeepLinkPath('/dapps/opinion-market/settings'), false);
       expect(isAllowedAppDeepLinkPath('/dappsevil'), false);

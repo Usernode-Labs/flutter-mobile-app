@@ -915,7 +915,29 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navChallenges => 'Challenges';
 
   @override
+  String get navActivity => 'Activity';
+
+  @override
   String get navSettings => 'Settings';
+
+  @override
+  String get activityTitle => 'Activity';
+
+  @override
+  String get activityLoadError => 'Failed to load activity';
+
+  @override
+  String get activityEmptyTitle => 'No activity yet';
+
+  @override
+  String get activityEmptyBody =>
+      'Important Usernode events will appear here as a receipt trail.';
+
+  @override
+  String get activitySemanticUnread => 'Unread';
+
+  @override
+  String get activitySemanticNeedsAttention => 'Needs attention';
 
   @override
   String get welcomeClaimAccount => 'Claim your account';
@@ -1182,6 +1204,24 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String timeDaysAgo(int days) {
     return '$days days ago';
+  }
+
+  @override
+  String get timeCompactNow => 'now';
+
+  @override
+  String timeCompactMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String timeCompactHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String timeCompactDaysAgo(int days) {
+    return '${days}d ago';
   }
 
   @override

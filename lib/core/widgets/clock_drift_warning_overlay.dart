@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/app_navigator.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -9,10 +9,7 @@ import 'package:flutter/material.dart';
 enum _ClockDriftSeverity { warning, critical }
 
 class _ClockDriftWarningData {
-  const _ClockDriftWarningData({
-    required this.driftMs,
-    required this.severity,
-  });
+  const _ClockDriftWarningData({required this.driftMs, required this.severity});
 
   final int driftMs;
   final _ClockDriftSeverity severity;
@@ -82,8 +79,8 @@ class _ClockDriftWarningOverlayState extends State<ClockDriftWarningOverlay>
 
     _refreshInFlight = true;
     try {
-      final resolvedDriftMs =
-          await RustBackendService.instance.resolveNodeClockDriftMs();
+      final resolvedDriftMs = await RustBackendService.instance
+          .resolveNodeClockDriftMs();
       if (!mounted) return;
       setState(() {
         _displayedDriftMs = resolvedDriftMs;
@@ -189,11 +186,7 @@ class _ClockDriftWarningOverlayState extends State<ClockDriftWarningOverlay>
         color: Colors.transparent,
         child: InkWell(
           borderRadius: radii.borderRadiusFull,
-          onTap: () => _showClockDriftDialog(
-            context,
-            l10n,
-            warning.driftMs,
-          ),
+          onTap: () => _showClockDriftDialog(context, l10n, warning.driftMs),
           child: Container(
             width: 28,
             height: 28,
@@ -212,10 +205,10 @@ class _ClockDriftWarningOverlayState extends State<ClockDriftWarningOverlay>
             child: Text(
               '!',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: foregroundColor,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
+                color: foregroundColor,
+                fontWeight: FontWeight.w900,
+                height: 1,
+              ),
             ),
           ),
         ),

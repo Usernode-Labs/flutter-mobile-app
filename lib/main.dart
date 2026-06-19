@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/config/app_navigator.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
@@ -56,9 +57,7 @@ Future<void> main() async {
   // NOTE: Do NOT call WidgetsFlutterBinding.ensureInitialized() here.
   // SentryFlutter.init() will initialize SentryWidgetsFlutterBinding which
   // is required for FramesTrackingIntegration to work properly.
-  await SentryUtil.bootstrap(
-    () => _runAppBody(logTag: 'usernode/Bootstrap'),
-  );
+  await SentryUtil.bootstrap(() => _runAppBody(logTag: 'usernode/Bootstrap'));
 }
 
 Future<void> _runAppBody({required String logTag}) async {
@@ -93,8 +92,8 @@ Future<void> headlessMain() async {
   try {
     await AppSleepStateStore.load();
     await PlatformAlarmService.instance.initialize();
-    final nativeWakelockHeld =
-        await PlatformAlarmService.instance.isWakelockHeld();
+    final nativeWakelockHeld = await PlatformAlarmService.instance
+        .isWakelockHeld();
     if (AppSleepStateStore.isSleeping && !nativeWakelockHeld) {
       await LoggingService.initialize();
       final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
@@ -274,19 +273,21 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
 class CryptoMobileApp extends ConsumerWidget {
   const CryptoMobileApp({super.key});
 
-  static final _lightTheme =
-      ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.light(),
-            ),
-          );
+  static final _lightTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme)
+      .light()
+      .copyWith(
+        extensions: DesignSystemTheme.standardExtensions(
+          semanticColors: AppSemanticColors.light(),
+        ),
+      );
 
-  static final _darkTheme =
-      ColorIsExpensiveTheme(ThemeData.dark().textTheme).dark().copyWith(
-            extensions: DesignSystemTheme.standardExtensions(
-              semanticColors: AppSemanticColors.dark(),
-            ),
-          );
+  static final _darkTheme = ColorIsExpensiveTheme(ThemeData.dark().textTheme)
+      .dark()
+      .copyWith(
+        extensions: DesignSystemTheme.standardExtensions(
+          semanticColors: AppSemanticColors.dark(),
+        ),
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -451,10 +452,12 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       unawaited(_refreshWakeData());
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        final zkIdentityChallengeActive =
-            ref.read(zkIdentityChallengeActiveProvider);
+        final zkIdentityChallengeActive = ref.read(
+          zkIdentityChallengeActiveProvider,
+        );
         final zkPassportPipeline = ref.read(zkPassportPipelineProvider);
-        final shouldPreserveCurrentRoute = zkIdentityChallengeActive ||
+        final shouldPreserveCurrentRoute =
+            zkIdentityChallengeActive ||
             zkPassportPipeline.status == ZkPassportPipelineStatus.processing;
         if (shouldPreserveCurrentRoute) {
           return;
@@ -550,7 +553,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         listenable: _appSleepService,
         builder: (context, child) {
           final snapshot = _appSleepService.snapshot;
-          final showSleepScreen = snapshot.isSleeping &&
+          final showSleepScreen =
+              snapshot.isSleeping &&
               snapshot.lifecycleState == AppLifecycleState.resumed;
           return TickerMode(
             enabled: !_appSleepService.isSleeping,

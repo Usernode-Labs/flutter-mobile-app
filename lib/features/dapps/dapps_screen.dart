@@ -28,9 +28,9 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
       ref.read(dappsProvider.future),
       // Stats failures shouldn't break pull-to-refresh; cards already
       // tolerate missing stats via valueOrNull.
-      ref.read(dappStatsProvider.future).catchError(
-            (_) => const <String, DappStats>{},
-          ),
+      ref
+          .read(dappStatsProvider.future)
+          .catchError((_) => const <String, DappStats>{}),
     ]);
   }
 
@@ -161,10 +161,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
     ];
   }
 
-  Widget _buildDappCard(
-    BuildContext context,
-    DappItem dapp,
-  ) {
+  Widget _buildDappCard(BuildContext context, DappItem dapp) {
     final stats = ref.watch(dappStatsProvider).valueOrNull?[dapp.pubkey];
     return DappCard(
       name: dapp.name,
@@ -178,6 +175,7 @@ class _DappsScreenState extends ConsumerState<DappsScreen> {
             builder: (_) => DappWebViewScreen(
               url: dapp.url,
               name: dapp.name,
+              dappSlug: dapp.slug,
             ),
           ),
         );
@@ -194,10 +192,7 @@ const _sortLabels = {
 };
 
 class _SortBar extends StatelessWidget {
-  const _SortBar({
-    required this.sortMode,
-    required this.onSortChanged,
-  });
+  const _SortBar({required this.sortMode, required this.onSortChanged});
 
   final SortMode sortMode;
   final ValueChanged<SortMode> onSortChanged;

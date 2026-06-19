@@ -177,11 +177,12 @@ class _ActivityCard extends StatelessWidget {
                 _ActivityHeader(
                   target: routeHint,
                   timestamp: timestamp,
+                  unread: unread,
                   color: secondaryForeground,
+                  unreadColor: foreground,
                 ),
                 _ActivityTitle(
                   title: title,
-                  unread: unread,
                   emphasized: unread || pinned,
                   color: foreground,
                   style: textTheme.titleMedium,
@@ -204,71 +205,46 @@ class _ActivityCard extends StatelessWidget {
 class _ActivityTitle extends StatelessWidget {
   const _ActivityTitle({
     required this.title,
-    required this.unread,
     required this.emphasized,
     required this.color,
     required this.style,
   });
 
   final String title;
-  final bool unread;
   final bool emphasized;
   final Color color;
   final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final defaultTextStyle = DefaultTextStyle.of(context).style;
     final titleStyle = (style ?? const TextStyle()).copyWith(
       color: color,
       fontWeight: emphasized ? FontWeight.w700 : null,
     );
-    final fontSize = titleStyle.fontSize ?? defaultTextStyle.fontSize ?? 14;
-    final lineHeight =
-        MediaQuery.textScalerOf(context).scale(fontSize) *
-        (titleStyle.height ?? defaultTextStyle.height ?? 1.2);
 
-    final titleText = Text(
+    return Text(
       title,
       style: titleStyle,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
-
-    if (!unread) return titleText;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: spacing.space8,
-          height: lineHeight,
-          child: const Center(child: _UnreadDot()),
-        ),
-        SizedBox(width: spacing.space8),
-        Expanded(child: titleText),
-      ],
-    );
   }
 }
 
 class _UnreadDot extends StatelessWidget {
-  const _UnreadDot();
+  const _UnreadDot({required this.color});
+
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
 
     return SizedBox(
       width: spacing.space8,
       height: spacing.space8,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.onSurface,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
     );
   }
@@ -278,12 +254,16 @@ class _ActivityHeader extends StatelessWidget {
   const _ActivityHeader({
     required this.target,
     required this.timestamp,
+    required this.unread,
     required this.color,
+    required this.unreadColor,
   });
 
   final String target;
   final String timestamp;
+  final bool unread;
   final Color color;
+  final Color unreadColor;
 
   @override
   Widget build(BuildContext context) {
@@ -304,13 +284,22 @@ class _ActivityHeader extends StatelessWidget {
           ),
         ),
         SizedBox(width: spacing.space12),
-        Text(
-          timestamp,
-          style: style?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              timestamp,
+              style: style?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (unread) ...[
+              SizedBox(width: spacing.space8),
+              _UnreadDot(color: unreadColor),
+            ],
+          ],
         ),
       ],
     );

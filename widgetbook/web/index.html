@@ -11,22 +11,6 @@
   <title>Usernode Widgetbook</title>
 </head>
 <body>
-  <script>
-    {{flutter_js}}
-    {{flutter_build_config}}
-
-    _flutter.loader.load({
-      config: {
-        entryPointBaseUrl: "$FLUTTER_STATIC_ASSETS_URL",
-      },
-      onEntrypointLoaded: async function (engineInitializer) {
-        const appRunner = await engineInitializer.initializeEngine({
-          assetBase: "$FLUTTER_STATIC_ASSETS_URL",
-        });
-
-        await appRunner.runApp();
-      },
-    });
-  </script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

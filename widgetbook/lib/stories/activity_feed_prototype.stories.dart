@@ -52,6 +52,12 @@ class ActivityFeedPrototype extends StatelessWidget {
               onProfilePressed: _noop,
               onNodePressed: _noop,
             ),
+            TopStatusAppBarSize.scaffoldCompact => TopStatusAppBar.compact(
+              title: 'Activity',
+              nodeStatus: nodeStatus,
+              onProfilePressed: _noop,
+              onNodePressed: _noop,
+            ),
           },
           SliverPadding(
             padding: EdgeInsets.fromLTRB(
@@ -71,12 +77,18 @@ class ActivityFeedPrototype extends StatelessWidget {
   }
 }
 
-enum ActivityFeedVariant { attentionFeed, pinnedSetup, longDappRecord }
+enum ActivityFeedVariant {
+  attentionFeed,
+  pinnedSetup,
+  priorityStack,
+  longDappRecord,
+}
 
 List<_ActivityRecord> _recordsFor(ActivityFeedVariant variant) {
   return switch (variant) {
     ActivityFeedVariant.attentionFeed => _attentionFeedRecords,
     ActivityFeedVariant.pinnedSetup => const [_pinnedSetupRecord],
+    ActivityFeedVariant.priorityStack => _priorityStackRecords,
     ActivityFeedVariant.longDappRecord => const [_longDappRecord],
   };
 }
@@ -148,14 +160,6 @@ class _ActivityCard extends StatelessWidget {
         ? semantic.warning.onColorContainer
         : colors.onSurfaceVariant;
 
-    final contextLine = [
-      routeHint,
-      if (stateLabel != null && stateLabel!.isNotEmpty)
-        _sentenceFragment(stateLabel!),
-      if (pinned) 'pinned',
-      timestamp,
-    ].where((value) => value.isNotEmpty).join(', ');
-
     return Card(
       color: pinned ? semantic.warning.colorContainer : colors.surface,
       clipBehavior: Clip.antiAlias,
@@ -170,26 +174,23 @@ class _ActivityCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: spacing.space4,
               children: [
-                Text(
-                  contextLine,
-                  style: textTheme.labelSmall?.copyWith(
-                    color: secondaryForeground,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                _ActivityHeader(
+                  target: routeHint,
+                  timestamp: timestamp,
+                  color: secondaryForeground,
                 ),
                 _ActivityTitle(
                   title: title,
                   unread: unread,
                   emphasized: unread || pinned,
                   color: foreground,
-                  style: textTheme.titleSmall,
+                  style: textTheme.titleMedium,
                 ),
               ],
             ),
             subtitle: Text(
               body,
-              style: textTheme.bodySmall?.copyWith(color: secondaryForeground),
+              style: textTheme.bodyMedium?.copyWith(color: secondaryForeground),
               maxLines: maxBodyLines,
               overflow: TextOverflow.ellipsis,
             ),
@@ -218,13 +219,19 @@ class _ActivityTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final defaultTextStyle = DefaultTextStyle.of(context).style;
+    final titleStyle = (style ?? const TextStyle()).copyWith(
+      color: color,
+      fontWeight: emphasized ? FontWeight.w700 : null,
+    );
+    final fontSize = titleStyle.fontSize ?? defaultTextStyle.fontSize ?? 14;
+    final lineHeight =
+        MediaQuery.textScalerOf(context).scale(fontSize) *
+        (titleStyle.height ?? defaultTextStyle.height ?? 1.2);
 
     final titleText = Text(
       title,
-      style: style?.copyWith(
-        color: color,
-        fontWeight: emphasized ? FontWeight.w700 : null,
-      ),
+      style: titleStyle,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
@@ -232,9 +239,13 @@ class _ActivityTitle extends StatelessWidget {
     if (!unread) return titleText;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _UnreadDot(),
+        SizedBox(
+          width: spacing.space8,
+          height: lineHeight,
+          child: const Center(child: _UnreadDot()),
+        ),
         SizedBox(width: spacing.space8),
         Expanded(child: titleText),
       ],
@@ -263,11 +274,47 @@ class _UnreadDot extends StatelessWidget {
   }
 }
 
-String _sentenceFragment(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return trimmed;
+class _ActivityHeader extends StatelessWidget {
+  const _ActivityHeader({
+    required this.target,
+    required this.timestamp,
+    required this.color,
+  });
 
-  return trimmed[0].toLowerCase() + trimmed.substring(1);
+  final String target;
+  final String timestamp;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final style = Theme.of(
+      context,
+    ).textTheme.labelLarge?.copyWith(color: color);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            target,
+            style: style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        SizedBox(width: spacing.space12),
+        Text(
+          timestamp,
+          style: style?.copyWith(
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
 }
 
 final $Default = _Story(
@@ -304,6 +351,15 @@ final $Default = _Story(
         variant: ActivityFeedVariant.pinnedSetup,
         appBarSize: TopStatusAppBarSize.large,
         nodeStatus: TopStatusNodeStatus.synced,
+        profileLabel: '25k pts',
+      ),
+    ),
+    _Scenario(
+      name: 'Priority stack',
+      args: _Args.fixed(
+        variant: ActivityFeedVariant.priorityStack,
+        appBarSize: TopStatusAppBarSize.large,
+        nodeStatus: TopStatusNodeStatus.connecting,
         profileLabel: '25k pts',
       ),
     ),
@@ -399,12 +455,12 @@ class _ActivityRecord {
 }
 
 const _pinnedSetupRecord = _ActivityRecord(
-  routeHint: 'Block production settings',
+  routeHint: 'Usernode settings',
   stateLabel: 'needs attention',
   timestamp: 'now',
-  title: 'Battery optimization is still on',
+  title: 'Battery optimization is not set up',
   body:
-      'Set Usernode to Unrestricted so scheduled block production can wake the phone reliably.',
+      'Open Usernode settings and set battery usage to Unrestricted so scheduled block production can wake the phone reliably.',
   pinned: true,
 );
 
@@ -469,5 +525,51 @@ const _attentionFeedRecords = [
     title: 'Reward pending review',
     body:
         'Your Give Kudos activity was recorded. Points will update after review.',
+  ),
+];
+
+const _priorityStackRecords = [
+  _pinnedSetupRecord,
+  _ActivityRecord(
+    routeHint: 'Node status',
+    stateLabel: 'production warning',
+    timestamp: '3m ago',
+    title: 'Block production needs attention',
+    body:
+        'The last scheduled production window did not complete. Keep Usernode open and check node status before the next slot.',
+    unread: true,
+    pinned: true,
+    maxBodyLines: 3,
+  ),
+  _ActivityRecord(
+    routeHint: 'Builder Board in dApps',
+    stateLabel: 'approval needed',
+    timestamp: '7m ago',
+    title: 'PR waiting for approval',
+    body: 'Review the proposed changes before the merge window closes.',
+    unread: true,
+  ),
+  _ActivityRecord(
+    routeHint: 'Give Kudos in Challenges',
+    stateLabel: 'ending soon',
+    timestamp: '1h left',
+    title: 'Give Kudos ends soon',
+    body: 'You still have 1 kudos left to give before the challenge closes.',
+    unread: true,
+  ),
+  _ActivityRecord(
+    routeHint: 'Falling Sands',
+    stateLabel: 'passive receipt',
+    timestamp: '12m ago',
+    title: 'Canvas changed nearby',
+    body: 'A nearby area changed after your last edit.',
+  ),
+  _ActivityRecord(
+    routeHint: 'Node status',
+    stateLabel: 'recorded',
+    timestamp: '27m ago',
+    title: 'Block produced',
+    body:
+        'Slot 1284 confirmed. Reward calculation will update after the epoch checkpoint.',
   ),
 ];

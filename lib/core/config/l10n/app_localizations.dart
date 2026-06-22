@@ -877,7 +877,7 @@ abstract class AppLocalizations {
   /// Slot scheduling step description
   ///
   /// In en, this message translates to:
-  /// **'When you win slots, the app schedules alarms to wake your device ~1 minute before each slot'**
+  /// **'When you win slots, the app schedules alarms to wake your device ~5 minutes before each slot'**
   String get bgProdSlotSchedulingDesc;
 
   /// Block production step title

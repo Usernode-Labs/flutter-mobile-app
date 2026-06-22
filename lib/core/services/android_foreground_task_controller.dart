@@ -23,14 +23,15 @@ class AndroidForegroundTaskController {
 
   static const Duration _pollInterval = Duration(seconds: 30);
   static const Duration _alarmEventDedupWindow = Duration(seconds: 10);
-  static const foregroundResumeLead = Duration(minutes: 4);
+  static const postProductionHold = Duration(minutes: 2);
+  static const foregroundResumeLead = Duration(minutes: 5);
   static const foregroundResumeAlarmId = 'fg_resume';
 
   Timer? _pollTimer;
   bool _initialized = false;
   bool _wakelockHeld = false;
   AccountPublicKey? _cachedOurPubKey;
-  ({int height, DateTime since})? _awaitingOtherProducerState;
+  ({int height, int globalSlot, DateTime since})? _postProductionHoldState;
   String? _alarmRecoveryInFlightKey;
   String? _lastHandledAlarmKey;
   DateTime? _lastHandledAlarmAt;
@@ -205,7 +206,7 @@ class AndroidForegroundTaskController {
     _initialized = false;
     _wakelockHeld = false;
     _cachedOurPubKey = null;
-    _awaitingOtherProducerState = null;
+    _postProductionHoldState = null;
     _alarmRecoveryInFlightKey = null;
     _lastHandledAlarmKey = null;
     _lastHandledAlarmAt = null;
@@ -300,7 +301,7 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<bool> _shouldHoldForOtherProducerBlock(
+  Future<bool> _shouldHoldAfterOwnProducedBlock(
       {bool doubleCheck = true}) async {
     try {
       if (_cachedOurPubKey == null) {
@@ -309,11 +310,11 @@ class AndroidForegroundTaskController {
         _cachedOurPubKey = bpStatus?.blockProducer?.pubKey;
       }
       if (_cachedOurPubKey == null) {
-        _awaitingOtherProducerState = null;
+        _postProductionHoldState = null;
         return false;
       }
 
-      if (_awaitingOtherProducerState == null) {
+      if (_postProductionHoldState == null) {
         final ownBlocks = await RustBackendService.instance.listBlockchain(
           limit: 1,
           fromTip: true,
@@ -323,24 +324,52 @@ class AndroidForegroundTaskController {
             ? ownBlocks!.items.first
             : null;
         if (ownBlock == null) {
-          _awaitingOtherProducerState = null;
+          _postProductionHoldState = null;
           return false;
         }
-        _awaitingOtherProducerState =
-            (height: ownBlock.height, since: DateTime.now());
+
+        final status = await RustBackendService.instance.getStatus(
+          includeVrfDetails: false,
+        );
+        final currentGlobalSlot = status?.node.curGlobalSlot;
+        final reportedBlockIntervalMs = status?.node.blockInterval;
+        final blockIntervalMs =
+            reportedBlockIntervalMs == null || reportedBlockIntervalMs <= 0
+                ? 5000
+                : reportedBlockIntervalMs;
+        final holdSlots =
+            (postProductionHold.inMilliseconds + blockIntervalMs - 1) ~/
+                blockIntervalMs;
+        if (currentGlobalSlot != null &&
+            currentGlobalSlot - ownBlock.globalSlot > holdSlots) {
+          return false;
+        }
+
+        _postProductionHoldState = (
+          height: ownBlock.height,
+          globalSlot: ownBlock.globalSlot,
+          since: DateTime.now(),
+        );
+        _log.info(
+          'Holding wakelock after own produced block',
+          context: {
+            'height': ownBlock.height,
+            'global_slot': ownBlock.globalSlot,
+            'max_hold_ms': postProductionHold.inMilliseconds,
+          },
+        );
       }
 
-      if (_awaitingOtherProducerState == null) {
+      if (_postProductionHoldState == null) {
         return false;
       }
 
-      final waitingSince = _awaitingOtherProducerState!.since;
-      if (DateTime.now().difference(waitingSince) >
-          const Duration(seconds: 30)) {
+      final waitingSince = _postProductionHoldState!.since;
+      if (DateTime.now().difference(waitingSince) > postProductionHold) {
         _log.info(
-          'Waited 30 seconds for another producer block after height ${_awaitingOtherProducerState!.height}; releasing',
+          'Post-production hold elapsed after height ${_postProductionHoldState!.height}; releasing',
         );
-        _awaitingOtherProducerState = null;
+        _postProductionHoldState = null;
         return false;
       }
 
@@ -351,14 +380,14 @@ class AndroidForegroundTaskController {
       final items = recentBlocks?.items ?? const [];
       final ourPubKeyStr = _cachedOurPubKey.toString();
       final hasOtherAfter = items.any((block) =>
-          block.height > _awaitingOtherProducerState!.height &&
+          block.height > _postProductionHoldState!.height &&
           block.producerPubkey.toString() != ourPubKeyStr);
 
       if (hasOtherAfter) {
         if (doubleCheck) {
-          return await _shouldHoldForOtherProducerBlock(doubleCheck: false);
+          return await _shouldHoldAfterOwnProducedBlock(doubleCheck: false);
         }
-        _awaitingOtherProducerState = null;
+        _postProductionHoldState = null;
         return false;
       }
 
@@ -368,7 +397,7 @@ class AndroidForegroundTaskController {
         'Failed to check post-production block status: $e',
       );
       _log.debug('$st');
-      return _awaitingOtherProducerState != null;
+      return _postProductionHoldState != null;
     }
   }
 
@@ -397,14 +426,14 @@ class AndroidForegroundTaskController {
     int? targetSlotTimeMs,
     bool stopMonitoringAfterSchedule = false,
   }) async {
-    if (await _shouldHoldForOtherProducerBlock()) {
-      final height = _awaitingOtherProducerState?.height;
+    if (await _shouldHoldAfterOwnProducedBlock()) {
+      final height = _postProductionHoldState?.height;
       _log.info(
-        'Keeping wakelock: waiting for another producer block after height ${height ?? 'unknown'}',
+        'Keeping wakelock for post-production propagation after height ${height ?? 'unknown'}',
       );
       return const ForegroundResumeAlarmScheduleResult(
         success: false,
-        failureReason: 'holding_for_other_producer_block',
+        failureReason: 'holding_after_own_produced_block',
       );
     }
 
@@ -551,11 +580,13 @@ class AndroidForegroundTaskController {
     }
 
     final alarmId = data['alarmId'] as String? ?? '';
-    if (alarmId == foregroundResumeAlarmId) {
+    if (alarmId == foregroundResumeAlarmId || alarmId.startsWith('slot_')) {
       final alarmKey = _alarmEventKey(data);
       unawaited(
         handleAlarmFire(
-          reason: 'alarm_resume',
+          reason: alarmId == foregroundResumeAlarmId
+              ? 'alarm_resume'
+              : 'alarm_slot_wake',
           alarmKey: alarmKey,
           allowWhileSleeping: allowWhileSleeping,
         ),

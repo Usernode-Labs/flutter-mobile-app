@@ -513,9 +513,10 @@ class EpochSlotSchedulerService {
   bool isSlotMonitoringActive() {
     final now = DateTime.now();
 
-    // Check if any slot is within monitoring window (2 min before to 5 min after)
+    // Check if any slot is within monitoring window.
     return _scheduledSlots.any((slot) {
-      final beforeSlot = slot.slotTime.subtract(const Duration(minutes: 2));
+      final beforeSlot =
+          slot.slotTime.subtract(AppConfig.blockProductionWakeBeforeSlot);
       final afterSlot = slot.slotTime.add(const Duration(minutes: 5));
       return now.isAfter(beforeSlot) && now.isBefore(afterSlot);
     });

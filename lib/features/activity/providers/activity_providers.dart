@@ -10,7 +10,6 @@ import 'package:crypto_mobile_app/features/activity/application/local_notificati
 import 'package:crypto_mobile_app/features/activity/application/mock_activity_event_source.dart';
 import 'package:crypto_mobile_app/features/activity/data/activity_record_store.dart';
 import 'package:crypto_mobile_app/features/activity/models/activity_models.dart';
-import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 
 final activityAttentionPolicyProvider = Provider<ActivityAttentionPolicy>(
   (ref) => const ActivityAttentionPolicy(),
@@ -146,9 +145,7 @@ class ActivityController extends AsyncNotifier<List<ActivityRecord>> {
     if (key == MockActivityEventSource.allNotificationScenarioKey) {
       state = AsyncData(
         await service.ingestAll(
-          source
-              .notificationScenarios(dappSlug: _mockDappSlug())
-              .map((scenario) => scenario.event),
+          source.notificationScenarios().map((scenario) => scenario.event),
         ),
       );
       return true;
@@ -174,23 +171,12 @@ class ActivityController extends AsyncNotifier<List<ActivityRecord>> {
       return true;
     }
 
-    final scenario = source.notificationScenarioByKey(
-      key,
-      dappSlug: _mockDappSlug(),
-    );
+    final scenario = source.notificationScenarioByKey(key);
     if (scenario == null) return false;
     state = AsyncData(
       await service.ingest(scenario.event, presentSystemNotification: true),
     );
     return true;
-  }
-
-  String _mockDappSlug() {
-    final dapps = ref.read(dappsProvider).valueOrNull;
-    if (dapps == null || dapps.isEmpty) {
-      return MockActivityEventSource.fallbackDappSlug;
-    }
-    return dapps.first.slug;
   }
 
   Future<List<ActivityRecord>> _syncFacts() async {

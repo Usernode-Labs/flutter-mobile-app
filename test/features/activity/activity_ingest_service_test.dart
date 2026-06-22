@@ -47,9 +47,9 @@ void main() {
             title: 'Approval requested $i',
             body: 'A dApp proposal needs review.',
             priority: ActivityPriority.attention,
-            dedupeKey: 'dapp:builder-board:approval:$i',
-            targetRoute: '/dapps/builder-board',
-            payload: const {'dappName': 'Builder Board'},
+            dedupeKey: 'dapp:echo-diagnostic:approval:$i',
+            targetRoute: '/dapps/echo-diagnostic',
+            payload: const {'dappName': 'Echo Diagnostic'},
           ),
           presentSystemNotification: true,
         );

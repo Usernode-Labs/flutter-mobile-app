@@ -86,8 +86,8 @@ void main() {
           'category': 'identity',
           'priority': 'persistent',
         },
-        dappName: 'Identity dApp',
-        nativeTargetRoute: '/dapps/identity-dapp',
+        dappName: 'Echo Diagnostic',
+        nativeTargetRoute: '/dapps/echo-diagnostic',
       );
 
       final tx = DappNotificationBridgePayload.parse(
@@ -131,11 +131,14 @@ void main() {
           'title': 'Approval requested',
           'priority': 'attention',
         },
-        dappName: 'Builder Board',
-        nativeTargetRoute: '/dapps/builder-board',
+        dappName: 'Echo Diagnostic',
+        nativeTargetRoute: '/dapps/echo-diagnostic',
       );
 
-      expect(event.dedupeKey, 'dapp:builderboard:dappnotify:approvalrequested');
+      expect(
+        event.dedupeKey,
+        'dapp:echodiagnostic:dappnotify:approvalrequested',
+      );
       expect(event.expiresAt, isNotNull);
     });
 

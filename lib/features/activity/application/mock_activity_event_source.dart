@@ -1,4 +1,5 @@
 import 'package:crypto_mobile_app/features/activity/models/activity_models.dart';
+import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
 
 class MockActivityEventSource {
   const MockActivityEventSource();
@@ -9,6 +10,41 @@ class MockActivityEventSource {
   static const resetNotificationScenarioKey = 'reset';
   static const fallbackDappSlug = 'opinion-market';
 
+  static const giveKudosChallengeId = 104;
+  static const produceEveryBlockChallengeId = 107;
+  static const useDappsChallengeId = 108;
+
+  static const mockDapps = [
+    DappItem(
+      name: 'Opinion Market',
+      author: 'Usernode Labs',
+      url: 'https://opinion-market-eb3f76.social-vibecoding.usernodelabs.org',
+    ),
+    DappItem(
+      name: 'Falling Sands',
+      author: 'Usernode Labs',
+      url:
+          'https://falling-sands-game-ad186d.social-vibecoding.usernodelabs.org',
+    ),
+    DappItem(
+      name: 'Last One Wins',
+      author: 'Usernode Labs',
+      url: 'https://last-one-wins-7053f0.social-vibecoding.usernodelabs.org',
+    ),
+    DappItem(
+      name: 'Echo Diagnostic',
+      author: 'Usernode Labs',
+      url:
+          'https://usernode-echo-diagnostic-6f02bf.social-vibecoding.usernodelabs.org/',
+    ),
+    DappItem(
+      name: 'Web3 Trivia Quiz',
+      author: 'Usernode Labs',
+      url:
+          'https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/trivia',
+    ),
+  ];
+
   List<ActivityEvent> seedEvents({DateTime? now}) {
     return notificationScenarios(
       now: now,
@@ -17,10 +53,8 @@ class MockActivityEventSource {
 
   List<MockActivityNotificationScenario> notificationScenarios({
     DateTime? now,
-    String dappSlug = fallbackDappSlug,
   }) {
     final base = now ?? DateTime.now();
-    final dappDetailRoute = '/dapps/${_routeSlug(dappSlug)}';
     return [
       _scenario(
         key: 'dapp-transaction',
@@ -32,7 +66,7 @@ class MockActivityEventSource {
         dappName: 'Echo Diagnostic',
         webRoute: '#app/echo-diagnostic/transactions/latest',
         createdAt: base,
-        targetRoute: dappDetailRoute,
+        dappSlug: 'echo-diagnostic',
         routingBucket: MockActivityRoutingBucket.sourceDetail,
       ),
       _scenario(
@@ -45,6 +79,8 @@ class MockActivityEventSource {
         dappName: 'Last One Wins',
         webRoute: '#app/last-one-wins/rounds/current',
         createdAt: base.subtract(const Duration(minutes: 2)),
+        dappSlug: 'last-one-wins',
+        routingBucket: MockActivityRoutingBucket.sourceDetail,
       ),
       _scenario(
         key: 'dapp-market',
@@ -56,6 +92,8 @@ class MockActivityEventSource {
         dappName: 'Opinion Market',
         webRoute: '#app/opinion-market/markets/latest',
         createdAt: base.subtract(const Duration(minutes: 4)),
+        dappSlug: 'opinion-market',
+        routingBucket: MockActivityRoutingBucket.sourceDetail,
       ),
       _scenario(
         key: 'dapp-canvas',
@@ -67,28 +105,34 @@ class MockActivityEventSource {
         dappName: 'Falling Sands',
         webRoute: '#app/falling-sands/canvas/latest',
         createdAt: base.subtract(const Duration(minutes: 6)),
+        dappSlug: 'falling-sands',
+        routingBucket: MockActivityRoutingBucket.sourceDetail,
       ),
       _scenario(
         key: 'dapp-feedback',
         label: 'Feedback',
         category: ActivityCategory.dappFeedback,
-        eventType: 'proposal_ready',
-        title: 'Builder proposal is ready',
-        body: 'Social Vibecoding prepared a proposal for your review.',
-        dappName: 'social-vibecoding.usernodelabs.org',
-        webRoute: '#app/builder-board/dev',
+        eventType: 'diagnostic_report_ready',
+        title: 'Diagnostic report is ready',
+        body: 'Echo Diagnostic prepared a report for your review.',
+        dappName: 'Echo Diagnostic',
+        webRoute: '#app/echo-diagnostic/reports/latest',
         createdAt: base.subtract(const Duration(minutes: 8)),
+        dappSlug: 'echo-diagnostic',
+        routingBucket: MockActivityRoutingBucket.sourceDetail,
       ),
       _scenario(
-        key: 'dapp-identity',
-        label: 'Identity',
-        category: ActivityCategory.dappIdentity,
-        eventType: 'identity_proof_ready',
-        title: 'Identity proof is ready',
-        body: 'A dApp identity flow has a proof ready for confirmation.',
-        dappName: 'Identity dApp',
-        webRoute: '#app/identity/proofs/latest',
+        key: 'dapp-quiz',
+        label: 'Quiz',
+        category: ActivityCategory.dappGame,
+        eventType: 'quiz_round_available',
+        title: 'Trivia round is available',
+        body: 'Web3 Trivia Quiz opened a new round for you.',
+        dappName: 'Web3 Trivia Quiz',
+        webRoute: '#app/web3-trivia-quiz/rounds/latest',
         createdAt: base.subtract(const Duration(minutes: 10)),
+        dappSlug: 'web3-trivia-quiz',
+        routingBucket: MockActivityRoutingBucket.sourceDetail,
       ),
     ];
   }
@@ -118,22 +162,22 @@ class MockActivityEventSource {
         createdAt: base.subtract(const Duration(minutes: 3)),
         priority: ActivityPriority.persistent,
         dedupeKey: 'priority-stack:production-result:missed-window',
-        targetRoute: '/challenges/107',
+        targetRoute: '/challenges/$produceEveryBlockChallengeId',
       ),
       ActivityEvent(
         source: ActivitySource.dapp,
         category: ActivityCategory.dappFeedback,
-        eventType: 'approval_needed',
-        title: 'PR waiting for approval',
-        body: 'Review the proposed changes before the merge window closes.',
+        eventType: 'diagnostic_report_ready',
+        title: 'Diagnostic report is ready',
+        body: 'Review Echo Diagnostic findings before the next test run.',
         createdAt: base.subtract(const Duration(minutes: 7)),
         priority: ActivityPriority.attention,
-        dedupeKey: 'priority-stack:dapp-feedback:approval',
-        targetRoute: '/dapps',
+        dedupeKey: 'priority-stack:dapp-feedback:diagnostic-report',
+        targetRoute: '/dapps/echo-diagnostic',
         payload: const {
           'bridgeMethod': 'notify',
-          'dappName': 'Builder Board',
-          'webRoute': '#app/builder-board/dev',
+          'dappName': 'Echo Diagnostic',
+          'webRoute': '#app/echo-diagnostic/reports/latest',
         },
       ),
       ActivityEvent(
@@ -146,7 +190,7 @@ class MockActivityEventSource {
         createdAt: base.subtract(const Duration(hours: 1)),
         priority: ActivityPriority.attention,
         dedupeKey: 'priority-stack:challenge-deadline:give-kudos',
-        targetRoute: '/challenges/104',
+        targetRoute: '/challenges/$giveKudosChallengeId',
       ),
       ActivityEvent(
         source: ActivitySource.dapp,
@@ -157,7 +201,7 @@ class MockActivityEventSource {
         createdAt: base.subtract(const Duration(minutes: 12)),
         priority: ActivityPriority.passive,
         dedupeKey: 'priority-stack:dapp-canvas:nearby-change',
-        targetRoute: '/dapps',
+        targetRoute: '/dapps/falling-sands',
         payload: const {
           'bridgeMethod': 'notify',
           'dappName': 'Falling Sands',
@@ -174,7 +218,7 @@ class MockActivityEventSource {
         createdAt: base.subtract(const Duration(minutes: 27)),
         priority: ActivityPriority.standard,
         dedupeKey: 'priority-stack:production-result:block-produced',
-        targetRoute: '/challenges/107',
+        targetRoute: '/challenges/$produceEveryBlockChallengeId',
       ),
     ];
   }
@@ -184,11 +228,8 @@ class MockActivityEventSource {
         record.dedupeKey == 'priority-stack:production-result:block-produced';
   }
 
-  MockActivityNotificationScenario? notificationScenarioByKey(
-    String key, {
-    String dappSlug = fallbackDappSlug,
-  }) {
-    for (final scenario in notificationScenarios(dappSlug: dappSlug)) {
+  MockActivityNotificationScenario? notificationScenarioByKey(String key) {
+    for (final scenario in notificationScenarios()) {
       if (scenario.key == key) return scenario;
     }
     return null;
@@ -204,10 +245,12 @@ class MockActivityEventSource {
     required String dappName,
     required String webRoute,
     required DateTime createdAt,
-    String targetRoute = '/dapps',
+    required String dappSlug,
+    String? targetRoute,
     MockActivityRoutingBucket routingBucket =
         MockActivityRoutingBucket.sourceRoot,
   }) {
+    final slug = _routeSlug(dappSlug);
     return MockActivityNotificationScenario(
       key: key,
       label: label,
@@ -221,7 +264,7 @@ class MockActivityEventSource {
         createdAt: createdAt,
         priority: ActivityPriority.attention,
         dedupeKey: 'dapp:$dappName:$webRoute',
-        targetRoute: targetRoute,
+        targetRoute: targetRoute ?? '/dapps/$slug',
         payload: {
           'bridgeMethod': 'notify',
           'dappName': dappName,

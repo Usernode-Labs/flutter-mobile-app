@@ -462,24 +462,24 @@ const _pinnedSetupRecord = _ActivityRecord(
 );
 
 const _longDappRecord = _ActivityRecord(
-  routeHint: 'zkPass Market in dApps',
+  routeHint: 'Opinion Market in dApps',
   stateLabel: 'settled',
   timestamp: 'yesterday',
-  title: 'Offer accepted for zkPass #4821',
+  title: 'Opinion moved against you',
   body:
-      'The marketplace accepted your signed offer and queued settlement. Review the transaction details before archiving this activity.',
+      'Opinion Market changed while your position is still open. Review the market before archiving this activity.',
   maxBodyLines: 3,
 );
 
 const _attentionFeedRecords = [
   _pinnedSetupRecord,
   _ActivityRecord(
-    routeHint: 'Challenges',
+    routeHint: 'Use dApps in Challenges',
     stateLabel: 'new challenge',
     timestamp: 'just now',
-    title: 'dApp Improvement is live',
+    title: 'Use dApps is live',
     body:
-        'A new challenge is open for improving dApp activity flows in Usernode.',
+        'A new challenge is open for trying the apps builders are shipping on Usernode.',
     unread: true,
   ),
   _ActivityRecord(
@@ -491,24 +491,24 @@ const _attentionFeedRecords = [
     unread: true,
   ),
   _ActivityRecord(
-    routeHint: 'Kudos in dApps',
-    stateLabel: 'received',
+    routeHint: 'Echo Diagnostic in dApps',
+    stateLabel: 'confirmed',
     timestamp: '4m ago',
-    title: 'New Kudos received',
-    body: 'A participant gave you Kudos for your latest contribution.',
+    title: 'Echo transaction settled',
+    body: 'Echo Diagnostic confirmed your latest dApp transaction.',
     unread: true,
   ),
   _ActivityRecord(
-    routeHint: 'Builder Board in dApps',
-    stateLabel: 'approval needed',
+    routeHint: 'Echo Diagnostic in dApps',
+    stateLabel: 'report ready',
     timestamp: '9m ago',
-    title: 'PR waiting for approval',
-    body: 'Review the proposed changes before the merge window closes.',
+    title: 'Diagnostic report is ready',
+    body: 'Review Echo Diagnostic findings before the next test run.',
     unread: true,
     maxBodyLines: 3,
   ),
   _ActivityRecord(
-    routeHint: 'Node status',
+    routeHint: 'Produce Every Block in Challenges',
     stateLabel: 'confirmed',
     timestamp: '27m ago',
     title: 'Block produced',
@@ -516,7 +516,7 @@ const _attentionFeedRecords = [
         'Slot 1284 confirmed. Reward calculation will update after the epoch checkpoint.',
   ),
   _ActivityRecord(
-    routeHint: 'Challenges',
+    routeHint: 'Give Kudos in Challenges',
     stateLabel: 'pending',
     timestamp: 'yesterday',
     title: 'Reward pending review',
@@ -528,7 +528,7 @@ const _attentionFeedRecords = [
 const _priorityStackRecords = [
   _pinnedSetupRecord,
   _ActivityRecord(
-    routeHint: 'Node status',
+    routeHint: 'Produce Every Block in Challenges',
     stateLabel: 'production warning',
     timestamp: '3m ago',
     title: 'Block production needs attention',
@@ -539,11 +539,11 @@ const _priorityStackRecords = [
     maxBodyLines: 3,
   ),
   _ActivityRecord(
-    routeHint: 'Builder Board in dApps',
-    stateLabel: 'approval needed',
+    routeHint: 'Echo Diagnostic in dApps',
+    stateLabel: 'report ready',
     timestamp: '7m ago',
-    title: 'PR waiting for approval',
-    body: 'Review the proposed changes before the merge window closes.',
+    title: 'Diagnostic report is ready',
+    body: 'Review Echo Diagnostic findings before the next test run.',
     unread: true,
   ),
   _ActivityRecord(
@@ -562,7 +562,7 @@ const _priorityStackRecords = [
     body: 'A nearby area changed after your last edit.',
   ),
   _ActivityRecord(
-    routeHint: 'Node status',
+    routeHint: 'Produce Every Block in Challenges',
     stateLabel: 'recorded',
     timestamp: '27m ago',
     title: 'Block produced',

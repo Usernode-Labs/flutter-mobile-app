@@ -75,8 +75,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Last One Wins'), findsWidgets);
-    await tester.scrollUntilVisible(find.text('Identity proof is ready'), 220);
-    expect(find.text('Identity proof is ready'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Trivia round is available'),
+      220,
+    );
+    expect(find.text('Trivia round is available'), findsOneWidget);
     expect(find.textContaining('dApps,'), findsNothing);
     expect(find.textContaining('info only'), findsNothing);
   });

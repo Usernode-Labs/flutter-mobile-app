@@ -139,7 +139,7 @@ void main() {
       expect(event.expiresAt, isNotNull);
     });
 
-    test('falls back when native target route is unsafe', () {
+    test('falls back to dApps when native target route is unsafe', () {
       final event = DappNotificationBridgePayload.parse(
         payload: const {
           'method': 'notify',
@@ -150,7 +150,7 @@ void main() {
         nativeTargetRoute: '/wallet/send',
       );
 
-      expect(event.targetRoute, '/activity');
+      expect(event.targetRoute, '/dapps');
       expect(event.payload['webRoute'], '/wallet/send');
     });
   });

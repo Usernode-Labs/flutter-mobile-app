@@ -115,7 +115,7 @@ class LocalNotificationPresenter implements ActivityNotificationPresenter {
     if (record.source == ActivitySource.dapp && record.hasDestination) {
       return activityNotificationRecordRoute(record.id);
     }
-    return resolveActivityNotificationRoute(record.notificationRoute);
+    return resolveActivityRecordRoute(record);
   }
 
   static void _openPayloadRoute(String? payload) {

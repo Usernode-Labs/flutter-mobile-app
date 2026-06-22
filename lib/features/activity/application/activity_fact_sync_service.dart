@@ -5,10 +5,10 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/activity/application/activity_ingest_service.dart';
 import 'package:crypto_mobile_app/features/activity/data/activity_record_store.dart';
 import 'package:crypto_mobile_app/features/activity/models/activity_models.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 
 const productionSetupDedupeKey = 'production_setup:required_settings';
-const _activityRoute = '/activity';
-const _challengesRoute = '/challenges';
+const _nodeRoute = '/main/node';
 const _profileSettingsRoute = '/profile/settings';
 
 class ProductionSetupFacts {
@@ -183,7 +183,7 @@ class ActivityFactSyncService {
         title: '$title is live',
         body: 'A challenge is now available in Usernode.',
         dedupeKey: 'challenge:${challenge.id}:visible',
-        targetRoute: _challengesRoute,
+        targetRoute: _challengeRoute(challenge.id),
         payload: _challengePayload(challenge, 'visible'),
       );
     }
@@ -201,7 +201,7 @@ class ActivityFactSyncService {
         priority: ActivityPriority.attention,
         dedupeKey: 'challenge:${challenge.id}:deadline:${_dayWindow(endsAt)}',
         expiresAt: endsAt,
-        targetRoute: _challengesRoute,
+        targetRoute: _challengeRoute(challenge.id),
         payload: _challengePayload(challenge, 'deadline'),
       );
     }
@@ -214,7 +214,7 @@ class ActivityFactSyncService {
         title: '$title completed',
         body: 'Your completed challenge is recorded in your earned history.',
         dedupeKey: 'challenge:${challenge.id}:completed',
-        targetRoute: _activityRoute,
+        targetRoute: _challengeRoute(challenge.id),
         payload: _challengePayload(challenge, 'completed'),
       );
     }
@@ -230,7 +230,7 @@ class ActivityFactSyncService {
         body:
             '${_formatPoints(progress.pendingPoints)} pts pending for $title.',
         dedupeKey: 'reward:${challenge.id}:pending',
-        targetRoute: _activityRoute,
+        targetRoute: _challengeRoute(challenge.id),
         payload: {
           ..._challengePayload(challenge, 'reward_pending'),
           'pendingPoints': progress.pendingPoints,
@@ -247,7 +247,7 @@ class ActivityFactSyncService {
         title: 'Reward awarded',
         body: '${_formatPoints(progress.earnedPoints)} pts awarded for $title.',
         dedupeKey: 'reward:${challenge.id}:awarded',
-        targetRoute: _activityRoute,
+        targetRoute: _challengeRoute(challenge.id),
         payload: {
           ..._challengePayload(challenge, 'reward_awarded'),
           'earnedPoints': progress.earnedPoints,
@@ -267,6 +267,31 @@ class ActivityFactSyncService {
     return 'Enable notifications so Usernode can keep block production status visible.';
   }
 
+  static String productionResultTargetRoute(List<ChallengeDto>? challenges) {
+    final challenge = _currentProduceBlocksChallenge(challenges);
+    return challenge == null ? _nodeRoute : _challengeRoute(challenge.id);
+  }
+
+  static ChallengeDto? _currentProduceBlocksChallenge(
+    List<ChallengeDto>? challenges,
+  ) {
+    if (challenges == null || challenges.isEmpty) return null;
+
+    for (final challenge in challenges) {
+      if (challenge.enabled &&
+          !challenge.completed &&
+          isProduceBlocksChallenge(challenge)) {
+        return challenge;
+      }
+    }
+
+    for (final challenge in challenges) {
+      if (isProduceBlocksChallenge(challenge)) return challenge;
+    }
+
+    return null;
+  }
+
   static Map<String, Object?> _challengePayload(
     ChallengeDto challenge,
     String fact,
@@ -278,6 +303,8 @@ class ActivityFactSyncService {
       if (challenge.eventId != null) 'eventId': challenge.eventId,
     };
   }
+
+  static String _challengeRoute(int challengeId) => '/challenges/$challengeId';
 
   static DateTime? _parseDate(String? raw) {
     if (raw == null || raw.isEmpty) return null;

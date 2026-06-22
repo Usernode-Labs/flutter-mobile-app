@@ -12,6 +12,8 @@ bool isAllowedAppDeepLinkPath(String path) {
     return true;
   }
 
+  if (RegExp(r'^/challenges/[0-9]+$').hasMatch(path)) return true;
+
   return RegExp(r'^/dapps/[a-z0-9-]+$').hasMatch(path);
 }
 

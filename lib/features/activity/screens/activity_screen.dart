@@ -203,7 +203,7 @@ class _ActivityScreenState extends ConsumerState<ActivityScreen> {
   }
 
   void _openRecord(BuildContext context, ActivityRecord record) {
-    final route = resolveActivityNotificationRoute(record.targetRoute);
+    final route = resolveActivityRecordRoute(record);
     if (route != activityNotificationFallbackRoute) {
       if (_openDappRecordSource(context, record, route)) {
         return;

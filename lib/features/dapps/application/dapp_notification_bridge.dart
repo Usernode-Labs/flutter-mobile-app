@@ -48,7 +48,13 @@ class DappNotificationBridgePayload {
     final eventType =
         _string(_first(data, 'eventType', 'kind', 'type')) ?? 'dapp_notify';
     final priority = _priorityFor(requestedPriority);
-    final safeTargetRoute = resolveActivityNotificationRoute(nativeTargetRoute);
+    final resolvedTargetRoute = resolveActivityNotificationRoute(
+      nativeTargetRoute,
+    );
+    final safeTargetRoute =
+        resolvedTargetRoute == activityNotificationFallbackRoute
+        ? '/dapps'
+        : resolvedTargetRoute;
     final expiresAt =
         _date(_first(data, 'expiresAt', 'expires_at')) ??
         (priority == ActivityPriority.attention

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/features/activity/application/activity_notification_routing.dart';
+import 'package:crypto_mobile_app/features/activity/models/activity_models.dart';
 
 void main() {
   group('resolveActivityNotificationRoute', () {
@@ -51,6 +52,14 @@ void main() {
         resolveActivityNotificationRoute('/challenges/leaderboard'),
         '/challenges/leaderboard',
       );
+      expect(
+        resolveActivityNotificationRoute('/challenges/104'),
+        '/challenges/104',
+      );
+      expect(
+        resolveActivityNotificationRoute('usernode://app/challenges/104'),
+        '/challenges/104',
+      );
     });
 
     test('blocks unsafe or unsupported routes', () {
@@ -65,6 +74,10 @@ void main() {
       );
       expect(
         resolveActivityNotificationRoute('/challenges/detail'),
+        '/activity',
+      );
+      expect(
+        resolveActivityNotificationRoute('/challenges/give-kudos'),
         '/activity',
       );
       expect(
@@ -95,4 +108,68 @@ void main() {
       expect(hasActivityNotificationDestination('/dapps'), true);
     });
   });
+
+  group('resolveActivityRecordRoute', () {
+    test('falls back to source roots for unsafe or stale targets', () {
+      expect(
+        resolveActivityRecordRoute(
+          _record(
+            source: ActivitySource.challenge,
+            category: ActivityCategory.challengeDeadline,
+            targetRoute: '/wallet/send',
+          ),
+        ),
+        '/challenges',
+      );
+      expect(
+        resolveActivityRecordRoute(
+          _record(
+            source: ActivitySource.dapp,
+            category: ActivityCategory.dappFeedback,
+            targetRoute: '/wallet/send',
+          ),
+        ),
+        '/dapps',
+      );
+      expect(
+        resolveActivityRecordRoute(
+          _record(
+            source: ActivitySource.node,
+            category: ActivityCategory.productionResult,
+            targetRoute: null,
+          ),
+        ),
+        '/main/node',
+      );
+      expect(
+        resolveActivityRecordRoute(
+          _record(
+            source: ActivitySource.system,
+            category: ActivityCategory.productionSetup,
+            targetRoute: '/settings',
+          ),
+        ),
+        '/profile/settings',
+      );
+    });
+  });
+}
+
+ActivityRecord _record({
+  required ActivitySource source,
+  required ActivityCategory category,
+  String? targetRoute,
+}) {
+  return ActivityRecord(
+    id: 'record',
+    source: source,
+    category: category,
+    eventType: 'test',
+    title: 'Test',
+    body: 'Body',
+    createdAt: DateTime(2026, 1, 1),
+    priority: ActivityPriority.standard,
+    pinned: false,
+    targetRoute: targetRoute,
+  );
 }

@@ -24,6 +24,7 @@ import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dar
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
+import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_by_id_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
@@ -84,6 +85,7 @@ class AppRoutes {
   // Challenge routes
   static const challenges = '/challenges';
   static const challengeDetail = '/challenges/detail';
+  static const challengeDetailById = '/challenges/:id';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
 
@@ -102,6 +104,7 @@ class AppRoutes {
   static const httpDebugLogs = '/settings/http-debug-logs';
 
   static String dappDetailFor(String slug) => '/dapps/$slug';
+  static String challengeDetailFor(int id) => '/challenges/$id';
   // ZK Identity
   static const zkIdentityDetail = '/challenges/zk-identity';
   static const zkIdentityFlow = '/challenges/zk-identity/flow';
@@ -343,6 +346,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.leaderboard,
         builder: (context, state) => const LeaderboardScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.challengeDetailById,
+        builder: (context, state) {
+          final raw = state.pathParameters['id'];
+          return ChallengeDetailByIdScreen(
+            challengeId: int.tryParse(raw ?? ''),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.profile,

@@ -118,7 +118,7 @@ class MockActivityEventSource {
         createdAt: base.subtract(const Duration(minutes: 3)),
         priority: ActivityPriority.persistent,
         dedupeKey: 'priority-stack:production-result:missed-window',
-        targetRoute: '/main/node',
+        targetRoute: '/challenges/107',
       ),
       ActivityEvent(
         source: ActivitySource.dapp,
@@ -146,7 +146,7 @@ class MockActivityEventSource {
         createdAt: base.subtract(const Duration(hours: 1)),
         priority: ActivityPriority.attention,
         dedupeKey: 'priority-stack:challenge-deadline:give-kudos',
-        targetRoute: '/challenges',
+        targetRoute: '/challenges/104',
       ),
       ActivityEvent(
         source: ActivitySource.dapp,
@@ -174,7 +174,7 @@ class MockActivityEventSource {
         createdAt: base.subtract(const Duration(minutes: 27)),
         priority: ActivityPriority.standard,
         dedupeKey: 'priority-stack:production-result:block-produced',
-        targetRoute: '/main/node',
+        targetRoute: '/challenges/107',
       ),
     ];
   }

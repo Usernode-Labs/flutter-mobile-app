@@ -9,6 +9,7 @@ void main() {
       expect(isAllowedAppDeepLinkPath('/challenges/leaderboard'), true);
       expect(isAllowedAppDeepLinkPath('/challenges/zk-identity'), true);
       expect(isAllowedAppDeepLinkPath('/challenges/zk-identity/flow'), true);
+      expect(isAllowedAppDeepLinkPath('/challenges/123'), true);
       expect(isAllowedAppDeepLinkPath('/dapps'), true);
       expect(isAllowedAppDeepLinkPath('/dapps/opinion-market'), true);
       expect(isAllowedAppDeepLinkPath('/main/node'), true);
@@ -21,6 +22,7 @@ void main() {
       expect(isAllowedAppDeepLinkPath('/profile'), false);
       expect(isAllowedAppDeepLinkPath('/settings/device-benchmark'), false);
       expect(isAllowedAppDeepLinkPath('/challenges/detail'), false);
+      expect(isAllowedAppDeepLinkPath('/challenges/foo'), false);
       expect(isAllowedAppDeepLinkPath('/challenges/not-yet-shipped'), false);
       expect(isAllowedAppDeepLinkPath('/dapps/opinion-market/settings'), false);
       expect(isAllowedAppDeepLinkPath('/dappsevil'), false);

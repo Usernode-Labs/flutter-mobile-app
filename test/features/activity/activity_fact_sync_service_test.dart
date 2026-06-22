@@ -125,6 +125,15 @@ void main() {
           'reward:7:pending',
         ]),
       );
+      expect({
+        for (final record in records) record.dedupeKey: record.targetRoute,
+      }, containsPair('challenge:7:visible', '/challenges/7'));
+      expect({
+        for (final record in records) record.dedupeKey: record.targetRoute,
+      }, containsPair('challenge:7:deadline:2026-06-22', '/challenges/7'));
+      expect({
+        for (final record in records) record.dedupeKey: record.targetRoute,
+      }, containsPair('reward:7:pending', '/challenges/7'));
       expect(
         records.map((record) => record.body),
         isNot(contains(contains('kudos left'))),
@@ -161,6 +170,60 @@ void main() {
         isEmpty,
       );
     },
+  );
+
+  test(
+    'production result route prefers current Produce Every Block challenge',
+    () {
+      expect(
+        ActivityFactSyncService.productionResultTargetRoute([
+          _challenge(id: 9, goal: 'Give Kudos'),
+          _challenge(
+            id: 107,
+            goal: 'Produce Every Block',
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+          ),
+        ]),
+        '/challenges/107',
+      );
+      expect(
+        ActivityFactSyncService.productionResultTargetRoute([
+          _challenge(
+            id: 107,
+            goal: 'Produce Every Block',
+            enabled: false,
+            completed: true,
+            subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+          ),
+        ]),
+        '/challenges/107',
+      );
+      expect(
+        ActivityFactSyncService.productionResultTargetRoute([
+          _challenge(id: 9, goal: 'Give Kudos'),
+        ]),
+        '/main/node',
+      );
+    },
+  );
+}
+
+ChallengeDto _challenge({
+  required int id,
+  required String goal,
+  bool enabled = true,
+  bool completed = false,
+  String? subCategory,
+}) {
+  return ChallengeDto(
+    id: id,
+    category: 'technical',
+    goal: goal,
+    task: 'Task',
+    reward: '10',
+    enabled: enabled,
+    completed: completed,
+    subCategory: subCategory,
   );
 }
 

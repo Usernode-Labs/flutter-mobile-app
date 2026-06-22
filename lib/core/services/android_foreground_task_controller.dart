@@ -31,7 +31,7 @@ class AndroidForegroundTaskController {
   bool _initialized = false;
   bool _wakelockHeld = false;
   AccountPublicKey? _cachedOurPubKey;
-  ({int height, int globalSlot, DateTime since})? _postProductionHoldState;
+  ({int height, int globalSlot, DateTime until})? _postProductionHoldState;
   String? _alarmRecoveryInFlightKey;
   String? _lastHandledAlarmKey;
   DateTime? _lastHandledAlarmAt;
@@ -337,18 +337,22 @@ class AndroidForegroundTaskController {
             reportedBlockIntervalMs == null || reportedBlockIntervalMs <= 0
                 ? 5000
                 : reportedBlockIntervalMs;
-        final holdSlots =
-            (postProductionHold.inMilliseconds + blockIntervalMs - 1) ~/
-                blockIntervalMs;
-        if (currentGlobalSlot != null &&
-            currentGlobalSlot - ownBlock.globalSlot > holdSlots) {
+        final slotsSinceOwnBlock = currentGlobalSlot == null
+            ? null
+            : currentGlobalSlot - ownBlock.globalSlot;
+        final elapsedSinceOwnBlock =
+            slotsSinceOwnBlock != null && slotsSinceOwnBlock >= 0
+                ? Duration(milliseconds: slotsSinceOwnBlock * blockIntervalMs)
+                : Duration.zero;
+        final remainingHold = postProductionHold - elapsedSinceOwnBlock;
+        if (remainingHold <= Duration.zero) {
           return false;
         }
 
         _postProductionHoldState = (
           height: ownBlock.height,
           globalSlot: ownBlock.globalSlot,
-          since: DateTime.now(),
+          until: DateTime.now().add(remainingHold),
         );
         _log.info(
           'Holding wakelock after own produced block',
@@ -356,6 +360,7 @@ class AndroidForegroundTaskController {
             'height': ownBlock.height,
             'global_slot': ownBlock.globalSlot,
             'max_hold_ms': postProductionHold.inMilliseconds,
+            'remaining_hold_ms': remainingHold.inMilliseconds,
           },
         );
       }
@@ -364,8 +369,7 @@ class AndroidForegroundTaskController {
         return false;
       }
 
-      final waitingSince = _postProductionHoldState!.since;
-      if (DateTime.now().difference(waitingSince) > postProductionHold) {
+      if (!DateTime.now().isBefore(_postProductionHoldState!.until)) {
         _log.info(
           'Post-production hold elapsed after height ${_postProductionHoldState!.height}; releasing',
         );

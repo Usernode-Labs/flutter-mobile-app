@@ -2,7 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/activity/application/activity_fact_sync_service.dart';
 import 'package:crypto_mobile_app/features/activity/application/activity_ingest_service.dart';
 import 'package:crypto_mobile_app/features/activity/application/mock_activity_event_source.dart';
 import 'package:crypto_mobile_app/features/activity/models/activity_models.dart';
@@ -90,6 +94,7 @@ void main() {
             title: 'PR waiting for approval',
             body: 'Review before the merge window closes.',
             priority: ActivityPriority.attention,
+            dedupeKey: 'dapp:builder-board:approval-needed',
             targetRoute: '/dapps',
           ),
         );
@@ -445,6 +450,11 @@ ProviderContainer _container({
       activityNotificationPresenterProvider.overrideWithValue(
         presenter ?? _FakePresenter(),
       ),
+      productionSetupFactReaderProvider.overrideWithValue(
+        const _HealthyProductionSetupReader(),
+      ),
+      challengesProvider.overrideWith(_EmptyChallengesController.new),
+      breakdownProvider.overrideWith(_EmptyBreakdownController.new),
     ],
   );
 }
@@ -485,4 +495,33 @@ class _FakePresenter implements ActivityNotificationPresenter {
   Future<void> cancel(ActivityRecord record) async {
     cancelled.add(record);
   }
+}
+
+class _HealthyProductionSetupReader implements ProductionSetupFactReader {
+  const _HealthyProductionSetupReader();
+
+  @override
+  Future<ProductionSetupFacts> read() async {
+    return const ProductionSetupFacts(
+      notificationsEnabled: true,
+      exactAlarmsEnabled: true,
+      batteryOptimizationDisabled: true,
+    );
+  }
+}
+
+class _EmptyChallengesController extends ChallengesController {
+  @override
+  bool watchDeps() => true;
+
+  @override
+  Future<List<ChallengeDto>> fetch() async => const [];
+}
+
+class _EmptyBreakdownController extends BreakdownController {
+  @override
+  bool watchDeps() => false;
+
+  @override
+  Future<BreakdownResult> fetch() async => throw StateError('not fetched');
 }

@@ -65,6 +65,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             .read(zkPassportPipelineProvider.notifier)
             .recoverPendingSessionOnForeground(),
       );
+      unawaited(ref.read(activityControllerProvider.notifier).syncFacts());
       _showPipelineStatus(ref.read(zkPassportPipelineProvider));
     }
   }

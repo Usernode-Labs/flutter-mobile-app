@@ -54,6 +54,7 @@ void main() {
       expect(event.eventType, 'move_confirmed');
       expect(event.dedupeKey, 'lastwin:move:42');
       expect(event.targetRoute, '/dapps/last-one-wins');
+      expect(event.expiresAt, isNotNull);
       expect(event.payload['webRoute'], '/rounds/current');
     });
 
@@ -121,6 +122,36 @@ void main() {
       expect(event.title.endsWith('...'), isTrue);
       expect(event.body.length, dappNotificationBodyMaxLength);
       expect(event.body.endsWith('...'), isTrue);
+    });
+
+    test('synthesizes dedupe when dApp omits route and tag', () {
+      final event = DappNotificationBridgePayload.parse(
+        payload: const {
+          'method': 'notify',
+          'title': 'Approval requested',
+          'priority': 'attention',
+        },
+        dappName: 'Builder Board',
+        nativeTargetRoute: '/dapps/builder-board',
+      );
+
+      expect(event.dedupeKey, 'dapp:builderboard:dappnotify:approvalrequested');
+      expect(event.expiresAt, isNotNull);
+    });
+
+    test('falls back when native target route is unsafe', () {
+      final event = DappNotificationBridgePayload.parse(
+        payload: const {
+          'method': 'notify',
+          'title': 'Unsafe route attempt',
+          'route': '/wallet/send',
+        },
+        dappName: 'Echo',
+        nativeTargetRoute: '/wallet/send',
+      );
+
+      expect(event.targetRoute, '/activity');
+      expect(event.payload['webRoute'], '/wallet/send');
     });
   });
 }

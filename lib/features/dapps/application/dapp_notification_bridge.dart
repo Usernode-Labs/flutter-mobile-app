@@ -1,7 +1,9 @@
+import 'package:crypto_mobile_app/features/activity/application/activity_notification_routing.dart';
 import 'package:crypto_mobile_app/features/activity/models/activity_models.dart';
 
 const dappNotificationTitleMaxLength = 96;
 const dappNotificationBodyMaxLength = 240;
+const dappAttentionNotificationTtl = Duration(hours: 24);
 
 class DappNotificationBridgeParseException implements Exception {
   const DappNotificationBridgeParseException(this.message);
@@ -45,6 +47,13 @@ class DappNotificationBridgePayload {
     final suppliedDedupeKey = _string(_first(data, 'dedupeKey', 'tag'));
     final eventType =
         _string(_first(data, 'eventType', 'kind', 'type')) ?? 'dapp_notify';
+    final priority = _priorityFor(requestedPriority);
+    final safeTargetRoute = resolveActivityNotificationRoute(nativeTargetRoute);
+    final expiresAt =
+        _date(_first(data, 'expiresAt', 'expires_at')) ??
+        (priority == ActivityPriority.attention
+            ? DateTime.now().add(dappAttentionNotificationTtl)
+            : null);
 
     return ActivityEvent(
       source: ActivitySource.dapp,
@@ -52,11 +61,11 @@ class DappNotificationBridgePayload {
       eventType: eventType,
       title: title,
       body: body,
-      priority: _priorityFor(requestedPriority),
-      targetRoute: nativeTargetRoute,
+      priority: priority,
+      targetRoute: safeTargetRoute,
       dedupeKey:
-          suppliedDedupeKey ??
-          (webRoute == null ? null : 'dapp:$dappName:$webRoute'),
+          suppliedDedupeKey ?? _dedupeKey(dappName, eventType, webRoute, title),
+      expiresAt: expiresAt,
       payload: {
         'bridgeMethod': 'notify',
         'dappName': dappName,
@@ -120,7 +129,28 @@ class DappNotificationBridgePayload {
     return text == null || text.isEmpty ? null : text;
   }
 
+  static DateTime? _date(Object? value) {
+    final text = _string(value);
+    if (text == null) return null;
+    return DateTime.tryParse(text)?.toLocal();
+  }
+
   static String _normalize(String? value) {
     return (value ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  }
+
+  static String _dedupeKey(
+    String dappName,
+    String eventType,
+    String? webRoute,
+    String title,
+  ) {
+    if (webRoute != null) return 'dapp:$dappName:$webRoute';
+    final parts = [
+      _normalize(dappName),
+      _normalize(eventType),
+      _normalize(title),
+    ];
+    return 'dapp:${parts.where((part) => part.isNotEmpty).join(':')}';
   }
 }

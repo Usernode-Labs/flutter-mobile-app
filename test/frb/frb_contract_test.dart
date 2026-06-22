@@ -1,13 +1,11 @@
 // ignore_for_file: library_annotations, no_wildcard_variable_uses
 
 @Tags(['frb', 'contract'])
-
 // Contract tests for FRB-backed Flutter API surface.
 // These tests DO NOT load the Rust dynamic library. They exist to ensure the
 // function and type signatures used by our Flutter code remain stable. If the
 // code generator or Rust API changes in a way that alters these Dart signatures,
 // these tests will fail to compile or at assignment time.
-
 import 'package:flutter_test/flutter_test.dart';
 
 // Our façade over FRB
@@ -24,20 +22,25 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owne
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 
-typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function(
-    {int? limit, bool? fromTip});
+typedef ListBlockchainFn =
+    Future<RpcListBlockchainResp?> Function({int? limit, bool? fromTip});
 typedef ListMempoolFn = Future<RpcListMempoolResp?> Function();
 typedef EpochRewardsFn = Future<RpcEpochRewardsResp?> Function({int? epoch});
 typedef GetStatusFn = Future<RpcStatusResp?> Function({bool includeVrfDetails});
 typedef BuildEnvFn = BuildInfo Function();
-typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function(
-    {required PublicKeyHash owner, int? limit});
-typedef WalletBalanceFn = Future<RpcWalletBalanceResp?> Function(
-    {required PublicKeyHash owner});
-typedef TransferFundsFn = Future<RpcWalletTxSendResp?> Function(
-    {required PublicKeyHash fromPkHash,
-    required BigInt amount,
-    required PublicKeyHash toPkHash});
+typedef ListUtxosByOwnerFn =
+    Future<RpcListUtxosByOwnerResp?> Function({
+      required PublicKeyHash owner,
+      int? limit,
+    });
+typedef WalletBalanceFn =
+    Future<RpcWalletBalanceResp?> Function({required PublicKeyHash owner});
+typedef TransferFundsFn =
+    Future<RpcWalletTxSendResp?> Function({
+      required PublicKeyHash fromPkHash,
+      required BigInt amount,
+      required PublicKeyHash toPkHash,
+    });
 
 void main() {
   group('RustBackendService API signatures (no-load)', () {
@@ -72,18 +75,19 @@ void main() {
     });
 
     test(
-        'transferFunds({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash})',
-        () {
-      final TransferFundsFn f = RustBackendService.instance.transferFunds;
-      expect(f, isNotNull);
-    });
+      'transferFunds({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash})',
+      () {
+        final TransferFundsFn f = RustBackendService.instance.transferFunds;
+        expect(f, isNotNull);
+      },
+    );
   });
 
   group('FRB value types used by UI (shape checks)', () {
     test('RpcStatusBlockInfo members', () {
       // Closure typed to expected members; never invoked.
       void check(RpcStatusBlockInfo b) {
-        int _ = b.height;
+        int height = b.height;
         int e = b.epoch;
         int s = b.globalSlot;
         final h = b.hash; // BlockHash
@@ -91,7 +95,7 @@ void main() {
         final t = b.transactions; // BigInt
         final batches = b.batches; // List<RpcStatusBlockBatchInfo>
         // Use locals to silence analyzer warnings
-        expect([_, e, s].isNotEmpty, isTrue);
+        expect([height, e, s].isNotEmpty, isTrue);
         expect([h, pk, t, batches].isNotEmpty, isTrue);
       }
 

@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/features/activity/application/activity_attention_policy.dart';
+import 'package:crypto_mobile_app/features/activity/application/activity_fact_sync_service.dart';
 import 'package:crypto_mobile_app/features/activity/application/activity_ingest_service.dart';
 import 'package:crypto_mobile_app/features/activity/application/local_notification_presenter.dart';
 import 'package:crypto_mobile_app/features/activity/application/mock_activity_event_source.dart';
@@ -40,6 +43,23 @@ final activityIngestServiceProvider = FutureProvider<ActivityIngestService>((
   );
 });
 
+final productionSetupFactReaderProvider = Provider<ProductionSetupFactReader>(
+  (ref) => const PlatformProductionSetupFactReader(),
+);
+
+final activityFactSyncServiceProvider = FutureProvider<ActivityFactSyncService>(
+  (ref) async {
+    final store = await ref.watch(activityRecordStoreProvider.future);
+    final ingestService = await ref.watch(activityIngestServiceProvider.future);
+    return ActivityFactSyncService(
+      store: store,
+      ingestService: ingestService,
+      presenter: ref.watch(activityNotificationPresenterProvider),
+      productionSetupReader: ref.watch(productionSetupFactReaderProvider),
+    );
+  },
+);
+
 final activityControllerProvider =
     AsyncNotifierProvider<ActivityController, List<ActivityRecord>>(
       ActivityController.new,
@@ -61,17 +81,21 @@ class ActivityController extends AsyncNotifier<List<ActivityRecord>> {
   @override
   Future<List<ActivityRecord>> build() async {
     final store = await ref.watch(activityRecordStoreProvider.future);
-    final records = await store.loadRecords();
-    if (records.isNotEmpty) return records;
-
-    final service = await ref.watch(activityIngestServiceProvider.future);
-    final source = ref.watch(mockActivityEventSourceProvider);
-    return service.ingestAll(source.seedEvents());
+    var records = await store.loadRecords();
+    if (records.isEmpty) {
+      final service = await ref.watch(activityIngestServiceProvider.future);
+      final source = ref.watch(mockActivityEventSourceProvider);
+      records = await service.ingestAll(source.seedEvents());
+    }
+    return _syncFacts();
   }
 
   Future<void> refresh() async {
-    final store = await ref.read(activityRecordStoreProvider.future);
-    state = AsyncData(await store.loadRecords());
+    state = AsyncData(await _syncFacts());
+  }
+
+  Future<void> syncFacts() async {
+    state = AsyncData(await _syncFacts());
   }
 
   Future<void> markRead(String id) async {
@@ -167,6 +191,14 @@ class ActivityController extends AsyncNotifier<List<ActivityRecord>> {
       return MockActivityEventSource.fallbackDappSlug;
     }
     return dapps.first.slug;
+  }
+
+  Future<List<ActivityRecord>> _syncFacts() async {
+    final service = await ref.read(activityFactSyncServiceProvider.future);
+    return service.syncAvailableFacts(
+      challenges: ref.read(challengesProvider).valueOrNull,
+      breakdown: ref.read(breakdownProvider).valueOrNull,
+    );
   }
 }
 

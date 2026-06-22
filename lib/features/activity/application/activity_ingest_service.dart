@@ -24,13 +24,20 @@ class ActivityIngestService {
     required ActivityRecordStore store,
     required ActivityAttentionPolicy policy,
     required ActivityNotificationPresenter presenter,
+    DateTime Function()? now,
   }) : _store = store,
        _policy = policy,
-       _presenter = presenter;
+       _presenter = presenter,
+       _now = now ?? DateTime.now;
 
   final ActivityRecordStore _store;
   final ActivityAttentionPolicy _policy;
   final ActivityNotificationPresenter _presenter;
+  final DateTime Function() _now;
+  final _dappPresentationHistory = <String, List<DateTime>>{};
+
+  static const dappPresentationRateLimitWindow = Duration(minutes: 5);
+  static const dappPresentationRateLimitCount = 3;
 
   Future<List<ActivityRecord>> ingest(
     ActivityEvent event, {
@@ -40,7 +47,8 @@ class ActivityIngestService {
     final records = await _store.upsert(record);
 
     if (presentSystemNotification &&
-        _policy.shouldPresentSystemNotification(record)) {
+        _policy.shouldPresentSystemNotification(record) &&
+        _canPresentSystemNotification(record)) {
       await _presenter.show(record);
     }
 
@@ -59,5 +67,29 @@ class ActivityIngestService {
       );
     }
     return records;
+  }
+
+  bool _canPresentSystemNotification(ActivityRecord record) {
+    if (record.source != ActivitySource.dapp) return true;
+    if (record.dedupeKey == null || record.dedupeKey!.trim().isEmpty) {
+      return false;
+    }
+
+    final key = _dappRateLimitKey(record);
+    final now = _now();
+    final cutoff = now.subtract(dappPresentationRateLimitWindow);
+    final history = _dappPresentationHistory.putIfAbsent(key, () => []);
+    history.removeWhere((shownAt) => shownAt.isBefore(cutoff));
+    if (history.length >= dappPresentationRateLimitCount) return false;
+    history.add(now);
+    return true;
+  }
+
+  String _dappRateLimitKey(ActivityRecord record) {
+    final dappName = record.payloadJson['dappName']?.toString().trim();
+    if (dappName != null && dappName.isNotEmpty) return dappName;
+    final route = record.targetRoute?.trim();
+    if (route != null && route.isNotEmpty) return route;
+    return 'dapp';
   }
 }

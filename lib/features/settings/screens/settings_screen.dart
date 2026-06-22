@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/activity/providers/activity_providers.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/quick_settings_panel.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/general_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/diagnostics_settings_section.dart';
@@ -35,8 +36,9 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 
-final _log =
-    LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
+final _log = LoggingService.instance.withTag(
+  'usernode/BackgroundProductionSettings',
+);
 
 Future<void> resetChallengeState(WidgetRef ref, BuildContext context) async {
   ref.read(zkIdentityStepControllerProvider.notifier).reset();
@@ -48,9 +50,9 @@ Future<void> resetChallengeState(WidgetRef ref, BuildContext context) async {
   ref.invalidate(breakdownProvider);
   ref.invalidate(categorizedChallengesProvider);
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Challenge state reset')),
-  );
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(const SnackBar(content: Text('Challenge state reset')));
 }
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -158,10 +160,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final hasPermissions = PlatformAlarmService.instance.hasPermissions;
 
       if (defaultTargetPlatform == TargetPlatform.android) {
-        final batteryOptDisabled =
-            await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
-        final deviceManufacturer =
-            await PlatformAlarmService.instance.getDeviceManufacturer();
+        final batteryOptDisabled = await PlatformAlarmService.instance
+            .isBatteryOptimizationDisabled();
+        final deviceManufacturer = await PlatformAlarmService.instance
+            .getDeviceManufacturer();
 
         if (mounted) {
           setState(() {
@@ -183,6 +185,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
 
       await _refreshProviders();
+      await ref.read(activityControllerProvider.notifier).syncFacts();
     } catch (e) {
       _log.debug('Error checking status: $e');
     }
@@ -223,12 +226,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _openBatterySettings() async {
     await PlatformAlarmService.instance.openBatteryOptimizationSettings();
+    unawaited(ref.read(activityControllerProvider.notifier).syncFacts());
   }
 
   Future<void> _toggleIOSKeepAlive(bool value) async {
     if (value) {
-      final success =
-          await IOSForegroundKeepAliveService.instance.startKeepAlive();
+      final success = await IOSForegroundKeepAliveService.instance
+          .startKeepAlive();
       if (success && mounted) {
         setState(() => _iosKeepAliveActive = true);
       }
@@ -371,17 +375,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     const allowedNetworks = {'testnet', 'internal', 'custom'};
     final storedNetwork = prefs.getString('network:type');
-    final currentNetwork =
-        allowedNetworks.contains(storedNetwork) ? storedNetwork! : 'testnet';
+    final currentNetwork = allowedNetworks.contains(storedNetwork)
+        ? storedNetwork!
+        : 'testnet';
 
     if (!mounted) return;
 
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => NetworkSwitcherDialog(
-        currentNetwork: currentNetwork,
-      ),
+      builder: (ctx) => NetworkSwitcherDialog(currentNetwork: currentNetwork),
     );
 
     if (result != null && result != currentNetwork && mounted) {
@@ -472,7 +475,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final facematchStrict =
         zkSettings.whenOrNull(data: (s) => s.facematchStrict) ?? true;
     final appSleepEnabled = _appSleepService.isEnabled;
-    final hasCurrentBenchmarkRun = perfState.isStartingRun ||
+    final hasCurrentBenchmarkRun =
+        perfState.isStartingRun ||
         perfState.isRunning ||
         (perfState.activeRunId != null && !perfState.hasFinishedRun);
 
@@ -536,17 +540,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   whatIsDescription: l10n.bgProdDescription,
                   steps: [
                     FaqStep(
-                        title: l10n.bgProdVrfSelection,
-                        description: l10n.bgProdVrfSelectionDesc),
+                      title: l10n.bgProdVrfSelection,
+                      description: l10n.bgProdVrfSelectionDesc,
+                    ),
                     FaqStep(
-                        title: l10n.bgProdSlotScheduling,
-                        description: l10n.bgProdSlotSchedulingDesc),
+                      title: l10n.bgProdSlotScheduling,
+                      description: l10n.bgProdSlotSchedulingDesc,
+                    ),
                     FaqStep(
-                        title: l10n.bgProdBlockProduction,
-                        description: l10n.bgProdBlockProductionDesc),
+                      title: l10n.bgProdBlockProduction,
+                      description: l10n.bgProdBlockProductionDesc,
+                    ),
                     FaqStep(
-                        title: l10n.bgProdSuccessTracking,
-                        description: l10n.bgProdSuccessTrackingDesc),
+                      title: l10n.bgProdSuccessTracking,
+                      description: l10n.bgProdSuccessTrackingDesc,
+                    ),
                   ],
                   platformReliabilityTitle: l10n.faqPlatformReliabilityTitle,
                   platformAndroidDesc: l10n.bgProdAndroidDesc,
@@ -554,23 +562,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   reliabilityByMode: l10n.bgProdReliabilityByMode,
                   androidModes: [
                     ReliabilityMode(
-                        mode: l10n.bgProdDefaultMode,
-                        reliability: l10n.bgProdDefaultReliability,
-                        description: l10n.bgProdDefaultDesc),
+                      mode: l10n.bgProdDefaultMode,
+                      reliability: l10n.bgProdDefaultReliability,
+                      description: l10n.bgProdDefaultDesc,
+                    ),
                     ReliabilityMode(
-                        mode: l10n.bgProdKeepAliveMode,
-                        reliability: l10n.bgProdKeepAliveReliability,
-                        description: l10n.bgProdKeepAliveDesc),
+                      mode: l10n.bgProdKeepAliveMode,
+                      reliability: l10n.bgProdKeepAliveReliability,
+                      description: l10n.bgProdKeepAliveDesc,
+                    ),
                   ],
                   iosModes: [
                     ReliabilityMode(
-                        mode: l10n.bgProdKeepAliveMode,
-                        reliability: l10n.bgProdIosKeepAliveReliability,
-                        description: l10n.bgProdIosKeepAliveDesc),
+                      mode: l10n.bgProdKeepAliveMode,
+                      reliability: l10n.bgProdIosKeepAliveReliability,
+                      description: l10n.bgProdIosKeepAliveDesc,
+                    ),
                     ReliabilityMode(
-                        mode: l10n.bgProdBackgroundOnly,
-                        reliability: l10n.bgProdBackgroundOnlyReliability,
-                        description: l10n.bgProdBackgroundOnlyDesc),
+                      mode: l10n.bgProdBackgroundOnly,
+                      reliability: l10n.bgProdBackgroundOnlyReliability,
+                      description: l10n.bgProdBackgroundOnlyDesc,
+                    ),
                   ],
                   deviceLabel: _deviceManufacturer != null
                       ? l10n.faqDeviceLabel(_deviceManufacturer!)
@@ -597,12 +609,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 behavior: HitTestBehavior.opaque,
                 onLongPressStart: (_) {
                   _longPressTimer?.cancel();
-                  _longPressTimer = Timer(
-                    const Duration(seconds: 5),
-                    () {
-                      if (mounted) context.push(AppRoutes.zkIdentityDetail);
-                    },
-                  );
+                  _longPressTimer = Timer(const Duration(seconds: 5), () {
+                    if (mounted) context.push(AppRoutes.zkIdentityDetail);
+                  });
                 },
                 onLongPressEnd: (_) => _longPressTimer?.cancel(),
                 onLongPressCancel: () => _longPressTimer?.cancel(),

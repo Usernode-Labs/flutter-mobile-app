@@ -33,16 +33,15 @@ void main() {
     });
 
     test('fromJson falls back to id key (cache compat)', () {
-      final info = RegistrationEventInfo.fromJson({
-        'id': 3,
-        'name': 'Event 3',
-      });
+      final info = RegistrationEventInfo.fromJson({'id': 3, 'name': 'Event 3'});
       expect(info.id, 3);
     });
 
     test('fromJson handles null endsAt', () {
-      final info =
-          RegistrationEventInfo.fromJson({'event_id': 1, 'name': 'E1'});
+      final info = RegistrationEventInfo.fromJson({
+        'event_id': 1,
+        'name': 'E1',
+      });
       expect(info.endsAt, isNull);
     });
   });
@@ -62,11 +61,7 @@ void main() {
         'tier': 'gold',
         'season_id': 1,
         'season_name': 'Season 1',
-        'event': {
-          'event_id': 2,
-          'name': 'Event 2',
-          'ends_at': '2025-06-01',
-        },
+        'event': {'event_id': 2, 'name': 'Event 2', 'ends_at': '2025-06-01'},
       });
       expect(result.participantId, 42);
       expect(result.identityUid, 'uid-abc');
@@ -265,10 +260,14 @@ void main() {
           });
 
       test('preserves https URLs with a host', () {
-        expect(parseWithLink('https://example.com').ctaLink,
-            'https://example.com');
-        expect(parseWithLink('https://example.com/survey?id=1').ctaLink,
-            'https://example.com/survey?id=1');
+        expect(
+          parseWithLink('https://example.com').ctaLink,
+          'https://example.com',
+        );
+        expect(
+          parseWithLink('https://example.com/survey?id=1').ctaLink,
+          'https://example.com/survey?id=1',
+        );
       });
 
       test('rejects http (insecure)', () {
@@ -324,6 +323,10 @@ void main() {
           parseWithLink('/dapps/opinion-market', ctaType: 'app').ctaLink,
           '/dapps/opinion-market',
         );
+        expect(
+          parseWithLink('/main/node', ctaType: 'app').ctaLink,
+          '/main/node',
+        );
       });
 
       test('rejects non-whitelisted in-app paths for app CTAs', () {
@@ -331,14 +334,15 @@ void main() {
         expect(parseWithLink('/dappsevil', ctaType: 'app').ctaLink, isNull);
         expect(parseWithLink('/wallet/send', ctaType: 'app').ctaLink, isNull);
         expect(parseWithLink('/settings', ctaType: 'app').ctaLink, isNull);
-        expect(parseWithLink('/main/node', ctaType: 'app').ctaLink, isNull);
         expect(
           parseWithLink('/challenges/not-yet-shipped', ctaType: 'app').ctaLink,
           isNull,
         );
         expect(
-          parseWithLink('/dapps/opinion-market/settings', ctaType: 'app')
-              .ctaLink,
+          parseWithLink(
+            '/dapps/opinion-market/settings',
+            ctaType: 'app',
+          ).ctaLink,
           isNull,
         );
       });
@@ -351,8 +355,10 @@ void main() {
       });
 
       test('falls back to URL sanitization when cta_type is absent', () {
-        expect(parseWithLink('https://example.com').ctaLink,
-            'https://example.com');
+        expect(
+          parseWithLink('https://example.com').ctaLink,
+          'https://example.com',
+        );
         expect(parseWithLink('/challenges/zk-identity').ctaLink, isNull);
       });
 
@@ -614,16 +620,8 @@ void main() {
         'ends_at': '2025-06-01',
         'is_active': true,
         'events': [
-          {
-            'event_id': 10,
-            'name': 'Event 10',
-            'is_active': true,
-          },
-          {
-            'event_id': 11,
-            'name': 'Event 11',
-            'is_active': false,
-          },
+          {'event_id': 10, 'name': 'Event 10', 'is_active': true},
+          {'event_id': 11, 'name': 'Event 11', 'is_active': false},
         ],
       });
       expect(s.id, 1);
@@ -691,11 +689,7 @@ void main() {
         'ends_at': '2025-06-01',
         'is_active': true,
         'events': [
-          {
-            'event_id': 10,
-            'name': 'Event 10',
-            'is_active': true,
-          },
+          {'event_id': 10, 'name': 'Event 10', 'is_active': true},
         ],
       };
       final s = SeasonDto.fromJson(json);
@@ -802,12 +796,7 @@ void main() {
             'events_participated': 2,
           },
         ],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 1,
-          'total_pages': 1,
-        },
+        'pagination': {'page': 1, 'per_page': 50, 'total': 1, 'total_pages': 1},
       });
       expect(r.season.id, 1);
       expect(r.events, hasLength(1));
@@ -832,12 +821,7 @@ void main() {
             'events_participated': 1,
           },
         ],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 1,
-          'total_pages': 1,
-        },
+        'pagination': {'page': 1, 'per_page': 50, 'total': 1, 'total_pages': 1},
       });
       expect(r.entries, hasLength(1));
     });
@@ -847,12 +831,7 @@ void main() {
         'season': {'id': 1, 'name': 'S1'},
         'events': <dynamic>[],
         'leaderboard': <dynamic>[],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 0,
-          'total_pages': 0,
-        },
+        'pagination': {'page': 1, 'per_page': 50, 'total': 0, 'total_pages': 0},
       });
       expect(r.events, isEmpty);
       expect(r.entries, isEmpty);
@@ -934,11 +913,7 @@ void main() {
         'vrf_won_slots': 15,
         'success_rate': 0.85,
         'activities': [
-          {
-            'activity_id': 1,
-            'activity_type': 'block_produced',
-            'points': 50,
-          },
+          {'activity_id': 1, 'activity_type': 'block_produced', 'points': 50},
         ],
       });
       expect(eb.eventId, 5);
@@ -1002,17 +977,19 @@ void main() {
       expect(sb.events, hasLength(2));
     });
 
-    test('fromJson falls back to flat season_id/season_name (cache compat)',
-        () {
-      final sb = SeasonBreakdown.fromJson({
-        'season_id': 1,
-        'season_name': 'Season 1',
-        'total_points': 3000,
-        'offchain_points': 500,
-      });
-      expect(sb.seasonId, 1);
-      expect(sb.seasonName, 'Season 1');
-    });
+    test(
+      'fromJson falls back to flat season_id/season_name (cache compat)',
+      () {
+        final sb = SeasonBreakdown.fromJson({
+          'season_id': 1,
+          'season_name': 'Season 1',
+          'total_points': 3000,
+          'offchain_points': 500,
+        });
+        expect(sb.seasonId, 1);
+        expect(sb.seasonName, 'Season 1');
+      },
+    );
 
     test('fromJson handles missing events', () {
       final sb = SeasonBreakdown.fromJson({
@@ -1246,12 +1223,7 @@ void main() {
     });
 
     test('PaginationInfo', () {
-      final json = {
-        'page': 2,
-        'per_page': 50,
-        'total': 250,
-        'total_pages': 5,
-      };
+      final json = {'page': 2, 'per_page': 50, 'total': 250, 'total_pages': 5};
       final p = PaginationInfo.fromJson(json);
       final p2 = PaginationInfo.fromJson(p.toJson());
       expect(p2.page, p.page);
@@ -1285,12 +1257,7 @@ void main() {
             'events_participated': 2,
           },
         ],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 1,
-          'total_pages': 1,
-        },
+        'pagination': {'page': 1, 'per_page': 50, 'total': 1, 'total_pages': 1},
       };
       final r = LeaderboardResult.fromJson(json);
       final r2 = LeaderboardResult.fromJson(r.toJson());
@@ -1353,11 +1320,7 @@ void main() {
         'vrf_won_slots': 15,
         'success_rate': 0.85,
         'activities': [
-          {
-            'activity_id': 1,
-            'activity_type': 'block_produced',
-            'points': 50,
-          },
+          {'activity_id': 1, 'activity_type': 'block_produced', 'points': 50},
         ],
       };
       final eb = EventBreakdown.fromJson(json);
@@ -1444,8 +1407,10 @@ void main() {
       expect(br2.displayName, br.displayName);
       expect(br2.seasonBreakdown, isNotNull);
       expect(br2.seasonBreakdown!.seasonId, br.seasonBreakdown!.seasonId);
-      expect(br2.seasonBreakdown!.events.length,
-          br.seasonBreakdown!.events.length);
+      expect(
+        br2.seasonBreakdown!.events.length,
+        br.seasonBreakdown!.events.length,
+      );
       expect(br2.eventBreakdown, isNull);
     });
   });

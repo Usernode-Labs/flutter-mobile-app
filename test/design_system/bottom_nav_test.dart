@@ -20,9 +20,9 @@ void main() {
 
   group('BottomNav', () {
     testWidgets('renders all item labels', (tester) async {
-      await tester.pumpWidget(wrap(
-        BottomNav(items: testItems, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(
+        wrap(BottomNav(items: testItems, selectedIndex: 0)),
+      );
 
       expect(find.text('Home'), findsOneWidget);
       expect(find.text('Search'), findsOneWidget);
@@ -30,9 +30,9 @@ void main() {
     });
 
     testWidgets('selected icon has fill 1', (tester) async {
-      await tester.pumpWidget(wrap(
-        BottomNav(items: testItems, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(
+        wrap(BottomNav(items: testItems, selectedIndex: 0)),
+      );
 
       // The selectedIcon for index 0 should have fill: 1
       final icons = tester.widgetList<Icon>(find.byType(Icon));
@@ -43,9 +43,9 @@ void main() {
     });
 
     testWidgets('unselected icon has fill 0', (tester) async {
-      await tester.pumpWidget(wrap(
-        BottomNav(items: testItems, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(
+        wrap(BottomNav(items: testItems, selectedIndex: 0)),
+      );
 
       final icons = tester.widgetList<Icon>(find.byType(Icon));
       final outlineIcons = icons.where((icon) => icon.fill == 0);
@@ -63,9 +63,7 @@ void main() {
         const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
-      await tester.pumpWidget(wrap(
-        BottomNav(items: items, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(wrap(BottomNav(items: items, selectedIndex: 0)));
 
       final icons = tester.widgetList<Icon>(find.byType(Icon));
       final filledIcon = icons.firstWhere((icon) => icon.fill == 1);
@@ -73,9 +71,9 @@ void main() {
     });
 
     testWidgets('unselected icon uses outline color', (tester) async {
-      await tester.pumpWidget(wrap(
-        BottomNav(items: testItems, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(
+        wrap(BottomNav(items: testItems, selectedIndex: 0)),
+      );
 
       final theme = themeWithExtensions();
       final outlineColor = theme.colorScheme.outline;
@@ -89,13 +87,15 @@ void main() {
 
     testWidgets('onItemSelected fires with correct index', (tester) async {
       int? selectedIndex;
-      await tester.pumpWidget(wrap(
-        BottomNav(
-          items: testItems,
-          selectedIndex: 0,
-          onItemSelected: (index) => selectedIndex = index,
+      await tester.pumpWidget(
+        wrap(
+          BottomNav(
+            items: testItems,
+            selectedIndex: 0,
+            onItemSelected: (index) => selectedIndex = index,
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('Search'));
       await tester.pumpAndSettle();
@@ -114,13 +114,15 @@ void main() {
         ),
       ];
 
-      await tester.pumpWidget(wrap(
-        BottomNav(
-          items: items,
-          selectedIndex: 0,
-          onItemSelected: (index) => selectedIndex = index,
+      await tester.pumpWidget(
+        wrap(
+          BottomNav(
+            items: items,
+            selectedIndex: 0,
+            onItemSelected: (index) => selectedIndex = index,
+          ),
         ),
-      ));
+      );
 
       await tester.tap(find.text('Search'));
       await tester.pumpAndSettle();
@@ -131,22 +133,45 @@ void main() {
     testWidgets('badge renders when badgeCount > 0', (tester) async {
       final items = [
         const BottomNavItem(
-            icon: Symbols.home_sharp, label: 'Home', badgeCount: 5),
+          icon: Symbols.home_sharp,
+          label: 'Home',
+          badgeCount: 5,
+        ),
         const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
-      await tester.pumpWidget(wrap(
-        BottomNav(items: items, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(wrap(BottomNav(items: items, selectedIndex: 0)));
 
       expect(find.text('5'), findsWidgets);
       expect(find.byType(Badge), findsWidgets);
     });
 
+    testWidgets('badge uses item colors when provided', (tester) async {
+      const badgeColor = Color(0xFF202124);
+      const foregroundColor = Color(0xFFFFFFFF);
+      final items = [
+        const BottomNavItem(
+          icon: Symbols.home_sharp,
+          label: 'Home',
+          badgeCount: 5,
+          badgeColor: badgeColor,
+          badgeForegroundColor: foregroundColor,
+        ),
+        const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
+      ];
+
+      await tester.pumpWidget(wrap(BottomNav(items: items, selectedIndex: 0)));
+
+      final badge = tester.widget<Badge>(find.byType(Badge).first);
+      final label = tester.widget<Text>(find.text('5').first);
+      expect(badge.backgroundColor, badgeColor);
+      expect(label.style?.color, foregroundColor);
+    });
+
     testWidgets('badge hidden when badgeCount is null', (tester) async {
-      await tester.pumpWidget(wrap(
-        BottomNav(items: testItems, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(
+        wrap(BottomNav(items: testItems, selectedIndex: 0)),
+      );
 
       expect(find.byType(Badge), findsNothing);
     });
@@ -154,13 +179,14 @@ void main() {
     testWidgets('badge hidden when badgeCount is 0', (tester) async {
       final items = [
         const BottomNavItem(
-            icon: Symbols.home_sharp, label: 'Home', badgeCount: 0),
+          icon: Symbols.home_sharp,
+          label: 'Home',
+          badgeCount: 0,
+        ),
         const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
-      await tester.pumpWidget(wrap(
-        BottomNav(items: items, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(wrap(BottomNav(items: items, selectedIndex: 0)));
 
       expect(find.byType(Badge), findsNothing);
     });
@@ -178,9 +204,7 @@ void main() {
         const BottomNavItem(icon: Symbols.search_sharp, label: 'Search'),
       ];
 
-      await tester.pumpWidget(wrap(
-        BottomNav(items: items, selectedIndex: 0),
-      ));
+      await tester.pumpWidget(wrap(BottomNav(items: items, selectedIndex: 0)));
 
       // Find the NavigationBar and verify indicatorColor
       final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));

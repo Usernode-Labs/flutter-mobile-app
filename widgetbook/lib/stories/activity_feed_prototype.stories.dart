@@ -32,6 +32,7 @@ class ActivityFeedPrototype extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final records = _recordsFor(variant);
 
     return Scaffold(
       backgroundColor: colors.surfaceContainerLow,
@@ -67,12 +68,14 @@ class ActivityFeedPrototype extends StatelessWidget {
               spacing.space32,
             ),
             sliver: SliverToBoxAdapter(
-              child: _ActivityFeedBody(records: _recordsFor(variant)),
+              child: _ActivityFeedBody(records: records),
             ),
           ),
         ],
       ),
-      bottomNavigationBar: const _ActivityBottomNav(),
+      bottomNavigationBar: _ActivityBottomNav(
+        unreadCount: records.where((record) => record.unread).length,
+      ),
     );
   }
 }
@@ -374,7 +377,9 @@ final $Default = _Story(
 );
 
 class _ActivityBottomNav extends StatelessWidget {
-  const _ActivityBottomNav();
+  const _ActivityBottomNav({required this.unreadCount});
+
+  final int unreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -405,6 +410,9 @@ class _ActivityBottomNav extends StatelessWidget {
           indicatorShape: NavIndicatorShape.circle,
           indicatorColor: colors.onSurface,
           indicatorFillColor: colors.secondaryContainer,
+          badgeCount: unreadCount,
+          badgeColor: colors.onSurface,
+          badgeForegroundColor: colors.surface,
         ),
       ],
     );

@@ -105,6 +105,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ),
       bottomNavigationBar: _buildBottomNav(
         l10n,
+        theme.colorScheme,
         semantic,
         index,
         isInternal,
@@ -115,6 +116,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Widget _buildBottomNav(
     AppLocalizations l10n,
+    ColorScheme colors,
     AppSemanticColors semantic,
     int index,
     bool isInternal,
@@ -135,6 +137,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         indicatorColor: semantic.technical.color,
         indicatorFillColor: semantic.technical.colorContainer,
         badgeCount: ref.watch(activityUnreadCountProvider),
+        badgeColor: colors.onSurface,
+        badgeForegroundColor: colors.surface,
       ),
       BottomNavItem(
         icon: Symbols.account_balance_wallet_sharp,

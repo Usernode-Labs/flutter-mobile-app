@@ -17,6 +17,8 @@ class BottomNavItem {
     required this.icon,
     required this.label,
     this.badgeCount,
+    this.badgeColor,
+    this.badgeForegroundColor,
     this.enabled = true,
     this.indicatorShape,
     this.indicatorColor,
@@ -31,6 +33,12 @@ class BottomNavItem {
 
   /// Badge count. Null or 0 means no badge is shown.
   final int? badgeCount;
+
+  /// Badge container color. Null falls back to `colorScheme.error`.
+  final Color? badgeColor;
+
+  /// Badge label color. Null falls back to `colorScheme.onError`.
+  final Color? badgeForegroundColor;
 
   /// Whether the item is tappable. False = 50% opacity, non-tappable.
   final bool enabled;
@@ -73,9 +81,9 @@ class BottomNav extends StatelessWidget {
     this.longPressDuration = const Duration(seconds: 3),
     this.topBorder = true,
   }) : assert(
-          items.length >= 2 && items.length <= 5,
-          'items must have between 2 and 5 entries',
-        );
+         items.length >= 2 && items.length <= 5,
+         'items must have between 2 and 5 entries',
+       );
 
   /// Navigation items (2-5).
   final List<BottomNavItem> items;
@@ -269,8 +277,9 @@ class BottomNav extends StatelessWidget {
     final disabledOpacity = item.enabled ? 1.0 : 0.5;
 
     Widget buildIcon({required bool filled}) {
-      final color =
-          filled ? (item.indicatorColor ?? colors.primary) : colors.outline;
+      final color = filled
+          ? (item.indicatorColor ?? colors.primary)
+          : colors.outline;
       Widget iconWidget = Opacity(
         opacity: disabledOpacity,
         child: Icon(item.icon, fill: filled ? 1 : 0, color: color),
@@ -280,11 +289,11 @@ class BottomNav extends StatelessWidget {
           label: Text(
             '${item.badgeCount}',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colors.onError,
-                  height: 1,
-                ),
+              color: item.badgeForegroundColor ?? colors.onError,
+              height: 1,
+            ),
           ),
-          backgroundColor: colors.error,
+          backgroundColor: item.badgeColor ?? colors.error,
           child: iconWidget,
         );
       }

@@ -734,6 +734,7 @@ jobs:
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+          DELIVER_ALTOOL_ADDITIONAL_UPLOAD_PARAMETERS: "--use-old-altool"
         run: |
           ENV['BUILD_ENV']='PROD'
           bundle exec fastlane ios release

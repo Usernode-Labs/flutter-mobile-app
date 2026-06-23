@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import '../../features/node/node_service.dart';
 import '../data/slot_production_repository.dart';
+import 'android_foreground_task_controller.dart';
 import 'platform_alarm_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/EpochSlotScheduler');
@@ -513,10 +514,12 @@ class EpochSlotSchedulerService {
   bool isSlotMonitoringActive() {
     final now = DateTime.now();
 
-    // Check if any slot is within monitoring window (2 min before to 5 min after)
+    // Check if any slot is within monitoring window.
     return _scheduledSlots.any((slot) {
-      final beforeSlot = slot.slotTime.subtract(const Duration(minutes: 2));
-      final afterSlot = slot.slotTime.add(const Duration(minutes: 5));
+      final beforeSlot =
+          slot.slotTime.subtract(AppConfig.blockProductionWakeBeforeSlot);
+      final afterSlot =
+          slot.slotTime.add(AndroidForegroundTaskController.postProductionHold);
       return now.isAfter(beforeSlot) && now.isBefore(afterSlot);
     });
   }

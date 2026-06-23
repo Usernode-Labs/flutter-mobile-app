@@ -18,7 +18,7 @@ on:
 
 jobs:
   setup:
-    runs-on: macos-latest
+    runs-on: macos-26
     outputs:
       cache-hit: ${{ steps.cache-cargo-bins.outputs.cache-hit }}
 

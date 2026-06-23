@@ -70,17 +70,23 @@ CategorizedChallenges categorizeChallenges(List<ChallengeDto> challenges) {
 /// Extracts breakdown activities based on the breakdown scope.
 ///
 /// For event scope, returns the event's activities directly.
-/// For season scope, flattens activities across all events.
+/// For season/global scope, flattens activities across all events.
 /// Returns null when breakdown is null or scope is unrecognised.
 List<BreakdownActivity>? extractActivities(BreakdownResult? breakdown) {
   if (breakdown == null) return null;
-  if (breakdown.scope == 'event') {
+  if (breakdown.eventBreakdown != null) {
     return breakdown.eventBreakdown?.activities;
   }
-  if (breakdown.scope == 'season') {
-    final events = breakdown.seasonBreakdown?.events;
-    if (events == null) return null;
-    return events.expand((e) => e.activities).toList();
+  if (breakdown.seasonBreakdown != null) {
+    return breakdown.seasonBreakdown!.events
+        .expand((event) => event.activities)
+        .toList();
+  }
+  if (breakdown.globalSeasons.isNotEmpty) {
+    return breakdown.globalSeasons
+        .expand((season) => season.events)
+        .expand((event) => event.activities)
+        .toList();
   }
   return null;
 }

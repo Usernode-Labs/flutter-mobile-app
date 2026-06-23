@@ -877,7 +877,7 @@ abstract class AppLocalizations {
   /// Slot scheduling step description
   ///
   /// In en, this message translates to:
-  /// **'When you win slots, the app schedules alarms to wake your device ~5 minutes before each slot'**
+  /// **'When you win slots, the app schedules alarms to wake your device ~1 minute before each slot'**
   String get bgProdSlotSchedulingDesc;
 
   /// Block production step title
@@ -1287,6 +1287,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Node Status'**
   String get nodeStatusTitle;
+
+  /// Node status section header grouping peer/epoch/mempool rows
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get nodeSectionNetwork;
+
+  /// Node status section header grouping VRF/best-tip rows
+  ///
+  /// In en, this message translates to:
+  /// **'Chain state'**
+  String get nodeSectionChainState;
 
   /// Peer ID copied snackbar message
   ///
@@ -2800,6 +2812,18 @@ abstract class AppLocalizations {
   /// **'My address'**
   String get walletMyAddress;
 
+  /// Title/tooltip for the receive (address QR) sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Receive'**
+  String get walletReceive;
+
+  /// Button to copy the wallet address from the receive sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address'**
+  String get walletCopyAddress;
+
   /// Hint text for recipient address field
   ///
   /// In en, this message translates to:
@@ -3351,6 +3375,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Each slot has a ~5-seconds window. If your device doesn\'\'t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"'**
   String get faqVrfTimingDescription;
+
+  /// Burst screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Burst Transactions'**
+  String get burstTitle;
+
+  /// Speed dial label for burst action
+  ///
+  /// In en, this message translates to:
+  /// **'Burst'**
+  String get burstLabel;
+
+  /// Snackbar message when balance is too low for burst
+  ///
+  /// In en, this message translates to:
+  /// **'Insufficient balance for burst (need ≥100 tokens)'**
+  String get burstInsufficientBalance;
+
+  /// Burst progress text
+  ///
+  /// In en, this message translates to:
+  /// **'Sending {completed}/{total}...'**
+  String burstProgress(int completed, int total);
+
+  /// Elapsed time during burst
+  ///
+  /// In en, this message translates to:
+  /// **'Elapsed: {time}'**
+  String burstElapsed(String time);
+
+  /// Count of failed transactions during burst
+  ///
+  /// In en, this message translates to:
+  /// **'{count} failed'**
+  String burstFailedCount(int count);
+
+  /// Cancel button during burst
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get burstCancel;
+
+  /// Title when all burst transactions succeed
+  ///
+  /// In en, this message translates to:
+  /// **'Burst Complete'**
+  String get burstSuccessTitle;
+
+  /// Subtitle when all burst transactions succeed
+  ///
+  /// In en, this message translates to:
+  /// **'{count} transactions sent in {time}'**
+  String burstSuccessSubtitle(int count, String time);
+
+  /// Title when all burst transactions fail
+  ///
+  /// In en, this message translates to:
+  /// **'Burst Failed'**
+  String get burstFailureTitle;
+
+  /// Title when some burst transactions fail
+  ///
+  /// In en, this message translates to:
+  /// **'Burst Partially Complete'**
+  String get burstMixedTitle;
+
+  /// Subtitle when some burst transactions fail
+  ///
+  /// In en, this message translates to:
+  /// **'{succeeded} succeeded, {failed} failed in {time}'**
+  String burstMixedSubtitle(int succeeded, int failed, String time);
+
+  /// Done button on burst result screen
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get burstDone;
 
   /// Timeline item title
   ///

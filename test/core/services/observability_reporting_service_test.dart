@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/src/rust/observability.dart';
@@ -62,7 +63,11 @@ void main() {
       await NetworkPrefs.init();
 
       final records = <_CapturedObservabilityRecord>[];
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          participantIdProvider.overrideWith((ref) => loadParticipantId()),
+        ],
+      );
       final collector = MetricsCollectorService.instance;
       collector.reset();
       collector.initialize(container);

@@ -4,8 +4,6 @@ import 'package:widgetbook/widgetbook.dart';
 
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
-import 'atomic_challenge_card.stories.dart';
-
 part 'active_challenge_bands.stories.g.dart';
 
 const meta = Meta<ActiveChallengeBands>(path: 'prototypes/challenges');
@@ -63,7 +61,8 @@ class ActiveChallengeBands extends StatelessWidget {
               onProfilePressed: () {},
               onNodePressed: () {},
             ),
-            TopStatusAppBarSize.compact => TopStatusAppBar.compact(
+            TopStatusAppBarSize.compact ||
+            TopStatusAppBarSize.scaffoldCompact => TopStatusAppBar.compact(
               title: 'Season 1',
               nodeStatus: nodeStatus,
               onProfilePressed: () {},
@@ -182,7 +181,7 @@ class _ChallengeBands extends StatelessWidget {
             ),
             AtomicChallengeCard(
               title: 'Give kudos',
-              leftText: '2 / 5',
+              leftText: '2 / 5 Kudos',
               rightText: '400 / 1,500 pts',
               phase: AtomicChallengePhase.inProgress,
               fill: 0.4,
@@ -191,7 +190,7 @@ class _ChallengeBands extends StatelessWidget {
             ),
             AtomicChallengeCard(
               title: 'Give kudos',
-              leftText: '5 / 5',
+              leftText: '5 / 5 Kudos',
               rightText: 'pending 1,500 pts',
               phase: AtomicChallengePhase.pendingFinalization,
               fill: 1,
@@ -235,7 +234,7 @@ class _ChallengeBands extends StatelessWidget {
             ),
             AtomicChallengeCard(
               title: 'Vote on top ideas',
-              leftText: '3 / 5',
+              leftText: '3 / 5 Votes',
               rightText: '300 / 500 pts',
               phase: AtomicChallengePhase.inProgress,
               fill: 0.6,

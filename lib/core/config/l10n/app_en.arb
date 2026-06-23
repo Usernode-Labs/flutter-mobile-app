@@ -666,7 +666,7 @@
   "@bgProdSlotScheduling": {
     "description": "Slot scheduling step title"
   },
-  "bgProdSlotSchedulingDesc": "When you win slots, the app schedules alarms to wake your device ~5 minutes before each slot",
+  "bgProdSlotSchedulingDesc": "When you win slots, the app schedules alarms to wake your device ~1 minute before each slot",
   "@bgProdSlotSchedulingDesc": {
     "description": "Slot scheduling step description"
   },
@@ -961,6 +961,14 @@
   "nodeStatusTitle": "Node Status",
   "@nodeStatusTitle": {
     "description": "Node status screen title"
+  },
+  "nodeSectionNetwork": "Network",
+  "@nodeSectionNetwork": {
+    "description": "Node status section header grouping peer/epoch/mempool rows"
+  },
+  "nodeSectionChainState": "Chain state",
+  "@nodeSectionChainState": {
+    "description": "Node status section header grouping VRF/best-tip rows"
   },
   "nodePeerIdCopied": "Peer ID copied to clipboard",
   "@nodePeerIdCopied": {
@@ -2116,6 +2124,14 @@
   "@walletMyAddress": {
     "description": "Label in the wallet address bar"
   },
+  "walletReceive": "Receive",
+  "@walletReceive": {
+    "description": "Title/tooltip for the receive (address QR) sheet"
+  },
+  "walletCopyAddress": "Copy address",
+  "@walletCopyAddress": {
+    "description": "Button to copy the wallet address from the receive sheet"
+  },
   "walletRecipientAddress": "Recipient address",
   "@walletRecipientAddress": {
     "description": "Hint text for recipient address field"
@@ -2540,6 +2556,78 @@
   "faqVrfTimingDescription": "Each slot has a ~5-seconds window. If your device doesn''t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"",
   "@faqVrfTimingDescription": {
     "description": "Timing explanation text"
+  },
+
+  "burstTitle": "Burst Transactions",
+  "@burstTitle": {
+    "description": "Burst screen title"
+  },
+  "burstLabel": "Burst",
+  "@burstLabel": {
+    "description": "Speed dial label for burst action"
+  },
+  "burstInsufficientBalance": "Insufficient balance for burst (need ≥100 tokens)",
+  "@burstInsufficientBalance": {
+    "description": "Snackbar message when balance is too low for burst"
+  },
+  "burstProgress": "Sending {completed}/{total}...",
+  "@burstProgress": {
+    "description": "Burst progress text",
+    "placeholders": {
+      "completed": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "burstElapsed": "Elapsed: {time}",
+  "@burstElapsed": {
+    "description": "Elapsed time during burst",
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "burstFailedCount": "{count} failed",
+  "@burstFailedCount": {
+    "description": "Count of failed transactions during burst",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "burstCancel": "Cancel",
+  "@burstCancel": {
+    "description": "Cancel button during burst"
+  },
+  "burstSuccessTitle": "Burst Complete",
+  "@burstSuccessTitle": {
+    "description": "Title when all burst transactions succeed"
+  },
+  "burstSuccessSubtitle": "{count} transactions sent in {time}",
+  "@burstSuccessSubtitle": {
+    "description": "Subtitle when all burst transactions succeed",
+    "placeholders": {
+      "count": { "type": "int" },
+      "time": { "type": "String" }
+    }
+  },
+  "burstFailureTitle": "Burst Failed",
+  "@burstFailureTitle": {
+    "description": "Title when all burst transactions fail"
+  },
+  "burstMixedTitle": "Burst Partially Complete",
+  "@burstMixedTitle": {
+    "description": "Title when some burst transactions fail"
+  },
+  "burstMixedSubtitle": "{succeeded} succeeded, {failed} failed in {time}",
+  "@burstMixedSubtitle": {
+    "description": "Subtitle when some burst transactions fail",
+    "placeholders": {
+      "succeeded": { "type": "int" },
+      "failed": { "type": "int" },
+      "time": { "type": "String" }
+    }
+  },
+  "burstDone": "Done",
+  "@burstDone": {
+    "description": "Done button on burst result screen"
   },
 
   "blockAppliedLocally": "Applied Locally",

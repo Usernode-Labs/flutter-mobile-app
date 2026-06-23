@@ -250,6 +250,85 @@ void main() {
       expect(c.completed, true);
     });
 
+    test('fromJson parses final mobile challenge shape', () {
+      final c = ChallengeDto.fromJson({
+        'id': 12,
+        'event_id': 3,
+        'event_name': 'Phase 1',
+        'event_type': 'regular',
+        'category': 'COMMUNITY',
+        'sub_category': 'TEST',
+        'goal': 'Produce blocks',
+        'task': 'Run your node',
+        'reward': 'Up to 6,500 pts',
+        'metric': {
+          'kind': 'count',
+          'label': 'Blocks',
+          'target': null,
+        },
+        'enabled': true,
+        'completed': false,
+        'activities': [
+          {
+            'activity_id': 99,
+            'activity_type': 'COMMUNITY',
+            'points': 25.0,
+            'description': 'Produced blocks',
+            'activity_at': '2026-01-15T10:00:00+00:00',
+            'challenge_id': 12,
+          }
+        ],
+        'activities_total': 25.0,
+      });
+
+      expect(c.eventId, 3);
+      expect(c.eventName, 'Phase 1');
+      expect(c.metric, isNotNull);
+      expect(c.metric!.kind, ChallengeMetricKind.count);
+      expect(c.metric!.rawKind, 'count');
+      expect(c.metric!.target, isNull);
+      expect(c.activities, hasLength(1));
+      expect(c.activities.single.points, 25);
+      expect(c.activitiesTotal, 25);
+    });
+
+    test('fromJson preserves unknown metric kind', () {
+      final c = ChallengeDto.fromJson({
+        'id': 13,
+        'category': 'COMMUNITY',
+        'goal': 'Mystery',
+        'task': 'Do something',
+        'reward': '500',
+        'metric': {
+          'kind': 'streak',
+          'label': 'Days',
+          'target': 3.5,
+        },
+        'enabled': true,
+        'completed': false,
+      });
+
+      expect(c.metric!.kind, ChallengeMetricKind.unknown);
+      expect(c.metric!.rawKind, 'streak');
+      expect(c.metric!.target, 3.5);
+      expect(c.metric!.toJson()['kind'], 'streak');
+    });
+
+    test('fromJson rounds fractional activity total to app points', () {
+      final c = ChallengeDto.fromJson({
+        'id': 14,
+        'category': 'COMMUNITY',
+        'goal': 'Fractional points',
+        'task': 'Do something',
+        'reward': '500',
+        'enabled': true,
+        'completed': false,
+        'activities_total': 941.5,
+      });
+
+      expect(c.activitiesTotal, 942);
+    });
+
     group('cta_link sanitization', () {
       ChallengeDto parseWithLink(dynamic link, {String? ctaType}) =>
           ChallengeDto.fromJson({
@@ -918,6 +997,16 @@ void main() {
       expect(a.challengeId, isNull);
       expect(a.activitySubCategory, isNull);
     });
+
+    test('fromJson rounds fractional points to app points', () {
+      final a = BreakdownActivity.fromJson({
+        'activity_id': 3,
+        'activity_type': 'bonus',
+        'points': 10.5,
+      });
+
+      expect(a.points, 11);
+    });
   });
 
   group('EventBreakdown', () {
@@ -933,6 +1022,17 @@ void main() {
         'produced_blocks': 20,
         'vrf_won_slots': 15,
         'success_rate': 0.85,
+        'challenge_progress': [
+          {
+            'challenge_id': 12,
+            'state': 'in_progress',
+            'current': 40.5,
+            'target': 100,
+            'pending_points': 10.0,
+            'earned_points': 25.0,
+            'description': 'Produced 40.5 blocks',
+          },
+        ],
         'activities': [
           {
             'activity_id': 1,
@@ -949,6 +1049,9 @@ void main() {
       expect(eb.top3Points, 50);
       expect(eb.success50PercentPoints, 75);
       expect(eb.successRate, 0.85);
+      expect(eb.challengeProgress, hasLength(1));
+      expect(eb.challengeProgress.single.current, 40.5);
+      expect(eb.challengeProgress.single.earnedPoints, 25);
       expect(eb.activities, hasLength(1));
     });
 
@@ -1064,6 +1167,16 @@ void main() {
             'event': {'id': 1, 'name': 'E1'},
             'total_points': 2500,
             'offchain_points': 500,
+            'challenge_progress': [
+              {
+                'challenge_id': 12,
+                'state': 'pending',
+                'current': 1,
+                'target': 1,
+                'pending_points': 500,
+                'earned_points': 0,
+              },
+            ],
           },
         ],
       });
@@ -1073,19 +1186,219 @@ void main() {
       expect(br.seasonBreakdown!.seasonId, 1);
       expect(br.seasonBreakdown!.seasonName, 'Season 1');
       expect(br.seasonBreakdown!.events, hasLength(1));
+      expect(br.seasonBreakdown!.events.single.challengeProgress, hasLength(1));
+      expect(br.allScopedChallengeProgress, hasLength(1));
+      expect(br.allScopedChallengeProgress.single.eventId, 1);
       expect(br.eventBreakdown, isNull);
     });
 
-    test('fromJson parses global scope with neither breakdown', () {
+    test('fromJson parses global scope with nested seasons and progress', () {
       final br = BreakdownResult.fromJson({
         'scope': 'global',
         'display_name': 'Charlie',
-        'total_points': 99999,
-        'offchain_points': 5000,
+        'total_points': 99999.0,
+        'offchain_points': 5000.0,
+        'seasons': [
+          {
+            'season_id': 1,
+            'season_name': 'Season 1',
+            'total_points': 800.0,
+            'offchain_points': 100.0,
+            'events': [
+              {
+                'event_id': 3,
+                'event_name': 'Phase 1',
+                'total_points': 800.0,
+                'offchain_points': 100.0,
+                'rank': 5,
+                'produced_blocks': 0,
+                'vrf_won_slots': 0,
+                'success_rate': null,
+                'challenge_progress': [
+                  {
+                    'challenge_id': 12,
+                    'state': 'earned',
+                    'current': 100,
+                    'target': 100,
+                    'pending_points': 0,
+                    'earned_points': 2500,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       });
       expect(br.scope, 'global');
       expect(br.eventBreakdown, isNull);
       expect(br.seasonBreakdown, isNull);
+      expect(br.globalSeasons, hasLength(1));
+      expect(br.globalSeasons.single.events.single.challengeProgress,
+          hasLength(1));
+      expect(br.allScopedChallengeProgress.single.eventId, 3);
+    });
+
+    test('progressForChallenge resolves by event and rejects ambiguity', () {
+      const br = BreakdownResult(
+        scope: 'season',
+        displayName: 'Alice',
+        totalPoints: 0,
+        offchainPoints: 0,
+        seasonBreakdown: SeasonBreakdown(
+          seasonId: 1,
+          seasonName: 'Season 1',
+          totalPoints: 0,
+          offchainPoints: 0,
+          events: [
+            EventBreakdown(
+              eventId: 3,
+              eventName: 'Phase 1',
+              totalPoints: 0,
+              offchainPoints: 0,
+              challengeProgress: [
+                ChallengeProgress(
+                  challengeId: 12,
+                  state: ChallengeProgressState.pending,
+                ),
+              ],
+            ),
+            EventBreakdown(
+              eventId: 4,
+              eventName: 'Phase 2',
+              totalPoints: 0,
+              offchainPoints: 0,
+              challengeProgress: [
+                ChallengeProgress(
+                  challengeId: 12,
+                  state: ChallengeProgressState.earned,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      const phaseTwoChallenge = ChallengeDto(
+        id: 12,
+        eventId: 4,
+        category: 'COMMUNITY',
+        goal: 'Shared challenge id',
+        task: 'Do work',
+        reward: '500',
+        enabled: true,
+        completed: false,
+      );
+      const ambiguousChallenge = ChallengeDto(
+        id: 12,
+        category: 'COMMUNITY',
+        goal: 'No event id',
+        task: 'Do work',
+        reward: '500',
+        enabled: true,
+        completed: false,
+      );
+      const singleChallenge = ChallengeDto(
+        id: 99,
+        category: 'COMMUNITY',
+        goal: 'No match',
+        task: 'Do work',
+        reward: '500',
+        enabled: true,
+        completed: false,
+      );
+
+      expect(
+        br.progressForChallenge(phaseTwoChallenge)?.state,
+        ChallengeProgressState.earned,
+      );
+      expect(br.progressForChallenge(ambiguousChallenge), isNull);
+      expect(br.progressForChallenge(singleChallenge), isNull);
+    });
+
+    test('progressForChallenge falls back when challenge-only match is unique',
+        () {
+      const br = BreakdownResult(
+        scope: 'season',
+        displayName: 'Alice',
+        totalPoints: 0,
+        offchainPoints: 0,
+        seasonBreakdown: SeasonBreakdown(
+          seasonId: 1,
+          seasonName: 'Season 1',
+          totalPoints: 0,
+          offchainPoints: 0,
+          events: [
+            EventBreakdown(
+              eventId: 3,
+              eventName: 'Phase 1',
+              totalPoints: 0,
+              offchainPoints: 0,
+              challengeProgress: [
+                ChallengeProgress(
+                  challengeId: 12,
+                  state: ChallengeProgressState.inProgress,
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      const challenge = ChallengeDto(
+        id: 12,
+        category: 'COMMUNITY',
+        goal: 'Missing event id',
+        task: 'Do work',
+        reward: '500',
+        enabled: true,
+        completed: false,
+      );
+
+      expect(
+        br.progressForChallenge(challenge)?.state,
+        ChallengeProgressState.inProgress,
+      );
+    });
+  });
+
+  group('ChallengeProgress', () {
+    test('fromJson parses all final backend states', () {
+      final states = {
+        'none': ChallengeProgressState.none,
+        'in_progress': ChallengeProgressState.inProgress,
+        'pending': ChallengeProgressState.pending,
+        'earned': ChallengeProgressState.earned,
+        'missed': ChallengeProgressState.missed,
+        'declined': ChallengeProgressState.declined,
+      };
+
+      for (final entry in states.entries) {
+        final progress = ChallengeProgress.fromJson({
+          'challenge_id': 1,
+          'state': entry.key,
+          'current': 40.5,
+          'target': 100.5,
+          'pending_points': 10.0,
+          'earned_points': 25.0,
+        });
+
+        expect(progress.state, entry.value);
+        expect(progress.current, 40.5);
+        expect(progress.target, 100.5);
+        expect(progress.pendingPoints, 10);
+        expect(progress.earnedPoints, 25);
+      }
+    });
+
+    test('fromJson rounds fractional point values to app points', () {
+      final progress = ChallengeProgress.fromJson({
+        'challenge_id': 1,
+        'state': 'earned',
+        'pending_points': 0,
+        'earned_points': 25.5,
+      });
+
+      expect(progress.earnedPoints, 26);
     });
   });
 

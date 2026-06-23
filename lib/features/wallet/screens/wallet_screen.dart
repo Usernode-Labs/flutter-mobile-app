@@ -8,14 +8,18 @@ import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/providers/wallet_provider.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/features/dapps/models/dapp_item.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/wallet_delegates.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
@@ -30,22 +34,15 @@ class WalletScreen extends ConsumerStatefulWidget {
 
 final _log = LoggingService.instance.withTag('usernode/WalletScreen');
 
-class _WalletScreenState extends ConsumerState<WalletScreen>
-    with SingleTickerProviderStateMixin {
+class _WalletScreenState extends ConsumerState<WalletScreen> {
   Timer? _refreshTimer;
   final _scrollFraction = ValueNotifier<double>(0.0);
   String _address = 'Loading...';
-  late final AnimationController _fabAnimController;
   final _appSleepService = AppSleepService.instance;
-  bool _fabOpen = false;
 
   @override
   void initState() {
     super.initState();
-    _fabAnimController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
     _appSleepService.addListener(_handleAppSleepChanged);
     _startAutoRefresh();
 
@@ -74,65 +71,9 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
   @override
   void dispose() {
     _appSleepService.removeListener(_handleAppSleepChanged);
-    _fabAnimController.dispose();
     _scrollFraction.dispose();
     _refreshTimer?.cancel();
     super.dispose();
-  }
-
-  void _toggleFab() {
-    setState(() => _fabOpen = !_fabOpen);
-    if (_fabOpen) {
-      _fabAnimController.forward();
-    } else {
-      _fabAnimController.reverse();
-    }
-  }
-
-  Widget _buildSpeedDial(
-      ThemeData theme, AppLocalizations l10n, AppSpacing spacing) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Mini-FABs revealed when open
-        if (_fabOpen) ...[
-          _SpeedDialOption(
-            label: l10n.walletSend,
-            icon: Symbols.north_east_sharp,
-            onTap: () {
-              _toggleFab();
-              context.push(AppRoutes.walletSend);
-            },
-          ),
-          SizedBox(height: spacing.space12),
-          _SpeedDialOption(
-            label: l10n.walletScan,
-            icon: Symbols.qr_code_scanner_sharp,
-            onTap: () {
-              _toggleFab();
-              context.push(AppRoutes.walletScan);
-            },
-          ),
-          SizedBox(height: spacing.space16),
-        ],
-        // Main FAB
-        FloatingActionButton(
-          onPressed: _toggleFab,
-          backgroundColor: theme.colorScheme.primary,
-          foregroundColor: theme.colorScheme.onPrimary,
-          child: AnimatedBuilder(
-            animation: _fabAnimController,
-            builder: (context, child) => Transform.rotate(
-              angle: _fabAnimController.value * 0.75, // ~43°
-              child: Icon(
-                _fabOpen ? Symbols.close_sharp : Symbols.north_east_sharp,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
   }
 
   void _startAutoRefresh() {
@@ -179,46 +120,217 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     final l10n = AppLocalizations.of(context);
     final walletState = ref.watch(walletProvider);
     final nodeStatus = ref.watch(nodeStatusProvider);
-    final isEmpty = walletState.valueOrNull?.recent.isEmpty ?? false;
 
-    final safeTop = MediaQuery.of(context).padding.top;
-    final pinnedHeight = AddressBarDelegate.computeHeight(safeTop, spacing);
+    // Profile pill mirrors the Challenges tab: show the player's points when
+    // available (breakdown wins; ranking is the fallback), else "Profile".
+    final points = ref.watch(
+            breakdownProvider.select((s) => s.valueOrNull?.totalPoints)) ??
+        ref.watch(
+          rankingProvider.select((s) => s.valueOrNull?.totalPoints),
+        );
+    final profileLabel = points != null
+        ? '${NumberFormat('#,##0').format(points)} pts'
+        : 'Profile';
 
     return Scaffold(
-      body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
+      // No backgroundColor override → DS scaffold grey (surface), shared by all
+      // top-level tab roots. Nested pages (Profile, etc.) use white surfaces.
+      body: RefreshIndicator(
         onRefresh: _onRefresh,
-        scrollFractionNotifier: _scrollFraction,
-        pinnedHeadersHeight: pinnedHeight,
-        pinnedHeaderSlivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: AddressBarDelegate(
-              topPadding: safeTop,
-              spacing: spacing,
-              scrollFractionNotifier: _scrollFraction,
-              address: _address,
-              onCopy: () {
-                Clipboard.setData(ClipboardData(text: _address));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(l10n.walletAddressCopied)),
-                );
-              },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            TopStatusAppBar.large(
+              title: l10n.navWallet,
+              profileLabel: profileLabel,
+              nodeStatus: ref.watch(topStatusNodeStatusProvider),
+              onProfilePressed: () => context.push(AppRoutes.profile),
+              onNodePressed: () => context.push(AppRoutes.mainNode),
             ),
-          )
-        ],
-        header: Padding(
-          padding: EdgeInsets.only(top: spacing.space32),
-          child: _BalanceSection(
-            walletState: walletState,
-            nodeStatus: nodeStatus,
-            l10n: l10n,
-          ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.space16,
+                0,
+                spacing.space16,
+                spacing.space12,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: AppCard(
+                  color: theme.colorScheme.surfaceContainerLowest,
+                  padding: EdgeInsets.all(spacing.space16),
+                  child: _BalanceSection(
+                    walletState: walletState,
+                    nodeStatus: nodeStatus,
+                    l10n: l10n,
+                    onSend: () => context.push(AppRoutes.walletSend),
+                    onScan: () => context.push(AppRoutes.walletScan),
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.space16,
+                0,
+                spacing.space16,
+                spacing.space12,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _buildAddressRow(theme, l10n, spacing),
+              ),
+            ),
+            ..._buildSurfaceSlivers(walletState, l10n, theme, spacing),
+          ],
         ),
-        surfaceSlivers: _buildSurfaceSlivers(walletState, l10n, theme, spacing),
       ),
-      floatingActionButton:
-          isEmpty ? null : _buildSpeedDial(theme, l10n, spacing),
+    );
+  }
+
+  Widget _buildAddressRow(
+    ThemeData theme,
+    AppLocalizations l10n,
+    AppSpacing spacing,
+  ) {
+    final colors = theme.colorScheme;
+    final sizing = theme.extension<AppSizing>()!;
+    final textTheme = theme.textTheme;
+
+    return AppCard(
+      color: colors.surfaceContainerLowest,
+      padding: EdgeInsets.symmetric(
+        horizontal: spacing.space16,
+        vertical: spacing.space12,
+      ),
+      child: Row(
+        children: [
+          IconBadge(
+            icon: Symbols.account_balance_wallet_sharp,
+            size: sizing.iconContainerSmall,
+          ),
+          SizedBox(width: spacing.space16),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.walletMyAddress,
+                  style: textTheme.labelLarge?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(height: spacing.space4),
+                Text(
+                  _address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.bodyLarge?.copyWith(
+                    color: colors.onSurface,
+                    fontFamily: kMonoFontFamily,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: spacing.space8),
+          IconButton(
+            tooltip: l10n.walletMyAddress,
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: _address));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.walletAddressCopied)),
+              );
+            },
+            icon: const Icon(Symbols.content_copy_sharp),
+          ),
+          IconButton(
+            tooltip: l10n.walletReceive,
+            onPressed: _address.isEmpty || _address == 'Loading...'
+                ? null
+                : _showReceiveSheet,
+            icon: const Icon(Symbols.qr_code_2_sharp),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Bottom sheet showing the active address as a scannable QR for receiving,
+  /// with the address text and a copy action.
+  void _showReceiveSheet() {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final colors = theme.colorScheme;
+        final spacing = theme.extension<AppSpacing>()!;
+        final radii = theme.extension<AppRadii>()!;
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              spacing.space24,
+              0,
+              spacing.space24,
+              spacing.space16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.walletReceive,
+                  style: theme.textTheme.titleMedium,
+                ),
+                SizedBox(height: spacing.space16),
+                Container(
+                  padding: EdgeInsets.all(spacing.space16),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerLowest,
+                    borderRadius: radii.borderRadiusLarge,
+                  ),
+                  child: QrImageView(
+                    data: _address,
+                    version: QrVersions.auto,
+                    size: 200,
+                    backgroundColor: colors.surfaceContainerLowest,
+                    eyeStyle: QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: colors.onSurface,
+                    ),
+                    dataModuleStyle: QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ),
+                SizedBox(height: spacing.space16),
+                Text(
+                  _address,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: kMonoFontFamily,
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                SizedBox(height: spacing.space16),
+                Button(
+                  variant: ButtonVariant.tonal,
+                  label: l10n.walletCopyAddress,
+                  leadingIcon: const Icon(Symbols.content_copy_sharp),
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: _address));
+                    Navigator.of(sheetContext).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.walletAddressCopied)),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -285,30 +397,20 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
     AppSpacing spacing,
   ) {
     return [
+      // Cached-data warning sits above the activity card (not in the design
+      // board, but kept for correctness). Collapses to zero height when N/A.
       SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
-        sliver: SliverToBoxAdapter(
-          child: SizedBox(
-            height: theme.extension<AppSizing>()!.iconContainerRegular,
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                l10n.walletRecentActivity,
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
-          ),
-        ),
-      ),
-      SliverPadding(
-        padding: EdgeInsets.symmetric(horizontal: spacing.space24),
+        padding: EdgeInsets.symmetric(horizontal: spacing.space16),
         sliver: SliverToBoxAdapter(
           child: _buildCachedDataBanner(walletState, theme, spacing),
         ),
       ),
       ...walletState.when(
         loading: () => [
-          SliverToBoxAdapter(
+          _recentActivityCardSliver(
+            theme,
+            l10n,
+            spacing,
             child: ShimmerHost(
               child: Column(
                 children: List.generate(4, (_) => const ShimmerListTile()),
@@ -353,15 +455,61 @@ class _WalletScreenState extends ConsumerState<WalletScreen>
             ];
           }
           return [
-            SliverList.builder(
-              itemCount: state.recent.length,
-              itemBuilder: (_, index) => _TransactionTile(state.recent[index]),
+            _recentActivityCardSliver(
+              theme,
+              l10n,
+              spacing,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final tx in state.recent) _TransactionTile(tx),
+                ],
+              ),
             ),
-            SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
           ];
         },
       ),
     ];
+  }
+
+  /// Recent Activity wrapped in a titled [AppCard] (matches the wallet
+  /// prototype): the section title lives inside the card, above [child].
+  Widget _recentActivityCardSliver(
+    ThemeData theme,
+    AppLocalizations l10n,
+    AppSpacing spacing, {
+    required Widget child,
+  }) {
+    return SliverPadding(
+      padding: EdgeInsets.fromLTRB(
+        spacing.space16,
+        0,
+        spacing.space16,
+        spacing.space32,
+      ),
+      sliver: SliverToBoxAdapter(
+        child: AppCard(
+          color: theme.colorScheme.surfaceContainerLowest,
+          padding: EdgeInsets.symmetric(vertical: spacing.space8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.space16,
+                  vertical: spacing.space8,
+                ),
+                child: Text(
+                  l10n.walletRecentActivity,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -372,11 +520,15 @@ class _BalanceSection extends StatelessWidget {
     required this.walletState,
     required this.nodeStatus,
     required this.l10n,
+    required this.onSend,
+    required this.onScan,
   });
 
   final AsyncValue walletState;
   final AsyncValue nodeStatus;
   final AppLocalizations l10n;
+  final VoidCallback onSend;
+  final VoidCallback onScan;
 
   @override
   Widget build(BuildContext context) {
@@ -387,6 +539,7 @@ class _BalanceSection extends StatelessWidget {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           l10n.walletTokenBalance,
@@ -413,35 +566,56 @@ class _BalanceSection extends StatelessWidget {
                 ?.copyWith(fontFamily: kMonoFontFamily),
           ),
         ),
-        if (showSyncMessage && nodeStatus.hasValue)
-          Padding(
-            padding: EdgeInsets.only(top: spacing.space8),
-            child: Text(
-              l10n.walletSyncInProgress,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        // Data source indicator
-        walletState.when(
-          data: (state) {
-            final balance = state.balance;
-            if (balance.lastUpdated != null) {
+        // Single status line under the balance: while the node is catching up
+        // it reads "Sync in progress…"; once synced it shows the last-checked
+        // time. The two never stack.
+        Builder(
+          builder: (context) {
+            final statusStyle = theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            );
+            if (showSyncMessage && nodeStatus.hasValue) {
+              return Padding(
+                padding: EdgeInsets.only(top: spacing.space4),
+                child: Text(l10n.walletSyncInProgress, style: statusStyle),
+              );
+            }
+            final lastChecked = walletState.valueOrNull?.balance.lastUpdated;
+            if (lastChecked != null) {
               return Padding(
                 padding: EdgeInsets.only(top: spacing.space4),
                 child: Text(
-                  l10n.commonLastCheckedAt(balance.lastUpdatedText),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  l10n.commonLastCheckedAt(
+                    walletState.value!.balance.lastUpdatedText,
                   ),
+                  style: statusStyle,
                 ),
               );
             }
             return const SizedBox.shrink();
           },
-          loading: () => const SizedBox.shrink(),
-          error: (_, __) => const SizedBox.shrink(),
+        ),
+        SizedBox(height: spacing.space16),
+        Row(
+          children: [
+            Expanded(
+              child: Button(
+                label: l10n.walletSend,
+                variant: ButtonVariant.primary,
+                leadingIcon: const Icon(Symbols.north_east_sharp),
+                onTap: onSend,
+              ),
+            ),
+            SizedBox(width: spacing.space8),
+            Expanded(
+              child: Button(
+                label: l10n.walletScan,
+                variant: ButtonVariant.tonal,
+                leadingIcon: const Icon(Symbols.qr_code_scanner_sharp),
+                onTap: onScan,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -566,55 +740,6 @@ class _TransactionTile extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _SpeedDialOption extends StatelessWidget {
-  const _SpeedDialOption({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-    final radii = theme.extension<AppRadii>()!;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          elevation: 2,
-          borderRadius: radii.borderRadiusXSmall,
-          color: theme.colorScheme.surfaceContainerHigh,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: spacing.space8,
-              vertical: spacing.space4,
-            ),
-            child: Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(width: spacing.space12),
-        FloatingActionButton.small(
-          heroTag: label,
-          onPressed: onTap,
-          backgroundColor: theme.colorScheme.secondaryContainer,
-          foregroundColor: theme.colorScheme.onSecondaryContainer,
-          child: Icon(icon),
-        ),
-      ],
     );
   }
 }

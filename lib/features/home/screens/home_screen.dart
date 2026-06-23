@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
@@ -79,6 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final l10n = AppLocalizations.of(context);
     final currentNetwork = ref.watch(currentNetworkProvider);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final index = ref.watch(currentHomeTabProvider);
     final isInternal = currentNetwork == 'internal';
 
@@ -106,6 +108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         semantic,
         index,
         isInternal,
+        isDark,
       ),
     );
   }
@@ -115,6 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     AppSemanticColors semantic,
     int index,
     bool isInternal,
+    bool isDark,
   ) {
     final items = [
       BottomNavItem(
@@ -138,25 +142,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         indicatorColor: semantic.community.color,
         indicatorFillColor: semantic.community.colorContainer,
       ),
-      BottomNavItem(
-        icon: Symbols.check_circle_sharp,
-        label: l10n.navNodeStatus,
-        indicatorShape: NavIndicatorShape.hexagon,
-        indicatorColor: semantic.technical.color,
-        indicatorFillColor: semantic.technical.colorContainer,
-      ),
-      BottomNavItem(
-        icon: Symbols.settings_sharp,
-        label: l10n.navSettings,
-        indicatorShape: NavIndicatorShape.hexagon,
-        indicatorColor: semantic.technical.color,
-        indicatorFillColor: semantic.technical.colorContainer,
-      ),
+      // Node status and Settings moved out of the bottom nav: node is reached
+      // from the Challenges top bar, Settings from the Profile screen
+      // (Fair Rewards shell, #449 / discussion #440).
     ];
 
     Widget bottomNav = BottomNav(
       items: items,
-      selectedIndex: index,
+      // The IndexedStack still hosts node/settings (indices 3-4) for routes,
+      // but they are no longer bottom-nav destinations — clamp so an off-nav
+      // tab index never overflows the slimmed item list.
+      selectedIndex: index.clamp(0, items.length - 1),
       onItemSelected: (i) {
         ref.read(currentHomeTabProvider.notifier).state = i;
       },
@@ -166,10 +162,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (isInternal) {
       bottomNav = DecoratedBox(
         decoration: BoxDecoration(
-          color: semantic.warning.colorSurface,
+          color: LegacyColors.getInternalNetworkBackgroundColor(isDark),
           border: Border(
             top: BorderSide(
-              color: semantic.warning.colorContainer,
+              color: LegacyColors.getInternalNetworkBorderColor(isDark),
             ),
           ),
         ),

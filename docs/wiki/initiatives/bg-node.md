@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-12 ([tracker #378](https://github.com/Usernode-Labs/flutter-mobile-app/issues/378))_
+_Last synced: 2026-06-18 ([tracker #378](https://github.com/Usernode-Labs/flutter-mobile-app/issues/378))_
 
 ## Phase status
 
@@ -46,6 +46,7 @@ _Last synced: 2026-06-12 ([tracker #378](https://github.com/Usernode-Labs/flutte
 
 - #370 Mainnet Maturity Matrix plan
 - #426 Mobile BG block production: consolidate decision-making into a single state machine
+- #432 OEM background-kill mitigation: strategy + Flutter library options
 <!-- auto:end -->
 
 ## Overview

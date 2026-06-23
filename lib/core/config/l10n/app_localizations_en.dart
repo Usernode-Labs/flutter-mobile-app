@@ -467,7 +467,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bgProdSlotSchedulingDesc =>
-      'When you win slots, the app schedules alarms to wake your device ~5 minutes before each slot';
+      'When you win slots, the app schedules alarms to wake your device ~1 minute before each slot';
 
   @override
   String get bgProdBlockProduction => 'Block Production';
@@ -701,6 +701,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodeStatusTitle => 'Node Status';
+
+  @override
+  String get nodeSectionNetwork => 'Network';
+
+  @override
+  String get nodeSectionChainState => 'Chain state';
 
   @override
   String get nodePeerIdCopied => 'Peer ID copied to clipboard';
@@ -1560,6 +1566,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get walletMyAddress => 'My address';
 
   @override
+  String get walletReceive => 'Receive';
+
+  @override
+  String get walletCopyAddress => 'Copy address';
+
+  @override
   String get walletRecipientAddress => 'Recipient address';
 
   @override
@@ -1874,6 +1886,56 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get faqVrfTimingDescription =>
       'Each slot has a ~5-seconds window. If your device doesn\'\'t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"';
+
+  @override
+  String get burstTitle => 'Burst Transactions';
+
+  @override
+  String get burstLabel => 'Burst';
+
+  @override
+  String get burstInsufficientBalance =>
+      'Insufficient balance for burst (need ≥100 tokens)';
+
+  @override
+  String burstProgress(int completed, int total) {
+    return 'Sending $completed/$total...';
+  }
+
+  @override
+  String burstElapsed(String time) {
+    return 'Elapsed: $time';
+  }
+
+  @override
+  String burstFailedCount(int count) {
+    return '$count failed';
+  }
+
+  @override
+  String get burstCancel => 'Cancel';
+
+  @override
+  String get burstSuccessTitle => 'Burst Complete';
+
+  @override
+  String burstSuccessSubtitle(int count, String time) {
+    return '$count transactions sent in $time';
+  }
+
+  @override
+  String get burstFailureTitle => 'Burst Failed';
+
+  @override
+  String get burstMixedTitle => 'Burst Partially Complete';
+
+  @override
+  String burstMixedSubtitle(int succeeded, int failed, String time) {
+    return '$succeeded succeeded, $failed failed in $time';
+  }
+
+  @override
+  String get burstDone => 'Done';
 
   @override
   String get blockAppliedLocally => 'Applied Locally';

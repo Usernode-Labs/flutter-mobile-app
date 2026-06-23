@@ -227,7 +227,7 @@ void main() {
       expect(capturedUri, isNotNull);
       expect(capturedUri!.path, '/api/v2/mobile/me/ranking');
       expect(capturedUri!.queryParameters['participant_id'], '42');
-      expect(capturedUri!.queryParameters['season_id'], '1');
+      expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '5');
     });
 
@@ -302,9 +302,9 @@ void main() {
       );
 
       expect(capturedUri!.path, '/api/v2/mobile/challenges');
-      expect(capturedUri!.queryParameters['season_id'], '1');
+      expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '3');
-      expect(capturedUri!.queryParameters['active_only'], 'true');
+      expect(capturedUri!.queryParameters['active_only'], '1');
     });
 
     test('sends only_scheduled query param when true', () async {
@@ -502,7 +502,7 @@ void main() {
 
       expect(capturedUri!.path, '/api/v2/mobile/me/breakdown');
       expect(capturedUri!.queryParameters['participant_id'], '42');
-      expect(capturedUri!.queryParameters['season_id'], '1');
+      expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '3');
     });
   });

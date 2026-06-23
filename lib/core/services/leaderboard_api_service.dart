@@ -73,8 +73,11 @@ class LeaderboardApiService {
     final params = <String, String>{
       'participant_id': participantId.toString(),
     };
-    if (seasonId != null) params['season_id'] = seasonId.toString();
-    if (eventId != null) params['event_id'] = eventId.toString();
+    if (eventId != null) {
+      params['event_id'] = eventId.toString();
+    } else if (seasonId != null) {
+      params['season_id'] = seasonId.toString();
+    }
 
     final data = await _get('/me/ranking', queryParams: params);
     return RankingResult.fromJson(data as Map<String, dynamic>);
@@ -88,14 +91,19 @@ class LeaderboardApiService {
     bool? onlyScheduled,
   }) async {
     final params = <String, String>{};
-    if (seasonId != null) params['season_id'] = seasonId.toString();
-    if (eventId != null) params['event_id'] = eventId.toString();
+    if (eventId != null) {
+      params['event_id'] = eventId.toString();
+    } else if (seasonId != null) {
+      params['season_id'] = seasonId.toString();
+    }
     // When provided, the server embeds the participant's per-challenge
     // `activities` + `activities_total` in each ChallengeDto.
     if (participantId != null) {
       params['participant_id'] = participantId.toString();
     }
-    if (activeOnly != null) params['active_only'] = activeOnly.toString();
+    if (activeOnly != null) {
+      params['active_only'] = activeOnly ? '1' : '0';
+    }
     if (onlyScheduled == true) {
       params['only_scheduled'] = '1'; // backend expects '1', not 'true'
     }
@@ -132,8 +140,11 @@ class LeaderboardApiService {
       'participant_id': participantId.toString(),
       'include_activity': '1',
     };
-    if (seasonId != null) params['season_id'] = seasonId.toString();
-    if (eventId != null) params['event_id'] = eventId.toString();
+    if (eventId != null) {
+      params['event_id'] = eventId.toString();
+    } else if (seasonId != null) {
+      params['season_id'] = seasonId.toString();
+    }
 
     final data = await _get('/me/breakdown', queryParams: params);
     return BreakdownResult.fromJson(data as Map<String, dynamic>);

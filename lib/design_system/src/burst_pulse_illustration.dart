@@ -10,7 +10,7 @@ enum BurstRingOutcome { succeeded, failed }
 /// Each entry in [rings] emits a ring from the center that expands and fades
 /// over 2.5 seconds. Succeeded rings are solid; failed rings are dashed.
 ///
-/// Presentation-only: the screen builds [rings] from provider state.
+/// Presentation-only — the screen builds [rings] from provider state.
 class BurstPulseIllustration extends StatefulWidget {
   const BurstPulseIllustration({
     super.key,
@@ -38,6 +38,7 @@ class _BurstPulseIllustrationState extends State<BurstPulseIllustration>
   int _totalEmitted = 0;
 
   static const _ringLifetime = 2.5; // seconds
+  // 5 distinct shade steps that cycle, giving adjacent rings different tones.
   static const _shadeSteps = 5;
 
   @override
@@ -98,7 +99,7 @@ class _BurstPulseIllustrationState extends State<BurstPulseIllustration>
     }
     final now = _stopwatch.elapsedMilliseconds / 1000.0;
     final allExpired =
-        _ringStates.every((ring) => (now - ring.birthTime) > _ringLifetime);
+        _ringStates.every((r) => (now - r.birthTime) > _ringLifetime);
     if (allExpired) {
       _stopAnimating();
     }
@@ -126,10 +127,10 @@ class _BurstPulseIllustrationState extends State<BurstPulseIllustration>
       builder: (context, _) {
         final now = _stopwatch.elapsedMilliseconds / 1000.0;
 
-        _ringStates.removeWhere(
-          (ring) => (now - ring.birthTime) > _ringLifetime,
-        );
+        // Prune expired rings.
+        _ringStates.removeWhere((r) => (now - r.birthTime) > _ringLifetime);
 
+        // Check if we should stop after pruning.
         if (!widget.active && _ringStates.isEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _stopAnimating();
@@ -151,6 +152,8 @@ class _BurstPulseIllustrationState extends State<BurstPulseIllustration>
   }
 }
 
+// ── Ring State ────────────────────────────────────────────────────────────────
+
 class _RingState {
   const _RingState({
     required this.birthTime,
@@ -161,9 +164,12 @@ class _RingState {
   final double birthTime;
   final BurstRingOutcome outcome;
 
-  /// 0.0-1.0 value used to lerp between lineColor and dimColor.
+  /// 0.0–1.0 value used to lerp between lineColor and dimColor, giving each
+  /// ring a unique grey tone.
   final double shade;
 }
+
+// ── Painter ──────────────────────────────────────────────────────────────────
 
 class _BurstPulsePainter extends CustomPainter {
   const _BurstPulsePainter({
@@ -184,24 +190,27 @@ class _BurstPulsePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scale = _scale(size);
+    final s = _scale(size);
     final center = Offset(size.width / 2, size.height / 2);
 
+    // Center dot.
     canvas.drawCircle(
       center,
-      2 * scale,
+      2 * s,
       Paint()..color = lineColor,
     );
 
+    // Rings.
     for (final ring in rings) {
       final age = now - ring.birthTime;
       if (age < 0 || age > ringLifetime) continue;
 
       final t = age / ringLifetime;
-      final radius = 48 * Curves.easeOut.transform(t) * scale;
+      final radius = 48 * Curves.easeOut.transform(t) * s;
       final opacity = 0.8 * (1.0 - Curves.easeIn.transform(t));
       if (opacity <= 0 || radius <= 0) continue;
 
+      // Lerp between lineColor and dimColor for shade variety.
       final baseColor = Color.lerp(lineColor, dimColor, ring.shade)!;
 
       if (ring.outcome == BurstRingOutcome.succeeded) {
@@ -224,8 +233,8 @@ class _BurstPulsePainter extends CustomPainter {
             ..color = failColor.withValues(alpha: opacity)
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1,
-          dash: 4 * scale,
-          gap: 4 * scale,
+          dash: 4 * s,
+          gap: 4 * s,
         );
       }
     }

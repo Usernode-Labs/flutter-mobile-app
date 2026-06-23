@@ -10,7 +10,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
-import 'package:crypto_mobile_app/core/widgets/app_drawer.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
@@ -34,7 +34,6 @@ class NodeStatusScreen extends ConsumerStatefulWidget {
 }
 
 class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
-  final _scrollFraction = ValueNotifier<double>(0.0);
   final _appSleepService = AppSleepService.instance;
 
   // State flags
@@ -83,7 +82,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   @override
   void dispose() {
     _appSleepService.removeListener(_handleAppSleepChanged);
-    _scrollFraction.dispose();
     _autoTimer?.cancel();
     super.dispose();
   }
@@ -241,31 +239,84 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final spacing = theme.extension<AppSpacing>()!;
+    final sizing = theme.extension<AppSizing>()!;
     final l10n = AppLocalizations.of(context);
+    // Non-row content is inset to space16; ListTiles get the same inset from
+    // the theme's contentPadding, so rows align with headers at the page edge.
+    final hPad = EdgeInsets.symmetric(horizontal: spacing.space16);
+    // Pushed detail (from the Challenges/Wallet/dApps top bar) → back. When
+    // embedded as a root tab, keep the title aligned to the page keyline
+    // without exposing the old build-info drawer.
+    final canPop = context.canPop();
 
+    // Detail pattern (mirrors the `NodeSyncDetailPage` prototype): a flat white
+    // surface with a raw SliverAppBar, no parallax header or card containers —
+    // content sits directly on white, grouped only by section headers.
     return Scaffold(
-      drawer: const AppDrawer(),
-      body: ParallaxSurfaceLayout(
-        headerHeight: kScreenHeaderHeight,
-        scrollFractionNotifier: _scrollFraction,
+      backgroundColor: colorScheme.surfaceContainerLowest,
+      body: RefreshIndicator(
         onRefresh: _refresh,
-        title: l10n.nodeStatusTitle,
-        header: _buildCentralStatusIndicator(context),
-        surfaceSlivers: [
-          if (_error != null)
-            SliverToBoxAdapter(
-                child: _buildErrorSection(theme, colorScheme, l10n)),
-          SliverPadding(
-            padding: EdgeInsets.symmetric(horizontal: spacing.space24),
-            sliver: SliverToBoxAdapter(
-                child: _buildBlockSyncProgressSection(context)),
-          ),
-          SliverToBoxAdapter(child: _buildSyncDetailsSection(context)),
-          SliverToBoxAdapter(child: SizedBox(height: spacing.space32)),
-        ],
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: false,
+              backgroundColor: colorScheme.surfaceContainerLowest,
+              foregroundColor: colorScheme.onSurface,
+              surfaceTintColor: Colors.transparent,
+              scrolledUnderElevation: 0,
+              toolbarHeight: sizing.iconContainerXLarge,
+              leadingWidth: canPop ? null : spacing.space16,
+              leading: canPop
+                  ? IconButton(
+                      tooltip: 'Back',
+                      onPressed: () => context.pop(),
+                      icon: Icon(
+                        Symbols.arrow_back_sharp,
+                        size: sizing.iconRegular,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+              titleSpacing: 0,
+              title: Text(
+                l10n.nodeStatusTitle,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SliverList.list(
+              children: [
+                if (_error != null) ...[
+                  SizedBox(height: spacing.space16),
+                  Padding(
+                    padding: hPad,
+                    child: _buildErrorSection(theme, colorScheme, l10n),
+                  ),
+                ],
+                SizedBox(height: spacing.space24),
+                Padding(
+                  padding: hPad,
+                  child: _buildCentralStatusIndicator(context),
+                ),
+                SizedBox(height: spacing.space32),
+                Padding(
+                  padding: hPad,
+                  child: AppCard(
+                    bordered: true,
+                    color: colorScheme.surfaceContainerLowest,
+                    child: _buildBlockSyncProgressSection(context),
+                  ),
+                ),
+                SizedBox(height: spacing.space24),
+                _buildSyncDetailsSection(context),
+                SizedBox(height: spacing.space32),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -311,34 +362,36 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      spacing: spacing.space12,
       children: [
-        // Large circular indicator
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            color: circleBg,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(statusIcon, size: sizing.iconDisplay, color: circleIcon),
+        // Status hero — semantic-toned badge (prototype parity).
+        IconBadge(
+          icon: statusIcon,
+          size: sizing.iconContainerXLarge,
+          surfaceSize: sizing.iconContainerXLarge,
+          backgroundColor: circleBg,
+          iconColor: circleIcon,
         ),
-        SizedBox(height: spacing.space16),
-        // Status text
         Text(
           statusLabel,
           style: theme.textTheme.displaySmall
               ?.copyWith(fontFamily: kMonoFontFamily),
+          textAlign: TextAlign.center,
         ),
-        SizedBox(height: spacing.space8),
         // Chain name with copy functionality
-        if (_chainName != null && _chainName!.isNotEmpty) ...[
+        if (_chainName != null && _chainName!.isNotEmpty)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                _chainName!,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: colorScheme.onSurfaceVariant),
+              Flexible(
+                child: Text(
+                  _chainName!,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: colorScheme.onSurfaceVariant),
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
               ),
               _buildCopyButton(
                 text: _chainId ?? '',
@@ -347,15 +400,12 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
               ),
             ],
           ),
-        ],
-        Align(
-          alignment: Alignment.center,
-          child: Text(
-            _formatLastChecked(),
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+        Text(
+          _formatLastChecked(),
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
@@ -453,53 +503,51 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
 
     final sizing = theme.extension<AppSizing>()!;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: spacing.space16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: sizing.iconContainerRegular, // 48px content slot
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  sync?.isConnecting == true || sync == null
-                      ? displayText
-                      : displayText == l10n.nodeLoadedGenesis
-                          ? displayText
-                          : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
-                  style: theme.textTheme.titleMedium,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: sizing.iconContainerRegular, // 48px content slot
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                sync?.isConnecting == true || sync == null
+                    ? displayText
+                    : displayText == l10n.nodeLoadedGenesis
+                        ? displayText
+                        : '$displayText $displayCurrentBlocks/$displayTotalBlocks',
+                style: theme.textTheme.titleMedium,
+              ),
+              Text(
+                '$progressPercent%',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-                Text(
-                  '$progressPercent%',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          AppProgressBar(
-            value: mainProgress,
-            backgroundColor: colorScheme.surfaceContainerHighest,
-            valueColor: colorScheme.primary,
-            height: spacing.space8,
+        ),
+        AppProgressBar(
+          value: mainProgress,
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          valueColor: colorScheme.primary,
+          height: spacing.space8,
+        ),
+        SizedBox(height: spacing.space4),
+        Text(
+          l10n.nodeFetchApplyProgress(fetchPct.round(), applyPct.round()),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colorScheme.onSurfaceVariant,
           ),
-          SizedBox(height: spacing.space4),
-          Text(
-            l10n.nodeFetchApplyProgress(fetchPct.round(), applyPct.round()),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildSyncDetailsSection(BuildContext context) {
     final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
 
     final status = ref.read(nodeStatusProvider).valueOrNull;
@@ -507,89 +555,134 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     final displayBestTip = status?.networkBest ?? status?.localBest;
     final bestTipHash = displayBestTip?.hash.toString() ?? '';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // --- Navigable rows ---
-        ListTile(
-          leading: const IconBadge(icon: Symbols.hub_sharp),
-          title: Text(l10n.nodePeers),
-          subtitle: _buildPeersSubtitle(),
-          trailing: TextChevronTrailing(
-            text: '${status?.connectedPeers ?? 0}',
-          ),
-          onTap: _navigateToPeers,
-        ),
-        ListTile(
-          leading: const IconBadge(icon: Symbols.collections_bookmark_sharp),
-          title: _buildEpochTitle(),
-          subtitle: _buildEpochSubtitle(),
-          trailing: TextChevronTrailing(
-            text: _buildEpochTrailingText(),
-          ),
-          onTap: () {
-            final epoch =
-                ref.read(nodeStatusProvider).valueOrNull?.currentEpoch ?? 0;
-            context.push(
-              AppRoutes.epochPerformance,
-              extra: {'initialEpoch': epoch},
-            );
-          },
-        ),
-        ListTile(
-          leading: const IconBadge(icon: Symbols.account_tree_sharp),
-          title: Text(l10n.nodeMempool),
-          subtitle: _buildMempoolSubtitle(),
-          trailing: TextChevronTrailing(
-            text:
-                '${ref.read(nodeMempoolProvider).valueOrNull?.count.toInt() ?? 0}',
-          ),
-          onTap: () => context.push(AppRoutes.mainNodeMempool),
-        ),
+    // White nested page → lists need a discrete surface. White-on-white, so
+    // each section is a bordered AppCard (outlineVariant) with the section
+    // header above it. Rows keep their theme contentPadding; the card owns the
+    // vertical inset (space8) per the List Surface Vertical Inset rule.
+    final hPad = EdgeInsets.symmetric(horizontal: spacing.space16);
+    final tileInset = EdgeInsets.symmetric(vertical: spacing.space8);
 
-        // --- Reference/status rows ---
-        ListTile(
-          leading: const IconBadge(icon: Symbols.casino_sharp),
-          title: Text(l10n.nodeVrf),
-          subtitle: Text(vrf != null
-              ? l10n.nodeVrfEvaluated(vrf.details?.evaluatedCurrentEpoch ?? 0,
-                  status?.slotsInEpoch ?? 0)
-              : l10n.nodeVrfEvaluatedNA),
-          trailing: StatusTextTrailing(
-            text: vrf != null
-                ? _mapVrfEvaluationLabel(vrf.currentEpochVrfEvaluationStatus)
-                : l10n.nodeNotAvailable,
-            variant:
-                _vrfEvaluationVariant(vrf?.currentEpochVrfEvaluationStatus),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: hPad,
+          child: ListSectionHeader(title: l10n.nodeSectionNetwork),
         ),
-        ListTile(
-          leading: const IconBadge(icon: Symbols.tag_sharp),
-          title: Text(l10n.nodeBestTip),
-          subtitle: Text(
-            bestTipHash.isNotEmpty
-                ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
-                : l10n.nodeNotAvailable,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontFamily: kMonoFontFamily,
+        Padding(
+          padding: hPad,
+          child: AppCard(
+            bordered: true,
+            color: theme.colorScheme.surfaceContainerLowest,
+            padding: tileInset,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const IconBadge(icon: Symbols.hub_sharp),
+                  title: Text(l10n.nodePeers),
+                  subtitle: _buildPeersSubtitle(),
+                  trailing: TextChevronTrailing(
+                    text: '${status?.connectedPeers ?? 0}',
+                  ),
+                  onTap: _navigateToPeers,
+                ),
+                ListTile(
+                  leading:
+                      const IconBadge(icon: Symbols.collections_bookmark_sharp),
+                  title: _buildEpochTitle(),
+                  subtitle: _buildEpochSubtitle(),
+                  trailing: TextChevronTrailing(
+                    text: _buildEpochTrailingText(),
+                  ),
+                  onTap: () {
+                    final epoch = ref
+                            .read(nodeStatusProvider)
+                            .valueOrNull
+                            ?.currentEpoch ??
+                        0;
+                    context.push(
+                      AppRoutes.epochPerformance,
+                      extra: {'initialEpoch': epoch},
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const IconBadge(icon: Symbols.account_tree_sharp),
+                  title: Text(l10n.nodeMempool),
+                  subtitle: _buildMempoolSubtitle(),
+                  trailing: TextChevronTrailing(
+                    text:
+                        '${ref.read(nodeMempoolProvider).valueOrNull?.count.toInt() ?? 0}',
+                  ),
+                  onTap: () => context.push(AppRoutes.mainNodeMempool),
+                ),
+              ],
             ),
           ),
-          trailing: StatusTextTrailing(
-            text: bestTipHash.isNotEmpty
-                ? l10n.nodeSynced
-                : l10n.nodeNotAvailable,
-            variant: bestTipHash.isNotEmpty
-                ? StatusBadgeVariant.success
-                : StatusBadgeVariant.neutral,
+        ),
+        SizedBox(height: spacing.space24),
+        Padding(
+          padding: hPad,
+          child: ListSectionHeader(title: l10n.nodeSectionChainState),
+        ),
+        Padding(
+          padding: hPad,
+          child: AppCard(
+            bordered: true,
+            color: theme.colorScheme.surfaceContainerLowest,
+            padding: tileInset,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const IconBadge(icon: Symbols.casino_sharp),
+                  title: Text(l10n.nodeVrf),
+                  subtitle: Text(vrf != null
+                      ? l10n.nodeVrfEvaluated(
+                          vrf.details?.evaluatedCurrentEpoch ?? 0,
+                          status?.slotsInEpoch ?? 0)
+                      : l10n.nodeVrfEvaluatedNA),
+                  trailing: StatusTextTrailing(
+                    text: vrf != null
+                        ? _mapVrfEvaluationLabel(
+                            vrf.currentEpochVrfEvaluationStatus)
+                        : l10n.nodeNotAvailable,
+                    variant: _vrfEvaluationVariant(
+                        vrf?.currentEpochVrfEvaluationStatus),
+                  ),
+                ),
+                ListTile(
+                  leading: const IconBadge(icon: Symbols.tag_sharp),
+                  title: Text(l10n.nodeBestTip),
+                  subtitle: Text(
+                    bestTipHash.isNotEmpty
+                        ? Utils.shortenID(bestTipHash, head: 8, tail: 6)
+                        : l10n.nodeNotAvailable,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontFamily: kMonoFontFamily,
+                    ),
+                  ),
+                  trailing: StatusTextTrailing(
+                    text: bestTipHash.isNotEmpty
+                        ? l10n.nodeSynced
+                        : l10n.nodeNotAvailable,
+                    variant: bestTipHash.isNotEmpty
+                        ? StatusBadgeVariant.success
+                        : StatusBadgeVariant.neutral,
+                  ),
+                  onTap: bestTipHash.isNotEmpty
+                      ? () {
+                          Clipboard.setData(ClipboardData(text: bestTipHash));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l10n.nodeBestTipCopied)),
+                          );
+                        }
+                      : null,
+                ),
+              ],
+            ),
           ),
-          onTap: bestTipHash.isNotEmpty
-              ? () {
-                  Clipboard.setData(ClipboardData(text: bestTipHash));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.nodeBestTipCopied)),
-                  );
-                }
-              : null,
         ),
       ],
     );

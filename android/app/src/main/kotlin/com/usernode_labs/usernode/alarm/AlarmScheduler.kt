@@ -22,6 +22,7 @@ class AlarmScheduler(
         private const val SCHEDULED_ALARMS_KEY = "scheduled_alarms"
         private const val SCHEDULED_CHANNEL_ID = "slot_alarm_scheduled"
         private const val SCHEDULED_CHANNEL_NAME = "Scheduled Slot Alarms"
+        private const val SCHEDULED_NOTIFICATION_ID = 1002
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -137,7 +138,7 @@ class AlarmScheduler(
             )
             Log.d(TAG, "[AlarmScheduler] Alarm saved to SharedPreferences")
 
-            showScheduledNotification(alarmId, globalSlot, triggerAtMs)
+            showScheduledNotification(globalSlot, triggerAtMs)
 
             Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for global slot $globalSlot at $triggerAtMs (in ${effectiveDelayMs/1000}s)")
             return true
@@ -276,7 +277,6 @@ class AlarmScheduler(
     }
 
     private fun showScheduledNotification(
-        alarmId: String,
         globalSlot: Int,
         alarmTimeMs: Long
     ) {
@@ -306,7 +306,7 @@ class AlarmScheduler(
                 .setAutoCancel(true)
                 .build()
 
-            nm.notify(alarmId.hashCode(), notification)
+            nm.notify(SCHEDULED_NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.w(TAG, "[AlarmScheduler] Failed to show scheduled notification", e)
         }

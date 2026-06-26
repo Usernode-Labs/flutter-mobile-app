@@ -242,6 +242,9 @@ class ChallengeDto {
   final String? scheduleEnd;
   final bool enabled;
   final bool completed;
+  final int displayOrder;
+  final bool featured;
+  final int? featuredOrder;
   final String? subCategory;
 
   /// Optional structured CTA/verification source (backend `source{}` shape:
@@ -279,6 +282,9 @@ class ChallengeDto {
     this.scheduleEnd,
     required this.enabled,
     required this.completed,
+    this.displayOrder = 0,
+    this.featured = false,
+    this.featuredOrder,
     this.subCategory,
     this.source,
     this.metric,
@@ -329,6 +335,9 @@ class ChallengeDto {
       scheduleEnd: json['schedule_end'] as String?,
       enabled: json['enabled'] as bool? ?? false,
       completed: json['completed'] as bool? ?? false,
+      displayOrder: _jsonIntN(json['display_order']) ?? 0,
+      featured: json['featured'] as bool? ?? false,
+      featuredOrder: _jsonIntN(json['featured_order']),
       subCategory: json['sub_category'] as String?,
       source: json['source'] is Map<String, dynamic>
           ? ChallengeSource.fromJson(json['source'] as Map<String, dynamic>)
@@ -364,6 +373,9 @@ class ChallengeDto {
         if (scheduleEnd != null) 'schedule_end': scheduleEnd,
         'enabled': enabled,
         'completed': completed,
+        'display_order': displayOrder,
+        'featured': featured,
+        if (featuredOrder != null) 'featured_order': featuredOrder,
         if (subCategory != null) 'sub_category': subCategory,
         if (source != null) 'source': source!.toJson(),
         if (metric != null) 'metric': metric!.toJson(),

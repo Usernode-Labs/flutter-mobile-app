@@ -209,6 +209,9 @@ void main() {
         'schedule_end': '2025-02-01',
         'enabled': true,
         'completed': false,
+        'display_order': 12,
+        'featured': true,
+        'featured_order': 3,
       });
       expect(c.id, 7);
       expect(c.eventId, 2);
@@ -224,6 +227,9 @@ void main() {
       expect(c.ctaType, CtaType.url);
       expect(c.enabled, true);
       expect(c.completed, false);
+      expect(c.displayOrder, 12);
+      expect(c.featured, true);
+      expect(c.featuredOrder, 3);
     });
 
     test('fromJson handles nullable fields', () {
@@ -248,6 +254,9 @@ void main() {
       expect(c.scheduleStart, isNull);
       expect(c.scheduleEnd, isNull);
       expect(c.completed, true);
+      expect(c.displayOrder, 0);
+      expect(c.featured, false);
+      expect(c.featuredOrder, isNull);
     });
 
     test('fromJson parses final mobile challenge shape', () {
@@ -268,6 +277,9 @@ void main() {
         },
         'enabled': true,
         'completed': false,
+        'display_order': 4,
+        'featured': true,
+        'featured_order': 1,
         'activities': [
           {
             'activity_id': 99,
@@ -290,6 +302,9 @@ void main() {
       expect(c.activities, hasLength(1));
       expect(c.activities.single.points, 25);
       expect(c.activitiesTotal, 25);
+      expect(c.displayOrder, 4);
+      expect(c.featured, true);
+      expect(c.featuredOrder, 1);
     });
 
     test('fromJson preserves unknown metric kind', () {

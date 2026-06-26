@@ -432,9 +432,7 @@ class PlatformAlarmService {
   void setNativeEventCallback(NativeEventCallback callback) {
     _onNativeEvent = callback;
     _log.debug('Native event callback registered');
-    if (Platform.isAndroid) {
-      unawaited(_markFlutterReadyForAlarmEvents());
-    }
+    // AppBootstrap marks native events ready only after RustLib.init() completes.
   }
 
   /// Handle alarm rescheduling after device reboot
@@ -458,7 +456,9 @@ class PlatformAlarmService {
     }
   }
 
-  Future<void> _markFlutterReadyForAlarmEvents() async {
+  Future<void> markReadyForNativeEvents() async {
+    if (!Platform.isAndroid) return;
+
     try {
       await _channel.invokeMethod<bool>('markFlutterReadyForAlarmEvents');
       _log.debug('Marked Flutter alarm channel ready on native side');

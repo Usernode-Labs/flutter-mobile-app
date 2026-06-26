@@ -51,30 +51,6 @@ class SlotMonitoringService : Service() {
             Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
 
             startMonitoring(0, false)
-            val firedAtMs = System.currentTimeMillis()
-
-            val eventData = mapOf(
-                "alarmId" to "slot_monitoring_null_intent",
-                "slotNumber" to 0,
-                "firedAtMs" to firedAtMs,
-                "batteryLevel" to 0,
-                "networkState" to "unknown",
-                "nodeRunning" to false
-            )
-
-            // Enforce a single-engine policy:
-            // - If the UI engine/channel exists, deliver the event through it (no headless engine).
-            // - Otherwise, spin up the headless engine to deliver the alarm event.
-            val handler = AlarmMethodChannelHandler.getInstance()
-            if (handler != null && handler.isActivityAttached()) {
-                handler.sendEventToFlutter("android_alarm_fired", eventData)
-            } else {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_alarm_fired",
-                    eventData
-                )
-            }
             return START_STICKY
         }
 
@@ -84,60 +60,11 @@ class SlotMonitoringService : Service() {
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
                 val alarmTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
-                val nativeScheduledAtMs = optionalLongExtra(intent, "nativeScheduledAtMs")
-                val scheduledElapsedRealtimeMs = optionalLongExtra(intent, "scheduledElapsedRealtimeMs")
-                val nativeTriggerAtMs = optionalLongExtra(intent, "nativeTriggerAtMs")
-                val triggerElapsedRealtimeMs = optionalLongExtra(intent, "triggerElapsedRealtimeMs")
-                val receiverElapsedRealtimeMs = optionalLongExtra(intent, "receiverElapsedRealtimeMs")
-                val nativeDeliveryLatencyMs = optionalLongExtra(intent, "nativeDeliveryLatencyMs")
-                val elapsedDeliveryLatencyMs = optionalLongExtra(intent, "elapsedDeliveryLatencyMs")
-                val reason = intent.getStringExtra("reason")
-                val purpose = intent.getStringExtra("purpose")
                 Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
                 // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
                 val safeSlot = if (slotNumber != -1) slotNumber else 0
-                val globalSlot = optionalLongExtra(intent, "globalSlot")
-                    ?: optionalLongExtra(intent, "global_slot")
-                    ?: safeSlot.takeIf { it > 0 }?.toLong()
                 startMonitoring(safeSlot, nodeRunning, alarmTimeMs)
-                val firedAtMs = System.currentTimeMillis()
-                val latencyMs = if (alarmTimeMs > 0) firedAtMs - alarmTimeMs else 0L
-
-                val eventData = mutableMapOf<String, Any?>(
-                    "alarmId" to (alarmId ?: "unknown"),
-                    "slotNumber" to safeSlot,
-                    "alarmTimeMs" to alarmTimeMs,
-                    "firedAtMs" to firedAtMs,
-                    "latencyMs" to latencyMs,
-                    "batteryLevel" to 0,
-                    "networkState" to "unknown",
-                    "nodeRunning" to nodeRunning
-                )
-                nativeScheduledAtMs?.let { eventData["nativeScheduledAtMs"] = it }
-                scheduledElapsedRealtimeMs?.let { eventData["scheduledElapsedRealtimeMs"] = it }
-                nativeTriggerAtMs?.let { eventData["nativeTriggerAtMs"] = it }
-                triggerElapsedRealtimeMs?.let { eventData["triggerElapsedRealtimeMs"] = it }
-                receiverElapsedRealtimeMs?.let { eventData["receiverElapsedRealtimeMs"] = it }
-                nativeDeliveryLatencyMs?.let { eventData["nativeDeliveryLatencyMs"] = it }
-                elapsedDeliveryLatencyMs?.let { eventData["elapsedDeliveryLatencyMs"] = it }
-                globalSlot?.let { eventData["globalSlot"] = it }
-                reason?.let { eventData["reason"] = it }
-                purpose?.let { eventData["purpose"] = it }
-
-                // Enforce a single-engine policy:
-                // - If the UI engine/channel exists, deliver the event through it (no headless engine).
-                // - Otherwise, spin up the headless engine to deliver the alarm event.
-                val handler = AlarmMethodChannelHandler.getInstance()
-                if (handler != null && handler.isActivityAttached()) {
-                    handler.sendEventToFlutter("android_alarm_fired", eventData)
-                } else {
-                    BackgroundAlarmEngine.sendAlarmEvent(
-                        applicationContext,
-                        "android_alarm_fired",
-                        eventData
-                    )
-                }
             }
             ACTION_STOP_MONITORING -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_MONITORING action received")
@@ -275,19 +202,6 @@ class SlotMonitoringService : Service() {
             isPersistentMode = false
             isPersistentModeActive = false
         }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun optionalLongExtra(intent: Intent, key: String): Long? {
-        if (!intent.hasExtra(key)) return null
-        val value = intent.extras?.get(key) ?: return null
-        return when (value) {
-            is Int -> value.toLong()
-            is Long -> value
-            is Number -> value.toLong()
-            is String -> value.toLongOrNull()
-            else -> null
-        }?.takeIf { it > 0 }
     }
 
     private fun stopPersistentMode() {

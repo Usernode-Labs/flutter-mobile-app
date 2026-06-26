@@ -4,16 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
-import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 
 class _MockRankingController extends RankingController {
@@ -43,6 +40,63 @@ class _MockLeaderboardController extends LeaderboardController {
   Future<void> silentRefresh() async {}
 }
 
+class _MockProfileHistoryService extends LeaderboardApiService {
+  @override
+  Future<List<ChallengeDto>> getChallenges({
+    int? seasonId,
+    int? eventId,
+    int? participantId,
+    bool? activeOnly,
+    bool? onlyScheduled,
+  }) async =>
+      const [_completedChallenge, _completedProduceBlocksChallenge];
+
+  @override
+  Future<BreakdownResult> getBreakdown({
+    required int participantId,
+    int? seasonId,
+    int? eventId,
+  }) async =>
+      const BreakdownResult(
+        scope: 'global',
+        displayName: 'Participant 1',
+        totalPoints: 3000,
+        offchainPoints: 3000,
+        globalSeasons: [
+          SeasonBreakdown(
+            seasonId: 1,
+            seasonName: 'Season 1',
+            totalPoints: 3000,
+            offchainPoints: 3000,
+            events: [
+              EventBreakdown(
+                eventId: 1,
+                eventName: 'Phase 1',
+                totalPoints: 3000,
+                offchainPoints: 3000,
+                successRate: 56.56,
+                challengeProgress: [
+                  ChallengeProgress(
+                    challengeId: 201,
+                    state: ChallengeProgressState.none,
+                    earnedPoints: 3000,
+                  ),
+                  ChallengeProgress(
+                    challengeId: 301,
+                    state: ChallengeProgressState.none,
+                    earnedPoints: 2828,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+  @override
+  void dispose() {}
+}
+
 const _completedChallenge = ChallengeDto(
   id: 201,
   eventId: 1,
@@ -52,9 +106,24 @@ const _completedChallenge = ChallengeDto(
   task: 'Help other members all season.',
   reward: '3000',
   enabled: true,
-  completed: true,
+  completed: false,
   scheduleStart: '2026-01-01T00:00:00Z',
-  scheduleEnd: '2026-02-01T00:00:00Z',
+  scheduleEnd: '2026-12-01T00:00:00Z',
+);
+
+const _completedProduceBlocksChallenge = ChallengeDto(
+  id: 301,
+  eventId: 1,
+  eventName: 'Phase 1',
+  subCategory: 'PRODUCE_BLOCKS_CHALLENGE',
+  category: 'technical',
+  goal: 'Produce Every Block - June 2026',
+  task: 'Stay connected to produce assigned blocks.',
+  reward: 'Up to 6,500 pts',
+  enabled: true,
+  completed: false,
+  scheduleStart: '2026-01-01T00:00:00Z',
+  scheduleEnd: '2026-12-01T00:00:00Z',
 );
 
 Widget _app() {
@@ -72,6 +141,9 @@ Widget _app() {
             seasonName: 'Season 1',
           ),
         ),
+      ),
+      leaderboardApiServiceProvider.overrideWithValue(
+        _MockProfileHistoryService(),
       ),
       breakdownProvider.overrideWith(
         () => _MockBreakdownController(
@@ -123,13 +195,6 @@ Widget _app() {
           ),
         ),
       ),
-      categorizedChallengesProvider.overrideWithValue(
-        const CategorizedEnrichedChallenges(
-          active: [],
-          completed: [EnrichedChallenge(dto: _completedChallenge)],
-          missed: [],
-        ),
-      ),
       participantIdProvider.overrideWith((ref) async => 1),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
       seasonEventContextProvider.overrideWith(
@@ -154,7 +219,8 @@ void main() {
   testWidgets('Profile shows score, tabs and completed challenge',
       (tester) async {
     await tester.pumpWidget(_app());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
 
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('8,000'), findsOneWidget); // score
@@ -163,14 +229,21 @@ void main() {
     expect(find.text('Leaderboard'), findsOneWidget);
     expect(find.text('Community Sprint'), findsOneWidget);
     expect(find.text('completed 3,000 pts'), findsOneWidget);
+    expect(find.text('Produce Every Block - June 2026'), findsOneWidget);
+    expect(find.text('57% success'), findsOneWidget);
+    expect(find.text('Earned 2,828 pts'), findsOneWidget);
+    expect(find.text('Not done'), findsNothing);
+    expect(find.byType(OngoingRailFrame), findsNothing);
   });
 
   testWidgets('Leaderboard tab shows ranked entries', (tester) async {
     await tester.pumpWidget(_app());
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
 
     await tester.tap(find.text('Leaderboard'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
 
     expect(find.text('node-alpha'), findsOneWidget);
     expect(find.text('18,420 pts'), findsOneWidget);

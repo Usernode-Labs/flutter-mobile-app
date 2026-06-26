@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:widgetbook/widgetbook.dart';
 
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/profile/widgets/profile_leaderboard_list.dart';
 
 part 'testnet_profile_page.stories.g.dart';
 
@@ -216,7 +217,18 @@ class TestnetProfilePageDemo extends StatelessWidget {
                         _CompletedChallengesTab(
                           challenges: completedChallenges,
                         ),
-                        _LeaderboardTab(entries: rankingEntries),
+                        ProfileLeaderboardList(
+                          entries: [
+                            for (final entry in rankingEntries)
+                              ProfileLeaderboardEntryData(
+                                rank: entry.rank,
+                                name: entry.name,
+                                points: entry.points,
+                                isCurrentUser: entry.isCurrentUser,
+                              ),
+                          ],
+                          emptyLabel: 'Leaderboard unavailable.',
+                        ),
                       ],
                     ),
                   ),
@@ -292,81 +304,6 @@ class _CompletedChallengesTab extends StatelessWidget {
           onTap: () {},
         );
       },
-    );
-  }
-}
-
-class _LeaderboardTab extends StatelessWidget {
-  const _LeaderboardTab({required this.entries});
-
-  final List<TestnetProfileRankingEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-
-    return ListView.separated(
-      padding: EdgeInsets.symmetric(
-        horizontal: spacing.space16,
-        vertical: spacing.space12,
-      ),
-      itemCount: entries.length,
-      separatorBuilder: (_, __) => SizedBox(height: spacing.space4),
-      itemBuilder: (context, index) {
-        return _LeaderboardRow(entry: entries[index]);
-      },
-    );
-  }
-}
-
-class _LeaderboardRow extends StatelessWidget {
-  const _LeaderboardRow({required this.entry});
-
-  final TestnetProfileRankingEntry entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final opacity = Theme.of(context).extension<AppOpacity>()!;
-    final textTheme = Theme.of(context).textTheme;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: entry.isCurrentUser
-            ? colors.primaryContainer.withValues(alpha: opacity.strong)
-            : Colors.transparent,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: spacing.space16,
-          vertical: spacing.space8,
-        ),
-        child: Row(
-          children: [
-            RankBadge(rank: entry.rank),
-            SizedBox(width: spacing.space16),
-            Expanded(
-              child: Text(
-                entry.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.titleMedium,
-              ),
-            ),
-            SizedBox(width: spacing.space16),
-            Text(
-              entry.points,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: textTheme.titleMedium,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

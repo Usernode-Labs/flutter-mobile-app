@@ -4,15 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/profile_completed_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
+import 'package:crypto_mobile_app/features/profile/widgets/profile_leaderboard_list.dart';
 
 /// "What I earned" surface (#440): points + rank summary over completed
 /// challenges and the season leaderboard, with Settings reached from the app
@@ -39,18 +40,19 @@ class ProfileScreen extends ConsumerWidget {
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
     final rankLabel = ranking != null ? 'Rank ${ranking.rank}' : null;
 
-    final completed = ref.watch(
-          categorizedChallengesProvider.select((c) => c?.completed),
-        ) ??
-        const <EnrichedChallenge>[];
-    final breakdown = ref.watch(
-      breakdownProvider.select((s) => s.valueOrNull),
+    final completedHistory = ref.watch(
+      profileCompletedChallengesProvider.select((s) => s.valueOrNull),
     );
+    final completed =
+        completedHistory?.completed ?? const <EnrichedChallenge>[];
+    final completedBreakdown = completedHistory?.breakdown;
 
     final entries = ref.watch(
           leaderboardProvider.select((s) => s.valueOrNull?.allEntries),
         ) ??
         const <LeaderboardEntry>[];
+    final currentParticipantId =
+        ref.watch(participantIdProvider.select((p) => p.valueOrNull));
 
     return Scaffold(
       backgroundColor: colors.surfaceContainerLowest,
@@ -95,9 +97,23 @@ class ProfileScreen extends ConsumerWidget {
                       children: [
                         _CompletedChallengesTab(
                           challenges: completed,
-                          breakdown: breakdown,
+                          breakdown: completedBreakdown,
                         ),
-                        _LeaderboardTab(entries: entries),
+                        ProfileLeaderboardList(
+                          entries: [
+                            for (final entry in entries)
+                              ProfileLeaderboardEntryData(
+                                rank: '${entry.rank}',
+                                name: entry.displayName ??
+                                    'Participant ${entry.participantId}',
+                                points:
+                                    '${formatPoints(entry.totalPoints)} pts',
+                                isCurrentUser:
+                                    entry.participantId == currentParticipantId,
+                              ),
+                          ],
+                          emptyLabel: 'Leaderboard unavailable.',
+                        ),
                       ],
                     ),
                   ),
@@ -144,9 +160,15 @@ class _CompletedChallengesTab extends StatelessWidget {
       itemCount: challenges.length,
       separatorBuilder: (_, __) => SizedBox(height: spacing.space8),
       itemBuilder: (context, index) {
+        final challenge = challenges[index];
+        final progress = _profileCompletedProgress(challenge, breakdown);
         final card = mapToAtomicCard(
-          challenges[index],
-          progress: breakdown?.progressForChallenge(challenges[index].dto),
+          challenge,
+          progress: progress,
+          technicalSuccessRate: _profileTechnicalSuccessRate(
+            challenge,
+            breakdown,
+          ),
         );
         return AtomicChallengeCard(
           title: card.title,
@@ -163,92 +185,53 @@ class _CompletedChallengesTab extends StatelessWidget {
   }
 }
 
-class _LeaderboardTab extends StatelessWidget {
-  const _LeaderboardTab({required this.entries});
-
-  final List<LeaderboardEntry> entries;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final textTheme = Theme.of(context).textTheme;
-
-    if (entries.isEmpty) {
-      return Center(
-        child: Text(
-          'Leaderboard unavailable.',
-          style: textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: EdgeInsets.symmetric(
-        horizontal: spacing.space16,
-        vertical: spacing.space12,
-      ),
-      itemCount: entries.length,
-      separatorBuilder: (_, __) => SizedBox(height: spacing.space4),
-      itemBuilder: (context, index) => _LeaderboardRow(entry: entries[index]),
-    );
+double? _profileTechnicalSuccessRate(
+  EnrichedChallenge challenge,
+  BreakdownResult? breakdown,
+) {
+  if (!isProduceBlocksChallenge(challenge.dto) || breakdown == null) {
+    return null;
   }
+  final eventId = challenge.dto.eventId;
+  if (eventId == null) return null;
+  for (final event in _profileBreakdownEvents(breakdown)) {
+    if (event.eventId == eventId) return event.successRate;
+  }
+  return null;
 }
 
-class _LeaderboardRow extends ConsumerWidget {
-  const _LeaderboardRow({required this.entry});
+Iterable<EventBreakdown> _profileBreakdownEvents(BreakdownResult breakdown) {
+  final event = breakdown.eventBreakdown;
+  if (event != null) return [event];
+  final season = breakdown.seasonBreakdown;
+  if (season != null) return season.events;
+  return breakdown.globalSeasons.expand((season) => season.events);
+}
 
-  final LeaderboardEntry entry;
+ChallengeProgress? _profileCompletedProgress(
+  EnrichedChallenge challenge,
+  BreakdownResult? breakdown,
+) {
+  final progress = breakdown?.progressForChallenge(challenge.dto);
+  final earnedPoints = progress?.earnedPoints ?? challenge.displayEarnedPoints;
+  if (earnedPoints == null || earnedPoints <= 0) return progress;
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colors = Theme.of(context).colorScheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final radii = Theme.of(context).extension<AppRadii>()!;
-    final opacity = Theme.of(context).extension<AppOpacity>()!;
-    final textTheme = Theme.of(context).textTheme;
-
-    final currentParticipant =
-        ref.watch(participantIdProvider.select((p) => p.valueOrNull));
-    final isCurrentUser = entry.participantId == currentParticipant;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isCurrentUser
-            ? colors.primaryContainer.withValues(alpha: opacity.strong)
-            : Colors.transparent,
-        borderRadius: radii.borderRadiusLargeIncreased,
-      ),
-      child: Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: spacing.space16,
-          vertical: spacing.space8,
-        ),
-        child: Row(
-          children: [
-            RankBadge(rank: '${entry.rank}'),
-            SizedBox(width: spacing.space16),
-            Expanded(
-              child: Text(
-                entry.displayName ?? 'Participant ${entry.participantId}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.titleMedium,
-              ),
-            ),
-            SizedBox(width: spacing.space16),
-            Text(
-              '${formatPoints(entry.totalPoints)} pts',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: textTheme.titleMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-              ),
-            ),
-          ],
-        ),
-      ),
+  if (progress == null) {
+    return ChallengeProgress(
+      challengeId: challenge.dto.id,
+      state: ChallengeProgressState.earned,
+      earnedPoints: earnedPoints,
     );
   }
+
+  if (progress.state == ChallengeProgressState.earned) return progress;
+  return ChallengeProgress(
+    challengeId: progress.challengeId,
+    state: ChallengeProgressState.earned,
+    current: progress.current,
+    target: progress.target,
+    pendingPoints: progress.pendingPoints,
+    earnedPoints: progress.earnedPoints,
+    description: progress.description,
+  );
 }

@@ -401,12 +401,13 @@ bool isChallengeActive(ChallengeDto dto) {
 /// Groups enriched challenges into perceived-time bands for the Challenges
 /// surface.
 ///
-/// - `Today`: schedule ends within 24h.
-/// - `This week`: schedule ends within 7 days.
-/// - `Season`: everything else (long-running / background work).
+/// - `Featured`: explicit backend presentation picks.
+/// - `Today`: schedule ends within the next 24h.
+/// - `This week`: schedule ends within the next 7 days.
+/// - `Season`: everything else (long-running / background / expired work).
 ///
-/// Within each deadline band, non-terminal cards stay above completed cards,
-/// preserving backend order inside each group.
+/// Within each deadline band, non-terminal cards stay above completed cards.
+/// Otherwise, backend order is preserved.
 ///
 /// [progressForChallenge] resolves explicit backend progress for a challenge.
 /// [now] is injectable for deterministic tests.
@@ -430,26 +431,28 @@ List<ChallengeBand> buildChallengeBands(
   }
 
   final bands = <ChallengeBand>[];
-  // TODO(fair-rewards): Restore the Featured band once Topochain exposes an
-  // explicit mobile challenge presentation flag. See Usernode-Labs/topochain#124.
-  final rest = active;
+  final featured = active.where((c) => c.dto.featured).toList();
+  final rest = active.where((c) => !c.dto.featured).toList();
+
+  if (featured.isNotEmpty) {
+    final sorted = _sortFeaturedItems(featured);
+    bands.add(ChallengeBand(
+      title: 'Featured',
+      cards: [for (final c in sorted) cardFor(c, featured: true)],
+    ));
+  }
 
   final today = <EnrichedChallenge>[];
   final thisWeek = <EnrichedChallenge>[];
   final season = <EnrichedChallenge>[];
   for (final c in rest) {
-    final end = _scheduleEndUtc(c.dto);
-    if (end == null) {
-      season.add(c);
-      continue;
-    }
-    final remaining = end.difference(clock);
-    if (remaining <= const Duration(hours: 24)) {
-      today.add(c);
-    } else if (remaining <= const Duration(days: 7)) {
-      thisWeek.add(c);
-    } else {
-      season.add(c);
+    switch (_timeBand(c.dto, clock)) {
+      case _ChallengeTimeBand.today:
+        today.add(c);
+      case _ChallengeTimeBand.thisWeek:
+        thisWeek.add(c);
+      case _ChallengeTimeBand.season:
+        season.add(c);
     }
   }
 
@@ -467,6 +470,39 @@ List<ChallengeBand> buildChallengeBands(
   addBand('This week', thisWeek);
   addBand('Season', season);
   return bands;
+}
+
+enum _ChallengeTimeBand { today, thisWeek, season }
+
+_ChallengeTimeBand _timeBand(ChallengeDto dto, DateTime nowUtc) {
+  final end = _scheduleEndUtc(dto);
+  if (end == null) return _ChallengeTimeBand.season;
+
+  final remaining = end.difference(nowUtc);
+  if (remaining.isNegative) return _ChallengeTimeBand.season;
+  if (remaining <= const Duration(hours: 24)) {
+    return _ChallengeTimeBand.today;
+  }
+  if (remaining <= const Duration(days: 7)) {
+    return _ChallengeTimeBand.thisWeek;
+  }
+  return _ChallengeTimeBand.season;
+}
+
+List<EnrichedChallenge> _sortFeaturedItems(List<EnrichedChallenge> items) {
+  const unprioritizedFeaturedOrder = 1 << 30;
+  final indexed = items.indexed.toList();
+  indexed.sort((a, b) {
+    final featuredOrderA = a.$2.dto.featuredOrder ?? unprioritizedFeaturedOrder;
+    final featuredOrderB = b.$2.dto.featuredOrder ?? unprioritizedFeaturedOrder;
+    final byFeaturedOrder = featuredOrderA.compareTo(featuredOrderB);
+    if (byFeaturedOrder != 0) return byFeaturedOrder;
+    final byDisplayOrder =
+        a.$2.dto.displayOrder.compareTo(b.$2.dto.displayOrder);
+    if (byDisplayOrder != 0) return byDisplayOrder;
+    return a.$1.compareTo(b.$1);
+  });
+  return indexed.map((entry) => entry.$2).toList();
 }
 
 List<EnrichedChallenge> _sortBandItems(

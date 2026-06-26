@@ -14,6 +14,10 @@ ChallengeDto _dto({
   ChallengeMetric? metric,
   String? subCategory,
   String? scheduleEnd,
+  bool completed = false,
+  int displayOrder = 0,
+  bool featured = false,
+  int? featuredOrder,
 }) {
   return ChallengeDto(
     id: id,
@@ -24,8 +28,11 @@ ChallengeDto _dto({
     metric: metric,
     subCategory: subCategory,
     scheduleEnd: scheduleEnd,
+    displayOrder: displayOrder,
+    featured: featured,
+    featuredOrder: featuredOrder,
     enabled: true,
-    completed: false,
+    completed: completed,
   );
 }
 
@@ -40,11 +47,15 @@ AtomicChallengePhase _expectedPhase(ChallengeVisualUiPhase phase) =>
       ChallengeVisualUiPhase.completed => AtomicChallengePhase.completed,
     };
 
-AtomicChallengeRailTreatment _expectedRail(ChallengeVisualMetricType type) =>
-    switch (type) {
+AtomicChallengeRailTreatment _expectedRail(
+  ChallengeVisualMatrixCase fixtureCase,
+) =>
+    switch (fixtureCase.metricType) {
       ChallengeVisualMetricType.binary => AtomicChallengeRailTreatment.checkbox,
       ChallengeVisualMetricType.technicalOngoing =>
-        AtomicChallengeRailTreatment.technicalOngoing,
+        fixtureCase.phase == ChallengeVisualUiPhase.completed
+            ? AtomicChallengeRailTreatment.checkbox
+            : AtomicChallengeRailTreatment.technicalOngoing,
       ChallengeVisualMetricType.count ||
       ChallengeVisualMetricType.sum ||
       ChallengeVisualMetricType.percentage ||
@@ -209,6 +220,50 @@ void main() {
       expect(card.fill, isNull);
     });
 
+    test('binary none with pending points renders submitted status', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Share feedback',
+          reward: '500',
+          metric: const ChallengeMetric(kind: ChallengeMetricKind.binary),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.none,
+          pendingPoints: 500,
+          description: 'You submitted the feedback form.',
+        ),
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.checkbox);
+      expect(card.phase, AtomicChallengePhase.pendingFinalization);
+      expect(card.leftText, 'Submitted');
+      expect(card.rightText, 'pending 500 pts');
+      expect(card.fill, isNull);
+    });
+
+    test('no metric none with pending points renders submitted status', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Share form feedback',
+          reward: '500',
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.none,
+          current: 1,
+          pendingPoints: 500,
+          description: 'You submitted the feedback form.',
+        ),
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.checkbox);
+      expect(card.phase, AtomicChallengePhase.pendingFinalization);
+      expect(card.leftText, 'Submitted');
+      expect(card.rightText, 'pending 500 pts');
+      expect(card.fill, isNull);
+    });
+
     test('binary pending → pendingFinalization, "pending 500 pts"', () {
       final card = mapToAtomicCard(
         _enriched(_dto(
@@ -228,6 +283,28 @@ void main() {
       expect(card.phase, AtomicChallengePhase.pendingFinalization);
       expect(card.leftText, 'Submitted');
       expect(card.rightText, 'pending 500 pts');
+    });
+
+    test('binary completed ignores long progress description in rail', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Share feedback',
+          reward: '500',
+          metric: const ChallengeMetric(kind: ChallengeMetricKind.binary),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.earned,
+          earnedPoints: 500,
+          description:
+              'You submitted the feedback form and it was accepted for this challenge.',
+        ),
+      );
+
+      expect(card.phase, AtomicChallengePhase.completed);
+      expect(card.leftText, 'Done');
+      expect(card.rightText, 'completed 500 pts');
+      expect(card.fill, isNull);
     });
 
     test('count in progress → standard rail, fraction fill + texts', () {
@@ -256,7 +333,7 @@ void main() {
       expect(card.rightText, '400 / 1,500 pts');
     });
 
-    test('count progress can derive current from evidence summary', () {
+    test('count progress ignores evidence summary when current is absent', () {
       final card = mapToAtomicCard(
         _enriched(_dto(
           goal: 'TEST: Complete 3 dApp actions',
@@ -277,7 +354,65 @@ void main() {
         ),
       );
 
-      expect(card.phase, AtomicChallengePhase.inProgress);
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.railTreatment, AtomicChallengeRailTreatment.standard);
+      expect(card.leftText, '0 / 3 Actions');
+      expect(card.rightText, '300 pts');
+      expect(card.fill, 0.0);
+    });
+
+    test('missed count without current does not parse reasoning as progress',
+        () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'TEST: Complete 3 dApp actions',
+          reward: '300 pts',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            label: 'Actions',
+            target: 3,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.missed,
+          target: 3,
+          pendingPoints: 500,
+          description:
+              '1 confirmed Echo dApp txs verified on-chain; 0 pts already committed; awarded 100 pts',
+        ),
+      );
+
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.railTreatment, AtomicChallengeRailTreatment.standard);
+      expect(card.leftText, 'Not done');
+      expect(card.rightText, '300 pts');
+      expect(card.fill, isNull);
+    });
+
+    test('missed count can show canonical current without completion styling',
+        () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'TEST: Complete 3 dApp actions',
+          reward: '300 pts',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            label: 'Actions',
+            target: 3,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.missed,
+          current: 1,
+          target: 3,
+          description:
+              '1 confirmed Echo dApp txs verified on-chain; 0 pts already committed; awarded 100 pts',
+        ),
+      );
+
+      expect(card.phase, AtomicChallengePhase.open);
       expect(card.railTreatment, AtomicChallengeRailTreatment.standard);
       expect(card.leftText, '1 / 3 Actions');
       expect(card.rightText, '300 pts');
@@ -331,10 +466,35 @@ void main() {
         ),
       );
 
-      expect(card.phase, AtomicChallengePhase.pendingFinalization);
-      expect(card.leftText, 'Submitted');
-      expect(card.rightText, 'pending 300 pts');
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.leftText, 'Not done');
+      expect(card.rightText, '300 pts');
       expect(card.fill, isNull);
+    });
+
+    test('count pending stays in progress until target is reached', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          reward: '1500',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            label: 'Actions',
+            target: 5,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.pending,
+          current: 2,
+          target: 5,
+          pendingPoints: 1500,
+        ),
+      );
+
+      expect(card.phase, AtomicChallengePhase.inProgress);
+      expect(card.leftText, '2 / 5 Actions');
+      expect(card.rightText, '1,500 pts');
+      expect(card.fill, closeTo(0.4, 1e-9));
     });
 
     test('count progress preserves fractional metric values', () {
@@ -446,6 +606,75 @@ void main() {
       expect(card.leftText, '90% success');
       expect(card.rightText, 'Earned 10,550 pts');
     });
+
+    test('produce-blocks uses scoped success rate when current is absent', () {
+      final card = mapToAtomicCard(
+        const EnrichedChallenge(
+          dto: ChallengeDto(
+            id: 1,
+            goal: 'Produce Every Block',
+            task: 'Stay online.',
+            category: 'technical',
+            reward: '6500',
+            enabled: true,
+            completed: false,
+            subCategory: kProduceBlocksSubCategory,
+            metric: ChallengeMetric(kind: ChallengeMetricKind.percentage),
+          ),
+          activity: BreakdownActivity(
+            id: 'produce-blocks',
+            activityType: 'produce_blocks',
+            points: 9050,
+            description: 'Produce Every Block',
+            challengeId: 1,
+          ),
+        ),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.inProgress,
+          earnedPoints: 9050,
+        ),
+        technicalSuccessRate: 23.2,
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.technicalOngoing);
+      expect(card.phase, AtomicChallengePhase.inProgress);
+      expect(card.fill, isNull);
+      expect(card.leftText, '23% success');
+      expect(card.rightText, 'Earned 9,050 pts');
+    });
+
+    test(
+        'completed produce-blocks keeps success text but uses completed checkbox rail',
+        () {
+      final card = mapToAtomicCard(
+        const EnrichedChallenge(
+          dto: ChallengeDto(
+            id: 1,
+            goal: 'Produce Every Block',
+            task: 'Stay online.',
+            category: 'technical',
+            reward: '6500',
+            enabled: true,
+            completed: false,
+            subCategory: kProduceBlocksSubCategory,
+            metric: ChallengeMetric(kind: ChallengeMetricKind.percentage),
+          ),
+        ),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.earned,
+          earnedPoints: 9050,
+        ),
+        technicalSuccessRate: 23.2,
+      );
+
+      expect(card.phase, AtomicChallengePhase.completed);
+      expect(card.railTreatment, AtomicChallengeRailTreatment.checkbox);
+      expect(card.fill, isNull);
+      expect(card.leftText, '23% success');
+      expect(card.rightText, 'Earned 9,050 pts');
+    });
   });
 
   group('mapToAtomicCard (visual matrix)', () {
@@ -457,7 +686,7 @@ void main() {
         );
 
         expect(card.phase, _expectedPhase(fixtureCase.phase));
-        expect(card.railTreatment, _expectedRail(fixtureCase.metricType));
+        expect(card.railTreatment, _expectedRail(fixtureCase));
 
         final expectedFill = _expectedFill(fixtureCase);
         if (expectedFill == null) {
@@ -515,6 +744,22 @@ void main() {
       expect(card.phase, AtomicChallengePhase.open);
       expect(card.leftText, 'Not done');
       expect(card.rightText, '500 pts');
+      expect(card.fill, isNull);
+    });
+
+    test('no metric pending points renders submitted state', () {
+      final fixtureCase = ChallengeApiVisualFixture.cases.singleWhere(
+        (item) => item.id == 'metric-null-pending-points',
+      );
+      final card = mapToAtomicCard(
+        _enriched(fixtureCase.challenge),
+        progress: fixtureCase.progress,
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.checkbox);
+      expect(card.phase, AtomicChallengePhase.pendingFinalization);
+      expect(card.leftText, 'Submitted');
+      expect(card.rightText, 'pending 500 pts');
       expect(card.fill, isNull);
     });
 
@@ -611,11 +856,10 @@ void main() {
   });
 
   group('buildChallengeBands', () {
-    final now = DateTime.utc(2026, 6, 16, 12);
+    final now = DateTime.utc(2027, 6, 16, 12);
     String endsIn(Duration d) => now.add(d).toIso8601String();
 
-    test('groups into Today / This week / Season without implicit Featured',
-        () {
+    test('groups explicit Featured before Today / This week / Season', () {
       final challenges = [
         _enriched(_dto(
             id: 1,
@@ -641,18 +885,103 @@ void main() {
             scheduleEnd: endsIn(
               const Duration(days: 30),
             ))),
+        _enriched(_dto(
+            id: 5,
+            goal: 'Featured second',
+            featured: true,
+            featuredOrder: 2,
+            displayOrder: 1,
+            scheduleEnd: endsIn(
+              const Duration(hours: 5),
+            ))),
+        _enriched(_dto(
+            id: 6,
+            goal: 'Featured first',
+            featured: true,
+            featuredOrder: 1,
+            displayOrder: 2,
+            scheduleEnd: endsIn(
+              const Duration(days: 30),
+            ))),
       ];
 
       final bands = buildChallengeBands(challenges, now: now);
 
+      expect(bands.map((b) => b.title).toList(),
+          ['Featured', 'Today', 'This week', 'Season']);
+      expect(bands[0].deadlineText, isNull);
+      expect(
+        bands[0].cards.map((c) => c.title).toList(),
+        ['Featured first', 'Featured second'],
+      );
+      expect(bands[0].cards.every((c) => c.featured), isTrue);
+      expect(bands[1].deadlineText, '5h left');
+      expect(bands[2].deadlineText, '4d left');
+      expect(
+        bands[3].cards.map((c) => c.title).toList(),
+        ['Long haul first', 'Long haul'],
+      );
+    });
+
+    test('puts only future deadlines in Today and This week', () {
+      final challenges = [
+        _enriched(_dto(
+          id: 1,
+          goal: 'Old completed',
+          scheduleEnd: endsIn(const Duration(days: -3)),
+        )),
+        _enriched(_dto(
+          id: 2,
+          goal: 'Old unfinished',
+          scheduleEnd: endsIn(const Duration(hours: -1)),
+        )),
+        _enriched(_dto(
+          id: 3,
+          goal: 'Due today',
+          scheduleEnd: endsIn(const Duration(hours: 3)),
+        )),
+        _enriched(_dto(
+          id: 4,
+          goal: 'Due this week',
+          scheduleEnd: endsIn(const Duration(days: 3)),
+        )),
+        _enriched(_dto(
+          id: 5,
+          goal: 'Long haul',
+          scheduleEnd: endsIn(const Duration(days: 10)),
+        )),
+        _enriched(_dto(
+          id: 6,
+          goal: 'No deadline',
+        )),
+      ];
+      const progress = {
+        1: ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.earned,
+        ),
+        2: ChallengeProgress(
+          challengeId: 2,
+          state: ChallengeProgressState.none,
+        ),
+      };
+
+      final bands = buildChallengeBands(
+        challenges,
+        now: now,
+        progressForChallenge: (dto) => progress[dto.id],
+      );
+
       expect(
           bands.map((b) => b.title).toList(), ['Today', 'This week', 'Season']);
-      expect(bands.expand((b) => b.cards).every((c) => !c.featured), isTrue);
-      expect(bands[0].deadlineText, '5h left');
-      expect(bands[1].deadlineText, '4d left');
+      expect(bands[0].deadlineText, '3h left');
+      expect(bands[0].cards.map((c) => c.title), ['Due today']);
+      expect(bands[1].deadlineText, '3d left');
+      expect(bands[1].cards.map((c) => c.title), ['Due this week']);
+      expect(bands[2].deadlineText, '10d left');
       expect(
         bands[2].cards.map((c) => c.title).toList(),
-        ['Long haul first', 'Long haul'],
+        ['Old unfinished', 'Long haul', 'No deadline', 'Old completed'],
       );
     });
 
@@ -699,6 +1028,82 @@ void main() {
       expect(
         bands.single.cards.map((c) => c.title).toList(),
         ['Open second', 'Completed first', 'Completed third'],
+      );
+    });
+
+    test('forwards technical success rate into compact produce-blocks card',
+        () {
+      final challenges = [
+        const EnrichedChallenge(
+          dto: ChallengeDto(
+            id: 1,
+            goal: 'Produce Every Block',
+            task: 'Stay online.',
+            category: 'technical',
+            reward: '6500',
+            enabled: true,
+            completed: false,
+            subCategory: kProduceBlocksSubCategory,
+            scheduleEnd: '2026-06-16T18:00:00Z',
+            metric: ChallengeMetric(kind: ChallengeMetricKind.percentage),
+          ),
+        ),
+      ];
+
+      final bands = buildChallengeBands(
+        challenges,
+        now: now,
+        progressForChallenge: (_) => const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.inProgress,
+          earnedPoints: 9050,
+        ),
+        technicalSuccessRateForChallenge: (_) => 23.2,
+      );
+
+      expect(bands.single.cards.single.leftText, '23% success');
+      expect(
+        bands.single.cards.single.railTreatment,
+        AtomicChallengeRailTreatment.technicalOngoing,
+      );
+    });
+
+    test('completed compact produce-blocks card uses completed rail treatment',
+        () {
+      final challenges = [
+        const EnrichedChallenge(
+          dto: ChallengeDto(
+            id: 1,
+            goal: 'Produce Every Block',
+            task: 'Stay online.',
+            category: 'technical',
+            reward: '6500',
+            enabled: true,
+            completed: false,
+            subCategory: kProduceBlocksSubCategory,
+            scheduleEnd: '2026-06-16T18:00:00Z',
+            metric: ChallengeMetric(kind: ChallengeMetricKind.percentage),
+          ),
+        ),
+      ];
+
+      final bands = buildChallengeBands(
+        challenges,
+        now: now,
+        progressForChallenge: (_) => const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.earned,
+          earnedPoints: 9050,
+        ),
+        technicalSuccessRateForChallenge: (_) => 23.2,
+      );
+
+      expect(bands.single.cards.single.phase, AtomicChallengePhase.completed);
+      expect(bands.single.cards.single.leftText, '23% success');
+      expect(bands.single.cards.single.rightText, 'Earned 9,050 pts');
+      expect(
+        bands.single.cards.single.railTreatment,
+        AtomicChallengeRailTreatment.checkbox,
       );
     });
 

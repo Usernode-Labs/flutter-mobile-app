@@ -82,6 +82,7 @@ class _ApiChallengeCaseCard extends StatelessWidget {
     final model = mapToAtomicCard(
       EnrichedChallenge(dto: challenge),
       progress: item.progress,
+      featured: challenge.featured,
     );
 
     return Column(

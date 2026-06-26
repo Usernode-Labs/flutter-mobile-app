@@ -10,11 +10,11 @@ class ForegroundServiceManager(private val context: Context) {
         private const val TAG = "usernode/ForegroundServiceMgr"
     }
 
-    fun startForegroundService(title: String, message: String, slotNumber: Int): Boolean {
+    fun startForegroundService(title: String, message: String, globalSlot: Int): Boolean {
         return try {
             val intent = Intent(context, SlotMonitoringService::class.java).apply {
                 action = SlotMonitoringService.ACTION_START_MONITORING
-                putExtra("slotNumber", slotNumber)
+                putExtra("globalSlot", globalSlot)
                 putExtra("title", title)
                 putExtra("message", message)
             }
@@ -25,7 +25,7 @@ class ForegroundServiceManager(private val context: Context) {
                 context.startService(intent)
             }
 
-            Log.i(TAG, "Started foreground service for slot $slotNumber")
+            Log.i(TAG, "Started foreground service for global slot $globalSlot")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Error starting foreground service", e)

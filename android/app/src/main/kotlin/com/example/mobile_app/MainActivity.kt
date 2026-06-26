@@ -121,8 +121,11 @@ class MainActivity: FlutterActivity() {
     private fun handleAlarmIntent(intent: Intent?) {
         intent?.let {
             if (it.action == "com.usernode.app.SLOT_ALARM") {
-                val slotNumber = it.getIntExtra("slotNumber", -1)
-                if (slotNumber != -1) {
+                val globalSlot = it.getIntExtra(
+                    "globalSlot",
+                    it.getIntExtra("slotNumber", -1)
+                )
+                if (globalSlot != -1) {
                     // Alarm fired - Flutter will handle via AlarmReceiver callback
                 }
             }

@@ -17,7 +17,7 @@ class AlarmLedger(context: Context) {
 
     fun recordScheduled(
         alarmId: String,
-        slotNumber: Int,
+        globalSlot: Int,
         triggerAtMs: Long,
         scheduledAtMs: Long,
         scheduledElapsedRealtimeMs: Long,
@@ -28,7 +28,7 @@ class AlarmLedger(context: Context) {
     ) {
         val json = JSONObject()
         json.put("alarmId", alarmId)
-        json.put("slotNumber", slotNumber)
+        json.put("globalSlot", globalSlot)
         json.put("scheduledAtMs", scheduledAtMs)
         json.put("triggerAtMs", triggerAtMs)
         json.put("nativeTriggerAtMs", triggerAtMs)
@@ -44,7 +44,7 @@ class AlarmLedger(context: Context) {
 
     fun recordScheduleFailed(
         alarmId: String,
-        slotNumber: Int,
+        globalSlot: Int,
         triggerAtMs: Long,
         scheduledAtMs: Long,
         scheduledElapsedRealtimeMs: Long,
@@ -56,7 +56,7 @@ class AlarmLedger(context: Context) {
     ) {
         val json = JSONObject()
         json.put("alarmId", alarmId)
-        json.put("slotNumber", slotNumber)
+        json.put("globalSlot", globalSlot)
         json.put("scheduledAtMs", scheduledAtMs)
         json.put("triggerAtMs", triggerAtMs)
         json.put("nativeTriggerAtMs", triggerAtMs)
@@ -73,7 +73,7 @@ class AlarmLedger(context: Context) {
 
     fun recordReceiverEntered(
         alarmId: String,
-        slotNumber: Int,
+        globalSlot: Int,
         alarmTimeMs: Long,
         nativeTriggerAtMs: Long?,
         receiverEnteredAtMs: Long,
@@ -82,14 +82,13 @@ class AlarmLedger(context: Context) {
         nativeDeliveryLatencyMs: Long?,
         elapsedDeliveryLatencyMs: Long?,
         triggerElapsedRealtimeMs: Long?,
-        globalSlot: Long?,
         purpose: String?,
         schedulerReason: String?,
         nodeRunning: Boolean
     ) {
         val json = read(alarmId)
         json.put("alarmId", alarmId)
-        json.put("slotNumber", slotNumber)
+        json.put("globalSlot", globalSlot)
         if (alarmTimeMs > 0) {
             json.put("alarmTimeMs", alarmTimeMs)
             if (!json.has("triggerAtMs")) {
@@ -110,7 +109,6 @@ class AlarmLedger(context: Context) {
         nativeDeliveryLatencyMs?.let { json.put("nativeDeliveryLatencyMs", it) }
         elapsedDeliveryLatencyMs?.let { json.put("elapsedDeliveryLatencyMs", it) }
         json.put("nodeRunning", nodeRunning)
-        globalSlot?.let { json.put("globalSlot", it) }
         purpose?.let { json.put("purpose", it) }
         schedulerReason?.let { json.put("schedulerReason", it) }
         save(alarmId, json)

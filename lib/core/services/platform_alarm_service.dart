@@ -359,15 +359,15 @@ class PlatformAlarmService {
     }
 
     final alarmId = _stringFromDynamic(eventData['alarmId']);
-    final slotNumber = _intFromDynamic(eventData['slotNumber']);
+    final legacySlotNumber = _intFromDynamic(eventData['slotNumber']);
     final globalSlot = _globalSlotForAlarm(
       alarmId: alarmId,
-      slotNumber: slotNumber,
+      globalSlot: legacySlotNumber,
       data: eventData,
     );
     final alarmTimeMs = _intFromDynamic(eventData['alarmTimeMs']);
     final eventKey = '$eventType:${alarmId ?? ''}:${alarmTimeMs ?? ''}:'
-        '${globalSlot ?? slotNumber ?? ''}';
+        '${globalSlot ?? legacySlotNumber ?? ''}';
     final now = DateTime.now();
     final lastAt = _lastAlarmFiredEventAt;
     if (_lastAlarmFiredEventKey == eventKey &&
@@ -815,7 +815,7 @@ class PlatformAlarmService {
   /// iOS: Schedules BGProcessingTask + local notification
   Future<bool> scheduleAlarm({
     required String alarmId,
-    required int slotNumber,
+    required int globalSlot,
     required int delayMs,
     Map<String, dynamic>? data,
   }) async {
@@ -827,13 +827,13 @@ class PlatformAlarmService {
         scheduledAtMs + normalizedDelayMs;
     alarmData.putIfAbsent('alarmTimeMs', () => alarmTimeMs);
     alarmData.putIfAbsent('systemTimeMsAtSchedule', () => scheduledAtMs);
-    final globalSlot = _globalSlotForAlarm(
+    final resolvedGlobalSlot = _globalSlotForAlarm(
       alarmId: alarmId,
-      slotNumber: slotNumber,
+      globalSlot: globalSlot,
       data: alarmData,
     );
-    if (globalSlot != null) {
-      alarmData['globalSlot'] = globalSlot;
+    if (resolvedGlobalSlot != null) {
+      alarmData['globalSlot'] = resolvedGlobalSlot;
     }
 
     void recordScheduleResult({
@@ -845,7 +845,7 @@ class PlatformAlarmService {
       _observability.reportBlockProductionAlarmScheduled(
         alarmId: alarmId,
         purpose: _alarmPurpose(alarmId, alarmData),
-        globalSlot: globalSlot,
+        globalSlot: resolvedGlobalSlot,
         epoch: _intFromDynamic(alarmData['epoch']),
         slotTimeMs: slotTimeMs,
         rustSlotTimeMs: _intFromDynamic(alarmData['rustSlotTimeMs']),
@@ -894,7 +894,7 @@ class PlatformAlarmService {
     try {
       final params = {
         'alarmId': alarmId,
-        'slotNumber': slotNumber,
+        'globalSlot': resolvedGlobalSlot ?? globalSlot,
         'delayMs': normalizedDelayMs,
         'data': alarmData,
       };
@@ -937,7 +937,7 @@ class PlatformAlarmService {
 
   int? _globalSlotForAlarm({
     required String? alarmId,
-    required int? slotNumber,
+    required int? globalSlot,
     required Map<String, dynamic> data,
   }) {
     for (final key in const [
@@ -952,8 +952,8 @@ class PlatformAlarmService {
       }
     }
 
-    if (slotNumber != null && slotNumber > 0) {
-      return slotNumber;
+    if (globalSlot != null && globalSlot > 0) {
+      return globalSlot;
     }
 
     final alarmSlot = _slotFromAlarmId(alarmId);
@@ -1019,7 +1019,7 @@ class PlatformAlarmService {
 
       if (success) {
         _log.info(
-            'Android exact alarm scheduled for slot ${params['slotNumber']}');
+            'Android exact alarm scheduled for global slot ${params['globalSlot']}');
       } else {
         _log.warn('Failed to schedule Android exact alarm');
       }
@@ -1039,7 +1039,8 @@ class PlatformAlarmService {
               false;
 
       if (success) {
-        _log.info('iOS BGTask scheduled for slot ${params['slotNumber']}');
+        _log.info(
+            'iOS BGTask scheduled for global slot ${params['globalSlot']}');
       } else {
         _log.warn('Failed to schedule iOS BGTask');
       }
@@ -1107,7 +1108,7 @@ class PlatformAlarmService {
   Future<bool> startForegroundService({
     required String title,
     required String message,
-    required int slotNumber,
+    required int globalSlot,
   }) async {
     if (!Platform.isAndroid) {
       _log.debug('Foreground service is Android-only');
@@ -1118,7 +1119,7 @@ class PlatformAlarmService {
       final params = {
         'title': title,
         'message': message,
-        'slotNumber': slotNumber,
+        'globalSlot': globalSlot,
       };
 
       final success =
@@ -1126,7 +1127,7 @@ class PlatformAlarmService {
               false;
 
       if (success) {
-        _log.info('Foreground service started for slot $slotNumber');
+        _log.info('Foreground service started for global slot $globalSlot');
         _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       } else {
         _log.warn('Failed to start foreground service');

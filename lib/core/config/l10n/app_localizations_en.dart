@@ -1354,7 +1354,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get challengeSectionTheWhy => 'The Why';
+  String get challengeSectionTheWhy => 'Why it matters';
 
   @override
   String get challengeSectionTask => 'Task';

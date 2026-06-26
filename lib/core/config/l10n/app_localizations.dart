@@ -2413,7 +2413,7 @@ abstract class AppLocalizations {
   /// Section title for challenge description
   ///
   /// In en, this message translates to:
-  /// **'The Why'**
+  /// **'Why it matters'**
   String get challengeSectionTheWhy;
 
   /// Section title for challenge task

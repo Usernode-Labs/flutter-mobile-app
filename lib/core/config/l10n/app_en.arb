@@ -1850,7 +1850,7 @@
       "reward": {"type": "String"}
     }
   },
-  "challengeSectionTheWhy": "The Why",
+  "challengeSectionTheWhy": "Why it matters",
   "@challengeSectionTheWhy": {
     "description": "Section title for challenge description"
   },

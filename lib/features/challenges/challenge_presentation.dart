@@ -58,19 +58,31 @@ class ChallengeBand {
 AtomicChallengeCardModel mapToAtomicCard(
   EnrichedChallenge c, {
   ChallengeProgress? progress,
+  double? technicalSuccessRate,
   bool featured = false,
 }) {
-  final railTreatment = _railTreatment(c.dto);
+  final progressRailTreatment = _railTreatment(c.dto);
   final phase = _phase(c, progress);
-  final fill = _fill(c, progress, railTreatment);
+  final cardRailTreatment = _cardRailTreatment(
+    c.dto,
+    phase,
+    progressRailTreatment,
+  );
+  final fill = _fill(c, progress, progressRailTreatment);
   return AtomicChallengeCardModel(
     challengeId: c.dto.id,
     title: c.dto.goal,
-    leftText: _leftText(c, progress, phase, railTreatment),
-    rightText: _rightText(c, progress, phase, railTreatment),
+    leftText: _leftText(
+      c,
+      progress,
+      phase,
+      progressRailTreatment,
+      technicalSuccessRate,
+    ),
+    rightText: _rightText(c, progress, phase, progressRailTreatment),
     phase: phase,
     fill: fill,
-    railTreatment: railTreatment,
+    railTreatment: cardRailTreatment,
     featured: featured,
   );
 }
@@ -95,23 +107,30 @@ AtomicChallengeRailTreatment _railTreatment(ChallengeDto dto) {
   };
 }
 
+AtomicChallengeRailTreatment _cardRailTreatment(
+  ChallengeDto dto,
+  AtomicChallengePhase phase,
+  AtomicChallengeRailTreatment progressRailTreatment,
+) {
+  if (isProduceBlocksChallenge(dto) &&
+      phase == AtomicChallengePhase.completed) {
+    return AtomicChallengeRailTreatment.checkbox;
+  }
+  return progressRailTreatment;
+}
+
 AtomicChallengePhase _phase(EnrichedChallenge c, ChallengeProgress? progress) {
   if (progress != null) {
     return switch (progress.state) {
-      ChallengeProgressState.none =>
-        (_metricProgress(c, progress)?.current ?? 0) > 0
-            ? AtomicChallengePhase.inProgress
-            : AtomicChallengePhase.open,
+      ChallengeProgressState.none => _pendingPointsPhase(c, progress),
       ChallengeProgressState.inProgress => AtomicChallengePhase.inProgress,
-      ChallengeProgressState.pending =>
-        AtomicChallengePhase.pendingFinalization,
-      // earned / missed / declined are terminal — render as completed (missed
-      // and declined can still be represented by terminal card styling when
-      // present in the stream).
-      ChallengeProgressState.earned ||
+      ChallengeProgressState.pending => _pendingPhase(c, progress),
+      ChallengeProgressState.earned => AtomicChallengePhase.completed,
+      // Atomic cards do not have distinct missed/declined treatments yet, and
+      // these states are explicitly not successful completions.
       ChallengeProgressState.missed ||
       ChallengeProgressState.declined =>
-        AtomicChallengePhase.completed,
+        AtomicChallengePhase.open,
     };
   }
 
@@ -123,6 +142,38 @@ AtomicChallengePhase _phase(EnrichedChallenge c, ChallengeProgress? progress) {
     return AtomicChallengePhase.inProgress;
   }
   return AtomicChallengePhase.open;
+}
+
+AtomicChallengePhase _pendingPointsPhase(
+  EnrichedChallenge c,
+  ChallengeProgress progress,
+) {
+  final kind = c.dto.metric?.kind;
+  final hasPendingPoints = progress.pendingPoints > 0;
+  final isBinaryOrNoMetric = kind == null || kind == ChallengeMetricKind.binary;
+  if (hasPendingPoints && isBinaryOrNoMetric) {
+    return AtomicChallengePhase.pendingFinalization;
+  }
+  return AtomicChallengePhase.open;
+}
+
+AtomicChallengePhase _pendingPhase(
+  EnrichedChallenge c,
+  ChallengeProgress progress,
+) {
+  final kind = c.dto.metric?.kind;
+  if (kind != ChallengeMetricKind.count && kind != ChallengeMetricKind.sum) {
+    return AtomicChallengePhase.pendingFinalization;
+  }
+
+  final bounded = _metricProgress(c, progress);
+  if (bounded == null) return AtomicChallengePhase.open;
+  if (bounded.current >= bounded.target) {
+    return AtomicChallengePhase.pendingFinalization;
+  }
+  return bounded.current > 0
+      ? AtomicChallengePhase.inProgress
+      : AtomicChallengePhase.open;
 }
 
 double? _fill(
@@ -162,6 +213,7 @@ String _leftText(
   ChallengeProgress? progress,
   AtomicChallengePhase phase,
   AtomicChallengeRailTreatment railTreatment,
+  double? technicalSuccessRate,
 ) {
   if (progress != null) {
     final kind = c.dto.metric?.kind;
@@ -173,8 +225,27 @@ String _leftText(
     if (railTreatment == AtomicChallengeRailTreatment.technicalOngoing ||
         kind == ChallengeMetricKind.percentage) {
       if (progress.current != null) {
+        if (railTreatment == AtomicChallengeRailTreatment.technicalOngoing) {
+          return _successRateText(progress.current!);
+        }
         return '${_formatMetricValue(progress.current!)}% success';
       }
+      if (railTreatment == AtomicChallengeRailTreatment.technicalOngoing) {
+        final successRate =
+            technicalSuccessRate ?? _derivedProduceBlocksSuccessRate(c);
+        if (successRate != null) {
+          return _successRateText(successRate);
+        }
+      }
+    }
+    // Count/sum progress is canonical only when `current` is present. Backend
+    // reasoning is evidence text, not a stable progress source.
+    if (kind == ChallengeMetricKind.count || kind == ChallengeMetricKind.sum) {
+      return _phaseLabel(phase);
+    }
+    if (phase == AtomicChallengePhase.completed &&
+        (kind == null || kind == ChallengeMetricKind.binary)) {
+      return _phaseLabel(phase);
     }
     // A backend-provided status wins for non-empty states (e.g. "Submitted",
     // "Joined", "Eligible"). In the API shape, state=none may carry the
@@ -189,7 +260,26 @@ String _leftText(
   if (bounded != null) {
     return _metricProgressText(c.dto.metric, bounded);
   }
+  if (railTreatment == AtomicChallengeRailTreatment.technicalOngoing) {
+    final successRate =
+        technicalSuccessRate ?? _derivedProduceBlocksSuccessRate(c);
+    if (successRate != null) {
+      return _successRateText(successRate);
+    }
+  }
   return _phaseLabel(phase);
+}
+
+String _successRateText(num value) => '${value.round()}% success';
+
+double? _derivedProduceBlocksSuccessRate(EnrichedChallenge c) {
+  if (!isProduceBlocksChallenge(c.dto)) return null;
+  final earned = c.activity?.points ?? c.displayEarnedPoints;
+  if (earned == null || earned <= 0) return null;
+  final ceiling = _rewardCeiling(c.dto);
+  if (ceiling == null || ceiling <= kTop3RankBonusPoints) return null;
+  final baseCeiling = ceiling - kTop3RankBonusPoints;
+  return (earned / baseCeiling * 100).clamp(0.0, 100.0).toDouble();
 }
 
 ({num current, num target})? _metricProgress(
@@ -204,9 +294,7 @@ String _leftText(
   final target = progress?.target ?? c.dto.metric?.target;
   if (target == null || target <= 0) return null;
 
-  final current = progress?.current ??
-      _countFromEvidenceSummary(progress?.description) ??
-      _defaultMetricCurrent(progress);
+  final current = progress?.current ?? _defaultMetricCurrent(progress);
   if (current == null) return null;
 
   return (current: current.clamp(0, target), target: target);
@@ -220,20 +308,6 @@ String _metricProgressText(
   final suffix = label == null || label.isEmpty ? '' : ' $label';
   return '${_formatMetricValue(progress.current)} / '
       '${_formatMetricValue(progress.target)}$suffix';
-}
-
-// TODO(fair-rewards): Remove this once Topochain surfaces the agent's
-// metric_current as challenge_progress.current. Today the live dApp action
-// challenge returns target=3 but current=null, with the observed count only in
-// the evidence summary.
-num? _countFromEvidenceSummary(String? description) {
-  if (description == null) return null;
-  final match = RegExp(
-    r'^\s*(\d+(?:\.\d+)?)\s+(?:recognized|confirmed|valid|deduplicated|tracked|completed)\b',
-    caseSensitive: false,
-  ).firstMatch(description);
-  if (match == null) return null;
-  return num.tryParse(match.group(1)!);
 }
 
 num? _defaultMetricCurrent(ChallengeProgress? progress) {
@@ -339,6 +413,7 @@ bool isChallengeActive(ChallengeDto dto) {
 List<ChallengeBand> buildChallengeBands(
   List<EnrichedChallenge> active, {
   ChallengeProgress? Function(ChallengeDto dto)? progressForChallenge,
+  double? Function(ChallengeDto dto)? technicalSuccessRateForChallenge,
   DateTime? now,
 }) {
   if (active.isEmpty) return const [];
@@ -349,6 +424,7 @@ List<ChallengeBand> buildChallengeBands(
     return mapToAtomicCard(
       c,
       progress: progressForChallenge?.call(c.dto),
+      technicalSuccessRate: technicalSuccessRateForChallenge?.call(c.dto),
       featured: featured,
     );
   }

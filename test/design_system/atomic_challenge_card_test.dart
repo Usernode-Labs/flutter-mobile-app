@@ -72,6 +72,25 @@ void main() {
       );
     });
 
+    testWidgets('checkbox rail shows selected icon when pending',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Share feedback',
+          leftText: 'Submitted',
+          rightText: 'pending 500 pts',
+          phase: AtomicChallengePhase.pendingFinalization,
+          fill: null,
+          railTreatment: AtomicChallengeRailTreatment.checkbox,
+          onTap: () {},
+        ),
+      ));
+
+      expect(find.byIcon(Symbols.radio_button_checked_sharp), findsOneWidget);
+      expect(find.byIcon(Symbols.radio_button_unchecked_sharp), findsNothing);
+      expect(find.byIcon(Symbols.task_alt_sharp), findsNothing);
+    });
+
     testWidgets('checkbox rail shows completed icon when completed',
         (tester) async {
       await tester.pumpWidget(wrap(

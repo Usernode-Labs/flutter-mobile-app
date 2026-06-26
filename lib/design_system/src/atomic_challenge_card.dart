@@ -548,6 +548,8 @@ class _CheckboxChallengeRail extends StatelessWidget {
 
   IconData get _icon {
     return switch (phase) {
+      AtomicChallengePhase.pendingFinalization =>
+        Symbols.radio_button_checked_sharp,
       AtomicChallengePhase.completed => Symbols.task_alt_sharp,
       _ => Symbols.radio_button_unchecked_sharp,
     };

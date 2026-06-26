@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
@@ -32,7 +33,32 @@ final challengeBandsProvider = Provider<ChallengeBandsResult?>((ref) {
     bands: buildChallengeBands(
       enriched,
       progressForChallenge: breakdown?.progressForChallenge,
+      technicalSuccessRateForChallenge: (dto) =>
+          _technicalSuccessRateForChallenge(breakdown, dto),
     ),
     byId: {for (final c in enriched) c.dto.id: c},
   );
 });
+
+double? _technicalSuccessRateForChallenge(
+  BreakdownResult? breakdown,
+  ChallengeDto dto,
+) {
+  if (!isProduceBlocksChallenge(dto)) return null;
+
+  final eventBreakdown = breakdown?.eventBreakdown;
+  if (eventBreakdown != null) return eventBreakdown.successRate;
+
+  final seasonEvents = breakdown?.seasonBreakdown?.events;
+  if (seasonEvents == null || seasonEvents.isEmpty) return null;
+
+  final eventId = dto.eventId;
+  if (eventId != null) {
+    for (final event in seasonEvents) {
+      if (event.eventId == eventId) return event.successRate;
+    }
+    return null;
+  }
+
+  return seasonEvents.length == 1 ? seasonEvents.single.successRate : null;
+}

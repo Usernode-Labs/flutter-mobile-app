@@ -16,5 +16,8 @@ final categorizedChallengesProvider = Provider<CategorizedEnrichedChallenges?>((
   final breakdown = ref.watch(breakdownProvider.select((s) => s.valueOrNull));
   final activities = extractActivities(breakdown);
   final enriched = enrichChallenges(challenges, activities);
-  return categorizeEnrichedChallenges(enriched);
+  return categorizeEnrichedChallenges(
+    enriched,
+    progressForChallenge: breakdown?.progressForChallenge,
+  );
 });

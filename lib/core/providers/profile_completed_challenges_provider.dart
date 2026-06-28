@@ -37,9 +37,9 @@ final profileCompletedChallengesProvider =
   final enriched = enrichChallenges(challenges, extractActivities(breakdown));
   final completed = enriched.where((challenge) {
     final progress = breakdown.progressForChallenge(challenge.dto);
-    final earnedPoints =
-        progress?.earnedPoints ?? challenge.displayEarnedPoints ?? 0;
-    return earnedPoints > 0 || progress?.state == ChallengeProgressState.earned;
+    if (progress == null) return false;
+    return progress.state == ChallengeProgressState.earned ||
+        progress.earnedPoints > 0;
   }).toList();
 
   return ProfileCompletedChallengeHistory(

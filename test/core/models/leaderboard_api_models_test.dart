@@ -1799,5 +1799,30 @@ void main() {
       expect(updated.eventId, 5);
       expect(updated.eventName, 'E5');
     });
+
+    test('uses structural equality for provider change suppression', () {
+      const a = SeasonEventContext(
+        seasonId: 1,
+        seasonName: 'Season 1',
+        eventId: 10,
+        eventName: 'Phase 10',
+      );
+      const b = SeasonEventContext(
+        seasonId: 1,
+        seasonName: 'Season 1',
+        eventId: 10,
+        eventName: 'Phase 10',
+      );
+      const c = SeasonEventContext(
+        seasonId: 1,
+        seasonName: 'Season 1',
+        eventId: 11,
+        eventName: 'Phase 11',
+      );
+
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+      expect(a, isNot(c));
+    });
   });
 }

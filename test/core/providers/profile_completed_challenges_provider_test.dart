@@ -64,6 +64,16 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
         enabled: true,
         completed: false,
       ),
+      ChallengeDto(
+        id: 404,
+        category: 'community',
+        goal: 'Ambiguous duplicated challenge',
+        task: 'This id exists in two events.',
+        reward: '999',
+        enabled: true,
+        completed: false,
+        activitiesTotal: 999,
+      ),
     ];
   }
 
@@ -101,6 +111,11 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
                   state: ChallengeProgressState.none,
                   earnedPoints: 100,
                 ),
+                ChallengeProgress(
+                  challengeId: 404,
+                  state: ChallengeProgressState.earned,
+                  earnedPoints: 999,
+                ),
               ],
             ),
           ],
@@ -126,6 +141,11 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
                   challengeId: 303,
                   state: ChallengeProgressState.inProgress,
                   earnedPoints: 0,
+                ),
+                ChallengeProgress(
+                  challengeId: 404,
+                  state: ChallengeProgressState.earned,
+                  earnedPoints: 999,
                 ),
               ],
             ),
@@ -163,5 +183,23 @@ void main() {
     expect(service.breakdownCall?.participantId, 19);
     expect(service.breakdownCall?.seasonId, isNull);
     expect(service.breakdownCall?.eventId, isNull);
+  });
+
+  test('excludes ambiguous global duplicate IDs from completed history',
+      () async {
+    final service = _RecordingLeaderboardApiService();
+    final container = ProviderContainer(
+      overrides: [
+        leaderboardApiServiceProvider.overrideWithValue(service),
+        participantIdProvider.overrideWith((ref) => 19),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final result = await container.read(
+      profileCompletedChallengesProvider.future,
+    );
+
+    expect(result!.completed.map((c) => c.dto.id), isNot(contains(404)));
   });
 }

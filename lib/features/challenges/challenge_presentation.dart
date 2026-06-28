@@ -134,13 +134,12 @@ AtomicChallengePhase _phase(EnrichedChallenge c, ChallengeProgress? progress) {
     };
   }
 
-  // Generic fallback from existing fields (#440).
+  // Generic fallback from existing fields (#440). Do not treat an expired or
+  // administratively closed schedule as user completion; the scoped breakdown
+  // progress is the canonical source for missed/earned status when available.
   final hasPoints = (c.displayEarnedPoints ?? 0) > 0;
-  final over = c.dto.completed || _isScheduleExpired(c.dto);
-  if (over) return AtomicChallengePhase.completed;
-  if (hasPoints || c.participantCompleted) {
-    return AtomicChallengePhase.inProgress;
-  }
+  if (hasPoints) return AtomicChallengePhase.completed;
+  if (c.participantCompleted) return AtomicChallengePhase.inProgress;
   return AtomicChallengePhase.open;
 }
 

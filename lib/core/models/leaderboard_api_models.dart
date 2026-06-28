@@ -1063,6 +1063,19 @@ class SeasonEventContext {
       eventName: eventName ?? this.eventName,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is SeasonEventContext &&
+            other.seasonId == seasonId &&
+            other.seasonName == seasonName &&
+            other.eventId == eventId &&
+            other.eventName == eventName;
+  }
+
+  @override
+  int get hashCode => Object.hash(seasonId, seasonName, eventId, eventName);
 }
 
 // ---------------------------------------------------------------------------

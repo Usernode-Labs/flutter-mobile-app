@@ -47,9 +47,10 @@ exactly the noise #440/#449 move out to the band layer and detail page.
   block production, where no bounded fill exists.
 
 ### Featured treatment
-- A premium surface treatment (`AppSemanticColors.premium`) for the single most relevant challenge.
-  Per #440, "featured" is a **layout treatment of the first active challenge in backend order**, not a
-  new backend state.
+- A premium surface treatment (`AppSemanticColors.premium`) for leaderboard-curated challenges.
+- Phase 1 treated "featured" as a client layout treatment of the first active challenge in backend
+  order. The current leaderboard contract now owns curation through `featured` and `featured_order`,
+  so mobile consumes those fields and keeps the visual treatment presentation-only inside the card.
 
 ## Token Mapping
 | Element | Design System Token | Notes |

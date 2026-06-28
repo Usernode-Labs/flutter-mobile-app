@@ -853,6 +853,34 @@ void main() {
       expect(card.rightText, '300 pts');
       expect(card.fill, isNull);
     });
+
+    test('expired challenge without progress does not render as done', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          reward: '300 pts',
+          scheduleEnd: '2020-01-01T00:00:00Z',
+        )),
+      );
+
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.leftText, 'Not done');
+      expect(card.rightText, '300 pts');
+      expect(card.fill, isNull);
+    });
+
+    test('closed challenge without earned points does not render as done', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          reward: '300 pts',
+          completed: true,
+        )),
+      );
+
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.leftText, 'Not done');
+      expect(card.rightText, '300 pts');
+      expect(card.fill, isNull);
+    });
   });
 
   group('buildChallengeBands', () {

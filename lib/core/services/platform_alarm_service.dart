@@ -775,6 +775,37 @@ class PlatformAlarmService {
     }
   }
 
+  Future<List<AlarmDebugState>> listActiveSlotWakeAlarmDebugStates() async {
+    if (!Platform.isAndroid) return const [];
+    if (!_initialized) {
+      _log.debug('Cannot list active slot wake alarm states: '
+          'service not initialized');
+      return const [];
+    }
+
+    try {
+      final raw = await _channel.invokeMethod<Object?>(
+        'listActiveSlotWakeAlarmDebugStates',
+      );
+      if (raw is! List) {
+        _log.warn('Invalid native active slot wake alarm state list');
+        return const [];
+      }
+
+      return raw
+          .whereType<Map>()
+          .map((state) =>
+              AlarmDebugState.fromMap(state.cast<Object?, Object?>()))
+          .toList(growable: false);
+    } on PlatformException catch (e) {
+      _log.warn('Error listing active slot wake alarm states: ${e.message}');
+      return const [];
+    } catch (e) {
+      _log.warn('Error listing active slot wake alarm states: $e');
+      return const [];
+    }
+  }
+
   Future<bool> wasForceStoppedOnStartup() async {
     if (!Platform.isAndroid) return false;
     if (!_initialized) return false;

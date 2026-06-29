@@ -26,7 +26,7 @@ class AlarmScheduler(
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val ledger = AlarmLedger(context)
+    private val alarmAuditStore = AlarmAuditStore(context)
 
     fun scheduleExactAlarm(
         alarmId: String,
@@ -49,17 +49,9 @@ class AlarmScheduler(
                 Log.d(TAG, "[AlarmScheduler] Exact alarm permission status: $canSchedule (API ${Build.VERSION.SDK_INT})")
                 if (!canSchedule) {
                     Log.w(TAG, "[AlarmScheduler] Cannot schedule exact alarms - permission not granted")
-                    ledger.recordScheduleFailed(
+                    alarmAuditStore.recordScheduleFailed(
                         alarmId = alarmId,
-                        globalSlot = globalSlot,
-                        triggerAtMs = triggerAtMs,
-                        scheduledAtMs = currentTime,
-                        scheduledElapsedRealtimeMs = scheduledElapsedRealtimeMs,
-                        triggerElapsedRealtimeMs = triggerElapsedRealtimeMs,
-                        requestedDelayMs = delayMs,
-                        effectiveDelayMs = effectiveDelayMs,
-                        data = data,
-                        failureReason = "exact_alarm_permission_denied"
+                        data = data
                     )
                     return false
                 }
@@ -125,7 +117,7 @@ class AlarmScheduler(
 
             // Save alarm ID for tracking
             saveScheduledAlarm(alarmId, globalSlot)
-            ledger.recordScheduled(
+            alarmAuditStore.recordScheduled(
                 alarmId = alarmId,
                 globalSlot = globalSlot,
                 triggerAtMs = triggerAtMs,
@@ -149,15 +141,40 @@ class AlarmScheduler(
     }
 
     fun cancelAlarm(alarmId: String): Boolean {
-        return cancelAlarm(alarmId, "cancel_alarm")
+        try {
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = "com.usernode.app.SLOT_ALARM"
+            }
+
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                alarmId.hashCode(),
+                intent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            if (pendingIntent != null) {
+                alarmManager.cancel(pendingIntent)
+                pendingIntent.cancel()
+            }
+
+            removeScheduledAlarm(alarmId)
+            alarmAuditStore.recordCancelled(alarmId = alarmId)
+
+            Log.i(TAG, "Cancelled alarm: $alarmId")
+            return true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cancelling alarm", e)
+            return false
+        }
     }
 
     fun cancelAllAlarms(): Boolean {
         try {
             val scheduledAlarms = getScheduledAlarms()
 
-            for (alarmId in scheduledAlarms.keys) {
-                cancelAlarm(alarmId, "cancel_all_alarms")
+            for (scheduledAlarmId in scheduledAlarms.keys) {
+                cancelAlarm(scheduledAlarmId)
             }
 
             clearScheduledAlarms()
@@ -193,44 +210,19 @@ class AlarmScheduler(
     }
 
     fun getAlarmDebugState(alarmId: String): Map<String, Any?> {
-        return ledger.getState(
+        return alarmAuditStore.getState(
             alarmId = alarmId,
             pendingIntentExists = hasScheduledAlarm(alarmId),
             canScheduleExactAlarms = canScheduleExactAlarms()
         )
     }
 
-    private fun cancelAlarm(alarmId: String, reason: String): Boolean {
-        try {
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "com.usernode.app.SLOT_ALARM"
-            }
-
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                alarmId.hashCode(),
-                intent,
-                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            if (pendingIntent != null) {
-                alarmManager.cancel(pendingIntent)
-                pendingIntent.cancel()
-            }
-
-            removeScheduledAlarm(alarmId)
-            ledger.recordCancelled(
-                alarmId = alarmId,
-                reason = reason,
-                cancelledAtMs = System.currentTimeMillis()
-            )
-
-            Log.i(TAG, "Cancelled alarm: $alarmId")
-            return true
-        } catch (e: Exception) {
-            Log.e(TAG, "Error cancelling alarm", e)
-            return false
-        }
+    fun listActiveSlotWakeAlarmDebugStates(): List<Map<String, Any?>> {
+        return alarmAuditStore.listActiveSlotWakeStates(
+            pendingIntentExists = ::hasScheduledAlarm,
+            canScheduleExactAlarms = canScheduleExactAlarms(),
+            nowMs = System.currentTimeMillis()
+        )
     }
 
     private fun canScheduleExactAlarms(): Boolean {

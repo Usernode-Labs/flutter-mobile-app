@@ -27,6 +27,9 @@ typedef AlarmAuditScheduleForegroundResume
   required int slotTimeMs,
 });
 
+typedef AlarmAuditListActiveSlotWakeAlarmStates = Future<List<AlarmDebugState>>
+    Function();
+
 typedef AlarmAuditRecoveryRetryScheduler = void Function(
   Duration delay,
   void Function() callback,
@@ -39,6 +42,7 @@ class BlockProductionAlarmAuditService {
     Future<bool> Function()? hasExactAlarmPermission,
     Future<bool> Function(String alarmId)? hasScheduledAlarm,
     Future<AlarmDebugState> Function(String alarmId)? getAlarmDebugState,
+    AlarmAuditListActiveSlotWakeAlarmStates? listActiveSlotWakeAlarmStates,
     AlarmAuditScheduleAlarm? scheduleAlarm,
     AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
     Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
@@ -71,6 +75,8 @@ class BlockProductionAlarmAuditService {
                       alarmId: alarmId,
                       pendingIntentExists: await hasScheduledAlarm(alarmId),
                     ))),
+        _listActiveSlotWakeAlarmStates = listActiveSlotWakeAlarmStates ??
+            PlatformAlarmService.instance.listActiveSlotWakeAlarmDebugStates,
         _scheduleAlarm =
             scheduleAlarm ?? PlatformAlarmService.instance.scheduleAlarm,
         _scheduleForegroundResume =
@@ -120,6 +126,7 @@ class BlockProductionAlarmAuditService {
     Future<bool> Function()? hasExactAlarmPermission,
     Future<bool> Function(String alarmId)? hasScheduledAlarm,
     Future<AlarmDebugState> Function(String alarmId)? getAlarmDebugState,
+    AlarmAuditListActiveSlotWakeAlarmStates? listActiveSlotWakeAlarmStates,
     AlarmAuditScheduleAlarm? scheduleAlarm,
     AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
     Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
@@ -145,6 +152,7 @@ class BlockProductionAlarmAuditService {
           hasExactAlarmPermission: hasExactAlarmPermission,
           hasScheduledAlarm: hasScheduledAlarm,
           getAlarmDebugState: getAlarmDebugState,
+          listActiveSlotWakeAlarmStates: listActiveSlotWakeAlarmStates,
           scheduleAlarm: scheduleAlarm,
           scheduleForegroundResume: scheduleForegroundResume,
           loadEpochSnapshot: loadEpochSnapshot,
@@ -173,6 +181,7 @@ class BlockProductionAlarmAuditService {
   final Future<bool> Function() _refreshPermissions;
   final Future<bool> Function() _hasExactAlarmPermission;
   final Future<AlarmDebugState> Function(String alarmId) _getAlarmDebugState;
+  final AlarmAuditListActiveSlotWakeAlarmStates _listActiveSlotWakeAlarmStates;
   final AlarmAuditScheduleAlarm _scheduleAlarm;
   final AlarmAuditScheduleForegroundResume _scheduleForegroundResume;
   final Future<AlarmAuditEpochSnapshot?> Function() _loadEpochSnapshot;
@@ -374,12 +383,19 @@ class BlockProductionAlarmAuditService {
         );
       }
 
+      final counts = _AlarmAuditCounts();
+      await _recoverActiveSlotWakeAlarms(
+        reason: reason,
+        counts: counts,
+      );
+
       final nodeRunning = await _ensureNodeRunning();
       if (!nodeRunning) {
         return _skip(
           reason,
           'node_not_running',
           fgResumeStatus: 'skipped:node_not_running',
+          counts: counts,
         );
       }
 
@@ -389,6 +405,7 @@ class BlockProductionAlarmAuditService {
           reason,
           'clock_drift_unavailable',
           fgResumeStatus: 'skipped:clock_drift_unavailable',
+          counts: counts,
         );
       }
 
@@ -398,6 +415,7 @@ class BlockProductionAlarmAuditService {
           reason,
           'epoch_info_unavailable',
           fgResumeStatus: 'skipped:epoch_info_unavailable',
+          counts: counts,
         );
       }
 
@@ -406,6 +424,7 @@ class BlockProductionAlarmAuditService {
           reason,
           'no_won_slots',
           fgResumeStatus: 'no_won_slots',
+          counts: counts,
         );
       }
 
@@ -415,7 +434,6 @@ class BlockProductionAlarmAuditService {
         clockDriftMs: clockDriftMs,
         nowMs: auditNowMs,
       );
-      final counts = _AlarmAuditCounts();
 
       for (final alarm in built.pastSlotWakeAlarms) {
         await _auditPastSlotWakeAlarm(
@@ -638,6 +656,111 @@ class BlockProductionAlarmAuditService {
     );
   }
 
+  Future<void> _recoverActiveSlotWakeAlarms({
+    required String reason,
+    required _AlarmAuditCounts counts,
+  }) async {
+    List<AlarmDebugState> states;
+    try {
+      states = await _listActiveSlotWakeAlarmStates();
+    } catch (e, st) {
+      counts.activeSlotWakeFailedCount++;
+      _log.warn('Active slot wake recovery failed to list states: $e');
+      _log.debug('$st');
+      _report('alarm_audit_active_slot_wake_recovery_failed', {
+        'reason': reason,
+        'failure_reason': 'list_states_exception',
+        'error': e.toString(),
+      });
+      return;
+    }
+
+    if (states.isEmpty) {
+      return;
+    }
+
+    final nowMs = _nowMs();
+    for (final state in states) {
+      counts.activeSlotWakeCount++;
+      final globalSlot = state.globalSlot ??
+          state.slotNumber ??
+          _slotFromAlarmId(state.alarmId);
+      final slotTimeMs = state.localSlotTimeMs ?? state.slotTimeMs;
+      final alarmTimeMs =
+          state.localWakeTimeMs ?? state.alarmTimeMs ?? state.triggerAtMs;
+
+      if (globalSlot == null || slotTimeMs == null || alarmTimeMs == null) {
+        continue;
+      }
+
+      if (slotTimeMs <= nowMs) {
+        continue;
+      }
+
+      if (state.pendingIntentExists) {
+        continue;
+      }
+
+      final delayMs = alarmTimeMs > nowMs ? alarmTimeMs - nowMs : 0;
+      final success = await _scheduleAlarm(
+        alarmId: state.alarmId,
+        globalSlot: globalSlot,
+        delayMs: delayMs,
+        data: {
+          if (state.epoch != null) 'epoch': state.epoch,
+          'slotTimeMs': slotTimeMs,
+          'localSlotTimeMs': slotTimeMs,
+          if (state.rustSlotTimeMs != null)
+            'rustSlotTimeMs': state.rustSlotTimeMs,
+          'alarmTimeMs': alarmTimeMs,
+          'purpose': 'slot_wake',
+          'reason': 'active_slot_wake_recovery:$reason',
+          'globalSlot': globalSlot,
+          'nodeRunning': _isNodeRunning(),
+          if (state.rustWakeTimeMs != null)
+            'rustWakeTimeMs': state.rustWakeTimeMs,
+          'localWakeTimeMs': alarmTimeMs,
+          if (state.clockDriftMs != null) 'clockDriftMs': state.clockDriftMs,
+          ..._scheduleClockTelemetryData(nowMs),
+        },
+      );
+
+      if (success) {
+        counts.activeSlotWakeRescheduledCount++;
+        _report('alarm_audit_active_slot_wake_recovery_rescheduled', {
+          'reason': reason,
+          'global_slot': globalSlot,
+          'slot_time_ms': slotTimeMs,
+          'alarm_time_ms': alarmTimeMs,
+          'delay_ms': delayMs,
+          'alarm_wake_time_past': alarmTimeMs <= nowMs,
+          if (alarmTimeMs <= nowMs) 'past_alarm_age_ms': nowMs - alarmTimeMs,
+          ...state.telemetryDetails,
+        });
+        continue;
+      }
+
+      counts.activeSlotWakeFailedCount++;
+      _report('alarm_audit_active_slot_wake_recovery_failed', {
+        'reason': reason,
+        'failure_reason': 'platform_schedule_failed',
+        'global_slot': globalSlot,
+        'slot_time_ms': slotTimeMs,
+        'alarm_time_ms': alarmTimeMs,
+        'delay_ms': delayMs,
+        ...state.telemetryDetails,
+      });
+    }
+  }
+
+  int? _slotFromAlarmId(String alarmId) {
+    if (!alarmId.startsWith('slot_')) {
+      return null;
+    }
+    final slot = int.tryParse(alarmId.substring('slot_'.length));
+    return slot != null && slot > 0 ? slot : null;
+  }
+
   Future<String> _auditForegroundResume({
     required String reason,
     required AlarmAuditEpochSnapshot epoch,
@@ -799,6 +922,7 @@ class BlockProductionAlarmAuditService {
     String skippedReason, {
     String fgResumeStatus = 'skipped',
     String? failureReason,
+    _AlarmAuditCounts? counts,
   }) {
     _log.info('Alarm audit skipped', context: {
       'reason': reason,
@@ -813,11 +937,11 @@ class BlockProductionAlarmAuditService {
         if (failureReason != null) 'failure_reason': failureReason,
       },
     );
-    final counts = _AlarmAuditCounts();
+    final resolvedCounts = counts ?? _AlarmAuditCounts();
     _reportCompleted(
       reason: reason,
       expectedSlotWakeCount: 0,
-      counts: counts,
+      counts: resolvedCounts,
       fgResumeStatus: fgResumeStatus,
     );
 
@@ -825,10 +949,10 @@ class BlockProductionAlarmAuditService {
       reason: reason,
       skippedReason: skippedReason,
       expectedSlotWakeCount: 0,
-      presentCount: 0,
-      missingCount: 0,
-      rescheduledCount: 0,
-      failedCount: 0,
+      presentCount: resolvedCounts.presentCount,
+      missingCount: resolvedCounts.missingCount,
+      rescheduledCount: resolvedCounts.rescheduledCount,
+      failedCount: resolvedCounts.failedCount,
       fgResumeStatus: fgResumeStatus,
     );
   }
@@ -851,6 +975,10 @@ class BlockProductionAlarmAuditService {
       'past_receiver_late_count': counts.pastReceiverLateCount,
       'past_pending_no_receiver_count': counts.pastPendingNoReceiverCount,
       'past_missing_no_receiver_count': counts.pastMissingNoReceiverCount,
+      'active_slot_wake_count': counts.activeSlotWakeCount,
+      'active_slot_wake_rescheduled_count':
+          counts.activeSlotWakeRescheduledCount,
+      'active_slot_wake_failed_count': counts.activeSlotWakeFailedCount,
       'fg_resume_status': fgResumeStatus,
     });
     _report(
@@ -867,6 +995,10 @@ class BlockProductionAlarmAuditService {
         'past_receiver_late_count': counts.pastReceiverLateCount,
         'past_pending_no_receiver_count': counts.pastPendingNoReceiverCount,
         'past_missing_no_receiver_count': counts.pastMissingNoReceiverCount,
+        'active_slot_wake_count': counts.activeSlotWakeCount,
+        'active_slot_wake_rescheduled_count':
+            counts.activeSlotWakeRescheduledCount,
+        'active_slot_wake_failed_count': counts.activeSlotWakeFailedCount,
         'fg_resume_status': fgResumeStatus,
       },
     );
@@ -1170,6 +1302,9 @@ class _AlarmAuditCounts {
   int pastReceiverLateCount = 0;
   int pastPendingNoReceiverCount = 0;
   int pastMissingNoReceiverCount = 0;
+  int activeSlotWakeCount = 0;
+  int activeSlotWakeRescheduledCount = 0;
+  int activeSlotWakeFailedCount = 0;
 }
 
 class _FutureWonSlot {

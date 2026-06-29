@@ -198,6 +198,74 @@ void main() {
       expect(retryCallbacks, hasLength(1));
     });
 
+    test('package replacement recovers future active slot_wake from native',
+        () async {
+      final harness = _AuditHarness(
+        nodeRunning: false,
+        activeSlotWakeAlarmStates: const [
+          AlarmDebugState(
+            alarmId: 'slot_42',
+            pendingIntentExists: false,
+            globalSlot: 42,
+            slotNumber: 42,
+            epoch: 7,
+            slotTimeMs: 20000,
+            localSlotTimeMs: 20000,
+            rustSlotTimeMs: 20000,
+            alarmTimeMs: 15000,
+            purpose: 'slot_wake',
+            scheduleStatus: 'scheduled',
+          ),
+        ],
+      );
+
+      final result = await harness.service.audit(reason: 'package_replaced');
+
+      expect(result.skippedReason, 'node_not_running');
+      expect(harness.scheduledAlarms, hasLength(1));
+      expect(harness.scheduledAlarms.single.alarmId, 'slot_42');
+      expect(harness.scheduledAlarms.single.globalSlot, 42);
+      expect(harness.scheduledAlarms.single.delayMs, 5000);
+      expect(
+        harness.scheduledAlarms.single.data['reason'],
+        'active_slot_wake_recovery:package_replaced',
+      );
+      expect(
+        harness.events('alarm_audit_active_slot_wake_recovery_rescheduled'),
+        hasLength(1),
+      );
+      expect(
+        harness
+            .events('alarm_audit_completed')
+            .single['active_slot_wake_rescheduled_count'],
+        1,
+      );
+    });
+
+    test('active slot wake recovery leaves existing alarms alone', () async {
+      final harness = _AuditHarness(
+        nodeRunning: false,
+        activeSlotWakeAlarmStates: const [
+          AlarmDebugState(
+            alarmId: 'slot_1',
+            pendingIntentExists: true,
+            globalSlot: 1,
+            slotTimeMs: 20000,
+            alarmTimeMs: 15000,
+            purpose: 'slot_wake',
+            scheduleStatus: 'scheduled',
+          ),
+        ],
+      );
+
+      await harness.service.audit(reason: 'package_replaced');
+
+      expect(harness.scheduledAlarms, isEmpty);
+      final completed = harness.events('alarm_audit_completed').single;
+      expect(completed['active_slot_wake_count'], 1);
+      expect(completed['active_slot_wake_rescheduled_count'], 0);
+    });
+
     test('foreground resume lead is five minutes in production', () {
       expect(
         AndroidForegroundTaskController.foregroundResumeLead,
@@ -289,11 +357,14 @@ class _AuditHarness {
     this.epochCompleter,
     Set<String>? presentAlarms,
     Map<String, AlarmDebugState>? debugStates,
+    List<AlarmDebugState>? activeSlotWakeAlarmStates,
     this.nodeRunning = true,
     this.recoveryRetryDelays,
     this.scheduleRecoveryRetry,
   })  : presentAlarms = presentAlarms ?? <String>{},
-        debugStates = debugStates ?? const <String, AlarmDebugState>{} {
+        debugStates = debugStates ?? const <String, AlarmDebugState>{},
+        activeSlotWakeAlarmStates =
+            activeSlotWakeAlarmStates ?? const <AlarmDebugState>[] {
     service = BlockProductionAlarmAuditService.test(
       initializeAlarmService: () async => true,
       refreshPermissions: () async => exactAlarmPermission,
@@ -304,12 +375,14 @@ class _AuditHarness {
             alarmId: alarmId,
             pendingIntentExists: this.presentAlarms.contains(alarmId),
           ),
+      listActiveSlotWakeAlarmStates: () async => this.activeSlotWakeAlarmStates,
       scheduleAlarm: ({
         required alarmId,
         required globalSlot,
         required delayMs,
         data,
       }) async {
+        this.presentAlarms.add(alarmId);
         scheduledAlarms.add(
           _ScheduledAlarm(
             alarmId: alarmId,
@@ -386,6 +459,7 @@ class _AuditHarness {
   final AlarmAuditRecoveryRetryScheduler? scheduleRecoveryRetry;
   final Set<String> presentAlarms;
   final Map<String, AlarmDebugState> debugStates;
+  final List<AlarmDebugState> activeSlotWakeAlarmStates;
   final records = <_CapturedObservabilityRecord>[];
   final scheduledAlarms = <_ScheduledAlarm>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];

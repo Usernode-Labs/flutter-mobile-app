@@ -199,6 +199,9 @@ class AlarmMethodChannelHandler(context: Context) {
 
                 result.success(alarmScheduler.getAlarmDebugState(alarmId))
             }
+            "listActiveSlotWakeAlarmDebugStates" -> {
+                result.success(alarmScheduler.listActiveSlotWakeAlarmDebugStates())
+            }
             "startForegroundService" -> {
                 val title = call.argument<String>("title")
                 val message = call.argument<String>("message")

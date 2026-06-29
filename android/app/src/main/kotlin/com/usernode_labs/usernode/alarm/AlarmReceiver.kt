@@ -72,20 +72,9 @@ class AlarmReceiver : BroadcastReceiver() {
         val nativeDeliveryLatencyMs = nativeTriggerAtMs?.let { currentTime - it }
         val elapsedDeliveryLatencyMs =
             triggerElapsedRealtimeMs?.let { receiverElapsedRealtimeMs - it }
-        AlarmLedger(context).recordReceiverEntered(
+        AlarmAuditStore(context).recordReceiverEntered(
             alarmId = alarmId,
-            globalSlot = globalSlot,
-            alarmTimeMs = scheduledTimeMs,
-            nativeTriggerAtMs = nativeTriggerAtMs,
-            receiverEnteredAtMs = currentTime,
-            receiverElapsedRealtimeMs = receiverElapsedRealtimeMs,
-            receiverLatencyMs = latencyMs,
-            nativeDeliveryLatencyMs = nativeDeliveryLatencyMs,
-            elapsedDeliveryLatencyMs = elapsedDeliveryLatencyMs,
-            triggerElapsedRealtimeMs = triggerElapsedRealtimeMs,
-            purpose = purpose,
-            schedulerReason = reason,
-            nodeRunning = nodeRunning
+            purpose = purpose
         )
         Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for global slot $globalSlot (latency: ${latencyMs}ms)")
 
@@ -125,8 +114,6 @@ class AlarmReceiver : BroadcastReceiver() {
                 eventData
             )
         }
-        AlarmLedger(context).recordFlutterEventSent(alarmId, System.currentTimeMillis())
-
         // Start foreground service to keep app alive during monitoring
         Log.d(TAG, "[AlarmReceiver] Starting SlotMonitoringService")
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {

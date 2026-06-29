@@ -15,13 +15,47 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 /// Reads the in-memory [HttpDebugLogStore] and rebuilds live as requests
 /// arrive (the store is a [ChangeNotifier]). Entries are already redacted and
 /// truncated. The app bar offers copy-all-to-clipboard and clear.
-class HttpDebugLogsScreen extends ConsumerWidget {
+class HttpDebugLogsScreen extends ConsumerStatefulWidget {
   const HttpDebugLogsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HttpDebugLogsScreen> createState() =>
+      _HttpDebugLogsScreenState();
+}
+
+class _HttpDebugLogsScreenState extends ConsumerState<HttpDebugLogsScreen> {
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Reflect any filter already in effect — it persists across screen opens
+    // and also drives copy/share.
+    _searchController.text = ref.read(httpLogFilterProvider);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Case-insensitive substring match on the request URL.
+  List<HttpLogEntry> _applyFilter(List<HttpLogEntry> entries, String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return entries;
+    return entries
+        .where((e) => e.url.toLowerCase().contains(q))
+        .toList(growable: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final store = ref.watch(httpDebugLogStoreProvider);
+    final query = ref.watch(httpLogFilterProvider);
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
 
     // Surface a one-off message when the backend asks us to stop sharing.
     ref.listen(logShareControllerProvider, (prev, next) {
@@ -32,6 +66,8 @@ class HttpDebugLogsScreen extends ConsumerWidget {
       }
     });
 
+    final hasQuery = query.trim().isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.httpLogsTitle),
@@ -40,8 +76,10 @@ class HttpDebugLogsScreen extends ConsumerWidget {
             icon: const Icon(Symbols.content_copy_sharp),
             tooltip: l10n.httpLogsCopy,
             onPressed: () async {
-              final text = store.toExportText();
-              if (text.isEmpty) return;
+              // Copy the currently-visible (filtered) entries.
+              final visible = _applyFilter(store.entries, query);
+              if (visible.isEmpty) return;
+              final text = visible.map((e) => e.toLogText()).join('\n');
               await Clipboard.setData(ClipboardData(text: text));
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
@@ -55,19 +93,79 @@ class HttpDebugLogsScreen extends ConsumerWidget {
             onPressed: store.clear,
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(64),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              spacing.space16,
+              0,
+              spacing.space16,
+              spacing.space8,
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) =>
+                  ref.read(httpLogFilterProvider.notifier).state = value,
+              textInputAction: TextInputAction.search,
+              autocorrect: false,
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: l10n.httpLogsFilterHint,
+                prefixIcon: const Icon(Symbols.search_sharp),
+                suffixIcon: hasQuery
+                    ? IconButton(
+                        icon: const Icon(Symbols.close_sharp),
+                        tooltip: l10n.httpLogsClear,
+                        onPressed: () {
+                          _searchController.clear();
+                          ref.read(httpLogFilterProvider.notifier).state = '';
+                        },
+                      )
+                    : null,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
         child: ListenableBuilder(
           listenable: store,
           builder: (context, _) {
-            final entries = store.entries;
+            final all = store.entries;
+            final entries = _applyFilter(all, query);
             if (entries.isEmpty) {
-              return _EmptyState(message: l10n.httpLogsEmpty);
+              return _EmptyState(
+                message: hasQuery ? l10n.httpLogsNoMatches : l10n.httpLogsEmpty,
+              );
             }
-            return ListView.separated(
-              itemCount: entries.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, i) => _HttpLogTile(entry: entries[i]),
+            return Column(
+              children: [
+                if (hasQuery)
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: spacing.space16,
+                      vertical: spacing.space8,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        l10n.httpLogsFilterCount(entries.length, all.length),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: entries.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, i) =>
+                        _HttpLogTile(entry: entries[i]),
+                  ),
+                ),
+              ],
             );
           },
         ),

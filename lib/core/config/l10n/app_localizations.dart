@@ -3742,6 +3742,24 @@ abstract class AppLocalizations {
   /// **'No participant ID yet — finish onboarding to share logs'**
   String get httpLogsShareNoParticipant;
 
+  /// Placeholder text for the field that filters HTTP logs by URL substring
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by URL'**
+  String get httpLogsFilterHint;
+
+  /// Empty state shown when no captured requests match the active URL filter
+  ///
+  /// In en, this message translates to:
+  /// **'No requests match the filter.'**
+  String get httpLogsNoMatches;
+
+  /// Caption showing how many captured requests match the active URL filter
+  ///
+  /// In en, this message translates to:
+  /// **'{count} of {total}'**
+  String httpLogsFilterCount(int count, int total);
+
   /// Title of the dialog prompting the user to re-register to restore their participant ID
   ///
   /// In en, this message translates to:

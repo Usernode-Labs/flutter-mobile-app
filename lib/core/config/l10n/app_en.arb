@@ -2834,6 +2834,26 @@
   "@httpLogsShareNoParticipant": {
     "description": "Disabled-share hint shown when no participant ID is available"
   },
+  "httpLogsFilterHint": "Filter by URL",
+  "@httpLogsFilterHint": {
+    "description": "Placeholder text for the field that filters HTTP logs by URL substring"
+  },
+  "httpLogsNoMatches": "No requests match the filter.",
+  "@httpLogsNoMatches": {
+    "description": "Empty state shown when no captured requests match the active URL filter"
+  },
+  "httpLogsFilterCount": "{count} of {total}",
+  "@httpLogsFilterCount": {
+    "description": "Caption showing how many captured requests match the active URL filter",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "participantRecoveryTitle": "Onboarding has evolved",
   "@participantRecoveryTitle": {
     "description": "Title of the dialog prompting the user to re-register to restore their participant ID"

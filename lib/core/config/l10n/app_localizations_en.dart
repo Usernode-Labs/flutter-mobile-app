@@ -2100,6 +2100,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'No participant ID yet — finish onboarding to share logs';
 
   @override
+  String get httpLogsFilterHint => 'Filter by URL';
+
+  @override
+  String get httpLogsNoMatches => 'No requests match the filter.';
+
+  @override
+  String httpLogsFilterCount(int count, int total) {
+    return '$count of $total';
+  }
+
+  @override
   String get participantRecoveryTitle => 'Onboarding has evolved';
 
   @override

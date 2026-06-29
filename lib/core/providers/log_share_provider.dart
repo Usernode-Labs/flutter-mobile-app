@@ -86,11 +86,26 @@ class LogShareController extends StateNotifier<LogShareState> {
     if (batch.isEmpty) return;
     final nextCursor = _store.totalAdded;
 
+    // Honour the viewer's active URL filter so sharing sends exactly what the
+    // user sees. Non-matching entries in this range are skipped permanently —
+    // the cursor still advances past them so the single-cursor model stays
+    // valid (broadening the filter later won't back-fill older entries).
+    final query = ref.read(httpLogFilterProvider).trim().toLowerCase();
+    final toSend = query.isEmpty
+        ? batch
+        : batch
+            .where((e) => e.url.toLowerCase().contains(query))
+            .toList(growable: false);
+    if (toSend.isEmpty) {
+      _cursor = nextCursor;
+      return;
+    }
+
     _flushing = true;
     try {
       final outcome = await _service.postLogs(
         participantId: participantId,
-        body: _buildBody(batch),
+        body: _buildBody(toSend),
       );
       if (!mounted) return;
       switch (outcome) {
@@ -150,3 +165,10 @@ final logShareControllerProvider =
     StateNotifierProvider<LogShareController, LogShareState>(
   (ref) => LogShareController(ref: ref),
 );
+
+/// Case-insensitive URL substring that filters the HTTP debug log viewer.
+///
+/// Empty means "no filter". Held here (rather than as screen-local state) so
+/// the on-screen list, the copy action, and [LogShareController] sharing all
+/// honour the same filter.
+final httpLogFilterProvider = StateProvider<String>((ref) => '');

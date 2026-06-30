@@ -323,6 +323,7 @@ class AppBootstrap {
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
+        await PlatformAlarmService.instance.markReadyForNativeEvents();
         log.info('FRB initialized, starting node...');
         final started = await RustBackendService.instance.startNode();
         log.info(
@@ -338,6 +339,7 @@ class AppBootstrap {
         }
       } else {
         log.info('Backend already running, skipping start');
+        await PlatformAlarmService.instance.markReadyForNativeEvents();
         await ObservabilityReportingService.instance.reportNodeInitialized(
           resetStaticContext: false,
         );

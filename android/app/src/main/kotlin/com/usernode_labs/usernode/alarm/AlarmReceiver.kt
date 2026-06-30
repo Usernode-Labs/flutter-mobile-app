@@ -45,27 +45,24 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun handleSlotAlarm(context: Context, intent: Intent) {
         val alarmId = intent.getStringExtra("alarmId")
-        val slotNumber = intent.getIntExtra("slotNumber", -1)
+        val globalSlot = readGlobalSlotExtra(intent)
         val scheduledTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
         val nativeScheduledAtMs = optionalLongExtra(intent, "nativeScheduledAtMs")
         val scheduledElapsedRealtimeMs = optionalLongExtra(intent, "scheduledElapsedRealtimeMs")
         val nativeTriggerAtMs = optionalLongExtra(intent, "nativeTriggerAtMs")
         val triggerElapsedRealtimeMs = optionalLongExtra(intent, "triggerElapsedRealtimeMs")
         val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
-        val globalSlot = optionalLongExtra(intent, "globalSlot")
-            ?: optionalLongExtra(intent, "global_slot")
-            ?: slotNumber.takeIf { it > 0 }?.toLong()
         val reason = intent.getStringExtra("reason")
         val purpose = intent.getStringExtra("purpose")
 
-        Log.d(TAG, "[AlarmReceiver] Slot alarm details - ID: $alarmId, Slot: $slotNumber, Scheduled: $scheduledTimeMs")
+        Log.d(TAG, "[AlarmReceiver] Slot alarm details - ID: $alarmId, GlobalSlot: $globalSlot, Scheduled: $scheduledTimeMs")
 
         if (alarmId == null) {
             Log.e(TAG, "[AlarmReceiver] Missing alarmId in intent")
             return
         }
-        if (slotNumber == -1) {
-            Log.e(TAG, "[AlarmReceiver] Missing or invalid slotNumber in intent")
+        if (globalSlot == null) {
+            Log.e(TAG, "[AlarmReceiver] Missing or invalid globalSlot in intent")
             return
         }
 
@@ -77,7 +74,7 @@ class AlarmReceiver : BroadcastReceiver() {
             triggerElapsedRealtimeMs?.let { receiverElapsedRealtimeMs - it }
         AlarmLedger(context).recordReceiverEntered(
             alarmId = alarmId,
-            slotNumber = slotNumber,
+            globalSlot = globalSlot,
             alarmTimeMs = scheduledTimeMs,
             nativeTriggerAtMs = nativeTriggerAtMs,
             receiverEnteredAtMs = currentTime,
@@ -86,12 +83,11 @@ class AlarmReceiver : BroadcastReceiver() {
             nativeDeliveryLatencyMs = nativeDeliveryLatencyMs,
             elapsedDeliveryLatencyMs = elapsedDeliveryLatencyMs,
             triggerElapsedRealtimeMs = triggerElapsedRealtimeMs,
-            globalSlot = globalSlot,
             purpose = purpose,
             schedulerReason = reason,
             nodeRunning = nodeRunning
         )
-        Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for slot $slotNumber (latency: ${latencyMs}ms)")
+        Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for global slot $globalSlot (latency: ${latencyMs}ms)")
 
         // Take the native wakelock before handing control to Flutter so the
         // inactivity sleep path cannot win a race against alarm recovery.
@@ -99,7 +95,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val eventData = mutableMapOf<String, Any?>(
             "alarmId" to alarmId,
-            "slotNumber" to slotNumber,
+            "globalSlot" to globalSlot,
             "alarmTimeMs" to scheduledTimeMs,
             "firedAtMs" to currentTime,
             "latencyMs" to latencyMs,
@@ -114,7 +110,6 @@ class AlarmReceiver : BroadcastReceiver() {
         eventData["receiverElapsedRealtimeMs"] = receiverElapsedRealtimeMs
         nativeDeliveryLatencyMs?.let { eventData["nativeDeliveryLatencyMs"] = it }
         elapsedDeliveryLatencyMs?.let { eventData["elapsedDeliveryLatencyMs"] = it }
-        globalSlot?.let { eventData["globalSlot"] = it }
         reason?.let { eventData["reason"] = it }
         purpose?.let { eventData["purpose"] = it }
 
@@ -137,7 +132,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
-            putExtra("slotNumber", slotNumber)
+            putExtra("globalSlot", globalSlot)
             putExtra("nodeRunning", nodeRunning)
             putExtra("alarmTimeMs", scheduledTimeMs)
             nativeScheduledAtMs?.let { putExtra("nativeScheduledAtMs", it) }
@@ -147,7 +142,6 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("receiverElapsedRealtimeMs", receiverElapsedRealtimeMs)
             nativeDeliveryLatencyMs?.let { putExtra("nativeDeliveryLatencyMs", it) }
             elapsedDeliveryLatencyMs?.let { putExtra("elapsedDeliveryLatencyMs", it) }
-            globalSlot?.let { putExtra("globalSlot", it) }
             reason?.let { putExtra("reason", it) }
             purpose?.let { putExtra("purpose", it) }
         }
@@ -171,7 +165,7 @@ class AlarmReceiver : BroadcastReceiver() {
         startMonitoringService(
             context = context,
             alarmId = "boot_completed",
-            slotNumber = 0,
+            globalSlot = 0,
             nodeRunning = false
         )
     }
@@ -182,7 +176,7 @@ class AlarmReceiver : BroadcastReceiver() {
         startMonitoringService(
             context = context,
             alarmId = "package_replaced",
-            slotNumber = 0,
+            globalSlot = 0,
             nodeRunning = false
         )
     }
@@ -238,13 +232,13 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun startMonitoringService(
         context: Context,
         alarmId: String,
-        slotNumber: Int,
+        globalSlot: Int,
         nodeRunning: Boolean
     ) {
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
-            putExtra("slotNumber", slotNumber)
+            putExtra("globalSlot", globalSlot)
             putExtra("nodeRunning", nodeRunning)
         }
 
@@ -254,12 +248,12 @@ class AlarmReceiver : BroadcastReceiver() {
             context.startService(serviceIntent)
         }
 
-        Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, slot=$slotNumber)")
+        Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, globalSlot=$globalSlot)")
     }
 
     private fun showFallbackNotification(
         context: Context,
-        slotNumber: Int,
+        globalSlot: Int,
         scheduledTimeMs: Long
     ) {
         val channelId = "slot_alarm_fallback"
@@ -275,7 +269,7 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("slotNumber", slotNumber)
+            putExtra("globalSlot", globalSlot)
             putExtra("fromAlarm", true)
         }
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -283,9 +277,9 @@ class AlarmReceiver : BroadcastReceiver() {
 
         val scheduledTimeText = AlarmTimeFormatter.formatScheduledTime(scheduledTimeMs)
         val message = if (scheduledTimeText != null) {
-            "Resumed for slot $slotNumber (scheduled $scheduledTimeText)"
+            "Resumed for slot $globalSlot (scheduled $scheduledTimeText)"
         } else {
-            "Resumed for slot $slotNumber"
+            "Resumed for slot $globalSlot"
         }
 
         val notification = NotificationCompat.Builder(context, channelId)
@@ -297,7 +291,26 @@ class AlarmReceiver : BroadcastReceiver() {
             .setContentIntent(pendingIntent)
             .build()
 
-        nm.notify(slotNumber, notification)
+        nm.notify(globalSlot, notification)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun readGlobalSlotExtra(intent: Intent): Int? {
+        return numberExtra(intent, "globalSlot")
+            ?: numberExtra(intent, "global_slot")
+            ?: numberExtra(intent, "slotNumber")
+    }
+
+    @Suppress("DEPRECATION")
+    private fun numberExtra(intent: Intent, key: String): Int? {
+        val value = intent.extras?.get(key) ?: return null
+        return when (value) {
+            is Int -> value
+            is Long -> value.toInt()
+            is Number -> value.toInt()
+            is String -> value.toIntOrNull()
+            else -> null
+        }?.takeIf { it >= 0 }
     }
 
     @Suppress("DEPRECATION")

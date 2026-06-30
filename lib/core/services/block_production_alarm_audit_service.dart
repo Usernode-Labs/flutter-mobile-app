@@ -14,7 +14,7 @@ final _log = LoggingService.instance.withTag('usernode/AlarmAudit');
 
 typedef AlarmAuditScheduleAlarm = Future<bool> Function({
   required String alarmId,
-  required int slotNumber,
+  required int globalSlot,
   required int delayMs,
   Map<String, dynamic>? data,
 });
@@ -539,7 +539,7 @@ class BlockProductionAlarmAuditService {
 
     final success = await _scheduleAlarm(
       alarmId: alarm.alarmId,
-      slotNumber: alarm.globalSlot,
+      globalSlot: alarm.globalSlot,
       delayMs: delayMs,
       data: {
         'epoch': alarm.epoch,

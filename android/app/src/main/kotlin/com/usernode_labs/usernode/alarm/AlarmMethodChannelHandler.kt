@@ -150,18 +150,19 @@ class AlarmMethodChannelHandler(context: Context) {
             "scheduleExactAlarm" -> {
                 val alarmId = call.argument<String>("alarmId")
                 val delayMs = call.argument<Number>("delayMs")?.toLong()
-                val slotNumber = call.argument<Int>("slotNumber")
+                val globalSlot = call.argument<Number>("globalSlot")?.toInt()
+                    ?: call.argument<Number>("slotNumber")?.toInt()
                 val data = call.argument<Map<String, Any>>("data")
 
-                if (alarmId == null || slotNumber == null || delayMs == null) {
-                    result.error("INVALID_ARGS", "Missing required delayMs argument", null)
+                if (alarmId == null || globalSlot == null || delayMs == null) {
+                    result.error("INVALID_ARGS", "Missing required alarmId/globalSlot/delayMs arguments", null)
                     return
                 }
 
                 val success = alarmScheduler.scheduleExactAlarm(
                     alarmId = alarmId,
                     delayMs = delayMs,
-                    slotNumber = slotNumber,
+                    globalSlot = globalSlot,
                     data = data ?: emptyMap()
                 )
                 result.success(success)
@@ -201,9 +202,10 @@ class AlarmMethodChannelHandler(context: Context) {
             "startForegroundService" -> {
                 val title = call.argument<String>("title")
                 val message = call.argument<String>("message")
-                val slotNumber = call.argument<Int>("slotNumber")
+                val globalSlot = call.argument<Number>("globalSlot")?.toInt()
+                    ?: call.argument<Number>("slotNumber")?.toInt()
 
-                if (title == null || message == null || slotNumber == null) {
+                if (title == null || message == null || globalSlot == null) {
                     result.error("INVALID_ARGS", "Missing required arguments", null)
                     return
                 }
@@ -211,7 +213,7 @@ class AlarmMethodChannelHandler(context: Context) {
                 val success = foregroundServiceManager.startForegroundService(
                     title = title,
                     message = message,
-                    slotNumber = slotNumber
+                    globalSlot = globalSlot
                 )
                 result.success(success)
             }

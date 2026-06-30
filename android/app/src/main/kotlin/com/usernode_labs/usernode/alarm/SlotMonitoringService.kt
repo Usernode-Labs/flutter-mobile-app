@@ -31,7 +31,7 @@ class SlotMonitoringService : Service() {
             private set
     }
 
-    private var currentSlotNumber: Int? = null
+    private var currentGlobalSlot: Int? = null
     private var isPersistentMode = false
 
     override fun onCreate() {
@@ -51,93 +51,19 @@ class SlotMonitoringService : Service() {
             Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
 
             startMonitoring(0, false)
-            val firedAtMs = System.currentTimeMillis()
-
-            val eventData = mapOf(
-                "alarmId" to "slot_monitoring_null_intent",
-                "slotNumber" to 0,
-                "firedAtMs" to firedAtMs,
-                "batteryLevel" to 0,
-                "networkState" to "unknown",
-                "nodeRunning" to false
-            )
-
-            // Enforce a single-engine policy:
-            // - If the UI engine/channel exists, deliver the event through it (no headless engine).
-            // - Otherwise, spin up the headless engine to deliver the alarm event.
-            val handler = AlarmMethodChannelHandler.getInstance()
-            if (handler != null && handler.isActivityAttached()) {
-                handler.sendEventToFlutter("android_alarm_fired", eventData)
-            } else {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_alarm_fired",
-                    eventData
-                )
-            }
             return START_STICKY
         }
 
         when (intent.action) {
             ACTION_START_MONITORING -> {
-                val slotNumber = intent.getIntExtra("slotNumber", -1)
+                val globalSlot = readGlobalSlotExtra(intent) ?: 0
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
                 val alarmTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
-                val nativeScheduledAtMs = optionalLongExtra(intent, "nativeScheduledAtMs")
-                val scheduledElapsedRealtimeMs = optionalLongExtra(intent, "scheduledElapsedRealtimeMs")
-                val nativeTriggerAtMs = optionalLongExtra(intent, "nativeTriggerAtMs")
-                val triggerElapsedRealtimeMs = optionalLongExtra(intent, "triggerElapsedRealtimeMs")
-                val receiverElapsedRealtimeMs = optionalLongExtra(intent, "receiverElapsedRealtimeMs")
-                val nativeDeliveryLatencyMs = optionalLongExtra(intent, "nativeDeliveryLatencyMs")
-                val elapsedDeliveryLatencyMs = optionalLongExtra(intent, "elapsedDeliveryLatencyMs")
-                val reason = intent.getStringExtra("reason")
-                val purpose = intent.getStringExtra("purpose")
-                Log.d(TAG, "[SlotMonitoringService] START_MONITORING - Slot: $slotNumber, AlarmId: $alarmId, nodeRunning=$nodeRunning")
+                Log.d(TAG, "[SlotMonitoringService] START_MONITORING - GlobalSlot: $globalSlot, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
                 // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
-                val safeSlot = if (slotNumber != -1) slotNumber else 0
-                val globalSlot = optionalLongExtra(intent, "globalSlot")
-                    ?: optionalLongExtra(intent, "global_slot")
-                    ?: safeSlot.takeIf { it > 0 }?.toLong()
-                startMonitoring(safeSlot, nodeRunning, alarmTimeMs)
-                val firedAtMs = System.currentTimeMillis()
-                val latencyMs = if (alarmTimeMs > 0) firedAtMs - alarmTimeMs else 0L
-
-                val eventData = mutableMapOf<String, Any?>(
-                    "alarmId" to (alarmId ?: "unknown"),
-                    "slotNumber" to safeSlot,
-                    "alarmTimeMs" to alarmTimeMs,
-                    "firedAtMs" to firedAtMs,
-                    "latencyMs" to latencyMs,
-                    "batteryLevel" to 0,
-                    "networkState" to "unknown",
-                    "nodeRunning" to nodeRunning
-                )
-                nativeScheduledAtMs?.let { eventData["nativeScheduledAtMs"] = it }
-                scheduledElapsedRealtimeMs?.let { eventData["scheduledElapsedRealtimeMs"] = it }
-                nativeTriggerAtMs?.let { eventData["nativeTriggerAtMs"] = it }
-                triggerElapsedRealtimeMs?.let { eventData["triggerElapsedRealtimeMs"] = it }
-                receiverElapsedRealtimeMs?.let { eventData["receiverElapsedRealtimeMs"] = it }
-                nativeDeliveryLatencyMs?.let { eventData["nativeDeliveryLatencyMs"] = it }
-                elapsedDeliveryLatencyMs?.let { eventData["elapsedDeliveryLatencyMs"] = it }
-                globalSlot?.let { eventData["globalSlot"] = it }
-                reason?.let { eventData["reason"] = it }
-                purpose?.let { eventData["purpose"] = it }
-
-                // Enforce a single-engine policy:
-                // - If the UI engine/channel exists, deliver the event through it (no headless engine).
-                // - Otherwise, spin up the headless engine to deliver the alarm event.
-                val handler = AlarmMethodChannelHandler.getInstance()
-                if (handler != null && handler.isActivityAttached()) {
-                    handler.sendEventToFlutter("android_alarm_fired", eventData)
-                } else {
-                    BackgroundAlarmEngine.sendAlarmEvent(
-                        applicationContext,
-                        "android_alarm_fired",
-                        eventData
-                    )
-                }
+                startMonitoring(globalSlot, nodeRunning, alarmTimeMs)
             }
             ACTION_STOP_MONITORING -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_MONITORING action received")
@@ -160,13 +86,13 @@ class SlotMonitoringService : Service() {
         return START_STICKY
     }
 
-    private fun startMonitoring(slotNumber: Int, nodeRunning: Boolean, alarmTimeMs: Long = -1L) {
-        currentSlotNumber = slotNumber
-        Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for slot $slotNumber")
+    private fun startMonitoring(globalSlot: Int, nodeRunning: Boolean, alarmTimeMs: Long = -1L) {
+        currentGlobalSlot = globalSlot
+        Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for global slot $globalSlot")
 
         val scheduledTime = AlarmTimeFormatter.formatScheduledTime(alarmTimeMs)
         val baseMessage = if (nodeRunning) {
-            "Monitoring slot $slotNumber for block production"
+            "Monitoring slot $globalSlot for block production"
         } else {
             "Warming up node to monitor slots"
         }
@@ -188,7 +114,7 @@ class SlotMonitoringService : Service() {
 
             // Send event to Flutter
             Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_started event to Flutter")
-            val eventData = mapOf("slotNumber" to slotNumber)
+            val eventData = mapOf("globalSlot" to globalSlot)
             val handler = AlarmMethodChannelHandler.getInstance()
             if (handler != null && handler.isActivityAttached()) {
                 handler.sendEventToFlutter("android_foreground_service_started", eventData)
@@ -206,8 +132,8 @@ class SlotMonitoringService : Service() {
     }
 
     private fun stopMonitoring() {
-        val slotBeingStopped = currentSlotNumber
-        Log.i(TAG, "[SlotMonitoringService] Stopping foreground monitoring for slot $slotBeingStopped")
+        val globalSlotBeingStopped = currentGlobalSlot
+        Log.i(TAG, "[SlotMonitoringService] Stopping foreground monitoring for global slot $globalSlotBeingStopped")
 
         try {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -216,7 +142,7 @@ class SlotMonitoringService : Service() {
 
             // Send event to Flutter
             Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_stopped event to Flutter")
-            val eventData = mapOf("slotNumber" to slotBeingStopped)
+            val eventData = mapOf("globalSlot" to globalSlotBeingStopped)
             val handler = AlarmMethodChannelHandler.getInstance()
             if (handler != null && handler.isActivityAttached()) {
                 handler.sendEventToFlutter("android_foreground_service_stopped", eventData)
@@ -231,7 +157,7 @@ class SlotMonitoringService : Service() {
             Log.e(TAG, "[SlotMonitoringService] Error stopping foreground", e)
         }
 
-        currentSlotNumber = null
+        currentGlobalSlot = null
 
         try {
             stopSelf()
@@ -239,6 +165,25 @@ class SlotMonitoringService : Service() {
         } catch (e: Exception) {
             Log.e(TAG, "[SlotMonitoringService] Error calling stopSelf()", e)
         }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun readGlobalSlotExtra(intent: Intent): Int? {
+        return numberExtra(intent, "globalSlot")
+            ?: numberExtra(intent, "global_slot")
+            ?: numberExtra(intent, "slotNumber")
+    }
+
+    @Suppress("DEPRECATION")
+    private fun numberExtra(intent: Intent, key: String): Int? {
+        val value = intent.extras?.get(key) ?: return null
+        return when (value) {
+            is Int -> value
+            is Long -> value.toInt()
+            is Number -> value.toInt()
+            is String -> value.toIntOrNull()
+            else -> null
+        }?.takeIf { it >= 0 }
     }
 
     private fun startPersistentMode() {
@@ -275,19 +220,6 @@ class SlotMonitoringService : Service() {
             isPersistentMode = false
             isPersistentModeActive = false
         }
-    }
-
-    @Suppress("DEPRECATION")
-    private fun optionalLongExtra(intent: Intent, key: String): Long? {
-        if (!intent.hasExtra(key)) return null
-        val value = intent.extras?.get(key) ?: return null
-        return when (value) {
-            is Int -> value.toLong()
-            is Long -> value
-            is Number -> value.toLong()
-            is String -> value.toLongOrNull()
-            else -> null
-        }?.takeIf { it > 0 }
     }
 
     private fun stopPersistentMode() {
@@ -334,7 +266,7 @@ class SlotMonitoringService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.i(TAG, "[SlotMonitoringService] ✗ Service onDestroy() - Slot: $currentSlotNumber, Time: ${System.currentTimeMillis()}")
+        Log.i(TAG, "[SlotMonitoringService] Service onDestroy() - GlobalSlot: $currentGlobalSlot, Time: ${System.currentTimeMillis()}")
         Log.d(TAG, "[SlotMonitoringService] Service destroyed, monitoring ended")
         isForegroundServiceActive = false
     }

@@ -443,7 +443,6 @@ void main() {
 
       alarmService.handleNativeEventForTest('android_alarm_fired', {
         'alarmId': 'fg_resume',
-        'slotNumber': 0,
         'globalSlot': 42,
         'alarmTimeMs': 1700000005000,
         'firedAtMs': 1700000005123,
@@ -464,7 +463,6 @@ void main() {
 
       alarmService.handleNativeEventForTest('android_alarm_fired', {
         'alarmId': 'fg_resume',
-        'slotNumber': 0,
         'alarmTimeMs': 1700000005000,
         'firedAtMs': 1700000005123,
         'reason': 'next_won_slot:43',
@@ -480,7 +478,6 @@ void main() {
       final alarmService = PlatformAlarmService.test(observability: service);
       final eventData = {
         'alarmId': 'fg_resume',
-        'slotNumber': 0,
         'globalSlot': 42,
         'alarmTimeMs': 1700000005000,
         'firedAtMs': 1700000005123,

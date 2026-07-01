@@ -148,8 +148,12 @@ AtomicChallengePhase _pendingPointsPhase(
   ChallengeProgress progress,
 ) {
   final kind = c.dto.metric?.kind;
+  final hasEarnedPoints = progress.earnedPoints > 0;
   final hasPendingPoints = progress.pendingPoints > 0;
   final isBinaryOrNoMetric = kind == null || kind == ChallengeMetricKind.binary;
+  if (hasEarnedPoints && isBinaryOrNoMetric) {
+    return AtomicChallengePhase.completed;
+  }
   if (hasPendingPoints && isBinaryOrNoMetric) {
     return AtomicChallengePhase.pendingFinalization;
   }

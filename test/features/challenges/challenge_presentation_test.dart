@@ -264,6 +264,51 @@ void main() {
       expect(card.fill, isNull);
     });
 
+    test('no metric none with earned points renders completed status', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Share form feedback',
+          reward: '500',
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.none,
+          earnedPoints: 500,
+          description: 'You submitted the feedback form.',
+        ),
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.checkbox);
+      expect(card.phase, AtomicChallengePhase.completed);
+      expect(card.leftText, 'Done');
+      expect(card.rightText, 'completed 500 pts');
+      expect(card.fill, isNull);
+    });
+
+    test('count none with earned points does not invent completion', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'Complete 3 actions',
+          reward: '500',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            target: 3,
+            label: 'Actions',
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.none,
+          earnedPoints: 500,
+        ),
+      );
+
+      expect(card.railTreatment, AtomicChallengeRailTreatment.standard);
+      expect(card.phase, AtomicChallengePhase.open);
+      expect(card.leftText, '0 / 3 Actions');
+      expect(card.rightText, '500 pts');
+    });
+
     test('binary pending → pendingFinalization, "pending 500 pts"', () {
       final card = mapToAtomicCard(
         _enriched(_dto(

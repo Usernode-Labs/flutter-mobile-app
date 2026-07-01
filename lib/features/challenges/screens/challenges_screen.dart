@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/challenge_bands_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
@@ -14,17 +17,41 @@ import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
 
 /// The Fair Rewards Challenges surface: a top status bar (profile + node entry
 /// points) over perceived-time bands of atomic challenge cards.
 ///
 /// Deadline-grouped challenge stream. Cards route attention; the task/CTA live
 /// on the detail screen.
-class ChallengesScreen extends ConsumerWidget {
+class ChallengesScreen extends ConsumerStatefulWidget {
   const ChallengesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ChallengesScreen> createState() => _ChallengesScreenState();
+}
+
+class _ChallengesScreenState extends ConsumerState<ChallengesScreen> {
+  Timer? _refreshTimer;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      unawaited(_refresh());
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Restore cold-start season/participant context.
     ref.watch(leaderboardBootstrapProvider);
 
@@ -35,7 +62,19 @@ class ChallengesScreen extends ConsumerWidget {
     final hasError = ref.watch(
       challengesProvider.select((s) => s.hasError && s.valueOrNull == null),
     );
-    final result = ref.watch(challengeBandsProvider);
+    final challenges = ref.watch(
+      challengesProvider.select((s) => s.valueOrNull),
+    );
+    final breakdown = ref.watch(
+      breakdownProvider.select((s) => s.valueOrNull),
+    );
+    final result = challenges == null
+        ? null
+        : _buildChallengeBands(
+            challenges: challenges,
+            breakdown: breakdown,
+            labels: challengePresentationLabels(l10n),
+          );
 
     final points = ref.watch(
           breakdownProvider.select((s) => s.valueOrNull?.totalPoints),
@@ -56,7 +95,7 @@ class ChallengesScreen extends ConsumerWidget {
       // SafeArea/top inset is owned by TopStatusAppBar.large; adding one here
       // would double-inset the pinned header.
       body: RefreshIndicator(
-        onRefresh: () => _refresh(ref),
+        onRefresh: _refresh,
         child: CustomScrollView(
           slivers: [
             TopStatusAppBar.large(
@@ -81,8 +120,7 @@ class ChallengesScreen extends ConsumerWidget {
                 hasScrollBody: false,
                 child: Center(
                   child: Text(
-                    // TODO(fair-rewards): add a localized challengeNoActive key.
-                    'No active challenges right now.',
+                    l10n.challengeNoActive,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: colors.onSurfaceVariant,
                         ),
@@ -121,13 +159,61 @@ class ChallengesScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _refresh(WidgetRef ref) async {
-    await Future.wait([
-      ref.read(challengesProvider.notifier).silentRefresh(),
-      ref.read(breakdownProvider.notifier).silentRefresh(),
-      ref.read(rankingProvider.notifier).silentRefresh(),
-    ]);
+  ChallengeBandsResult _buildChallengeBands({
+    required List<ChallengeDto> challenges,
+    required BreakdownResult? breakdown,
+    required ChallengePresentationLabels labels,
+  }) {
+    final activities = extractActivities(breakdown);
+    final enriched = enrichChallenges(challenges, activities);
+    return (
+      bands: buildChallengeBands(
+        enriched,
+        progressForChallenge: breakdown?.progressForChallenge,
+        technicalSuccessRateForChallenge: (dto) =>
+            _technicalSuccessRateForChallenge(breakdown, dto),
+        labels: labels,
+      ),
+      byId: {for (final c in enriched) c.dto.id: c},
+    );
   }
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    _refreshing = true;
+    try {
+      await Future.wait([
+        ref.read(challengesProvider.notifier).silentRefresh(),
+        ref.read(breakdownProvider.notifier).silentRefresh(),
+        ref.read(rankingProvider.notifier).silentRefresh(),
+      ]);
+    } finally {
+      _refreshing = false;
+    }
+  }
+}
+
+double? _technicalSuccessRateForChallenge(
+  BreakdownResult? breakdown,
+  ChallengeDto dto,
+) {
+  if (!isProduceBlocksChallenge(dto)) return null;
+
+  final eventBreakdown = breakdown?.eventBreakdown;
+  if (eventBreakdown != null) return eventBreakdown.successRate;
+
+  final seasonEvents = breakdown?.seasonBreakdown?.events;
+  if (seasonEvents == null || seasonEvents.isEmpty) return null;
+
+  final eventId = dto.eventId;
+  if (eventId != null) {
+    for (final event in seasonEvents) {
+      if (event.eventId == eventId) return event.successRate;
+    }
+    return null;
+  }
+
+  return seasonEvents.length == 1 ? seasonEvents.single.successRate : null;
 }
 
 class _LoadingSliver extends StatelessWidget {

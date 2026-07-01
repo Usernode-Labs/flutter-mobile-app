@@ -139,6 +139,24 @@ class AtomicChallengeCopyableValue {
   final String? tooltip;
 }
 
+class AtomicChallengeDetailLabels {
+  const AtomicChallengeDetailLabels({
+    this.backTooltip = 'Back',
+    this.whyItMatters = 'Why it matters',
+    this.task = 'Task',
+    this.available = 'Available',
+    this.howPointsWork = 'How points work',
+    this.rules = 'Rules',
+  });
+
+  final String backTooltip;
+  final String whyItMatters;
+  final String task;
+  final String available;
+  final String howPointsWork;
+  final String rules;
+}
+
 /// The simplified Fair Rewards challenge detail page.
 ///
 /// Keeps the compressed card structure intact — goal first, then the same
@@ -162,15 +180,16 @@ class AtomicChallengeDetailPage extends StatelessWidget {
     required this.fill,
     required this.dateText,
     required this.pointsLogic,
-    required this.ctaLabel,
     required this.onBackTap,
-    required this.onCtaTap,
+    this.ctaLabel,
+    this.onCtaTap,
     this.rules,
     this.progressHelperText,
     this.heroCard,
     this.railTreatment = AtomicChallengeRailTreatment.standard,
     this.copyableValues = const [],
     this.onCopyableValueTap,
+    this.labels = const AtomicChallengeDetailLabels(),
   });
 
   /// Challenge goal/title.
@@ -204,8 +223,8 @@ class AtomicChallengeDetailPage extends StatelessWidget {
   /// "How points work" body (expandable).
   final String pointsLogic;
 
-  /// Bottom CTA label, e.g. "Join the challenge".
-  final String ctaLabel;
+  /// Bottom CTA label, e.g. "Join the challenge". Hidden when null/empty.
+  final String? ctaLabel;
 
   /// Optional "Rules" body (expandable). Hidden when null/empty.
   final String? rules;
@@ -215,8 +234,10 @@ class AtomicChallengeDetailPage extends StatelessWidget {
 
   final ValueChanged<AtomicChallengeCopyableValue>? onCopyableValueTap;
 
+  final AtomicChallengeDetailLabels labels;
+
   final VoidCallback onBackTap;
-  final VoidCallback onCtaTap;
+  final VoidCallback? onCtaTap;
 
   @override
   Widget build(BuildContext context) {
@@ -227,6 +248,8 @@ class AtomicChallengeDetailPage extends StatelessWidget {
     final listHorizontalInset = heroCard == null ? horizontalInset : 0.0;
     final descriptionText = description.trim();
     final taskText = task?.trim();
+    final ctaText = ctaLabel?.trim();
+    final showCta = ctaText != null && ctaText.isNotEmpty && onCtaTap != null;
     Widget inset(Widget child) => heroCard == null
         ? child
         : Padding(
@@ -251,7 +274,12 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                   spacing.space24,
                 ),
                 children: [
-                  inset(_DetailBackButton(onTap: onBackTap)),
+                  inset(
+                    _DetailBackButton(
+                      onTap: onBackTap,
+                      tooltip: labels.backTooltip,
+                    ),
+                  ),
                   SizedBox(height: spacing.space32),
                   _DetailHero(
                     title: title,
@@ -270,7 +298,7 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                   if (descriptionText.isNotEmpty) ...[
                     inset(
                       _DetailSection(
-                        title: 'Why it matters',
+                        title: labels.whyItMatters,
                         body: descriptionText,
                         copyableValues: copyableValues,
                         onCopyableValueTap: onCopyableValueTap,
@@ -281,7 +309,7 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                   if (taskText != null && taskText.isNotEmpty) ...[
                     inset(
                       _DetailSection(
-                        title: 'Task',
+                        title: labels.task,
                         body: taskText,
                         copyableValues: copyableValues,
                         onCopyableValueTap: onCopyableValueTap,
@@ -289,11 +317,13 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                     ),
                     SizedBox(height: spacing.space24),
                   ],
-                  inset(_DetailSection(title: 'Available', body: dateText)),
+                  inset(
+                    _DetailSection(title: labels.available, body: dateText),
+                  ),
                   SizedBox(height: spacing.space24),
                   inset(
                     _DetailExpansion(
-                      title: 'How points work',
+                      title: labels.howPointsWork,
                       body: pointsLogic,
                       copyableValues: copyableValues,
                       onCopyableValueTap: onCopyableValueTap,
@@ -303,7 +333,7 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                     SizedBox(height: spacing.space8),
                     inset(
                       _DetailExpansion(
-                        title: 'Rules',
+                        title: labels.rules,
                         body: rules!,
                         copyableValues: copyableValues,
                         onCopyableValueTap: onCopyableValueTap,
@@ -313,28 +343,30 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                 ],
               ),
             ),
-            Divider(
-              height: borders.width,
-              thickness: borders.width,
-              color: colors.onSurface.withValues(alpha: borders.opacity),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalInset,
-                spacing.space8,
-                horizontalInset,
-                spacing.space12,
+            if (showCta) ...[
+              Divider(
+                height: borders.width,
+                thickness: borders.width,
+                color: colors.onSurface.withValues(alpha: borders.opacity),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                child: Button(
-                  label: ctaLabel,
-                  onTap: onCtaTap,
-                  variant: ButtonVariant.primary,
-                  size: ButtonSize.large,
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalInset,
+                  spacing.space8,
+                  horizontalInset,
+                  spacing.space12,
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Button(
+                    label: ctaText,
+                    onTap: onCtaTap!,
+                    variant: ButtonVariant.primary,
+                    size: ButtonSize.large,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -343,9 +375,10 @@ class AtomicChallengeDetailPage extends StatelessWidget {
 }
 
 class _DetailBackButton extends StatelessWidget {
-  const _DetailBackButton({required this.onTap});
+  const _DetailBackButton({required this.onTap, required this.tooltip});
 
   final VoidCallback onTap;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -364,7 +397,7 @@ class _DetailBackButton extends StatelessWidget {
           onPressed: onTap,
           padding: EdgeInsets.zero,
           icon: const Icon(Symbols.arrow_back_sharp),
-          tooltip: 'Back',
+          tooltip: tooltip,
         ),
       ),
     );

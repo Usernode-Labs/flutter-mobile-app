@@ -3,8 +3,6 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-
 import '../tokens/app_borders.dart';
 import '../tokens/app_semantic_colors.dart';
 import '../tokens/app_sizing.dart';
@@ -809,19 +807,16 @@ class TopStatusNodeVisual {
     BuildContext context,
     TopStatusNodeStatus status, {
     TopStatusNodeVisualIntent intent = TopStatusNodeVisualIntent.status,
+    TopStatusNodeVisualLabels labels = const TopStatusNodeVisualLabels(),
   }) {
     final colors = Theme.of(context).colorScheme;
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
-    final l10n = Localizations.of<AppLocalizations>(
-      context,
-      AppLocalizations,
-    );
 
     return switch (status) {
       TopStatusNodeStatus.synced => TopStatusNodeVisual(
           icon: Symbols.check_sharp,
-          label: l10n?.nodeSynced ?? 'Synced',
-          tooltip: l10n?.nodeSynced ?? 'Synced',
+          label: labels.synced,
+          tooltip: labels.synced,
           foregroundColor: intent == TopStatusNodeVisualIntent.chrome
               ? colors.onSecondaryContainer
               : semantic.success.onColorContainer,
@@ -831,25 +826,39 @@ class TopStatusNodeVisual {
         ),
       TopStatusNodeStatus.connecting => TopStatusNodeVisual(
           icon: Symbols.hourglass_empty_sharp,
-          label: l10n?.nodeConnecting ?? 'Connecting',
-          tooltip: l10n?.nodeConnecting ?? 'Connecting',
+          label: labels.connecting,
+          tooltip: labels.connecting,
           foregroundColor: semantic.warning.onColorContainer,
           backgroundColor: semantic.warning.colorContainer,
         ),
       TopStatusNodeStatus.syncing => TopStatusNodeVisual(
           icon: Symbols.hourglass_empty_sharp,
-          label: l10n?.nodeSyncing ?? 'Syncing',
-          tooltip: l10n?.nodeSyncing ?? 'Syncing',
+          label: labels.syncing,
+          tooltip: labels.syncing,
           foregroundColor: semantic.warning.onColorContainer,
           backgroundColor: semantic.warning.colorContainer,
         ),
       TopStatusNodeStatus.offline => TopStatusNodeVisual(
           icon: Symbols.close_sharp,
-          label: l10n?.nodeOffline ?? 'Offline',
-          tooltip: l10n?.nodeOffline ?? 'Offline',
+          label: labels.offline,
+          tooltip: labels.offline,
           foregroundColor: colors.onErrorContainer,
           backgroundColor: colors.errorContainer,
         ),
     };
   }
+}
+
+class TopStatusNodeVisualLabels {
+  const TopStatusNodeVisualLabels({
+    this.synced = 'Synced',
+    this.connecting = 'Connecting',
+    this.syncing = 'Syncing',
+    this.offline = 'Offline',
+  });
+
+  final String synced;
+  final String connecting;
+  final String syncing;
+  final String offline;
 }

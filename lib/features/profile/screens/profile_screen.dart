@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -14,6 +16,7 @@ import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/profile/widgets/profile_leaderboard_list.dart';
 
@@ -23,15 +26,12 @@ import 'package:crypto_mobile_app/features/profile/widgets/profile_leaderboard_l
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  /// Route path used by the Settings cog (kept as a literal so this screen
-  /// stays free of the router import).
-  static const String _settingsPath = '/profile/settings';
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(leaderboardBootstrapProvider);
 
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     ref.watch(seasonsProvider);
     final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
@@ -40,7 +40,7 @@ class ProfileScreen extends ConsumerWidget {
         ) ??
         ranking?.totalPoints;
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
-    final rankLabel = ranking != null ? 'Rank ${ranking.rank}' : null;
+    final rankLabel = ranking != null ? l10n.challengeRank(ranking.rank) : null;
 
     final completedHistory = ref.watch(
       profileCompletedChallengesProvider.select((s) => s.valueOrNull),
@@ -63,15 +63,15 @@ class ProfileScreen extends ConsumerWidget {
         body: NestedScrollView(
           headerSliverBuilder: (context, innerBoxIsScrolled) => [
             TopAppBar(
-              title: 'Profile',
+              title: l10n.profileTitle,
               onLeadingTap: () {
                 if (context.canPop()) context.pop();
               },
               backgroundColor: colors.surfaceContainerLowest,
               actions: [
                 IconButton(
-                  tooltip: 'Settings',
-                  onPressed: () => context.push(_settingsPath),
+                  tooltip: l10n.settingsTitle,
+                  onPressed: () => context.push(AppRoutes.profileSettings),
                   icon: const Icon(Symbols.settings_sharp),
                 ),
               ],
@@ -81,7 +81,7 @@ class ProfileScreen extends ConsumerWidget {
                 color: colors.surfaceContainerLowest,
                 child: ScoreHeader(
                   score: score,
-                  scoreLabel: 'points',
+                  scoreLabel: l10n.challengePoints,
                   rankLabel: rankLabel,
                   showCountdown: false,
                   density: ScoreHeaderDensity.compact,
@@ -95,12 +95,12 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const SliverPersistentHeader(
+            SliverPersistentHeader(
               pinned: true,
               delegate: _ProfileTabBarDelegate(
                 tabs: [
-                  Tab(text: 'Completed Challenges'),
-                  Tab(text: 'Leaderboard'),
+                  Tab(text: l10n.profileCompletedChallengesTab),
+                  Tab(text: l10n.leaderboardTitle),
                 ],
               ),
             ),
@@ -112,6 +112,7 @@ class ProfileScreen extends ConsumerWidget {
                 _CompletedChallengesTab(
                   challenges: completed,
                   breakdown: completedBreakdown,
+                  labels: challengePresentationLabels(l10n),
                 ),
                 ProfileLeaderboardList(
                   entries: [
@@ -119,13 +120,17 @@ class ProfileScreen extends ConsumerWidget {
                       ProfileLeaderboardEntryData(
                         rank: '${entry.rank}',
                         name: entry.displayName ??
-                            'Participant ${entry.participantId}',
-                        points: '${formatPoints(entry.totalPoints)} pts',
+                            l10n.participantFallbackName(
+                              entry.participantId.toString(),
+                            ),
+                        points: l10n.pointsAbbreviated(
+                          formatPoints(entry.totalPoints),
+                        ),
                         isCurrentUser:
                             entry.participantId == currentParticipantId,
                       ),
                   ],
-                  emptyLabel: 'Leaderboard unavailable.',
+                  emptyLabel: l10n.profileLeaderboardUnavailable,
                 ),
               ],
             ),
@@ -185,21 +190,24 @@ class _CompletedChallengesTab extends StatelessWidget {
   const _CompletedChallengesTab({
     required this.challenges,
     required this.breakdown,
+    required this.labels,
   });
 
   final List<EnrichedChallenge> challenges;
   final BreakdownResult? breakdown;
+  final ChallengePresentationLabels labels;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     if (challenges.isEmpty) {
       return Center(
         child: Text(
-          'No completed challenges yet.',
+          l10n.profileNoCompletedChallengesYet,
           style: textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
         ),
       );
@@ -224,6 +232,7 @@ class _CompletedChallengesTab extends StatelessWidget {
             challenge,
             breakdown,
           ),
+          labels: labels,
         );
         return AtomicChallengeCard(
           title: card.title,
@@ -233,7 +242,10 @@ class _CompletedChallengesTab extends StatelessWidget {
           fill: card.fill,
           railTreatment: card.railTreatment,
           cardTreatment: AtomicChallengeCardTreatment.listItem,
-          onTap: () {},
+          onTap: () => context.push(
+            AppRoutes.challengeDetail,
+            extra: challenge,
+          ),
         );
       },
     );

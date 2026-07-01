@@ -45,6 +45,30 @@ class ChallengeBand {
   final List<AtomicChallengeCardModel> cards;
 }
 
+class ChallengePresentationLabels {
+  const ChallengePresentationLabels({
+    this.phaseNotDone = 'Not done',
+    this.phaseInProgress = 'In progress',
+    this.phaseSubmitted = 'Submitted',
+    this.phaseWaitingReview = 'waiting review',
+    this.phaseDone = 'Done',
+    this.bandFeatured = 'Featured',
+    this.bandToday = 'Today',
+    this.bandThisWeek = 'This week',
+    this.bandSeason = 'Season',
+  });
+
+  final String phaseNotDone;
+  final String phaseInProgress;
+  final String phaseSubmitted;
+  final String phaseWaitingReview;
+  final String phaseDone;
+  final String bandFeatured;
+  final String bandToday;
+  final String bandThisWeek;
+  final String bandSeason;
+}
+
 // ---------------------------------------------------------------------------
 // Card mapping
 // ---------------------------------------------------------------------------
@@ -60,6 +84,7 @@ AtomicChallengeCardModel mapToAtomicCard(
   ChallengeProgress? progress,
   double? technicalSuccessRate,
   bool featured = false,
+  ChallengePresentationLabels labels = const ChallengePresentationLabels(),
 }) {
   final progressRailTreatment = _railTreatment(c.dto);
   final phase = _phase(c, progress);
@@ -78,8 +103,9 @@ AtomicChallengeCardModel mapToAtomicCard(
       phase,
       progressRailTreatment,
       technicalSuccessRate,
+      labels,
     ),
-    rightText: _rightText(c, progress, phase, progressRailTreatment),
+    rightText: _rightText(c, progress, phase, progressRailTreatment, labels),
     phase: phase,
     fill: fill,
     railTreatment: cardRailTreatment,
@@ -217,6 +243,7 @@ String _leftText(
   AtomicChallengePhase phase,
   AtomicChallengeRailTreatment railTreatment,
   double? technicalSuccessRate,
+  ChallengePresentationLabels labels,
 ) {
   if (progress != null) {
     final kind = c.dto.metric?.kind;
@@ -244,11 +271,11 @@ String _leftText(
     // Count/sum progress is canonical only when `current` is present. Backend
     // reasoning is evidence text, not a stable progress source.
     if (kind == ChallengeMetricKind.count || kind == ChallengeMetricKind.sum) {
-      return _phaseLabel(phase);
+      return _phaseLabel(phase, labels);
     }
     if (phase == AtomicChallengePhase.completed &&
         (kind == null || kind == ChallengeMetricKind.binary)) {
-      return _phaseLabel(phase);
+      return _phaseLabel(phase, labels);
     }
     // A backend-provided status wins for non-empty states (e.g. "Submitted",
     // "Joined", "Eligible"). In the API shape, state=none may carry the
@@ -270,7 +297,7 @@ String _leftText(
       return _successRateText(successRate);
     }
   }
-  return _phaseLabel(phase);
+  return _phaseLabel(phase, labels);
 }
 
 String _successRateText(num value) => '${value.round()}% success';
@@ -333,6 +360,7 @@ String _rightText(
   ChallengeProgress? progress,
   AtomicChallengePhase phase,
   AtomicChallengeRailTreatment railTreatment,
+  ChallengePresentationLabels labels,
 ) {
   final ceiling = _rewardCeiling(c.dto);
   final earned = progress?.earnedPoints ?? c.displayEarnedPoints ?? 0;
@@ -347,10 +375,12 @@ String _rightText(
     case AtomicChallengePhase.pendingFinalization:
       final pts = pending > 0 ? pending : (ceiling ?? earned);
       if (pts > 0) return 'pending ${formatPoints(pts)} pts';
-      return 'waiting review';
+      return labels.phaseWaitingReview;
     case AtomicChallengePhase.completed:
       final pts = earned > 0 ? earned : ceiling;
-      return pts != null ? 'completed ${formatPoints(pts)} pts' : 'completed';
+      return pts != null
+          ? 'completed ${formatPoints(pts)} pts'
+          : labels.phaseDone;
     case AtomicChallengePhase.inProgress:
       // Show earned-of-ceiling when both are known, else the ceiling.
       if (ceiling != null && ceiling > 0) {
@@ -365,12 +395,15 @@ String _rightText(
   }
 }
 
-String _phaseLabel(AtomicChallengePhase phase) {
+String _phaseLabel(
+  AtomicChallengePhase phase,
+  ChallengePresentationLabels labels,
+) {
   return switch (phase) {
-    AtomicChallengePhase.open => 'Not done',
-    AtomicChallengePhase.inProgress => 'In progress',
-    AtomicChallengePhase.pendingFinalization => 'Submitted',
-    AtomicChallengePhase.completed => 'Done',
+    AtomicChallengePhase.open => labels.phaseNotDone,
+    AtomicChallengePhase.inProgress => labels.phaseInProgress,
+    AtomicChallengePhase.pendingFinalization => labels.phaseSubmitted,
+    AtomicChallengePhase.completed => labels.phaseDone,
   };
 }
 
@@ -418,6 +451,7 @@ List<ChallengeBand> buildChallengeBands(
   List<EnrichedChallenge> active, {
   ChallengeProgress? Function(ChallengeDto dto)? progressForChallenge,
   double? Function(ChallengeDto dto)? technicalSuccessRateForChallenge,
+  ChallengePresentationLabels labels = const ChallengePresentationLabels(),
   DateTime? now,
 }) {
   if (active.isEmpty) return const [];
@@ -430,6 +464,7 @@ List<ChallengeBand> buildChallengeBands(
       progress: progressForChallenge?.call(c.dto),
       technicalSuccessRate: technicalSuccessRateForChallenge?.call(c.dto),
       featured: featured,
+      labels: labels,
     );
   }
 
@@ -440,7 +475,7 @@ List<ChallengeBand> buildChallengeBands(
   if (featured.isNotEmpty) {
     final sorted = _sortFeaturedItems(featured);
     bands.add(ChallengeBand(
-      title: 'Featured',
+      title: labels.bandFeatured,
       cards: [for (final c in sorted) cardFor(c, featured: true)],
     ));
   }
@@ -469,9 +504,9 @@ List<ChallengeBand> buildChallengeBands(
     ));
   }
 
-  addBand('Today', today);
-  addBand('This week', thisWeek);
-  addBand('Season', season);
+  addBand(labels.bandToday, today);
+  addBand(labels.bandThisWeek, thisWeek);
+  addBand(labels.bandSeason, season);
   return bands;
 }
 

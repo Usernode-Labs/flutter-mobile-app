@@ -1338,6 +1338,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get challengeFailedToLoad => 'Failed to load challenges';
 
   @override
+  String get challengeNoActive => 'No active challenges right now.';
+
+  @override
   String get challengeNoCompleted => 'No completed challenges';
 
   @override
@@ -1345,6 +1348,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get challengePoints => 'points';
+
+  @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String get profileCompletedChallengesTab => 'Completed Challenges';
+
+  @override
+  String get profileNoCompletedChallengesYet => 'No completed challenges yet.';
+
+  @override
+  String get profileLeaderboardUnavailable => 'Leaderboard unavailable.';
 
   @override
   String get challengeViewInLeaderboard => 'View in Leaderboard';
@@ -1366,7 +1381,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get challengeSectionTask => 'Task';
 
   @override
+  String get challengeSectionAvailable => 'Available';
+
+  @override
+  String get challengeSectionHowPointsWork => 'How points work';
+
+  @override
+  String get challengeSectionRules => 'Rules';
+
+  @override
   String get challengeSectionRequirements => 'Requirements';
+
+  @override
+  String get challengeAvailableNow => 'Available now';
+
+  @override
+  String get challengeDefaultPointsLogic =>
+      'Points are awarded once this challenge is completed and verified.';
+
+  @override
+  String get challengeDefaultCta => 'Join the challenge';
+
+  @override
+  String get challengePhaseNotDone => 'Not done';
+
+  @override
+  String get challengePhaseInProgress => 'In progress';
+
+  @override
+  String get challengePhaseSubmitted => 'Submitted';
+
+  @override
+  String get challengePhaseWaitingReview => 'waiting review';
+
+  @override
+  String get challengePhaseDone => 'Done';
+
+  @override
+  String get challengeBandFeatured => 'Featured';
+
+  @override
+  String get challengeBandToday => 'Today';
+
+  @override
+  String get challengeBandThisWeek => 'This week';
+
+  @override
+  String get challengeBandSeason => 'Season';
 
   @override
   String get challengeEpochNoChange => '+0';

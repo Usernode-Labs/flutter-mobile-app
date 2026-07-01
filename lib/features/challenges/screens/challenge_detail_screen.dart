@@ -19,6 +19,7 @@ import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
@@ -52,6 +53,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     );
 
     final l10n = AppLocalizations.of(context);
+    final labels = challengePresentationLabels(l10n);
     final activeAddress = ref.watch(activeAccountProvider).valueOrNull?.address;
     final copyableValues = _challengeCopyableValues(
       address: activeAddress,
@@ -68,6 +70,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
       challenge,
       progress: progress,
       technicalSuccessRate: eb?.successRate,
+      labels: labels,
     );
     final dateText = formatDateRange(dto.scheduleStart, dto.scheduleEnd);
     final description = _resolveChallengeDetailText(
@@ -90,6 +93,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
     AtomicChallengeDetailPage buildPage(
       AtomicChallengeTechnicalHeroCardData? heroCard,
     ) {
+      final hasCta = hasChallengeCta(dto);
       return AtomicChallengeDetailPage(
         title: dto.goal,
         description: description ?? '',
@@ -101,22 +105,25 @@ class ChallengeDetailScreen extends ConsumerWidget {
         phase: card.phase,
         fill: card.fill,
         railTreatment: card.railTreatment,
-        dateText: dateText.isNotEmpty ? dateText : 'Available now',
+        dateText: dateText.isNotEmpty ? dateText : l10n.challengeAvailableNow,
         pointsLogic: (dto.rewardLogic?.isNotEmpty ?? false)
             ? _resolveChallengeDetailText(
                   dto.rewardLogic,
                   walletAddress: activeAddress,
                 ) ??
                 dto.rewardLogic!
-            : 'Points are awarded once this challenge is completed and verified.',
-        ctaLabel: (dto.ctaLabel?.isNotEmpty ?? false)
-            ? dto.ctaLabel!
-            : 'Join the challenge',
+            : l10n.challengeDefaultPointsLogic,
+        ctaLabel: hasCta
+            ? ((dto.ctaLabel?.isNotEmpty ?? false)
+                ? dto.ctaLabel!
+                : l10n.challengeDefaultCta)
+            : null,
         rules: _resolveChallengeDetailText(
           dto.requirements,
           walletAddress: activeAddress,
         ),
         copyableValues: copyableValues,
+        labels: atomicChallengeDetailLabels(l10n),
         onCopyableValueTap: (value) {
           Clipboard.setData(ClipboardData(text: value.value));
           ScaffoldMessenger.of(context).showSnackBar(
@@ -126,7 +133,7 @@ class ChallengeDetailScreen extends ConsumerWidget {
         onBackTap: () {
           if (context.canPop()) context.pop();
         },
-        onCtaTap: () => handleChallengeCta(context, dto),
+        onCtaTap: hasCta ? () => handleChallengeCta(context, dto) : null,
       );
     }
 

@@ -1828,6 +1828,10 @@
   "@challengeFailedToLoad": {
     "description": "Error message when challenges fail to load"
   },
+  "challengeNoActive": "No active challenges right now.",
+  "@challengeNoActive": {
+    "description": "Empty state when there are no active challenges"
+  },
   "challengeNoCompleted": "No completed challenges",
   "@challengeNoCompleted": {
     "description": "Empty state for completed challenges tab"
@@ -1839,6 +1843,22 @@
   "challengePoints": "points",
   "@challengePoints": {
     "description": "Score header label for points"
+  },
+  "profileTitle": "Profile",
+  "@profileTitle": {
+    "description": "Profile screen title"
+  },
+  "profileCompletedChallengesTab": "Completed Challenges",
+  "@profileCompletedChallengesTab": {
+    "description": "Profile tab label for completed challenges"
+  },
+  "profileNoCompletedChallengesYet": "No completed challenges yet.",
+  "@profileNoCompletedChallengesYet": {
+    "description": "Profile completed challenges empty state"
+  },
+  "profileLeaderboardUnavailable": "Leaderboard unavailable.",
+  "@profileLeaderboardUnavailable": {
+    "description": "Profile leaderboard empty state"
   },
   "challengeViewInLeaderboard": "View in Leaderboard",
   "@challengeViewInLeaderboard": {
@@ -1866,9 +1886,69 @@
   "@challengeSectionTask": {
     "description": "Section title for challenge task"
   },
+  "challengeSectionAvailable": "Available",
+  "@challengeSectionAvailable": {
+    "description": "Section title for challenge availability"
+  },
+  "challengeSectionHowPointsWork": "How points work",
+  "@challengeSectionHowPointsWork": {
+    "description": "Section title for challenge point logic"
+  },
+  "challengeSectionRules": "Rules",
+  "@challengeSectionRules": {
+    "description": "Section title for challenge rules"
+  },
   "challengeSectionRequirements": "Requirements",
   "@challengeSectionRequirements": {
     "description": "Section title for challenge requirements"
+  },
+  "challengeAvailableNow": "Available now",
+  "@challengeAvailableNow": {
+    "description": "Fallback challenge availability text when no schedule is present"
+  },
+  "challengeDefaultPointsLogic": "Points are awarded once this challenge is completed and verified.",
+  "@challengeDefaultPointsLogic": {
+    "description": "Fallback challenge point logic when backend copy is missing"
+  },
+  "challengeDefaultCta": "Join the challenge",
+  "@challengeDefaultCta": {
+    "description": "Fallback challenge CTA label when backend label is missing but a link exists"
+  },
+  "challengePhaseNotDone": "Not done",
+  "@challengePhaseNotDone": {
+    "description": "Challenge card phase label for untouched work"
+  },
+  "challengePhaseInProgress": "In progress",
+  "@challengePhaseInProgress": {
+    "description": "Challenge card phase label for work in progress"
+  },
+  "challengePhaseSubmitted": "Submitted",
+  "@challengePhaseSubmitted": {
+    "description": "Challenge card phase label for work awaiting review"
+  },
+  "challengePhaseWaitingReview": "waiting review",
+  "@challengePhaseWaitingReview": {
+    "description": "Challenge card trailing label when submitted work has no point amount yet"
+  },
+  "challengePhaseDone": "Done",
+  "@challengePhaseDone": {
+    "description": "Challenge card phase label for completed work"
+  },
+  "challengeBandFeatured": "Featured",
+  "@challengeBandFeatured": {
+    "description": "Challenges screen featured band label"
+  },
+  "challengeBandToday": "Today",
+  "@challengeBandToday": {
+    "description": "Challenges screen band label for challenges ending today"
+  },
+  "challengeBandThisWeek": "This week",
+  "@challengeBandThisWeek": {
+    "description": "Challenges screen band label for challenges ending this week"
+  },
+  "challengeBandSeason": "Season",
+  "@challengeBandSeason": {
+    "description": "Challenges screen band label for season-long challenges"
   },
   "challengeEpochNoChange": "+0",
   "@challengeEpochNoChange": {

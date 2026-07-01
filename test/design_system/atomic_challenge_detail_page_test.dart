@@ -56,6 +56,26 @@ void main() {
       expect(find.text('Join the challenge'), findsOneWidget);
     });
 
+    testWidgets('hides CTA area when no CTA is provided', (tester) async {
+      await tester.pumpWidget(
+        wrap(
+          AtomicChallengeDetailPage(
+            title: 'Read the onboarding note',
+            description: 'Review the current season guidance.',
+            leftText: 'Not done',
+            rightText: '500 pts',
+            phase: AtomicChallengePhase.open,
+            fill: null,
+            dateText: 'Available now',
+            pointsLogic: 'Earn points once reviewed.',
+            onBackTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.byType(Button), findsNothing);
+    });
+
     testWidgets('renders optional progress helper copy under the rail',
         (tester) async {
       await tester.pumpWidget(

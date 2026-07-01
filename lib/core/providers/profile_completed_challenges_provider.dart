@@ -17,9 +17,9 @@ class ProfileCompletedChallengeHistory {
 
 /// Completed challenge history for the current profile.
 ///
-/// Profile is participant-centric, so it intentionally fetches global
-/// challenge progress instead of inheriting the Challenges page's selected
-/// season/event scope.
+/// Profile is participant-centric, but its completed list follows the selected
+/// season when one is active. If no season is selected, the provider falls back
+/// to the broader participant history exposed by the breakdown contract.
 final profileCompletedChallengesProvider =
     FutureProvider<ProfileCompletedChallengeHistory?>((ref) async {
   final participantId = await ref.watch(participantIdProvider.future);

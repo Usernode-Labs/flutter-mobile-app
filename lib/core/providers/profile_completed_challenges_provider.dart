@@ -23,17 +23,23 @@ class ProfileCompletedChallengeHistory {
 final profileCompletedChallengesProvider =
     FutureProvider<ProfileCompletedChallengeHistory?>((ref) async {
   final participantId = await ref.watch(participantIdProvider.future);
+  final ctx = ref.watch(seasonEventContextProvider);
   if (participantId == null) return null;
 
   final service = ref.read(leaderboardApiServiceProvider);
-  final challengesFuture = service.getChallenges(
-    participantId: participantId,
-    activeOnly: false,
-  );
-  final breakdownFuture = service.getBreakdown(participantId: participantId);
+  final seasonId = ctx.seasonId;
 
-  final challenges = await challengesFuture;
-  final breakdown = await breakdownFuture;
+  final breakdown = await service.getBreakdown(
+    participantId: participantId,
+    seasonId: seasonId,
+  );
+  final challenges = await _fetchProfileChallenges(
+    service: service,
+    participantId: participantId,
+    seasonId: seasonId,
+    breakdown: breakdown,
+  );
+
   final enriched = enrichChallenges(challenges, extractActivities(breakdown));
   final completed = enriched.where((challenge) {
     final progress = breakdown.progressForChallenge(challenge.dto);
@@ -47,3 +53,50 @@ final profileCompletedChallengesProvider =
     breakdown: breakdown,
   );
 });
+
+Future<List<ChallengeDto>> _fetchProfileChallenges({
+  required LeaderboardApiService service,
+  required int participantId,
+  required int? seasonId,
+  required BreakdownResult breakdown,
+}) async {
+  if (seasonId != null) {
+    return service.getChallenges(
+      seasonId: seasonId,
+      participantId: participantId,
+      activeOnly: false,
+    );
+  }
+
+  final seasonIds = _seasonIdsWithProfileProgress(breakdown);
+  if (seasonIds.isEmpty) {
+    return service.getChallenges(
+      participantId: participantId,
+      activeOnly: false,
+    );
+  }
+
+  return (await Future.wait([
+    for (final seasonId in seasonIds)
+      service.getChallenges(
+        seasonId: seasonId,
+        participantId: participantId,
+        activeOnly: false,
+      ),
+  ]))
+      .expand((items) => items)
+      .toList(growable: false);
+}
+
+Set<int> _seasonIdsWithProfileProgress(BreakdownResult breakdown) {
+  if (breakdown.globalSeasons.isNotEmpty) {
+    return {
+      for (final season in breakdown.globalSeasons) season.seasonId,
+    };
+  }
+
+  final season = breakdown.seasonBreakdown;
+  if (season != null) return {season.seasonId};
+
+  return const {};
+}

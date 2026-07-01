@@ -1807,6 +1807,14 @@
   "@allEvents": {
     "description": "Label for selecting all events in the event picker"
   },
+  "allSeasons": "All Seasons",
+  "@allSeasons": {
+    "description": "Fallback label when no specific season is selected"
+  },
+  "selectSeason": "Select Season",
+  "@selectSeason": {
+    "description": "Title for season picker bottom sheet"
+  },
   "selectEvent": "Select Event",
   "@selectEvent": {
     "description": "Title for event picker bottom sheet"

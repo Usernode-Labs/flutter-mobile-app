@@ -9,6 +9,23 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/dropdown_sheet.dart';
 
+/// Returns the display label for the current season selection.
+String seasonLabel(BuildContext context, WidgetRef ref) {
+  final ctx = ref.watch(seasonEventContextProvider);
+  if (ctx.seasonName != null) return ctx.seasonName!;
+
+  final seasons = ref.watch(seasonsProvider).valueOrNull;
+  if (seasons == null || seasons.isEmpty) {
+    return AppLocalizations.of(context).allSeasons;
+  }
+
+  final activeSeason = seasons.cast<SeasonDto?>().firstWhere(
+        (s) => s!.isActive,
+        orElse: () => null,
+      );
+  return activeSeason?.name ?? seasons.last.name;
+}
+
 /// Returns the display label for the current event selection.
 ///
 /// Shows "All Events" when no specific event is selected,
@@ -16,6 +33,55 @@ import 'package:crypto_mobile_app/design_system/src/dropdown_sheet.dart';
 String eventLabel(BuildContext context, WidgetRef ref) {
   final ctx = ref.watch(seasonEventContextProvider);
   return ctx.eventName ?? AppLocalizations.of(context).allEvents;
+}
+
+/// Shows a bottom sheet picker for season selection and updates the context.
+///
+/// Selecting a season resets the event scope to "All Events" for that season.
+Future<void> showSeasonPicker(BuildContext context, WidgetRef ref) async {
+  final seasons = ref.read(seasonsProvider).valueOrNull;
+  if (seasons == null || seasons.isEmpty) return;
+
+  final ctx = ref.read(seasonEventContextProvider);
+  final l10n = AppLocalizations.of(context);
+
+  final labels = [
+    for (final season in seasons) _seasonOptionLabel(season, l10n),
+  ];
+
+  final selectedIndex = ctx.seasonId == null
+      ? seasons.indexWhere((season) => season.isActive)
+      : seasons.indexWhere((season) => season.id == ctx.seasonId);
+
+  final result = await showDropdownSheet(
+    context: context,
+    labels: labels,
+    title: l10n.selectSeason,
+    selectedIndex: selectedIndex < 0 ? 0 : selectedIndex,
+  );
+
+  if (result == null) return;
+
+  final season = seasons[result];
+  final newCtx = SeasonEventContext(
+    seasonId: season.id,
+    seasonName: season.name,
+  );
+
+  ref.read(seasonEventContextProvider.notifier).state = newCtx;
+  LeaderboardBootstrap.persistSeasonEvent(newCtx);
+}
+
+String _seasonOptionLabel(SeasonDto season, AppLocalizations l10n) {
+  if (season.isActive) return season.name;
+
+  final endsAt =
+      season.endsAt != null ? DateTime.tryParse(season.endsAt!) : null;
+  if (endsAt != null && endsAt.toUtc().isBefore(DateTime.now().toUtc())) {
+    return '${season.name} (${l10n.eventEnded})';
+  }
+
+  return season.name;
 }
 
 /// Shows a bottom sheet picker for event selection and updates the context.

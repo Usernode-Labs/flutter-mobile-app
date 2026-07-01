@@ -1323,6 +1323,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get allEvents => 'All Events';
 
   @override
+  String get allSeasons => 'All Seasons';
+
+  @override
+  String get selectSeason => 'Select Season';
+
+  @override
   String get selectEvent => 'Select Event';
 
   @override

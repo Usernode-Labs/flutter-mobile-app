@@ -42,9 +42,11 @@ class ProfileLeaderboardList extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: EdgeInsets.symmetric(
-        horizontal: spacing.space16,
-        vertical: spacing.space12,
+      padding: EdgeInsets.fromLTRB(
+        spacing.space16,
+        spacing.space12,
+        spacing.space16,
+        spacing.space32,
       ),
       itemCount: entries.length,
       separatorBuilder: (_, __) => SizedBox(height: spacing.space4),

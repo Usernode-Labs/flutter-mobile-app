@@ -10,9 +10,11 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/profile_completed_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
+import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
+import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/profile/widgets/profile_leaderboard_list.dart';
 
 /// "What I earned" surface (#440): points + rank summary over completed
@@ -30,8 +32,8 @@ class ProfileScreen extends ConsumerWidget {
     ref.watch(leaderboardBootstrapProvider);
 
     final colors = Theme.of(context).colorScheme;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
 
+    ref.watch(seasonsProvider);
     final ranking = ref.watch(rankingProvider.select((s) => s.valueOrNull));
     final totalPoints = ref.watch(
           breakdownProvider.select((s) => s.valueOrNull?.totalPoints),
@@ -54,77 +56,128 @@ class ProfileScreen extends ConsumerWidget {
     final currentParticipantId =
         ref.watch(participantIdProvider.select((p) => p.valueOrNull));
 
-    return Scaffold(
-      backgroundColor: colors.surfaceContainerLowest,
-      body: CustomScrollView(
-        slivers: [
-          TopAppBar(
-            title: 'Profile',
-            onLeadingTap: () {
-              if (context.canPop()) context.pop();
-            },
-            backgroundColor: colors.surfaceContainerLowest,
-            actions: [
-              IconButton(
-                tooltip: 'Settings',
-                onPressed: () => context.push(_settingsPath),
-                icon: const Icon(Symbols.settings_sharp),
-              ),
-            ],
-          ),
-          SliverFillRemaining(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ColoredBox(
-                  color: colors.surfaceContainerLowest,
-                  child: ScoreHeader(
-                    score: score,
-                    scoreLabel: 'points',
-                    rankLabel: rankLabel,
-                    showCountdown: false,
-                    density: ScoreHeaderDensity.compact,
-                  ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: colors.surfaceContainerLowest,
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            TopAppBar(
+              title: 'Profile',
+              onLeadingTap: () {
+                if (context.canPop()) context.pop();
+              },
+              backgroundColor: colors.surfaceContainerLowest,
+              actions: [
+                IconButton(
+                  tooltip: 'Settings',
+                  onPressed: () => context.push(_settingsPath),
+                  icon: const Icon(Symbols.settings_sharp),
                 ),
-                Expanded(
-                  child: ColoredBox(
-                    color: colors.surfaceContainerLowest,
-                    child: Tabs(
-                      tabs: const [
-                        TabItem(label: 'Completed Challenges'),
-                        TabItem(label: 'Leaderboard'),
-                      ],
-                      children: [
-                        _CompletedChallengesTab(
-                          challenges: completed,
-                          breakdown: completedBreakdown,
-                        ),
-                        ProfileLeaderboardList(
-                          entries: [
-                            for (final entry in entries)
-                              ProfileLeaderboardEntryData(
-                                rank: '${entry.rank}',
-                                name: entry.displayName ??
-                                    'Participant ${entry.participantId}',
-                                points:
-                                    '${formatPoints(entry.totalPoints)} pts',
-                                isCurrentUser:
-                                    entry.participantId == currentParticipantId,
-                              ),
-                          ],
-                          emptyLabel: 'Leaderboard unavailable.',
-                        ),
-                      ],
+              ],
+            ),
+            SliverToBoxAdapter(
+              child: ColoredBox(
+                color: colors.surfaceContainerLowest,
+                child: ScoreHeader(
+                  score: score,
+                  scoreLabel: 'points',
+                  rankLabel: rankLabel,
+                  showCountdown: false,
+                  density: ScoreHeaderDensity.compact,
+                  footer: Center(
+                    child: DropdownChip(
+                      label: seasonLabel(context, ref),
+                      variant: ChipVariant.outlined,
+                      onTap: () => showSeasonPicker(context, ref),
                     ),
                   ),
                 ),
-                SizedBox(height: spacing.space32),
+              ),
+            ),
+            const SliverPersistentHeader(
+              pinned: true,
+              delegate: _ProfileTabBarDelegate(
+                tabs: [
+                  Tab(text: 'Completed Challenges'),
+                  Tab(text: 'Leaderboard'),
+                ],
+              ),
+            ),
+          ],
+          body: ColoredBox(
+            color: colors.surfaceContainerLowest,
+            child: TabBarView(
+              children: [
+                _CompletedChallengesTab(
+                  challenges: completed,
+                  breakdown: completedBreakdown,
+                ),
+                ProfileLeaderboardList(
+                  entries: [
+                    for (final entry in entries)
+                      ProfileLeaderboardEntryData(
+                        rank: '${entry.rank}',
+                        name: entry.displayName ??
+                            'Participant ${entry.participantId}',
+                        points: '${formatPoints(entry.totalPoints)} pts',
+                        isCurrentUser:
+                            entry.participantId == currentParticipantId,
+                      ),
+                  ],
+                  emptyLabel: 'Leaderboard unavailable.',
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
+  }
+}
+
+class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _ProfileTabBarDelegate({
+    required this.tabs,
+  });
+
+  final List<Widget> tabs;
+
+  @override
+  double get minExtent => kTextTabBarHeight;
+
+  @override
+  double get maxExtent => kTextTabBarHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
+
+    return ColoredBox(
+      color: colors.surfaceContainerLowest,
+      child: TabBar(
+        labelColor: colors.onSurface,
+        unselectedLabelColor: colors.outline,
+        labelStyle: textTheme.titleSmall,
+        unselectedLabelStyle: textTheme.titleSmall,
+        indicatorColor: colors.primary,
+        indicatorWeight: 3,
+        dividerColor: colors.onSurface.withValues(alpha: borders.opacity),
+        dividerHeight: borders.width,
+        tabs: tabs,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) {
+    return oldDelegate.tabs != tabs;
   }
 }
 
@@ -153,9 +206,11 @@ class _CompletedChallengesTab extends StatelessWidget {
     }
 
     return ListView.separated(
-      padding: EdgeInsets.symmetric(
-        horizontal: spacing.space16,
-        vertical: spacing.space12,
+      padding: EdgeInsets.fromLTRB(
+        spacing.space16,
+        spacing.space12,
+        spacing.space16,
+        spacing.space32,
       ),
       itemCount: challenges.length,
       separatorBuilder: (_, __) => SizedBox(height: spacing.space8),

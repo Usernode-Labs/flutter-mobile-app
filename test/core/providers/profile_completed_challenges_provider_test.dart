@@ -13,6 +13,12 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
     int? participantId,
     bool? activeOnly,
   })? challengesCall;
+  final challengesCalls = <({
+    int? seasonId,
+    int? eventId,
+    int? participantId,
+    bool? activeOnly,
+  })>[];
   ({int participantId, int? seasonId, int? eventId})? breakdownCall;
 
   @override
@@ -23,58 +29,76 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
     bool? activeOnly,
     bool? onlyScheduled,
   }) async {
-    challengesCall = (
+    final call = (
       seasonId: seasonId,
       eventId: eventId,
       participantId: participantId,
       activeOnly: activeOnly,
     );
-    return const [
-      ChallengeDto(
-        id: 101,
-        eventId: 11,
-        eventName: 'Season 1 Phase',
-        category: 'community',
-        goal: 'Season 1 Win',
-        task: 'Finish something in season 1.',
-        reward: '100',
-        enabled: true,
-        completed: false,
-        scheduleEnd: '2026-12-01T00:00:00Z',
-      ),
-      ChallengeDto(
-        id: 202,
-        eventId: 22,
-        eventName: 'Season 2 Phase',
-        category: 'community',
-        goal: 'Season 2 Win',
-        task: 'Finish something in season 2.',
-        reward: '200',
-        enabled: true,
-        completed: false,
-      ),
-      ChallengeDto(
-        id: 303,
-        eventId: 22,
-        eventName: 'Season 2 Phase',
-        category: 'community',
-        goal: 'Season 2 Open',
-        task: 'Still open.',
-        reward: '300',
-        enabled: true,
-        completed: false,
-      ),
-      ChallengeDto(
-        id: 404,
-        category: 'community',
-        goal: 'Ambiguous duplicated challenge',
-        task: 'This id exists in two events.',
-        reward: '999',
-        enabled: true,
-        completed: false,
-        activitiesTotal: 999,
-      ),
-    ];
+    challengesCall = call;
+    challengesCalls.add(call);
+
+    return switch (seasonId) {
+      1 => const [
+          ChallengeDto(
+            id: 101,
+            eventId: 11,
+            eventName: 'Season 1 Phase',
+            category: 'community',
+            goal: 'Season 1 Win',
+            task: 'Finish something in season 1.',
+            reward: '100',
+            enabled: true,
+            completed: false,
+            scheduleEnd: '2026-12-01T00:00:00Z',
+          ),
+          ChallengeDto(
+            id: 404,
+            category: 'community',
+            goal: 'Ambiguous duplicated challenge',
+            task: 'This id exists in two events.',
+            reward: '999',
+            enabled: true,
+            completed: false,
+            activitiesTotal: 999,
+          ),
+        ],
+      2 => const [
+          ChallengeDto(
+            id: 202,
+            eventId: 22,
+            eventName: 'Season 2 Phase',
+            category: 'community',
+            goal: 'Season 2 Win',
+            task: 'Finish something in season 2.',
+            reward: '200',
+            enabled: true,
+            completed: false,
+          ),
+          ChallengeDto(
+            id: 303,
+            eventId: 22,
+            eventName: 'Season 2 Phase',
+            category: 'community',
+            goal: 'Season 2 Open',
+            task: 'Still open.',
+            reward: '300',
+            enabled: true,
+            completed: false,
+          ),
+          ChallengeDto(
+            id: 404,
+            category: 'community',
+            goal: 'Ambiguous duplicated challenge',
+            task: 'This id exists in two events.',
+            reward: '999',
+            enabled: true,
+            completed: false,
+            activitiesTotal: 999,
+          ),
+        ],
+      _ => const [],
+    };
   }
 
   @override
@@ -176,10 +200,12 @@ void main() {
 
     expect(result, isNotNull);
     expect(result!.completed.map((c) => c.dto.id), [101, 202]);
-    expect(service.challengesCall?.participantId, 19);
-    expect(service.challengesCall?.seasonId, isNull);
-    expect(service.challengesCall?.eventId, isNull);
-    expect(service.challengesCall?.activeOnly, isFalse);
+    expect(service.challengesCalls.map((call) => call.seasonId), [1, 2]);
+    for (final call in service.challengesCalls) {
+      expect(call.participantId, 19);
+      expect(call.eventId, isNull);
+      expect(call.activeOnly, isFalse);
+    }
     expect(service.breakdownCall?.participantId, 19);
     expect(service.breakdownCall?.seasonId, isNull);
     expect(service.breakdownCall?.eventId, isNull);
@@ -201,5 +227,65 @@ void main() {
     );
 
     expect(result!.completed.map((c) => c.dto.id), isNot(contains(404)));
+  });
+
+  test('uses selected season scope when profile context has a season',
+      () async {
+    final service = _RecordingLeaderboardApiService();
+    final container = ProviderContainer(
+      overrides: [
+        leaderboardApiServiceProvider.overrideWithValue(service),
+        participantIdProvider.overrideWith((ref) => 19),
+        seasonEventContextProvider.overrideWith(
+          (ref) => const SeasonEventContext(
+            seasonId: 2,
+            seasonName: 'Season 2',
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final result = await container.read(
+      profileCompletedChallengesProvider.future,
+    );
+
+    expect(result!.completed.map((c) => c.dto.id), [202]);
+    expect(service.challengesCalls, hasLength(1));
+    expect(service.challengesCall?.seasonId, 2);
+    expect(service.challengesCall?.eventId, isNull);
+    expect(service.breakdownCall?.seasonId, 2);
+    expect(service.breakdownCall?.eventId, isNull);
+  });
+
+  test('ignores selected event and uses season scope for profile history',
+      () async {
+    final service = _RecordingLeaderboardApiService();
+    final container = ProviderContainer(
+      overrides: [
+        leaderboardApiServiceProvider.overrideWithValue(service),
+        participantIdProvider.overrideWith((ref) => 19),
+        seasonEventContextProvider.overrideWith(
+          (ref) => const SeasonEventContext(
+            seasonId: 2,
+            seasonName: 'Season 2',
+            eventId: 22,
+            eventName: 'Season 2 Phase',
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final result = await container.read(
+      profileCompletedChallengesProvider.future,
+    );
+
+    expect(result!.completed.map((c) => c.dto.id), [202]);
+    expect(service.challengesCalls, hasLength(1));
+    expect(service.challengesCall?.seasonId, 2);
+    expect(service.challengesCall?.eventId, isNull);
+    expect(service.breakdownCall?.seasonId, 2);
+    expect(service.breakdownCall?.eventId, isNull);
   });
 }

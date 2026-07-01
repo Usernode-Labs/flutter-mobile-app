@@ -2356,6 +2356,18 @@ abstract class AppLocalizations {
   /// **'All Events'**
   String get allEvents;
 
+  /// Fallback label when no specific season is selected
+  ///
+  /// In en, this message translates to:
+  /// **'All Seasons'**
+  String get allSeasons;
+
+  /// Title for season picker bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Select Season'**
+  String get selectSeason;
+
   /// Title for event picker bottom sheet
   ///
   /// In en, this message translates to:

@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
+import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
@@ -36,6 +37,15 @@ class _MockLeaderboardController extends LeaderboardController {
   final LeaderboardState? _data;
   @override
   Future<LeaderboardState?> build() async => _data;
+  @override
+  Future<void> silentRefresh() async {}
+}
+
+class _MockSeasonsController extends SeasonsController {
+  _MockSeasonsController(this._data);
+  final List<SeasonDto> _data;
+  @override
+  Future<List<SeasonDto>?> build() async => _data;
   @override
   Future<void> silentRefresh() async {}
 }
@@ -195,6 +205,30 @@ Widget _app() {
           ),
         ),
       ),
+      seasonsProvider.overrideWith(
+        () => _MockSeasonsController(
+          const [
+            SeasonDto(
+              id: 1,
+              name: 'Season 1',
+              isActive: true,
+              events: [
+                SeasonEventDto(
+                  id: 1,
+                  name: 'Phase 1',
+                  isActive: true,
+                ),
+              ],
+            ),
+            SeasonDto(
+              id: 2,
+              name: 'Season 2',
+              endsAt: '2026-01-01T00:00:00Z',
+              isActive: false,
+            ),
+          ],
+        ),
+      ),
       participantIdProvider.overrideWith((ref) async => 1),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
       seasonEventContextProvider.overrideWith(
@@ -225,6 +259,12 @@ void main() {
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('8,000'), findsOneWidget); // score
     expect(find.text('Rank 44'), findsOneWidget);
+    expect(find.text('Season 1'), findsOneWidget);
+    expect(find.text('All Events'), findsNothing);
+    expect(find.byType(DropdownChip), findsOneWidget);
+    expect(find.byType(NestedScrollView), findsOneWidget);
+    expect(find.byType(TabBar), findsOneWidget);
+    expect(find.byType(TabBarView), findsOneWidget);
     expect(find.text('Completed Challenges'), findsOneWidget);
     expect(find.text('Leaderboard'), findsOneWidget);
     expect(find.text('Community Sprint'), findsOneWidget);
@@ -247,5 +287,18 @@ void main() {
 
     expect(find.text('node-alpha'), findsOneWidget);
     expect(find.text('18,420 pts'), findsOneWidget);
+  });
+
+  testWidgets('Profile season chip opens season picker', (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1));
+
+    await tester.tap(find.text('Season 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select Season'), findsOneWidget);
+    expect(find.text('Season 1'), findsWidgets);
+    expect(find.text('Season 2 (Ended)'), findsOneWidget);
   });
 }

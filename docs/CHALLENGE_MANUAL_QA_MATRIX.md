@@ -2,7 +2,8 @@
 
 Use this when manually validating that Flutter responds correctly to the
 Leaderboard mobile API. Keep the matrix rooted in what the backend actually
-serves, not in hypothetical challenge categories.
+serves, not in hypothetical challenge categories. For creating or debugging
+challenge agents, use [Challenge Agent Operating Guide](CHALLENGE_PROGRESS_OPERATING_GUIDE.md).
 
 The app consumes two contracts:
 
@@ -36,6 +37,25 @@ From `/me/breakdown.challenge_progress`:
 | `pending_points` | Review/submitted points |
 | `earned_points` | Completed/awarded points |
 | `description` | Short user-facing helper/status text |
+
+## Challenge Copy Tags
+
+Mobile supports a deliberately small detail-copy tag set. These tags are
+resolved in challenge detail `description`, `task`, `rewardLogic`/points logic,
+and `requirements`/rules copy.
+
+| Tag | Resolves to | Mobile rendering |
+| --- | --- | --- |
+| `{{ user.wallet_address }}` | Active wallet address | Short inline copy chip with the full address copied on tap |
+| `{{ user.walletAddress }}` | Active wallet address | Same as above; camelCase alias for authoring convenience |
+
+Do not author username, participant id, Discord handle, or arbitrary profile
+tags yet. They are not part of the current mobile contract.
+
+Inline copy chips are meant to be sparse. The visual chip stays compact so it
+flows inside the paragraph baseline, while the tap handler gives it a larger
+invisible target. Avoid placing multiple copy tags adjacent to each other
+until the design has an explicit overlap strategy.
 
 ## Primary State Matrix
 
@@ -121,22 +141,12 @@ Use this reduced set when time is tight:
 | P1 | Featured challenge | Proves backend `featured` drives grouping/styling |
 | P1 | Missing/ambiguous progress row | Proves safe fallback instead of wrong progress |
 
-## Agent Output Rules That Keep UI Stable
+## Agent Output Reminder
 
-For target-based metrics:
+The UI matrix assumes Topochain serves clean `challenge_progress`. Agent authors
+should follow the ScriptAgent-first rules in
+[Challenge Agent Operating Guide](CHALLENGE_PROGRESS_OPERATING_GUIDE.md):
 
-- submit cumulative `metric_current`;
-- below target, submit `points=0` unless the challenge intentionally awards
-  partial points;
-- at target, submit the reward once;
-- keep public `description` short and user-facing.
-
-For no-metric/binary submissions:
-
-- use pending points to show that a submission was registered;
-- add a duplicate guard so scheduled runs do not compound points.
-
-For every agent:
-
-- put row ids, tx ids, skip reasons, and debug details in run output, not in
-  the public progress description.
+- metric challenges need cumulative `metric_current`;
+- form-style no-metric challenges may use pending points for submitted state;
+- `description`/`reasoning` should be short user-facing copy, not debug logs.

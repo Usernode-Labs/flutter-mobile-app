@@ -301,6 +301,20 @@ class AlarmMethodChannelHandler(context: Context) {
             "wasForceStoppedOnStartup" -> {
                 result.success(wasForceStoppedOnStartup())
             }
+            "ensureAlarmWatchdogScheduled" -> {
+                val reason = call.argument<String>("reason") ?: "dart"
+                result.success(AlarmWatchdogScheduler.ensurePeriodic(appContext, reason))
+            }
+            "requestAlarmWatchdogRun" -> {
+                val reason = call.argument<String>("reason") ?: "dart"
+                result.success(AlarmWatchdogScheduler.enqueueOneTime(appContext, reason))
+            }
+            "cancelAlarmWatchdog" -> {
+                result.success(AlarmWatchdogScheduler.cancel(appContext))
+            }
+            "getAlarmWatchdogState" -> {
+                result.success(AlarmWatchdogScheduler.state(appContext))
+            }
             else -> {
                 result.notImplemented()
             }

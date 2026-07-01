@@ -72,7 +72,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val nativeDeliveryLatencyMs = nativeTriggerAtMs?.let { currentTime - it }
         val elapsedDeliveryLatencyMs =
             triggerElapsedRealtimeMs?.let { receiverElapsedRealtimeMs - it }
-        AlarmLedger(context).recordReceiverEntered(
+        AlarmStateStore(context).recordReceiverEntered(
             alarmId = alarmId,
             globalSlot = globalSlot,
             alarmTimeMs = scheduledTimeMs,
@@ -125,7 +125,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 eventData
             )
         }
-        AlarmLedger(context).recordFlutterEventSent(alarmId, System.currentTimeMillis())
+        AlarmStateStore(context).recordFlutterEventSent(alarmId, System.currentTimeMillis())
 
         // Start foreground service to keep app alive during monitoring
         Log.d(TAG, "[AlarmReceiver] Starting SlotMonitoringService")
@@ -161,6 +161,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun handleBootCompleted(context: Context) {
         Log.i(TAG, "Device boot completed - starting monitoring")
+        AlarmWatchdogScheduler.ensurePeriodic(context, "boot_completed")
+        AlarmWatchdogScheduler.enqueueOneTime(context, "boot_completed")
         sendAuditRecoveryEvent(context, "boot_completed")
         startMonitoringService(
             context = context,
@@ -172,6 +174,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
     private fun handlePackageReplaced(context: Context) {
         Log.i(TAG, "App updated - starting monitoring")
+        AlarmWatchdogScheduler.ensurePeriodic(context, "package_replaced")
+        AlarmWatchdogScheduler.enqueueOneTime(context, "package_replaced")
         sendAuditRecoveryEvent(context, "package_replaced")
         startMonitoringService(
             context = context,
@@ -193,6 +197,10 @@ class AlarmReceiver : BroadcastReceiver() {
             "android_exact_alarm_permission_granted"
         } else {
             "android_exact_alarm_permission_denied"
+        }
+        if (granted) {
+            AlarmWatchdogScheduler.ensurePeriodic(context, "exact_alarm_permission_granted")
+            AlarmWatchdogScheduler.enqueueOneTime(context, "exact_alarm_permission_granted")
         }
         sendFlutterEvent(
             context = context,

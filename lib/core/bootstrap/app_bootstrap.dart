@@ -361,6 +361,9 @@ class AppBootstrap {
 
   static Future<void> _runStartupAlarmAudit(TaggedLogger log) async {
     try {
+      await PlatformAlarmService.instance.ensureAlarmWatchdogScheduled(
+        reason: 'cold_start',
+      );
       final forceStopRecovery = await BlockProductionAlarmAuditService.instance
           .auditForceStopRecoveryIfNeeded();
       if (!forceStopRecovery && RustBackendService.instance.isRunning) {

@@ -6,6 +6,9 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 
 part 'atomic_challenge_detail_page.stories.g.dart';
 
+const _sampleWalletAddress =
+    'ut1p0p7y8ujacndc60r4a7pzk45dufdtarp6satvc0md7866633u8sqagm3az';
+
 const meta =
     MetaWithArgs<AtomicChallengeDetailPage, AtomicChallengeDetailInput>(
       path: 'prototypes/challenges',
@@ -46,6 +49,12 @@ class AtomicChallengeDetailInput {
 
 final defaults = _Defaults(
   builder: (context, args) {
+    final hasSampleWalletAddress = [
+      args.description,
+      args.pointsLogic,
+      args.rules,
+    ].whereType<String>().any((text) => text.contains(_sampleWalletAddress));
+
     return AtomicChallengeDetailPage(
       title: args.title,
       description: args.description,
@@ -60,6 +69,17 @@ final defaults = _Defaults(
       rules: args.rules,
       heroCard: args.heroCard,
       railTreatment: args.railTreatment,
+      copyableValues: hasSampleWalletAddress
+          ? const [
+              AtomicChallengeCopyableValue(
+                label: 'My address',
+                value: _sampleWalletAddress,
+                displayValue: 'ut1p0p…agm3az',
+                tooltip: 'Copy address',
+              ),
+            ]
+          : const [],
+      onCopyableValueTap: (_) {},
       onBackTap: () {},
       onCtaTap: () {},
     );
@@ -217,6 +237,23 @@ final $ExpandedAtomic = _Story(
         dateText: 'Ends in 4d',
         pointsLogic: 'Earn points for each accepted kudos action, up to 5.',
         ctaLabel: 'Give kudos',
+      ),
+    ),
+    _Scenario(
+      name: 'Copyable wallet address',
+      args: _detailArgs(
+        title: 'Share form feedback',
+        description:
+            'Paste $_sampleWalletAddress into the form so your response can be matched.',
+        leftText: 'Not done',
+        rightText: '500 pts',
+        phase: AtomicChallengePhase.open,
+        fill: 0,
+        dateText: 'Ends today',
+        pointsLogic:
+            'Submit the form once. Your wallet address helps connect the response to your profile.',
+        ctaLabel: 'Open form',
+        railTreatment: AtomicChallengeRailTreatment.checkbox,
       ),
     ),
     _Scenario(

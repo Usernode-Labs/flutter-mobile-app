@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -111,6 +113,32 @@ class AtomicChallengeHeroOverviewItem {
   final VoidCallback? onTap;
 }
 
+class AtomicChallengeCopyableValue {
+  const AtomicChallengeCopyableValue({
+    required this.label,
+    required this.value,
+    this.displayValue,
+    this.tooltip,
+  });
+
+  /// User-facing label for accessibility.
+  final String label;
+
+  /// Exact resolved text to replace in detail copy.
+  ///
+  /// The feature layer resolves supported tags, such as
+  /// `{{ user.wallet_address }}`, to this full value before passing detail
+  /// copy into [AtomicChallengeDetailPage]. Matching text is rendered as a
+  /// compact inline copy chip.
+  final String value;
+
+  /// Short value shown inside the inline chip, for example a shortened wallet.
+  final String? displayValue;
+
+  /// Tooltip and semantic action label for the copy affordance.
+  final String? tooltip;
+}
+
 /// The simplified Fair Rewards challenge detail page.
 ///
 /// Keeps the compressed card structure intact — goal first, then the same
@@ -141,6 +169,8 @@ class AtomicChallengeDetailPage extends StatelessWidget {
     this.progressHelperText,
     this.heroCard,
     this.railTreatment = AtomicChallengeRailTreatment.standard,
+    this.copyableValues = const [],
+    this.onCopyableValueTap,
   });
 
   /// Challenge goal/title.
@@ -179,6 +209,11 @@ class AtomicChallengeDetailPage extends StatelessWidget {
 
   /// Optional "Rules" body (expandable). Hidden when null/empty.
   final String? rules;
+
+  /// Values inside detail copy that should render as explicit copy affordances.
+  final List<AtomicChallengeCopyableValue> copyableValues;
+
+  final ValueChanged<AtomicChallengeCopyableValue>? onCopyableValueTap;
 
   final VoidCallback onBackTap;
   final VoidCallback onCtaTap;
@@ -237,12 +272,21 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                       _DetailSection(
                         title: 'Why it matters',
                         body: descriptionText,
+                        copyableValues: copyableValues,
+                        onCopyableValueTap: onCopyableValueTap,
                       ),
                     ),
                     SizedBox(height: spacing.space24),
                   ],
                   if (taskText != null && taskText.isNotEmpty) ...[
-                    inset(_DetailSection(title: 'Task', body: taskText)),
+                    inset(
+                      _DetailSection(
+                        title: 'Task',
+                        body: taskText,
+                        copyableValues: copyableValues,
+                        onCopyableValueTap: onCopyableValueTap,
+                      ),
+                    ),
                     SizedBox(height: spacing.space24),
                   ],
                   inset(_DetailSection(title: 'Available', body: dateText)),
@@ -251,11 +295,20 @@ class AtomicChallengeDetailPage extends StatelessWidget {
                     _DetailExpansion(
                       title: 'How points work',
                       body: pointsLogic,
+                      copyableValues: copyableValues,
+                      onCopyableValueTap: onCopyableValueTap,
                     ),
                   ),
                   if (rules != null && rules!.isNotEmpty) ...[
                     SizedBox(height: spacing.space8),
-                    inset(_DetailExpansion(title: 'Rules', body: rules!)),
+                    inset(
+                      _DetailExpansion(
+                        title: 'Rules',
+                        body: rules!,
+                        copyableValues: copyableValues,
+                        onCopyableValueTap: onCopyableValueTap,
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -998,10 +1051,17 @@ StatusBadgeVariant _statusVariant(AtomicChallengeHeroOverviewTone tone) =>
     };
 
 class _DetailSection extends StatelessWidget {
-  const _DetailSection({required this.title, required this.body});
+  const _DetailSection({
+    required this.title,
+    required this.body,
+    this.copyableValues = const [],
+    this.onCopyableValueTap,
+  });
 
   final String title;
   final String body;
+  final List<AtomicChallengeCopyableValue> copyableValues;
+  final ValueChanged<AtomicChallengeCopyableValue>? onCopyableValueTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1020,8 +1080,10 @@ class _DetailSection extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        Text(
+        _DetailBody(
           body,
+          copyableValues: copyableValues,
+          onCopyableValueTap: onCopyableValueTap,
           style: textTheme.bodyMedium?.copyWith(
             color: colors.onSurfaceVariant,
             fontFeatures: title == 'Available'
@@ -1035,10 +1097,17 @@ class _DetailSection extends StatelessWidget {
 }
 
 class _DetailExpansion extends StatelessWidget {
-  const _DetailExpansion({required this.title, required this.body});
+  const _DetailExpansion({
+    required this.title,
+    required this.body,
+    this.copyableValues = const [],
+    this.onCopyableValueTap,
+  });
 
   final String title;
   final String body;
+  final List<AtomicChallengeCopyableValue> copyableValues;
+  final ValueChanged<AtomicChallengeCopyableValue>? onCopyableValueTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1059,8 +1128,10 @@ class _DetailExpansion extends StatelessWidget {
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: Text(
+          child: _DetailBody(
             body,
+            copyableValues: copyableValues,
+            onCopyableValueTap: onCopyableValueTap,
             style: textTheme.bodyMedium?.copyWith(
               color: colors.onSurfaceVariant,
             ),
@@ -1069,4 +1140,247 @@ class _DetailExpansion extends StatelessWidget {
       ],
     );
   }
+}
+
+class _DetailBody extends StatefulWidget {
+  const _DetailBody(
+    this.body, {
+    required this.style,
+    this.copyableValues = const [],
+    this.onCopyableValueTap,
+  });
+
+  final String body;
+  final TextStyle? style;
+  final List<AtomicChallengeCopyableValue> copyableValues;
+  final ValueChanged<AtomicChallengeCopyableValue>? onCopyableValueTap;
+
+  @override
+  State<_DetailBody> createState() => _DetailBodyState();
+}
+
+class _DetailBodyState extends State<_DetailBody> {
+  final Map<int, GlobalKey> _targetKeys = <int, GlobalKey>{};
+  List<_InlineCopyTarget> _inlineTargets = const [];
+
+  @override
+  Widget build(BuildContext context) {
+    final segments = _splitBody(widget.body, widget.copyableValues);
+    if (segments.length == 1 && segments.single.copyableValue == null) {
+      return Text(widget.body, style: widget.style);
+    }
+
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final targets = <_InlineCopyTarget>[];
+    var copyableIndex = 0;
+    final children = segments.map<InlineSpan>((segment) {
+      final value = segment.copyableValue;
+      if (value == null) return TextSpan(text: segment.text);
+
+      final key = _targetKeys.putIfAbsent(copyableIndex, () => GlobalKey());
+      copyableIndex += 1;
+      targets.add(_InlineCopyTarget(key: key, value: value));
+
+      return WidgetSpan(
+        alignment: PlaceholderAlignment.baseline,
+        baseline: TextBaseline.alphabetic,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: spacing.space4 / 2,
+          ),
+          child: _InlineCopyableValueChip(
+            key: key,
+            data: value,
+            textStyle: widget.style,
+            onTap: widget.onCopyableValueTap == null
+                ? null
+                : () => widget.onCopyableValueTap!(value),
+          ),
+        ),
+      );
+    }).toList();
+    _inlineTargets = targets;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTapUp: widget.onCopyableValueTap == null ? null : _handleTapUp,
+      child: RichText(
+        text: TextSpan(
+          style: widget.style,
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    final target = _hitTargetFor(details.globalPosition);
+    if (target == null) return;
+    widget.onCopyableValueTap?.call(target.value);
+  }
+
+  _InlineCopyTarget? _hitTargetFor(Offset globalPosition) {
+    final targetSize = Theme.of(context)
+        .extension<AppSizing>()!
+        .iconContainerRegular
+        .toDouble();
+
+    for (final target in _inlineTargets.reversed) {
+      final targetContext = target.key.currentContext;
+      final renderObject = targetContext?.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) continue;
+
+      final visualRect =
+          renderObject.localToGlobal(Offset.zero) & renderObject.size;
+
+      // Preserve the visual chip's inline rhythm; expand only the gesture hit
+      // zone so sparse copy tags remain easy to tap without growing the line.
+      if (_expandedTouchRect(visualRect, targetSize).contains(globalPosition)) {
+        return target;
+      }
+    }
+
+    return null;
+  }
+
+  Rect _expandedTouchRect(Rect visualRect, double targetSize) {
+    final verticalInset = math.max(0.0, (targetSize - visualRect.height) / 2);
+    final inflated = visualRect.inflate(verticalInset);
+    if (inflated.width >= targetSize) return inflated;
+
+    return Rect.fromCenter(
+      center: inflated.center,
+      width: targetSize,
+      height: inflated.height,
+    );
+  }
+}
+
+class _InlineCopyTarget {
+  const _InlineCopyTarget({
+    required this.key,
+    required this.value,
+  });
+
+  final GlobalKey key;
+  final AtomicChallengeCopyableValue value;
+}
+
+class _InlineCopyableValueChip extends StatelessWidget {
+  const _InlineCopyableValueChip({
+    super.key,
+    required this.data,
+    required this.textStyle,
+    this.onTap,
+  });
+
+  final AtomicChallengeCopyableValue data;
+  final TextStyle? textStyle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borders = Theme.of(context).extension<AppBorders>()!;
+    final colors = Theme.of(context).colorScheme;
+    final radii = Theme.of(context).extension<AppRadii>()!;
+    final sizing = Theme.of(context).extension<AppSizing>()!;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final displayValue = data.displayValue ?? data.value;
+    final effectiveTextStyle = (textStyle ?? textTheme.bodyMedium)?.copyWith(
+      color: colors.onSurface,
+      fontFamily: kMonoFontFamily,
+      fontWeight: FontWeight.w600,
+    );
+
+    return Semantics(
+      button: true,
+      label: data.tooltip ?? data.label,
+      value: data.value,
+      onTap: onTap,
+      child: Tooltip(
+        message: data.tooltip ?? data.label,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest,
+            borderRadius: radii.borderRadiusFull,
+            border: Border.all(
+              color: colors.onSurface.withValues(alpha: borders.opacity * 2),
+              width: borders.width,
+            ),
+          ),
+          child: Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: spacing.space4,
+              end: spacing.space8,
+              top: 1,
+              bottom: 1,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Symbols.content_copy_sharp,
+                  color: colors.onSurfaceVariant,
+                  size: sizing.iconXSmall,
+                ),
+                SizedBox(width: spacing.space4),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 152),
+                  child: Text(
+                    displayValue,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: effectiveTextStyle,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailBodySegment {
+  const _DetailBodySegment.text(this.text) : copyableValue = null;
+  const _DetailBodySegment.copyable(this.copyableValue) : text = '';
+
+  final String text;
+  final AtomicChallengeCopyableValue? copyableValue;
+}
+
+List<_DetailBodySegment> _splitBody(
+  String body,
+  List<AtomicChallengeCopyableValue> values,
+) {
+  final candidates = values
+      .where((value) => value.value.trim().isNotEmpty)
+      .map((value) => (value: value, index: body.indexOf(value.value)))
+      .where((match) => match.index >= 0)
+      .toList()
+    ..sort((a, b) => a.index.compareTo(b.index));
+
+  if (candidates.isEmpty) return [_DetailBodySegment.text(body)];
+
+  final segments = <_DetailBodySegment>[];
+  var cursor = 0;
+  for (final match in candidates) {
+    if (match.index < cursor) continue;
+    if (match.index > cursor) {
+      segments
+          .add(_DetailBodySegment.text(body.substring(cursor, match.index)));
+    }
+    segments.add(_DetailBodySegment.copyable(match.value));
+    cursor = match.index + match.value.value.length;
+  }
+  if (cursor < body.length) {
+    segments.add(_DetailBodySegment.text(body.substring(cursor)));
+  }
+
+  return segments.where((segment) {
+    final value = segment.copyableValue;
+    return value != null || segment.text.trim().isNotEmpty;
+  }).toList(growable: false);
 }

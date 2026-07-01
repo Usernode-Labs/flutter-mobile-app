@@ -1,18 +1,21 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_cta_dispatcher.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
@@ -48,6 +51,13 @@ class ChallengeDetailScreen extends ConsumerWidget {
       ),
     );
 
+    final l10n = AppLocalizations.of(context);
+    final activeAddress = ref.watch(activeAccountProvider).valueOrNull?.address;
+    final copyableValues = _challengeCopyableValues(
+      address: activeAddress,
+      l10n: l10n,
+    );
+
     final breakdown = ref.watch(breakdownProvider).valueOrNull;
     final eb = isProduceBlocksChallenge(dto)
         ? breakdown?.eventBreakdown ??
@@ -60,8 +70,14 @@ class ChallengeDetailScreen extends ConsumerWidget {
       technicalSuccessRate: eb?.successRate,
     );
     final dateText = formatDateRange(dto.scheduleStart, dto.scheduleEnd);
-    final description = _nonEmpty(dto.description);
-    final task = _nonEmpty(dto.task);
+    final description = _resolveChallengeDetailText(
+      _nonEmpty(dto.description),
+      walletAddress: activeAddress,
+    );
+    final task = _resolveChallengeDetailText(
+      _nonEmpty(dto.task),
+      walletAddress: activeAddress,
+    );
     final progressHelperText = _progressHelperText(
       progress: progress,
       title: dto.goal,
@@ -87,12 +103,26 @@ class ChallengeDetailScreen extends ConsumerWidget {
         railTreatment: card.railTreatment,
         dateText: dateText.isNotEmpty ? dateText : 'Available now',
         pointsLogic: (dto.rewardLogic?.isNotEmpty ?? false)
-            ? dto.rewardLogic!
+            ? _resolveChallengeDetailText(
+                  dto.rewardLogic,
+                  walletAddress: activeAddress,
+                ) ??
+                dto.rewardLogic!
             : 'Points are awarded once this challenge is completed and verified.',
         ctaLabel: (dto.ctaLabel?.isNotEmpty ?? false)
             ? dto.ctaLabel!
             : 'Join the challenge',
-        rules: dto.requirements,
+        rules: _resolveChallengeDetailText(
+          dto.requirements,
+          walletAddress: activeAddress,
+        ),
+        copyableValues: copyableValues,
+        onCopyableValueTap: (value) {
+          Clipboard.setData(ClipboardData(text: value.value));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.walletAddressCopied)),
+          );
+        },
         onBackTap: () {
           if (context.canPop()) context.pop();
         },
@@ -520,6 +550,44 @@ class ChallengeDetailScreen extends ConsumerWidget {
 String? _nonEmpty(String? value) {
   final text = value?.trim();
   return text == null || text.isEmpty ? null : text;
+}
+
+List<AtomicChallengeCopyableValue> _challengeCopyableValues({
+  required String? address,
+  required AppLocalizations l10n,
+}) {
+  final value = address?.trim();
+  if (value == null || value.isEmpty) return const [];
+
+  return [
+    AtomicChallengeCopyableValue(
+      label: l10n.walletMyAddress,
+      value: value,
+      displayValue: Utils.shortenID(value, head: 6, tail: 6),
+      tooltip: l10n.walletCopyAddress,
+    ),
+  ];
+}
+
+String? _resolveChallengeDetailText(
+  String? value, {
+  required String? walletAddress,
+}) {
+  final text = _nonEmpty(value);
+  final address = walletAddress?.trim();
+  if (text == null || address == null || address.isEmpty) return text;
+
+  // Supported mobile challenge-copy tags:
+  // - {{ user.wallet_address }}
+  // - {{ user.walletAddress }}
+  //
+  // Keep this intentionally narrow until the backend exposes a proper
+  // participant/profile templating contract. The resolved wallet text is also
+  // passed to AtomicChallengeDetailPage as a copyable inline value.
+  return text.replaceAll(
+    RegExp(r'\{\{\s*user\.(wallet_address|walletAddress)\s*\}\}'),
+    address,
+  );
 }
 
 String? _progressHelperText({

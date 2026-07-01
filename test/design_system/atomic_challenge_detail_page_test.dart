@@ -72,6 +72,54 @@ void main() {
       );
     });
 
+    testWidgets('renders copyable values in detail copy', (tester) async {
+      const address =
+          'ut1p0p7y8ujacndc60r4a7pzk45dufdtarp6satvc0md7866633u8sqagm3az';
+      AtomicChallengeCopyableValue? copied;
+
+      await tester.pumpWidget(
+        wrap(
+          AtomicChallengeDetailPage(
+            title: 'Share form feedback',
+            description: 'Paste $address into the form.',
+            leftText: 'Not done',
+            rightText: '500 pts',
+            phase: AtomicChallengePhase.open,
+            fill: 0,
+            dateText: 'Jun 23 - Jun 25',
+            pointsLogic: 'Submit once.',
+            ctaLabel: 'Open form',
+            copyableValues: const [
+              AtomicChallengeCopyableValue(
+                label: 'My address',
+                value: address,
+                displayValue: 'ut1p0p…agm3az',
+                tooltip: 'Copy address',
+              ),
+            ],
+            onCopyableValueTap: (value) => copied = value,
+            onBackTap: () {},
+            onCtaTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('ut1p0p…agm3az'), findsOneWidget);
+      expect(find.text(address), findsNothing);
+      expect(
+        tester.getSize(find.byTooltip('Copy address')).height,
+        lessThanOrEqualTo(28),
+      );
+
+      await tester.tap(find.byTooltip('Copy address'));
+      expect(copied?.value, address);
+
+      copied = null;
+      final chipRect = tester.getRect(find.byTooltip('Copy address'));
+      await tester.tapAt(chipRect.centerRight + const Offset(8, 0));
+      expect(copied?.value, address);
+    });
+
     testWidgets('back and CTA callbacks fire', (tester) async {
       var backed = false;
       var cta = false;

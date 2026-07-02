@@ -381,7 +381,9 @@ void main() {
         find.byType(AtomicChallengeCard),
         findsNWidgets(ChallengeApiVisualFixture.cases.length),
       );
-      expect(find.text('1 / 3 Actions'), findsOneWidget);
+      // In-progress rails draw a clipped text overlay on top of the rich fill
+      // so labels stay readable across both track and fill colors.
+      expect(find.text('1 / 3 Actions'), findsAtLeastNWidgets(1));
       expect(find.text('Not done'), findsAtLeastNWidgets(1));
       expect(tester.takeException(), isNull);
 

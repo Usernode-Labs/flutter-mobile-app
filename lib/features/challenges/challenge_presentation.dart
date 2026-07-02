@@ -174,9 +174,18 @@ AtomicChallengePhase _pendingPointsPhase(
   ChallengeProgress progress,
 ) {
   final kind = c.dto.metric?.kind;
+  final bounded = _metricProgress(c, progress);
   final hasEarnedPoints = progress.earnedPoints > 0;
   final hasPendingPoints = progress.pendingPoints > 0;
   final isBinaryOrNoMetric = kind == null || kind == ChallengeMetricKind.binary;
+  final isSteppedMetric =
+      kind == ChallengeMetricKind.count || kind == ChallengeMetricKind.sum;
+  if (bounded != null && isSteppedMetric) {
+    if (bounded.current >= bounded.target && hasPendingPoints) {
+      return AtomicChallengePhase.pendingFinalization;
+    }
+    if (bounded.current > 0) return AtomicChallengePhase.inProgress;
+  }
   if (hasEarnedPoints && isBinaryOrNoMetric) {
     return AtomicChallengePhase.completed;
   }

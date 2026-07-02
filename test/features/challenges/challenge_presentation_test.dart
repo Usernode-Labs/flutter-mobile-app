@@ -406,6 +406,34 @@ void main() {
       expect(card.fill, 0.0);
     });
 
+    test('count none with canonical current renders as in progress', () {
+      final card = mapToAtomicCard(
+        _enriched(_dto(
+          goal: 'TEST: Complete 3 dApp actions',
+          reward: '300 pts',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            label: 'Actions',
+            target: 3,
+          ),
+        )),
+        progress: const ChallengeProgress(
+          challengeId: 1,
+          state: ChallengeProgressState.none,
+          current: 1,
+          target: 3,
+          description:
+              '1 confirmed Echo dApp txs verified on-chain; awarded 100 pts',
+        ),
+      );
+
+      expect(card.phase, AtomicChallengePhase.inProgress);
+      expect(card.railTreatment, AtomicChallengeRailTreatment.standard);
+      expect(card.leftText, '1 / 3 Actions');
+      expect(card.rightText, '300 pts');
+      expect(card.fill, closeTo(1 / 3, 0.0001));
+    });
+
     test('missed count without current does not parse reasoning as progress',
         () {
       final card = mapToAtomicCard(

@@ -91,8 +91,7 @@ class AtomicChallengeCard extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
     final borders = Theme.of(context).extension<AppBorders>()!;
-    final borderRadius =
-        featured ? radii.borderRadiusXLarge : radii.borderRadiusLargeIncreased;
+    final borderRadius = radii.borderRadiusLargeIncreased;
     final cardColor = featured
         ? semantic.premium.colorSurface
         : colors.surfaceContainerLowest;
@@ -106,7 +105,7 @@ class AtomicChallengeCard extends StatelessWidget {
         label: '$title, $leftText, $rightText',
         child: InkWell(
           onTap: onTap,
-          borderRadius: radii.borderRadiusMedium,
+          borderRadius: radii.borderRadiusFull,
           child: Padding(
             padding: EdgeInsets.symmetric(vertical: spacing.space8),
             child: Column(
@@ -239,10 +238,12 @@ class AtomicChallengeRail extends StatelessWidget {
             clampedFill != null &&
             clampedFill > 0 &&
             phase != AtomicChallengePhase.open;
-    final borderRadius = radii.borderRadiusLarge;
+    final borderRadius = radii.borderRadiusFull;
     final progressValue = showProgress ? clampedFill : 0.0;
     final showFilledTextOverlay =
-        featured && showProgress && phase == AtomicChallengePhase.inProgress;
+        showProgress && phase == AtomicChallengePhase.inProgress;
+    final filledTextColor =
+        featured ? semantic.premium.onColor : semantic.success.onColor;
 
     Widget railContent({
       required Color leftTextColor,
@@ -331,13 +332,15 @@ class AtomicChallengeRail extends StatelessWidget {
                 rightTextColor: railColors.rightText,
               ),
               if (showFilledTextOverlay)
-                ClipRect(
-                  clipper: _FractionalWidthClipper(progressValue),
-                  child: railContent(
-                    leftTextColor: semantic.premium.onColor,
-                    leftSubtleTextColor:
-                        semantic.premium.onColor.withValues(alpha: 0.58),
-                    rightTextColor: semantic.premium.onColor,
+                ExcludeSemantics(
+                  child: ClipRect(
+                    clipper: _FractionalWidthClipper(progressValue),
+                    child: railContent(
+                      leftTextColor: filledTextColor,
+                      leftSubtleTextColor:
+                          filledTextColor.withValues(alpha: 0.58),
+                      rightTextColor: filledTextColor,
+                    ),
                   ),
                 ),
             ],
@@ -350,7 +353,7 @@ class AtomicChallengeRail extends StatelessWidget {
       final semantic = Theme.of(context).extension<AppSemanticColors>()!;
       return OngoingRailFrame(
         color: semantic.technical.color,
-        borderRadius: radii.large,
+        borderRadius: radii.full,
         child: rail,
       );
     }
@@ -441,7 +444,7 @@ class AtomicChallengeRail extends StatelessWidget {
         ),
       AtomicChallengePhase.inProgress => (
           track: colors.surfaceContainerLowest,
-          fill: semantic.success.colorSurface,
+          fill: semantic.success.color,
           leftText: colors.onSurface,
           leftSubtleText: colors.onSurfaceVariant,
           rightText: colors.onSurfaceVariant,
@@ -505,7 +508,7 @@ class _CheckboxChallengeRail extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: state.background,
-        borderRadius: radii.borderRadiusLarge,
+        borderRadius: radii.borderRadiusFull,
         border: Border.all(color: state.border, width: borders.width),
       ),
       child: SizedBox(

@@ -46,10 +46,65 @@ class PremiumChallengeContractMatrix extends StatelessWidget {
                 color: colors.onSurfaceVariant,
               ),
             ),
+            _PremiumCompactRadiusShowcase(cases: cases),
             _PremiumFeaturedBand(cases: cases),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _PremiumCompactRadiusShowcase extends StatelessWidget {
+  const _PremiumCompactRadiusShowcase({required this.cases});
+
+  final List<ChallengeApiVisualCase> cases;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: spacing.space8,
+      children: [
+        Text(
+          'Featured compact container-radius cards',
+          style: textTheme.titleMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        for (final item in cases.take(3)) _PremiumCompactRadiusCard(item: item),
+      ],
+    );
+  }
+}
+
+class _PremiumCompactRadiusCard extends StatelessWidget {
+  const _PremiumCompactRadiusCard({required this.item});
+
+  final ChallengeApiVisualCase item;
+
+  @override
+  Widget build(BuildContext context) {
+    final challenge = item.challenge;
+    final model = mapToAtomicCard(
+      EnrichedChallenge(dto: challenge),
+      progress: item.progress,
+      featured: true,
+    );
+
+    return AtomicChallengeCard(
+      title: model.title,
+      leftText: model.leftText,
+      rightText: model.rightText,
+      phase: model.phase,
+      fill: model.fill,
+      featured: model.featured,
+      railTreatment: model.railTreatment,
+      onTap: () {},
     );
   }
 }

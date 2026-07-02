@@ -45,6 +45,7 @@ class ApiChallengeContractMatrix extends StatelessWidget {
                 color: colors.onSurfaceVariant,
               ),
             ),
+            _CompactRadiusShowcase(cases: cases),
             for (final group in groups) ...[
               Text(
                 group,
@@ -64,6 +65,60 @@ class ApiChallengeContractMatrix extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CompactRadiusShowcase extends StatelessWidget {
+  const _CompactRadiusShowcase({required this.cases});
+
+  final List<ChallengeApiVisualCase> cases;
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final colors = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: spacing.space8,
+      children: [
+        Text(
+          'Compact container-radius cards',
+          style: textTheme.titleMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        for (final item in cases.take(3)) _CompactRadiusCard(item: item),
+      ],
+    );
+  }
+}
+
+class _CompactRadiusCard extends StatelessWidget {
+  const _CompactRadiusCard({required this.item});
+
+  final ChallengeApiVisualCase item;
+
+  @override
+  Widget build(BuildContext context) {
+    final challenge = item.challenge;
+    final model = mapToAtomicCard(
+      EnrichedChallenge(dto: challenge),
+      progress: item.progress,
+      featured: challenge.featured,
+    );
+
+    return AtomicChallengeCard(
+      title: model.title,
+      leftText: model.leftText,
+      rightText: model.rightText,
+      phase: model.phase,
+      fill: model.fill,
+      featured: model.featured,
+      railTreatment: model.railTreatment,
+      onTap: () {},
     );
   }
 }

@@ -31,7 +31,39 @@ void main() {
 
       expect(find.text('Give kudos'), findsOneWidget);
       // The fraction left text is rendered via Text.rich; the reward text is plain.
-      expect(find.text('400 / 1,500 pts'), findsOneWidget);
+      expect(find.text('400 / 1,500 pts'), findsWidgets);
+    });
+
+    testWidgets('uses container card radius and full rail shape',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Give kudos',
+          leftText: '2 / 5',
+          rightText: '400 / 1,500 pts',
+          phase: AtomicChallengePhase.inProgress,
+          fill: 0.4,
+          onTap: () {},
+        ),
+      ));
+
+      final radii = AppRadii.standard();
+      final cardMaterial = tester.widget<Material>(
+        find.descendant(
+          of: find.byType(AtomicChallengeCard),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Material && widget.shape is RoundedRectangleBorder,
+          ),
+        ),
+      );
+      final cardShape = cardMaterial.shape! as RoundedRectangleBorder;
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+
+      expect(cardShape.borderRadius, radii.borderRadiusLargeIncreased);
+      expect(indicator.borderRadius, radii.borderRadiusFull);
     });
 
     testWidgets('whole card is tappable', (tester) async {
@@ -69,6 +101,38 @@ void main() {
       expect(
         find.byIcon(Symbols.radio_button_unchecked_sharp),
         findsOneWidget,
+      );
+    });
+
+    testWidgets('checkbox rail uses a fully rounded shape', (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Fill in survey',
+          leftText: 'Not done',
+          rightText: '500 pts',
+          phase: AtomicChallengePhase.open,
+          fill: 0,
+          railTreatment: AtomicChallengeRailTreatment.checkbox,
+          onTap: () {},
+        ),
+      ));
+
+      final radii = AppRadii.standard();
+      final railDecorations = tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byType(AtomicChallengeCard),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((widget) => widget.decoration)
+          .whereType<BoxDecoration>();
+
+      expect(
+        railDecorations.any(
+          (decoration) => decoration.borderRadius == radii.borderRadiusFull,
+        ),
+        isTrue,
       );
     });
 
@@ -177,6 +241,32 @@ void main() {
         find.byType(LinearProgressIndicator),
       );
       expect(indicator.value, 1.0);
+    });
+
+    testWidgets('in-progress rail uses rich success fill with readable overlay',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        AtomicChallengeCard(
+          title: 'Give kudos',
+          leftText: '2 / 5',
+          rightText: '400 / 1,500 pts',
+          phase: AtomicChallengePhase.inProgress,
+          fill: 0.4,
+          onTap: () {},
+        ),
+      ));
+
+      final semantic = AppSemanticColors.light();
+      final indicator = tester.widget<LinearProgressIndicator>(
+        find.byType(LinearProgressIndicator),
+      );
+      final rightLabelColors = tester
+          .widgetList<Text>(find.text('400 / 1,500 pts'))
+          .map((widget) => widget.style?.color)
+          .toList();
+
+      expect(indicator.color, semantic.success.color);
+      expect(rightLabelColors, contains(semantic.success.onColor));
     });
 
     testWidgets('technicalOngoing rail renders an animated ongoing frame',

@@ -2240,6 +2240,14 @@
   "@walletSending": {
     "description": "Send button text while transaction is processing"
   },
+  "walletWaitingForSync": "Waiting for sync",
+  "@walletWaitingForSync": {
+    "description": "Send screen status while a transfer waits for wallet sync"
+  },
+  "walletWaitingForSyncHelp": "You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.",
+  "@walletWaitingForSyncHelp": {
+    "description": "Send screen helper text while a transfer waits for wallet sync"
+  },
   "walletFieldRequired": "Please enter a {fieldName}",
   "@walletFieldRequired": {
     "description": "Validation error for required field",

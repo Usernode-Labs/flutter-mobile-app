@@ -728,7 +728,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final resp = await rpc.wallet().txSend(
+    final resp = await rpc.wallet().txSendResult(
           fromPkHash: fromPkHash,
           amount: amount,
           toPkHash: toPkHash,
@@ -736,7 +736,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         );
 
     final rpcError = resp?.error;
-    final isQueued = rpcError == null || rpcError.isEmpty;
+    final isQueued = resp?.queued ?? false;
     final recordId =
         resp?.txId ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
     _addRecord(_TxRecord(
@@ -757,7 +757,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     await _resolveJsPromise(
       id: id,
       value: <String, dynamic>{
-        'queued': resp?.queued ?? false,
+        'queued': isQueued,
         'error': rpcError,
       },
       error: null,

@@ -23,11 +23,15 @@ final AtomicChallengeCardComponent =
       path: meta.path ?? 'stories',
       docsBuilder: meta.docsBuilder,
       docComment:
-          r'''Widgetbook-only exploration of the atomic challenge rail model.
+          r'''A compact, scannable challenge card for the Fair Rewards challenge surface.
 
 Each card represents exactly one earning mechanic and one verification path.
-Pending labels are reserved for the finalization gap after the user action
-is complete.''',
+The card is presentation-only — it carries a title and one progress/reward
+rail, with the whole card as the tap target. Task instructions, requirements,
+and CTAs live on the challenge detail page, not here.
+
+Pending labels are reserved for the finalization gap after the user action is
+complete (see [AtomicChallengePhase.pendingFinalization]).''',
       stories: [
         $AtomicRail..$generatedName = 'AtomicRail',
         $BackgroundBlockProduction
@@ -67,7 +71,11 @@ class AtomicChallengeCardInputArgs extends StoryArgs<AtomicChallengeCard> {
     Arg<bool>? featured,
     Arg<AtomicChallengeRailTreatment>? railTreatment,
   }) : this.titleArg = $initArg('title', title, StringArg('Give kudos'))!,
-       this.leftTextArg = $initArg('leftText', leftText, StringArg('2 / 5'))!,
+       this.leftTextArg = $initArg(
+         'leftText',
+         leftText,
+         StringArg('2 / 5 Kudos'),
+       )!,
        this.rightTextArg = $initArg(
          'rightText',
          rightText,
@@ -95,7 +103,7 @@ class AtomicChallengeCardInputArgs extends StoryArgs<AtomicChallengeCard> {
 
   AtomicChallengeCardInputArgs.fixed({
     String title = 'Give kudos',
-    String leftText = '2 / 5',
+    String leftText = '2 / 5 Kudos',
     String rightText = '400 / 1,500 pts',
     AtomicChallengePhase phase = AtomicChallengePhase.inProgress,
     double? fill = 0.4,

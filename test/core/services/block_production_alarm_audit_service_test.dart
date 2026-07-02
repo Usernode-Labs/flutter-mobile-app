@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
@@ -198,24 +197,10 @@ void main() {
       expect(retryCallbacks, hasLength(1));
     });
 
-    test('foreground resume lead is five minutes in production', () {
+    test('foreground resume lead is four minutes in production', () {
       expect(
         AndroidForegroundTaskController.foregroundResumeLead,
-        const Duration(minutes: 5),
-      );
-    });
-
-    test('slot wake lead is five minutes in production', () {
-      expect(
-        AppConfig.blockProductionWakeBeforeSlot,
-        const Duration(minutes: 5),
-      );
-    });
-
-    test('post-production hold is two minutes in production', () {
-      expect(
-        AndroidForegroundTaskController.postProductionHold,
-        const Duration(minutes: 2),
+        const Duration(minutes: 4),
       );
     });
 

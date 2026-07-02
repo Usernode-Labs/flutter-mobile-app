@@ -18,6 +18,13 @@ class AppCard extends StatelessWidget {
   final String? header;
   final Widget? headerAction;
 
+  /// When true, draws an `outlineVariant` hairline border (M3's outlined-card
+  /// convention). Use for cards on a white surface (white-on-white), where
+  /// fill contrast alone is insufficient — see SURFACES.md § Separation. Note
+  /// the stroke is subtle on pure white (~1.7:1); on a grey canvas it reads as
+  /// intended.
+  final bool bordered;
+
   const AppCard({
     super.key,
     required this.child,
@@ -28,6 +35,7 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
+    this.bordered = false,
   }) : _paddingVariant = _PaddingVariant.regular;
 
   /// Compact card — 12px padding resolved from theme in [build].
@@ -40,6 +48,7 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
+    this.bordered = false,
   })  : padding = null,
         _paddingVariant = _PaddingVariant.compact;
 
@@ -53,6 +62,7 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
+    this.bordered = false,
   })  : padding = null,
         _paddingVariant = _PaddingVariant.regular;
 
@@ -66,6 +76,7 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.header,
     this.headerAction,
+    this.bordered = false,
   })  : padding = null,
         _paddingVariant = _PaddingVariant.spacious;
 
@@ -77,6 +88,9 @@ class AppCard extends StatelessWidget {
     final radii = theme.extension<AppRadii>()!;
 
     final effectiveRadius = borderRadius ?? radii.borderRadiusLarge;
+    final borderSide = bordered
+        ? BorderSide(color: theme.colorScheme.outlineVariant)
+        : BorderSide.none;
     final effectiveElevation = elevation ?? elev.none;
     final effectivePadding = padding ??
         EdgeInsets.all(switch (_paddingVariant) {
@@ -108,30 +122,28 @@ class AppCard extends StatelessWidget {
       ],
     );
 
+    // Single Card definition (shape/side/elevation declared once). When the
+    // card is tappable, the InkWell wraps the padded content; the ripple is
+    // clipped to the card radius. Avoids duplicate Card paths that can drift
+    // out of sync.
+    Widget body = Padding(padding: effectivePadding, child: cardContent);
     if (onTap != null) {
-      return Card(
-        elevation: effectiveElevation,
-        color: color,
-        shape: RoundedRectangleBorder(borderRadius: effectiveRadius),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: effectiveRadius,
-          child: Padding(
-            padding: effectivePadding,
-            child: cardContent,
-          ),
-        ),
+      body = InkWell(
+        onTap: onTap,
+        borderRadius: effectiveRadius,
+        child: body,
       );
     }
 
     return Card(
       elevation: effectiveElevation,
       color: color,
-      shape: RoundedRectangleBorder(borderRadius: effectiveRadius),
-      child: Padding(
-        padding: effectivePadding,
-        child: cardContent,
+      clipBehavior: onTap != null ? Clip.antiAlias : Clip.none,
+      shape: RoundedRectangleBorder(
+        borderRadius: effectiveRadius,
+        side: borderSide,
       ),
+      child: body,
     );
   }
 }

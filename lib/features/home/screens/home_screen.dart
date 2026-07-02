@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
@@ -22,9 +23,11 @@ class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({
     super.key,
     this.initialTab = HomeTab.challenges,
-  });
+    @visibleForTesting this.debugPages,
+  }) : assert(debugPages == null || debugPages.length == _homePageCount);
 
   final int initialTab;
+  final List<Widget>? debugPages;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -79,6 +82,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final l10n = AppLocalizations.of(context);
     final currentNetwork = ref.watch(currentNetworkProvider);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final index = ref.watch(currentHomeTabProvider);
     final isInternal = currentNetwork == 'internal';
 
@@ -90,13 +94,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Expanded(
             child: IndexedStack(
               index: index,
-              children: const [
-                ChallengesScreen(),
-                WalletScreen(),
-                DappsScreen(),
-                NodeStatusScreen(),
-                SettingsScreen(),
-              ],
+              children: widget.debugPages ?? _homePages,
             ),
           ),
         ],
@@ -106,6 +104,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         semantic,
         index,
         isInternal,
+        isDark,
       ),
     );
   }
@@ -115,18 +114,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     AppSemanticColors semantic,
     int index,
     bool isInternal,
+    bool isDark,
   ) {
     final items = [
       BottomNavItem(
         icon: Symbols.cards_star_sharp,
         label: l10n.navChallenges,
-        indicatorShape: NavIndicatorShape.circle,
-        indicatorColor: semantic.flash.color,
-        indicatorFillColor: semantic.flash.colorContainer,
-      ),
-      BottomNavItem(
-        icon: Symbols.account_balance_wallet_sharp,
-        label: l10n.navWallet,
         indicatorShape: NavIndicatorShape.circle,
         indicatorColor: semantic.flash.color,
         indicatorFillColor: semantic.flash.colorContainer,
@@ -139,26 +132,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         indicatorFillColor: semantic.community.colorContainer,
       ),
       BottomNavItem(
-        icon: Symbols.check_circle_sharp,
-        label: l10n.navNodeStatus,
-        indicatorShape: NavIndicatorShape.hexagon,
-        indicatorColor: semantic.technical.color,
-        indicatorFillColor: semantic.technical.colorContainer,
+        icon: Symbols.account_balance_wallet_sharp,
+        label: l10n.navWallet,
+        indicatorShape: NavIndicatorShape.circle,
+        indicatorColor: semantic.flash.color,
+        indicatorFillColor: semantic.flash.colorContainer,
       ),
-      BottomNavItem(
-        icon: Symbols.settings_sharp,
-        label: l10n.navSettings,
-        indicatorShape: NavIndicatorShape.hexagon,
-        indicatorColor: semantic.technical.color,
-        indicatorFillColor: semantic.technical.colorContainer,
-      ),
+      // Node status and Settings moved out of the bottom nav: node is reached
+      // from the Challenges top bar, Settings from the Profile screen
+      // (Fair Rewards shell, #449 / discussion #440).
     ];
 
     Widget bottomNav = BottomNav(
       items: items,
-      selectedIndex: index,
+      selectedIndex: _visibleBottomNavIndexForTab(index),
       onItemSelected: (i) {
-        ref.read(currentHomeTabProvider.notifier).state = i;
+        ref.read(currentHomeTabProvider.notifier).state = _bottomNavTabs[i];
       },
       topBorder: !isInternal,
     );
@@ -166,10 +155,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (isInternal) {
       bottomNav = DecoratedBox(
         decoration: BoxDecoration(
-          color: semantic.warning.colorSurface,
+          color: LegacyColors.getInternalNetworkBackgroundColor(isDark),
           border: Border(
             top: BorderSide(
-              color: semantic.warning.colorContainer,
+              color: LegacyColors.getInternalNetworkBorderColor(isDark),
             ),
           ),
         ),
@@ -291,4 +280,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }),
     );
   }
+}
+
+const _homePages = [
+  ChallengesScreen(),
+  WalletScreen(),
+  DappsScreen(),
+  NodeStatusScreen(),
+  SettingsScreen(),
+];
+
+const _homePageCount = 5;
+
+const _bottomNavTabs = [
+  HomeTab.challenges,
+  HomeTab.dapps,
+  HomeTab.wallet,
+];
+
+int _visibleBottomNavIndexForTab(int tabIndex) {
+  final visibleIndex = _bottomNavTabs.indexOf(tabIndex);
+  return visibleIndex == -1 ? 0 : visibleIndex;
 }

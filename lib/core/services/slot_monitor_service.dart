@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/services/slot_outcome_recorder.dart';
@@ -377,7 +376,7 @@ class SlotMonitorService {
   /// Automatically start monitoring when slot time approaches
   ///
   /// This should be called when an alarm fires or when entering
-  /// a slot monitoring window.
+  /// a slot monitoring window (2 minutes before slot time).
   Future<void> autoStartMonitoring() async {
     if (!_initialized) {
       _log.warn('Cannot auto-start monitoring: service not initialized');
@@ -392,8 +391,10 @@ class SlotMonitorService {
     }
 
     final now = DateTime.now();
-    final monitoringStartTime =
-        nextSlot.slotTime.subtract(AppConfig.blockProductionWakeBeforeSlot);
+    // 12 slots before and 24 slots after (using cached blockInterval)
+    final monitoringStartTime = nextSlot.slotTime.subtract(
+      Duration(milliseconds: _blockInterval * 12),
+    );
     final monitoringEndTime = nextSlot.slotTime.add(
       Duration(milliseconds: _blockInterval * 24),
     );

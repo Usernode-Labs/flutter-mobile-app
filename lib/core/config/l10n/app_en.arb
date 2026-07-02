@@ -666,7 +666,7 @@
   "@bgProdSlotScheduling": {
     "description": "Slot scheduling step title"
   },
-  "bgProdSlotSchedulingDesc": "When you win slots, the app schedules alarms to wake your device ~5 minutes before each slot",
+  "bgProdSlotSchedulingDesc": "When you win slots, the app schedules alarms to wake your device ~1 minute before each slot",
   "@bgProdSlotSchedulingDesc": {
     "description": "Slot scheduling step description"
   },
@@ -961,6 +961,14 @@
   "nodeStatusTitle": "Node Status",
   "@nodeStatusTitle": {
     "description": "Node status screen title"
+  },
+  "nodeSectionNetwork": "Network",
+  "@nodeSectionNetwork": {
+    "description": "Node status section header grouping peer/epoch/mempool rows"
+  },
+  "nodeSectionChainState": "Chain state",
+  "@nodeSectionChainState": {
+    "description": "Node status section header grouping VRF/best-tip rows"
   },
   "nodePeerIdCopied": "Peer ID copied to clipboard",
   "@nodePeerIdCopied": {
@@ -1799,6 +1807,14 @@
   "@allEvents": {
     "description": "Label for selecting all events in the event picker"
   },
+  "allSeasons": "All Seasons",
+  "@allSeasons": {
+    "description": "Fallback label when no specific season is selected"
+  },
+  "selectSeason": "Select Season",
+  "@selectSeason": {
+    "description": "Title for season picker bottom sheet"
+  },
   "selectEvent": "Select Event",
   "@selectEvent": {
     "description": "Title for event picker bottom sheet"
@@ -1812,6 +1828,10 @@
   "@challengeFailedToLoad": {
     "description": "Error message when challenges fail to load"
   },
+  "challengeNoActive": "No active challenges right now.",
+  "@challengeNoActive": {
+    "description": "Empty state when there are no active challenges"
+  },
   "challengeNoCompleted": "No completed challenges",
   "@challengeNoCompleted": {
     "description": "Empty state for completed challenges tab"
@@ -1823,6 +1843,22 @@
   "challengePoints": "points",
   "@challengePoints": {
     "description": "Score header label for points"
+  },
+  "profileTitle": "Profile",
+  "@profileTitle": {
+    "description": "Profile screen title"
+  },
+  "profileCompletedChallengesTab": "Completed Challenges",
+  "@profileCompletedChallengesTab": {
+    "description": "Profile tab label for completed challenges"
+  },
+  "profileNoCompletedChallengesYet": "No completed challenges yet.",
+  "@profileNoCompletedChallengesYet": {
+    "description": "Profile completed challenges empty state"
+  },
+  "profileLeaderboardUnavailable": "Leaderboard unavailable.",
+  "@profileLeaderboardUnavailable": {
+    "description": "Profile leaderboard empty state"
   },
   "challengeViewInLeaderboard": "View in Leaderboard",
   "@challengeViewInLeaderboard": {
@@ -1842,7 +1878,7 @@
       "reward": {"type": "String"}
     }
   },
-  "challengeSectionTheWhy": "The Why",
+  "challengeSectionTheWhy": "Why it matters",
   "@challengeSectionTheWhy": {
     "description": "Section title for challenge description"
   },
@@ -1850,9 +1886,69 @@
   "@challengeSectionTask": {
     "description": "Section title for challenge task"
   },
+  "challengeSectionAvailable": "Available",
+  "@challengeSectionAvailable": {
+    "description": "Section title for challenge availability"
+  },
+  "challengeSectionHowPointsWork": "How points work",
+  "@challengeSectionHowPointsWork": {
+    "description": "Section title for challenge point logic"
+  },
+  "challengeSectionRules": "Rules",
+  "@challengeSectionRules": {
+    "description": "Section title for challenge rules"
+  },
   "challengeSectionRequirements": "Requirements",
   "@challengeSectionRequirements": {
     "description": "Section title for challenge requirements"
+  },
+  "challengeAvailableNow": "Available now",
+  "@challengeAvailableNow": {
+    "description": "Fallback challenge availability text when no schedule is present"
+  },
+  "challengeDefaultPointsLogic": "Points are awarded once this challenge is completed and verified.",
+  "@challengeDefaultPointsLogic": {
+    "description": "Fallback challenge point logic when backend copy is missing"
+  },
+  "challengeDefaultCta": "Join the challenge",
+  "@challengeDefaultCta": {
+    "description": "Fallback challenge CTA label when backend label is missing but a link exists"
+  },
+  "challengePhaseNotDone": "Not done",
+  "@challengePhaseNotDone": {
+    "description": "Challenge card phase label for untouched work"
+  },
+  "challengePhaseInProgress": "In progress",
+  "@challengePhaseInProgress": {
+    "description": "Challenge card phase label for work in progress"
+  },
+  "challengePhaseSubmitted": "Submitted",
+  "@challengePhaseSubmitted": {
+    "description": "Challenge card phase label for work awaiting review"
+  },
+  "challengePhaseWaitingReview": "waiting review",
+  "@challengePhaseWaitingReview": {
+    "description": "Challenge card trailing label when submitted work has no point amount yet"
+  },
+  "challengePhaseDone": "Done",
+  "@challengePhaseDone": {
+    "description": "Challenge card phase label for completed work"
+  },
+  "challengeBandFeatured": "Featured",
+  "@challengeBandFeatured": {
+    "description": "Challenges screen featured band label"
+  },
+  "challengeBandToday": "Today",
+  "@challengeBandToday": {
+    "description": "Challenges screen band label for challenges ending today"
+  },
+  "challengeBandThisWeek": "This week",
+  "@challengeBandThisWeek": {
+    "description": "Challenges screen band label for challenges ending this week"
+  },
+  "challengeBandSeason": "Season",
+  "@challengeBandSeason": {
+    "description": "Challenges screen band label for season-long challenges"
   },
   "challengeEpochNoChange": "+0",
   "@challengeEpochNoChange": {
@@ -2115,6 +2211,14 @@
   "walletMyAddress": "My address",
   "@walletMyAddress": {
     "description": "Label in the wallet address bar"
+  },
+  "walletReceive": "Receive",
+  "@walletReceive": {
+    "description": "Title/tooltip for the receive (address QR) sheet"
+  },
+  "walletCopyAddress": "Copy address",
+  "@walletCopyAddress": {
+    "description": "Button to copy the wallet address from the receive sheet"
   },
   "walletRecipientAddress": "Recipient address",
   "@walletRecipientAddress": {
@@ -2541,7 +2645,6 @@
   "@faqVrfTimingDescription": {
     "description": "Timing explanation text"
   },
-
   "blockAppliedLocally": "Applied Locally",
   "@blockAppliedLocally": {
     "description": "Timeline item title"

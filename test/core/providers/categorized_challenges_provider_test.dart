@@ -93,6 +93,26 @@ const _breakdown = BreakdownResult(
   ),
 );
 
+const _progressOnlyBreakdown = BreakdownResult(
+  scope: 'event',
+  displayName: 'Test',
+  totalPoints: 1000,
+  offchainPoints: 0,
+  eventBreakdown: EventBreakdown(
+    eventId: 1,
+    eventName: 'E1',
+    totalPoints: 1000,
+    offchainPoints: 0,
+    challengeProgress: [
+      ChallengeProgress(
+        challengeId: 1,
+        state: ChallengeProgressState.earned,
+        earnedPoints: 1000,
+      ),
+    ],
+  ),
+);
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -174,6 +194,28 @@ void main() {
       expect(result.completed.first.dto.goal, 'Prove Humanity');
       expect(result.completed.first.earnedPoints, 1000);
       expect(result.missed.length, 0);
+    });
+
+    test('categorizes earned challenge_progress as completed', () async {
+      final container = ProviderContainer(
+        overrides: [
+          challengesProvider.overrideWith(
+            () => _MockChallengesController(_challenges),
+          ),
+          breakdownProvider.overrideWith(
+            () => _MockBreakdownController(_progressOnlyBreakdown),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(challengesProvider.future);
+      await container.read(breakdownProvider.future);
+
+      final result = container.read(categorizedChallengesProvider);
+      expect(result, isNotNull);
+      expect(result!.completed.map((c) => c.dto.id), contains(1));
+      expect(result.active.map((c) => c.dto.id), isNot(contains(1)));
     });
   });
 }

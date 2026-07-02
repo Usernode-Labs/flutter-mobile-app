@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-12 ([tracker #384](https://github.com/Usernode-Labs/flutter-mobile-app/issues/384))_
+_Last synced: 2026-07-02 ([tracker #384](https://github.com/Usernode-Labs/flutter-mobile-app/issues/384))_
 
 ## Phase status
 

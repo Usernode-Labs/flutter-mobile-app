@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-12 ([tracker #380](https://github.com/Usernode-Labs/flutter-mobile-app/issues/380))_
+_Last synced: 2026-07-02 ([tracker #380](https://github.com/Usernode-Labs/flutter-mobile-app/issues/380))_
 
 ## Phase status
 
@@ -25,8 +25,7 @@ _Last synced: 2026-06-12 ([tracker #380](https://github.com/Usernode-Labs/flutte
 
 ## Recent activity (30d)
 
-- [#424](https://github.com/Usernode-Labs/flutter-mobile-app/pull/424) Add Usernode content guidelines + re-pass ZK Identity copy
-- [#420](https://github.com/Usernode-Labs/flutter-mobile-app/pull/420) ZK identity: refresh result copy and add in-flow recovery
+- [#410](https://github.com/Usernode-Labs/flutter-mobile-app/pull/410) Update zkPassport outer proof parsing
 
 ## Related discussions
 

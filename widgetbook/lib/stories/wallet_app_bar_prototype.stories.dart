@@ -66,6 +66,12 @@ class WalletAppBarPrototype extends StatelessWidget {
               onProfilePressed: _noop,
               onNodePressed: _noop,
             ),
+            TopStatusAppBarSize.scaffoldCompact => TopStatusAppBar.compact(
+              title: 'Wallet',
+              nodeStatus: nodeStatus,
+              onProfilePressed: _noop,
+              onNodePressed: _noop,
+            ),
           },
           SliverPadding(
             padding: EdgeInsets.fromLTRB(

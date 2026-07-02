@@ -87,9 +87,9 @@ flowchart TB
 
 The `AndroidForegroundTaskController` continuously polls VRF status and adaptively schedules:
 
-- **Next won slot > 5 minutes away**: Schedules alarm, stops foreground monitoring (saves battery)
-- **Next won slot < 5 minutes away**: Keeps foreground service running until slot time
-- **No won slots, VRF complete**: Schedules alarm for epoch boundary minus 5 minutes
+- **Next won slot > 1 minute away**: Schedules alarm, stops foreground monitoring (saves battery)
+- **Next won slot < 1 minute away**: Keeps foreground service running until slot time
+- **No won slots, VRF complete**: Schedules alarm for epoch boundary minus 1 minute
 - **VRF in progress**: Continues polling every 30 seconds
 
 This adaptive approach maximizes battery life while ensuring reliable wake-ups.
@@ -110,7 +110,7 @@ This adaptive approach maximizes battery life while ensuring reliable wake-ups.
    - Entry point for Android background block production
    - Polls VRF status every 30 seconds while node is running
    - Manages wakelock to prevent device sleep
-   - Schedules alarms when slots are > 5 minutes away
+   - Schedules alarms when slots are > 1 minute away
    - Stops foreground service when no imminent slots
 
 2. **AlarmScheduler** (`AlarmScheduler.kt`)
@@ -405,8 +405,8 @@ METRICS_COLLECTION_INTERVAL_SECONDS=30
 
 # Wake up time before slot (seconds)
 # Allows time for app startup and node sync
-# Default: 300 (5 minutes before slot)
-BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS=300
+# Default: 60 (1 minute before slot)
+BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS=60
 
 # Base epoch monitoring interval (seconds)
 # Adjusted automatically based on VRF status:

@@ -877,7 +877,7 @@ abstract class AppLocalizations {
   /// Slot scheduling step description
   ///
   /// In en, this message translates to:
-  /// **'When you win slots, the app schedules alarms to wake your device ~5 minutes before each slot'**
+  /// **'When you win slots, the app schedules alarms to wake your device ~1 minute before each slot'**
   String get bgProdSlotSchedulingDesc;
 
   /// Block production step title
@@ -1287,6 +1287,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Node Status'**
   String get nodeStatusTitle;
+
+  /// Node status section header grouping peer/epoch/mempool rows
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get nodeSectionNetwork;
+
+  /// Node status section header grouping VRF/best-tip rows
+  ///
+  /// In en, this message translates to:
+  /// **'Chain state'**
+  String get nodeSectionChainState;
 
   /// Peer ID copied snackbar message
   ///
@@ -2344,6 +2356,18 @@ abstract class AppLocalizations {
   /// **'All Events'**
   String get allEvents;
 
+  /// Fallback label when no specific season is selected
+  ///
+  /// In en, this message translates to:
+  /// **'All Seasons'**
+  String get allSeasons;
+
+  /// Title for season picker bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Select Season'**
+  String get selectSeason;
+
   /// Title for event picker bottom sheet
   ///
   /// In en, this message translates to:
@@ -2362,6 +2386,12 @@ abstract class AppLocalizations {
   /// **'Failed to load challenges'**
   String get challengeFailedToLoad;
 
+  /// Empty state when there are no active challenges
+  ///
+  /// In en, this message translates to:
+  /// **'No active challenges right now.'**
+  String get challengeNoActive;
+
   /// Empty state for completed challenges tab
   ///
   /// In en, this message translates to:
@@ -2379,6 +2409,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'points'**
   String get challengePoints;
+
+  /// Profile screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// Profile tab label for completed challenges
+  ///
+  /// In en, this message translates to:
+  /// **'Completed Challenges'**
+  String get profileCompletedChallengesTab;
+
+  /// Profile completed challenges empty state
+  ///
+  /// In en, this message translates to:
+  /// **'No completed challenges yet.'**
+  String get profileNoCompletedChallengesYet;
+
+  /// Profile leaderboard empty state
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard unavailable.'**
+  String get profileLeaderboardUnavailable;
 
   /// CTA button to navigate to leaderboard
   ///
@@ -2401,7 +2455,7 @@ abstract class AppLocalizations {
   /// Section title for challenge description
   ///
   /// In en, this message translates to:
-  /// **'The Why'**
+  /// **'Why it matters'**
   String get challengeSectionTheWhy;
 
   /// Section title for challenge task
@@ -2410,11 +2464,101 @@ abstract class AppLocalizations {
   /// **'Task'**
   String get challengeSectionTask;
 
+  /// Section title for challenge availability
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get challengeSectionAvailable;
+
+  /// Section title for challenge point logic
+  ///
+  /// In en, this message translates to:
+  /// **'How points work'**
+  String get challengeSectionHowPointsWork;
+
+  /// Section title for challenge rules
+  ///
+  /// In en, this message translates to:
+  /// **'Rules'**
+  String get challengeSectionRules;
+
   /// Section title for challenge requirements
   ///
   /// In en, this message translates to:
   /// **'Requirements'**
   String get challengeSectionRequirements;
+
+  /// Fallback challenge availability text when no schedule is present
+  ///
+  /// In en, this message translates to:
+  /// **'Available now'**
+  String get challengeAvailableNow;
+
+  /// Fallback challenge point logic when backend copy is missing
+  ///
+  /// In en, this message translates to:
+  /// **'Points are awarded once this challenge is completed and verified.'**
+  String get challengeDefaultPointsLogic;
+
+  /// Fallback challenge CTA label when backend label is missing but a link exists
+  ///
+  /// In en, this message translates to:
+  /// **'Join the challenge'**
+  String get challengeDefaultCta;
+
+  /// Challenge card phase label for untouched work
+  ///
+  /// In en, this message translates to:
+  /// **'Not done'**
+  String get challengePhaseNotDone;
+
+  /// Challenge card phase label for work in progress
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get challengePhaseInProgress;
+
+  /// Challenge card phase label for work awaiting review
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted'**
+  String get challengePhaseSubmitted;
+
+  /// Challenge card trailing label when submitted work has no point amount yet
+  ///
+  /// In en, this message translates to:
+  /// **'waiting review'**
+  String get challengePhaseWaitingReview;
+
+  /// Challenge card phase label for completed work
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get challengePhaseDone;
+
+  /// Challenges screen featured band label
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get challengeBandFeatured;
+
+  /// Challenges screen band label for challenges ending today
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get challengeBandToday;
+
+  /// Challenges screen band label for challenges ending this week
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get challengeBandThisWeek;
+
+  /// Challenges screen band label for season-long challenges
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get challengeBandSeason;
 
   /// Fallback epoch earned when no point diff exists
   ///
@@ -2799,6 +2943,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'My address'**
   String get walletMyAddress;
+
+  /// Title/tooltip for the receive (address QR) sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Receive'**
+  String get walletReceive;
+
+  /// Button to copy the wallet address from the receive sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address'**
+  String get walletCopyAddress;
 
   /// Hint text for recipient address field
   ///

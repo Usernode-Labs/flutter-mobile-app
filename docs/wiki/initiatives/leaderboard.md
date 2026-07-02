@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-18 ([tracker #388](https://github.com/Usernode-Labs/flutter-mobile-app/issues/388))_
+_Last synced: 2026-07-02 ([tracker #388](https://github.com/Usernode-Labs/flutter-mobile-app/issues/388))_
 
 ## Phase status
 
@@ -22,13 +22,10 @@ _Last synced: 2026-06-18 ([tracker #388](https://github.com/Usernode-Labs/flutte
 - [#422](https://github.com/Usernode-Labs/flutter-mobile-app/issues/422) Backend prerequisites for ZK Identity end-to-end completion (per-participant enable + bridge config)
 - [#434](https://github.com/Usernode-Labs/flutter-mobile-app/issues/434) Challenge CTAs: cta_type dispatcher + dApp deep-link route (tracker)
 
-## Recent activity (30d)
-
-- [#435](https://github.com/Usernode-Labs/flutter-mobile-app/pull/435) feat(leaderboard): cta_type dispatcher + /dapps/:slug route
-
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
+- #440 Challenges, Activity, and notifications MVP
 <!-- auto:end -->
 
 ## Overview

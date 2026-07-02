@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-18 ([tracker #378](https://github.com/Usernode-Labs/flutter-mobile-app/issues/378))_
+_Last synced: 2026-07-02 ([tracker #378](https://github.com/Usernode-Labs/flutter-mobile-app/issues/378))_
 
 ## Phase status
 
@@ -41,10 +41,12 @@ _Last synced: 2026-06-18 ([tracker #378](https://github.com/Usernode-Labs/flutte
 ### Pull requests
 
 - [#355](https://github.com/Usernode-Labs/flutter-mobile-app/pull/355) Use systemExempted foreground service instead of dataSync when possible
+- [#463](https://github.com/Usernode-Labs/flutter-mobile-app/pull/463) Make challenges dynamic and keep related screens consistent
 
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
+- #440 Challenges, Activity, and notifications MVP
 - #426 Mobile BG block production: consolidate decision-making into a single state machine
 - #432 OEM background-kill mitigation: strategy + Flutter library options
 <!-- auto:end -->

@@ -2,7 +2,7 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-18 ([tracker #382](https://github.com/Usernode-Labs/flutter-mobile-app/issues/382))_
+_Last synced: 2026-07-02 ([tracker #382](https://github.com/Usernode-Labs/flutter-mobile-app/issues/382))_
 
 ## Phase status
 
@@ -16,12 +16,13 @@ _Last synced: 2026-06-18 ([tracker #382](https://github.com/Usernode-Labs/flutte
 
 ## Active work
 
-_No active issues or pull requests._
+### Pull requests
+
+- [#463](https://github.com/Usernode-Labs/flutter-mobile-app/pull/463) Make challenges dynamic and keep related screens consistent
 
 ## Recent activity (30d)
 
 - [#352](https://github.com/Usernode-Labs/flutter-mobile-app/pull/352) improve dapp transaction logger
-- [#425](https://github.com/Usernode-Labs/flutter-mobile-app/pull/425) [codex] Remove dApps coming soon gate
 
 ## Related discussions
 

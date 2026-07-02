@@ -2,15 +2,15 @@
 
 <!-- auto:start: regenerated from GitHub state — do not edit by hand -->
 
-_Last synced: 2026-06-18 ([tracker #381](https://github.com/Usernode-Labs/flutter-mobile-app/issues/381))_
+_Last synced: 2026-07-02 ([tracker #381](https://github.com/Usernode-Labs/flutter-mobile-app/issues/381))_
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| Idea | ⏳ LATER |
-| Demo | — |
-| Core Testnet | — |
+| Idea | ✅ DONE |
+| Demo | ✅ DONE |
+| Core Testnet | 🔄 NOW |
 | Pilot Testnet | — |
 | Mainnet | — |
 
@@ -20,12 +20,19 @@ _Last synced: 2026-06-18 ([tracker #381](https://github.com/Usernode-Labs/flutte
 
 - [#354](https://github.com/Usernode-Labs/flutter-mobile-app/issues/354) Simplify challenge categorization — remove enabled/completed theatre
 - [#449](https://github.com/Usernode-Labs/flutter-mobile-app/issues/449) Active challenges as atomic cards
+- [#467](https://github.com/Usernode-Labs/flutter-mobile-app/issues/467) Prefill Google Form CTAs with participant context
+- [#471](https://github.com/Usernode-Labs/flutter-mobile-app/issues/471) Improve challenge onboarding and explain Fair Rewards
+
+### Pull requests
+
+- [#463](https://github.com/Usernode-Labs/flutter-mobile-app/pull/463) Make challenges dynamic and keep related screens consistent
 
 ## Related discussions
 
 - #370 Mainnet Maturity Matrix plan
 - #362 Challenge Properties Reference
 - #421 Challenge CTAs: option to open the app, not just a webview
+- #440 Challenges, Activity, and notifications MVP
 - Usernode-Labs/usernode#799 Incentive placement: L1-baked vs Foundation-distributed
 <!-- auto:end -->
 

@@ -2830,6 +2830,18 @@ abstract class AppLocalizations {
   /// **'Sending...'**
   String get walletSending;
 
+  /// Send screen status while a transfer waits for wallet sync
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for sync'**
+  String get walletWaitingForSync;
+
+  /// Send screen helper text while a transfer waits for wallet sync
+  ///
+  /// In en, this message translates to:
+  /// **'You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.'**
+  String get walletWaitingForSyncHelp;
+
   /// Validation error for required field
   ///
   /// In en, this message translates to:

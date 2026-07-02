@@ -1575,6 +1575,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get walletSending => 'Sending...';
 
   @override
+  String get walletWaitingForSync => 'Waiting for sync';
+
+  @override
+  String get walletWaitingForSyncHelp =>
+      'You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.';
+
+  @override
   String walletFieldRequired(String fieldName) {
     return 'Please enter a $fieldName';
   }

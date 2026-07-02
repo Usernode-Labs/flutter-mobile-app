@@ -25,10 +25,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   final _formKey = GlobalKey<FormState>();
   final _addressController = TextEditingController();
   final _amountController = TextEditingController();
-  final _feeController = TextEditingController(text: '1');
+  final _feeController = TextEditingController(text: '0');
   final _memoController = TextEditingController();
 
   bool _isSending = false;
+  bool _isSyncing = false;
 
   @override
   void dispose() {
@@ -45,6 +46,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
 
     setState(() {
       _isSending = true;
+      _isSyncing = false;
     });
 
     try {
@@ -68,15 +70,38 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       final amountStr = _amountController.text.trim();
       final amount = BigInt.from(double.parse(amountStr).round());
 
-      // Call the transfer funds RPC
-      final response = await RustBackendService.instance.transferFunds(
+      bool? queued;
+      String? errorMessage;
+      final events = RustBackendService.instance.transferFundsEvents(
         fromPkHash: fromPkHash,
         amount: amount,
         toPkHash: toPkHash,
       );
+      await for (final event in events) {
+        final isTerminal = event.when(
+          syncing: () {
+            if (mounted) {
+              setState(() {
+                _isSyncing = true;
+              });
+            }
+            return false;
+          },
+          queued: (_) {
+            queued = true;
+            return true;
+          },
+          rejected: (error, _) {
+            queued = false;
+            errorMessage = error;
+            return true;
+          },
+        );
+        if (isTerminal) break;
+      }
 
       if (mounted) {
-        if (response != null && response.queued) {
+        if (queued == true) {
           await ref
               .read(recipientHistoryProvider.notifier)
               .addRecipient(recipientAddress);
@@ -89,9 +114,8 @@ class _SendScreenState extends ConsumerState<SendScreen> {
           });
         } else {
           // Transaction failed
-          final errorMessage = response?.error ?? 'Unknown error occurred';
           context.push(AppRoutes.walletSendFailed, extra: {
-            'errorMessage': errorMessage,
+            'errorMessage': errorMessage ?? 'Unknown error occurred',
           });
         }
       }
@@ -106,6 +130,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       if (mounted) {
         setState(() {
           _isSending = false;
+          _isSyncing = false;
         });
       }
     }
@@ -187,6 +212,10 @@ class _SendScreenState extends ConsumerState<SendScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (_isSyncing) ...[
+                      _buildSyncingStatus(theme),
+                      SizedBox(height: spacing.space12),
+                    ],
                     _buildSendButton(theme),
                     SizedBox(height: spacing.space32),
                   ],
@@ -235,6 +264,51 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         isLoading: _isSending,
         onTap: _onSend,
       ),
+    );
+  }
+
+  Widget _buildSyncingStatus(ThemeData theme) {
+    final spacing = theme.extension<AppSpacing>()!;
+    final l10n = AppLocalizations.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            SizedBox(width: spacing.space8),
+            Flexible(
+              child: Text(
+                l10n.walletWaitingForSync,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: spacing.space8),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: spacing.space8),
+          child: Text(
+            l10n.walletWaitingForSyncHelp,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -14,6 +14,7 @@ import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' show Memo;
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' show enableLogging;
@@ -395,7 +396,6 @@ class RustBackendService {
       if (!AppConfig.viewOnly) {
         builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
       }
-
       // Configure persistent node storage path so wallet cache state survives restarts.
       // Use network-specific paths to avoid conflicts when switching networks.
       final appSupportDir = await getApplicationSupportDirectory();
@@ -1283,6 +1283,7 @@ class RustBackendService {
     if (AppConfig.viewOnly) {
       _log.info('Skipping transferFunds in view-only mode');
       return const RpcWalletTxSendResp(
+        state: RpcWalletTxSendState.ready,
         queued: false,
         error: _viewOnlyTransactionError,
       );
@@ -1302,12 +1303,7 @@ class RustBackendService {
         amount: amount,
         toPkHash: toPkHash,
       );
-      if (rpcResponse != null) {
-        response = RpcWalletTxSendResp(
-          queued: rpcResponse.queued,
-          error: rpcResponse.error,
-        );
-      }
+      response = rpcResponse;
     } on PanicException catch (e, st) {
       // FRB surfaced a Rust-side panic.
       _log.error('FRB panic during transferFunds', error: e, stackTrace: st);
@@ -1348,6 +1344,91 @@ class RustBackendService {
     }
 
     return response;
+  }
+
+  /// Transfer funds and surface ordered wallet-send progress events.
+  Stream<WalletTxSendEvent> transferFundsEvents({
+    required PublicKeyHash fromPkHash,
+    required BigInt amount,
+    required PublicKeyHash toPkHash,
+  }) async* {
+    if (AppConfig.viewOnly) {
+      _log.info('Skipping transferFundsEvents in view-only mode');
+      yield const WalletTxSendEvent.rejected(
+        error: _viewOnlyTransactionError,
+        state: RpcWalletTxSendState.ready,
+      );
+      return;
+    }
+
+    _log.trace(
+      'transferFundsEvents called with params: fromPkHash=[PublicKeyHash], amount=$amount, toPkHash=[PublicKeyHash]',
+    );
+    final r = _rpc;
+    if (r == null) {
+      yield const WalletTxSendEvent.rejected(
+        error: 'Node RPC unavailable',
+        state: RpcWalletTxSendState.ready,
+      );
+      return;
+    }
+
+    var emitted = false;
+    var terminalEmitted = false;
+    try {
+      final events = r.wallet().txSend(
+            fromPkHash: fromPkHash,
+            amount: amount,
+            toPkHash: toPkHash,
+            memo: Memo.fromUtf8Str(s: ''),
+          );
+      await for (final event in events) {
+        emitted = true;
+        event.when(
+          syncing: () {},
+          queued: (_) {
+            terminalEmitted = true;
+          },
+          rejected: (_, __) {
+            terminalEmitted = true;
+          },
+        );
+        yield event;
+      }
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during transferFundsEvents',
+          error: e, stackTrace: st);
+      _nodeRunning = false;
+      _rpc = null;
+      _control = null;
+      await SentryUtil.captureError(e, st,
+          tag: 'frb_panic_transferFundsEvents');
+      yield const WalletTxSendEvent.rejected(
+        error: 'Node RPC unavailable',
+        state: RpcWalletTxSendState.ready,
+      );
+      return;
+    } catch (e, st) {
+      _log.warn('RPC transferFundsEvents failed: $e\$st');
+      await SentryUtil.captureError(e, st, tag: 'rpc_transferFundsEvents');
+      yield WalletTxSendEvent.rejected(
+        error: e.toString(),
+        state: RpcWalletTxSendState.ready,
+      );
+      return;
+    }
+
+    if (!emitted) {
+      yield const WalletTxSendEvent.rejected(
+        error: 'Transfer stream closed without a result',
+        state: RpcWalletTxSendState.ready,
+      );
+    } else if (!terminalEmitted) {
+      yield const WalletTxSendEvent.rejected(
+        error: 'Transfer stream closed before a final result',
+        state: RpcWalletTxSendState.syncing,
+      );
+    }
   }
 
   /// Query backend for epoch information with VRF status awareness

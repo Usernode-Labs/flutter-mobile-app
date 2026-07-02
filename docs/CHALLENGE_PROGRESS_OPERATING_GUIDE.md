@@ -113,34 +113,28 @@ So do not build the script around "column 8". Use the header
 `Your wallet address`. The JSON source should normalize that header to a stable
 script-friendly key such as `wallet_address`.
 
-Current `ScriptAgent` does not parse CSV. It can fetch full JSON with
-`fetch_url` and `parse: "json"`, but Google Sheets `gviz` JSON is wrapped in a
-JavaScript callback, not plain JSON. For now, use a JSON response source or a
-small adapter. The adapter should use the Google Sheet header, not a physical
-column number, and return rows such as:
+`fetch_url` can fetch a public Google Sheet CSV export as raw text. This was
+verified against the current feedback sheet with:
 
-```json
-[
-  {
-    "timestamp": "2026-07-01T12:46:48Z",
-    "wallet_address": "ut1...",
-    "discord_handle": "cyrcle_0"
-  }
-]
+```text
+https://docs.google.com/spreadsheets/d/1qIZGpW3gDCEq9Vy7RUEY9chB3SVoJQQwt4e6_NYHxdM/export?format=csv
 ```
 
-Do not point ScriptAgent directly at a raw Google Sheet CSV unless Topochain
-gets a future `parse: "csv"` or sheet-specific fetch capability.
+The important limitation is one layer later: current `ScriptAgent` transforms do
+not expose a first-class CSV parser in the documented expression surface. A
+direct CSV fetch proves access, but it does not by itself prove that the script
+can safely turn the CSV body into header-keyed rows. Do not award from raw CSV
+unless the generated script has a real CSV parse step. If parsing is unavailable,
+the script should stop with a clear output rather than falling back to all phase
+accounts.
 
-Bad source URLs for current ScriptAgent:
+`fetch_url` with `parse: "json"` still requires plain JSON. Google Sheets
+`gviz` JSON is wrapped in a JavaScript callback, not plain JSON, so it fails
+with `Syntax error`.
 
-- `https://docs.google.com/spreadsheets/d/.../export?...`
-- `https://docs.google.com/spreadsheets/d/.../gviz/tq?tqx=out:json...`
-
-The first is CSV or another export format, not JSON. The second looks close but
-returns JavaScript-wrapped data, so `fetch_url` with `parse: "json"` fails with
-`Syntax error`. A usable `responses_url` must return plain JSON directly, with
-no wrapper, for example either:
+For scoring today, use a JSON response source or a small adapter. The adapter
+should use the Google Sheet header, not a physical column number, and return
+plain rows with no wrapper, for example either:
 
 ```json
 [
@@ -215,6 +209,98 @@ This works around headers with spaces by relying on current column order
 instead of the header. Treat it as a short-term test shortcut, because adding or
 moving columns will break it.
 
+### Tested Feedback Form Script
+
+This is the known-good shape for the Season 1 feedback test challenge. It uses
+OpenSheet only to turn the Google Sheet into JSON rows. The candidate source is
+still the submitted wallet column, not all phase accounts:
+
+```json
+[
+  {
+    "id": "fetch_responses",
+    "type": "tool",
+    "depends_on": [],
+    "tool": "fetch_url",
+    "args": {
+      "url": "https://opensheet.elk.sh/1qIZGpW3gDCEq9Vy7RUEY9chB3SVoJQQwt4e6_NYHxdM/Form%20Responses%201",
+      "parse": "json"
+    }
+  },
+  {
+    "id": "wallet_rows",
+    "type": "transform",
+    "depends_on": ["fetch_responses"],
+    "op": "map",
+    "from": "steps.fetch_responses.json",
+    "expr": "{ \"wallet\": trim(values(row)[14]) }"
+  },
+  {
+    "id": "valid_wallets",
+    "type": "transform",
+    "depends_on": ["wallet_rows"],
+    "op": "filter",
+    "from": "steps.wallet_rows",
+    "expr": "row.wallet != \"\""
+  },
+  {
+    "id": "wallet_values",
+    "type": "transform",
+    "depends_on": ["valid_wallets"],
+    "op": "map",
+    "from": "steps.valid_wallets",
+    "expr": "row.wallet"
+  },
+  {
+    "id": "accounts",
+    "type": "tool",
+    "depends_on": ["wallet_values"],
+    "tool": "query_db_table",
+    "args": {
+      "table": "onchain_accounts",
+      "columns": ["participant_id", "address", "phase_id"],
+      "where": [
+        {
+          "column": "phase_id",
+          "op": "=",
+          "value": { "expr": "agent.phase_id" }
+        },
+        {
+          "column": "address",
+          "op": "in",
+          "value": { "expr": "steps.wallet_values" }
+        }
+      ],
+      "limit": 200
+    }
+  },
+  {
+    "id": "entries",
+    "type": "transform",
+    "depends_on": ["accounts"],
+    "op": "map",
+    "from": "steps.accounts.rows",
+    "expr": "{ \"participant_id\": row.participant_id, \"points\": 500, \"reasoning\": \"You submitted the feedback form.\" }"
+  },
+  {
+    "id": "award",
+    "type": "tool",
+    "depends_on": ["entries"],
+    "when": "len(steps.entries) > 0",
+    "tool": "generate_points_matrix",
+    "args": {
+      "entries": { "expr": "steps.entries" }
+    }
+  }
+]
+```
+
+If Auto Mode generates a script that first fetches the direct CSV and then
+fetches OpenSheet for parsed rows, read that correctly: the direct CSV fetch is
+a proof that Google export access works; the award path is still powered by
+OpenSheet JSON parsing. That hybrid is useful for learning, but it is not a
+native CSV-scoring script.
+
 ## Recipe: Sheet Wallet To Pending Points
 
 Use this for a simple form-submission challenge where one valid response should
@@ -261,9 +347,10 @@ Script shape:
    - `reasoning = inputs.reasoning`.
 6. Call `generate_points_matrix` only if entries are non-empty.
 
-Do not add extra `fetch_sheet_json`, `sheet_csv`, or `fetch_sheet_rows` steps.
-Those are useful only after Topochain gains a CSV or Google Sheet parser. Today
-the script starts from the already-normalized JSON rows endpoint.
+A script may include a direct CSV `fetch_url` proof step while testing Google
+access, but do not build award entries from raw CSV unless a real CSV parser is
+present. For today's working scoring path, build entries from already-parsed
+JSON rows.
 
 Minimal script example for a normalized JSON source. This assumes the adapter
 has already mapped the sheet header `Your wallet address` to `wallet_address`:

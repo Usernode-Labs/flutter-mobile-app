@@ -10,7 +10,9 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
+import 'package:crypto_mobile_app/core/providers/profile_completed_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
+import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/challenge_api_visual_fixture.dart';
 import 'package:crypto_mobile_app/core/services/challenge_ui_visual_fixture.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -48,11 +50,39 @@ class _MockRankingController extends RankingController {
   Future<void> silentRefresh() async {}
 }
 
+ProfileCompletedChallengeHistory _matrixProfileCompletedHistory() {
+  final breakdown = ChallengeUiVisualFixture.breakdown();
+  final completedIds = {
+    for (final item in ChallengeUiVisualFixture.completedCases)
+      item.challenge.id,
+  };
+  final enriched = enrichChallenges(
+    ChallengeUiVisualFixture.challenges(),
+    extractActivities(breakdown),
+  );
+
+  return ProfileCompletedChallengeHistory(
+    completed: [
+      for (final item in enriched)
+        if (completedIds.contains(item.dto.id)) item,
+    ],
+    breakdown: breakdown,
+  );
+}
+
 class _MockLeaderboardController extends LeaderboardController {
   @override
   Future<LeaderboardState?> build() async => LeaderboardState(
         allEntries: ChallengeUiVisualFixture.leaderboard().entries,
       );
+
+  @override
+  Future<void> silentRefresh() async {}
+}
+
+class _MockSeasonsController extends SeasonsController {
+  @override
+  Future<List<SeasonDto>?> build() async => ChallengeUiVisualFixture.seasons();
 
   @override
   Future<void> silentRefresh() async {}
@@ -119,6 +149,10 @@ Widget _profileScreenApp(GlobalKey screenshotKey) {
         (ref) async => ChallengeUiVisualFixture.participantId,
       ),
       categorizedChallengesProvider.overrideWithValue(_matrixCategorized()),
+      profileCompletedChallengesProvider.overrideWith(
+        (ref) async => _matrixProfileCompletedHistory(),
+      ),
+      seasonsProvider.overrideWith(_MockSeasonsController.new),
     ],
     child: _localizedApp(
       RepaintBoundary(

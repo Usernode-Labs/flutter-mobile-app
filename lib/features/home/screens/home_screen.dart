@@ -23,9 +23,11 @@ class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({
     super.key,
     this.initialTab = HomeTab.challenges,
-  });
+    @visibleForTesting this.debugPages,
+  }) : assert(debugPages == null || debugPages.length == _homePageCount);
 
   final int initialTab;
+  final List<Widget>? debugPages;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -92,13 +94,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           Expanded(
             child: IndexedStack(
               index: index,
-              children: const [
-                ChallengesScreen(),
-                WalletScreen(),
-                DappsScreen(),
-                NodeStatusScreen(),
-                SettingsScreen(),
-              ],
+              children: widget.debugPages ?? _homePages,
             ),
           ),
         ],
@@ -129,18 +125,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         indicatorFillColor: semantic.flash.colorContainer,
       ),
       BottomNavItem(
-        icon: Symbols.account_balance_wallet_sharp,
-        label: l10n.navWallet,
-        indicatorShape: NavIndicatorShape.circle,
-        indicatorColor: semantic.flash.color,
-        indicatorFillColor: semantic.flash.colorContainer,
-      ),
-      BottomNavItem(
         icon: Symbols.action_key_sharp,
         label: l10n.navDapps,
         indicatorShape: NavIndicatorShape.blob,
         indicatorColor: semantic.community.color,
         indicatorFillColor: semantic.community.colorContainer,
+      ),
+      BottomNavItem(
+        icon: Symbols.account_balance_wallet_sharp,
+        label: l10n.navWallet,
+        indicatorShape: NavIndicatorShape.circle,
+        indicatorColor: semantic.flash.color,
+        indicatorFillColor: semantic.flash.colorContainer,
       ),
       // Node status and Settings moved out of the bottom nav: node is reached
       // from the Challenges top bar, Settings from the Profile screen
@@ -149,12 +145,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     Widget bottomNav = BottomNav(
       items: items,
-      // The IndexedStack still hosts node/settings (indices 3-4) for routes,
-      // but they are no longer bottom-nav destinations — clamp so an off-nav
-      // tab index never overflows the slimmed item list.
-      selectedIndex: index.clamp(0, items.length - 1),
+      selectedIndex: _visibleBottomNavIndexForTab(index),
       onItemSelected: (i) {
-        ref.read(currentHomeTabProvider.notifier).state = i;
+        ref.read(currentHomeTabProvider.notifier).state = _bottomNavTabs[i];
       },
       topBorder: !isInternal,
     );
@@ -287,4 +280,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }),
     );
   }
+}
+
+const _homePages = [
+  ChallengesScreen(),
+  WalletScreen(),
+  DappsScreen(),
+  NodeStatusScreen(),
+  SettingsScreen(),
+];
+
+const _homePageCount = 5;
+
+const _bottomNavTabs = [
+  HomeTab.challenges,
+  HomeTab.dapps,
+  HomeTab.wallet,
+];
+
+int _visibleBottomNavIndexForTab(int tabIndex) {
+  final visibleIndex = _bottomNavTabs.indexOf(tabIndex);
+  return visibleIndex == -1 ? 0 : visibleIndex;
 }

@@ -1156,7 +1156,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     return TopStatusAppBar.scaffoldCompact(
       title: l10n.navDapps,
-      nodeStatus: ref.watch(topStatusNodeStatusProvider),
+      nodeStatus: ref.watch(topStatusChromeNodeStatusProvider),
       onProfilePressed: () => context.push(AppRoutes.profile),
       onNodePressed: () => context.push(AppRoutes.mainNode),
     );

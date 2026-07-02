@@ -87,7 +87,7 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen> {
         ) ??
         l10n.navChallenges;
 
-    final nodeStatus = ref.watch(topStatusNodeStatusProvider);
+    final nodeStatus = ref.watch(topStatusChromeNodeStatusProvider);
 
     return Scaffold(
       // No backgroundColor override → DS scaffold grey (surface). Top-level

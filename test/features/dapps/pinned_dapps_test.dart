@@ -72,8 +72,7 @@ void main() {
       expect(container.read(pinnedDappByIdProvider(pinned.id)), isNull);
     });
 
-    test('re-pinning the same url replaces the entry and moves it first',
-        () async {
+    test('re-pinning the same url replaces the entry in place', () async {
       SharedPreferences.setMockInitialValues({});
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -84,7 +83,7 @@ void main() {
         url: 'https://echo.example.org',
         iconUrl: '',
       );
-      await notifier.pin(
+      final lastwin = await notifier.pin(
         name: 'Lastwin',
         url: 'https://lastwin.example.org',
         iconUrl: '',
@@ -95,10 +94,46 @@ void main() {
         iconUrl: '',
       );
 
+      // Registry order is the user's arranged widget order, so a refresh
+      // (rename, icon re-send) must not shuffle it: Echo keeps its slot.
       final dapps = await container.read(pinnedDappsProvider.future);
       expect(dapps, hasLength(2));
-      expect(dapps.first.id, renamed.id);
-      expect(dapps.first.name, 'Echo v2');
+      expect(dapps.first.id, lastwin.id);
+      expect(dapps.last.id, renamed.id);
+      expect(dapps.last.name, 'Echo v2');
+    });
+
+    test('reorder follows the given ids, tolerating unknown and missing ids',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pinnedDappsProvider.notifier);
+      final a = await notifier.pin(
+          name: 'A', url: 'https://a.example.org', iconUrl: '');
+      final b = await notifier.pin(
+          name: 'B', url: 'https://b.example.org', iconUrl: '');
+      final c = await notifier.pin(
+          name: 'C', url: 'https://c.example.org', iconUrl: '');
+      // Registry is newest-first: [c, b, a].
+
+      final reordered = await notifier.reorder([a.id, c.id, b.id]);
+      expect(reordered.map((d) => d.id).toList(), [a.id, c.id, b.id]);
+
+      // Unknown ids are ignored; ids missing from the list keep their
+      // relative order and are appended, so nothing can be dropped.
+      final partial = await notifier.reorder(['bogus', b.id]);
+      expect(partial.map((d) => d.id).toList(), [b.id, a.id, c.id]);
+
+      // The new order is what gets persisted.
+      final prefs = await SharedPreferences.getInstance();
+      final persisted =
+          jsonDecode(prefs.getString(PinnedDappsNotifier.prefsKey)!) as List;
+      expect(
+        persisted.map((e) => (e as Map<String, dynamic>)['id']).toList(),
+        [b.id, a.id, c.id],
+      );
     });
 
     test('registry survives reload from persisted json', () async {

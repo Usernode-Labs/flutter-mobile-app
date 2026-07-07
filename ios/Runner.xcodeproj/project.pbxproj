@@ -21,6 +21,8 @@
 		0AE10008000000000000C0DE /* UsernodeDappsWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10004000000000000C0DE /* UsernodeDappsWidget.swift */; };
 		0AE10009000000000000C0DE /* UsernodeWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0AE10001000000000000C0DE /* UsernodeWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0AE10015000000000000C0DE /* HomeShortcutsChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */; };
+		0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10020000000000000C0DE /* PinnedDappIntents.swift */; };
+		0AE10022000000000000C0DE /* PinnedDappIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10020000000000000C0DE /* PinnedDappIntents.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -96,6 +98,7 @@
 		0AE10005000000000000C0DE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		0AE10006000000000000C0DE /* UsernodeWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = UsernodeWidgets.entitlements; sourceTree = "<group>"; };
 		0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeShortcutsChannel.swift; sourceTree = "<group>"; };
+		0AE10020000000000000C0DE /* PinnedDappIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedDappIntents.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -191,6 +194,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				F1A2B3C4D5E6F7890A1B2C3E /* BGTaskSchedulerManager.swift */,
 				0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */,
+				0AE10020000000000000C0DE /* PinnedDappIntents.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -481,6 +485,7 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				F1A2B3C4D5E6F7890A1B2C3D /* BGTaskSchedulerManager.swift in Sources */,
 				0AE10015000000000000C0DE /* HomeShortcutsChannel.swift in Sources */,
+				0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -491,6 +496,7 @@
 			files = (
 				0AE10007000000000000C0DE /* UsernodeWidgetsBundle.swift in Sources */,
 				0AE10008000000000000C0DE /* UsernodeDappsWidget.swift in Sources */,
+				0AE10022000000000000C0DE /* PinnedDappIntents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

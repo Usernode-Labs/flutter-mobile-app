@@ -156,12 +156,15 @@ final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
 GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Watch providers to make router reactive and capture their values
-  final hasAnyAccountAsync = ref.watch(hasAnyAccountProvider);
-  final hasCompletedOnboardingAsync = ref.watch(hasCompletedOnboardingProvider);
-  // Watch freshness + bootstrap so the router reacts to stale detection.
-  final registrationFreshness = ref.watch(registrationFreshnessProvider);
-  ref.watch(leaderboardBootstrapProvider);
+  // Do NOT ref.watch state providers here: a watch rebuilds this provider
+  // when they change (e.g. loading -> data right after launch), which
+  // creates a brand-new GoRouter and resets navigation to /splash — this
+  // stomped cold-start deep links from homescreen widgets. The redirect
+  // guard reads fresh values on every run instead, and
+  // GoRouterRefreshStream re-runs it whenever they change. The listen
+  // keeps the bootstrap chain (season/registration freshness) alive
+  // without triggering rebuilds.
+  ref.listen(leaderboardBootstrapProvider, (_, __) {});
 
   return GoRouter(
     navigatorKey: _navigatorKey,
@@ -409,7 +412,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     );
                   }
 
-                  return DappWebViewScreen(url: dapp.url, name: dapp.name);
+                  // Keyed by URL: navigating pinned dapp A -> pinned dapp
+                  // B reuses this same route with a new param, and without
+                  // a key the old webview state (still showing A) is kept.
+                  return DappWebViewScreen(
+                    key: ValueKey('pinned:${dapp.url}'),
+                    url: dapp.url,
+                    name: dapp.name,
+                  );
                 },
               );
             },
@@ -461,7 +471,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     );
                   }
 
-                  return DappWebViewScreen(url: dapp.url, name: dapp.name);
+                  // Keyed for the same reason as the pinned route above:
+                  // switching between dapp slugs must rebuild the webview.
+                  return DappWebViewScreen(
+                    key: ValueKey('dapp:${dapp.url}'),
+                    url: dapp.url,
+                    name: dapp.name,
+                  );
                 },
               );
             },
@@ -470,14 +486,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final hasAny = hasAnyAccountAsync.maybeWhen(
-        data: (v) => v,
-        orElse: () => null,
-      );
-      final hasCompletedOnboarding = hasCompletedOnboardingAsync.maybeWhen(
-        data: (v) => v,
-        orElse: () => null,
-      );
+      // Fresh reads on every evaluation (see note at the top of this
+      // provider); GoRouterRefreshStream re-runs this guard when any of
+      // these change.
+      final hasAny = ref.read(hasAnyAccountProvider).maybeWhen(
+            data: (v) => v,
+            orElse: () => null,
+          );
+      final hasCompletedOnboarding =
+          ref.read(hasCompletedOnboardingProvider).maybeWhen(
+                data: (v) => v,
+                orElse: () => null,
+              );
+      final registrationFreshness = ref.read(registrationFreshnessProvider);
 
       final currentLocation = state.matchedLocation;
       final requestUri = state.uri;

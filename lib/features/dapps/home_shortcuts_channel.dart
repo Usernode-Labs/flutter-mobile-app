@@ -87,6 +87,22 @@ class HomeShortcutsChannel {
     }
   }
 
+  /// iOS: ids that currently have an icon PNG in the App Group store.
+  /// Lets callers spot registry entries whose icon was never saved (e.g.
+  /// pinned by an older page that sent no icon) so they can re-send it.
+  static Future<Set<String>> listWidgetIconIds() async {
+    if (!isIOS) return const {};
+    try {
+      final ids = await _channel.invokeMethod<List<Object?>>(
+        'listWidgetIconIds',
+      );
+      return {for (final v in ids ?? const <Object?>[]) v.toString()};
+    } catch (e) {
+      debugPrint('[HomeShortcuts] listWidgetIconIds failed: $e');
+      return const {};
+    }
+  }
+
   /// iOS: whether the Usernode dApps widget is currently on the homescreen.
   static Future<bool> isWidgetInstalled() async {
     if (!isIOS) return false;

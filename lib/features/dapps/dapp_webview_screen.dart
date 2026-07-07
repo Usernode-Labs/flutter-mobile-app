@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -21,6 +20,7 @@ import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +28,22 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+
+extension on WebViewController {
+  /// Debug-only: exposes the webview to Safari Web Inspector (iOS 16.4+)
+  /// and chrome://inspect (Android). No-op in release builds.
+  void setInspectableForDebug() {
+    if (!kDebugMode) return;
+    final platformController = platform;
+    if (platformController is WebKitWebViewController) {
+      platformController.setInspectable(true);
+    } else if (platformController is AndroidWebViewController) {
+      AndroidWebViewController.enableDebugging(true);
+    }
+  }
+}
 
 enum _TxStatus { denied, error, queued }
 
@@ -396,6 +412,25 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       ..setOnConsoleMessage((msg) {
         debugPrint('[webview ${msg.level.name}] ${msg.message}');
       })
+      // Debug builds only: allow attaching Safari Web Inspector (iOS 16.4+)
+      // and chrome://inspect (Android) to the dapp webview, so bridge
+      // methods can be exercised from a desktop console during development.
+      ..setInspectableForDebug()
+      // webview_flutter has NO default UI for window.alert() — without this
+      // handler every page-side alert (dapps report errors this way) is
+      // silently dropped and a failing action looks like a no-op. Surface it
+      // as a SnackBar rather than a dialog: a translucent modal barrier over
+      // the platform view triggers the WKWebView gesture bug described above.
+      ..setOnJavaScriptAlertDialog((request) async {
+        debugPrint('[webview alert] ${request.message}');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(request.message),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      })
       ..addJavaScriptChannel(
         _jsChannelName,
         onMessageReceived: (message) async {
@@ -474,6 +509,18 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
             if (method == 'addHomeScreenShortcut') {
               await _handleAddHomeScreenShortcut(id, payload);
+            }
+
+            if (method == 'getHomeScreenShortcuts') {
+              await _handleGetHomeScreenShortcuts(id);
+            }
+
+            if (method == 'removeHomeScreenShortcut') {
+              await _handleRemoveHomeScreenShortcut(id, payload);
+            }
+
+            if (method == 'reorderHomeScreenShortcuts') {
+              await _handleReorderHomeScreenShortcuts(id, payload);
             }
           } catch (e, st) {
             // Surface dispatch failures so we don't end up with a silently
@@ -972,13 +1019,33 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2';
 
   /// Accepts https URLs, plus http for local development hosts only.
+  ///
+  /// Deliberately NOT `uri.isAbsolute`: that is false for any URL carrying
+  /// a `#fragment` (RFC 3986 "absolute URI"), which rejected legitimate
+  /// SPA deep links like `https://host/#app/slug`. Scheme + host checks
+  /// below are what we actually need.
   static Uri? _parseShortcutUrl(Object? raw) {
     if (raw is! String || raw.trim().isEmpty) return null;
     final uri = Uri.tryParse(raw.trim());
-    if (uri == null || !uri.isAbsolute || uri.host.isEmpty) return null;
+    if (uri == null || uri.host.isEmpty) return null;
     if (uri.scheme == 'https') return uri;
     if (uri.scheme == 'http' && _isLocalDevHost(uri.host)) return uri;
     return null;
+  }
+
+  /// Inline `data:image/*;base64,...` icons. The dapps home renders its
+  /// emoji/letter tiles to a canvas PNG so the homescreen widget shows
+  /// the exact same tile — no server round-trip, same size cap as
+  /// downloads.
+  static Uint8List? _decodeDataUriIcon(Object? raw) {
+    if (raw is! String || !raw.startsWith('data:image/')) return null;
+    try {
+      final bytes = UriData.parse(raw).contentAsBytes();
+      if (bytes.isEmpty || bytes.length > _maxShortcutIconBytes) return null;
+      return bytes;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Uint8List?> _downloadShortcutIcon(Uri iconUri) async {
@@ -994,8 +1061,45 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     }
   }
 
+  /// True when the top frame currently shows the configured dapps-tab
+  /// home (social vibecoding) — the only page trusted to manage
+  /// homescreen shortcuts. Sub-apps live on their own subdomains (or are
+  /// iframes whose relayed calls the SV bridge refuses to forward), so
+  /// an exact origin match on the current URL is the boundary. Local-dev
+  /// hosts pass so `--local-dev` SV builds stay testable.
+  Future<bool> _isTrustedShortcutOrigin() async {
+    final raw = await _controller.currentUrl();
+    final current = raw == null ? null : Uri.tryParse(raw);
+    if (current == null || current.host.isEmpty) return false;
+    if (_isLocalDevHost(current.host)) return true;
+    final trusted = Uri.tryParse(AppConfig.dappsTabUrl);
+    if (trusted == null || trusted.host.isEmpty) return false;
+    return current.scheme == trusted.scheme &&
+        current.host == trusted.host &&
+        current.port == trusted.port;
+  }
+
+  /// Shared deny-path for the shortcut management handlers. Returns
+  /// false (after rejecting the JS promise) when the calling page isn't
+  /// the dapps home.
+  Future<bool> _guardTrustedShortcutOrigin(String id) async {
+    if (await _isTrustedShortcutOrigin()) return true;
+    await _resolveJsPromise(
+      id: id,
+      value: null,
+      error: 'Homescreen shortcuts can only be managed by the dapps home',
+    );
+    return false;
+  }
+
   Future<void> _handleAddHomeScreenShortcut(
       String id, Map<String, dynamic> payload) async {
+    // Trust gate instead of a confirmation screen: the dapps-tab home
+    // (social vibecoding) curates its own "add to widget/homescreen" UX,
+    // so requests from it are auto-approved; every other page is denied
+    // outright. Shortcuts only deep-link back into this app, so the
+    // blast radius of a bad add is a launcher tile — not funds.
+    if (!await _guardTrustedShortcutOrigin(id)) return;
     final args = payload['args'];
     if (args is! Map<String, dynamic>) {
       await _resolveJsPromise(id: id, value: null, error: 'Missing args');
@@ -1031,27 +1135,20 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final iconUri = _parseShortcutUrl(args['icon_url']);
-    final iconBytes =
-        iconUri == null ? null : await _downloadShortcutIcon(iconUri);
-
-    final confirmed = await _requestShortcutConfirmation(
-      name: name,
-      host: url.host,
-      iconBytes: iconBytes,
-    );
-    if (!confirmed) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'User denied the shortcut request',
-      );
-      return;
+    final rawIcon = args['icon_url'];
+    Uint8List? iconBytes = _decodeDataUriIcon(rawIcon);
+    Uri? iconUri;
+    if (iconBytes == null) {
+      iconUri = _parseShortcutUrl(rawIcon);
+      if (iconUri != null) iconBytes = await _downloadShortcutIcon(iconUri);
     }
 
     final pinned = await ref.read(pinnedDappsProvider.notifier).pin(
           name: name,
           url: url.toString(),
+          // Data-URI icons are not persisted in the registry (kilobytes
+          // of base64 in prefs for no reader); the PNG lands in the App
+          // Group icon store below either way.
           iconUrl: iconUri?.toString() ?? '',
         );
     final deepLink = 'usernode://app${AppRoutes.dappPinnedFor(pinned.id)}';
@@ -1080,18 +1177,12 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     if (iconBytes != null) {
       await HomeShortcutsChannel.saveWidgetIcon(pinned.id, iconBytes);
     }
-    final dapps = await ref.read(pinnedDappsProvider.future);
-    await HomeShortcutsChannel.syncPinnedDapps(jsonEncode([
-      for (final d in dapps)
-        {
-          'id': d.id,
-          'name': d.name,
-          'deepLink': 'usernode://app${AppRoutes.dappPinnedFor(d.id)}',
-          'pinnedAtMs': d.pinnedAtMs,
-        },
-    ]));
+    await _syncPinnedToWidget();
     final widgetInstalled = await HomeShortcutsChannel.isWidgetInstalled();
-    if (!widgetInstalled && mounted) {
+    // silent: background refresh (icon heal) — never interrupt with the
+    // add-the-widget walkthrough.
+    final silent = args['silent'] == true;
+    if (!widgetInstalled && !silent && mounted) {
       await _showWidgetInstructions(name);
     }
     await _resolveJsPromise(
@@ -1105,135 +1196,108 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     );
   }
 
-  Widget _shortcutIconPreview(BuildContext ctx, Uint8List? iconBytes) {
-    final theme = Theme.of(ctx);
-    final sizing = theme.extension<AppSizing>()!;
-    final radii = theme.extension<AppRadii>()!;
-    final size = sizing.iconContainerXLarge;
+  /// Mirrors the pinned registry (in registry order — the widget grid
+  /// renders the synced JSON array as-is) into the App Group defaults and
+  /// reloads the widget timelines. No-op off iOS.
+  Future<void> _syncPinnedToWidget() async {
+    if (!HomeShortcutsChannel.isIOS) return;
+    final dapps = await ref.read(pinnedDappsProvider.future);
+    await HomeShortcutsChannel.syncPinnedDapps(jsonEncode([
+      for (final d in dapps)
+        {
+          'id': d.id,
+          'name': d.name,
+          'deepLink': 'usernode://app${AppRoutes.dappPinnedFor(d.id)}',
+          'pinnedAtMs': d.pinnedAtMs,
+        },
+    ]));
+  }
 
-    if (iconBytes != null) {
-      return ClipRRect(
-        borderRadius: radii.borderRadiusMedium,
-        child: Image.memory(
-          iconBytes,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Icon(
-            Symbols.apps,
-            size: size,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-      );
-    }
-    return Icon(
-      Symbols.apps,
-      size: size,
-      color: theme.colorScheme.primary,
+  /// Registry snapshot for the page: ids, names, urls and pin order. The
+  /// url lets the caller match entries back to its own content (e.g. SV
+  /// matching `#app/<slug>` deep links to its app cards). This is launcher
+  /// metadata the page's own user created; no secrets involved.
+  ///
+  /// `has_icon` (iOS only) flags entries whose PNG made it into the App
+  /// Group icon store. Entries pinned before the page sent icons — or
+  /// whose icon download failed — report false, and the dapps home heals
+  /// them by re-calling addHomeScreenShortcut (re-pinning is idempotent:
+  /// same URL, same id).
+  Future<void> _handleGetHomeScreenShortcuts(String id) async {
+    if (!await _guardTrustedShortcutOrigin(id)) return;
+    final dapps = await ref.read(pinnedDappsProvider.future);
+    final iconIds = HomeShortcutsChannel.isIOS
+        ? await HomeShortcutsChannel.listWidgetIconIds()
+        : const <String>{};
+    await _resolveJsPromise(
+      id: id,
+      value: <String, dynamic>{
+        ...await _shortcutSupport(),
+        'items': [
+          for (final d in dapps)
+            {
+              'id': d.id,
+              'name': d.name,
+              'url': d.url,
+              'pinnedAtMs': d.pinnedAtMs,
+              'has_icon': !HomeShortcutsChannel.isIOS || iconIds.contains(d.id),
+            },
+        ],
+      },
+      error: null,
     );
   }
 
-  /// Full-screen opaque confirmation for a homescreen-shortcut request.
-  /// Same opaque-route pattern as [_requestSignatureConfirmation] (avoids
-  /// the WKWebView translucent-barrier gesture bug).
-  Future<bool> _requestShortcutConfirmation({
-    required String name,
-    required String host,
-    required Uint8List? iconBytes,
-  }) async {
-    if (!mounted) return false;
-
-    final result = await Navigator.push<bool>(
-      context,
-      PageRouteBuilder<bool>(
-        opaque: true,
-        transitionDuration: const Duration(milliseconds: 300),
-        reverseTransitionDuration: const Duration(milliseconds: 250),
-        pageBuilder: (ctx, _, __) {
-          final l10n = AppLocalizations.of(ctx);
-          final theme = Theme.of(ctx);
-          final spacing = theme.extension<AppSpacing>()!;
-          return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                icon: const Icon(Symbols.close),
-              ),
-              title: Text(l10n.shortcutConfirmTitle),
-              titleSpacing: 0,
-            ),
-            body: Padding(
-              padding: EdgeInsets.all(spacing.space24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(child: _shortcutIconPreview(ctx, iconBytes)),
-                  SizedBox(height: spacing.space16),
-                  Text(
-                    l10n.shortcutConfirmRequest(name),
-                    style: theme.textTheme.titleMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: spacing.space12),
-                  Text(
-                    l10n.shortcutConfirmOpens(host),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (HomeShortcutsChannel.isAndroid) ...[
-                    SizedBox(height: spacing.space12),
-                    Text(
-                      l10n.shortcutConfirmAndroidNote,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Button(
-                          label: l10n.shortcutConfirmCancel,
-                          variant: ButtonVariant.outlined,
-                          onTap: () => Navigator.pop(ctx, false),
-                        ),
-                      ),
-                      SizedBox(width: spacing.space12),
-                      Expanded(
-                        child: Button(
-                          label: l10n.shortcutConfirmAdd,
-                          variant: ButtonVariant.primary,
-                          onTap: () => Navigator.pop(ctx, true),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-        transitionsBuilder: (_, animation, __, child) {
-          return SlideTransition(
-            position: Tween(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            )),
-            child: child,
-          );
-        },
-      ),
+  /// Removes a pinned entry and re-syncs the iOS widget. No native
+  /// confirmation: launcher entries are low-stakes and the calling UI
+  /// (e.g. SV's widget section) puts the control behind a deliberate tap.
+  /// On Android this only clears the registry — launchers offer no
+  /// programmatic un-pin, so the callers there never expose remove.
+  Future<void> _handleRemoveHomeScreenShortcut(
+      String id, Map<String, dynamic> payload) async {
+    if (!await _guardTrustedShortcutOrigin(id)) return;
+    final args = payload['args'];
+    final shortcutId =
+        args is Map<String, dynamic> ? (args['id'] as String?)?.trim() : null;
+    if (shortcutId == null || shortcutId.isEmpty) {
+      await _resolveJsPromise(id: id, value: null, error: 'id is required');
+      return;
+    }
+    await ref.read(pinnedDappsProvider.notifier).unpin(shortcutId);
+    await _syncPinnedToWidget();
+    await _resolveJsPromise(
+      id: id,
+      value: <String, dynamic>{'removed': true},
+      error: null,
     );
-    return result ?? false;
+  }
+
+  /// Reorders the pinned registry to the given id list and re-syncs the
+  /// iOS widget. Unknown ids are ignored and missing ids are appended, so
+  /// a stale caller can never drop entries (see PinnedDappsNotifier).
+  Future<void> _handleReorderHomeScreenShortcuts(
+      String id, Map<String, dynamic> payload) async {
+    if (!await _guardTrustedShortcutOrigin(id)) return;
+    final args = payload['args'];
+    final rawIds = args is Map<String, dynamic> ? args['ids'] : null;
+    if (rawIds is! List) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'ids must be a list of shortcut ids',
+      );
+      return;
+    }
+    final ids = [for (final v in rawIds) v.toString()];
+    final updated = await ref.read(pinnedDappsProvider.notifier).reorder(ids);
+    await _syncPinnedToWidget();
+    await _resolveJsPromise(
+      id: id,
+      value: <String, dynamic>{
+        'order': [for (final d in updated) d.id],
+      },
+      error: null,
+    );
   }
 
   /// One-time iOS walkthrough shown after a pin when the Usernode widget
@@ -1577,7 +1641,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     return IconButton(
       tooltip: 'Home',
-      onPressed: () => Navigator.of(context).pop(),
+      // Deep-linked entries (homescreen widget/shortcut) have nothing
+      // underneath on the stack — popping the last route leaves a black
+      // screen, so fall through to the dapps tab (this button lives on
+      // dapp browser chrome; challenges would be a non-sequitur).
+      onPressed: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(AppRoutes.dapps);
+        }
+      },
       icon: Icon(Symbols.home_sharp, size: sizing.iconRegular),
     );
   }

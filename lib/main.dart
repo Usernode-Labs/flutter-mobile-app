@@ -461,7 +461,13 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         }
         final navContext = appNavigatorKey.currentContext;
         if (navContext == null) return;
-        GoRouter.of(navContext).go(AppRoutes.home);
+        final router = GoRouter.of(navContext);
+        // Waking via a homescreen widget tap deep-links straight into a
+        // pinned dapp; the post-wake reset must not stomp that route (the
+        // deep link can land before this callback runs).
+        final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+        if (currentPath.startsWith('/dapps/pinned/')) return;
+        router.go(AppRoutes.home);
       });
     }
     _wasSleeping = isSleeping;

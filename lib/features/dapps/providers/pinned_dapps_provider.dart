@@ -37,7 +37,9 @@ class PinnedDappsNotifier extends AsyncNotifier<List<PinnedDapp>> {
   }
 
   /// Adds (or refreshes) a pinned dapp and returns it. Re-pinning the same
-  /// URL replaces the existing entry and bumps it to the front.
+  /// URL replaces the existing entry *in place*: registry order is the
+  /// widget display order the user arranged, and refresh paths (e.g. the
+  /// dapps home re-sending a missing icon) must not shuffle it.
   Future<PinnedDapp> pin({
     required String name,
     required String url,
@@ -51,10 +53,13 @@ class PinnedDappsNotifier extends AsyncNotifier<List<PinnedDapp>> {
       iconUrl: iconUrl,
       pinnedAtMs: DateTime.now().millisecondsSinceEpoch,
     );
-    final updated = [
-      pinned,
-      ...current.where((d) => d.id != pinned.id),
-    ];
+    final existingIndex = current.indexWhere((d) => d.id == pinned.id);
+    final updated = existingIndex >= 0
+        ? [
+            for (var i = 0; i < current.length; i++)
+              i == existingIndex ? pinned : current[i],
+          ]
+        : [pinned, ...current];
     state = AsyncValue.data(updated);
     await _save(updated);
     return pinned;
@@ -65,6 +70,24 @@ class PinnedDappsNotifier extends AsyncNotifier<List<PinnedDapp>> {
     final updated = current.where((d) => d.id != id).toList();
     state = AsyncValue.data(updated);
     await _save(updated);
+  }
+
+  /// Reorders the registry to match [orderedIds]. Registry order is the
+  /// display order everywhere (iOS widget grid renders the synced JSON
+  /// array as-is). Unknown ids are ignored; entries missing from
+  /// [orderedIds] keep their relative order and are appended at the end,
+  /// so a stale caller can never drop dapps from the registry.
+  Future<List<PinnedDapp>> reorder(List<String> orderedIds) async {
+    final current = await future;
+    final byId = {for (final d in current) d.id: d};
+    final updated = <PinnedDapp>[
+      for (final id in orderedIds)
+        if (byId.remove(id) case final d?) d,
+      ...byId.values,
+    ];
+    state = AsyncValue.data(updated);
+    await _save(updated);
+    return updated;
   }
 }
 

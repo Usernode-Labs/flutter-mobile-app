@@ -19,6 +19,8 @@ class HomeShortcutsChannel {
       syncPinnedDapps(call, result: result)
     case "saveWidgetIcon":
       saveWidgetIcon(call, result: result)
+    case "listWidgetIconIds":
+      listWidgetIconIds(result: result)
     case "isWidgetInstalled":
       isWidgetInstalled(result: result)
     default:
@@ -71,6 +73,21 @@ class HomeShortcutsChannel {
       print("[HomeShortcuts] Failed to save icon: \(error)")
       result(false)
     }
+  }
+
+  /// Ids (icon filenames minus .png) present in the App Group icon store.
+  /// The Flutter side surfaces these as `has_icon` on the registry snapshot
+  /// so the dapps home can re-send icons that never landed.
+  private func listWidgetIconIds(result: @escaping FlutterResult) {
+    guard let container = FileManager.default.containerURL(
+      forSecurityApplicationGroupIdentifier: HomeShortcutsChannel.appGroupId
+    ) else {
+      result([String]())
+      return
+    }
+    let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
+    let files = (try? FileManager.default.contentsOfDirectory(atPath: iconsDir.path)) ?? []
+    result(files.filter { $0.hasSuffix(".png") }.map { String($0.dropLast(4)) })
   }
 
   private func isWidgetInstalled(result: @escaping FlutterResult) {

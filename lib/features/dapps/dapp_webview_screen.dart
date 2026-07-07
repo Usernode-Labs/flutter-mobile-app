@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -14,7 +15,9 @@ import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
+import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
+import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
@@ -463,6 +466,14 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
             if (method == 'txObserved') {
               await _handleTxObserved(payload);
+            }
+
+            if (method == 'getHomeScreenShortcutSupport') {
+              await _handleGetHomeScreenShortcutSupport(id);
+            }
+
+            if (method == 'addHomeScreenShortcut') {
+              await _handleAddHomeScreenShortcut(id, payload);
             }
           } catch (e, st) {
             // Surface dispatch failures so we don't end up with a silently
@@ -925,6 +936,399 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       ),
     );
     return result ?? false;
+  }
+
+  // ── Homescreen shortcuts (bridge) ─────────────────────────────────────
+  //
+  // `addHomeScreenShortcut` lets a dapp request a device-homescreen entry
+  // that reopens the app at `usernode://app/dapps/pinned/<id>`. Android
+  // pins a real launcher shortcut; iOS mirrors the pinned registry into the
+  // App Group storage consumed by the UsernodeWidgets WidgetKit extension.
+
+  static const _maxShortcutNameLength = 48;
+  static const _maxShortcutIconBytes = 2 * 1024 * 1024;
+
+  Future<Map<String, dynamic>> _shortcutSupport() async {
+    if (HomeShortcutsChannel.isAndroid) {
+      final supported = await HomeShortcutsChannel.isPinShortcutSupported();
+      return {'mechanism': supported ? 'pinned-shortcut' : 'unsupported'};
+    }
+    if (HomeShortcutsChannel.isIOS) {
+      final installed = await HomeShortcutsChannel.isWidgetInstalled();
+      return {'mechanism': 'widget', 'widgetInstalled': installed};
+    }
+    return {'mechanism': 'unsupported'};
+  }
+
+  Future<void> _handleGetHomeScreenShortcutSupport(String id) async {
+    await _resolveJsPromise(
+      id: id,
+      value: await _shortcutSupport(),
+      error: null,
+    );
+  }
+
+  static bool _isLocalDevHost(String host) =>
+      host == 'localhost' || host == '127.0.0.1' || host == '10.0.2.2';
+
+  /// Accepts https URLs, plus http for local development hosts only.
+  static Uri? _parseShortcutUrl(Object? raw) {
+    if (raw is! String || raw.trim().isEmpty) return null;
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null || !uri.isAbsolute || uri.host.isEmpty) return null;
+    if (uri.scheme == 'https') return uri;
+    if (uri.scheme == 'http' && _isLocalDevHost(uri.host)) return uri;
+    return null;
+  }
+
+  Future<Uint8List?> _downloadShortcutIcon(Uri iconUri) async {
+    try {
+      final res = await http.get(iconUri).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return null;
+      final bytes = res.bodyBytes;
+      if (bytes.isEmpty || bytes.length > _maxShortcutIconBytes) return null;
+      return bytes;
+    } catch (e) {
+      debugPrint('[HomeShortcuts] icon download failed: $e');
+      return null;
+    }
+  }
+
+  Future<void> _handleAddHomeScreenShortcut(
+      String id, Map<String, dynamic> payload) async {
+    final args = payload['args'];
+    if (args is! Map<String, dynamic>) {
+      await _resolveJsPromise(id: id, value: null, error: 'Missing args');
+      return;
+    }
+
+    var name = (args['name'] as String?)?.trim() ?? '';
+    if (name.isEmpty) {
+      await _resolveJsPromise(id: id, value: null, error: 'name is required');
+      return;
+    }
+    if (name.length > _maxShortcutNameLength) {
+      name = name.substring(0, _maxShortcutNameLength);
+    }
+
+    final url = _parseShortcutUrl(args['url']);
+    if (url == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'url must be a valid https URL',
+      );
+      return;
+    }
+
+    final support = await _shortcutSupport();
+    if (support['mechanism'] == 'unsupported') {
+      await _resolveJsPromise(
+        id: id,
+        value: <String, dynamic>{'added': false, ...support},
+        error: null,
+      );
+      return;
+    }
+
+    final iconUri = _parseShortcutUrl(args['icon_url']);
+    final iconBytes =
+        iconUri == null ? null : await _downloadShortcutIcon(iconUri);
+
+    final confirmed = await _requestShortcutConfirmation(
+      name: name,
+      host: url.host,
+      iconBytes: iconBytes,
+    );
+    if (!confirmed) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'User denied the shortcut request',
+      );
+      return;
+    }
+
+    final pinned = await ref.read(pinnedDappsProvider.notifier).pin(
+          name: name,
+          url: url.toString(),
+          iconUrl: iconUri?.toString() ?? '',
+        );
+    final deepLink = 'usernode://app${AppRoutes.dappPinnedFor(pinned.id)}';
+
+    if (HomeShortcutsChannel.isAndroid) {
+      final requested = await HomeShortcutsChannel.requestPinShortcut(
+        id: pinned.id,
+        label: pinned.name,
+        deepLink: deepLink,
+        iconBytes: iconBytes,
+      );
+      await _resolveJsPromise(
+        id: id,
+        value: <String, dynamic>{
+          'added': requested,
+          'mechanism': 'pinned-shortcut',
+        },
+        error: null,
+      );
+      return;
+    }
+
+    // iOS: mirror the registry into the App Group so the widget extension
+    // can render it, then walk the user through adding the widget if it
+    // isn't on the homescreen yet.
+    if (iconBytes != null) {
+      await HomeShortcutsChannel.saveWidgetIcon(pinned.id, iconBytes);
+    }
+    final dapps = await ref.read(pinnedDappsProvider.future);
+    await HomeShortcutsChannel.syncPinnedDapps(jsonEncode([
+      for (final d in dapps)
+        {
+          'id': d.id,
+          'name': d.name,
+          'deepLink': 'usernode://app${AppRoutes.dappPinnedFor(d.id)}',
+          'pinnedAtMs': d.pinnedAtMs,
+        },
+    ]));
+    final widgetInstalled = await HomeShortcutsChannel.isWidgetInstalled();
+    if (!widgetInstalled && mounted) {
+      await _showWidgetInstructions(name);
+    }
+    await _resolveJsPromise(
+      id: id,
+      value: <String, dynamic>{
+        'added': true,
+        'mechanism': 'widget',
+        'widgetInstalled': widgetInstalled,
+      },
+      error: null,
+    );
+  }
+
+  Widget _shortcutIconPreview(BuildContext ctx, Uint8List? iconBytes) {
+    final theme = Theme.of(ctx);
+    final sizing = theme.extension<AppSizing>()!;
+    final radii = theme.extension<AppRadii>()!;
+    final size = sizing.iconContainerXLarge;
+
+    if (iconBytes != null) {
+      return ClipRRect(
+        borderRadius: radii.borderRadiusMedium,
+        child: Image.memory(
+          iconBytes,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Icon(
+            Symbols.apps,
+            size: size,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+      );
+    }
+    return Icon(
+      Symbols.apps,
+      size: size,
+      color: theme.colorScheme.primary,
+    );
+  }
+
+  /// Full-screen opaque confirmation for a homescreen-shortcut request.
+  /// Same opaque-route pattern as [_requestSignatureConfirmation] (avoids
+  /// the WKWebView translucent-barrier gesture bug).
+  Future<bool> _requestShortcutConfirmation({
+    required String name,
+    required String host,
+    required Uint8List? iconBytes,
+  }) async {
+    if (!mounted) return false;
+
+    final result = await Navigator.push<bool>(
+      context,
+      PageRouteBuilder<bool>(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (ctx, _, __) {
+          final l10n = AppLocalizations.of(ctx);
+          final theme = Theme.of(ctx);
+          final spacing = theme.extension<AppSpacing>()!;
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                icon: const Icon(Symbols.close),
+              ),
+              title: Text(l10n.shortcutConfirmTitle),
+              titleSpacing: 0,
+            ),
+            body: Padding(
+              padding: EdgeInsets.all(spacing.space24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(child: _shortcutIconPreview(ctx, iconBytes)),
+                  SizedBox(height: spacing.space16),
+                  Text(
+                    l10n.shortcutConfirmRequest(name),
+                    style: theme.textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: spacing.space12),
+                  Text(
+                    l10n.shortcutConfirmOpens(host),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  if (HomeShortcutsChannel.isAndroid) ...[
+                    SizedBox(height: spacing.space12),
+                    Text(
+                      l10n.shortcutConfirmAndroidNote,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Button(
+                          label: l10n.shortcutConfirmCancel,
+                          variant: ButtonVariant.outlined,
+                          onTap: () => Navigator.pop(ctx, false),
+                        ),
+                      ),
+                      SizedBox(width: spacing.space12),
+                      Expanded(
+                        child: Button(
+                          label: l10n.shortcutConfirmAdd,
+                          variant: ButtonVariant.primary,
+                          onTap: () => Navigator.pop(ctx, true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
+    return result ?? false;
+  }
+
+  /// One-time iOS walkthrough shown after a pin when the Usernode widget
+  /// isn't on the homescreen yet.
+  Future<void> _showWidgetInstructions(String dappName) async {
+    if (!mounted) return;
+
+    await Navigator.push<void>(
+      context,
+      PageRouteBuilder<void>(
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (ctx, _, __) {
+          final l10n = AppLocalizations.of(ctx);
+          final theme = Theme.of(ctx);
+          final spacing = theme.extension<AppSpacing>()!;
+          final sizing = theme.extension<AppSizing>()!;
+
+          Widget step(int number, String text) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: spacing.space12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$number.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(width: spacing.space8),
+                  Expanded(
+                    child: Text(text, style: theme.textTheme.bodyMedium),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Scaffold(
+            appBar: AppBar(
+              leading: IconButton(
+                onPressed: () => Navigator.pop(ctx),
+                icon: const Icon(Symbols.close),
+              ),
+              title: Text(l10n.widgetInstructionsTitle),
+              titleSpacing: 0,
+            ),
+            body: Padding(
+              padding: EdgeInsets.all(spacing.space24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(
+                    Symbols.widgets,
+                    size: sizing.iconDisplay,
+                    color: theme.colorScheme.primary,
+                  ),
+                  SizedBox(height: spacing.space16),
+                  Text(
+                    l10n.widgetInstructionsBody(dappName),
+                    style: theme.textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: spacing.space24),
+                  step(1, l10n.widgetInstructionsStep1),
+                  step(2, l10n.widgetInstructionsStep2),
+                  step(3, l10n.widgetInstructionsStep3),
+                  const Spacer(),
+                  Button(
+                    label: l10n.widgetInstructionsDone,
+                    variant: ButtonVariant.primary,
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+        transitionsBuilder: (_, animation, __, child) {
+          return SlideTransition(
+            position: Tween(
+              begin: const Offset(0, 1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+              reverseCurve: Curves.easeInCubic,
+            )),
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   void _ensureConfirmPoller() {

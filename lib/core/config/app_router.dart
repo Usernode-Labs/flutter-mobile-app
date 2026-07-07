@@ -28,6 +28,7 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_s
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
+import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
@@ -88,6 +89,7 @@ class AppRoutes {
   static const profileSettings = '/profile/settings';
   static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
+  static const dappPinned = '/dapps/pinned/:id';
   static const deviceBenchmark = '/settings/device-benchmark';
   static const deviceBenchmarkRun = '/settings/device-benchmark/run';
   static const deviceBenchmarkResultDetail =
@@ -95,6 +97,7 @@ class AppRoutes {
   static const httpDebugLogs = '/settings/http-debug-logs';
 
   static String dappDetailFor(String slug) => '/dapps/$slug';
+  static String dappPinnedFor(String id) => '/dapps/pinned/$id';
 
   // ZK Identity
   static const zkIdentityDetail = '/challenges/zk-identity';
@@ -357,6 +360,61 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const HomeScreen(
           initialTab: HomeTab.dapps,
         ),
+      ),
+      GoRoute(
+        // Registered before dappDetail for clarity; no actual overlap since
+        // this path has an extra segment (`/dapps/pinned/<id>` vs
+        // `/dapps/<slug>`).
+        path: AppRoutes.dappPinned,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          return Consumer(
+            builder: (context, ref, _) {
+              final pinnedAsync = ref.watch(pinnedDappsProvider);
+              return pinnedAsync.when(
+                loading: () => const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, _) => Scaffold(
+                  appBar: AppBar(),
+                  body: Center(
+                    child: Text('Failed to load pinned dApp: $error'),
+                  ),
+                ),
+                data: (_) {
+                  final dapp =
+                      id == null ? null : ref.watch(pinnedDappByIdProvider(id));
+                  if (dapp == null) {
+                    return Scaffold(
+                      appBar: AppBar(),
+                      body: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('dApp not found'),
+                            Button(
+                              label: 'Back',
+                              size: ButtonSize.small,
+                              onTap: () {
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go(AppRoutes.home);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return DappWebViewScreen(url: dapp.url, name: dapp.name);
+                },
+              );
+            },
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.dappDetail,

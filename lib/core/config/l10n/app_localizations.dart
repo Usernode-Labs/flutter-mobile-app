@@ -3957,6 +3957,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leaderboard participation restored.'**
   String get participantRecoverySuccess;
+
+  /// App bar title of the homescreen-shortcut confirmation screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Home Screen'**
+  String get shortcutConfirmTitle;
+
+  /// Headline of the homescreen-shortcut confirmation screen
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is asking to add a shortcut to your home screen.'**
+  String shortcutConfirmRequest(String name);
+
+  /// Explains where the requested shortcut will navigate
+  ///
+  /// In en, this message translates to:
+  /// **'The shortcut opens {host} inside Usernode.'**
+  String shortcutConfirmOpens(String host);
+
+  /// Note shown on Android about the system pin-shortcut dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Your launcher may ask you to confirm the shortcut.'**
+  String get shortcutConfirmAndroidNote;
+
+  /// Primary button that accepts the homescreen-shortcut request
+  ///
+  /// In en, this message translates to:
+  /// **'Add shortcut'**
+  String get shortcutConfirmAdd;
+
+  /// Button that rejects the homescreen-shortcut request
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get shortcutConfirmCancel;
+
+  /// App bar title of the iOS widget-setup instructions screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add the Usernode widget'**
+  String get widgetInstructionsTitle;
+
+  /// Intro of the iOS widget-setup instructions screen
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was added to your Usernode dApps widget. To see it on your home screen, add the widget once:'**
+  String widgetInstructionsBody(String name);
+
+  /// First step of the iOS widget-setup instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Touch and hold an empty area of your home screen'**
+  String get widgetInstructionsStep1;
+
+  /// Second step of the iOS widget-setup instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Tap Edit in the top corner, then Add Widget'**
+  String get widgetInstructionsStep2;
+
+  /// Third step of the iOS widget-setup instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Search for Usernode and add the dApps widget'**
+  String get widgetInstructionsStep3;
+
+  /// Dismiss button of the iOS widget-setup instructions screen
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get widgetInstructionsDone;
 }
 
 class _AppLocalizationsDelegate

@@ -29,11 +29,11 @@ class _OnboardingBatteryCompleteScreenState
     _checkBatteryStatus();
   }
 
-  Future<void> _completeAndGoToProducedBlocks() async {
+  Future<void> _completeAndGoHome() async {
     await markOnboardingComplete();
     ref.invalidate(hasCompletedOnboardingProvider);
     if (!mounted) return;
-    context.go(AppRoutes.mainNode);
+    context.go(AppRoutes.home);
   }
 
   Future<void> _checkBatteryStatus() async {
@@ -57,7 +57,7 @@ class _OnboardingBatteryCompleteScreenState
   }
 
   Future<void> _onContinue() async {
-    await _completeAndGoToProducedBlocks();
+    await _completeAndGoHome();
   }
 
   @override

@@ -75,10 +75,6 @@ struct SetSmallWidgetPageIntent: AppIntent {
   func perform() async throws -> some IntentResult {
     let defaults = UserDefaults(suiteName: PinnedDappsStore.appGroupId)
     defaults?.set(page == 1 ? 1 : 0, forKey: PinnedDappsStore.smallPageKey)
-    // Tap diagnostics (read via `simctl spawn defaults` while debugging
-    // hit regions): counts how often each arrow actually fired.
-    let diagKey = "widget_diag_page_taps_\(page == 1 ? 1 : 0)"
-    defaults?.set((defaults?.integer(forKey: diagKey) ?? 0) + 1, forKey: diagKey)
     return .result()
   }
 }

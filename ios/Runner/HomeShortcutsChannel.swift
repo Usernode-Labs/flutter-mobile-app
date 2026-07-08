@@ -19,6 +19,8 @@ class HomeShortcutsChannel {
       syncPinnedDapps(call, result: result)
     case "saveWidgetIcon":
       saveWidgetIcon(call, result: result)
+    case "deleteWidgetIcon":
+      deleteWidgetIcon(call, result: result)
     case "listWidgetIconIds":
       listWidgetIconIds(result: result)
     case "isWidgetInstalled":
@@ -71,6 +73,38 @@ class HomeShortcutsChannel {
       result(true)
     } catch {
       print("[HomeShortcuts] Failed to save icon: \(error)")
+      result(false)
+    }
+  }
+
+  private func deleteWidgetIcon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    guard let args = call.arguments as? [String: Any],
+          let id = args["id"] as? String else {
+      result(FlutterError(code: "invalid_args", message: "id is required", details: nil))
+      return
+    }
+    // Ids are hex digests; reject anything else so the id can't traverse paths.
+    guard id.range(of: "^[a-f0-9]+$", options: .regularExpression) != nil else {
+      result(FlutterError(code: "invalid_args", message: "id must be a hex digest", details: nil))
+      return
+    }
+    guard let container = FileManager.default.containerURL(
+      forSecurityApplicationGroupIdentifier: HomeShortcutsChannel.appGroupId
+    ) else {
+      print("[HomeShortcuts] App Group container unavailable")
+      result(false)
+      return
+    }
+    let iconURL = container
+      .appendingPathComponent("pinned_icons", isDirectory: true)
+      .appendingPathComponent("\(id).png")
+    do {
+      if FileManager.default.fileExists(atPath: iconURL.path) {
+        try FileManager.default.removeItem(at: iconURL)
+      }
+      result(true)
+    } catch {
+      print("[HomeShortcuts] Failed to delete icon: \(error)")
       result(false)
     }
   }

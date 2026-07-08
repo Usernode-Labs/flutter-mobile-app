@@ -22,11 +22,11 @@ class _NotificationPermission3ScreenState
   bool? _granted;
   bool _requesting = false;
 
-  Future<void> _completeOnboardingAndGoToProducedBlocks() async {
+  Future<void> _completeOnboardingAndGoHome() async {
     await markOnboardingComplete();
     ref.invalidate(hasCompletedOnboardingProvider);
     if (!mounted) return;
-    context.go(AppRoutes.mainNode);
+    context.go(AppRoutes.home);
   }
 
   @override
@@ -44,7 +44,7 @@ class _NotificationPermission3ScreenState
     // If notifications are already enabled, advance automatically.
     if (status.isGranted && mounted) {
       if (Platform.isIOS) {
-        await _completeOnboardingAndGoToProducedBlocks();
+        await _completeOnboardingAndGoHome();
       } else {
         context.go(AppRoutes.onboardingBatteryPermission2);
       }
@@ -76,7 +76,7 @@ class _NotificationPermission3ScreenState
       // If the user just enabled notifications, advance automatically.
       if (isGranted && mounted) {
         if (Platform.isIOS) {
-          await _completeOnboardingAndGoToProducedBlocks();
+          await _completeOnboardingAndGoHome();
         } else {
           context.go(AppRoutes.onboardingBatteryPermission2);
         }
@@ -142,7 +142,7 @@ class _NotificationPermission3ScreenState
                   size: ButtonSize.large,
                   onTap: () async {
                     if (Platform.isIOS) {
-                      await _completeOnboardingAndGoToProducedBlocks();
+                      await _completeOnboardingAndGoHome();
                     } else {
                       if (!mounted) return;
                       context.go(AppRoutes.onboardingBatteryPermission2);

@@ -8,6 +8,13 @@ bool isAllowedAppDeepLinkPath(String path) {
     return true;
   }
 
+  // Homescreen shortcuts / widget tiles deep-link to locally pinned dapps.
+  // The id only resolves against the local pinned registry, so external
+  // links can't open arbitrary URLs through this path.
+  if (RegExp(r'^/dapps/pinned/[a-f0-9]+$').hasMatch(path)) {
+    return true;
+  }
+
   final dappMatch = RegExp(r'^/dapps/[a-z0-9-]+$').hasMatch(path);
   return dappMatch;
 }

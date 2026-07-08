@@ -77,9 +77,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   }
 
   void _startAutoRefresh() {
+    // _onRefresh calls this after an await, so it can run after dispose()
+    // already cancelled the timer — without the guard it would re-create
+    // the timer on a disposed element and every tick would crash on ref.
+    if (!mounted) return;
     if (_appSleepService.isSleeping) return;
     _refreshTimer?.cancel();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_appSleepService.isSleeping) return;
       // Only refresh if currently on wallet tab (index 1)
       final currentTab = ref.read(currentHomeTabProvider);

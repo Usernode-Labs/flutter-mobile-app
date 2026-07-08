@@ -2212,4 +2212,50 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get participantRecoverySuccess =>
       'Leaderboard participation restored.';
+
+  @override
+  String get shortcutConfirmTitle => 'Add to Home Screen';
+
+  @override
+  String shortcutConfirmRequest(String name) {
+    return '$name is asking to add a shortcut to your home screen.';
+  }
+
+  @override
+  String shortcutConfirmOpens(String host) {
+    return 'The shortcut opens $host inside Usernode.';
+  }
+
+  @override
+  String get shortcutConfirmAndroidNote =>
+      'Your launcher may ask you to confirm the shortcut.';
+
+  @override
+  String get shortcutConfirmAdd => 'Add shortcut';
+
+  @override
+  String get shortcutConfirmCancel => 'Cancel';
+
+  @override
+  String get widgetInstructionsTitle => 'Add the Usernode widget';
+
+  @override
+  String widgetInstructionsBody(String name) {
+    return '$name was added to your Usernode dApps widget. To see it on your home screen, add the widget once:';
+  }
+
+  @override
+  String get widgetInstructionsStep1 =>
+      'Touch and hold an empty area of your home screen';
+
+  @override
+  String get widgetInstructionsStep2 =>
+      'Tap Edit in the top corner, then Add Widget';
+
+  @override
+  String get widgetInstructionsStep3 =>
+      'Search for Usernode and add the dApps widget';
+
+  @override
+  String get widgetInstructionsDone => 'Done';
 }

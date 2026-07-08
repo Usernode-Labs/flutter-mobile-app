@@ -2984,5 +2984,68 @@
   "participantRecoverySuccess": "Leaderboard participation restored.",
   "@participantRecoverySuccess": {
     "description": "Snackbar confirmation after participant ID is restored"
+  },
+  "shortcutConfirmTitle": "Add to Home Screen",
+  "@shortcutConfirmTitle": {
+    "description": "App bar title of the homescreen-shortcut confirmation screen"
+  },
+  "shortcutConfirmRequest": "{name} is asking to add a shortcut to your home screen.",
+  "@shortcutConfirmRequest": {
+    "description": "Headline of the homescreen-shortcut confirmation screen",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shortcutConfirmOpens": "The shortcut opens {host} inside Usernode.",
+  "@shortcutConfirmOpens": {
+    "description": "Explains where the requested shortcut will navigate",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "shortcutConfirmAndroidNote": "Your launcher may ask you to confirm the shortcut.",
+  "@shortcutConfirmAndroidNote": {
+    "description": "Note shown on Android about the system pin-shortcut dialog"
+  },
+  "shortcutConfirmAdd": "Add shortcut",
+  "@shortcutConfirmAdd": {
+    "description": "Primary button that accepts the homescreen-shortcut request"
+  },
+  "shortcutConfirmCancel": "Cancel",
+  "@shortcutConfirmCancel": {
+    "description": "Button that rejects the homescreen-shortcut request"
+  },
+  "widgetInstructionsTitle": "Add the Usernode widget",
+  "@widgetInstructionsTitle": {
+    "description": "App bar title of the iOS widget-setup instructions screen"
+  },
+  "widgetInstructionsBody": "{name} was added to your Usernode dApps widget. To see it on your home screen, add the widget once:",
+  "@widgetInstructionsBody": {
+    "description": "Intro of the iOS widget-setup instructions screen",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "widgetInstructionsStep1": "Touch and hold an empty area of your home screen",
+  "@widgetInstructionsStep1": {
+    "description": "First step of the iOS widget-setup instructions"
+  },
+  "widgetInstructionsStep2": "Tap Edit in the top corner, then Add Widget",
+  "@widgetInstructionsStep2": {
+    "description": "Second step of the iOS widget-setup instructions"
+  },
+  "widgetInstructionsStep3": "Search for Usernode and add the dApps widget",
+  "@widgetInstructionsStep3": {
+    "description": "Third step of the iOS widget-setup instructions"
+  },
+  "widgetInstructionsDone": "Done",
+  "@widgetInstructionsDone": {
+    "description": "Dismiss button of the iOS widget-setup instructions screen"
   }
 }

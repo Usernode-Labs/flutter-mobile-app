@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -478,49 +479,61 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
             if (id == null) return;
 
-            if (method == 'getNodeAddress') {
-              final address = await _getActiveNodeAddress();
-              if (address == null || address.isEmpty) {
-                await _resolveJsPromise(
-                  id: id,
-                  value: null,
-                  error: 'No active account/address available',
-                );
-              } else {
-                await _resolveJsPromise(id: id, value: address, error: null);
+            // Any handler that throws before resolving would otherwise leave
+            // the page's JS promise pending forever (the outer catch below
+            // only logs, and by then the id may be unknown). Reject here so a
+            // bridge caller always settles instead of hanging.
+            try {
+              if (method == 'getNodeAddress') {
+                final address = await _getActiveNodeAddress();
+                if (address == null || address.isEmpty) {
+                  await _resolveJsPromise(
+                    id: id,
+                    value: null,
+                    error: 'No active account/address available',
+                  );
+                } else {
+                  await _resolveJsPromise(id: id, value: address, error: null);
+                }
               }
-            }
 
-            if (method == 'sendTransaction') {
-              await _handleSendTransaction(id, payload);
-            }
+              if (method == 'sendTransaction') {
+                await _handleSendTransaction(id, payload);
+              }
 
-            if (method == 'signMessage') {
-              await _handleSignMessage(id, payload);
-            }
+              if (method == 'signMessage') {
+                await _handleSignMessage(id, payload);
+              }
 
-            if (method == 'txObserved') {
-              await _handleTxObserved(payload);
-            }
+              if (method == 'txObserved') {
+                await _handleTxObserved(payload);
+              }
 
-            if (method == 'getHomeScreenShortcutSupport') {
-              await _handleGetHomeScreenShortcutSupport(id);
-            }
+              if (method == 'getHomeScreenShortcutSupport') {
+                await _handleGetHomeScreenShortcutSupport(id);
+              }
 
-            if (method == 'addHomeScreenShortcut') {
-              await _handleAddHomeScreenShortcut(id, payload);
-            }
+              if (method == 'addHomeScreenShortcut') {
+                await _handleAddHomeScreenShortcut(id, payload);
+              }
 
-            if (method == 'getHomeScreenShortcuts') {
-              await _handleGetHomeScreenShortcuts(id);
-            }
+              if (method == 'getHomeScreenShortcuts') {
+                await _handleGetHomeScreenShortcuts(id);
+              }
 
-            if (method == 'removeHomeScreenShortcut') {
-              await _handleRemoveHomeScreenShortcut(id, payload);
-            }
+              if (method == 'removeHomeScreenShortcut') {
+                await _handleRemoveHomeScreenShortcut(id, payload);
+              }
 
-            if (method == 'reorderHomeScreenShortcuts') {
-              await _handleReorderHomeScreenShortcuts(id, payload);
+              if (method == 'reorderHomeScreenShortcuts') {
+                await _handleReorderHomeScreenShortcuts(id, payload);
+              }
+            } catch (e, st) {
+              debugPrint(
+                  '[Usernode JS-channel] handler error method=$method id=$id: '
+                  '$e\n$st');
+              await _resolveJsPromise(
+                  id: id, value: null, error: 'Internal error');
             }
           } catch (e, st) {
             // Surface dispatch failures so we don't end up with a silently
@@ -1049,15 +1062,36 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<Uint8List?> _downloadShortcutIcon(Uri iconUri) async {
+    final client = http.Client();
     try {
-      final res = await http.get(iconUri).timeout(const Duration(seconds: 10));
+      // followRedirects: false so a 3xx can't bounce us to a loopback/internal
+      // host that _parseShortcutUrl already rejected for the original URL
+      // (SSRF). Anything other than a direct 200 is treated as a miss.
+      final request = http.Request('GET', iconUri)..followRedirects = false;
+      final res =
+          await client.send(request).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) return null;
-      final bytes = res.bodyBytes;
-      if (bytes.isEmpty || bytes.length > _maxShortcutIconBytes) return null;
-      return bytes;
+
+      // Reject up front when the server declares an oversized body, then cap
+      // again while streaming so a missing/lying Content-Length can't OOM the
+      // device before the post-hoc length check would have run.
+      final declaredLength = res.contentLength;
+      if (declaredLength != null && declaredLength > _maxShortcutIconBytes) {
+        return null;
+      }
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk
+          in res.stream.timeout(const Duration(seconds: 10))) {
+        builder.add(chunk);
+        if (builder.length > _maxShortcutIconBytes) return null;
+      }
+      if (builder.isEmpty) return null;
+      return builder.takeBytes();
     } catch (e) {
       debugPrint('[HomeShortcuts] icon download failed: $e');
       return null;
+    } finally {
+      client.close();
     }
   }
 
@@ -1177,32 +1211,43 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     if (iconBytes != null) {
       await HomeShortcutsChannel.saveWidgetIcon(pinned.id, iconBytes);
     }
-    await _syncPinnedToWidget();
-    final widgetInstalled = await HomeShortcutsChannel.isWidgetInstalled();
+    // Report the real sync result rather than a hardcoded true: if the App
+    // Group is unavailable the native side returns false and nothing reaches
+    // the widget, so a caller that trusted `added: true` would show the dapp
+    // as pinned over an empty widget.
+    final added = await _syncPinnedToWidget();
+    // `widgetInstalled` was already fetched by `_shortcutSupport()` above
+    // (whether the widget is on the homescreen doesn't change from pinning),
+    // so reuse it instead of a second platform round-trip.
+    final widgetInstalled = support['widgetInstalled'] == true;
     // silent: background refresh (icon heal) — never interrupt with the
     // add-the-widget walkthrough.
     final silent = args['silent'] == true;
-    if (!widgetInstalled && !silent && mounted) {
-      await _showWidgetInstructions(name);
-    }
+    // Resolve the JS promise before showing the (modal, pop-to-dismiss)
+    // walkthrough — otherwise the page's `await addHomeScreenShortcut(...)`
+    // stays pending for as long as the user leaves the walkthrough open.
     await _resolveJsPromise(
       id: id,
       value: <String, dynamic>{
-        'added': true,
+        'added': added,
         'mechanism': 'widget',
         'widgetInstalled': widgetInstalled,
       },
       error: null,
     );
+    if (added && !widgetInstalled && !silent && mounted) {
+      await _showWidgetInstructions(name);
+    }
   }
 
   /// Mirrors the pinned registry (in registry order — the widget grid
   /// renders the synced JSON array as-is) into the App Group defaults and
-  /// reloads the widget timelines. No-op off iOS.
-  Future<void> _syncPinnedToWidget() async {
-    if (!HomeShortcutsChannel.isIOS) return;
+  /// reloads the widget timelines. Returns whether the native write
+  /// succeeded; treats non-iOS as a successful no-op.
+  Future<bool> _syncPinnedToWidget() async {
+    if (!HomeShortcutsChannel.isIOS) return true;
     final dapps = await ref.read(pinnedDappsProvider.future);
-    await HomeShortcutsChannel.syncPinnedDapps(jsonEncode([
+    return HomeShortcutsChannel.syncPinnedDapps(jsonEncode([
       for (final d in dapps)
         {
           'id': d.id,
@@ -1225,14 +1270,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// same URL, same id).
   Future<void> _handleGetHomeScreenShortcuts(String id) async {
     if (!await _guardTrustedShortcutOrigin(id)) return;
-    final dapps = await ref.read(pinnedDappsProvider.future);
-    final iconIds = HomeShortcutsChannel.isIOS
-        ? await HomeShortcutsChannel.listWidgetIconIds()
-        : const <String>{};
+    // These three reads are independent — fetch them concurrently rather than
+    // paying a prefs read plus two platform round-trips in series.
+    final (dapps, iconIds, support) = await (
+      ref.read(pinnedDappsProvider.future),
+      HomeShortcutsChannel.isIOS
+          ? HomeShortcutsChannel.listWidgetIconIds()
+          : Future.value(const <String>{}),
+      _shortcutSupport(),
+    ).wait;
     await _resolveJsPromise(
       id: id,
       value: <String, dynamic>{
-        ...await _shortcutSupport(),
+        ...support,
         'items': [
           for (final d in dapps)
             {
@@ -1264,6 +1314,9 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
     await ref.read(pinnedDappsProvider.notifier).unpin(shortcutId);
+    // Drop the icon PNG too, otherwise it lingers in the App Group store
+    // forever and a later re-pin of the same URL would show the stale image.
+    await HomeShortcutsChannel.deleteWidgetIcon(shortcutId);
     await _syncPinnedToWidget();
     await _resolveJsPromise(
       id: id,

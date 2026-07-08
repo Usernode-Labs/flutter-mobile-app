@@ -87,6 +87,22 @@ class HomeShortcutsChannel {
     }
   }
 
+  /// iOS: removes a dapp's icon PNG from the App Group container. Called on
+  /// unpin so the icon store doesn't leak files (and so a later re-pin of the
+  /// same URL — which reuses the deterministic id — can't resurrect the stale
+  /// icon). No-op off iOS.
+  static Future<bool> deleteWidgetIcon(String id) async {
+    if (!isIOS) return false;
+    try {
+      return await _channel
+              .invokeMethod<bool>('deleteWidgetIcon', {'id': id}) ??
+          false;
+    } catch (e) {
+      debugPrint('[HomeShortcuts] deleteWidgetIcon failed: $e');
+      return false;
+    }
+  }
+
   /// iOS: ids that currently have an icon PNG in the App Group store.
   /// Lets callers spot registry entries whose icon was never saved (e.g.
   /// pinned by an older page that sent no icon) so they can re-send it.

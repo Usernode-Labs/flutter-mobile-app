@@ -121,14 +121,40 @@ struct PinnedDappsProvider: TimelineProvider {
 
 // MARK: - Views
 
+/// Adaptive branded background with a subtle violet cast (matching the
+/// dapp tiles' violet accent): off-white in light mode, off-black in
+/// dark mode. Home-screen widgets are composited onto an opaque backdrop
+/// by the system, so transparency/materials render as plain white — a
+/// tinted card is the styled alternative. Dynamic UIColors resolve per
+/// appearance, so one gradient serves both modes.
+private enum WidgetBackground {
+  private static func adaptive(
+    light: (CGFloat, CGFloat, CGFloat), dark: (CGFloat, CGFloat, CGFloat)
+  ) -> Color {
+    Color(UIColor { traits in
+      let (r, g, b) = traits.userInterfaceStyle == .dark ? dark : light
+      return UIColor(red: r, green: g, blue: b, alpha: 1)
+    })
+  }
+
+  static let gradient = LinearGradient(
+    colors: [
+      adaptive(light: (0.97, 0.96, 0.99), dark: (0.13, 0.11, 0.20)),
+      adaptive(light: (0.94, 0.93, 0.97), dark: (0.07, 0.07, 0.11)),
+    ],
+    startPoint: .topLeading,
+    endPoint: .bottomTrailing
+  )
+}
+
 private extension View {
   // iOS 17 requires containerBackground for widgets; earlier versions
   // reject it, so branch on availability.
   @ViewBuilder func widgetContainerBackground() -> some View {
     if #available(iOSApplicationExtension 17.0, *) {
-      containerBackground(for: .widget) { Color(UIColor.systemBackground) }
+      containerBackground(WidgetBackground.gradient, for: .widget)
     } else {
-      background(Color(UIColor.systemBackground))
+      background(WidgetBackground.gradient)
     }
   }
 }
@@ -217,9 +243,22 @@ struct UsernodeDappsWidgetView: View {
     let visible = page == 1 ? Array(all.dropFirst(4)) : Array(all.prefix(4))
     let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 2)
     // A single page renders no arrow row, so the freed height goes to
-    // bigger tiles instead of dead space at the bottom.
+    // bigger tiles instead of dead space at the bottom. A lone dapp is
+    // centered at ~60pt to visually match a regular home-screen icon.
     let iconSize: CGFloat = hasSecondPage ? 42 : 48
     let gridSpacing: CGFloat = hasSecondPage ? 6 : 10
+
+    if all.count == 1, let dapp = all.first {
+      // Label width is capped relative to the tile (same margin ratio as
+      // a grid cell), so long names truncate instead of spanning the
+      // whole widget.
+      return AnyView(
+        smallCell(dapp, iconSize: 60, nameFont: .system(size: 11))
+          .frame(width: 92)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+          .widgetURL(URL(string: dapp.deepLink))
+      )
+    }
 
     // Grid pinned to the top, arrows pinned to the bottom. The grid sits
     // in a ZStack keyed by page: when the flip intent lands, WidgetKit
@@ -229,7 +268,7 @@ struct UsernodeDappsWidgetView: View {
     // of the default cross-fade. ZStack (not the VStack directly) so the
     // outgoing and incoming grids overlap during the transition rather
     // than stacking; .clipped() keeps the slide inside the widget.
-    return VStack(spacing: 4) {
+    return AnyView(VStack(spacing: 4) {
       ZStack(alignment: .top) {
         LazyVGrid(columns: columns, spacing: gridSpacing) {
           ForEach(visible) { dapp in
@@ -248,11 +287,13 @@ struct UsernodeDappsWidgetView: View {
       }
     }
     .padding(.bottom, 8)
-    .widgetURL(URL(string: visible.first?.deepLink ?? "usernode://app"))
+    .widgetURL(URL(string: visible.first?.deepLink ?? "usernode://app")))
   }
 
-  @ViewBuilder private func smallCell(_ dapp: PinnedDapp, iconSize: CGFloat) -> some View {
-    let icon = DappIconView(dapp: dapp, iconSize: iconSize, nameFont: .system(size: 9))
+  @ViewBuilder private func smallCell(
+    _ dapp: PinnedDapp, iconSize: CGFloat, nameFont: Font = .system(size: 9)
+  ) -> some View {
+    let icon = DappIconView(dapp: dapp, iconSize: iconSize, nameFont: nameFont)
     #if canImport(AppIntents)
     if #available(iOSApplicationExtension 18.0, *) {
       Button(intent: OpenPinnedDappIntent(deepLink: dapp.deepLink)) { icon }

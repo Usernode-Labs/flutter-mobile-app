@@ -96,13 +96,19 @@ platform :ios do
     scheme = options[:scheme] || 'Runner'
     configuration = options[:configuration] || 'Release'
     
-    # Environment-based provisioning profile selection
+    # Environment-based provisioning profile selection. The widget
+    # extension (org.usernode.app.widgets) is a separate signing target
+    # and needs its own profile; both profiles must be regenerated with
+    # the App Groups capability (group.org.usernode.app) enabled.
     if env_type == 'PROD'
       default_profile = "mobile-apps"
+      default_widget_profile = "mobile-apps-widgets"
     else
       default_profile = "Usernode Internal"
+      default_widget_profile = "Usernode Internal Widgets"
     end
     provisioning_profile = ENV['PROVISIONING_PROFILE_NAME'] || default_profile
+    widget_provisioning_profile = ENV['WIDGET_PROVISIONING_PROFILE_NAME'] || default_widget_profile
     team_id = ENV['APPLE_TEAM_ID'] || '785Y2C9VG2'
 
     build_number, version_string = next_build_info(env_type)
@@ -128,7 +134,8 @@ platform :ios do
         method: "app-store",
         signingStyle: "manual",
         provisioningProfiles: {
-          "org.usernode.app" => provisioning_profile
+          "org.usernode.app" => provisioning_profile,
+          "org.usernode.app.widgets" => widget_provisioning_profile
         }
       },
       xcargs: %(DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY="iPhone Distribution"),

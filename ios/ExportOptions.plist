@@ -18,6 +18,8 @@
     <dict>
         <key>org.usernode.app</key>
         <string>mobile-apps</string>
+        <key>org.usernode.app.widgets</key>
+        <string>mobile-apps-widgets</string>
     </dict>
 </dict>
 </plist>

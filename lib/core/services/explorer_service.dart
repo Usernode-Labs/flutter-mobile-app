@@ -401,8 +401,11 @@ class ExplorerTransactionsResponse {
   }
 
   Map<String, dynamic> toJson() {
+    // Mirror the live API shape (`items`) so a cached blob round-trips back
+    // through [fromJson]. Writing a different key here silently yields an
+    // empty list on read, wiping cached Recent Activity.
     return {
-      'transactions': transactions.map((tx) => tx.toJson()).toList(),
+      'items': transactions.map((tx) => tx.toJson()).toList(),
       'data_source': dataSource.toString(),
       'fetched_at': fetchedAt.millisecondsSinceEpoch,
     };
@@ -459,16 +462,19 @@ class ExplorerTransaction {
   }
 
   Map<String, dynamic> toJson() {
+    // Use the same field names [fromJson] reads from the live API so a cached
+    // entry deserializes back into an identical ExplorerTransaction. (`amount`
+    // round-trips as a number; `token_symbol` is not in the API and is
+    // re-defaulted to TKN on read, so it is intentionally not persisted.)
     return {
-      'id': id,
+      'tx_id': id,
       'tx_type': txType,
       'direction': direction,
       'amount': amount,
-      'token_symbol': tokenSymbol,
-      'timestamp': timestamp.millisecondsSinceEpoch,
+      'timestamp_ms': timestamp.millisecondsSinceEpoch,
       'status': status,
-      'from_address': fromAddress,
-      'to_address': toAddress,
+      'source': fromAddress,
+      'destination': toAddress,
       'block_height': blockHeight,
       'block_hash': blockHash,
     };

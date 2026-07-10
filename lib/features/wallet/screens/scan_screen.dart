@@ -166,7 +166,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       final toPkHash = frb_types.publicKeyHashFromString(s: payload.to);
       final memo = frb_types.Memo.fromUtf8Str(s: payload.memo);
 
-      final resp = await rpc.wallet().txSend(
+      final resp = await rpc.wallet().txSendResult(
             fromPkHash: fromPkHash,
             amount: payload.amount,
             toPkHash: toPkHash,
@@ -176,7 +176,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       if (!mounted) return;
 
       final rpcError = resp?.error;
-      final isQueued = rpcError == null || rpcError.isEmpty;
+      final isQueued = resp?.queued ?? false;
 
       if (isQueued) {
         context.go(AppRoutes.walletSendSuccess, extra: {

@@ -12,6 +12,17 @@ void main() {
       expect(isAllowedAppDeepLinkPath('/dapps/opinion-market'), true);
     });
 
+    test('allows pinned dapp deep links with hex ids only', () {
+      expect(isAllowedAppDeepLinkPath('/dapps/pinned/0a1b2c3d4e5f'), true);
+      expect(isAllowedAppDeepLinkPath('/dapps/pinned/'), false);
+      expect(isAllowedAppDeepLinkPath('/dapps/pinned/UPPERCASE'), false);
+      expect(isAllowedAppDeepLinkPath('/dapps/pinned/abc/extra'), false);
+      expect(
+        isAllowedAppDeepLinkPath('/dapps/pinned/../../wallet/send'),
+        false,
+      );
+    });
+
     test('rejects sensitive or unknown routes', () {
       expect(isAllowedAppDeepLinkPath('/wallet/send'), false);
       expect(isAllowedAppDeepLinkPath('/settings'), false);

@@ -1,33 +1,35 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
-import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/core/providers/syncing_text_provider.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_point_tracker.dart';
 import 'package:crypto_mobile_app/core/utils/challenge_cta_dispatcher.dart';
-import 'package:crypto_mobile_app/design_system/src/block_production_status_card.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_detail_page.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_reward_card.dart';
-import 'package:crypto_mobile_app/design_system/src/status_badge.dart';
+import 'package:crypto_mobile_app/core/utils/utils.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
+import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
-/// Feature screen that wires live API data to [ChallengeDetailPage].
+/// Feature screen that wires live challenge data to a detail page.
 ///
-/// Receives an [EnrichedChallenge] via route extra (identity + optional
-/// activity). Watches [breakdownProvider] for [EventBreakdown] metrics and
-/// uses [ChallengePointTracker] for 24-hour point diffs.
+/// Receives an [EnrichedChallenge] via route extra and resolves the matching
+/// per-challenge [ChallengeProgress] from [breakdownProvider]. All challenges
+/// render through [AtomicChallengeDetailPage]; produce-blocks enriches its hero
+/// with live reward/status/epoch affordances.
 class ChallengeDetailScreen extends ConsumerWidget {
   const ChallengeDetailScreen({super.key, required this.challenge});
 
@@ -38,17 +40,113 @@ class ChallengeDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return _buildAtomicDetail(context, ref);
+  }
+
+  Widget _buildAtomicDetail(BuildContext context, WidgetRef ref) {
+    final dto = challenge.dto;
+
+    final progress = ref.watch(
+      breakdownProvider.select(
+        (s) => s.valueOrNull?.progressForChallenge(dto),
+      ),
+    );
+
+    final l10n = AppLocalizations.of(context);
+    final labels = challengePresentationLabels(l10n);
+    final activeAddress = ref.watch(activeAccountProvider).valueOrNull?.address;
+    final copyableValues = _challengeCopyableValues(
+      address: activeAddress,
+      l10n: l10n,
+    );
+
     final breakdown = ref.watch(breakdownProvider).valueOrNull;
+    final eb = isProduceBlocksChallenge(dto)
+        ? breakdown?.eventBreakdown ??
+            breakdown?.seasonBreakdown?.events
+                .firstWhereOrNull((e) => e.eventId == dto.eventId)
+        : null;
+    final card = mapToAtomicCard(
+      challenge,
+      progress: progress,
+      technicalSuccessRate: eb?.successRate,
+      labels: labels,
+    );
+    final dateText = formatDateRange(dto.scheduleStart, dto.scheduleEnd);
+    final description = _resolveChallengeDetailText(
+      _nonEmpty(dto.description),
+      walletAddress: activeAddress,
+    );
+    final task = _resolveChallengeDetailText(
+      _nonEmpty(dto.task),
+      walletAddress: activeAddress,
+    );
+    final progressHelperText = _progressHelperText(
+      progress: progress,
+      title: dto.goal,
+      description: description,
+      task: task,
+      leftText: card.leftText,
+      rightText: card.rightText,
+    );
+
+    AtomicChallengeDetailPage buildPage(
+      AtomicChallengeTechnicalHeroCardData? heroCard,
+    ) {
+      final hasCta = hasChallengeCta(dto);
+      return AtomicChallengeDetailPage(
+        title: dto.goal,
+        description: description ?? '',
+        task: task != description ? task : null,
+        leftText: card.leftText,
+        rightText: card.rightText,
+        progressHelperText: progressHelperText,
+        heroCard: heroCard,
+        phase: card.phase,
+        fill: card.fill,
+        railTreatment: card.railTreatment,
+        dateText: dateText.isNotEmpty ? dateText : l10n.challengeAvailableNow,
+        pointsLogic: (dto.rewardLogic?.isNotEmpty ?? false)
+            ? _resolveChallengeDetailText(
+                  dto.rewardLogic,
+                  walletAddress: activeAddress,
+                ) ??
+                dto.rewardLogic!
+            : l10n.challengeDefaultPointsLogic,
+        ctaLabel: hasCta
+            ? ((dto.ctaLabel?.isNotEmpty ?? false)
+                ? dto.ctaLabel!
+                : l10n.challengeDefaultCta)
+            : null,
+        rules: _resolveChallengeDetailText(
+          dto.requirements,
+          walletAddress: activeAddress,
+        ),
+        copyableValues: copyableValues,
+        labels: atomicChallengeDetailLabels(l10n),
+        onCopyableValueTap: (value) {
+          Clipboard.setData(ClipboardData(text: value.value));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.walletAddressCopied)),
+          );
+        },
+        onBackTap: () {
+          if (context.canPop()) context.pop();
+        },
+        onCtaTap: hasCta ? () => handleChallengeCta(context, dto) : null,
+      );
+    }
+
+    if (!isProduceBlocksChallenge(dto)) return buildPage(null);
+
     // Season-scoped breakdown: find the EventBreakdown matching this
     // challenge's event for bonus fields (top3, firstBlock, success50%).
-    final eb = breakdown?.eventBreakdown ??
-        breakdown?.seasonBreakdown?.events
-            .firstWhereOrNull((e) => e.eventId == challenge.dto.eventId);
     final blocksSummary = ref.watch(producedBlocksSummaryProvider);
     final nodeStatus = ref.watch(nodeStatusProvider).asData?.value;
     final latestEpoch = nodeStatus?.currentEpoch;
-    // Record point snapshot on each successful data load (skip 0 — aggregator
-    // may not have tallied yet, recording 0 would skew the 24-hour diff).
+
+    // Record point snapshot on each successful data load. Skip zero because
+    // the aggregator may not have tallied yet, which would skew the diff.
     if (challenge.earnedPoints != null && challenge.earnedPoints! > 0) {
       ChallengePointTracker.record(_trackerKey, challenge.earnedPoints!);
     }
@@ -56,20 +154,22 @@ class ChallengeDetailScreen extends ConsumerWidget {
     return FutureBuilder<PointDiff?>(
       future: ChallengePointTracker.getDiffBestEffort(_trackerKey),
       builder: (context, diffSnapshot) {
-        return _buildPage(
-          context,
-          ref,
-          eb,
-          diffSnapshot.data,
-          latestEpoch,
-          nodeStatus,
-          blocksSummary.asData?.value,
+        return buildPage(
+          _buildProduceBlocksHeroCard(
+            context,
+            ref,
+            eb,
+            diffSnapshot.data,
+            latestEpoch,
+            nodeStatus,
+            blocksSummary.asData?.value,
+          ),
         );
       },
     );
   }
 
-  Widget _buildPage(
+  AtomicChallengeTechnicalHeroCardData _buildProduceBlocksHeroCard(
     BuildContext context,
     WidgetRef ref,
     EventBreakdown? eb,
@@ -79,301 +179,190 @@ class ChallengeDetailScreen extends ConsumerWidget {
     ProducedBlocksSummary? blocksSummaryData,
   ) {
     final dto = challenge.dto;
-    final category = mapCategory(dto.category);
-    final variant = mapEnrichedVariant(
-      challenge,
-      eventSuccessRate: eb?.successRate,
-    );
-    final isProduceBlocks = isProduceBlocksChallenge(dto);
-    final ctaLabel = dto.ctaLabel;
-    final ctaLink = dto.ctaLink;
-    final hasCta = ctaLabel != null &&
-        ctaLabel.isNotEmpty &&
-        ctaLink != null &&
-        ctaLink.isNotEmpty;
-
-    // Reward card visibility rules:
-    // - Missed: never shown
-    // - Completed: always shown (full breakdown for produce-blocks, simple otherwise)
-    // - Active: only shown for produce-blocks (full breakdown)
-    final bool showRewardCard = switch (variant) {
-      ChallengeCardVariant.missed => false,
-      ChallengeCardVariant.completed => true,
-      ChallengeCardVariant.active ||
-      ChallengeCardVariant.ongoing =>
-        isProduceBlocks,
-    };
-
-    return ChallengeDetailPage(
-      title: dto.goal,
-      category: category,
-      dateRange:
-          '${_categoryDisplayName(category)} · ${formatDateRange(dto.scheduleStart, dto.scheduleEnd)}',
-      rewardCard: showRewardCard
-          ? _buildRewardCard(context, ref, category, eb, diff, latestEpoch)
-          : null,
-      statusSection: isProduceBlocks
-          ? _buildStatusSection(
-              context,
-              ref,
-              nodeStatus,
-              blocksSummaryData,
-              latestEpoch,
-            )
-          : null,
-      sections: _buildSections(context, dto),
-      totalRewardHeading: showRewardCard
-          ? null
-          : AppLocalizations.of(
-              context,
-            ).challengeTotalReward(formatRewardText(dto.reward)),
-      totalRewardBody: showRewardCard ? null : (dto.rewardLogic ?? ''),
-      pointsBreakdown: _buildPointsBreakdown(dto),
-      pointsBreakdownTotal: dto.activitiesTotal > 0
-          ? '${formatPoints(dto.activitiesTotal)} pts'
-          : null,
-      onBackTap: () => context.pop(),
-      ctaLabel: hasCta ? ctaLabel : null,
-      onCtaTap: hasCta ? () => handleChallengeCta(context, dto) : null,
-    );
-  }
-
-  /// Maps the challenge's embedded activities to display rows for the
-  /// "Points breakdown" section.
-  List<ChallengePointEntry> _buildPointsBreakdown(ChallengeDto dto) {
-    return dto.activities
-        .map((a) => (
-              description: a.description ?? '',
-              points: '+${formatPoints(a.points)}',
-              date: _formatActivityDate(a.activityAt),
-            ))
-        .toList();
-  }
-
-  String? _formatActivityDate(String? iso) {
-    if (iso == null) return null;
-    final parsed = DateTime.tryParse(iso);
-    if (parsed == null) return null;
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', //
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    final d = parsed.toLocal();
-    return '${months[d.month - 1]} ${d.day}, ${d.year}';
-  }
-
-  Widget _buildRewardCard(
-    BuildContext context,
-    WidgetRef ref,
-    ChallengeCategory category,
-    EventBreakdown? eb,
-    PointDiff? diff,
-    int? latestEpoch,
-  ) {
-    final dto = challenge.dto;
-    final isProduceBlocks = isProduceBlocksChallenge(dto);
+    final l10n = AppLocalizations.of(context);
     final successRate = eb?.successRate ?? 0;
 
-    // Max success-rate points for the progress breakdown display.
-    final ceiling = isProduceBlocks
-        ? parseRewardCeiling(formatRewardText(dto.reward))
-        : null;
+    final ceiling = parseRewardCeiling(formatRewardText(dto.reward));
     final maxPts = ceiling != null ? ceiling - kTop3RankBonusPoints : 0;
 
-    // Prefer the server's per-challenge activities sum (same source as the
-    // Points breakdown section); challenge.earnedPoints only reflects the
-    // single primary breakdown activity, so it under-counts multi-activity
-    // challenges (e.g. 500 vs the real 1,500 total).
+    // Prefer the server's per-challenge activities sum; challenge.earnedPoints
+    // only reflects the primary breakdown activity and under-counts
+    // multi-activity challenges.
     final earnedPoints = challenge.displayEarnedPoints;
     final basePoints = challenge.activity?.points;
     final extraPointsTotal = challenge.extraPoints;
     final isSyncing = isProduceBlocksSyncing(
-      isProduceBlocks: isProduceBlocks,
+      isProduceBlocks: true,
       earnedPoints: basePoints,
       successRate: successRate,
     );
     final syncingText = isSyncing
         ? ref.watch(syncingTextProvider).valueOrNull ?? kSyncingTextFallback
         : null;
-    // Calculation row shows base points (success rate × max pts).
+
     final displayBasePoints =
         syncingText ?? (basePoints != null ? formatPoints(basePoints) : '--');
-    // Total earned includes base + extra + all bonuses.
     final totalWithBonuses = (earnedPoints ?? 0) + (eb?.totalBonusPoints ?? 0);
     final displayTotalEarned = syncingText ??
         (earnedPoints != null ? formatPoints(totalWithBonuses) : '--');
-    // Non-produce-blocks challenges show the activities total directly (matches
-    // the Points breakdown), not the single-activity base figure.
-    final displaySimpleEarned =
-        earnedPoints != null ? formatPoints(earnedPoints) : '--';
 
-    // Epoch section: only for produce-blocks challenges.
     final String? epochEarned;
     final String? epochSectionLabel;
-    if (isProduceBlocks) {
-      if (diff != null) {
-        epochEarned = '+${formatPoints(diff.points)}';
-        epochSectionLabel = formatDiffLabel(diff.since);
-      } else if (earnedPoints != null || successRate > 0) {
-        epochEarned = AppLocalizations.of(context).challengeEpochNoChange;
-        epochSectionLabel = AppLocalizations.of(context).challengeEpochLast24h;
-      } else {
-        epochEarned = null;
-        epochSectionLabel = null;
-      }
+    if (diff != null) {
+      epochEarned = '+${formatPoints(diff.points)}';
+      epochSectionLabel = formatDiffLabel(diff.since);
+    } else if (earnedPoints != null || successRate > 0) {
+      epochEarned = AppLocalizations.of(context).challengeEpochNoChange;
+      epochSectionLabel = AppLocalizations.of(context).challengeEpochLast24h;
     } else {
       epochEarned = null;
       epochSectionLabel = null;
     }
 
-    final ChallengeRewardData data;
-    if (isProduceBlocks) {
-      data = ProduceBlocksRewardData(
-        progressFraction: successRate / 100.0,
-        successRate: '${successRate.round()}%',
-        maxPoints: formatPoints(maxPts),
-        totalPoints: displayBasePoints,
-        rankLabel: formatRankOrdinal(eb?.rank),
-        rankReward: '+${formatPoints(eb?.top3Points ?? 0)}',
-        rateLabel: dto.completed ? 'SUCCESS RATE' : 'BLOCK RATE',
-        extraPoints:
-            extraPointsTotal > 0 ? '+${formatPoints(extraPointsTotal)}' : null,
-        firstBlockReward: (eb?.firstBlockPoints ?? 0) > 0
-            ? '+${formatPoints(eb!.firstBlockPoints!)}'
-            : null,
-        successReward: (eb?.success50PercentPoints ?? 0) > 0
-            ? '+${formatPoints(eb!.success50PercentPoints!)}'
-            : null,
+    final formula = syncingText == null
+        ? AtomicChallengeHeroFormula(
+            rateLabel: 'Success rate',
+            rateValue: '${successRate.round()}%',
+            maxLabel: 'Assigned slots',
+            maxValue: formatPoints(maxPts),
+            totalLabel: 'Base reward',
+            totalValue: displayBasePoints,
+          )
+        : null;
+
+    final rankLabel = formatRankOrdinal(eb?.rank);
+    final rewardLines = <AtomicChallengeHeroRewardLine>[
+      AtomicChallengeHeroRewardLine(
+        label: epochSectionLabel ?? l10n.challengeEpochLast24h,
+        value: epochEarned ?? l10n.challengeEpochNoChange,
+      ),
+    ];
+
+    if ((eb?.top3Points ?? 0) > 0 || rankLabel != null) {
+      rewardLines.insert(
+        0,
+        AtomicChallengeHeroRewardLine(
+          label: 'Top 3 rank reward',
+          badge: rankLabel,
+          value: '+${formatPoints(eb?.top3Points ?? 0)}',
+        ),
       );
-    } else {
-      data = const SimpleRewardData();
     }
 
-    return ChallengeRewardCard(
-      category: category,
-      totalEarned: isProduceBlocks ? displayTotalEarned : displaySimpleEarned,
-      data: data,
-      epochSectionLabel: epochSectionLabel,
-      epochEarned: epochEarned,
-      epochLabel: isProduceBlocks && latestEpoch != null
-          ? AppLocalizations.of(context).challengeViewEpochDetails
+    if (extraPointsTotal > 0) {
+      rewardLines.add(
+        AtomicChallengeHeroRewardLine(
+          label: 'Extra points',
+          value: '+${formatPoints(extraPointsTotal)}',
+        ),
+      );
+    }
+    if ((eb?.firstBlockPoints ?? 0) > 0) {
+      rewardLines.add(
+        AtomicChallengeHeroRewardLine(
+          label: 'First block reward',
+          value: '+${formatPoints(eb!.firstBlockPoints!)}',
+        ),
+      );
+    }
+    if ((eb?.success50PercentPoints ?? 0) > 0) {
+      rewardLines.add(
+        AtomicChallengeHeroRewardLine(
+          label: '50% success reward',
+          value: '+${formatPoints(eb!.success50PercentPoints!)}',
+        ),
+      );
+    }
+
+    return AtomicChallengeTechnicalHeroCardData(
+      totalEarned: displayTotalEarned,
+      totalUnit: syncingText == null ? 'pts' : null,
+      formula: formula,
+      rewardLines: rewardLines,
+      epochLabel: latestEpoch != null ? 'View epoch $latestEpoch slots' : null,
+      onEpochTap: latestEpoch != null && blocksSummaryData != null
+          ? () => _navigateToSlots(context, blocksSummaryData, latestEpoch, [
+                'all',
+              ])
           : null,
-      onEpochTap: isProduceBlocks && latestEpoch != null
-          ? () => context.push(
-                AppRoutes.epochPerformance,
-                extra: {'initialEpoch': latestEpoch},
-              )
-          : null,
+      overview: _buildStatusOverview(
+        context,
+        ref,
+        nodeStatus,
+        blocksSummaryData,
+        latestEpoch,
+      ),
     );
   }
 
-  List<ChallengeDetailSection> _buildSections(
-    BuildContext context,
-    ChallengeDto dto,
-  ) {
-    final l10n = AppLocalizations.of(context);
-    final sections = <ChallengeDetailSection>[];
-    if (dto.description != null && dto.description!.isNotEmpty) {
-      sections.add((
-        title: l10n.challengeSectionTheWhy,
-        body: dto.description!,
-      ));
-    }
-    if (dto.task.isNotEmpty) {
-      sections.add((title: l10n.challengeSectionTask, body: dto.task));
-    }
-    if (dto.requirements != null && dto.requirements!.isNotEmpty) {
-      sections.add((
-        title: l10n.challengeSectionRequirements,
-        body: dto.requirements!,
-      ));
-    }
-    return sections;
-  }
-
-  Widget _buildStatusSection(
+  List<AtomicChallengeHeroOverviewItem> _buildStatusOverview(
     BuildContext context,
     WidgetRef ref,
     NodeStatusState? nodeStatus,
     ProducedBlocksSummary? summary,
     int? currentEpoch,
   ) {
-    // Network step — always tappable, navigates to Node Status tab
     void networkOnTap() {
       ref.read(currentHomeTabProvider.notifier).state = HomeTab.nodeStatus;
       context.go(AppRoutes.home);
     }
 
-    final PipelineStepStatus networkStep;
+    final AtomicChallengeHeroOverviewItem networkStep;
     if (nodeStatus == null) {
-      networkStep = PipelineStepStatus(
+      networkStep = AtomicChallengeHeroOverviewItem(
         label: 'Network',
         icon: Symbols.wifi_sharp,
-        trailing: const StepTrailingBadge(
-          label: 'Loading',
-          variant: StatusBadgeVariant.neutral,
-        ),
+        value: 'Loading',
         onTap: networkOnTap,
       );
     } else if (nodeStatus.connectedPeers > 0) {
-      networkStep = PipelineStepStatus(
+      networkStep = AtomicChallengeHeroOverviewItem(
         label: 'Network',
         icon: Symbols.wifi_sharp,
-        trailing: const StepTrailingBadge(
-          label: 'Connected',
-          variant: StatusBadgeVariant.success,
-        ),
+        value: 'Connected',
+        tone: AtomicChallengeHeroOverviewTone.success,
         onTap: networkOnTap,
       );
     } else {
-      networkStep = PipelineStepStatus(
+      networkStep = AtomicChallengeHeroOverviewItem(
         label: 'Network',
         icon: Symbols.wifi_sharp,
-        trailing: const StepTrailingBadge(
-          label: 'Disconnected',
-          variant: StatusBadgeVariant.error,
-        ),
+        value: 'Disconnected',
+        tone: AtomicChallengeHeroOverviewTone.error,
         onTap: networkOnTap,
       );
     }
 
-    // VRF step — tappable when currentEpoch is known
-    final PipelineStepStatus vrfStep;
     final vrfStatus = nodeStatus?.vrfEvaluator?.currentEpochVrfEvaluationStatus;
-    vrfStep = PipelineStepStatus(
+    final vrfValue = switch (vrfStatus) {
+      RpcStatusVrfEvaluationStatus.completed => 'Complete',
+      RpcStatusVrfEvaluationStatus.evaluating => 'Evaluating',
+      RpcStatusVrfEvaluationStatus.pending => 'Pending',
+      null => 'Unknown',
+    };
+    final vrfTone = switch (vrfStatus) {
+      RpcStatusVrfEvaluationStatus.completed =>
+        AtomicChallengeHeroOverviewTone.success,
+      RpcStatusVrfEvaluationStatus.evaluating =>
+        AtomicChallengeHeroOverviewTone.info,
+      RpcStatusVrfEvaluationStatus.pending ||
+      null =>
+        AtomicChallengeHeroOverviewTone.neutral,
+    };
+    final vrfStep = AtomicChallengeHeroOverviewItem(
       label: 'VRF Calculation',
       icon: Symbols.casino_sharp,
-      trailing: switch (vrfStatus) {
-        RpcStatusVrfEvaluationStatus.completed => const StepTrailingBadge(
-            label: 'Complete',
-            variant: StatusBadgeVariant.success,
-          ),
-        RpcStatusVrfEvaluationStatus.evaluating => const StepTrailingBadge(
-            label: 'Evaluating',
-            variant: StatusBadgeVariant.info,
-          ),
-        RpcStatusVrfEvaluationStatus.pending => const StepTrailingBadge(
-            label: 'Pending',
-            variant: StatusBadgeVariant.neutral,
-          ),
-        null => const StepTrailingBadge(
-            label: 'Unknown',
-            variant: StatusBadgeVariant.neutral,
-          ),
-      },
+      value: vrfValue,
+      tone: vrfTone,
       onTap: currentEpoch != null && summary != null
           ? () => _navigateToSlots(context, summary, currentEpoch, ['all'])
           : null,
     );
 
-    // Next Block step — find first scheduled slot with future time
-    final PipelineStepStatus nextBlockStep;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     String? nextBlockText;
 
     if (summary != null) {
-      // Forward iteration: past epochs have no scheduled slots (converted to missed),
-      // so this naturally finds the nearest upcoming slot in the current epoch first.
       for (final epochScore in summary.epochScores) {
         final slots = epochScore.epochData.slotData;
         if (slots == null) continue;
@@ -390,42 +379,34 @@ class ChallengeDetailScreen extends ConsumerWidget {
       }
     }
 
-    // Next Block — tappable when there are upcoming slots
+    final AtomicChallengeHeroOverviewItem nextBlockStep;
     final hasUpcoming = nextBlockText != null;
     if (hasUpcoming) {
-      nextBlockStep = PipelineStepStatus(
+      nextBlockStep = AtomicChallengeHeroOverviewItem(
         label: 'Next Block',
         icon: Symbols.schedule_sharp,
-        trailing: StepTrailingText(text: nextBlockText),
+        value: nextBlockText,
+        tone: AtomicChallengeHeroOverviewTone.info,
         onTap: summary != null
             ? () =>
                 _navigateToSlots(context, summary, currentEpoch, ['upcoming'])
             : null,
       );
     } else if (vrfStatus == RpcStatusVrfEvaluationStatus.completed) {
-      nextBlockStep = const PipelineStepStatus(
+      nextBlockStep = const AtomicChallengeHeroOverviewItem(
         label: 'Next Block',
         icon: Symbols.schedule_sharp,
-        trailing: StepTrailingBadge(
-          label: 'None this epoch',
-          variant: StatusBadgeVariant.neutral,
-        ),
+        value: 'None this epoch',
       );
     } else {
-      nextBlockStep = const PipelineStepStatus(
+      nextBlockStep = const AtomicChallengeHeroOverviewItem(
         label: 'Next Block',
         icon: Symbols.schedule_sharp,
-        trailing: StepTrailingBadge(
-          label: 'Waiting for VRF',
-          variant: StatusBadgeVariant.neutral,
-        ),
+        value: 'Waiting for VRF',
       );
     }
 
-    // Last Produced step — find most recent produced slot across all epochs
-    final PipelineStepStatus lastProducedStep;
     BigInt? lastProducedTimeMs;
-
     if (summary != null) {
       for (final epochScore in summary.epochScores.reversed) {
         final slots = epochScore.epochData.slotData;
@@ -437,73 +418,68 @@ class ChallengeDetailScreen extends ConsumerWidget {
                 slot.slotTimeMs! > lastProducedTimeMs) {
               lastProducedTimeMs = slot.slotTimeMs;
             }
-            break; // Found latest in this epoch, check earlier epochs
+            break;
           }
         }
         if (lastProducedTimeMs != null) break;
       }
     }
 
-    // Last Produced — tappable when there are produced blocks
-    final hasProduced = lastProducedTimeMs != null;
-    if (hasProduced) {
+    final AtomicChallengeHeroOverviewItem lastProducedStep;
+    if (lastProducedTimeMs != null) {
       final agoMs = nowMs - lastProducedTimeMs.toInt();
-      lastProducedStep = PipelineStepStatus(
+      lastProducedStep = AtomicChallengeHeroOverviewItem(
         label: 'Last Produced',
         icon: Symbols.check_circle_sharp,
-        trailing: StepTrailingText(text: _formatTimeAgo(agoMs)),
+        value: _formatTimeAgo(agoMs),
+        tone: AtomicChallengeHeroOverviewTone.success,
         onTap: summary != null
             ? () =>
                 _navigateToSlots(context, summary, currentEpoch, ['produced'])
             : null,
       );
     } else {
-      lastProducedStep = const PipelineStepStatus(
+      lastProducedStep = const AtomicChallengeHeroOverviewItem(
         label: 'Last Produced',
         icon: Symbols.check_circle_sharp,
-        trailing: StepTrailingBadge(
-          label: 'None yet',
-          variant: StatusBadgeVariant.neutral,
-        ),
+        value: 'None yet',
       );
     }
 
-    // Missed Blocks step — count from current epoch
-    final PipelineStepStatus? missedBlocksStep;
+    final AtomicChallengeHeroOverviewItem missedBlocksStep;
     if (summary != null && currentEpoch != null) {
       final currentScore =
           (currentEpoch >= 0 && currentEpoch < summary.epochScores.length)
               ? summary.epochScores[currentEpoch]
               : null;
       final missed = currentScore?.missed ?? 0;
-      missedBlocksStep = PipelineStepStatus(
+      missedBlocksStep = AtomicChallengeHeroOverviewItem(
         label: 'Missed Blocks',
         icon: Symbols.disabled_by_default_sharp,
-        trailing: missed > 0
-            ? StepTrailingText(
-                text: '$missed ${missed == 1 ? 'block' : 'blocks'}',
-              )
-            : const StepTrailingBadge(
-                label: 'None',
-                variant: StatusBadgeVariant.success,
-              ),
+        value:
+            missed > 0 ? '$missed ${missed == 1 ? 'block' : 'blocks'}' : 'None',
+        tone: missed > 0
+            ? AtomicChallengeHeroOverviewTone.warning
+            : AtomicChallengeHeroOverviewTone.success,
         onTap: missed > 0
             ? () => _navigateToSlots(context, summary, currentEpoch, ['missed'])
             : null,
       );
     } else {
-      missedBlocksStep = null;
+      missedBlocksStep = const AtomicChallengeHeroOverviewItem(
+        label: 'Missed Blocks',
+        icon: Symbols.disabled_by_default_sharp,
+        value: 'Loading',
+      );
     }
 
-    return BlockProductionStatusCard(
-      data: BlockProductionStatusData(
-        network: networkStep,
-        vrf: vrfStep,
-        nextBlock: nextBlockStep,
-        lastProduced: lastProducedStep,
-        missedBlocks: missedBlocksStep,
-      ),
-    );
+    return [
+      networkStep,
+      vrfStep,
+      nextBlockStep,
+      lastProducedStep,
+      missedBlocksStep,
+    ];
   }
 
   /// Formats a future time difference as "in ~X min" or "in ~X h".
@@ -576,12 +552,80 @@ class ChallengeDetailScreen extends ConsumerWidget {
       },
     );
   }
-
-  String _categoryDisplayName(ChallengeCategory category) {
-    return switch (category) {
-      ChallengeCategory.technical => 'Technical',
-      ChallengeCategory.community => 'Community',
-      ChallengeCategory.flash => 'Flash',
-    };
-  }
 }
+
+String? _nonEmpty(String? value) {
+  final text = value?.trim();
+  return text == null || text.isEmpty ? null : text;
+}
+
+List<AtomicChallengeCopyableValue> _challengeCopyableValues({
+  required String? address,
+  required AppLocalizations l10n,
+}) {
+  final value = address?.trim();
+  if (value == null || value.isEmpty) return const [];
+
+  return [
+    AtomicChallengeCopyableValue(
+      label: l10n.walletMyAddress,
+      value: value,
+      displayValue: Utils.shortenID(value, head: 6, tail: 6),
+      tooltip: l10n.walletCopyAddress,
+    ),
+  ];
+}
+
+String? _resolveChallengeDetailText(
+  String? value, {
+  required String? walletAddress,
+}) {
+  final text = _nonEmpty(value);
+  final address = walletAddress?.trim();
+  if (text == null || address == null || address.isEmpty) return text;
+
+  // Supported mobile challenge-copy tags:
+  // - {{ user.wallet_address }}
+  // - {{ user.walletAddress }}
+  //
+  // Keep this intentionally narrow until the backend exposes a proper
+  // participant/profile templating contract. The resolved wallet text is also
+  // passed to AtomicChallengeDetailPage as a copyable inline value.
+  return text.replaceAll(
+    RegExp(r'\{\{\s*user\.(wallet_address|walletAddress)\s*\}\}'),
+    address,
+  );
+}
+
+String? _progressHelperText({
+  required ChallengeProgress? progress,
+  required String title,
+  required String? description,
+  required String? task,
+  required String leftText,
+  required String rightText,
+}) {
+  final text = _nonEmpty(progress?.description);
+  if (progress == null || text == null) return null;
+
+  final normalized = _normalizeForComparison(text);
+  final duplicateSources = [
+    title,
+    description,
+    task,
+    leftText,
+    rightText,
+  ].map(_normalizeForComparison);
+  if (duplicateSources.contains(normalized)) return null;
+
+  final hasMeaningfulProgress = progress.state != ChallengeProgressState.none ||
+      progress.current != null ||
+      progress.pendingPoints > 0 ||
+      progress.earnedPoints > 0;
+  if (!hasMeaningfulProgress) return null;
+
+  return text;
+}
+
+String _normalizeForComparison(String? value) =>
+    value?.trim().toLowerCase() ?? '';

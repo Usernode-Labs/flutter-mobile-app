@@ -22,6 +22,7 @@ class AlarmScheduler(
         private const val SCHEDULED_ALARMS_KEY = "scheduled_alarms"
         private const val SCHEDULED_CHANNEL_ID = "slot_alarm_scheduled"
         private const val SCHEDULED_CHANNEL_NAME = "Scheduled Slot Alarms"
+        private const val SCHEDULED_NOTIFICATION_ID = 1002
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -30,11 +31,11 @@ class AlarmScheduler(
     fun scheduleExactAlarm(
         alarmId: String,
         delayMs: Long,
-        slotNumber: Int,
+        globalSlot: Int,
         data: Map<String, Any>
     ): Boolean {
         try {
-            Log.d(TAG, "[AlarmScheduler] Attempting to schedule alarm - ID: $alarmId, Slot: $slotNumber, Delay: $delayMs")
+            Log.d(TAG, "[AlarmScheduler] Attempting to schedule alarm - ID: $alarmId, GlobalSlot: $globalSlot, Delay: $delayMs")
 
             val currentTime = System.currentTimeMillis()
             val scheduledElapsedRealtimeMs = SystemClock.elapsedRealtime()
@@ -50,7 +51,7 @@ class AlarmScheduler(
                     Log.w(TAG, "[AlarmScheduler] Cannot schedule exact alarms - permission not granted")
                     ledger.recordScheduleFailed(
                         alarmId = alarmId,
-                        slotNumber = slotNumber,
+                        globalSlot = globalSlot,
                         triggerAtMs = triggerAtMs,
                         scheduledAtMs = currentTime,
                         scheduledElapsedRealtimeMs = scheduledElapsedRealtimeMs,
@@ -71,7 +72,7 @@ class AlarmScheduler(
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 action = "com.usernode.app.SLOT_ALARM"
                 putExtra("alarmId", alarmId)
-                putExtra("slotNumber", slotNumber)
+                putExtra("globalSlot", globalSlot)
                 putExtra("alarmTimeMs", triggerAtMs)
                 // Fan out provided data map into intent extras for downstream consumers
                 for ((key, value) in data) {
@@ -123,10 +124,10 @@ class AlarmScheduler(
             }
 
             // Save alarm ID for tracking
-            saveScheduledAlarm(alarmId, slotNumber)
+            saveScheduledAlarm(alarmId, globalSlot)
             ledger.recordScheduled(
                 alarmId = alarmId,
-                slotNumber = slotNumber,
+                globalSlot = globalSlot,
                 triggerAtMs = triggerAtMs,
                 scheduledAtMs = currentTime,
                 scheduledElapsedRealtimeMs = scheduledElapsedRealtimeMs,
@@ -137,12 +138,12 @@ class AlarmScheduler(
             )
             Log.d(TAG, "[AlarmScheduler] Alarm saved to SharedPreferences")
 
-            showScheduledNotification(alarmId, slotNumber, triggerAtMs)
+            showScheduledNotification(globalSlot, triggerAtMs)
 
-            Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for slot $slotNumber at $triggerAtMs (in ${effectiveDelayMs/1000}s)")
+            Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for global slot $globalSlot at $triggerAtMs (in ${effectiveDelayMs/1000}s)")
             return true
         } catch (e: Exception) {
-            Log.e(TAG, "[AlarmScheduler] ✗ Error scheduling exact alarm for slot $slotNumber", e)
+            Log.e(TAG, "[AlarmScheduler] ✗ Error scheduling exact alarm for global slot $globalSlot", e)
             return false
         }
     }
@@ -240,9 +241,9 @@ class AlarmScheduler(
         }
     }
 
-    private fun saveScheduledAlarm(alarmId: String, slotNumber: Int) {
+    private fun saveScheduledAlarm(alarmId: String, globalSlot: Int) {
         val alarms = getScheduledAlarms().toMutableMap()
-        alarms[alarmId] = slotNumber
+        alarms[alarmId] = globalSlot
         prefs.edit()
             .putString(SCHEDULED_ALARMS_KEY, alarms.entries.joinToString(",") { "${it.key}:${it.value}" })
             .apply()
@@ -276,8 +277,7 @@ class AlarmScheduler(
     }
 
     private fun showScheduledNotification(
-        alarmId: String,
-        slotNumber: Int,
+        globalSlot: Int,
         alarmTimeMs: Long
     ) {
         try {
@@ -292,12 +292,11 @@ class AlarmScheduler(
             }
 
             val scheduledText = AlarmTimeFormatter.formatScheduledTime(alarmTimeMs)
-            // val message = if (scheduledText != null) {
-            //     "Scheduled slot $slotNumber at $scheduledText"
-            // } else {
-            //     "Scheduled slot $slotNumber"
-            // }
-            val message = "wakeup at $scheduledText"
+            val message = if (scheduledText != null) {
+                "Slot $globalSlot wakeup at $scheduledText"
+            } else {
+                "Slot $globalSlot wakeup scheduled"
+            }
 
             val notification = NotificationCompat.Builder(context, SCHEDULED_CHANNEL_ID)
                 .setSmallIcon(R.drawable.launch_background)
@@ -307,7 +306,7 @@ class AlarmScheduler(
                 .setAutoCancel(true)
                 .build()
 
-            nm.notify(alarmId.hashCode(), notification)
+            nm.notify(SCHEDULED_NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Log.w(TAG, "[AlarmScheduler] Failed to show scheduled notification", e)
         }

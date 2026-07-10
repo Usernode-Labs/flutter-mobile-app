@@ -1288,6 +1288,18 @@ abstract class AppLocalizations {
   /// **'Node Status'**
   String get nodeStatusTitle;
 
+  /// Node status section header grouping peer/epoch/mempool rows
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get nodeSectionNetwork;
+
+  /// Node status section header grouping VRF/best-tip rows
+  ///
+  /// In en, this message translates to:
+  /// **'Chain state'**
+  String get nodeSectionChainState;
+
   /// Peer ID copied snackbar message
   ///
   /// In en, this message translates to:
@@ -2344,6 +2356,18 @@ abstract class AppLocalizations {
   /// **'All Events'**
   String get allEvents;
 
+  /// Fallback label when no specific season is selected
+  ///
+  /// In en, this message translates to:
+  /// **'All Seasons'**
+  String get allSeasons;
+
+  /// Title for season picker bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Select Season'**
+  String get selectSeason;
+
   /// Title for event picker bottom sheet
   ///
   /// In en, this message translates to:
@@ -2362,6 +2386,12 @@ abstract class AppLocalizations {
   /// **'Failed to load challenges'**
   String get challengeFailedToLoad;
 
+  /// Empty state when there are no active challenges
+  ///
+  /// In en, this message translates to:
+  /// **'No active challenges right now.'**
+  String get challengeNoActive;
+
   /// Empty state for completed challenges tab
   ///
   /// In en, this message translates to:
@@ -2379,6 +2409,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'points'**
   String get challengePoints;
+
+  /// Profile screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profileTitle;
+
+  /// Label for the participant token allocation reveal
+  ///
+  /// In en, this message translates to:
+  /// **'Token Allocation'**
+  String get profileTokenAllocation;
+
+  /// Button label that reveals the participant token allocation
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal'**
+  String get profileRevealTokens;
+
+  /// Error shown when the participant token allocation cannot be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Token allocation unavailable.'**
+  String get profileTokenAllocationLoadError;
+
+  /// Profile tab label for completed challenges
+  ///
+  /// In en, this message translates to:
+  /// **'Completed Challenges'**
+  String get profileCompletedChallengesTab;
+
+  /// Profile completed challenges empty state
+  ///
+  /// In en, this message translates to:
+  /// **'No completed challenges yet.'**
+  String get profileNoCompletedChallengesYet;
+
+  /// Profile leaderboard empty state
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard unavailable.'**
+  String get profileLeaderboardUnavailable;
 
   /// CTA button to navigate to leaderboard
   ///
@@ -2401,7 +2473,7 @@ abstract class AppLocalizations {
   /// Section title for challenge description
   ///
   /// In en, this message translates to:
-  /// **'The Why'**
+  /// **'Why it matters'**
   String get challengeSectionTheWhy;
 
   /// Section title for challenge task
@@ -2410,11 +2482,101 @@ abstract class AppLocalizations {
   /// **'Task'**
   String get challengeSectionTask;
 
+  /// Section title for challenge availability
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get challengeSectionAvailable;
+
+  /// Section title for challenge point logic
+  ///
+  /// In en, this message translates to:
+  /// **'How points work'**
+  String get challengeSectionHowPointsWork;
+
+  /// Section title for challenge rules
+  ///
+  /// In en, this message translates to:
+  /// **'Rules'**
+  String get challengeSectionRules;
+
   /// Section title for challenge requirements
   ///
   /// In en, this message translates to:
   /// **'Requirements'**
   String get challengeSectionRequirements;
+
+  /// Fallback challenge availability text when no schedule is present
+  ///
+  /// In en, this message translates to:
+  /// **'Available now'**
+  String get challengeAvailableNow;
+
+  /// Fallback challenge point logic when backend copy is missing
+  ///
+  /// In en, this message translates to:
+  /// **'Points are awarded once this challenge is completed and verified.'**
+  String get challengeDefaultPointsLogic;
+
+  /// Fallback challenge CTA label when backend label is missing but a link exists
+  ///
+  /// In en, this message translates to:
+  /// **'Join the challenge'**
+  String get challengeDefaultCta;
+
+  /// Challenge card phase label for untouched work
+  ///
+  /// In en, this message translates to:
+  /// **'Not done'**
+  String get challengePhaseNotDone;
+
+  /// Challenge card phase label for work in progress
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get challengePhaseInProgress;
+
+  /// Challenge card phase label for work awaiting review
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted'**
+  String get challengePhaseSubmitted;
+
+  /// Challenge card trailing label when submitted work has no point amount yet
+  ///
+  /// In en, this message translates to:
+  /// **'waiting review'**
+  String get challengePhaseWaitingReview;
+
+  /// Challenge card phase label for completed work
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get challengePhaseDone;
+
+  /// Challenges screen featured band label
+  ///
+  /// In en, this message translates to:
+  /// **'Featured'**
+  String get challengeBandFeatured;
+
+  /// Challenges screen band label for challenges ending today
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get challengeBandToday;
+
+  /// Challenges screen band label for challenges ending this week
+  ///
+  /// In en, this message translates to:
+  /// **'This week'**
+  String get challengeBandThisWeek;
+
+  /// Challenges screen band label for season-long challenges
+  ///
+  /// In en, this message translates to:
+  /// **'Season'**
+  String get challengeBandSeason;
 
   /// Fallback epoch earned when no point diff exists
   ///
@@ -2800,6 +2962,18 @@ abstract class AppLocalizations {
   /// **'My address'**
   String get walletMyAddress;
 
+  /// Title/tooltip for the receive (address QR) sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Receive'**
+  String get walletReceive;
+
+  /// Button to copy the wallet address from the receive sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address'**
+  String get walletCopyAddress;
+
   /// Hint text for recipient address field
   ///
   /// In en, this message translates to:
@@ -2829,6 +3003,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sending...'**
   String get walletSending;
+
+  /// Send screen status while a transfer waits for wallet sync
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for sync'**
+  String get walletWaitingForSync;
+
+  /// Send screen helper text while a transfer waits for wallet sync
+  ///
+  /// In en, this message translates to:
+  /// **'You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.'**
+  String get walletWaitingForSyncHelp;
 
   /// Validation error for required field
   ///
@@ -3742,6 +3928,24 @@ abstract class AppLocalizations {
   /// **'No participant ID yet — finish onboarding to share logs'**
   String get httpLogsShareNoParticipant;
 
+  /// Placeholder text for the field that filters HTTP logs by URL substring
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by URL'**
+  String get httpLogsFilterHint;
+
+  /// Empty state shown when no captured requests match the active URL filter
+  ///
+  /// In en, this message translates to:
+  /// **'No requests match the filter.'**
+  String get httpLogsNoMatches;
+
+  /// Caption showing how many captured requests match the active URL filter
+  ///
+  /// In en, this message translates to:
+  /// **'{count} of {total}'**
+  String httpLogsFilterCount(int count, int total);
+
   /// Title of the dialog prompting the user to re-register to restore their participant ID
   ///
   /// In en, this message translates to:
@@ -3771,6 +3975,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leaderboard participation restored.'**
   String get participantRecoverySuccess;
+
+  /// App bar title of the homescreen-shortcut confirmation screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Home Screen'**
+  String get shortcutConfirmTitle;
+
+  /// Headline of the homescreen-shortcut confirmation screen
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is asking to add a shortcut to your home screen.'**
+  String shortcutConfirmRequest(String name);
+
+  /// Explains where the requested shortcut will navigate
+  ///
+  /// In en, this message translates to:
+  /// **'The shortcut opens {host} inside Usernode.'**
+  String shortcutConfirmOpens(String host);
+
+  /// Note shown on Android about the system pin-shortcut dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Your launcher may ask you to confirm the shortcut.'**
+  String get shortcutConfirmAndroidNote;
+
+  /// Primary button that accepts the homescreen-shortcut request
+  ///
+  /// In en, this message translates to:
+  /// **'Add shortcut'**
+  String get shortcutConfirmAdd;
+
+  /// Button that rejects the homescreen-shortcut request
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get shortcutConfirmCancel;
+
+  /// App bar title of the iOS widget-setup instructions screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add the Usernode widget'**
+  String get widgetInstructionsTitle;
+
+  /// Intro of the iOS widget-setup instructions screen
+  ///
+  /// In en, this message translates to:
+  /// **'{name} was added to your Usernode dApps widget. To see it on your home screen, add the widget once:'**
+  String widgetInstructionsBody(String name);
+
+  /// First step of the iOS widget-setup instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Touch and hold an empty area of your home screen'**
+  String get widgetInstructionsStep1;
+
+  /// Second step of the iOS widget-setup instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Tap Edit in the top corner, then Add Widget'**
+  String get widgetInstructionsStep2;
+
+  /// Third step of the iOS widget-setup instructions
+  ///
+  /// In en, this message translates to:
+  /// **'Search for Usernode and add the dApps widget'**
+  String get widgetInstructionsStep3;
+
+  /// Dismiss button of the iOS widget-setup instructions screen
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get widgetInstructionsDone;
 }
 
 class _AppLocalizationsDelegate

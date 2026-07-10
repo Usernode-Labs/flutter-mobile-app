@@ -26,6 +26,16 @@ void main() {
     );
   }
 
+  Widget wrapScaffold(PreferredSizeWidget appBar) {
+    return MaterialApp(
+      theme: themeWithExtensions(),
+      home: Scaffold(
+        appBar: appBar,
+        body: const Center(child: Text('Content')),
+      ),
+    );
+  }
+
   const surfaceKey = ValueKey('top_status_app_bar_surface');
   const bottomBorderKey = ValueKey('top_status_app_bar_bottom_border');
   const profileHitKey = ValueKey('top_status_profile_action_hit');
@@ -59,7 +69,7 @@ void main() {
     expect(find.text('25k pts'), findsOneWidget);
     expect(find.text('Synced'), findsOneWidget);
     expect(find.byIcon(Symbols.account_circle_sharp), findsOneWidget);
-    expect(find.byIcon(Symbols.check_circle_sharp), findsOneWidget);
+    expect(find.byIcon(Symbols.check_sharp), findsOneWidget);
 
     final profileVisual = tester.getRect(find.byKey(profileVisualKey));
     final nodeVisual = tester.getRect(find.byKey(nodeVisualKey));
@@ -101,7 +111,7 @@ void main() {
     expect(find.text('Season 1'), findsOneWidget);
     expect(find.text('Synced'), findsNothing);
     expect(find.byIcon(Symbols.account_circle_sharp), findsOneWidget);
-    expect(find.byIcon(Symbols.check_circle_sharp), findsOneWidget);
+    expect(find.byIcon(Symbols.check_sharp), findsOneWidget);
 
     final surfaceColor = Theme.of(
       tester.element(find.byType(CustomScrollView)),
@@ -125,6 +135,62 @@ void main() {
         tester.getSize(find.byKey(nodeVisualKey)), equals(const Size(40, 40)));
     expect(tester.widget<Icon>(find.byKey(profileIconKey)).size, equals(24));
     expect(tester.widget<Icon>(find.byKey(nodeIconKey)).size, equals(24));
+  });
+
+  testWidgets('scaffold compact variant fits a Scaffold appBar slot', (
+    tester,
+  ) async {
+    var profileTapped = false;
+    var nodeTapped = false;
+
+    await tester.pumpWidget(
+      wrapScaffold(
+        TopStatusAppBar.scaffoldCompact(
+          title: 'dApps',
+          nodeStatus: TopStatusNodeStatus.synced,
+          onProfilePressed: () => profileTapped = true,
+          onNodePressed: () => nodeTapped = true,
+        ),
+      ),
+    );
+
+    expect(find.byType(TopStatusAppBar), findsOneWidget);
+    expect(find.byType(AppBar), findsOneWidget);
+    expect(find.byType(SliverAppBar), findsNothing);
+    expect(find.text('dApps'), findsOneWidget);
+    expect(find.text('Synced'), findsNothing);
+    expect(find.byIcon(Symbols.account_circle_sharp), findsOneWidget);
+    expect(find.byIcon(Symbols.check_sharp), findsOneWidget);
+
+    final surfaceColor = Theme.of(
+      tester.element(find.byType(Scaffold)),
+    ).colorScheme.surfaceContainerLowest;
+    final colors = Theme.of(tester.element(find.byType(Scaffold))).colorScheme;
+    final borders = Theme.of(tester.element(find.byType(Scaffold)))
+        .extension<AppBorders>()!;
+    final topStatus =
+        tester.widget<TopStatusAppBar>(find.byType(TopStatusAppBar));
+    final appBar = tester.widget<AppBar>(find.byType(AppBar));
+    final shape = appBar.shape as Border;
+
+    expect(topStatus.preferredSize, equals(const Size.fromHeight(64)));
+    expect(appBar.toolbarHeight, equals(64));
+    expect(appBar.backgroundColor, equals(surfaceColor));
+    expect(
+      shape.bottom.color,
+      equals(colors.onSurface.withValues(alpha: borders.opacity)),
+    );
+    expect(shape.bottom.width, equals(borders.width));
+    expect(tester.getSize(find.byKey(profileVisualKey)),
+        equals(const Size(40, 40)));
+    expect(
+        tester.getSize(find.byKey(nodeVisualKey)), equals(const Size(40, 40)));
+
+    await tester.tap(find.byKey(profileHitKey));
+    await tester.tap(find.byKey(nodeHitKey));
+
+    expect(profileTapped, isTrue);
+    expect(nodeTapped, isTrue);
   });
 
   testWidgets('large variant morphs pills into icon buttons on scroll', (
@@ -177,36 +243,94 @@ void main() {
     );
   });
 
-  testWidgets('node status supports connecting and offline variants', (
+  testWidgets('node status resolves canonical labels icons and surfaces', (
     tester,
   ) async {
+    Future<void> pumpStatus(TopStatusNodeStatus status) {
+      return tester.pumpWidget(
+        wrap(
+          TopStatusAppBar.large(
+            title: 'Season 1',
+            nodeStatus: status,
+            onProfilePressed: null,
+            onNodePressed: () {},
+          ),
+        ),
+      );
+    }
+
+    await pumpStatus(TopStatusNodeStatus.synced);
+
+    final context = tester.element(find.byType(TopStatusAppBar));
+    final colors = Theme.of(context).colorScheme;
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+
+    final cases = [
+      (
+        status: TopStatusNodeStatus.synced,
+        label: 'Synced',
+        icon: Symbols.check_sharp,
+        background: colors.secondaryContainer,
+        foreground: colors.onSecondaryContainer,
+      ),
+      (
+        status: TopStatusNodeStatus.connecting,
+        label: 'Connecting',
+        icon: Symbols.hourglass_empty_sharp,
+        background: semantic.warning.colorContainer,
+        foreground: semantic.warning.onColorContainer,
+      ),
+      (
+        status: TopStatusNodeStatus.syncing,
+        label: 'Syncing',
+        icon: Symbols.hourglass_empty_sharp,
+        background: semantic.warning.colorContainer,
+        foreground: semantic.warning.onColorContainer,
+      ),
+      (
+        status: TopStatusNodeStatus.offline,
+        label: 'Offline',
+        icon: Symbols.close_sharp,
+        background: colors.errorContainer,
+        foreground: colors.onErrorContainer,
+      ),
+    ];
+
+    for (final testCase in cases) {
+      await pumpStatus(testCase.status);
+
+      final visual = tester.widget<Material>(find.byKey(nodeVisualKey));
+      final icon = tester.widget<Icon>(find.byKey(nodeIconKey));
+
+      expect(find.text(testCase.label), findsOneWidget);
+      expect(find.byIcon(testCase.icon), findsOneWidget);
+      expect(visual.color, equals(testCase.background));
+      expect(icon.color, equals(testCase.foreground));
+    }
+  });
+
+  testWidgets('status intent keeps synced semantically green', (tester) async {
     await tester.pumpWidget(
       wrap(
         const TopStatusAppBar.large(
           title: 'Season 1',
-          nodeStatus: TopStatusNodeStatus.connecting,
+          nodeStatus: TopStatusNodeStatus.synced,
           onProfilePressed: null,
           onNodePressed: null,
         ),
       ),
     );
 
-    expect(find.text('Connecting'), findsOneWidget);
-    expect(find.byIcon(Symbols.sync_sharp), findsOneWidget);
+    final context = tester.element(find.byType(TopStatusAppBar));
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
 
-    await tester.pumpWidget(
-      wrap(
-        const TopStatusAppBar.large(
-          title: 'Season 1',
-          nodeStatus: TopStatusNodeStatus.offline,
-          onProfilePressed: null,
-          onNodePressed: null,
-        ),
-      ),
+    final visual = TopStatusNodeVisual.resolve(
+      context,
+      TopStatusNodeStatus.synced,
     );
 
-    expect(find.text('Offline'), findsOneWidget);
-    expect(find.byIcon(Symbols.wifi_off_sharp), findsOneWidget);
+    expect(visual.backgroundColor, equals(semantic.success.colorContainer));
+    expect(visual.foregroundColor, equals(semantic.success.onColorContainer));
   });
 
   testWidgets('fires profile and node callbacks in expanded and collapsed bars',

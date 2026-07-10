@@ -703,6 +703,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodeStatusTitle => 'Node Status';
 
   @override
+  String get nodeSectionNetwork => 'Network';
+
+  @override
+  String get nodeSectionChainState => 'Chain state';
+
+  @override
   String get nodePeerIdCopied => 'Peer ID copied to clipboard';
 
   @override
@@ -1317,6 +1323,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get allEvents => 'All Events';
 
   @override
+  String get allSeasons => 'All Seasons';
+
+  @override
+  String get selectSeason => 'Select Season';
+
+  @override
   String get selectEvent => 'Select Event';
 
   @override
@@ -1326,6 +1338,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get challengeFailedToLoad => 'Failed to load challenges';
 
   @override
+  String get challengeNoActive => 'No active challenges right now.';
+
+  @override
   String get challengeNoCompleted => 'No completed challenges';
 
   @override
@@ -1333,6 +1348,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get challengePoints => 'points';
+
+  @override
+  String get profileTitle => 'Profile';
+
+  @override
+  String get profileTokenAllocation => 'Token Allocation';
+
+  @override
+  String get profileRevealTokens => 'Reveal';
+
+  @override
+  String get profileTokenAllocationLoadError => 'Token allocation unavailable.';
+
+  @override
+  String get profileCompletedChallengesTab => 'Completed Challenges';
+
+  @override
+  String get profileNoCompletedChallengesYet => 'No completed challenges yet.';
+
+  @override
+  String get profileLeaderboardUnavailable => 'Leaderboard unavailable.';
 
   @override
   String get challengeViewInLeaderboard => 'View in Leaderboard';
@@ -1348,13 +1384,59 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get challengeSectionTheWhy => 'The Why';
+  String get challengeSectionTheWhy => 'Why it matters';
 
   @override
   String get challengeSectionTask => 'Task';
 
   @override
+  String get challengeSectionAvailable => 'Available';
+
+  @override
+  String get challengeSectionHowPointsWork => 'How points work';
+
+  @override
+  String get challengeSectionRules => 'Rules';
+
+  @override
   String get challengeSectionRequirements => 'Requirements';
+
+  @override
+  String get challengeAvailableNow => 'Available now';
+
+  @override
+  String get challengeDefaultPointsLogic =>
+      'Points are awarded once this challenge is completed and verified.';
+
+  @override
+  String get challengeDefaultCta => 'Join the challenge';
+
+  @override
+  String get challengePhaseNotDone => 'Not done';
+
+  @override
+  String get challengePhaseInProgress => 'In progress';
+
+  @override
+  String get challengePhaseSubmitted => 'Submitted';
+
+  @override
+  String get challengePhaseWaitingReview => 'waiting review';
+
+  @override
+  String get challengePhaseDone => 'Done';
+
+  @override
+  String get challengeBandFeatured => 'Featured';
+
+  @override
+  String get challengeBandToday => 'Today';
+
+  @override
+  String get challengeBandThisWeek => 'This week';
+
+  @override
+  String get challengeBandSeason => 'Season';
 
   @override
   String get challengeEpochNoChange => '+0';
@@ -1560,6 +1642,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get walletMyAddress => 'My address';
 
   @override
+  String get walletReceive => 'Receive';
+
+  @override
+  String get walletCopyAddress => 'Copy address';
+
+  @override
   String get walletRecipientAddress => 'Recipient address';
 
   @override
@@ -1573,6 +1661,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get walletSending => 'Sending...';
+
+  @override
+  String get walletWaitingForSync => 'Waiting for sync';
+
+  @override
+  String get walletWaitingForSyncHelp =>
+      'You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.';
 
   @override
   String walletFieldRequired(String fieldName) {
@@ -2100,6 +2195,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'No participant ID yet — finish onboarding to share logs';
 
   @override
+  String get httpLogsFilterHint => 'Filter by URL';
+
+  @override
+  String get httpLogsNoMatches => 'No requests match the filter.';
+
+  @override
+  String httpLogsFilterCount(int count, int total) {
+    return '$count of $total';
+  }
+
+  @override
   String get participantRecoveryTitle => 'Onboarding has evolved';
 
   @override
@@ -2115,4 +2221,50 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get participantRecoverySuccess =>
       'Leaderboard participation restored.';
+
+  @override
+  String get shortcutConfirmTitle => 'Add to Home Screen';
+
+  @override
+  String shortcutConfirmRequest(String name) {
+    return '$name is asking to add a shortcut to your home screen.';
+  }
+
+  @override
+  String shortcutConfirmOpens(String host) {
+    return 'The shortcut opens $host inside Usernode.';
+  }
+
+  @override
+  String get shortcutConfirmAndroidNote =>
+      'Your launcher may ask you to confirm the shortcut.';
+
+  @override
+  String get shortcutConfirmAdd => 'Add shortcut';
+
+  @override
+  String get shortcutConfirmCancel => 'Cancel';
+
+  @override
+  String get widgetInstructionsTitle => 'Add the Usernode widget';
+
+  @override
+  String widgetInstructionsBody(String name) {
+    return '$name was added to your Usernode dApps widget. To see it on your home screen, add the widget once:';
+  }
+
+  @override
+  String get widgetInstructionsStep1 =>
+      'Touch and hold an empty area of your home screen';
+
+  @override
+  String get widgetInstructionsStep2 =>
+      'Tap Edit in the top corner, then Add Widget';
+
+  @override
+  String get widgetInstructionsStep3 =>
+      'Search for Usernode and add the dApps widget';
+
+  @override
+  String get widgetInstructionsDone => 'Done';
 }

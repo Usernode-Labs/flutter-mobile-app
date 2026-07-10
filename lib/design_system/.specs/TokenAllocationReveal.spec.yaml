@@ -45,10 +45,9 @@ pattern_decision:
   uncertainty:
     - Text-only brief; no Figma/sketch reference. User explicitly asked to
       prototype from text, so text_only_override is recorded.
-    - Copy ("Token Allocation", "Tap to reveal", unit label) is placeholder
-      and parameterized; final wording and data source not decided.
-    - Whether the revealed state should persist across sessions is a feature
-      layer concern (exposed via onReveal + revealed param).
+    - Copy is parameterized and localized by the production Profile screen.
+    - The feature layer reads `total_tokens` from the scoped ranking response
+      and persists reveal state per participant, season, event, and value.
 
 structure:
   container:
@@ -81,5 +80,5 @@ token_mappings:
 
 implementation_notes:
   - Presentation-only; amount arrives formatted; onReveal notifies feature layer.
-  - Widgetbook-only page integration this pass (TestnetProfilePageDemo),
-    between the ScoreHeader period chip and the Tabs.
+  - Integrated into Profile between the ScoreHeader period chip and the Tabs,
+    with Widgetbook scenarios retained for isolated review.

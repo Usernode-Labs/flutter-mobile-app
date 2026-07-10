@@ -430,7 +430,7 @@ class EpochSlotSchedulerService {
       final success = await PlatformAlarmService.instance.scheduleAlarm(
         alarmId: alarmId,
         delayMs: delayMs,
-        slotNumber: slot.slotNumber,
+        globalSlot: slot.slotNumber,
         data: {
           'epoch': slot.epoch,
           'slotTime': slot.slotTime.toIso8601String(),

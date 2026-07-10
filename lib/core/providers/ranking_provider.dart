@@ -9,10 +9,8 @@ class RankingController extends LeaderboardNotifier<RankingResult> {
   @override
   bool watchDeps() {
     final pid = ref.watch(participantIdProvider).valueOrNull;
-    final sid = ref.watch(
-      seasonEventContextProvider.select((ctx) => ctx.seasonId),
-    );
-    return pid != null && sid != null;
+    final ctx = ref.watch(seasonEventContextProvider);
+    return pid != null && (ctx.eventId != null || ctx.seasonId != null);
   }
 
   @override
@@ -22,7 +20,8 @@ class RankingController extends LeaderboardNotifier<RankingResult> {
     final service = ref.read(leaderboardApiServiceProvider);
     return service.getRanking(
       participantId: participantId,
-      seasonId: ctx.seasonId,
+      seasonId: ctx.eventId == null ? ctx.seasonId : null,
+      eventId: ctx.eventId,
     );
   }
 }

@@ -47,6 +47,28 @@ int _jsonInt(dynamic v) => v is num ? v.toInt() : int.parse(v as String);
 /// Nullable variant.
 int? _jsonIntN(dynamic v) => v == null ? null : _jsonInt(v);
 
+num _jsonNum(dynamic v) => v is num ? v : num.parse(v as String);
+
+/// Nullable variant.
+num? _jsonNumN(dynamic v) => v == null ? null : _jsonNum(v);
+
+/// Parses backend point economics into the app's integer display model.
+///
+/// The leaderboard may serialize aggregate challenge points as decimals
+/// (for example success-rate based block production points). UI surfaces still
+/// present whole points, so round at the data boundary instead of failing an
+/// entire screen on a fractional aggregate.
+int _jsonPointInt(dynamic v) {
+  final value = _jsonNum(v);
+  if (value.isNaN || value.isInfinite) {
+    throw FormatException('Expected a finite JSON point value.', v);
+  }
+  return value.round();
+}
+
+/// Nullable variant.
+int? _jsonPointIntN(dynamic v) => v == null ? null : _jsonPointInt(v);
+
 /// Coerces to [double].
 double _jsonDouble(dynamic v) =>
     v is num ? v.toDouble() : double.parse(v as String);
@@ -138,6 +160,7 @@ class RankingResult {
   final String scope;
   final int rank;
   final int totalPoints;
+  final int totalTokens;
   final int offchainPoints;
   final int totalParticipants;
   // Scope-specific (event)
@@ -153,6 +176,7 @@ class RankingResult {
     required this.scope,
     required this.rank,
     required this.totalPoints,
+    this.totalTokens = 0,
     required this.offchainPoints,
     required this.totalParticipants,
     this.eventId,
@@ -168,6 +192,7 @@ class RankingResult {
       scope: json['scope'] as String? ?? 'event',
       rank: _jsonIntN(json['rank']) ?? 0,
       totalPoints: _jsonIntN(json['total_points']) ?? 0,
+      totalTokens: _jsonIntN(json['total_tokens']) ?? 0,
       offchainPoints: _jsonIntN(json['offchain_points']) ?? 0,
       totalParticipants: _jsonIntN(json['total_participants']) ?? 0,
       eventId: _jsonIntN(json['event_id']),
@@ -184,6 +209,7 @@ class RankingResult {
         'scope': scope,
         'rank': rank,
         'total_points': totalPoints,
+        'total_tokens': totalTokens,
         'offchain_points': offchainPoints,
         'total_participants': totalParticipants,
         if (eventId != null) 'event_id': eventId,
@@ -220,7 +246,19 @@ class ChallengeDto {
   final String? scheduleEnd;
   final bool enabled;
   final bool completed;
+  final int displayOrder;
+  final bool featured;
+  final int? featuredOrder;
   final String? subCategory;
+
+  /// Optional structured CTA/verification source (backend `source{}` shape:
+  /// `type`/`label`/`url`/`resolver`).
+  final ChallengeSource? source;
+
+  /// Optional metric descriptor (board `metric{}` shape: `kind`/`label`/
+  /// `target`). Drives the atomic card's rail treatment and bounded fill when
+  /// present.
+  final ChallengeMetric? metric;
 
   /// Participant's activities for this challenge, present only when the list
   /// was fetched with `participant_id`. Empty otherwise.
@@ -248,7 +286,12 @@ class ChallengeDto {
     this.scheduleEnd,
     required this.enabled,
     required this.completed,
+    this.displayOrder = 0,
+    this.featured = false,
+    this.featuredOrder,
     this.subCategory,
+    this.source,
+    this.metric,
     this.activities = const [],
     this.activitiesTotal = 0,
   });
@@ -296,13 +339,22 @@ class ChallengeDto {
       scheduleEnd: json['schedule_end'] as String?,
       enabled: json['enabled'] as bool? ?? false,
       completed: json['completed'] as bool? ?? false,
+      displayOrder: _jsonIntN(json['display_order']) ?? 0,
+      featured: json['featured'] as bool? ?? false,
+      featuredOrder: _jsonIntN(json['featured_order']),
       subCategory: json['sub_category'] as String?,
+      source: json['source'] is Map<String, dynamic>
+          ? ChallengeSource.fromJson(json['source'] as Map<String, dynamic>)
+          : null,
+      metric: json['metric'] is Map<String, dynamic>
+          ? ChallengeMetric.fromJson(json['metric'] as Map<String, dynamic>)
+          : null,
       activities: (json['activities'] as List?)
               ?.whereType<Map<String, dynamic>>()
               .map(BreakdownActivity.fromJson)
               .toList() ??
           const [],
-      activitiesTotal: _jsonIntN(json['activities_total']) ?? 0,
+      activitiesTotal: _jsonPointIntN(json['activities_total']) ?? 0,
     );
   }
 
@@ -325,7 +377,12 @@ class ChallengeDto {
         if (scheduleEnd != null) 'schedule_end': scheduleEnd,
         'enabled': enabled,
         'completed': completed,
+        'display_order': displayOrder,
+        'featured': featured,
+        if (featuredOrder != null) 'featured_order': featuredOrder,
         if (subCategory != null) 'sub_category': subCategory,
+        if (source != null) 'source': source!.toJson(),
+        if (metric != null) 'metric': metric!.toJson(),
         'activities': activities.map((a) => a.toJson()).toList(),
         'activities_total': activitiesTotal,
       };
@@ -644,7 +701,7 @@ class BreakdownActivity {
     return BreakdownActivity(
       id: (json['activity_id'] ?? json['id'] ?? '').toString(),
       activityType: json['activity_type'] as String? ?? '',
-      points: _jsonInt(json['points']),
+      points: _jsonPointInt(json['points']),
       description: json['description'] as String?,
       activityAt: json['activity_at'] as String?,
       challengeId: _jsonIntN(json['challenge_id']),
@@ -677,6 +734,7 @@ class EventBreakdown {
   final int? producedBlocks;
   final int? vrfWonSlots;
   final double? successRate;
+  final List<ChallengeProgress> challengeProgress;
   final List<BreakdownActivity> activities;
 
   /// Sum of block-production bonus rewards (first block, top-3, >50% success).
@@ -697,6 +755,7 @@ class EventBreakdown {
     this.producedBlocks,
     this.vrfWonSlots,
     this.successRate,
+    this.challengeProgress = const [],
     this.activities = const [],
   });
 
@@ -705,15 +764,18 @@ class EventBreakdown {
     return EventBreakdown(
       eventId: _jsonInt(eventObj?['id'] ?? json['event_id']),
       eventName: (eventObj?['name'] ?? json['event_name']) as String? ?? '',
-      totalPoints: _jsonInt(json['total_points']),
-      offchainPoints: _jsonInt(json['offchain_points']),
+      totalPoints: _jsonPointInt(json['total_points']),
+      offchainPoints: _jsonPointInt(json['offchain_points']),
       rank: _jsonIntN(json['rank']),
-      firstBlockPoints: _jsonIntN(json['first_block_points']),
-      top3Points: _jsonIntN(json['top_3_points'] ?? json['top3_points']),
-      success50PercentPoints: _jsonIntN(json['success_50_percent_points']),
+      firstBlockPoints: _jsonPointIntN(json['first_block_points']),
+      top3Points: _jsonPointIntN(json['top_3_points'] ?? json['top3_points']),
+      success50PercentPoints: _jsonPointIntN(json['success_50_percent_points']),
       producedBlocks: _jsonIntN(json['produced_blocks']),
       vrfWonSlots: _jsonIntN(json['vrf_won_slots']),
       successRate: _jsonDoubleN(json['success_rate']),
+      challengeProgress: _parseChallengeProgressList(
+        json['challenge_progress'],
+      ),
       activities: (json['activities'] as List?)
               ?.map(
                   (e) => BreakdownActivity.fromJson(e as Map<String, dynamic>))
@@ -736,6 +798,9 @@ class EventBreakdown {
         if (producedBlocks != null) 'produced_blocks': producedBlocks,
         if (vrfWonSlots != null) 'vrf_won_slots': vrfWonSlots,
         if (successRate != null) 'success_rate': successRate,
+        if (challengeProgress.isNotEmpty)
+          'challenge_progress':
+              challengeProgress.map((p) => p.toJson()).toList(),
         'activities': activities.map((a) => a.toJson()).toList(),
       };
 }
@@ -760,8 +825,8 @@ class SeasonBreakdown {
     return SeasonBreakdown(
       seasonId: _jsonInt(seasonObj?['id'] ?? json['season_id']),
       seasonName: (seasonObj?['name'] ?? json['season_name']) as String? ?? '',
-      totalPoints: _jsonInt(json['total_points']),
-      offchainPoints: _jsonInt(json['offchain_points']),
+      totalPoints: _jsonPointInt(json['total_points']),
+      offchainPoints: _jsonPointInt(json['offchain_points']),
       events: (json['events'] as List?)
               ?.map((e) => EventBreakdown.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -786,6 +851,17 @@ class BreakdownResult {
   final int offchainPoints;
   final EventBreakdown? eventBreakdown;
   final SeasonBreakdown? seasonBreakdown;
+  final List<SeasonBreakdown> globalSeasons;
+
+  /// Legacy top-level per-challenge progress.
+  ///
+  /// The current backend owns progress at the event level. Use
+  /// [progressForChallenge] or [allScopedChallengeProgress] so duplicate
+  /// challenge IDs across events cannot silently collide.
+  @Deprecated('Use progressForChallenge or allScopedChallengeProgress.')
+  List<ChallengeProgress>? get challengeProgress => _challengeProgress;
+
+  final List<ChallengeProgress>? _challengeProgress;
 
   const BreakdownResult({
     required this.scope,
@@ -794,19 +870,75 @@ class BreakdownResult {
     required this.offchainPoints,
     this.eventBreakdown,
     this.seasonBreakdown,
-  });
+    this.globalSeasons = const [],
+    List<ChallengeProgress>? challengeProgress,
+  }) : _challengeProgress = challengeProgress;
 
   factory BreakdownResult.fromJson(Map<String, dynamic> json) {
     final scope = json['scope'] as String? ?? 'event';
+    final progress = _parseChallengeProgressList(json['challenge_progress']);
     return BreakdownResult(
       scope: scope,
       displayName: json['display_name'] as String? ?? '',
-      totalPoints: _jsonInt(json['total_points']),
-      offchainPoints: _jsonInt(json['offchain_points']),
+      totalPoints: _jsonPointInt(json['total_points']),
+      offchainPoints: _jsonPointInt(json['offchain_points']),
       eventBreakdown: scope == 'event' ? EventBreakdown.fromJson(json) : null,
       seasonBreakdown:
           scope == 'season' ? SeasonBreakdown.fromJson(json) : null,
+      globalSeasons: scope == 'global'
+          ? (json['seasons'] as List?)
+                  ?.whereType<Map<String, dynamic>>()
+                  .map(SeasonBreakdown.fromJson)
+                  .toList() ??
+              const []
+          : const [],
+      challengeProgress: progress.isEmpty ? null : progress,
     );
+  }
+
+  List<ScopedChallengeProgress> get allScopedChallengeProgress {
+    final scoped = <ScopedChallengeProgress>[];
+    final eventProgress = eventBreakdown?.challengeProgress ?? const [];
+    for (final progress in eventProgress) {
+      scoped.add((eventId: eventBreakdown!.eventId, progress: progress));
+    }
+    if (eventProgress.isEmpty) {
+      for (final progress in _challengeProgress ?? const []) {
+        scoped.add((eventId: eventBreakdown?.eventId, progress: progress));
+      }
+    }
+    for (final event in seasonBreakdown?.events ?? const <EventBreakdown>[]) {
+      for (final progress in event.challengeProgress) {
+        scoped.add((eventId: event.eventId, progress: progress));
+      }
+    }
+    for (final season in globalSeasons) {
+      for (final event in season.events) {
+        for (final progress in event.challengeProgress) {
+          scoped.add((eventId: event.eventId, progress: progress));
+        }
+      }
+    }
+    return List.unmodifiable(scoped);
+  }
+
+  ChallengeProgress? progressForChallenge(ChallengeDto dto) {
+    final scoped = allScopedChallengeProgress;
+    if (dto.eventId != null) {
+      for (final item in scoped) {
+        if (item.eventId == dto.eventId &&
+            item.progress.challengeId == dto.id) {
+          return item.progress;
+        }
+      }
+      return null;
+    }
+
+    final matches = scoped
+        .where((item) => item.progress.challengeId == dto.id)
+        .map((item) => item.progress)
+        .toList();
+    return matches.length == 1 ? matches.single : null;
   }
 
   /// Serialises back to the flat JSON shape that [fromJson] expects.
@@ -820,9 +952,21 @@ class BreakdownResult {
     };
     if (eventBreakdown != null) json.addAll(eventBreakdown!.toJson());
     if (seasonBreakdown != null) json.addAll(seasonBreakdown!.toJson());
+    if (globalSeasons.isNotEmpty) {
+      json['seasons'] = globalSeasons.map((s) => s.toJson()).toList();
+    }
+    if (_challengeProgress != null) {
+      json['challenge_progress'] =
+          _challengeProgress.map((p) => p.toJson()).toList();
+    }
     return json;
   }
 }
+
+typedef ScopedChallengeProgress = ({
+  int? eventId,
+  ChallengeProgress progress,
+});
 
 // ---------------------------------------------------------------------------
 // Event Points (distribution / histogram)
@@ -923,4 +1067,207 @@ class SeasonEventContext {
       eventName: eventName ?? this.eventName,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is SeasonEventContext &&
+            other.seasonId == seasonId &&
+            other.seasonName == seasonName &&
+            other.eventId == eventId &&
+            other.eventName == eventName;
+  }
+
+  @override
+  int get hashCode => Object.hash(seasonId, seasonName, eventId, eventName);
+}
+
+// ---------------------------------------------------------------------------
+// Fair Rewards challenge shape (board "DEFINITIONS" / "APIs?" frames)
+//
+// These types model the live challenge contract. Fields are nullable where the
+// backend can omit optional metadata, and unknown metric kinds remain preserved
+// for safe state-only rendering.
+// ---------------------------------------------------------------------------
+
+/// How a challenge's connected data source resolves participant results
+/// (board "Sources" column).
+class ChallengeSource {
+  /// `legacy` | `manual` | `dapp` | `chain` | `external_source` | ...
+  final String type;
+  final String? label;
+  final String? url;
+
+  /// `agent` | `human` | `code`.
+  final String? resolver;
+
+  const ChallengeSource({
+    required this.type,
+    this.label,
+    this.url,
+    this.resolver,
+  });
+
+  factory ChallengeSource.fromJson(Map<String, dynamic> json) {
+    return ChallengeSource(
+      type: json['type'] as String? ?? 'legacy',
+      label: json['label'] as String?,
+      url: json['url'] as String?,
+      resolver: json['resolver'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'type': type,
+        if (label != null) 'label': label,
+        if (url != null) 'url': url,
+        if (resolver != null) 'resolver': resolver,
+      };
+}
+
+/// Metric kind for a challenge. Drives the atomic card's rail treatment and
+/// whether a bounded progress fill exists.
+enum ChallengeMetricKind { binary, count, percentage, rank, sum, unknown }
+
+ChallengeMetricKind _parseMetricKind(dynamic raw) {
+  return switch ((raw as String?)?.toLowerCase()) {
+    'binary' => ChallengeMetricKind.binary,
+    'count' => ChallengeMetricKind.count,
+    'percentage' => ChallengeMetricKind.percentage,
+    'rank' => ChallengeMetricKind.rank,
+    'sum' => ChallengeMetricKind.sum,
+    _ => ChallengeMetricKind.unknown,
+  };
+}
+
+/// Metric descriptor for a challenge.
+class ChallengeMetric {
+  final ChallengeMetricKind kind;
+  final String? rawKind;
+  final String? label;
+
+  /// Target value for bounded metrics (e.g. 5 for "2 / 5"). Null for unbounded
+  /// or state-only metrics.
+  final num? target;
+
+  const ChallengeMetric({
+    required this.kind,
+    this.rawKind,
+    this.label,
+    this.target,
+  });
+
+  factory ChallengeMetric.fromJson(Map<String, dynamic> json) {
+    final rawKind = json['kind'] as String?;
+    return ChallengeMetric(
+      kind: _parseMetricKind(rawKind),
+      rawKind: rawKind,
+      label: json['label'] as String?,
+      target: _jsonNumN(json['target']),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'kind': rawKind ?? kind.name,
+        if (label != null) 'label': label,
+        if (target != null) 'target': target,
+      };
+}
+
+/// Participant reward state for a challenge (board "Reward State" column).
+enum ChallengeProgressState {
+  none,
+  inProgress,
+  pending,
+  earned,
+  missed,
+  declined
+}
+
+ChallengeProgressState _parseProgressState(dynamic raw) {
+  // Accepts both wire forms ("in progress", "in_progress") and enum names.
+  final normalized =
+      (raw as String?)?.toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  return switch (normalized) {
+    'none' => ChallengeProgressState.none,
+    'in_progress' || 'inprogress' => ChallengeProgressState.inProgress,
+    'pending' => ChallengeProgressState.pending,
+    'earned' => ChallengeProgressState.earned,
+    'missed' => ChallengeProgressState.missed,
+    'declined' => ChallengeProgressState.declined,
+    _ => ChallengeProgressState.none,
+  };
+}
+
+String _progressStateWire(ChallengeProgressState state) {
+  return switch (state) {
+    ChallengeProgressState.none => 'none',
+    ChallengeProgressState.inProgress => 'in progress',
+    ChallengeProgressState.pending => 'pending',
+    ChallengeProgressState.earned => 'earned',
+    ChallengeProgressState.missed => 'missed',
+    ChallengeProgressState.declined => 'declined',
+  };
+}
+
+/// Per-challenge participant progress (board `/me/breakdown`
+/// `challenge_progress[]` shape).
+class ChallengeProgress {
+  final int challengeId;
+  final ChallengeProgressState state;
+
+  /// Current metric value (e.g. 2 for "2 / 5"). Null for state-only metrics.
+  final num? current;
+
+  /// Target metric value (e.g. 5 for "2 / 5"). Null for state-only metrics.
+  final num? target;
+
+  /// Points awaiting verification/finalization.
+  final int pendingPoints;
+
+  /// Points already assigned to the participant.
+  final int earnedPoints;
+
+  /// Short human-readable status (e.g. "Survey submitted and approved").
+  final String? description;
+
+  const ChallengeProgress({
+    required this.challengeId,
+    required this.state,
+    this.current,
+    this.target,
+    this.pendingPoints = 0,
+    this.earnedPoints = 0,
+    this.description,
+  });
+
+  factory ChallengeProgress.fromJson(Map<String, dynamic> json) {
+    return ChallengeProgress(
+      challengeId: _jsonInt(json['challenge_id']),
+      state: _parseProgressState(json['state']),
+      current: _jsonNumN(json['current']),
+      target: _jsonNumN(json['target']),
+      pendingPoints: _jsonPointIntN(json['pending_points']) ?? 0,
+      earnedPoints: _jsonPointIntN(json['earned_points']) ?? 0,
+      description: json['description'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'challenge_id': challengeId,
+        'state': _progressStateWire(state),
+        if (current != null) 'current': current,
+        if (target != null) 'target': target,
+        'pending_points': pendingPoints,
+        'earned_points': earnedPoints,
+        if (description != null) 'description': description,
+      };
+}
+
+List<ChallengeProgress> _parseChallengeProgressList(dynamic raw) {
+  return (raw as List?)
+          ?.whereType<Map<String, dynamic>>()
+          .map(ChallengeProgress.fromJson)
+          .toList() ??
+      const [];
 }

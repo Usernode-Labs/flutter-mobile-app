@@ -13,10 +13,12 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -39,30 +41,44 @@ import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart'
 
 Timer? _headlessProducedBlocksRefreshTimer;
 
+/// Marionette MCP mode initializes MarionetteBinding for runtime inspection
+/// and screenshots by an external AI agent. It must bypass Sentry because
+/// Flutter allows only one WidgetsBinding per process.
+const bool _marionetteEnabled = bool.fromEnvironment('MARIONETTE');
+
 Future<void> main() async {
+  if (_marionetteEnabled && kDebugMode) {
+    MarionetteBinding.ensureInitialized();
+    await _runAppBody(logTag: 'usernode/MarionetteBootstrap');
+    return;
+  }
+
   // NOTE: Do NOT call WidgetsFlutterBinding.ensureInitialized() here.
   // SentryFlutter.init() will initialize SentryWidgetsFlutterBinding which
   // is required for FramesTrackingIntegration to work properly.
+  await SentryUtil.bootstrap(
+    () => _runAppBody(logTag: 'usernode/Bootstrap'),
+  );
+}
 
-  await SentryUtil.bootstrap(() async {
-    // Lock orientation to portrait mode
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+Future<void> _runAppBody({required String logTag}) async {
+  // Lock orientation to portrait mode
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
-    final boot = await AppBootstrap.initNonUi(logTag: 'usernode/Bootstrap');
-    final log = boot.log;
+  final boot = await AppBootstrap.initNonUi(logTag: logTag);
+  final log = boot.log;
 
-    log.info('App started');
-    log.info(
-      'Version check: enabled=${AppConfig.versionCheckEnabled}, host=${AppConfig.versionCheckHost}, intervalSec=${AppConfig.versionCheckIntervalSeconds}',
-    );
+  log.info('App started');
+  log.info(
+    'Version check: enabled=${AppConfig.versionCheckEnabled}, host=${AppConfig.versionCheckHost}, intervalSec=${AppConfig.versionCheckIntervalSeconds}',
+  );
 
-    // Render UI immediately; perform heavy bootstrap asynchronously.
-    log.info('Running app UI');
-    runApp(AppRuntimeRoot(initialContainer: boot.container));
-  });
+  // Render UI immediately; perform heavy bootstrap asynchronously.
+  log.info('Running app UI');
+  runApp(AppRuntimeRoot(initialContainer: boot.container));
 }
 
 /// Headless entrypoint for background Flutter engine
@@ -445,7 +461,13 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         }
         final navContext = appNavigatorKey.currentContext;
         if (navContext == null) return;
-        GoRouter.of(navContext).go(AppRoutes.home);
+        final router = GoRouter.of(navContext);
+        // Waking via a homescreen widget tap deep-links straight into a
+        // pinned dapp; the post-wake reset must not stomp that route (the
+        // deep link can land before this callback runs).
+        final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+        if (currentPath.startsWith('/dapps/pinned/')) return;
+        router.go(AppRoutes.home);
       });
     }
     _wasSleeping = isSleeping;

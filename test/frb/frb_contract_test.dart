@@ -8,6 +8,8 @@
 // code generator or Rust API changes in a way that alters these Dart signatures,
 // these tests will fail to compile or at assignment time.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 // Our façade over FRB
@@ -23,6 +25,7 @@ import 'package:crypto_mobile_app/src/rust/frb_types.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_utxos_by_owner.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
+import 'package:crypto_mobile_app/src/rust/rpc/wallet.dart';
 
 typedef ListBlockchainFn = Future<RpcListBlockchainResp?> Function(
     {int? limit, bool? fromTip});
@@ -38,6 +41,20 @@ typedef TransferFundsFn = Future<RpcWalletTxSendResp?> Function(
     {required PublicKeyHash fromPkHash,
     required BigInt amount,
     required PublicKeyHash toPkHash});
+typedef TransferFundsEventsFn = Stream<WalletTxSendEvent> Function(
+    {required PublicKeyHash fromPkHash,
+    required BigInt amount,
+    required PublicKeyHash toPkHash});
+typedef WalletTxSendFn = Stream<WalletTxSendEvent> Function(
+    {required PublicKeyHash fromPkHash,
+    required BigInt amount,
+    required PublicKeyHash toPkHash,
+    required Memo memo});
+typedef WalletTxSendResultFn = Future<RpcWalletTxSendResp?> Function(
+    {required PublicKeyHash fromPkHash,
+    required BigInt amount,
+    required PublicKeyHash toPkHash,
+    required Memo memo});
 
 void main() {
   group('RustBackendService API signatures (no-load)', () {
@@ -76,6 +93,32 @@ void main() {
         () {
       final TransferFundsFn f = RustBackendService.instance.transferFunds;
       expect(f, isNotNull);
+    });
+
+    test(
+        'transferFundsEvents({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash})',
+        () {
+      final TransferFundsEventsFn f =
+          RustBackendService.instance.transferFundsEvents;
+      expect(f, isNotNull);
+    });
+
+    test('wallet.txSend(...) returns stream events', () {
+      void check(NodeRpcClientWallet wallet) {
+        final WalletTxSendFn f = wallet.txSend;
+        expect(f, isNotNull);
+      }
+
+      expect(check, isNotNull);
+    });
+
+    test('wallet.txSendResult(...) returns final response', () {
+      void check(NodeRpcClientWallet wallet) {
+        final WalletTxSendResultFn f = wallet.txSendResult;
+        expect(f, isNotNull);
+      }
+
+      expect(check, isNotNull);
     });
   });
 
@@ -203,9 +246,24 @@ void main() {
 
     test('RpcWalletTxSendResp members', () {
       void check(RpcWalletTxSendResp r) {
+        final state = r.state; // RpcWalletTxSendState
         final queued = r.queued; // bool
         final error = r.error; // String?
-        expect([queued, error].length, greaterThan(0));
+        final txId = r.txId; // String?
+        expect([state, queued, error, txId].length, greaterThan(0));
+      }
+
+      expect(check, isNotNull);
+    });
+
+    test('WalletTxSendEvent variants', () {
+      void check(WalletTxSendEvent e) {
+        final label = e.when(
+          syncing: () => 'syncing',
+          queued: (txId) => txId,
+          rejected: (error, state) => '$error:$state',
+        );
+        expect(label, isNotEmpty);
       }
 
       expect(check, isNotNull);

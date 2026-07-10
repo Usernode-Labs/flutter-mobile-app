@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
+import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
 
 /// Shows a bottom sheet with node status summary
 void showNodeStatusSummaryModal(BuildContext context) {
@@ -74,14 +76,26 @@ class _NodeStatusSummaryModalState
     ref.read(nodeStatusProvider.notifier).refresh();
   }
 
+  TopStatusNodeVisual _resolveSyncVisual(
+    BuildContext context,
+    SyncStatus? syncStatus, {
+    bool hasRealError = false,
+    TopStatusNodeStatus nullStatus = TopStatusNodeStatus.connecting,
+  }) {
+    return TopStatusNodeVisual.resolve(
+      context,
+      topStatusNodeStatusFromSyncStatus(
+        syncStatus,
+        hasRealError: hasRealError,
+        nullStatus: nullStatus,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    // Sync-status hues come from AppSemanticColors so they actually read as
-    // green/amber. Structural roles (tertiary/primary/outline) are achromatic
-    // grey in this design system; only `error` carries hue from colorScheme.
-    final semantic = theme.extension<AppSemanticColors>()!;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
@@ -101,10 +115,13 @@ class _NodeStatusSummaryModalState
             statusAsync.when(
               data: (status) {
                 if (syncStatus == null) {
+                  final visual = _resolveSyncVisual(context, null);
+
                   // Loading state
                   return _StatusCard(
-                    icon: Symbols.hourglass_empty_sharp,
-                    iconColor: semantic.warning.color,
+                    icon: visual.icon,
+                    iconColor: visual.foregroundColor,
+                    iconBackgroundColor: visual.backgroundColor,
                     title: 'Sync Status',
                     child: Center(
                       child: Text(
@@ -122,32 +139,13 @@ class _NodeStatusSummaryModalState
                 // Calculate sync speed
                 _updateSyncSpeed(currentHeight);
 
-                // Determine icon and color based on state
-                final IconData icon;
-                final Color accentColor;
-                final String statusLabel;
-
-                if (syncStatus.isConnecting) {
-                  icon = Symbols.hourglass_empty_sharp;
-                  accentColor = semantic.warning.color;
-                  statusLabel = 'Connecting';
-                } else if (syncStatus.isSynced) {
-                  icon = Symbols.check_circle_sharp;
-                  accentColor = semantic.success.color;
-                  statusLabel = 'Synced';
-                } else if (syncStatus.isSyncing) {
-                  icon = Symbols.sync_sharp;
-                  accentColor = semantic.warning.color;
-                  statusLabel = 'Syncing';
-                } else {
-                  icon = Symbols.error_sharp;
-                  accentColor = colorScheme.error;
-                  statusLabel = 'Error';
-                }
+                final visual = _resolveSyncVisual(context, syncStatus);
+                final accentColor = visual.foregroundColor;
 
                 return _StatusCard(
-                  icon: icon,
+                  icon: visual.icon,
                   iconColor: accentColor,
+                  iconBackgroundColor: visual.backgroundColor,
                   title: 'Sync Status',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,7 +154,7 @@ class _NodeStatusSummaryModalState
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            statusLabel,
+                            visual.label,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: accentColor,
@@ -255,15 +253,13 @@ class _NodeStatusSummaryModalState
                       nodeStatus.networkBestHeight ?? currentHeight;
                   final syncPercentage = syncStatus.progress;
 
-                  final accentColor = syncStatus.isSynced
-                      ? semantic.success.color
-                      : semantic.warning.color;
+                  final visual = _resolveSyncVisual(context, syncStatus);
+                  final accentColor = visual.foregroundColor;
 
                   return _StatusCard(
-                    icon: syncStatus.isSynced
-                        ? Symbols.check_circle_sharp
-                        : Symbols.sync_sharp,
+                    icon: visual.icon,
                     iconColor: accentColor,
+                    iconBackgroundColor: visual.backgroundColor,
                     title: 'Sync Status',
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,7 +268,7 @@ class _NodeStatusSummaryModalState
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              syncStatus.isSynced ? 'Synced' : 'Syncing',
+                              visual.label,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                                 color: accentColor,
@@ -342,10 +338,12 @@ class _NodeStatusSummaryModalState
                   );
                 }
                 // Show default values when no previous data (instead of placeholder)
-                final accentColor = semantic.warning.color;
+                final visual = _resolveSyncVisual(context, null);
+                final accentColor = visual.foregroundColor;
                 return _StatusCard(
-                  icon: Symbols.hourglass_empty_sharp,
+                  icon: visual.icon,
                   iconColor: accentColor,
+                  iconBackgroundColor: visual.backgroundColor,
                   title: 'Sync Status',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,7 +352,7 @@ class _NodeStatusSummaryModalState
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Connecting',
+                            visual.label,
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: accentColor,
@@ -384,17 +382,26 @@ class _NodeStatusSummaryModalState
                   ),
                 );
               },
-              error: (_, __) => _StatusCard(
-                icon: Symbols.error_sharp,
-                iconColor: colorScheme.error,
-                title: 'Sync Status',
-                child: Text(
-                  'Error loading status',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.error,
+              error: (_, __) {
+                final visual = _resolveSyncVisual(
+                  context,
+                  syncStatus,
+                  hasRealError: true,
+                );
+
+                return _StatusCard(
+                  icon: visual.icon,
+                  iconColor: visual.foregroundColor,
+                  iconBackgroundColor: visual.backgroundColor,
+                  title: 'Sync Status',
+                  child: Text(
+                    'Error loading status',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: visual.foregroundColor,
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
 
             SizedBox(height: spacing.space12),
@@ -679,12 +686,14 @@ class _NodeStatusSummaryModalState
 class _StatusCard extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
+  final Color? iconBackgroundColor;
   final String title;
   final Widget child;
 
   const _StatusCard({
     required this.icon,
     required this.iconColor,
+    this.iconBackgroundColor,
     required this.title,
     required this.child,
   });
@@ -696,6 +705,19 @@ class _StatusCard extends StatelessWidget {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final sizing = Theme.of(context).extension<AppSizing>()!;
     final radii = Theme.of(context).extension<AppRadii>()!;
+    final badgeSize = sizing.iconSmall + spacing.space4;
+    final iconWidget = iconBackgroundColor == null
+        ? Icon(icon, size: sizing.iconXSmall, color: iconColor)
+        : Container(
+            width: badgeSize,
+            height: badgeSize,
+            decoration: BoxDecoration(
+              color: iconBackgroundColor,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, size: sizing.iconXSmall, color: iconColor),
+          );
 
     return Container(
       padding: EdgeInsets.all(spacing.space12),
@@ -711,8 +733,8 @@ class _StatusCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: sizing.iconXSmall, color: iconColor),
-              const SizedBox(width: 6),
+              iconWidget,
+              SizedBox(width: spacing.space4),
               Text(
                 title,
                 style: theme.textTheme.labelMedium?.copyWith(

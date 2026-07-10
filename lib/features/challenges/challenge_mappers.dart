@@ -70,17 +70,23 @@ CategorizedChallenges categorizeChallenges(List<ChallengeDto> challenges) {
 /// Extracts breakdown activities based on the breakdown scope.
 ///
 /// For event scope, returns the event's activities directly.
-/// For season scope, flattens activities across all events.
+/// For season/global scope, flattens activities across all events.
 /// Returns null when breakdown is null or scope is unrecognised.
 List<BreakdownActivity>? extractActivities(BreakdownResult? breakdown) {
   if (breakdown == null) return null;
-  if (breakdown.scope == 'event') {
+  if (breakdown.eventBreakdown != null) {
     return breakdown.eventBreakdown?.activities;
   }
-  if (breakdown.scope == 'season') {
-    final events = breakdown.seasonBreakdown?.events;
-    if (events == null) return null;
-    return events.expand((e) => e.activities).toList();
+  if (breakdown.seasonBreakdown != null) {
+    return breakdown.seasonBreakdown!.events
+        .expand((event) => event.activities)
+        .toList();
+  }
+  if (breakdown.globalSeasons.isNotEmpty) {
+    return breakdown.globalSeasons
+        .expand((season) => season.events)
+        .expand((event) => event.activities)
+        .toList();
   }
   return null;
 }
@@ -207,6 +213,10 @@ class CategorizedEnrichedChallenges {
   });
 }
 
+typedef ChallengeProgressResolver = ChallengeProgress? Function(
+  ChallengeDto dto,
+);
+
 /// Parses a datetime string, treating bare (non-UTC) values as UTC.
 ///
 /// The leaderboard API sends schedule dates without timezone info
@@ -237,22 +247,27 @@ bool _isScheduleExpired(ChallengeDto dto) {
 /// - **Missed**: over but won no points, OR not enabled and not yet over.
 /// - **Active**: enabled, not over.
 CategorizedEnrichedChallenges categorizeEnrichedChallenges(
-  List<EnrichedChallenge> challenges,
-) {
+    List<EnrichedChallenge> challenges,
+    {ChallengeProgressResolver? progressForChallenge}) {
   final active = <EnrichedChallenge>[];
   final completed = <EnrichedChallenge>[];
   final missed = <EnrichedChallenge>[];
 
   for (final c in challenges) {
-    final hasEarnedPoints = (c.displayEarnedPoints ?? 0) > 0;
+    final progress = progressForChallenge?.call(c.dto);
+    final progressEarned = progress?.state == ChallengeProgressState.earned;
+    final hasEarnedPoints =
+        (c.displayEarnedPoints ?? progress?.earnedPoints ?? 0) > 0;
     final over = c.dto.completed || _isScheduleExpired(c.dto);
 
     // HIDE: unreleased challenge — not enabled, not over, no earned points.
-    if (!c.dto.enabled && !over && !hasEarnedPoints) {
+    if (!c.dto.enabled && !over && !hasEarnedPoints && !progressEarned) {
       continue;
     }
 
-    if (over) {
+    if (progressEarned) {
+      completed.add(c);
+    } else if (over) {
       (hasEarnedPoints ? completed : missed).add(c);
     } else if (c.dto.enabled) {
       active.add(c);

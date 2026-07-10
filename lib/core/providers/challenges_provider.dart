@@ -8,7 +8,7 @@ import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 class ChallengesController extends LeaderboardNotifier<List<ChallengeDto>> {
   @override
   bool watchDeps() {
-    ref.watch(seasonEventContextProvider.select((ctx) => ctx.seasonId));
+    ref.watch(seasonEventContextProvider);
     // Refetch once the participant id becomes available so the list comes
     // back with embedded per-challenge activities.
     ref.watch(participantIdProvider.select((p) => p.valueOrNull));
@@ -21,8 +21,10 @@ class ChallengesController extends LeaderboardNotifier<List<ChallengeDto>> {
     final participantId = ref.read(participantIdProvider).valueOrNull;
     final service = ref.read(leaderboardApiServiceProvider);
     return service.getChallenges(
-      seasonId: ctx.seasonId,
+      seasonId: ctx.eventId == null ? ctx.seasonId : null,
+      eventId: ctx.eventId,
       participantId: participantId,
+      activeOnly: true,
     );
   }
 }

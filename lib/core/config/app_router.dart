@@ -12,6 +12,8 @@ import 'package:crypto_mobile_app/features/onboarding/screens/notification_permi
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_setup_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_battery_complete_screen.dart';
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
+import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
@@ -26,10 +28,10 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_s
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
+import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
-import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
@@ -67,9 +69,6 @@ class AppRoutes {
   static const onboardingBatteryComplete = '/onboarding/battery-complete';
   static const staleRegistration = '/stale-registration';
 
-  // Profile (DRAFT — not yet linked from bottom nav; see ProfileScreen)
-  static const profile = '/profile';
-
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
   static const producedBlockDetails = '/produced/block-details';
@@ -84,8 +83,13 @@ class AppRoutes {
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
   static const leaderboard = '/challenges/leaderboard';
+
+  // Profile (Fair Rewards shell): "what I earned" + Settings entry.
+  static const profile = '/profile';
+  static const profileSettings = '/profile/settings';
   static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
+  static const dappPinned = '/dapps/pinned/:id';
   static const deviceBenchmark = '/settings/device-benchmark';
   static const deviceBenchmarkRun = '/settings/device-benchmark/run';
   static const deviceBenchmarkResultDetail =
@@ -93,6 +97,7 @@ class AppRoutes {
   static const httpDebugLogs = '/settings/http-debug-logs';
 
   static String dappDetailFor(String slug) => '/dapps/$slug';
+  static String dappPinnedFor(String id) => '/dapps/pinned/$id';
 
   // ZK Identity
   static const zkIdentityDetail = '/challenges/zk-identity';
@@ -151,12 +156,15 @@ final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
 GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Watch providers to make router reactive and capture their values
-  final hasAnyAccountAsync = ref.watch(hasAnyAccountProvider);
-  final hasCompletedOnboardingAsync = ref.watch(hasCompletedOnboardingProvider);
-  // Watch freshness + bootstrap so the router reacts to stale detection.
-  final registrationFreshness = ref.watch(registrationFreshnessProvider);
-  ref.watch(leaderboardBootstrapProvider);
+  // Do NOT ref.watch state providers here: a watch rebuilds this provider
+  // when they change (e.g. loading -> data right after launch), which
+  // creates a brand-new GoRouter and resets navigation to /splash — this
+  // stomped cold-start deep links from homescreen widgets. The redirect
+  // guard reads fresh values on every run instead, and
+  // GoRouterRefreshStream re-runs it whenever they change. The listen
+  // keeps the bootstrap chain (season/registration freshness) alive
+  // without triggering rebuilds.
+  ref.listen(leaderboardBootstrapProvider, (_, __) {});
 
   return GoRouter(
     navigatorKey: _navigatorKey,
@@ -207,12 +215,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomeScreen(),
-      ),
-      // DRAFT: reachable via context.push(AppRoutes.profile) for review. The
-      // finisher will link it from the app's navigation.
-      GoRoute(
-        path: AppRoutes.profile,
-        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: AppRoutes.slotAssignments,
@@ -344,10 +346,85 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LeaderboardScreen(),
       ),
       GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileSettings,
+        // SettingsScreen is a bare root Scaffold; wrap it with a back app bar
+        // so it works as a pushed page from Profile.
+        builder: (context, state) => Scaffold(
+          appBar: AppBar(title: const Text('Settings')),
+          body: const SettingsScreen(),
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.dapps,
         builder: (context, state) => const HomeScreen(
           initialTab: HomeTab.dapps,
         ),
+      ),
+      GoRoute(
+        // Registered before dappDetail for clarity; no actual overlap since
+        // this path has an extra segment (`/dapps/pinned/<id>` vs
+        // `/dapps/<slug>`).
+        path: AppRoutes.dappPinned,
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          return Consumer(
+            builder: (context, ref, _) {
+              final pinnedAsync = ref.watch(pinnedDappsProvider);
+              return pinnedAsync.when(
+                loading: () => const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                ),
+                error: (error, _) => Scaffold(
+                  appBar: AppBar(),
+                  body: Center(
+                    child: Text('Failed to load pinned dApp: $error'),
+                  ),
+                ),
+                data: (_) {
+                  final dapp =
+                      id == null ? null : ref.watch(pinnedDappByIdProvider(id));
+                  if (dapp == null) {
+                    return Scaffold(
+                      appBar: AppBar(),
+                      body: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('dApp not found'),
+                            Button(
+                              label: 'Back',
+                              size: ButtonSize.small,
+                              onTap: () {
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go(AppRoutes.home);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Keyed by URL: navigating pinned dapp A -> pinned dapp
+                  // B reuses this same route with a new param, and without
+                  // a key the old webview state (still showing A) is kept.
+                  return DappWebViewScreen(
+                    key: ValueKey('pinned:${dapp.url}'),
+                    url: dapp.url,
+                    name: dapp.name,
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.dappDetail,
@@ -394,7 +471,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     );
                   }
 
-                  return DappWebViewScreen(url: dapp.url, name: dapp.name);
+                  // Keyed for the same reason as the pinned route above:
+                  // switching between dapp slugs must rebuild the webview.
+                  return DappWebViewScreen(
+                    key: ValueKey('dapp:${dapp.url}'),
+                    url: dapp.url,
+                    name: dapp.name,
+                  );
                 },
               );
             },
@@ -403,14 +486,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      final hasAny = hasAnyAccountAsync.maybeWhen(
-        data: (v) => v,
-        orElse: () => null,
-      );
-      final hasCompletedOnboarding = hasCompletedOnboardingAsync.maybeWhen(
-        data: (v) => v,
-        orElse: () => null,
-      );
+      // Fresh reads on every evaluation (see note at the top of this
+      // provider); GoRouterRefreshStream re-runs this guard when any of
+      // these change.
+      final hasAny = ref.read(hasAnyAccountProvider).maybeWhen(
+            data: (v) => v,
+            orElse: () => null,
+          );
+      final hasCompletedOnboarding =
+          ref.read(hasCompletedOnboardingProvider).maybeWhen(
+                data: (v) => v,
+                orElse: () => null,
+              );
+      final registrationFreshness = ref.read(registrationFreshnessProvider);
 
       final currentLocation = state.matchedLocation;
       final requestUri = state.uri;

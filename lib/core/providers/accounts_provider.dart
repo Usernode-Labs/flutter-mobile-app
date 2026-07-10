@@ -26,6 +26,11 @@ final accountsProvider = FutureProvider<AccountsRepository>((ref) async {
   return AccountsRepository.create();
 });
 
+final activeAccountProvider = FutureProvider<AccountMeta?>((ref) async {
+  final repo = await ref.watch(accountsProvider.future);
+  return repo.getActive();
+});
+
 class AccountsRepository {
   static const _kIndexKeyBase = 'accounts:index';
   static const _kActiveIdKeyBase = 'accounts:activeId';

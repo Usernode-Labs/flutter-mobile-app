@@ -74,6 +74,32 @@ void main() {
       expect(find.byIcon(Symbols.filter_list_sharp), findsOneWidget);
     });
 
+    testWidgets('keeps trailing actions on the screen keyline', (
+      tester,
+    ) async {
+      const actionKey = ValueKey('top-app-bar-action');
+
+      await tester.pumpWidget(wrap(
+        TopAppBar(
+          title: 'Leaderboard',
+          actions: [
+            IconButton(
+              key: actionKey,
+              onPressed: () {},
+              icon: const Icon(Symbols.settings_sharp),
+            ),
+          ],
+        ),
+      ));
+
+      final context = tester.element(find.byType(TopAppBar));
+      final spacing = Theme.of(context).extension<AppSpacing>()!;
+      final scrollWidth = tester.getSize(find.byType(CustomScrollView)).width;
+      final actionRight = tester.getRect(find.byKey(actionKey)).right;
+
+      expect(scrollWidth - actionRight, closeTo(spacing.space16, 0.1));
+    });
+
     testWidgets('uses SliverAppBar', (tester) async {
       await tester.pumpWidget(wrap(
         const TopAppBar(title: 'Leaderboard'),

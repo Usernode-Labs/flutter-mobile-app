@@ -9,10 +9,8 @@ class BreakdownController extends LeaderboardNotifier<BreakdownResult> {
   @override
   bool watchDeps() {
     final pid = ref.watch(participantIdProvider).valueOrNull;
-    final sid = ref.watch(
-      seasonEventContextProvider.select((ctx) => ctx.seasonId),
-    );
-    return pid != null && sid != null;
+    final ctx = ref.watch(seasonEventContextProvider);
+    return pid != null && (ctx.eventId != null || ctx.seasonId != null);
   }
 
   @override
@@ -22,11 +20,21 @@ class BreakdownController extends LeaderboardNotifier<BreakdownResult> {
     final service = ref.read(leaderboardApiServiceProvider);
     final result = await service.getBreakdown(
       participantId: participantId,
-      seasonId: ctx.seasonId,
+      seasonId: ctx.eventId == null ? ctx.seasonId : null,
+      eventId: ctx.eventId,
     );
     // Update participant event IDs for the event picker filter.
     if (result.seasonBreakdown != null) {
       final ids = result.seasonBreakdown!.events.map((e) => e.eventId).toSet();
+      final prev = ref.read(participantEventIdsProvider);
+      if (ids.length != prev.length || !ids.containsAll(prev)) {
+        ref.read(participantEventIdsProvider.notifier).state = ids;
+      }
+    } else if (result.globalSeasons.isNotEmpty) {
+      final ids = result.globalSeasons
+          .expand((season) => season.events)
+          .map((event) => event.eventId)
+          .toSet();
       final prev = ref.read(participantEventIdsProvider);
       if (ids.length != prev.length || !ids.containsAll(prev)) {
         ref.read(participantEventIdsProvider.notifier).state = ids;

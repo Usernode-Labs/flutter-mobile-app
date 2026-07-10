@@ -15,12 +15,14 @@ import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
 import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
+import com.usernode_labs.usernode.shortcuts.HomeShortcutsHandler
 
 private const val TAG = "usernode/MainActivity"
 private const val ZKPASSPORT_PACKAGE = "app.zkpassport.zkpassport"
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.usernode.app/alarm"
     private val ZKPASSPORT_CHANNEL = "com.usernode.app/zkpassport"
+    private val HOME_SHORTCUTS_CHANNEL = "com.usernode.app/home_shortcuts"
     private lateinit var alarmHandler: AlarmMethodChannelHandler
     private val backgroundStopHandler = Handler(Looper.getMainLooper())
     private val backgroundStopTimeoutMs = 5 * 60 * 1000L
@@ -65,6 +67,14 @@ class MainActivity: FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+
+        val homeShortcutsHandler = HomeShortcutsHandler(applicationContext)
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            HOME_SHORTCUTS_CHANNEL
+        ).setMethodCallHandler { call, result ->
+            homeShortcutsHandler.handleMethodCall(call, result)
         }
         BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
     }
@@ -121,8 +131,11 @@ class MainActivity: FlutterActivity() {
     private fun handleAlarmIntent(intent: Intent?) {
         intent?.let {
             if (it.action == "com.usernode.app.SLOT_ALARM") {
-                val slotNumber = it.getIntExtra("slotNumber", -1)
-                if (slotNumber != -1) {
+                val globalSlot = it.getIntExtra(
+                    "globalSlot",
+                    it.getIntExtra("slotNumber", -1)
+                )
+                if (globalSlot != -1) {
                     // Alarm fired - Flutter will handle via AlarmReceiver callback
                 }
             }

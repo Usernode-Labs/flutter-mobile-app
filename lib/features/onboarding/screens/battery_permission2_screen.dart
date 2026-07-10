@@ -61,13 +61,13 @@ class _BatteryPermission2ScreenState
     if (!mounted) return;
 
     // If battery optimizations are already disabled when this screen is first
-    // shown, skip the remaining battery onboarding and go straight to the
-    // produced blocks screen after marking onboarding complete.
+    // shown, skip the remaining battery onboarding and enter the home shell
+    // after marking onboarding complete.
     if (disabled) {
       await markOnboardingComplete();
       ref.invalidate(hasCompletedOnboardingProvider);
       if (!mounted) return;
-      context.go(AppRoutes.mainNode);
+      context.go(AppRoutes.home);
     }
   }
 

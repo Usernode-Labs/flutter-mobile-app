@@ -7,6 +7,7 @@ import UserNotifications
 @objc class AppDelegate: FlutterAppDelegate {
   private let alarmChannelName = "com.usernode.app/alarm"
   private var alarmChannel: FlutterMethodChannel?
+  private let homeShortcutsChannel = HomeShortcutsChannel()
   private let bgTaskScheduler = BGTaskSchedulerManager()
   private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
@@ -41,6 +42,15 @@ import UserNotifications
       )
       setupMethodChannelHandlers()
       print("[AppDelegate] Method channel '\(alarmChannelName)' configured")
+
+      let shortcutsChannel = FlutterMethodChannel(
+        name: HomeShortcutsChannel.channelName,
+        binaryMessenger: flutterViewController.binaryMessenger
+      )
+      shortcutsChannel.setMethodCallHandler { [weak self] (call, result) in
+        self?.homeShortcutsChannel.handle(call, result: result)
+      }
+      print("[AppDelegate] Method channel '\(HomeShortcutsChannel.channelName)' configured")
     } else {
       print("[AppDelegate] ⚠ Warning - Could not access FlutterViewController")
     }

@@ -4,19 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
-import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
-import 'package:crypto_mobile_app/design_system/src/score_header.dart';
-import 'package:crypto_mobile_app/design_system/src/shimmer_block.dart';
-import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 
 // ---------------------------------------------------------------------------
@@ -32,37 +27,15 @@ class _MockChallengesController extends ChallengesController {
 
   @override
   Future<void> silentRefresh() async {}
-
-  @override
-  Future<void> refresh() async {}
 }
 
 class _LoadingChallengesController extends ChallengesController {
   @override
-  Future<List<ChallengeDto>?> build() {
-    // Return a future that never completes (no Timer, safe for tests).
-    return Completer<List<ChallengeDto>?>().future;
-  }
+  Future<List<ChallengeDto>?> build() =>
+      Completer<List<ChallengeDto>?>().future;
 
   @override
   Future<void> silentRefresh() async {}
-
-  @override
-  Future<void> refresh() async {}
-}
-
-class _MockRankingController extends RankingController {
-  _MockRankingController(this._data);
-  final RankingResult? _data;
-
-  @override
-  Future<RankingResult?> build() async => _data;
-
-  @override
-  Future<void> silentRefresh() async {}
-
-  @override
-  Future<void> refresh() async {}
 }
 
 class _MockBreakdownController extends BreakdownController {
@@ -74,112 +47,109 @@ class _MockBreakdownController extends BreakdownController {
 
   @override
   Future<void> silentRefresh() async {}
-
-  @override
-  Future<void> refresh() async {}
 }
 
-class _MockSeasonsController extends SeasonsController {
-  _MockSeasonsController(this._data);
-  final List<SeasonDto>? _data;
+class _MockRankingController extends RankingController {
+  _MockRankingController(this._data);
+  final RankingResult? _data;
 
   @override
-  Future<List<SeasonDto>?> build() async => _data;
+  Future<RankingResult?> build() async => _data;
 
   @override
   Future<void> silentRefresh() async {}
-
-  @override
-  Future<void> refresh() async {}
 }
 
 // ---------------------------------------------------------------------------
-// Test data
+// Test data — three active challenges that fall into distinct bands.
 // ---------------------------------------------------------------------------
 
-const _testChallenges = [
-  ChallengeDto(
-    id: 1,
-    eventId: 10,
-    eventName: 'Event 10',
-    category: 'technical',
-    goal: 'Produce Every Block',
-    task: 'Successfully produce every block assigned.',
-    reward: '8000',
-    enabled: true,
-    completed: false,
-    scheduleStart: '2025-01-15T00:00:00Z',
-    scheduleEnd: '2099-12-31T00:00:00Z',
-  ),
-  ChallengeDto(
-    id: 2,
-    eventId: 10,
-    eventName: 'Event 10',
+ChallengeDto _ch(
+  int id,
+  String goal,
+  Duration endsIn, {
+  ChallengeMetric? metric,
+  String reward = '500',
+  bool completed = false,
+  int activitiesTotal = 0,
+  int? eventId = 1,
+}) {
+  final now = DateTime.now();
+  return ChallengeDto(
+    id: id,
+    eventId: eventId,
+    eventName: eventId == null ? null : 'Phase 1',
     category: 'community',
-    goal: 'Prove Humanity',
-    task: 'Complete the humanity verification.',
-    reward: '1000',
+    goal: goal,
+    task: goal,
+    reward: reward,
+    metric: metric,
     enabled: true,
-    completed: true,
-    scheduleStart: '2025-01-15T00:00:00Z',
-    // Future date — without breakdown this stays active; with breakdown
-    // the matching activity makes it completed.
-    scheduleEnd: '2099-12-31T00:00:00Z',
+    completed: completed,
+    activitiesTotal: activitiesTotal,
+    scheduleStart: now.subtract(const Duration(days: 2)).toIso8601String(),
+    scheduleEnd: now.add(endsIn).toIso8601String(),
+  );
+}
+
+List<ChallengeDto> _challenges() => [
+      _ch(101, 'Propose an app change', const Duration(days: 10),
+          metric: const ChallengeMetric(kind: ChallengeMetricKind.binary)),
+      _ch(102, 'Fill in survey', const Duration(hours: 5, minutes: 1),
+          metric: const ChallengeMetric(kind: ChallengeMetricKind.binary)),
+      _ch(103, 'Give kudos', const Duration(days: 4, hours: 1),
+          reward: '1500',
+          metric: const ChallengeMetric(
+            kind: ChallengeMetricKind.count,
+            target: 5,
+          )),
+    ];
+
+const List<ChallengeProgress> _baseProgress = [
+  ChallengeProgress(challengeId: 101, state: ChallengeProgressState.none),
+  ChallengeProgress(
+    challengeId: 102,
+    state: ChallengeProgressState.pending,
+    pendingPoints: 500,
+    description: 'Submitted',
   ),
-  ChallengeDto(
-    id: 3,
-    eventId: 11,
-    eventName: 'Event 11',
-    category: 'flash',
-    goal: 'Quick Challenge',
-    task: 'A missed flash challenge.',
-    reward: '500',
-    enabled: true,
-    completed: false,
-    scheduleStart: '2025-01-01T00:00:00Z',
-    scheduleEnd: '2025-01-14T00:00:00Z',
+  ChallengeProgress(
+    challengeId: 103,
+    state: ChallengeProgressState.inProgress,
+    current: 2,
+    target: 5,
+    earnedPoints: 400,
   ),
 ];
 
-const _testRanking = RankingResult(
-  scope: 'season',
-  rank: 44,
-  totalPoints: 8000,
-  offchainPoints: 0,
-  totalParticipants: 100,
-  seasonId: 1,
-  seasonName: 'Season 2',
-);
+BreakdownResult _breakdown({
+  List<ChallengeProgress> progress = _baseProgress,
+}) =>
+    BreakdownResult(
+      scope: 'season',
+      displayName: 'Season 1',
+      totalPoints: 8000,
+      offchainPoints: 8000,
+      seasonBreakdown: SeasonBreakdown(
+        seasonId: 1,
+        seasonName: 'Season 1',
+        totalPoints: 8000,
+        offchainPoints: 8000,
+        events: [
+          EventBreakdown(
+            eventId: 1,
+            eventName: 'Phase 1',
+            totalPoints: 8000,
+            offchainPoints: 8000,
+            challengeProgress: progress,
+          ),
+        ],
+      ),
+    );
 
-const _testSeasons = [
-  SeasonDto(
-    id: 1,
-    name: 'Season 2',
-    isActive: true,
-    events: [
-      SeasonEventDto(id: 10, name: 'Event 10', isActive: true),
-      SeasonEventDto(id: 11, name: 'Event 11', isActive: false),
-    ],
-  ),
-];
-
-const _testContext = SeasonEventContext(
-  seasonId: 1,
-  seasonName: 'Season 2',
-  eventId: 10,
-  eventName: 'Event 10',
-);
-
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
-
-Widget _buildTestApp({
+Widget _app({
   List<ChallengeDto>? challengeData,
-  RankingResult? rankingData,
   BreakdownResult? breakdownData,
-  List<SeasonDto>? seasonsData,
-  SeasonEventContext seasonContext = _testContext,
   bool loading = false,
 }) {
   return ProviderScope(
@@ -187,17 +157,14 @@ Widget _buildTestApp({
       if (loading)
         challengesProvider.overrideWith(_LoadingChallengesController.new)
       else
-        challengesProvider.overrideWith(
-          () => _MockChallengesController(challengeData),
-        ),
-      rankingProvider.overrideWith(() => _MockRankingController(rankingData)),
-      breakdownProvider.overrideWith(
-        () => _MockBreakdownController(breakdownData),
-      ),
+        challengesProvider
+            .overrideWith(() => _MockChallengesController(challengeData)),
+      breakdownProvider
+          .overrideWith(() => _MockBreakdownController(breakdownData)),
+      rankingProvider.overrideWith(() => _MockRankingController(null)),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
-      seasonEventContextProvider.overrideWith((ref) => seasonContext),
-      seasonsProvider.overrideWith(
-        () => _MockSeasonsController(seasonsData ?? _testSeasons),
+      seasonEventContextProvider.overrideWith(
+        (ref) => const SeasonEventContext(seasonId: 1, seasonName: 'Season 1'),
       ),
     ],
     child: MaterialApp(
@@ -214,220 +181,79 @@ Widget _buildTestApp({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 void main() {
-  group('ChallengesScreen', () {
-    testWidgets('renders ScoreHeader with ranking data', (tester) async {
+  group('ChallengesScreen (bands)', () {
+    testWidgets('renders the top status bar and points label', (tester) async {
       await tester.pumpWidget(
-        _buildTestApp(
-          challengeData: _testChallenges,
-          rankingData: _testRanking,
-        ),
+        _app(challengeData: _challenges(), breakdownData: _breakdown()),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(ScoreHeader), findsOneWidget);
-      expect(find.text('8,000'), findsOneWidget);
-      expect(find.text('Rank 44'), findsOneWidget);
-      expect(find.text('points'), findsOneWidget);
+      expect(find.byType(TopStatusAppBar), findsOneWidget);
+      expect(find.text('8,000 pts'), findsOneWidget); // profile label
     });
 
-    testWidgets('renders active challenges in default tab', (tester) async {
-      await tester.pumpWidget(_buildTestApp(challengeData: _testChallenges));
+    testWidgets('groups active challenges into perceived-time bands',
+        (tester) async {
+      await tester.pumpWidget(
+        _app(challengeData: _challenges(), breakdownData: _breakdown()),
+      );
       await tester.pumpAndSettle();
 
-      // Active tab is default — shows the one active challenge
-      expect(find.text('Produce Every Block'), findsOneWidget);
-      // Completed and missed challenges should not appear in active tab
-      expect(find.text('Prove Humanity'), findsNothing);
-      expect(find.text('Quick Challenge'), findsNothing);
+      expect(find.text('Featured'), findsNothing);
+      expect(find.text('Today'), findsOneWidget);
+      expect(find.text('This week'), findsOneWidget);
+      expect(find.text('Season'), findsOneWidget);
+
+      expect(find.text('Propose an app change'), findsOneWidget);
+      expect(find.text('Fill in survey'), findsOneWidget);
+      expect(find.text('Give kudos'), findsOneWidget);
     });
 
-    testWidgets('shows completed challenges when tab tapped', (tester) async {
-      // Provide breakdown with activity description matching challenge goal
-      await tester.pumpWidget(
-        _buildTestApp(
-          challengeData: _testChallenges,
-          breakdownData: const BreakdownResult(
-            scope: 'season',
-            displayName: 'Test',
-            totalPoints: 1000,
-            offchainPoints: 0,
-            seasonBreakdown: SeasonBreakdown(
-              seasonId: 1,
-              seasonName: 'S1',
-              totalPoints: 1000,
-              offchainPoints: 0,
-              events: [
-                EventBreakdown(
-                  eventId: 1,
-                  eventName: 'E1',
-                  totalPoints: 1000,
-                  offchainPoints: 0,
-                  activities: [
-                    BreakdownActivity(
-                      id: '100',
-                      activityType: 'COMMUNITY',
-                      points: 1000,
-                      description: 'Prove Humanity',
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    testWidgets('keeps completed challenges in the deadline stream',
+        (tester) async {
+      final completed = _ch(
+        104,
+        'Finish survey',
+        const Duration(days: 8),
+        completed: true,
+        activitiesTotal: 500,
+        metric: const ChallengeMetric(kind: ChallengeMetricKind.binary),
+      );
+      final breakdown = _breakdown(
+        progress: [
+          ..._baseProgress,
+          const ChallengeProgress(
+            challengeId: 104,
+            state: ChallengeProgressState.earned,
+            earnedPoints: 500,
           ),
-        ),
+        ],
       );
-      await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Completed'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Prove Humanity'), findsOneWidget);
-      expect(find.text('Produce Every Block'), findsNothing);
-    });
-
-    testWidgets('shows missed challenges when tab tapped', (tester) async {
       await tester.pumpWidget(
-        _buildTestApp(challengeData: [_testChallenges[0], _testChallenges[2]]),
+        _app(
+            challengeData: [..._challenges(), completed],
+            breakdownData: breakdown),
       );
       await tester.pumpAndSettle();
 
-      await tester.tapAt(tester.getCenter(find.byType(Tab).at(2)));
+      await tester.scrollUntilVisible(
+        find.text('Finish survey'),
+        300,
+        scrollable: find.byType(Scrollable),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('Quick Challenge'), findsOneWidget);
-      expect(find.text('Produce Every Block'), findsNothing);
+      expect(find.text('Finish survey'), findsOneWidget);
+      expect(find.text('completed 500 pts'), findsOneWidget);
     });
 
-    testWidgets('shows shimmer placeholders when no cached data', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_buildTestApp(loading: true));
+    testWidgets('shows shimmer while loading', (tester) async {
+      await tester.pumpWidget(_app(loading: true));
       await tester.pump();
 
-      expect(find.byType(ShimmerBlock), findsWidgets);
-    });
-
-    testWidgets('shows empty state for tab with no challenges', (tester) async {
-      // Only the active challenge
-      await tester.pumpWidget(
-        _buildTestApp(challengeData: [_testChallenges[0]]),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Completed'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('No completed challenges'), findsOneWidget);
-    });
-
-    testWidgets('shows fallback score when ranking is null', (tester) async {
-      await tester.pumpWidget(
-        _buildTestApp(challengeData: _testChallenges, rankingData: null),
-      );
-      await tester.pumpAndSettle();
-
-      // Two "--" widgets: one for the score, one for the countdown time fallback
-      expect(find.text('--'), findsNWidgets(2));
-    });
-
-    testWidgets('ScoreHeader shows breakdown totalPoints when available', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _buildTestApp(
-          challengeData: _testChallenges,
-          rankingData: _testRanking,
-          breakdownData: const BreakdownResult(
-            scope: 'season',
-            displayName: 'Test',
-            totalPoints: 12345,
-            offchainPoints: 0,
-            seasonBreakdown: SeasonBreakdown(
-              seasonId: 1,
-              seasonName: 'S1',
-              totalPoints: 12345,
-              offchainPoints: 0,
-              events: [],
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Breakdown totalPoints takes precedence over ranking
-      expect(find.text('12,345'), findsOneWidget);
-      // Rank comes from the ranking provider (season-scoped)
-      expect(find.text('Rank 44'), findsOneWidget);
-    });
-
-    testWidgets('completed tab shows earned points from breakdown', (
-      tester,
-    ) async {
-      // Activity description "Prove Humanity" matches challenge goal
-      await tester.pumpWidget(
-        _buildTestApp(
-          challengeData: _testChallenges,
-          breakdownData: const BreakdownResult(
-            scope: 'season',
-            displayName: 'Test',
-            totalPoints: 9000,
-            offchainPoints: 0,
-            seasonBreakdown: SeasonBreakdown(
-              seasonId: 1,
-              seasonName: 'S1',
-              totalPoints: 9000,
-              offchainPoints: 0,
-              events: [
-                EventBreakdown(
-                  eventId: 1,
-                  eventName: 'E1',
-                  totalPoints: 9000,
-                  offchainPoints: 0,
-                  activities: [
-                    BreakdownActivity(
-                      id: '100',
-                      activityType: 'COMMUNITY',
-                      points: 6491,
-                      description: 'Prove Humanity',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // "Prove Humanity" matched by description → completed tab
-      await tester.tap(find.text('Completed'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Prove Humanity'), findsOneWidget);
-      expect(find.text('6,491 pts'), findsOneWidget);
-    });
-
-    testWidgets('graceful fallback when breakdown is null', (tester) async {
-      await tester.pumpWidget(
-        _buildTestApp(
-          challengeData: _testChallenges,
-          rankingData: _testRanking,
-          breakdownData: null,
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Without breakdown, falls back to ranking totalPoints
-      expect(find.text('8,000'), findsOneWidget);
-      expect(find.text('Rank 44'), findsOneWidget);
-
-      // Challenges still categorized (v1 fallback: all activity: null)
-      expect(find.text('Produce Every Block'), findsOneWidget);
+      expect(find.byType(ShimmerCardSkeleton), findsWidgets);
     });
   });
 }

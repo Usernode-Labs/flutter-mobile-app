@@ -1,21 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// A participant's season token allocation — the reward amount surfaced on the
-/// profile as a "little win" reveal.
-///
-/// DRAFT: the values here are mocked. The real allocation will come from the
-/// rewards API once it exists. Expected response shape (subject to change),
-/// e.g. `GET /v1/seasons/{seasonId}/token-allocation` scoped to the current
-/// participant:
-///
-/// ```json
-/// {
-///   "season_id": 2,
-///   "amount": 1250,        // integer whole-token amount allocated
-///   "unit": "UNODE",       // token ticker / symbol
-///   "acknowledged": false  // whether the user has already revealed it
-/// }
-/// ```
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+
+const _unit = 'UNODE';
+const _revealedPreferenceKey = 'profile:token-allocation-revealed';
+
+/// A participant's token allocation for the selected season/event scope.
 class TokenAllocation {
   const TokenAllocation({
     required this.amount,
@@ -23,7 +16,7 @@ class TokenAllocation {
     required this.acknowledged,
   });
 
-  /// Whole-token amount allocated to the participant for the season.
+  /// Whole-token amount returned by `GET /api/v2/mobile/me/ranking`.
   final int amount;
 
   /// Token ticker / symbol, e.g. "UNODE".
@@ -38,49 +31,53 @@ class TokenAllocation {
         unit: unit,
         acknowledged: acknowledged ?? this.acknowledged,
       );
-
-  // TODO(rewards-api): add a JSON factory once the endpoint lands, e.g.
-  // factory TokenAllocation.fromJson(Map<String, dynamic> json) =>
-  //     TokenAllocation(
-  //       amount: json['amount'] as int,
-  //       unit: json['unit'] as String,
-  //       acknowledged: json['acknowledged'] as bool? ?? false,
-  //     );
 }
 
-/// Provides the current participant's season token allocation.
-///
-/// DRAFT: returns a mocked value. Replace [TokenAllocationController.build]
-/// with a real service call — e.g.
-/// `ref.read(rewardsApiServiceProvider).getTokenAllocation(seasonId, participantId)`
-/// — following the async provider pattern used by `rankingProvider` /
-/// `LeaderboardApiService`.
+/// Provides the allocation from the active scoped ranking response.
 final tokenAllocationProvider =
-    AsyncNotifierProvider<TokenAllocationController, TokenAllocation>(
+    AsyncNotifierProvider<TokenAllocationController, TokenAllocation?>(
   TokenAllocationController.new,
 );
 
-class TokenAllocationController extends AsyncNotifier<TokenAllocation> {
+class TokenAllocationController extends AsyncNotifier<TokenAllocation?> {
+  String? _preferenceKey;
+
   @override
-  Future<TokenAllocation> build() async {
-    // TODO(rewards-api): fetch from the rewards endpoint. Mocked for the draft.
-    return const TokenAllocation(
-      amount: 1250,
-      unit: 'UNODE',
-      acknowledged: false,
+  Future<TokenAllocation?> build() async {
+    final participantId = ref.watch(participantIdProvider).valueOrNull;
+    final scope = ref.watch(seasonEventContextProvider);
+    final ranking = await ref.watch(rankingProvider.future);
+    if (participantId == null || ranking == null) return null;
+
+    final seasonId = scope.seasonId ?? ranking.seasonId;
+    final eventId = scope.eventId ?? ranking.eventId;
+    final allocationKey = [
+      participantId,
+      seasonId ?? 'all',
+      eventId ?? 'all',
+      ranking.totalTokens,
+    ].join(':');
+    _preferenceKey = NetworkPrefs.prefixKey(
+      '$_revealedPreferenceKey:$allocationKey',
+    );
+    final preferences = await SharedPreferences.getInstance();
+
+    return TokenAllocation(
+      amount: ranking.totalTokens,
+      unit: _unit,
+      acknowledged: preferences.getBool(_preferenceKey!) ?? false,
     );
   }
 
-  /// Marks the allocation as revealed so the celebration only plays once.
-  ///
-  /// DRAFT: updates in-memory state only. The finisher should persist this —
-  /// e.g. POST an acknowledgement to the rewards API and/or store a flag in
-  /// secure storage — so a revisit renders the settled state without replaying
-  /// the celebration.
+  /// Persists the reveal for this participant, scope, and allocation value.
   Future<void> acknowledge() async {
     final current = state.valueOrNull;
     if (current == null || current.acknowledged) return;
+    final preferenceKey = _preferenceKey;
+    if (preferenceKey == null) return;
+
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(preferenceKey, true);
     state = AsyncData(current.copyWith(acknowledged: true));
-    // TODO(rewards-api): persist acknowledgement (backend + local cache).
   }
 }

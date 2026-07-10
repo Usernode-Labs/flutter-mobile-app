@@ -962,6 +962,14 @@
   "@nodeStatusTitle": {
     "description": "Node status screen title"
   },
+  "nodeSectionNetwork": "Network",
+  "@nodeSectionNetwork": {
+    "description": "Node status section header grouping peer/epoch/mempool rows"
+  },
+  "nodeSectionChainState": "Chain state",
+  "@nodeSectionChainState": {
+    "description": "Node status section header grouping VRF/best-tip rows"
+  },
   "nodePeerIdCopied": "Peer ID copied to clipboard",
   "@nodePeerIdCopied": {
     "description": "Peer ID copied snackbar message"
@@ -1799,6 +1807,14 @@
   "@allEvents": {
     "description": "Label for selecting all events in the event picker"
   },
+  "allSeasons": "All Seasons",
+  "@allSeasons": {
+    "description": "Fallback label when no specific season is selected"
+  },
+  "selectSeason": "Select Season",
+  "@selectSeason": {
+    "description": "Title for season picker bottom sheet"
+  },
   "selectEvent": "Select Event",
   "@selectEvent": {
     "description": "Title for event picker bottom sheet"
@@ -1812,6 +1828,10 @@
   "@challengeFailedToLoad": {
     "description": "Error message when challenges fail to load"
   },
+  "challengeNoActive": "No active challenges right now.",
+  "@challengeNoActive": {
+    "description": "Empty state when there are no active challenges"
+  },
   "challengeNoCompleted": "No completed challenges",
   "@challengeNoCompleted": {
     "description": "Empty state for completed challenges tab"
@@ -1823,6 +1843,34 @@
   "challengePoints": "points",
   "@challengePoints": {
     "description": "Score header label for points"
+  },
+  "profileTitle": "Profile",
+  "@profileTitle": {
+    "description": "Profile screen title"
+  },
+  "profileTokenAllocation": "Token Allocation",
+  "@profileTokenAllocation": {
+    "description": "Label for the participant token allocation reveal"
+  },
+  "profileRevealTokens": "Reveal",
+  "@profileRevealTokens": {
+    "description": "Button label that reveals the participant token allocation"
+  },
+  "profileTokenAllocationLoadError": "Token allocation unavailable.",
+  "@profileTokenAllocationLoadError": {
+    "description": "Error shown when the participant token allocation cannot be loaded"
+  },
+  "profileCompletedChallengesTab": "Completed Challenges",
+  "@profileCompletedChallengesTab": {
+    "description": "Profile tab label for completed challenges"
+  },
+  "profileNoCompletedChallengesYet": "No completed challenges yet.",
+  "@profileNoCompletedChallengesYet": {
+    "description": "Profile completed challenges empty state"
+  },
+  "profileLeaderboardUnavailable": "Leaderboard unavailable.",
+  "@profileLeaderboardUnavailable": {
+    "description": "Profile leaderboard empty state"
   },
   "challengeViewInLeaderboard": "View in Leaderboard",
   "@challengeViewInLeaderboard": {
@@ -1842,7 +1890,7 @@
       "reward": {"type": "String"}
     }
   },
-  "challengeSectionTheWhy": "The Why",
+  "challengeSectionTheWhy": "Why it matters",
   "@challengeSectionTheWhy": {
     "description": "Section title for challenge description"
   },
@@ -1850,9 +1898,69 @@
   "@challengeSectionTask": {
     "description": "Section title for challenge task"
   },
+  "challengeSectionAvailable": "Available",
+  "@challengeSectionAvailable": {
+    "description": "Section title for challenge availability"
+  },
+  "challengeSectionHowPointsWork": "How points work",
+  "@challengeSectionHowPointsWork": {
+    "description": "Section title for challenge point logic"
+  },
+  "challengeSectionRules": "Rules",
+  "@challengeSectionRules": {
+    "description": "Section title for challenge rules"
+  },
   "challengeSectionRequirements": "Requirements",
   "@challengeSectionRequirements": {
     "description": "Section title for challenge requirements"
+  },
+  "challengeAvailableNow": "Available now",
+  "@challengeAvailableNow": {
+    "description": "Fallback challenge availability text when no schedule is present"
+  },
+  "challengeDefaultPointsLogic": "Points are awarded once this challenge is completed and verified.",
+  "@challengeDefaultPointsLogic": {
+    "description": "Fallback challenge point logic when backend copy is missing"
+  },
+  "challengeDefaultCta": "Join the challenge",
+  "@challengeDefaultCta": {
+    "description": "Fallback challenge CTA label when backend label is missing but a link exists"
+  },
+  "challengePhaseNotDone": "Not done",
+  "@challengePhaseNotDone": {
+    "description": "Challenge card phase label for untouched work"
+  },
+  "challengePhaseInProgress": "In progress",
+  "@challengePhaseInProgress": {
+    "description": "Challenge card phase label for work in progress"
+  },
+  "challengePhaseSubmitted": "Submitted",
+  "@challengePhaseSubmitted": {
+    "description": "Challenge card phase label for work awaiting review"
+  },
+  "challengePhaseWaitingReview": "waiting review",
+  "@challengePhaseWaitingReview": {
+    "description": "Challenge card trailing label when submitted work has no point amount yet"
+  },
+  "challengePhaseDone": "Done",
+  "@challengePhaseDone": {
+    "description": "Challenge card phase label for completed work"
+  },
+  "challengeBandFeatured": "Featured",
+  "@challengeBandFeatured": {
+    "description": "Challenges screen featured band label"
+  },
+  "challengeBandToday": "Today",
+  "@challengeBandToday": {
+    "description": "Challenges screen band label for challenges ending today"
+  },
+  "challengeBandThisWeek": "This week",
+  "@challengeBandThisWeek": {
+    "description": "Challenges screen band label for challenges ending this week"
+  },
+  "challengeBandSeason": "Season",
+  "@challengeBandSeason": {
+    "description": "Challenges screen band label for season-long challenges"
   },
   "challengeEpochNoChange": "+0",
   "@challengeEpochNoChange": {
@@ -2116,6 +2224,14 @@
   "@walletMyAddress": {
     "description": "Label in the wallet address bar"
   },
+  "walletReceive": "Receive",
+  "@walletReceive": {
+    "description": "Title/tooltip for the receive (address QR) sheet"
+  },
+  "walletCopyAddress": "Copy address",
+  "@walletCopyAddress": {
+    "description": "Button to copy the wallet address from the receive sheet"
+  },
   "walletRecipientAddress": "Recipient address",
   "@walletRecipientAddress": {
     "description": "Hint text for recipient address field"
@@ -2135,6 +2251,14 @@
   "walletSending": "Sending...",
   "@walletSending": {
     "description": "Send button text while transaction is processing"
+  },
+  "walletWaitingForSync": "Waiting for sync",
+  "@walletWaitingForSync": {
+    "description": "Send screen status while a transfer waits for wallet sync"
+  },
+  "walletWaitingForSyncHelp": "You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.",
+  "@walletWaitingForSyncHelp": {
+    "description": "Send screen helper text while a transfer waits for wallet sync"
   },
   "walletFieldRequired": "Please enter a {fieldName}",
   "@walletFieldRequired": {
@@ -2541,7 +2665,6 @@
   "@faqVrfTimingDescription": {
     "description": "Timing explanation text"
   },
-
   "blockAppliedLocally": "Applied Locally",
   "@blockAppliedLocally": {
     "description": "Timeline item title"
@@ -2834,6 +2957,26 @@
   "@httpLogsShareNoParticipant": {
     "description": "Disabled-share hint shown when no participant ID is available"
   },
+  "httpLogsFilterHint": "Filter by URL",
+  "@httpLogsFilterHint": {
+    "description": "Placeholder text for the field that filters HTTP logs by URL substring"
+  },
+  "httpLogsNoMatches": "No requests match the filter.",
+  "@httpLogsNoMatches": {
+    "description": "Empty state shown when no captured requests match the active URL filter"
+  },
+  "httpLogsFilterCount": "{count} of {total}",
+  "@httpLogsFilterCount": {
+    "description": "Caption showing how many captured requests match the active URL filter",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "participantRecoveryTitle": "Onboarding has evolved",
   "@participantRecoveryTitle": {
     "description": "Title of the dialog prompting the user to re-register to restore their participant ID"
@@ -2853,5 +2996,68 @@
   "participantRecoverySuccess": "Leaderboard participation restored.",
   "@participantRecoverySuccess": {
     "description": "Snackbar confirmation after participant ID is restored"
+  },
+  "shortcutConfirmTitle": "Add to Home Screen",
+  "@shortcutConfirmTitle": {
+    "description": "App bar title of the homescreen-shortcut confirmation screen"
+  },
+  "shortcutConfirmRequest": "{name} is asking to add a shortcut to your home screen.",
+  "@shortcutConfirmRequest": {
+    "description": "Headline of the homescreen-shortcut confirmation screen",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "shortcutConfirmOpens": "The shortcut opens {host} inside Usernode.",
+  "@shortcutConfirmOpens": {
+    "description": "Explains where the requested shortcut will navigate",
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "shortcutConfirmAndroidNote": "Your launcher may ask you to confirm the shortcut.",
+  "@shortcutConfirmAndroidNote": {
+    "description": "Note shown on Android about the system pin-shortcut dialog"
+  },
+  "shortcutConfirmAdd": "Add shortcut",
+  "@shortcutConfirmAdd": {
+    "description": "Primary button that accepts the homescreen-shortcut request"
+  },
+  "shortcutConfirmCancel": "Cancel",
+  "@shortcutConfirmCancel": {
+    "description": "Button that rejects the homescreen-shortcut request"
+  },
+  "widgetInstructionsTitle": "Add the Usernode widget",
+  "@widgetInstructionsTitle": {
+    "description": "App bar title of the iOS widget-setup instructions screen"
+  },
+  "widgetInstructionsBody": "{name} was added to your Usernode dApps widget. To see it on your home screen, add the widget once:",
+  "@widgetInstructionsBody": {
+    "description": "Intro of the iOS widget-setup instructions screen",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "widgetInstructionsStep1": "Touch and hold an empty area of your home screen",
+  "@widgetInstructionsStep1": {
+    "description": "First step of the iOS widget-setup instructions"
+  },
+  "widgetInstructionsStep2": "Tap Edit in the top corner, then Add Widget",
+  "@widgetInstructionsStep2": {
+    "description": "Second step of the iOS widget-setup instructions"
+  },
+  "widgetInstructionsStep3": "Search for Usernode and add the dApps widget",
+  "@widgetInstructionsStep3": {
+    "description": "Third step of the iOS widget-setup instructions"
+  },
+  "widgetInstructionsDone": "Done",
+  "@widgetInstructionsDone": {
+    "description": "Dismiss button of the iOS widget-setup instructions screen"
   }
 }

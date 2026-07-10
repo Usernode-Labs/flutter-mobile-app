@@ -44,7 +44,7 @@ void main() {
       expect(result.missingCount, 1);
       expect(result.rescheduledCount, 1);
       expect(harness.scheduledAlarms.single.alarmId, 'slot_42');
-      expect(harness.scheduledAlarms.single.slotNumber, 42);
+      expect(harness.scheduledAlarms.single.globalSlot, 42);
       expect(
         harness.events('alarm_audit_missing_rescheduled').single['purpose'],
         'slot_wake',
@@ -291,14 +291,14 @@ class _AuditHarness {
           ),
       scheduleAlarm: ({
         required alarmId,
-        required slotNumber,
+        required globalSlot,
         required delayMs,
         data,
       }) async {
         scheduledAlarms.add(
           _ScheduledAlarm(
             alarmId: alarmId,
-            slotNumber: slotNumber,
+            globalSlot: globalSlot,
             delayMs: delayMs,
             data: data ?? const {},
           ),
@@ -416,13 +416,13 @@ ObservabilityReportingService _observability(
 class _ScheduledAlarm {
   const _ScheduledAlarm({
     required this.alarmId,
-    required this.slotNumber,
+    required this.globalSlot,
     required this.delayMs,
     required this.data,
   });
 
   final String alarmId;
-  final int slotNumber;
+  final int globalSlot;
   final int delayMs;
   final Map<String, dynamic> data;
 }

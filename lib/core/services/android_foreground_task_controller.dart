@@ -113,7 +113,7 @@ class AndroidForegroundTaskController {
       final result = await PlatformAlarmService.instance.startForegroundService(
         title: 'Usernode',
         message: 'Evaluating VRF slots',
-        slotNumber: 0,
+        globalSlot: 0,
       );
       _log.info('Foreground service start result: $result');
     }
@@ -431,7 +431,7 @@ class AndroidForegroundTaskController {
     final success = await PlatformAlarmService.instance.scheduleAlarm(
       alarmId: foregroundResumeAlarmId,
       delayMs: delayMs,
-      slotNumber: 0,
+      globalSlot: targetGlobalSlot ?? 0,
       data: {
         'reason': reason,
         'nodeRunning': RustBackendService.instance.isRunning,
@@ -570,9 +570,11 @@ class AndroidForegroundTaskController {
       return '$alarmId:$alarmTimeMs';
     }
 
-    final slotNumber = _intFromDynamic(data['slotNumber']);
-    if (slotNumber != null) {
-      return '$alarmId:slot:$slotNumber';
+    final globalSlot = _intFromDynamic(data['globalSlot']) ??
+        _intFromDynamic(data['global_slot']) ??
+        _intFromDynamic(data['slotNumber']);
+    if (globalSlot != null) {
+      return '$alarmId:slot:$globalSlot';
     }
 
     return alarmId;

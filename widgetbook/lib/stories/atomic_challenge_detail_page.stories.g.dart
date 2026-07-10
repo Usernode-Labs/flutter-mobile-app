@@ -22,12 +22,17 @@ final AtomicChallengeDetailPageComponent =
       name: meta.name ?? 'AtomicChallengeDetailPage',
       path: meta.path ?? 'stories',
       docsBuilder: meta.docsBuilder,
-      docComment:
-          r'''Widgetbook-only exploration of an atomic challenge detail page.
+      docComment: r'''The simplified Fair Rewards challenge detail page.
 
-The detail keeps the compressed challenge card structure intact: goal first,
-then the same progress rail. Supporting copy sits below the rail so the page
-feels like an expansion, not a separate backend record view.''',
+Keeps the compressed card structure intact — goal first, then the same
+[AtomicChallengeRail] — so the page reads as an expansion of the card rather
+than a separate backend record view. Supporting copy ("Why it matters",
+"Available", "How points work", optional "Rules") sits below the rail, and a
+single primary CTA is pinned to the bottom.
+
+Presentation-only: all content arrives via constructor parameters. The
+feature screen resolves challenge data, formats the strings, and wires the
+back / CTA callbacks.''',
       stories: [
         $ExpandedAtomic..$generatedName = 'ExpandedAtomic',
         $BackgroundBlockProduction
@@ -67,12 +72,14 @@ class AtomicChallengeDetailInputArgs
     Arg<String>? description,
     Arg<String>? leftText,
     Arg<String>? rightText,
+    Arg<String?>? progressHelperText,
     Arg<AtomicChallengePhase>? phase,
     Arg<double?>? fill,
     Arg<String>? dateText,
     Arg<String>? pointsLogic,
     Arg<String>? ctaLabel,
     Arg<String?>? rules,
+    Arg<AtomicChallengeTechnicalHeroCardData?>? heroCard,
     Arg<AtomicChallengeRailTreatment>? railTreatment,
   }) : this.titleArg = $initArg(
          'title',
@@ -96,6 +103,11 @@ class AtomicChallengeDetailInputArgs
          rightText,
          StringArg('500 pts'),
        )!,
+       this.progressHelperTextArg = $initArg(
+         'progressHelperText',
+         progressHelperText,
+         NullableStringArg(null),
+       ),
        this.phaseArg = $initArg(
          'phase',
          phase,
@@ -121,6 +133,7 @@ class AtomicChallengeDetailInputArgs
          StringArg('Join the challenge'),
        )!,
        this.rulesArg = $initArg('rules', rules, NullableStringArg(null))!,
+       this.heroCardArg = $initArg('heroCard', heroCard, null),
        this.railTreatmentArg = $initArg(
          'railTreatment',
          railTreatment,
@@ -136,24 +149,30 @@ class AtomicChallengeDetailInputArgs
         'Improve an existing dApp and help test the new application layer.',
     String leftText = 'Not done',
     String rightText = '500 pts',
+    String? progressHelperText = null,
     AtomicChallengePhase phase = AtomicChallengePhase.open,
     double? fill = 0,
     String dateText = 'Jun 4 - Jun 17',
     String pointsLogic = 'Earn 500 pts when your proposed change is accepted.',
     String ctaLabel = 'Join the challenge',
     String? rules = null,
+    AtomicChallengeTechnicalHeroCardData? heroCard = null,
     AtomicChallengeRailTreatment railTreatment =
         AtomicChallengeRailTreatment.checkbox,
   }) : this.titleArg = Arg.fixed(title),
        this.descriptionArg = Arg.fixed(description),
        this.leftTextArg = Arg.fixed(leftText),
        this.rightTextArg = Arg.fixed(rightText),
+       this.progressHelperTextArg = progressHelperText == null
+           ? null
+           : Arg.fixed(progressHelperText),
        this.phaseArg = Arg.fixed(phase),
        this.fillArg = fill == null ? null : Arg.fixed(fill),
        this.dateTextArg = Arg.fixed(dateText),
        this.pointsLogicArg = Arg.fixed(pointsLogic),
        this.ctaLabelArg = Arg.fixed(ctaLabel),
        this.rulesArg = rules == null ? null : Arg.fixed(rules),
+       this.heroCardArg = heroCard == null ? null : Arg.fixed(heroCard),
        this.railTreatmentArg = Arg.fixed(railTreatment);
 
   final Arg<String> titleArg;
@@ -163,6 +182,8 @@ class AtomicChallengeDetailInputArgs
   final Arg<String> leftTextArg;
 
   final Arg<String> rightTextArg;
+
+  final Arg<String?>? progressHelperTextArg;
 
   final Arg<AtomicChallengePhase> phaseArg;
 
@@ -176,6 +197,8 @@ class AtomicChallengeDetailInputArgs
 
   final Arg<String?>? rulesArg;
 
+  final Arg<AtomicChallengeTechnicalHeroCardData?>? heroCardArg;
+
   final Arg<AtomicChallengeRailTreatment> railTreatmentArg;
 
   String get title => titleArg.value;
@@ -185,6 +208,8 @@ class AtomicChallengeDetailInputArgs
   String get leftText => leftTextArg.value;
 
   String get rightText => rightTextArg.value;
+
+  String? get progressHelperText => progressHelperTextArg?.value;
 
   AtomicChallengePhase get phase => phaseArg.value;
 
@@ -198,6 +223,8 @@ class AtomicChallengeDetailInputArgs
 
   String? get rules => rulesArg?.value;
 
+  AtomicChallengeTechnicalHeroCardData? get heroCard => heroCardArg?.value;
+
   AtomicChallengeRailTreatment get railTreatment => railTreatmentArg.value;
 
   @override
@@ -206,12 +233,14 @@ class AtomicChallengeDetailInputArgs
     descriptionArg,
     leftTextArg,
     rightTextArg,
+    progressHelperTextArg,
     phaseArg,
     fillArg,
     dateTextArg,
     pointsLogicArg,
     ctaLabelArg,
     rulesArg,
+    heroCardArg,
     railTreatmentArg,
   ];
 }

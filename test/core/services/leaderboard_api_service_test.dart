@@ -187,6 +187,7 @@ void main() {
             'scope': 'event',
             'rank': 5,
             'total_points': 1200,
+            'total_tokens': 1250,
             'offchain_points': 300,
             'total_participants': 500,
             'event_id': 10,
@@ -199,6 +200,7 @@ void main() {
 
       expect(result.scope, 'event');
       expect(result.rank, 5);
+      expect(result.totalTokens, 1250);
       expect(result.eventId, 10);
     });
 
@@ -227,7 +229,7 @@ void main() {
       expect(capturedUri, isNotNull);
       expect(capturedUri!.path, '/api/v2/mobile/me/ranking');
       expect(capturedUri!.queryParameters['participant_id'], '42');
-      expect(capturedUri!.queryParameters['season_id'], '1');
+      expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '5');
     });
 
@@ -302,9 +304,9 @@ void main() {
       );
 
       expect(capturedUri!.path, '/api/v2/mobile/challenges');
-      expect(capturedUri!.queryParameters['season_id'], '1');
+      expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '3');
-      expect(capturedUri!.queryParameters['active_only'], 'true');
+      expect(capturedUri!.queryParameters['active_only'], '1');
     });
 
     test('sends only_scheduled query param when true', () async {
@@ -502,7 +504,7 @@ void main() {
 
       expect(capturedUri!.path, '/api/v2/mobile/me/breakdown');
       expect(capturedUri!.queryParameters['participant_id'], '42');
-      expect(capturedUri!.queryParameters['season_id'], '1');
+      expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '3');
     });
   });

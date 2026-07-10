@@ -1353,6 +1353,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTitle => 'Profile';
 
   @override
+  String get profileTokenAllocation => 'Token Allocation';
+
+  @override
+  String get profileRevealTokens => 'Reveal';
+
+  @override
+  String get profileTokenAllocationLoadError => 'Token allocation unavailable.';
+
+  @override
   String get profileCompletedChallengesTab => 'Completed Challenges';
 
   @override

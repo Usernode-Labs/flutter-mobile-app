@@ -2416,6 +2416,24 @@ abstract class AppLocalizations {
   /// **'Profile'**
   String get profileTitle;
 
+  /// Label for the participant token allocation reveal
+  ///
+  /// In en, this message translates to:
+  /// **'Token Allocation'**
+  String get profileTokenAllocation;
+
+  /// Button label that reveals the participant token allocation
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal'**
+  String get profileRevealTokens;
+
+  /// Error shown when the participant token allocation cannot be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Token allocation unavailable.'**
+  String get profileTokenAllocationLoadError;
+
   /// Profile tab label for completed challenges
   ///
   /// In en, this message translates to:

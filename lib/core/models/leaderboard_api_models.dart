@@ -160,6 +160,7 @@ class RankingResult {
   final String scope;
   final int rank;
   final int totalPoints;
+  final int totalTokens;
   final int offchainPoints;
   final int totalParticipants;
   // Scope-specific (event)
@@ -175,6 +176,7 @@ class RankingResult {
     required this.scope,
     required this.rank,
     required this.totalPoints,
+    this.totalTokens = 0,
     required this.offchainPoints,
     required this.totalParticipants,
     this.eventId,
@@ -190,6 +192,7 @@ class RankingResult {
       scope: json['scope'] as String? ?? 'event',
       rank: _jsonIntN(json['rank']) ?? 0,
       totalPoints: _jsonIntN(json['total_points']) ?? 0,
+      totalTokens: _jsonIntN(json['total_tokens']) ?? 0,
       offchainPoints: _jsonIntN(json['offchain_points']) ?? 0,
       totalParticipants: _jsonIntN(json['total_participants']) ?? 0,
       eventId: _jsonIntN(json['event_id']),
@@ -206,6 +209,7 @@ class RankingResult {
         'scope': scope,
         'rank': rank,
         'total_points': totalPoints,
+        'total_tokens': totalTokens,
         'offchain_points': offchainPoints,
         'total_participants': totalParticipants,
         if (eventId != null) 'event_id': eventId,

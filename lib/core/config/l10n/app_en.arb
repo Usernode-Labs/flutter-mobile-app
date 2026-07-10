@@ -1848,6 +1848,18 @@
   "@profileTitle": {
     "description": "Profile screen title"
   },
+  "profileTokenAllocation": "Token Allocation",
+  "@profileTokenAllocation": {
+    "description": "Label for the participant token allocation reveal"
+  },
+  "profileRevealTokens": "Reveal",
+  "@profileRevealTokens": {
+    "description": "Button label that reveals the participant token allocation"
+  },
+  "profileTokenAllocationLoadError": "Token allocation unavailable.",
+  "@profileTokenAllocationLoadError": {
+    "description": "Error shown when the participant token allocation cannot be loaded"
+  },
   "profileCompletedChallengesTab": "Completed Challenges",
   "@profileCompletedChallengesTab": {
     "description": "Profile tab label for completed challenges"

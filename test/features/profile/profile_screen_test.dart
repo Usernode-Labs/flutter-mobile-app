@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
@@ -145,6 +146,7 @@ Widget _app() {
             scope: 'season',
             rank: 44,
             totalPoints: 8000,
+            totalTokens: 1250,
             offchainPoints: 8000,
             totalParticipants: 100,
             seasonId: 1,
@@ -250,6 +252,8 @@ Widget _app() {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('Profile shows score, tabs and completed challenge',
       (tester) async {
     await tester.pumpWidget(_app());
@@ -274,6 +278,23 @@ void main() {
     expect(find.text('Earned 2,828 pts'), findsOneWidget);
     expect(find.text('Not done'), findsNothing);
     expect(find.byType(OngoingRailFrame), findsNothing);
+  });
+
+  testWidgets('Profile reveals the API-backed token allocation',
+      (tester) async {
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Token Allocation'), findsOneWidget);
+    expect(find.text('Reveal'), findsOneWidget);
+    expect(find.text('1,250'), findsNothing);
+
+    await tester.tap(find.text('Reveal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('1,250'), findsOneWidget);
+    expect(find.text('UNODE'), findsOneWidget);
+    expect(find.text('Reveal'), findsNothing);
   });
 
   testWidgets('Leaderboard tab shows ranked entries', (tester) async {

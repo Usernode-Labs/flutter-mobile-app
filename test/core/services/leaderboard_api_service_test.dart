@@ -187,6 +187,7 @@ void main() {
             'scope': 'event',
             'rank': 5,
             'total_points': 1200,
+            'total_tokens': 1250,
             'offchain_points': 300,
             'total_participants': 500,
             'event_id': 10,
@@ -199,6 +200,7 @@ void main() {
 
       expect(result.scope, 'event');
       expect(result.rank, 5);
+      expect(result.totalTokens, 1250);
       expect(result.eventId, 10);
     });
 

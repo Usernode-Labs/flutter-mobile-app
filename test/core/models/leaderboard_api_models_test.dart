@@ -121,6 +121,7 @@ void main() {
         'scope': 'event',
         'rank': 5,
         'total_points': 1200,
+        'total_tokens': 1250,
         'offchain_points': 300,
         'total_participants': 500,
         'event_id': 10,
@@ -129,6 +130,7 @@ void main() {
       expect(r.scope, 'event');
       expect(r.rank, 5);
       expect(r.totalPoints, 1200);
+      expect(r.totalTokens, 1250);
       expect(r.offchainPoints, 300);
       expect(r.totalParticipants, 500);
       expect(r.eventId, 10);
@@ -180,6 +182,7 @@ void main() {
       expect(r.eventId, isNull);
       expect(r.seasonId, isNull);
       expect(r.eventsParticipated, isNull);
+      expect(r.totalTokens, 0);
     });
   });
 

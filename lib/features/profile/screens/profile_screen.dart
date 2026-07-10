@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -18,6 +19,7 @@ import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
+import 'package:crypto_mobile_app/features/profile/providers/token_allocation_provider.dart';
 import 'package:crypto_mobile_app/features/profile/widgets/profile_leaderboard_list.dart';
 
 /// "What I earned" surface (#440): points + rank summary over completed
@@ -31,6 +33,7 @@ class ProfileScreen extends ConsumerWidget {
     ref.watch(leaderboardBootstrapProvider);
 
     final colors = Theme.of(context).colorScheme;
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
 
     ref.watch(seasonsProvider);
@@ -41,6 +44,7 @@ class ProfileScreen extends ConsumerWidget {
         ranking?.totalPoints;
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
     final rankLabel = ranking != null ? l10n.challengeRank(ranking.rank) : null;
+    final allocation = ref.watch(tokenAllocationProvider);
 
     final completedHistory = ref.watch(
       profileCompletedChallengesProvider.select((s) => s.valueOrNull),
@@ -90,6 +94,46 @@ class ProfileScreen extends ConsumerWidget {
                       label: seasonLabel(context, ref),
                       variant: ChipVariant.outlined,
                       onTap: () => showSeasonPicker(context, ref),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                spacing.space16,
+                spacing.space12,
+                spacing.space16,
+                spacing.space16,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: allocation.when(
+                  data: (data) => data == null
+                      ? const SizedBox.shrink()
+                      : TokenAllocationReveal(
+                          amount: NumberFormat.decimalPattern(
+                            Localizations.localeOf(context).toLanguageTag(),
+                          ).format(data.amount),
+                          unitLabel: data.unit,
+                          label: l10n.profileTokenAllocation,
+                          revealLabel: l10n.profileRevealTokens,
+                          revealed: data.acknowledged,
+                          onReveal: () => ref
+                              .read(tokenAllocationProvider.notifier)
+                              .acknowledge(),
+                        ),
+                  loading: () => const ShimmerCardSkeleton(),
+                  error: (_, __) => Card(
+                    child: ListTile(
+                      title: Text(l10n.profileTokenAllocationLoadError),
+                      trailing: Button(
+                        label: l10n.commonRetry,
+                        variant: ButtonVariant.outlined,
+                        onTap: () {
+                          ref.invalidate(rankingProvider);
+                          ref.invalidate(tokenAllocationProvider);
+                        },
+                      ),
                     ),
                   ),
                 ),

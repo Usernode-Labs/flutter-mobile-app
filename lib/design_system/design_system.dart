@@ -53,6 +53,7 @@ export 'src/status_badge.dart';
 export 'src/status_text_trailing.dart';
 export 'src/tabs.dart';
 export 'src/text_chevron_trailing.dart';
+export 'src/token_allocation_reveal.dart';
 export 'src/text_field.dart';
 export 'src/top_app_bar.dart';
 export 'src/top_status_app_bar.dart';

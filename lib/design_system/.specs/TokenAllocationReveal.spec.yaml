@@ -1,0 +1,85 @@
+meta:
+  name: TokenAllocationReveal
+  input_type: text-only
+  reference: >
+    User brief (2026-07-10): profile page widget between the season selector
+    and the tabs showing the season token allocation. Amount hidden by
+    default; tap reveals it with a celebratory animation — "feels like a
+    little win". Prototype requested.
+  text_only_override: true
+  generated_by: claude
+  date: "2026-07-10"
+
+intent:
+  summary: >
+    A full-width allocation card for the Testnet Profile page. Hidden state
+    is quiet and achromatic with an explicit "Tap to reveal" affordance.
+    Tapping plays a celebratory reveal: the surface tints to the premium
+    semantic color, pulse rings emanate from the amount, and the formatted
+    token amount scales in.
+  scope: widget
+  target: new
+
+pattern_decision:
+  operating_mode: exploration
+  session_shape: glance
+  trust_level: normal
+  device_context: one-handed mobile first, small-screen safe
+  chosen_pattern: >
+    Inline card composed from DS/M3 primitives (DecoratedBox + InkWell +
+    IconBadge), following the ChallengeRewardCard reward-surface precedent.
+    Celebration reuses the concentric expanding-ring language from
+    BurstPulseIllustration and spends the chromatic budget on the premium
+    semantic group (featured rewards / high-value spotlight).
+  cta_placement: whole card is the tap target (>= 64dp tall, full width)
+  escape_route: none needed — reveal is a one-way, non-destructive glance
+  rejected_alternatives:
+    - pattern: confetti / particle overlay
+      reason: foreign to the quiet technical identity; no DS precedent
+    - pattern: scratch-card drag gesture
+      reason: gesture-only control without visible affordance is a hard ban
+    - pattern: dialog or sheet reveal
+      reason: too heavy for a glanceable "little win" on a profile page
+    - pattern: always-visible amount
+      reason: user explicitly wants a hidden-until-tap reveal moment
+  uncertainty:
+    - Text-only brief; no Figma/sketch reference. User explicitly asked to
+      prototype from text, so text_only_override is recorded.
+    - Copy ("Token Allocation", "Tap to reveal", unit label) is placeholder
+      and parameterized; final wording and data source not decided.
+    - Whether the revealed state should persist across sessions is a feature
+      layer concern (exposed via onReveal + revealed param).
+
+structure:
+  container:
+    hidden: surfaceContainerLowest + outlineVariant border (white-on-white
+      inner card rule), radius largeIncreased
+    revealed: premium.colorContainer, border fades out
+  row:
+    leading: IconBadge (redeem icon; grey hidden, premium.color revealed)
+    body: label (titleSmall) + hint/revealed sub-label (bodySmall)
+    trailing:
+      hidden: mono bullet placeholder
+      revealed: mono amount + unit label (display hero exception)
+  celebration:
+    - staggered expanding pulse rings from the amount position (CustomPaint)
+    - surface tint achromatic -> premium container over animation.complex
+    - amount scale-in with easeOutBack + fade
+    - light haptic on tap
+    - honors MediaQuery.disableAnimations (jumps to revealed)
+
+token_mappings:
+  - { element: card radius, token: radii.borderRadiusLargeIncreased, confidence: exact }
+  - { element: card padding, token: spacing.space16, confidence: exact }
+  - { element: row gap, token: spacing.space16, confidence: exact }
+  - { element: hidden border, token: colorScheme.outlineVariant + borders.width, confidence: exact }
+  - { element: reveal tint, token: semantic.premium.colorContainer / onColorContainer, confidence: exact }
+  - { element: leading badge, token: IconBadge defaults (48/40/24), confidence: exact }
+  - { element: amount type, token: textTheme.headlineSmall + kMonoFontFamily, confidence: exact }
+  - { element: tint duration, token: animation.complex (300ms), confidence: exact }
+  - { element: celebration length, token: none — 900ms local const (3x complex), confidence: nearest }
+
+implementation_notes:
+  - Presentation-only; amount arrives formatted; onReveal notifies feature layer.
+  - Widgetbook-only page integration this pass (TestnetProfilePageDemo),
+    between the ScoreHeader period chip and the Tabs.

@@ -29,6 +29,7 @@ import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
+import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
@@ -65,6 +66,9 @@ class AppRoutes {
       '/onboarding/notification-permission3';
   static const onboardingBatteryComplete = '/onboarding/battery-complete';
   static const staleRegistration = '/stale-registration';
+
+  // Profile (DRAFT — not yet linked from bottom nav; see ProfileScreen)
+  static const profile = '/profile';
 
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
@@ -203,6 +207,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.home,
         builder: (context, state) => const HomeScreen(),
+      ),
+      // DRAFT: reachable via context.push(AppRoutes.profile) for review. The
+      // finisher will link it from the app's navigation.
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: AppRoutes.slotAssignments,

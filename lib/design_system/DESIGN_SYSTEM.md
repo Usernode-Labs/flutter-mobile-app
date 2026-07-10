@@ -284,6 +284,7 @@ Shape values come from `AppRadii`.
 | `StatusTextTrailing` | Code | [genesis](.specs/StatusTextTrailing.genesis.md) |
 | `Tabs` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=3012:2400) | [genesis](.specs/Tabs.genesis.md) |
 | `TextChevronTrailing` | Code | [genesis](.specs/TextChevronTrailing.genesis.md) |
+| `TokenAllocationReveal` | Code | [genesis](.specs/TokenAllocationReveal.genesis.md) |
 | `TopAppBar` | [Figma small](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2764), [Figma large](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2943:28629) | [genesis](.specs/TopAppBar.genesis.md) |
 | `ZkIdentityFlowPage` | Code | [genesis](.specs/ZkIdentityFlowPage.genesis.md) |
 | `ZkIdentityStatusCard` | Code | [genesis](.specs/ZkIdentityStatusCard.genesis.md) |

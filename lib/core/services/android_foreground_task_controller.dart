@@ -288,7 +288,7 @@ class AndroidForegroundTaskController {
         return;
       }
 
-      final epochEndRustTimeMs = await _getEpochEndTimeMs(info.currentEpoch);
+      final epochEndRustTimeMs = await resolveEpochEndTimeMs(info.currentEpoch);
       if (epochEndRustTimeMs == null) {
         _log.warn('VRF poll: could not compute epoch end');
         return;
@@ -493,7 +493,7 @@ class AndroidForegroundTaskController {
     return futureSlots.first;
   }
 
-  Future<int?> _getEpochEndTimeMs(int epoch) async {
+  Future<int?> resolveEpochEndTimeMs(int epoch) async {
     try {
       final status = await RustBackendService.instance.getStatus(
         includeVrfDetails: false,

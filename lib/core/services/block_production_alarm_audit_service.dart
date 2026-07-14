@@ -32,6 +32,8 @@ typedef AlarmAuditLoadWatchdogState = Future<Map<String, dynamic>?> Function();
 
 typedef AlarmAuditStartMonitoring = Future<bool> Function(String reason);
 
+typedef AlarmAuditLoadEpochEndTimeMs = Future<int?> Function(int epoch);
+
 class BlockProductionAlarmAuditService {
   static const _alarmStateTimeToleranceMs = 1000;
 
@@ -44,6 +46,7 @@ class BlockProductionAlarmAuditService {
     AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
     AlarmAuditStartMonitoring? startMonitoring,
     Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
+    AlarmAuditLoadEpochEndTimeMs? loadEpochEndTimeMs,
     Future<int?> Function()? resolveClockDriftMs,
     Future<bool> Function()? ensureNodeRunning,
     bool Function()? isNodeRunning,
@@ -80,6 +83,8 @@ class BlockProductionAlarmAuditService {
             ((reason) => AndroidForegroundTaskController.instance
                 .startMonitoring(reason: reason, allowWhileSleeping: true)),
         _loadEpochSnapshot = loadEpochSnapshot ?? _loadDefaultEpochSnapshot,
+        _loadEpochEndTimeMs = loadEpochEndTimeMs ??
+            AndroidForegroundTaskController.instance.resolveEpochEndTimeMs,
         _resolveClockDriftMs = resolveClockDriftMs ??
             RustBackendService.instance.resolveNodeClockDriftMs,
         _ensureNodeRunning = ensureNodeRunning ?? _ensureDefaultNodeRunning,
@@ -131,6 +136,7 @@ class BlockProductionAlarmAuditService {
     AlarmAuditScheduleForegroundResume? scheduleForegroundResume,
     AlarmAuditStartMonitoring? startMonitoring,
     Future<AlarmAuditEpochSnapshot?> Function()? loadEpochSnapshot,
+    AlarmAuditLoadEpochEndTimeMs? loadEpochEndTimeMs,
     Future<int?> Function()? resolveClockDriftMs,
     Future<bool> Function()? ensureNodeRunning,
     bool Function()? isNodeRunning,
@@ -157,6 +163,7 @@ class BlockProductionAlarmAuditService {
           scheduleForegroundResume: scheduleForegroundResume,
           startMonitoring: startMonitoring,
           loadEpochSnapshot: loadEpochSnapshot,
+          loadEpochEndTimeMs: loadEpochEndTimeMs,
           resolveClockDriftMs: resolveClockDriftMs,
           ensureNodeRunning: ensureNodeRunning,
           isNodeRunning: isNodeRunning,
@@ -186,6 +193,7 @@ class BlockProductionAlarmAuditService {
   final AlarmAuditScheduleForegroundResume _scheduleForegroundResume;
   final AlarmAuditStartMonitoring _startMonitoring;
   final Future<AlarmAuditEpochSnapshot?> Function() _loadEpochSnapshot;
+  final AlarmAuditLoadEpochEndTimeMs _loadEpochEndTimeMs;
   final Future<int?> Function() _resolveClockDriftMs;
   final Future<bool> Function() _ensureNodeRunning;
   final bool Function() _isNodeRunning;
@@ -475,6 +483,7 @@ class BlockProductionAlarmAuditService {
         failedCount: const {
           'reschedule_failed',
           'slot_too_close_recovery_failed',
+          'epoch_end_unavailable',
         }.contains(fgResumeStatus)
             ? 1
             : 0,
@@ -502,27 +511,49 @@ class BlockProductionAlarmAuditService {
       clockDriftMs: clockDriftMs,
       nowMs: nowMs,
     );
-    if (nextWonSlot == null) {
-      return 'no_future_won_slots';
+
+    late final _ForegroundResumeTarget target;
+    late final String schedulerReason;
+    if (nextWonSlot != null) {
+      target = nextWonSlot;
+      schedulerReason = 'next_won_slot:${target.globalSlot}';
+    } else {
+      final epochEndRustTimeMs = await _loadEpochEndTimeMs(epoch.epoch);
+      if (epochEndRustTimeMs == null) {
+        _report(
+          'fg_resume_watchdog_failed',
+          {
+            'reason': reason,
+            'epoch': epoch.epoch,
+            'failure_reason': 'epoch_end_time_unavailable',
+          },
+        );
+        return 'epoch_end_unavailable';
+      }
+
+      target = _ForegroundResumeTarget(
+        globalSlot: 0,
+        rustSlotTimeMs: epochEndRustTimeMs,
+        slotTimeMs: _rustToLocalTimeMs(epochEndRustTimeMs, clockDriftMs),
+      );
+      schedulerReason = 'epoch_end_${epoch.epoch}';
     }
 
     final fgLeadMs = _foregroundResumeLead.inMilliseconds;
     final alarm = AlarmAuditExpectedAlarm(
       alarmId: AndroidForegroundTaskController.foregroundResumeAlarmId,
       purpose: 'foreground_resume',
-      globalSlot: nextWonSlot.globalSlot,
+      globalSlot: target.globalSlot,
       epoch: epoch.epoch,
-      rustSlotTimeMs: nextWonSlot.rustSlotTimeMs,
-      slotTimeMs: nextWonSlot.slotTimeMs,
-      alarmTimeMs: nextWonSlot.slotTimeMs - fgLeadMs,
+      rustSlotTimeMs: target.rustSlotTimeMs,
+      slotTimeMs: target.slotTimeMs,
+      alarmTimeMs: target.slotTimeMs - fgLeadMs,
       clockDriftMs: clockDriftMs,
       nodeTimeMsAtAudit: _lastNodeTimeMs(),
       systemTimeMsAtAudit: nowMs,
       clockDriftSampleAgeMs: _clockDriftSampleAgeMs(nowMs),
     );
-    final schedulerReason = 'next_won_slot:${alarm.globalSlot}';
-
-    if (nextWonSlot.slotTimeMs - nowMs <= fgLeadMs) {
+    if (target.slotTimeMs - nowMs <= fgLeadMs) {
       var monitoringStarted = false;
       String? monitoringFailure;
       try {
@@ -537,8 +568,8 @@ class BlockProductionAlarmAuditService {
         'fg_resume_watchdog_slot_too_close',
         {
           'reason': reason,
-          'global_slot': nextWonSlot.globalSlot,
-          'slot_time_ms': nextWonSlot.slotTimeMs,
+          'global_slot': target.globalSlot,
+          'slot_time_ms': target.slotTimeMs,
           'now_ms': nowMs,
           'monitoring_started': monitoringStarted,
           if (monitoringFailure != null)
@@ -692,7 +723,7 @@ class BlockProductionAlarmAuditService {
     return mismatches;
   }
 
-  _FutureWonSlot? _nextFutureWonSlot(
+  _ForegroundResumeTarget? _nextFutureWonSlot(
     List<AlarmAuditWonSlot> slots, {
     required int clockDriftMs,
     required int nowMs,
@@ -703,7 +734,7 @@ class BlockProductionAlarmAuditService {
             slot.expectedTimeMs,
             clockDriftMs,
           );
-          return _FutureWonSlot(
+          return _ForegroundResumeTarget(
             globalSlot: slot.globalSlot,
             rustSlotTimeMs: slot.expectedTimeMs,
             slotTimeMs: slotTimeMs,
@@ -951,8 +982,8 @@ class AlarmAuditExpectedAlarm {
       };
 }
 
-class _FutureWonSlot {
-  const _FutureWonSlot({
+class _ForegroundResumeTarget {
+  const _ForegroundResumeTarget({
     required this.globalSlot,
     required this.rustSlotTimeMs,
     required this.slotTimeMs,

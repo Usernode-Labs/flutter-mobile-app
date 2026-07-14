@@ -223,6 +223,46 @@ void main() {
       expect(harness.events('fg_resume_watchdog_recreated'), hasLength(1));
     });
 
+    test('reconciles fg_resume against epoch end after all won slots pass',
+        () async {
+      final harness = _AuditHarness(
+        epoch: const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          wonSlots: [
+            AlarmAuditWonSlot(globalSlot: 41, expectedTimeMs: 9000),
+          ],
+        ),
+        epochEndTimeMs: 30000,
+      );
+
+      final result = await harness.service.audit(reason: 'workmanager');
+
+      expect(result.fgResumeStatus, 'recreated');
+      final schedule = harness.foregroundResumeSchedules.single;
+      expect(schedule.schedulerReason, 'epoch_end_7');
+      expect(schedule.globalSlot, 0);
+      expect(schedule.rustWakeTimeMs, 29000);
+      expect(schedule.slotTimeMs, 30000);
+    });
+
+    test('fails reconciliation when epoch end cannot be resolved', () async {
+      final harness = _AuditHarness(
+        epoch: const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          wonSlots: [
+            AlarmAuditWonSlot(globalSlot: 41, expectedTimeMs: 9000),
+          ],
+        ),
+        epochEndTimeMs: null,
+      );
+
+      final result = await harness.service.audit(reason: 'workmanager');
+
+      expect(result.fgResumeStatus, 'epoch_end_unavailable');
+      expect(result.failedCount, 1);
+      expect(harness.foregroundResumeSchedules, isEmpty);
+    });
+
     test('foreground resume starts monitoring when next slot is too close',
         () async {
       final harness = _AuditHarness(
@@ -328,6 +368,7 @@ class _AuditHarness {
     this.watchdogState,
     this.monitoringStarts = true,
     this.foregroundResumeScheduleSucceeds = true,
+    this.epochEndTimeMs = 30000,
   })  : presentAlarms = presentAlarms ?? <String>{},
         debugStates = debugStates ?? const <String, AlarmDebugState>{} {
     service = BlockProductionAlarmAuditService.test(
@@ -375,6 +416,7 @@ class _AuditHarness {
         }
         return epoch;
       },
+      loadEpochEndTimeMs: (_) async => epochEndTimeMs,
       resolveClockDriftMs: () async => clockDriftMs,
       ensureNodeRunning: () async {
         ensureNodeRunningCalls++;
@@ -419,6 +461,7 @@ class _AuditHarness {
   final Map<String, dynamic>? watchdogState;
   final bool monitoringStarts;
   final bool foregroundResumeScheduleSucceeds;
+  final int? epochEndTimeMs;
   final records = <_CapturedObservabilityRecord>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];
   final monitoringReasons = <String>[];

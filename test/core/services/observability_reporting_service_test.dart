@@ -299,8 +299,8 @@ void main() {
       final service = _service(records);
 
       service.reportBlockProductionAlarmScheduled(
-        alarmId: 'slot_42',
-        purpose: 'slot_wake',
+        alarmId: 'fg_resume',
+        purpose: 'foreground_resume',
         globalSlot: 42,
         epoch: 7,
         slotTimeMs: 1700000060000,
@@ -318,8 +318,8 @@ void main() {
       expect(record.kind, FlutterObservabilityKind.event);
       expect(record.event, 'app_block_production_alarm_scheduled');
       expect(record.payload, {
-        'alarm_id': 'slot_42',
-        'purpose': 'slot_wake',
+        'alarm_id': 'fg_resume',
+        'purpose': 'foreground_resume',
         'global_slot': 42,
         'epoch': 7,
         'slot_time_ms': 1700000060000,
@@ -339,8 +339,8 @@ void main() {
 
       service.reportBlockProductionAlarmFired(
         nativeEvent: 'android_alarm_fired',
-        alarmId: 'slot_42',
-        purpose: 'slot_wake',
+        alarmId: 'fg_resume',
+        purpose: 'foreground_resume',
         globalSlot: 42,
         alarmTimeMs: 1700000005000,
         firedAtMs: 1700000005123,
@@ -357,8 +357,8 @@ void main() {
       expect(record.event, 'app_block_production_alarm_fired');
       expect(record.payload, {
         'native_event': 'android_alarm_fired',
-        'alarm_id': 'slot_42',
-        'purpose': 'slot_wake',
+        'alarm_id': 'fg_resume',
+        'purpose': 'foreground_resume',
         'global_slot': 42,
         'alarm_time_ms': 1700000005000,
         'fired_at_ms': 1700000005123,
@@ -420,8 +420,8 @@ void main() {
 
       final result = service.reportBlockProductionAlarmFired(
         nativeEvent: 'android_alarm_fired',
-        alarmId: 'slot_42',
-        purpose: 'slot_wake',
+        alarmId: 'fg_resume',
+        purpose: 'foreground_resume',
         globalSlot: 42,
         alarmTimeMs: 1700000005000,
         firedAtMs: 1700000005123,

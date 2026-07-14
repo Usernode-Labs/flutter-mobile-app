@@ -17,6 +17,10 @@ import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.lang.ref.WeakReference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Android-side handler for the `com.usernode.app/alarm` channel.
@@ -41,6 +45,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private var methodChannel: MethodChannel? = null
     private val flutterAlarmEventBuffer = FlutterAlarmEventBuffer()
     private var lastKnownExactAlarmPermission: Boolean? = null
+    private val methodScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
         private const val TAG = "usernode/AlarmMethodChannelHandler"
@@ -120,8 +125,12 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     /// Send a block production event to Flutter
-    fun sendEventToFlutter(eventType: String, eventData: Map<String, Any?>) {
-        val event = flutterAlarmEventBuffer.enqueueOrDispatch(eventType, eventData)
+    fun sendEventToFlutter(
+        eventType: String,
+        eventData: Map<String, Any?>,
+        completion: ((Boolean) -> Unit)? = null,
+    ) {
+        val event = flutterAlarmEventBuffer.enqueueOrDispatch(eventType, eventData, completion)
         if (event == null) {
             Log.d(TAG, "Queued event for Flutter: $eventType")
             return
@@ -300,6 +309,30 @@ class AlarmMethodChannelHandler(context: Context) {
             }
             "wasForceStoppedOnStartup" -> {
                 result.success(wasForceStoppedOnStartup())
+            }
+            "ensureAlarmWatchdogScheduled" -> {
+                val reason = call.argument<String>("reason") ?: "dart"
+                result.success(AlarmWatchdogScheduler.ensurePeriodic(appContext, reason))
+            }
+            "requestAlarmWatchdogRun" -> {
+                val reason = call.argument<String>("reason") ?: "dart"
+                result.success(AlarmWatchdogScheduler.enqueueOneTime(appContext, reason))
+            }
+            "cancelAlarmWatchdog" -> {
+                result.success(AlarmWatchdogScheduler.cancel(appContext))
+            }
+            "getAlarmWatchdogState" -> {
+                methodScope.launch {
+                    try {
+                        result.success(AlarmWatchdogScheduler.state(appContext))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to query alarm watchdog state", e)
+                        result.error("WATCHDOG_STATE_ERROR", e.message, null)
+                    }
+                }
+            }
+            "isAlarmWatchdogDeliveryInProgress" -> {
+                result.success(BackgroundAlarmEngine.isWatchdogDeliveryInProgress())
             }
             else -> {
                 result.notImplemented()
@@ -619,6 +652,7 @@ class AlarmMethodChannelHandler(context: Context) {
         val channel = methodChannel
         if (channel == null) {
             Log.w(TAG, "Cannot flush ${events.size} event(s) - method channel not set (reason=$reason)")
+            events.forEach { it.completion?.invoke(false) }
             return
         }
 
@@ -632,7 +666,38 @@ class AlarmMethodChannelHandler(context: Context) {
                 "eventType" to event.eventType,
                 "eventData" to event.eventData
             )
-            channel.invokeMethod("onBlockProductionEvent", args)
+            val completion = event.completion
+            if (completion == null) {
+                channel.invokeMethod("onBlockProductionEvent", args)
+                continue
+            }
+
+            channel.invokeMethod(
+                "onBlockProductionEvent",
+                args,
+                object : MethodChannel.Result {
+                    override fun success(result: Any?) {
+                        completion(result == true)
+                    }
+
+                    override fun error(
+                        errorCode: String,
+                        errorMessage: String?,
+                        errorDetails: Any?,
+                    ) {
+                        Log.w(
+                            TAG,
+                            "Flutter rejected ${event.eventType}: $errorCode $errorMessage",
+                        )
+                        completion(false)
+                    }
+
+                    override fun notImplemented() {
+                        Log.w(TAG, "Flutter did not implement ${event.eventType}")
+                        completion(false)
+                    }
+                },
+            )
         }
     }
 }

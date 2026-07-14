@@ -4,12 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONObject
 
-class AlarmLedger(context: Context) {
+class AlarmStateStore(context: Context) {
     companion object {
         private const val PREFS_NAME = "alarm_prefs"
-        private const val LEDGER_PREFIX = "alarm_ledger_"
-        private const val LEDGER_IDS_KEY = "alarm_ledger_ids"
-        private const val MAX_LEDGER_ENTRIES = 128
+        private const val STATE_PREFIX = "alarm_state_"
     }
 
     private val prefs: SharedPreferences =
@@ -171,7 +169,7 @@ class AlarmLedger(context: Context) {
     }
 
     private fun read(alarmId: String): JSONObject {
-        val raw = prefs.getString(ledgerKey(alarmId), null) ?: return JSONObject()
+        val raw = prefs.getString(stateKey(alarmId), null) ?: return JSONObject()
         return try {
             JSONObject(raw)
         } catch (_: Exception) {
@@ -180,22 +178,9 @@ class AlarmLedger(context: Context) {
     }
 
     private fun save(alarmId: String, json: JSONObject) {
-        val ids = ledgerIds().toMutableList()
-        ids.remove(alarmId)
-        ids.add(0, alarmId)
-
-        val editor = prefs.edit()
-            .putString(ledgerKey(alarmId), json.toString())
-            .putString(LEDGER_IDS_KEY, ids.take(MAX_LEDGER_ENTRIES).joinToString(","))
-
-        ids.drop(MAX_LEDGER_ENTRIES).forEach { editor.remove(ledgerKey(it)) }
-        editor.commit()
-    }
-
-    private fun ledgerIds(): List<String> {
-        val raw = prefs.getString(LEDGER_IDS_KEY, "") ?: ""
-        if (raw.isEmpty()) return emptyList()
-        return raw.split(",").filter { it.isNotEmpty() }
+        prefs.edit()
+            .putString(stateKey(alarmId), json.toString())
+            .commit()
     }
 
     private fun jsonToMap(json: JSONObject): MutableMap<String, Any?> {
@@ -211,5 +196,5 @@ class AlarmLedger(context: Context) {
         return map
     }
 
-    private fun ledgerKey(alarmId: String): String = "$LEDGER_PREFIX$alarmId"
+    private fun stateKey(alarmId: String): String = "$STATE_PREFIX$alarmId"
 }

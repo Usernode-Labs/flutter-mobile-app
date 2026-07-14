@@ -26,7 +26,7 @@ class AlarmScheduler(
     }
 
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val ledger = AlarmLedger(context)
+    private val alarmStateStore = AlarmStateStore(context)
 
     fun scheduleExactAlarm(
         alarmId: String,
@@ -49,7 +49,7 @@ class AlarmScheduler(
                 Log.d(TAG, "[AlarmScheduler] Exact alarm permission status: $canSchedule (API ${Build.VERSION.SDK_INT})")
                 if (!canSchedule) {
                     Log.w(TAG, "[AlarmScheduler] Cannot schedule exact alarms - permission not granted")
-                    ledger.recordScheduleFailed(
+                    alarmStateStore.recordScheduleFailed(
                         alarmId = alarmId,
                         globalSlot = globalSlot,
                         triggerAtMs = triggerAtMs,
@@ -125,7 +125,7 @@ class AlarmScheduler(
 
             // Save alarm ID for tracking
             saveScheduledAlarm(alarmId, globalSlot)
-            ledger.recordScheduled(
+            alarmStateStore.recordScheduled(
                 alarmId = alarmId,
                 globalSlot = globalSlot,
                 triggerAtMs = triggerAtMs,
@@ -153,16 +153,20 @@ class AlarmScheduler(
     }
 
     fun cancelAllAlarms(): Boolean {
+        return cancelAllAlarms("cancel_all_alarms")
+    }
+
+    fun cancelAllAlarms(reason: String): Boolean {
         try {
             val scheduledAlarms = getScheduledAlarms()
 
             for (alarmId in scheduledAlarms.keys) {
-                cancelAlarm(alarmId, "cancel_all_alarms")
+                cancelAlarm(alarmId, reason)
             }
 
             clearScheduledAlarms()
 
-            Log.i(TAG, "Cancelled all alarms")
+            Log.i(TAG, "Cancelled ${scheduledAlarms.size} tracked alarms (reason=$reason)")
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Error cancelling all alarms", e)
@@ -193,7 +197,7 @@ class AlarmScheduler(
     }
 
     fun getAlarmDebugState(alarmId: String): Map<String, Any?> {
-        return ledger.getState(
+        return alarmStateStore.getState(
             alarmId = alarmId,
             pendingIntentExists = hasScheduledAlarm(alarmId),
             canScheduleExactAlarms = canScheduleExactAlarms()
@@ -219,7 +223,7 @@ class AlarmScheduler(
             }
 
             removeScheduledAlarm(alarmId)
-            ledger.recordCancelled(
+            alarmStateStore.recordCancelled(
                 alarmId = alarmId,
                 reason = reason,
                 cancelledAtMs = System.currentTimeMillis()

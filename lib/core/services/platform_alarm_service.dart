@@ -11,7 +11,7 @@ final _log = LoggingService.instance.withTag('usernode/AlarmService');
 typedef BootRescheduleCallback = Future<void> Function();
 
 /// Callback type for handling native block production events
-typedef NativeEventCallback = void Function(
+typedef NativeEventCallback = Future<bool> Function(
     String eventType, Map<String, dynamic> eventData);
 
 class AlarmDebugState {
@@ -185,58 +185,66 @@ class AlarmDebugState {
         'native_pending_intent_exists': pendingIntentExists,
         if (canScheduleExactAlarms != null)
           'native_can_schedule_exact_alarms': canScheduleExactAlarms,
-        if (scheduledAtMs != null) 'ledger_scheduled_at_ms': scheduledAtMs,
-        if (triggerAtMs != null) 'ledger_trigger_at_ms': triggerAtMs,
-        if (slotNumber != null) 'ledger_slot_number': slotNumber,
-        if (globalSlot != null) 'ledger_global_slot': globalSlot,
-        if (epoch != null) 'ledger_epoch': epoch,
-        if (slotTimeMs != null) 'ledger_slot_time_ms': slotTimeMs,
-        if (rustSlotTimeMs != null) 'ledger_rust_slot_time_ms': rustSlotTimeMs,
+        if (scheduledAtMs != null)
+          'native_alarm_scheduled_at_ms': scheduledAtMs,
+        if (triggerAtMs != null) 'native_alarm_trigger_at_ms': triggerAtMs,
+        if (slotNumber != null) 'native_alarm_slot_number': slotNumber,
+        if (globalSlot != null) 'native_alarm_global_slot': globalSlot,
+        if (epoch != null) 'native_alarm_epoch': epoch,
+        if (slotTimeMs != null) 'native_alarm_slot_time_ms': slotTimeMs,
+        if (rustSlotTimeMs != null)
+          'native_alarm_rust_slot_time_ms': rustSlotTimeMs,
         if (localSlotTimeMs != null)
-          'ledger_local_slot_time_ms': localSlotTimeMs,
-        if (alarmTimeMs != null) 'ledger_alarm_time_ms': alarmTimeMs,
+          'native_alarm_local_slot_time_ms': localSlotTimeMs,
+        if (alarmTimeMs != null) 'native_alarm_alarm_time_ms': alarmTimeMs,
         if (nativeTriggerAtMs != null)
-          'ledger_native_trigger_at_ms': nativeTriggerAtMs,
+          'native_alarm_native_trigger_at_ms': nativeTriggerAtMs,
         if (scheduledElapsedRealtimeMs != null)
-          'ledger_scheduled_elapsed_realtime_ms': scheduledElapsedRealtimeMs,
+          'native_alarm_scheduled_elapsed_realtime_ms':
+              scheduledElapsedRealtimeMs,
         if (triggerElapsedRealtimeMs != null)
-          'ledger_trigger_elapsed_realtime_ms': triggerElapsedRealtimeMs,
+          'native_alarm_trigger_elapsed_realtime_ms': triggerElapsedRealtimeMs,
         if (requestedDelayMs != null)
-          'ledger_requested_delay_ms': requestedDelayMs,
+          'native_alarm_requested_delay_ms': requestedDelayMs,
         if (effectiveDelayMs != null)
-          'ledger_effective_delay_ms': effectiveDelayMs,
-        if (rustWakeTimeMs != null) 'ledger_rust_wake_time_ms': rustWakeTimeMs,
+          'native_alarm_effective_delay_ms': effectiveDelayMs,
+        if (rustWakeTimeMs != null)
+          'native_alarm_rust_wake_time_ms': rustWakeTimeMs,
         if (localWakeTimeMs != null)
-          'ledger_local_wake_time_ms': localWakeTimeMs,
-        if (clockDriftMs != null) 'ledger_clock_drift_ms': clockDriftMs,
+          'native_alarm_local_wake_time_ms': localWakeTimeMs,
+        if (clockDriftMs != null) 'native_alarm_clock_drift_ms': clockDriftMs,
         if (nodeTimeMsAtSchedule != null)
-          'ledger_node_time_ms_at_schedule': nodeTimeMsAtSchedule,
+          'native_alarm_node_time_ms_at_schedule': nodeTimeMsAtSchedule,
         if (systemTimeMsAtSchedule != null)
-          'ledger_system_time_ms_at_schedule': systemTimeMsAtSchedule,
+          'native_alarm_system_time_ms_at_schedule': systemTimeMsAtSchedule,
         if (clockDriftSampleAgeMs != null)
-          'ledger_clock_drift_sample_age_ms': clockDriftSampleAgeMs,
-        if (purpose != null) 'ledger_purpose': purpose,
-        if (schedulerReason != null) 'ledger_scheduler_reason': schedulerReason,
-        if (scheduleStatus != null) 'ledger_schedule_status': scheduleStatus,
+          'native_alarm_clock_drift_sample_age_ms': clockDriftSampleAgeMs,
+        if (purpose != null) 'native_alarm_purpose': purpose,
+        if (schedulerReason != null)
+          'native_alarm_scheduler_reason': schedulerReason,
+        if (scheduleStatus != null)
+          'native_alarm_schedule_status': scheduleStatus,
         if (scheduleFailureReason != null)
-          'ledger_schedule_failure_reason': scheduleFailureReason,
+          'native_alarm_schedule_failure_reason': scheduleFailureReason,
         if (receiverEnteredAtMs != null)
-          'ledger_receiver_entered_at_ms': receiverEnteredAtMs,
+          'native_alarm_receiver_entered_at_ms': receiverEnteredAtMs,
         if (receiverSystemTimeMs != null)
-          'ledger_receiver_system_time_ms': receiverSystemTimeMs,
+          'native_alarm_receiver_system_time_ms': receiverSystemTimeMs,
         if (receiverElapsedRealtimeMs != null)
-          'ledger_receiver_elapsed_realtime_ms': receiverElapsedRealtimeMs,
+          'native_alarm_receiver_elapsed_realtime_ms':
+              receiverElapsedRealtimeMs,
         if (receiverLatencyMs != null)
-          'ledger_receiver_latency_ms': receiverLatencyMs,
+          'native_alarm_receiver_latency_ms': receiverLatencyMs,
         if (nativeDeliveryLatencyMs != null)
-          'ledger_native_delivery_latency_ms': nativeDeliveryLatencyMs,
+          'native_alarm_native_delivery_latency_ms': nativeDeliveryLatencyMs,
         if (elapsedDeliveryLatencyMs != null)
-          'ledger_elapsed_delivery_latency_ms': elapsedDeliveryLatencyMs,
+          'native_alarm_elapsed_delivery_latency_ms': elapsedDeliveryLatencyMs,
         if (flutterEventSentAtMs != null)
-          'ledger_flutter_event_sent_at_ms': flutterEventSentAtMs,
-        if (cancelledAtMs != null) 'ledger_cancelled_at_ms': cancelledAtMs,
-        if (cancelReason != null) 'ledger_cancel_reason': cancelReason,
-        if (nodeRunning != null) 'ledger_node_running': nodeRunning,
+          'native_alarm_flutter_event_sent_at_ms': flutterEventSentAtMs,
+        if (cancelledAtMs != null)
+          'native_alarm_cancelled_at_ms': cancelledAtMs,
+        if (cancelReason != null) 'native_alarm_cancel_reason': cancelReason,
+        if (nodeRunning != null) 'native_alarm_node_running': nodeRunning,
         if (stateUnavailableReason != null)
           'alarm_debug_state_unavailable_reason': stateUnavailableReason,
       };
@@ -307,7 +315,7 @@ class PlatformAlarmService {
       case 'rescheduleAfterBoot':
         return await _handleRescheduleAfterBoot();
       case 'onBlockProductionEvent':
-        return _handleNativeEvent(call.arguments);
+        return await _handleNativeEvent(call.arguments);
       default:
         _log.warn('Unknown method call: ${call.method}');
         throw MissingPluginException('Method ${call.method} not implemented');
@@ -315,11 +323,11 @@ class PlatformAlarmService {
   }
 
   /// Handle a native block production event from platform code
-  void _handleNativeEvent(dynamic arguments) {
+  Future<bool> _handleNativeEvent(dynamic arguments) async {
     try {
       if (arguments == null) {
         _log.warn('Received null arguments for onBlockProductionEvent');
-        return;
+        return false;
       }
 
       final Map<String, dynamic> args = Map<String, dynamic>.from(arguments);
@@ -330,7 +338,7 @@ class PlatformAlarmService {
 
       if (eventType == null) {
         _log.warn('Received native event with null eventType');
-        return;
+        return false;
       }
 
       _log.debug('Native event received: $eventType');
@@ -339,13 +347,17 @@ class PlatformAlarmService {
 
       if (_onNativeEvent == null) {
         _log.warn('No native event callback registered for event: $eventType');
-        return;
+        return false;
       }
 
-      // Invoke the registered callback
-      _onNativeEvent!(eventType, eventData ?? {});
-    } catch (e) {
-      _log.error('Error handling native event: $e');
+      return await _onNativeEvent!(eventType, eventData ?? {});
+    } catch (e, st) {
+      _log.error(
+        'Error handling native event: $e',
+        error: e,
+        stackTrace: st,
+      );
+      return false;
     }
   }
 
@@ -791,6 +803,126 @@ class PlatformAlarmService {
     }
   }
 
+  Future<bool> ensureAlarmWatchdogScheduled({required String reason}) async {
+    if (!Platform.isAndroid) return false;
+    if (!_initialized) {
+      _log.debug('Cannot schedule alarm watchdog: service not initialized');
+      return false;
+    }
+
+    try {
+      final success = await _channel.invokeMethod<bool>(
+            'ensureAlarmWatchdogScheduled',
+            {'reason': reason},
+          ) ??
+          false;
+      _observability.reportBlockProductionAlarmAuditEvent(
+        event: 'android_workmanager_watchdog_scheduled',
+        details: {
+          'reason': reason,
+          'periodic': true,
+          'success': success,
+        },
+      );
+      return success;
+    } on PlatformException catch (e) {
+      _log.warn('Error scheduling alarm watchdog: ${e.message}');
+      _observability.reportBlockProductionAlarmAuditEvent(
+        event: 'android_workmanager_watchdog_scheduled',
+        details: {
+          'reason': reason,
+          'periodic': true,
+          'success': false,
+          'failure_reason': 'platform_exception',
+          'error': e.message,
+        },
+      );
+      return false;
+    } catch (e) {
+      _log.warn('Error scheduling alarm watchdog: $e');
+      return false;
+    }
+  }
+
+  Future<bool> requestAlarmWatchdogRun({required String reason}) async {
+    if (!Platform.isAndroid) return false;
+    if (!_initialized) {
+      _log.debug('Cannot request alarm watchdog run: service not initialized');
+      return false;
+    }
+
+    try {
+      final success = await _channel.invokeMethod<bool>(
+            'requestAlarmWatchdogRun',
+            {'reason': reason},
+          ) ??
+          false;
+      _observability.reportBlockProductionAlarmAuditEvent(
+        event: 'android_workmanager_watchdog_scheduled',
+        details: {
+          'reason': reason,
+          'one_time': true,
+          'success': success,
+        },
+      );
+      return success;
+    } on PlatformException catch (e) {
+      _log.warn('Error requesting alarm watchdog run: ${e.message}');
+      return false;
+    } catch (e) {
+      _log.warn('Error requesting alarm watchdog run: $e');
+      return false;
+    }
+  }
+
+  Future<bool> cancelAlarmWatchdog() async {
+    if (!Platform.isAndroid) return false;
+    if (!_initialized) return false;
+
+    try {
+      return await _channel.invokeMethod<bool>('cancelAlarmWatchdog') ?? false;
+    } on PlatformException catch (e) {
+      _log.warn('Error cancelling alarm watchdog: ${e.message}');
+      return false;
+    } catch (e) {
+      _log.warn('Error cancelling alarm watchdog: $e');
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getAlarmWatchdogState() async {
+    if (!Platform.isAndroid) return null;
+    if (!_initialized) return null;
+
+    try {
+      final raw = await _channel.invokeMethod<Object?>(
+        'getAlarmWatchdogState',
+      );
+      if (raw is Map) {
+        return raw.map((key, value) => MapEntry(key.toString(), value));
+      }
+    } on PlatformException catch (e) {
+      _log.warn('Error getting alarm watchdog state: ${e.message}');
+    } catch (e) {
+      _log.warn('Error getting alarm watchdog state: $e');
+    }
+    return null;
+  }
+
+  Future<bool> isAlarmWatchdogDeliveryInProgress() async {
+    if (!Platform.isAndroid) return false;
+
+    try {
+      return await _channel.invokeMethod<bool>(
+            'isAlarmWatchdogDeliveryInProgress',
+          ) ??
+          false;
+    } catch (e) {
+      _log.warn('Error checking alarm watchdog delivery state: $e');
+      return false;
+    }
+  }
+
   /// Request battery optimization exemption
   Future<bool> requestBatteryOptimizationExemption() async {
     if (!Platform.isAndroid) {
@@ -931,7 +1063,6 @@ class PlatformAlarmService {
     final explicitPurpose = _stringFromDynamic(data['purpose']);
     if (explicitPurpose != null) return explicitPurpose;
     if (alarmId == 'fg_resume') return 'foreground_resume';
-    if (alarmId.startsWith('slot_')) return 'slot_wake';
     return 'block_production_wake';
   }
 

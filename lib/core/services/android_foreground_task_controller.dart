@@ -84,17 +84,17 @@ class AndroidForegroundTaskController {
     await startMonitoring(reason: 'node_started');
   }
 
-  Future<void> startMonitoring({
+  Future<bool> startMonitoring({
     String reason = 'manual',
     bool allowWhileSleeping = false,
   }) async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid) return false;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Skipping Android monitoring start while app sleep is active',
         context: {'reason': reason},
       );
-      return;
+      return false;
     }
     await initialize();
 
@@ -102,10 +102,15 @@ class AndroidForegroundTaskController {
     final nodeOk = await _ensureNodeRunning();
     if (!nodeOk) {
       _log.error('Cannot start monitoring: node failed to start');
-      return;
+      return false;
     }
 
-    await _acquireWakelock();
+    final wakelockWasHeld = _wakelockHeld;
+    final wakelockAcquired = await _acquireWakelock();
+    if (!wakelockAcquired) {
+      _log.error('Cannot start monitoring: native wakelock was not acquired');
+      return false;
+    }
 
     final running =
         await PlatformAlarmService.instance.isForegroundServiceRunning();
@@ -116,9 +121,17 @@ class AndroidForegroundTaskController {
         globalSlot: 0,
       );
       _log.info('Foreground service start result: $result');
+      if (!result) {
+        if (!wakelockWasHeld) {
+          await _releaseWakelock();
+        }
+        _log.error('Cannot start monitoring: foreground service start failed');
+        return false;
+      }
     }
 
     _startPollTimer();
+    return true;
   }
 
   Future<void> stopMonitoring({String reason = 'stopped'}) async {
@@ -275,7 +288,7 @@ class AndroidForegroundTaskController {
         return;
       }
 
-      final epochEndRustTimeMs = await _getEpochEndTimeMs(info.currentEpoch);
+      final epochEndRustTimeMs = await resolveEpochEndTimeMs(info.currentEpoch);
       if (epochEndRustTimeMs == null) {
         _log.warn('VRF poll: could not compute epoch end');
         return;
@@ -458,7 +471,7 @@ class AndroidForegroundTaskController {
       '(success=$success, rustWakeTimeMs=$rustWakeTimeMs, '
       'clockDriftMs=$clockDriftMs)',
     );
-    if (stopMonitoringAfterSchedule) {
+    if (success && stopMonitoringAfterSchedule) {
       await stopMonitoring(reason: reason);
     }
 
@@ -480,7 +493,7 @@ class AndroidForegroundTaskController {
     return futureSlots.first;
   }
 
-  Future<int?> _getEpochEndTimeMs(int epoch) async {
+  Future<int?> resolveEpochEndTimeMs(int epoch) async {
     try {
       final status = await RustBackendService.instance.getStatus(
         includeVrfDetails: false,
@@ -500,14 +513,16 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<void> _acquireWakelock() async {
+  Future<bool> _acquireWakelock() async {
     try {
       // Use a native PARTIAL_WAKE_LOCK so it works without a foreground Activity.
       final ok = await PlatformAlarmService.instance.acquireWakelock();
       _wakelockHeld = ok;
       if (ok) _log.info('Native wakelock acquired');
+      return ok;
     } catch (e) {
       _log.warn('Failed to acquire wakelock: $e');
+      return false;
     }
   }
 

@@ -95,7 +95,11 @@ Future<void> headlessMain() async {
     await PlatformAlarmService.instance.initialize();
     final nativeWakelockHeld =
         await PlatformAlarmService.instance.isWakelockHeld();
-    if (AppSleepStateStore.isSleeping && !nativeWakelockHeld) {
+    final watchdogDeliveryInProgress =
+        await PlatformAlarmService.instance.isAlarmWatchdogDeliveryInProgress();
+    if (AppSleepStateStore.isSleeping &&
+        !nativeWakelockHeld &&
+        !watchdogDeliveryInProgress) {
       await LoggingService.initialize();
       final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
       log.info('Skipping headless bootstrap while app sleep is active');

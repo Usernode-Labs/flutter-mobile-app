@@ -17,6 +17,10 @@ import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.lang.ref.WeakReference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Android-side handler for the `com.usernode.app/alarm` channel.
@@ -41,6 +45,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private var methodChannel: MethodChannel? = null
     private val flutterAlarmEventBuffer = FlutterAlarmEventBuffer()
     private var lastKnownExactAlarmPermission: Boolean? = null
+    private val methodScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     companion object {
         private const val TAG = "usernode/AlarmMethodChannelHandler"
@@ -317,7 +322,14 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(AlarmWatchdogScheduler.cancel(appContext))
             }
             "getAlarmWatchdogState" -> {
-                result.success(AlarmWatchdogScheduler.state(appContext))
+                methodScope.launch {
+                    try {
+                        result.success(AlarmWatchdogScheduler.state(appContext))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to query alarm watchdog state", e)
+                        result.error("WATCHDOG_STATE_ERROR", e.message, null)
+                    }
+                }
             }
             "isAlarmWatchdogDeliveryInProgress" -> {
                 result.success(BackgroundAlarmEngine.isWatchdogDeliveryInProgress())

@@ -10,9 +10,12 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 object AlarmWatchdogScheduler {
     private const val TAG = "usernode/AlarmWatchdog"
@@ -129,9 +132,9 @@ object AlarmWatchdogScheduler {
     fun isEnabled(context: Context): Boolean =
         prefs(context).getBoolean(PERIODIC_CONFIGURED_KEY, false)
 
-    fun state(context: Context): Map<String, Any?> {
+    suspend fun state(context: Context): Map<String, Any?> = withContext(Dispatchers.IO) {
         val prefs = prefs(context)
-        return mapOf(
+        val persistedState = mapOf<String, Any?>(
             "periodicWorkName" to PERIODIC_WORK_NAME,
             "oneTimeWorkName" to ONE_TIME_WORK_NAME,
             "periodicConfigured" to prefs.getBoolean(PERIODIC_CONFIGURED_KEY, false),
@@ -144,6 +147,27 @@ object AlarmWatchdogScheduler {
             "lastRunReason" to prefs.getString(LAST_RUN_REASON_KEY, null),
             "lastRunAttempt" to prefs.getInt(LAST_RUN_ATTEMPT_KEY, 0)
         )
+
+        try {
+            val workManager = WorkManager.getInstance(context.applicationContext)
+            val periodic = workManager.getWorkInfosForUniqueWork(PERIODIC_WORK_NAME).get()
+            val oneTime = workManager.getWorkInfosForUniqueWork(ONE_TIME_WORK_NAME).get()
+            persistedState + mapOf<String, Any?>(
+                "workManagerQuerySucceeded" to true,
+                "periodicExists" to periodic.isNotEmpty(),
+                "periodicActive" to periodic.any { it.state.isActive },
+                "periodic" to periodic.map(::workInfoState),
+                "oneTimeExists" to oneTime.isNotEmpty(),
+                "oneTimeActive" to oneTime.any { it.state.isActive },
+                "oneTime" to oneTime.map(::workInfoState)
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to query WorkManager alarm watchdog state", e)
+            persistedState + mapOf<String, Any?>(
+                "workManagerQuerySucceeded" to false,
+                "workManagerQueryError" to (e.message ?: e.javaClass.simpleName)
+            )
+        }
     }
 
     fun recordRun(context: Context, reason: String, attempt: Int, startedAtMs: Long) {
@@ -157,4 +181,18 @@ object AlarmWatchdogScheduler {
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val WorkInfo.State.isActive: Boolean
+        get() = this == WorkInfo.State.ENQUEUED ||
+            this == WorkInfo.State.RUNNING ||
+            this == WorkInfo.State.BLOCKED
+
+    private fun workInfoState(info: WorkInfo): Map<String, Any?> = mapOf(
+        "id" to info.id.toString(),
+        "state" to info.state.name,
+        "runAttemptCount" to info.runAttemptCount,
+        "generation" to info.generation,
+        "nextScheduleTimeMs" to info.nextScheduleTimeMillis,
+        "stopReason" to info.stopReason
+    )
 }

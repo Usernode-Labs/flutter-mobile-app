@@ -27,15 +27,46 @@ void main() {
       );
     });
 
-    test('handles no won slots', () async {
+    test('completed zero-win epoch schedules the epoch-boundary wake',
+        () async {
       final harness = _AuditHarness(
-        epoch: const AlarmAuditEpochSnapshot(epoch: 7, wonSlots: []),
+        epoch: const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          vrfComplete: true,
+          wonSlots: [],
+        ),
       );
 
-      final result = await harness.service.audit(reason: 'headless_start');
+      final acknowledged = await harness.service.handleNativeEvent(
+        'android_workmanager_watchdog',
+        {'reason': 'periodic'},
+      );
 
-      expect(result.skippedReason, 'no_won_slots');
-      expect(result.fgResumeStatus, 'no_won_slots');
+      expect(acknowledged, isTrue);
+      final schedule = harness.foregroundResumeSchedules.single;
+      expect(schedule.schedulerReason, 'epoch_end_7');
+      expect(schedule.globalSlot, 0);
+    });
+
+    test('incomplete VRF remains retryable', () async {
+      final harness = _AuditHarness(
+        epoch: const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          vrfComplete: false,
+          wonSlots: [],
+        ),
+      );
+
+      final acknowledged = await harness.service.handleNativeEvent(
+        'android_workmanager_watchdog',
+        {'reason': 'periodic'},
+      );
+
+      expect(acknowledged, isFalse);
+      expect(
+        harness.events('fg_resume_watchdog_skipped').single['skipped_reason'],
+        'vrf_incomplete',
+      );
       expect(harness.foregroundResumeSchedules, isEmpty);
     });
 
@@ -48,7 +79,11 @@ void main() {
 
       expect(identical(first, second), isTrue);
       epochCompleter.complete(
-        const AlarmAuditEpochSnapshot(epoch: 7, wonSlots: []),
+        const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          vrfComplete: true,
+          wonSlots: [],
+        ),
       );
 
       await first;
@@ -153,6 +188,7 @@ void main() {
         },
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
+          vrfComplete: true,
           wonSlots: [
             AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 20000),
           ],
@@ -210,6 +246,7 @@ void main() {
       final harness = _AuditHarness(
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
+          vrfComplete: true,
           wonSlots: [
             AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 20000),
           ],
@@ -228,6 +265,7 @@ void main() {
       final harness = _AuditHarness(
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
+          vrfComplete: true,
           wonSlots: [
             AlarmAuditWonSlot(globalSlot: 41, expectedTimeMs: 9000),
           ],
@@ -249,6 +287,7 @@ void main() {
       final harness = _AuditHarness(
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
+          vrfComplete: true,
           wonSlots: [
             AlarmAuditWonSlot(globalSlot: 41, expectedTimeMs: 9000),
           ],
@@ -268,6 +307,7 @@ void main() {
       final harness = _AuditHarness(
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
+          vrfComplete: true,
           wonSlots: [
             AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 10500),
           ],
@@ -292,6 +332,7 @@ void main() {
         monitoringStarts: false,
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
+          vrfComplete: true,
           wonSlots: [
             AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 10500),
           ],
@@ -318,6 +359,7 @@ void main() {
         foregroundResumeScheduleSucceeds: false,
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
+          vrfComplete: true,
           wonSlots: [
             AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 10500),
           ],
@@ -355,6 +397,7 @@ class _AuditHarness {
     this.exactAlarmPermission = true,
     this.epoch = const AlarmAuditEpochSnapshot(
       epoch: 7,
+      vrfComplete: true,
       wonSlots: [
         AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 20000),
       ],

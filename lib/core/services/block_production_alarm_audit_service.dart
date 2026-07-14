@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 
+import 'package:crypto_mobile_app/core/models/vrf_status.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
@@ -376,7 +377,7 @@ class BlockProductionAlarmAuditService {
     return skippedReason == 'node_not_running' ||
         skippedReason == 'clock_drift_unavailable' ||
         skippedReason == 'epoch_info_unavailable' ||
-        skippedReason == 'no_won_slots';
+        skippedReason == 'vrf_incomplete';
   }
 
   Future<AlarmAuditResult> audit({required String reason}) {
@@ -452,11 +453,11 @@ class BlockProductionAlarmAuditService {
         );
       }
 
-      if (epoch.wonSlots.isEmpty) {
+      if (!epoch.vrfComplete) {
         return _skip(
           reason,
-          'no_won_slots',
-          fgResumeStatus: 'no_won_slots',
+          'vrf_incomplete',
+          fgResumeStatus: 'vrf_incomplete',
         );
       }
 
@@ -846,6 +847,7 @@ class BlockProductionAlarmAuditService {
 
     return AlarmAuditEpochSnapshot(
       epoch: info.currentEpoch,
+      vrfComplete: info.vrfStatus == VRFStatus.complete,
       wonSlots: info.wonSlots
           .map(
             (slot) => AlarmAuditWonSlot(
@@ -905,10 +907,12 @@ class BlockProductionAlarmAuditService {
 class AlarmAuditEpochSnapshot {
   const AlarmAuditEpochSnapshot({
     required this.epoch,
+    required this.vrfComplete,
     required this.wonSlots,
   });
 
   final int epoch;
+  final bool vrfComplete;
   final List<AlarmAuditWonSlot> wonSlots;
 }
 

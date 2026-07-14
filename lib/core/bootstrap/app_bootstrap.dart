@@ -71,7 +71,7 @@ class AppBootstrap {
     // Initialize platform alarm service early to capture native events
     await PlatformAlarmService.instance.initialize();
     PlatformAlarmService.instance.setNativeEventCallback(
-      (eventType, eventData) {
+      (eventType, eventData) async {
         if (eventType == 'android_alarm_recovery_requested') {
           log.warn(
             'Native alarm recovery event delivered',
@@ -94,14 +94,22 @@ class AppBootstrap {
           handler: () => AndroidForegroundTaskController.instance
               .handleNativeEvent(eventType, eventData),
         );
-        _dispatchNativeEvent(
-          log: log,
-          handlerName: 'alarm_audit',
-          eventType: eventType,
-          eventData: eventData,
-          handler: () => BlockProductionAlarmAuditService.instance
-              .handleNativeEvent(eventType, eventData),
-        );
+        try {
+          return await BlockProductionAlarmAuditService.instance
+              .handleNativeEvent(eventType, eventData);
+        } catch (e, st) {
+          log.warn(
+            'Native event handler failed',
+            context: {
+              'handler': 'alarm_audit',
+              'event_type': eventType,
+              'error': e,
+              ...eventData,
+            },
+          );
+          log.debug('$st');
+          return false;
+        }
       },
     );
 
@@ -155,6 +163,7 @@ class AppBootstrap {
     _bootstrapBackendAsync(
       log: log,
       container: container,
+      hasAnyAccounts: hasAnyAccounts,
     );
 
     return AppBootstrapResult(
@@ -298,6 +307,7 @@ class AppBootstrap {
   static Future<void> _bootstrapBackendAsync({
     required TaggedLogger log,
     required ProviderContainer container,
+    required bool hasAnyAccounts,
   }) async {
     try {
       log.debug('Bootstrap begin');
@@ -318,24 +328,29 @@ class AppBootstrap {
         );
       }
 
-      // Initialize FRB only; start backend only if an account exists
+      // Initialize FRB for native event delivery; only start the node when an
+      // account exists.
       final nodeWasRunning = RustBackendService.instance.isRunning;
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
         await PlatformAlarmService.instance.markReadyForNativeEvents();
-        log.info('FRB initialized, starting node...');
-        final started = await RustBackendService.instance.startNode();
-        log.info(
-            'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
-        log.info(started
-            ? 'backend startNode: started'
-            : 'backend startNode: skipped');
-        if (started) {
+        if (hasAnyAccounts) {
+          log.info('FRB initialized, starting node...');
+          final started = await RustBackendService.instance.startNode();
           log.info(
-              'Node started successfully, waiting 1 second for node to be ready...');
-          await Future.delayed(const Duration(seconds: 1));
-          log.info('Node should be ready now');
+              'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
+          log.info(started
+              ? 'backend startNode: started'
+              : 'backend startNode: skipped');
+          if (started) {
+            log.info(
+                'Node started successfully, waiting 1 second for node to be ready...');
+            await Future.delayed(const Duration(seconds: 1));
+            log.info('Node should be ready now');
+          }
+        } else {
+          log.info('FRB initialized without an account; node start skipped');
         }
       } else {
         log.info('Backend already running, skipping start');
@@ -345,11 +360,25 @@ class AppBootstrap {
         );
       }
 
-      // Kick off Android foreground VRF monitoring once the node is running
+      // Watchdog work is useful only while an account-backed producer is
+      // actually running.
       if (Platform.isAndroid) {
-        log.info('Starting Android foreground VRF monitoring');
-        await AndroidForegroundTaskController.instance.onNodeStarted();
-        unawaited(_runStartupAlarmAudit(log));
+        final blockProductionActive =
+            hasAnyAccounts && RustBackendService.instance.isRunning;
+        if (blockProductionActive) {
+          log.info('Starting Android foreground VRF monitoring');
+          await AndroidForegroundTaskController.instance.onNodeStarted();
+          unawaited(_runStartupAlarmAudit(log));
+        } else {
+          log.info(
+            'Cancelling Android alarm watchdog because block production is inactive',
+            context: {
+              'has_account': hasAnyAccounts,
+              'node_running': RustBackendService.instance.isRunning,
+            },
+          );
+          await PlatformAlarmService.instance.cancelAlarmWatchdog();
+        }
       }
 
       log.debug('Bootstrap end');
@@ -361,9 +390,6 @@ class AppBootstrap {
 
   static Future<void> _runStartupAlarmAudit(TaggedLogger log) async {
     try {
-      await PlatformAlarmService.instance.ensureAlarmWatchdogScheduled(
-        reason: 'cold_start',
-      );
       final forceStopRecovery = await BlockProductionAlarmAuditService.instance
           .auditForceStopRecoveryIfNeeded();
       if (!forceStopRecovery && RustBackendService.instance.isRunning) {

@@ -73,6 +73,11 @@ object AlarmWatchdogScheduler {
     }
 
     fun enqueueOneTime(context: Context, reason: String): Boolean {
+        if (!isEnabled(context)) {
+            Log.i(TAG, "Ignoring one-time watchdog request while disabled (reason=$reason)")
+            return false
+        }
+
         return try {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -120,6 +125,9 @@ object AlarmWatchdogScheduler {
             false
         }
     }
+
+    fun isEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(PERIODIC_CONFIGURED_KEY, false)
 
     fun state(context: Context): Map<String, Any?> {
         val prefs = prefs(context)

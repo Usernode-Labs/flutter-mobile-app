@@ -11,7 +11,7 @@ final _log = LoggingService.instance.withTag('usernode/AlarmService');
 typedef BootRescheduleCallback = Future<void> Function();
 
 /// Callback type for handling native block production events
-typedef NativeEventCallback = void Function(
+typedef NativeEventCallback = Future<bool> Function(
     String eventType, Map<String, dynamic> eventData);
 
 class AlarmDebugState {
@@ -315,7 +315,7 @@ class PlatformAlarmService {
       case 'rescheduleAfterBoot':
         return await _handleRescheduleAfterBoot();
       case 'onBlockProductionEvent':
-        return _handleNativeEvent(call.arguments);
+        return await _handleNativeEvent(call.arguments);
       default:
         _log.warn('Unknown method call: ${call.method}');
         throw MissingPluginException('Method ${call.method} not implemented');
@@ -323,11 +323,11 @@ class PlatformAlarmService {
   }
 
   /// Handle a native block production event from platform code
-  void _handleNativeEvent(dynamic arguments) {
+  Future<bool> _handleNativeEvent(dynamic arguments) async {
     try {
       if (arguments == null) {
         _log.warn('Received null arguments for onBlockProductionEvent');
-        return;
+        return false;
       }
 
       final Map<String, dynamic> args = Map<String, dynamic>.from(arguments);
@@ -338,7 +338,7 @@ class PlatformAlarmService {
 
       if (eventType == null) {
         _log.warn('Received native event with null eventType');
-        return;
+        return false;
       }
 
       _log.debug('Native event received: $eventType');
@@ -347,13 +347,17 @@ class PlatformAlarmService {
 
       if (_onNativeEvent == null) {
         _log.warn('No native event callback registered for event: $eventType');
-        return;
+        return false;
       }
 
-      // Invoke the registered callback
-      _onNativeEvent!(eventType, eventData ?? {});
-    } catch (e) {
-      _log.error('Error handling native event: $e');
+      return await _onNativeEvent!(eventType, eventData ?? {});
+    } catch (e, st) {
+      _log.error(
+        'Error handling native event: $e',
+        error: e,
+        stackTrace: st,
+      );
+      return false;
     }
   }
 
@@ -903,6 +907,20 @@ class PlatformAlarmService {
       _log.warn('Error getting alarm watchdog state: $e');
     }
     return null;
+  }
+
+  Future<bool> isAlarmWatchdogDeliveryInProgress() async {
+    if (!Platform.isAndroid) return false;
+
+    try {
+      return await _channel.invokeMethod<bool>(
+            'isAlarmWatchdogDeliveryInProgress',
+          ) ??
+          false;
+    } catch (e) {
+      _log.warn('Error checking alarm watchdog delivery state: $e');
+      return false;
+    }
   }
 
   /// Request battery optimization exemption

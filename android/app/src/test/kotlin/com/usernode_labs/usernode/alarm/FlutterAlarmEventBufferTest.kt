@@ -38,4 +38,36 @@ class FlutterAlarmEventBufferTest {
         assertEquals(1, drained.size)
         assertEquals("fg_resume_2", drained.single().eventData["alarmId"])
     }
+
+    @Test
+    fun `queued event preserves acknowledgement callback until dispatch`() {
+        val buffer = FlutterAlarmEventBuffer()
+        var acknowledged: Boolean? = null
+
+        assertNull(
+            buffer.enqueueOrDispatch(
+                "android_workmanager_watchdog",
+                emptyMap(),
+            ) { acknowledged = it },
+        )
+
+        val event = buffer.markFlutterReady().single()
+        event.completion?.invoke(true)
+
+        assertEquals(true, acknowledged)
+    }
+
+    @Test
+    fun `dropping a queued event rejects its acknowledgement`() {
+        val buffer = FlutterAlarmEventBuffer(maxPendingEvents = 1)
+        var acknowledged: Boolean? = null
+
+        buffer.enqueueOrDispatch(
+            "android_workmanager_watchdog",
+            emptyMap(),
+        ) { acknowledged = it }
+        buffer.enqueueOrDispatch("android_alarm_fired", emptyMap())
+
+        assertEquals(false, acknowledged)
+    }
 }

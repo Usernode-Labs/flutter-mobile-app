@@ -55,7 +55,7 @@ void main() {
       expect(harness.loadEpochCalls, 1);
     });
 
-    test('native recovery retries when node is not ready yet', () async {
+    test('native recovery leaves retries to WorkManager', () async {
       final retryDelays = <Duration>[];
       final retryCallbacks = <void Function()>[];
       final harness = _AuditHarness(
@@ -67,7 +67,7 @@ void main() {
         },
       );
 
-      harness.service.handleNativeEvent(
+      await harness.service.handleNativeEvent(
         'android_alarm_recovery_requested',
         {'reason': 'boot_completed'},
       );
@@ -77,22 +77,15 @@ void main() {
         harness.events('fg_resume_watchdog_skipped').single['skipped_reason'],
         'node_not_running',
       );
-      expect(retryDelays.single, const Duration(milliseconds: 1));
-      expect(retryCallbacks, hasLength(1));
-      expect(harness.watchdogScheduleReasons, contains('boot_completed'));
-
-      harness.nodeRunning = true;
-      retryCallbacks.single();
-      await pumpEventQueue(times: 20);
-
-      expect(harness.foregroundResumeSchedules.single.globalSlot, 42);
-      expect(harness.events('fg_resume_watchdog_recreated'), hasLength(1));
+      expect(retryDelays, isEmpty);
+      expect(retryCallbacks, isEmpty);
+      expect(harness.watchdogScheduleReasons, isEmpty);
     });
 
     test('WorkManager watchdog event runs fg_resume reconciliation', () async {
       final harness = _AuditHarness();
 
-      harness.service.handleNativeEvent(
+      final acknowledged = await harness.service.handleNativeEvent(
         'android_workmanager_watchdog',
         {
           'reason': 'periodic',
@@ -100,8 +93,8 @@ void main() {
           'runAttemptCount': 0,
         },
       );
-      await pumpEventQueue(times: 20);
 
+      expect(acknowledged, isTrue);
       expect(
         harness.events('android_workmanager_watchdog_started').single['reason'],
         'periodic',
@@ -113,6 +106,27 @@ void main() {
       );
     });
 
+    test('WorkManager watchdog is not acknowledged after a transient skip',
+        () async {
+      final retryCallbacks = <void Function()>[];
+      final harness = _AuditHarness(
+        nodeRunning: false,
+        recoveryRetryDelays: const [Duration(milliseconds: 1)],
+        scheduleRecoveryRetry: (_, callback) {
+          retryCallbacks.add(callback);
+        },
+      );
+
+      final acknowledged = await harness.service.handleNativeEvent(
+        'android_workmanager_watchdog',
+        {'reason': 'periodic'},
+      );
+
+      expect(acknowledged, isFalse);
+      expect(harness.watchdogScheduleReasons, isEmpty);
+      expect(retryCallbacks, isEmpty);
+    });
+
     test('foreground resume lead is four minutes in production', () {
       expect(
         AndroidForegroundTaskController.foregroundResumeLead,
@@ -122,7 +136,21 @@ void main() {
 
     test('foreground resume present emits present telemetry', () async {
       final harness = _AuditHarness(
-        presentAlarms: {'fg_resume'},
+        debugStates: const {
+          'fg_resume': AlarmDebugState(
+            alarmId: 'fg_resume',
+            pendingIntentExists: true,
+            triggerAtMs: 19000,
+            globalSlot: 42,
+            rustSlotTimeMs: 20000,
+            slotTimeMs: 20000,
+            rustWakeTimeMs: 19000,
+            localWakeTimeMs: 19000,
+            purpose: 'foreground_resume',
+            schedulerReason: 'next_won_slot:42',
+            scheduleStatus: 'scheduled',
+          ),
+        },
         epoch: const AlarmAuditEpochSnapshot(
           epoch: 7,
           wonSlots: [
@@ -136,6 +164,46 @@ void main() {
       expect(result.fgResumeStatus, 'present');
       expect(harness.foregroundResumeSchedules, isEmpty);
       expect(harness.events('fg_resume_watchdog_present'), hasLength(1));
+    });
+
+    test('foreground resume replaces a stale alarm for the wrong slot',
+        () async {
+      final harness = _AuditHarness(
+        debugStates: const {
+          'fg_resume': AlarmDebugState(
+            alarmId: 'fg_resume',
+            pendingIntentExists: true,
+            triggerAtMs: 12000,
+            globalSlot: 41,
+            rustSlotTimeMs: 19000,
+            slotTimeMs: 12000,
+            rustWakeTimeMs: 18000,
+            localWakeTimeMs: 12000,
+            purpose: 'foreground_resume',
+            schedulerReason: 'next_won_slot:41',
+            scheduleStatus: 'failed',
+          ),
+        },
+      );
+
+      final result = await harness.service.audit(reason: 'foreground_resume');
+
+      expect(result.fgResumeStatus, 'replaced');
+      expect(harness.foregroundResumeSchedules.single.globalSlot, 42);
+      final replacement = harness.events('fg_resume_watchdog_replaced').single;
+      expect(
+        replacement['mismatch_reasons'],
+        containsAll(<String>[
+          'global_slot',
+          'trigger_time',
+          'rust_slot_time',
+          'rust_wake_time',
+          'local_wake_time',
+          'slot_time',
+          'scheduler_reason',
+          'schedule_status',
+        ]),
+      );
     });
 
     test('foreground resume missing recreates fg_resume', () async {
@@ -178,6 +246,51 @@ void main() {
       );
     });
 
+    test('slot too close schedules an immediate alarm if monitoring fails',
+        () async {
+      final harness = _AuditHarness(
+        monitoringStarts: false,
+        epoch: const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          wonSlots: [
+            AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 10500),
+          ],
+        ),
+      );
+
+      final result = await harness.service.audit(reason: 'workmanager');
+
+      expect(
+        result.fgResumeStatus,
+        'slot_too_close_immediate_alarm_scheduled',
+      );
+      expect(harness.foregroundResumeSchedules.single.rustWakeTimeMs, 9500);
+      expect(
+        harness.events('fg_resume_watchdog_immediate_alarm_scheduled'),
+        hasLength(1),
+      );
+    });
+
+    test('slot too close reports failure when both recovery paths fail',
+        () async {
+      final harness = _AuditHarness(
+        monitoringStarts: false,
+        foregroundResumeScheduleSucceeds: false,
+        epoch: const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          wonSlots: [
+            AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 10500),
+          ],
+        ),
+      );
+
+      final result = await harness.service.audit(reason: 'workmanager');
+
+      expect(result.fgResumeStatus, 'slot_too_close_recovery_failed');
+      expect(result.failedCount, 1);
+      expect(harness.events('fg_resume_watchdog_failed'), hasLength(1));
+    });
+
     test('reports WorkManager watchdog state when available', () async {
       final harness = _AuditHarness(
         watchdogState: const {
@@ -213,6 +326,8 @@ class _AuditHarness {
     this.recoveryRetryDelays,
     this.scheduleRecoveryRetry,
     this.watchdogState,
+    this.monitoringStarts = true,
+    this.foregroundResumeScheduleSucceeds = true,
   })  : presentAlarms = presentAlarms ?? <String>{},
         debugStates = debugStates ?? const <String, AlarmDebugState>{} {
     service = BlockProductionAlarmAuditService.test(
@@ -240,14 +355,18 @@ class _AuditHarness {
           ),
         );
         return ForegroundResumeAlarmScheduleResult(
-          success: true,
+          success: foregroundResumeScheduleSucceeds,
           alarmTimeMs: slotTimeMs - foregroundResumeLead.inMilliseconds,
           delayMs: slotTimeMs - foregroundResumeLead.inMilliseconds - nowMs,
           clockDriftMs: clockDriftMs,
+          failureReason: foregroundResumeScheduleSucceeds
+              ? null
+              : 'platform_schedule_failed',
         );
       },
       startMonitoring: (reason) async {
         monitoringReasons.add(reason);
+        return monitoringStarts;
       },
       loadEpochSnapshot: () async {
         loadEpochCalls++;
@@ -298,6 +417,8 @@ class _AuditHarness {
   final Set<String> presentAlarms;
   final Map<String, AlarmDebugState> debugStates;
   final Map<String, dynamic>? watchdogState;
+  final bool monitoringStarts;
+  final bool foregroundResumeScheduleSucceeds;
   final records = <_CapturedObservabilityRecord>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];
   final monitoringReasons = <String>[];

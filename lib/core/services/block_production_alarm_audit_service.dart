@@ -30,9 +30,11 @@ typedef AlarmAuditEnsureWatchdogScheduled = Future<bool> Function(
 
 typedef AlarmAuditLoadWatchdogState = Future<Map<String, dynamic>?> Function();
 
-typedef AlarmAuditStartMonitoring = Future<void> Function(String reason);
+typedef AlarmAuditStartMonitoring = Future<bool> Function(String reason);
 
 class BlockProductionAlarmAuditService {
+  static const _alarmStateTimeToleranceMs = 1000;
+
   BlockProductionAlarmAuditService._({
     Future<bool> Function()? initializeAlarmService,
     Future<bool> Function()? refreshPermissions,
@@ -209,9 +211,6 @@ class BlockProductionAlarmAuditService {
   var _recoveryRetryGeneration = 0;
 
   void auditBestEffort({required String reason}) {
-    if (_isAndroid()) {
-      unawaited(_ensureWatchdogScheduled(reason));
-    }
     _auditBestEffort(reason: reason);
   }
 
@@ -233,7 +232,6 @@ class BlockProductionAlarmAuditService {
         'app_state': _appState(),
       },
     );
-    unawaited(_ensureWatchdogScheduled('force_stop_recovery'));
     _auditBestEffort(
       reason: 'force_stop_recovery',
       retryTransientRecovery: true,
@@ -241,7 +239,10 @@ class BlockProductionAlarmAuditService {
     return true;
   }
 
-  void handleNativeEvent(String eventType, Map<String, dynamic> eventData) {
+  Future<bool> handleNativeEvent(
+    String eventType,
+    Map<String, dynamic> eventData,
+  ) async {
     switch (eventType) {
       case 'android_alarm_recovery_requested':
         final reason = _stringValue(eventData['reason']) ?? 'native_recovery';
@@ -249,9 +250,9 @@ class BlockProductionAlarmAuditService {
           'reason': reason,
           ...eventData,
         });
-        unawaited(_ensureWatchdogScheduled(reason));
-        _auditBestEffort(reason: reason, retryTransientRecovery: true);
-        break;
+        // Boot/package recovery also queues WorkManager, which owns retries.
+        _auditBestEffort(reason: reason);
+        return true;
       case 'android_workmanager_watchdog':
         final reason = _stringValue(eventData['reason']) ?? 'workmanager';
         _report(
@@ -261,23 +262,31 @@ class BlockProductionAlarmAuditService {
             ...eventData,
           },
         );
-        _auditBestEffort(
-          reason: 'workmanager:$reason',
-          retryTransientRecovery: true,
-        );
-        break;
+        final auditReason = 'workmanager:$reason';
+        final result = await audit(reason: auditReason);
+        return _watchdogResultAcknowledged(result);
       case 'android_exact_alarm_permission_granted':
         final stateChanged = eventData['stateChanged'] == true;
         final source = _stringValue(eventData['source']);
         if (stateChanged || source == 'permission_state_changed_broadcast') {
-          unawaited(_ensureWatchdogScheduled('exact_alarm_permission_granted'));
           _auditBestEffort(
             reason: 'exact_alarm_permission_granted',
             retryTransientRecovery: true,
           );
         }
-        break;
+        return true;
+      default:
+        return true;
     }
+  }
+
+  bool _watchdogResultAcknowledged(AlarmAuditResult result) {
+    final skippedReason = result.skippedReason;
+    if (skippedReason != null) {
+      return !_isTransientRecoverySkip(skippedReason) &&
+          skippedReason != 'audit_exception';
+    }
+    return result.failedCount == 0;
   }
 
   void _auditBestEffort({
@@ -385,9 +394,7 @@ class BlockProductionAlarmAuditService {
       }
 
       await _initializeAlarmService();
-      await _ensureWatchdogScheduled(reason);
       await _refreshPermissions();
-      await _reportWatchdogState(reason);
 
       final exactAlarmPermission = await _hasExactAlarmPermission();
       _reportStarted(
@@ -396,6 +403,10 @@ class BlockProductionAlarmAuditService {
       );
 
       if (!exactAlarmPermission) {
+        if (_isNodeRunning()) {
+          await _ensureWatchdogScheduled(reason);
+          await _reportWatchdogState(reason);
+        }
         return _skip(
           reason,
           'no_exact_alarm_permission',
@@ -411,6 +422,9 @@ class BlockProductionAlarmAuditService {
           fgResumeStatus: 'skipped:node_not_running',
         );
       }
+
+      await _ensureWatchdogScheduled(reason);
+      await _reportWatchdogState(reason);
 
       final clockDriftMs = await _resolveClockDriftMs();
       if (clockDriftMs == null) {
@@ -451,8 +465,19 @@ class BlockProductionAlarmAuditService {
         expectedSlotWakeCount: 0,
         presentCount: fgResumeStatus == 'present' ? 1 : 0,
         missingCount: fgResumeStatus == 'recreated' ? 1 : 0,
-        rescheduledCount: fgResumeStatus == 'recreated' ? 1 : 0,
-        failedCount: fgResumeStatus == 'reschedule_failed' ? 1 : 0,
+        rescheduledCount: const {
+          'recreated',
+          'replaced',
+          'slot_too_close_immediate_alarm_scheduled',
+        }.contains(fgResumeStatus)
+            ? 1
+            : 0,
+        failedCount: const {
+          'reschedule_failed',
+          'slot_too_close_recovery_failed',
+        }.contains(fgResumeStatus)
+            ? 1
+            : 0,
         fgResumeStatus: fgResumeStatus,
       );
     } catch (e, st) {
@@ -482,20 +507,6 @@ class BlockProductionAlarmAuditService {
     }
 
     final fgLeadMs = _foregroundResumeLead.inMilliseconds;
-    if (nextWonSlot.slotTimeMs - nowMs <= fgLeadMs) {
-      _report(
-        'fg_resume_watchdog_slot_too_close',
-        {
-          'reason': reason,
-          'global_slot': nextWonSlot.globalSlot,
-          'slot_time_ms': nextWonSlot.slotTimeMs,
-          'now_ms': nowMs,
-        },
-      );
-      await _startMonitoring('fg_resume_watchdog_slot_too_close');
-      return 'slot_too_close_monitoring_started';
-    }
-
     final alarm = AlarmAuditExpectedAlarm(
       alarmId: AndroidForegroundTaskController.foregroundResumeAlarmId,
       purpose: 'foreground_resume',
@@ -509,9 +520,76 @@ class BlockProductionAlarmAuditService {
       systemTimeMsAtAudit: nowMs,
       clockDriftSampleAgeMs: _clockDriftSampleAgeMs(nowMs),
     );
+    final schedulerReason = 'next_won_slot:${alarm.globalSlot}';
+
+    if (nextWonSlot.slotTimeMs - nowMs <= fgLeadMs) {
+      var monitoringStarted = false;
+      String? monitoringFailure;
+      try {
+        monitoringStarted =
+            await _startMonitoring('fg_resume_watchdog_slot_too_close');
+      } catch (e, st) {
+        monitoringFailure = e.toString();
+        _log.warn('Failed to start imminent-slot monitoring: $e');
+        _log.debug('$st');
+      }
+      _report(
+        'fg_resume_watchdog_slot_too_close',
+        {
+          'reason': reason,
+          'global_slot': nextWonSlot.globalSlot,
+          'slot_time_ms': nextWonSlot.slotTimeMs,
+          'now_ms': nowMs,
+          'monitoring_started': monitoringStarted,
+          if (monitoringFailure != null)
+            'monitoring_failure': monitoringFailure,
+        },
+      );
+      if (monitoringStarted) {
+        return 'slot_too_close_monitoring_started';
+      }
+
+      final fallback = await _scheduleForegroundResume(
+        rustWakeTimeMs: alarm.rustSlotTimeMs - fgLeadMs,
+        schedulerReason: schedulerReason,
+        globalSlot: alarm.globalSlot,
+        slotTimeMs: alarm.slotTimeMs,
+      );
+      if (fallback.success) {
+        _report(
+          'fg_resume_watchdog_immediate_alarm_scheduled',
+          {
+            'reason': reason,
+            ...alarm
+                .copyWith(
+                  alarmTimeMs: fallback.alarmTimeMs ?? alarm.alarmTimeMs,
+                )
+                .telemetryDetails,
+            'schedule_success': true,
+          },
+        );
+        return 'slot_too_close_immediate_alarm_scheduled';
+      }
+
+      _report(
+        'fg_resume_watchdog_failed',
+        {
+          'reason': reason,
+          ...alarm.telemetryDetails,
+          'failure_reason':
+              fallback.failureReason ?? 'immediate_alarm_schedule_failed',
+        },
+      );
+      return 'slot_too_close_recovery_failed';
+    }
 
     final state = await _getAlarmDebugState(alarm.alarmId);
-    if (state.pendingIntentExists) {
+    final mismatches = _foregroundResumeMismatches(
+      expected: alarm,
+      state: state,
+      schedulerReason: schedulerReason,
+    );
+    if (mismatches.isEmpty) {
       _report(
         'fg_resume_watchdog_present',
         {
@@ -523,7 +601,6 @@ class BlockProductionAlarmAuditService {
       return 'present';
     }
 
-    final schedulerReason = 'next_won_slot:${alarm.globalSlot}';
     final result = await _scheduleForegroundResume(
       rustWakeTimeMs: alarm.rustSlotTimeMs - fgLeadMs,
       schedulerReason: schedulerReason,
@@ -535,16 +612,18 @@ class BlockProductionAlarmAuditService {
     );
 
     if (result.success) {
+      final status = state.pendingIntentExists ? 'replaced' : 'recreated';
       _report(
-        'fg_resume_watchdog_recreated',
+        'fg_resume_watchdog_$status',
         {
           'reason': reason,
           ...scheduledAlarm.telemetryDetails,
           'schedule_success': true,
+          'mismatch_reasons': mismatches,
           ...state.telemetryDetails,
         },
       );
-      return 'recreated';
+      return status;
     }
 
     _report(
@@ -553,10 +632,64 @@ class BlockProductionAlarmAuditService {
         'reason': reason,
         ...scheduledAlarm.telemetryDetails,
         'failure_reason': result.failureReason ?? 'platform_schedule_failed',
+        'mismatch_reasons': mismatches,
         ...state.telemetryDetails,
       },
     );
     return 'reschedule_failed';
+  }
+
+  List<String> _foregroundResumeMismatches({
+    required AlarmAuditExpectedAlarm expected,
+    required AlarmDebugState state,
+    required String schedulerReason,
+  }) {
+    if (!state.pendingIntentExists) {
+      return const ['pending_intent_missing'];
+    }
+
+    final mismatches = <String>[];
+    if (state.globalSlot != expected.globalSlot) {
+      mismatches.add('global_slot');
+    }
+    final triggerAtMs = state.triggerAtMs;
+    if (triggerAtMs == null) {
+      mismatches.add('trigger_time_missing');
+    } else if ((triggerAtMs - expected.alarmTimeMs).abs() >
+        _alarmStateTimeToleranceMs) {
+      mismatches.add('trigger_time');
+    }
+    if (state.rustSlotTimeMs != expected.rustSlotTimeMs) {
+      mismatches.add('rust_slot_time');
+    }
+    if (state.rustWakeTimeMs !=
+        expected.rustSlotTimeMs - _foregroundResumeLead.inMilliseconds) {
+      mismatches.add('rust_wake_time');
+    }
+    final localWakeTimeMs = state.localWakeTimeMs;
+    if (localWakeTimeMs == null) {
+      mismatches.add('local_wake_time_missing');
+    } else if ((localWakeTimeMs - expected.alarmTimeMs).abs() >
+        _alarmStateTimeToleranceMs) {
+      mismatches.add('local_wake_time');
+    }
+    final slotTimeMs = state.slotTimeMs;
+    if (slotTimeMs == null) {
+      mismatches.add('slot_time_missing');
+    } else if ((slotTimeMs - expected.slotTimeMs).abs() >
+        _alarmStateTimeToleranceMs) {
+      mismatches.add('slot_time');
+    }
+    if (state.purpose != expected.purpose) {
+      mismatches.add('purpose');
+    }
+    if (state.schedulerReason != schedulerReason) {
+      mismatches.add('scheduler_reason');
+    }
+    if (state.scheduleStatus != 'scheduled') {
+      mismatches.add('schedule_status');
+    }
+    return mismatches;
   }
 
   _FutureWonSlot? _nextFutureWonSlot(

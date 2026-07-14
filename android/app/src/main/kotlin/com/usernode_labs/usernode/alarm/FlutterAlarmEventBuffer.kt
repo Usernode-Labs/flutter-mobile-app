@@ -3,6 +3,7 @@ package com.usernode_labs.usernode.alarm
 data class FlutterAlarmEvent(
     val eventType: String,
     val eventData: Map<String, Any?>,
+    val completion: ((Boolean) -> Unit)? = null,
 )
 
 class FlutterAlarmEventBuffer(
@@ -15,14 +16,15 @@ class FlutterAlarmEventBuffer(
     fun enqueueOrDispatch(
         eventType: String,
         eventData: Map<String, Any?>,
+        completion: ((Boolean) -> Unit)? = null,
     ): FlutterAlarmEvent? {
-        val event = FlutterAlarmEvent(eventType, LinkedHashMap(eventData))
+        val event = FlutterAlarmEvent(eventType, LinkedHashMap(eventData), completion)
         if (flutterReady) {
             return event
         }
 
         if (pendingEvents.size >= maxPendingEvents) {
-            pendingEvents.removeFirst()
+            pendingEvents.removeFirst().completion?.invoke(false)
         }
         pendingEvents.addLast(event)
         return null

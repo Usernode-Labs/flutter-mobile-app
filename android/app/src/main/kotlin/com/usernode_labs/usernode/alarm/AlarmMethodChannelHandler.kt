@@ -120,8 +120,12 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     /// Send a block production event to Flutter
-    fun sendEventToFlutter(eventType: String, eventData: Map<String, Any?>) {
-        val event = flutterAlarmEventBuffer.enqueueOrDispatch(eventType, eventData)
+    fun sendEventToFlutter(
+        eventType: String,
+        eventData: Map<String, Any?>,
+        completion: ((Boolean) -> Unit)? = null,
+    ) {
+        val event = flutterAlarmEventBuffer.enqueueOrDispatch(eventType, eventData, completion)
         if (event == null) {
             Log.d(TAG, "Queued event for Flutter: $eventType")
             return
@@ -314,6 +318,9 @@ class AlarmMethodChannelHandler(context: Context) {
             }
             "getAlarmWatchdogState" -> {
                 result.success(AlarmWatchdogScheduler.state(appContext))
+            }
+            "isAlarmWatchdogDeliveryInProgress" -> {
+                result.success(BackgroundAlarmEngine.isWatchdogDeliveryInProgress())
             }
             else -> {
                 result.notImplemented()
@@ -633,6 +640,7 @@ class AlarmMethodChannelHandler(context: Context) {
         val channel = methodChannel
         if (channel == null) {
             Log.w(TAG, "Cannot flush ${events.size} event(s) - method channel not set (reason=$reason)")
+            events.forEach { it.completion?.invoke(false) }
             return
         }
 
@@ -646,7 +654,38 @@ class AlarmMethodChannelHandler(context: Context) {
                 "eventType" to event.eventType,
                 "eventData" to event.eventData
             )
-            channel.invokeMethod("onBlockProductionEvent", args)
+            val completion = event.completion
+            if (completion == null) {
+                channel.invokeMethod("onBlockProductionEvent", args)
+                continue
+            }
+
+            channel.invokeMethod(
+                "onBlockProductionEvent",
+                args,
+                object : MethodChannel.Result {
+                    override fun success(result: Any?) {
+                        completion(result == true)
+                    }
+
+                    override fun error(
+                        errorCode: String,
+                        errorMessage: String?,
+                        errorDetails: Any?,
+                    ) {
+                        Log.w(
+                            TAG,
+                            "Flutter rejected ${event.eventType}: $errorCode $errorMessage",
+                        )
+                        completion(false)
+                    }
+
+                    override fun notImplemented() {
+                        Log.w(TAG, "Flutter did not implement ${event.eventType}")
+                        completion(false)
+                    }
+                },
+            )
         }
     }
 }

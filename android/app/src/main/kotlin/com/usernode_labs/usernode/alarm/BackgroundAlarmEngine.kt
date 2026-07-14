@@ -10,6 +10,10 @@ import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Minimal background Flutter engine to deliver alarm events to Dart
@@ -25,6 +29,8 @@ object BackgroundAlarmEngine {
     private const val TAG = "usernode/BackgroundAlarmEngine"
     private const val CHANNEL = "com.usernode.app/alarm"
     private const val RETRY_DELAY_MS = 2000L
+    private const val WATCHDOG_DELIVERY_TIMEOUT_MS = 2L * 60L * 1000L
+
     /**
      * Cache key for the *background/headless* engine only.
      *
@@ -35,6 +41,9 @@ object BackgroundAlarmEngine {
     const val ENGINE_ID = "bg_alarm_engine"
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val watchdogDeliveriesInProgress = AtomicInteger(0)
+
+    fun isWatchdogDeliveryInProgress(): Boolean = watchdogDeliveriesInProgress.get() > 0
 
     @Synchronized
     private fun getCachedEngine(): FlutterEngine? {
@@ -135,27 +144,65 @@ object BackgroundAlarmEngine {
     }
 
     fun sendAlarmEvent(context: Context, eventType: String, eventData: Map<String, Any?>) {
-        mainHandler.post {
-            // Check if activity is attached - if so, engine is already up so no need to create background one.
-            val handler = AlarmMethodChannelHandler.getInstance()
-            if (handler != null && handler.isActivityAttached()) {
-                Log.d(TAG, "Activity is attached, sending alarm event via Activity's method channel")
-                try {
-                    handler.sendEventToFlutter(eventType, eventData)
-                    return@post
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to send event via Activity channel, falling back to background engine", e)
-                }
-            }
+        sendAlarmEvent(context, eventType, eventData, completion = null)
+    }
 
-            // Activity not attached => create a background engine
-            createAndCacheNewEngine(
-                context = context,
-                reason = "alarm_event:$eventType",
-                registerPlugins = true,
-            )
-            AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
-                .sendEventToFlutter(eventType, eventData)
+    suspend fun sendAlarmEventAwaitAcknowledgement(
+        context: Context,
+        eventType: String,
+        eventData: Map<String, Any?>,
+    ): Boolean {
+        watchdogDeliveriesInProgress.incrementAndGet()
+        return try {
+            withTimeoutOrNull(WATCHDOG_DELIVERY_TIMEOUT_MS) {
+                suspendCancellableCoroutine { continuation ->
+                    sendAlarmEvent(context, eventType, eventData) { acknowledged ->
+                        if (continuation.isActive) {
+                            continuation.resume(acknowledged)
+                        }
+                    }
+                }
+            } ?: false
+        } finally {
+            watchdogDeliveriesInProgress.decrementAndGet()
+        }
+    }
+
+    private fun sendAlarmEvent(
+        context: Context,
+        eventType: String,
+        eventData: Map<String, Any?>,
+        completion: ((Boolean) -> Unit)?,
+    ) {
+        val posted = mainHandler.post {
+            try {
+                // Check if activity is attached - if so, engine is already up so no need to create background one.
+                val handler = AlarmMethodChannelHandler.getInstance()
+                if (handler != null && handler.isActivityAttached()) {
+                    Log.d(TAG, "Activity is attached, sending alarm event via Activity's method channel")
+                    try {
+                        handler.sendEventToFlutter(eventType, eventData, completion)
+                        return@post
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to send event via Activity channel, falling back to background engine", e)
+                    }
+                }
+
+                // Activity not attached => create a background engine
+                createAndCacheNewEngine(
+                    context = context,
+                    reason = "alarm_event:$eventType",
+                    registerPlugins = true,
+                )
+                AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
+                    .sendEventToFlutter(eventType, eventData, completion)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to deliver alarm event: $eventType", e)
+                completion?.invoke(false)
+            }
+        }
+        if (!posted) {
+            completion?.invoke(false)
         }
     }
 

@@ -160,6 +160,11 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun handleBootCompleted(context: Context) {
+        if (!AlarmWatchdogScheduler.isEnabled(context)) {
+            Log.i(TAG, "Ignoring boot recovery because block production watchdog is disabled")
+            return
+        }
+
         Log.i(TAG, "Device boot completed - starting monitoring")
         AlarmWatchdogScheduler.ensurePeriodic(context, "boot_completed")
         AlarmWatchdogScheduler.enqueueOneTime(context, "boot_completed")
@@ -173,6 +178,11 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun handlePackageReplaced(context: Context) {
+        if (!AlarmWatchdogScheduler.isEnabled(context)) {
+            Log.i(TAG, "Ignoring package update recovery because block production watchdog is disabled")
+            return
+        }
+
         Log.i(TAG, "App updated - starting monitoring")
         AlarmWatchdogScheduler.ensurePeriodic(context, "package_replaced")
         AlarmWatchdogScheduler.enqueueOneTime(context, "package_replaced")
@@ -198,7 +208,7 @@ class AlarmReceiver : BroadcastReceiver() {
         } else {
             "android_exact_alarm_permission_denied"
         }
-        if (granted) {
+        if (granted && AlarmWatchdogScheduler.isEnabled(context)) {
             AlarmWatchdogScheduler.ensurePeriodic(context, "exact_alarm_permission_granted")
             AlarmWatchdogScheduler.enqueueOneTime(context, "exact_alarm_permission_granted")
         }

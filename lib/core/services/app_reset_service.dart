@@ -97,6 +97,12 @@ class AppResetService {
       _log.warn('Failed to cancel alarms cleanly: $e');
     }
 
+    try {
+      await PlatformAlarmService.instance.cancelAlarmWatchdog();
+    } catch (e) {
+      _log.warn('Failed to cancel alarm watchdog cleanly: $e');
+    }
+
     await RustBackendService.instance.resetForAppRestart();
     await AndroidForegroundTaskController.instance.resetForAppRestart();
     PlatformAlarmService.instance.resetForAppRestart();

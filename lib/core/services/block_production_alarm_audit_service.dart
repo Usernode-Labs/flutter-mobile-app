@@ -218,8 +218,26 @@ class BlockProductionAlarmAuditService {
   String? _pendingRecoveryReason;
   var _recoveryRetryAttempt = 0;
   var _recoveryRetryGeneration = 0;
+  bool _watchdogRecoveryEnabled = true;
+  var _watchdogLifecycleGeneration = 0;
+
+  void enableWatchdogRecovery() {
+    if (_watchdogRecoveryEnabled) return;
+    _watchdogRecoveryEnabled = true;
+    _watchdogLifecycleGeneration += 1;
+  }
+
+  void disableWatchdogRecovery() {
+    if (!_watchdogRecoveryEnabled) return;
+    _watchdogRecoveryEnabled = false;
+    _watchdogLifecycleGeneration += 1;
+    _pendingRecoveryReason = null;
+    _recoveryRetryAttempt = 0;
+    _recoveryRetryGeneration += 1;
+  }
 
   void auditBestEffort({required String reason}) {
+    if (!_watchdogRecoveryEnabled) return;
     _auditBestEffort(reason: reason);
   }
 
@@ -402,6 +420,15 @@ class BlockProductionAlarmAuditService {
         return _skip(reason, 'unsupported_platform');
       }
 
+      final lifecycleGeneration = _watchdogLifecycleGeneration;
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return _skip(
+          reason,
+          'watchdog_disabled',
+          fgResumeStatus: 'skipped:watchdog_disabled',
+        );
+      }
+
       await _initializeAlarmService();
       await _refreshPermissions();
 
@@ -412,7 +439,8 @@ class BlockProductionAlarmAuditService {
       );
 
       if (!exactAlarmPermission) {
-        if (_isNodeRunning()) {
+        if (_isWatchdogRecoveryActive(lifecycleGeneration) &&
+            _isNodeRunning()) {
           await _ensureWatchdogScheduled(reason);
           await _reportWatchdogState(reason);
         }
@@ -429,6 +457,14 @@ class BlockProductionAlarmAuditService {
           reason,
           'node_not_running',
           fgResumeStatus: 'skipped:node_not_running',
+        );
+      }
+
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return _skip(
+          reason,
+          'watchdog_disabled',
+          fgResumeStatus: 'skipped:watchdog_disabled',
         );
       }
 
@@ -499,6 +535,11 @@ class BlockProductionAlarmAuditService {
         fgResumeStatus: 'skipped:audit_exception',
       );
     }
+  }
+
+  bool _isWatchdogRecoveryActive(int lifecycleGeneration) {
+    return _watchdogRecoveryEnabled &&
+        lifecycleGeneration == _watchdogLifecycleGeneration;
   }
 
   Future<String> _auditForegroundResume({

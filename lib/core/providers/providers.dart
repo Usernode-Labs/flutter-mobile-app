@@ -56,11 +56,13 @@ final backendLifecycleProvider = Provider<void>((ref) {
         _log.trace('Account created - starting backend');
         final started = await RustBackendService.instance.startNode();
         if (Platform.isAndroid && started) {
+          BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
           BlockProductionAlarmAuditService.instance.auditBestEffort(
             reason: 'account_available',
           );
           await AndroidForegroundTaskController.instance.onNodeStarted();
         } else if (Platform.isAndroid) {
+          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
           await PlatformAlarmService.instance.cancelAlarmWatchdog();
         }
       }
@@ -69,13 +71,16 @@ final backendLifecycleProvider = Provider<void>((ref) {
       if (prevHasAccount && !nextHasAccount) {
         _log.trace('Account deleted - stopping backend');
         if (Platform.isAndroid) {
-          await PlatformAlarmService.instance.cancelAlarmWatchdog();
-          await PlatformAlarmService.instance.cancelAllAlarms();
+          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
           await AndroidForegroundTaskController.instance.stopMonitoring(
             reason: 'account_removed',
           );
         }
         await RustBackendService.instance.stopNode();
+        if (Platform.isAndroid) {
+          await PlatformAlarmService.instance.cancelAllAlarms();
+          await PlatformAlarmService.instance.cancelAlarmWatchdog();
+        }
       }
     },
   );

@@ -162,6 +162,23 @@ void main() {
       expect(retryCallbacks, isEmpty);
     });
 
+    test('disabling recovery prevents an in-flight audit from recreating work',
+        () async {
+      final nodeReady = Completer<bool>();
+      final harness = _AuditHarness(ensureNodeRunningCompleter: nodeReady);
+
+      final audit = harness.service.audit(reason: 'workmanager:periodic');
+      await pumpEventQueue();
+      expect(harness.ensureNodeRunningCalls, 1);
+
+      harness.service.disableWatchdogRecovery();
+      nodeReady.complete(true);
+      final result = await audit;
+
+      expect(result.skippedReason, 'watchdog_disabled');
+      expect(harness.watchdogScheduleReasons, isEmpty);
+    });
+
     test('foreground resume lead is four minutes in production', () {
       expect(
         AndroidForegroundTaskController.foregroundResumeLead,
@@ -412,6 +429,7 @@ class _AuditHarness {
     this.monitoringStarts = true,
     this.foregroundResumeScheduleSucceeds = true,
     this.epochEndTimeMs = 30000,
+    this.ensureNodeRunningCompleter,
   })  : presentAlarms = presentAlarms ?? <String>{},
         debugStates = debugStates ?? const <String, AlarmDebugState>{} {
     service = BlockProductionAlarmAuditService.test(
@@ -463,6 +481,9 @@ class _AuditHarness {
       resolveClockDriftMs: () async => clockDriftMs,
       ensureNodeRunning: () async {
         ensureNodeRunningCalls++;
+        if (ensureNodeRunningCompleter != null) {
+          return ensureNodeRunningCompleter!.future;
+        }
         return nodeRunning;
       },
       isNodeRunning: () => nodeRunning,
@@ -505,6 +526,7 @@ class _AuditHarness {
   final bool monitoringStarts;
   final bool foregroundResumeScheduleSucceeds;
   final int? epochEndTimeMs;
+  final Completer<bool>? ensureNodeRunningCompleter;
   final records = <_CapturedObservabilityRecord>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];
   final monitoringReasons = <String>[];

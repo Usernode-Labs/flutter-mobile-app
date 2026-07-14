@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
+import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
@@ -65,6 +66,7 @@ class AppResetService {
 
   Future<void> _stopServices() async {
     AppVersionCheck.instance.stopPeriodicChecks();
+    BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
 
     try {
       await MetricsReportingService.instance.resetForAppRestart();
@@ -97,14 +99,15 @@ class AppResetService {
       _log.warn('Failed to cancel alarms cleanly: $e');
     }
 
+    await RustBackendService.instance.resetForAppRestart();
+    await AndroidForegroundTaskController.instance.resetForAppRestart();
+
     try {
       await PlatformAlarmService.instance.cancelAlarmWatchdog();
     } catch (e) {
       _log.warn('Failed to cancel alarm watchdog cleanly: $e');
     }
 
-    await RustBackendService.instance.resetForAppRestart();
-    await AndroidForegroundTaskController.instance.resetForAppRestart();
     PlatformAlarmService.instance.resetForAppRestart();
     MetricsCollectorService.instance.reset();
   }

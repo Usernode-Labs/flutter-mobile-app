@@ -366,10 +366,12 @@ class AppBootstrap {
         final blockProductionActive =
             hasAnyAccounts && RustBackendService.instance.isRunning;
         if (blockProductionActive) {
+          BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
           log.info('Starting Android foreground VRF monitoring');
           await AndroidForegroundTaskController.instance.onNodeStarted();
           unawaited(_runStartupAlarmAudit(log));
         } else {
+          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
           log.info(
             'Cancelling Android alarm watchdog because block production is inactive',
             context: {

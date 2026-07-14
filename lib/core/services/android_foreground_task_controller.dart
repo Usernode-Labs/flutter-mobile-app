@@ -471,7 +471,7 @@ class AndroidForegroundTaskController {
       '(success=$success, rustWakeTimeMs=$rustWakeTimeMs, '
       'clockDriftMs=$clockDriftMs)',
     );
-    if (stopMonitoringAfterSchedule) {
+    if (success && stopMonitoringAfterSchedule) {
       await stopMonitoring(reason: reason);
     }
 

@@ -2425,7 +2425,7 @@ abstract class AppLocalizations {
   /// Legal footnote shown under the participant token allocation reveal
   ///
   /// In en, this message translates to:
-  /// **'Your allocation is indicative and based on your Season 1 contributions. It is not a promise or entitlement. Any future distribution is conditional on mainnet launch, eligibility verification, acceptance of the applicable Usernode Testnet Program Terms, and remains subject to the company’s discretion.'**
+  /// **'Your allocation is indicative and based on your Season 1 contributions. It is not a promise or entitlement. Any future distribution is conditional on mainnet launch, eligibility verification, acceptance of the applicable Usernode Testnet Program Terms, and remains subject to Usernode’s discretion.'**
   String get profileTokenAllocationDisclaimer;
 
   /// Button label that reveals the participant token allocation
@@ -2449,7 +2449,7 @@ abstract class AppLocalizations {
   /// Body of the notice shown in place of the token allocation when the user has not accepted the terms
   ///
   /// In en, this message translates to:
-  /// **'Your allocation is indicative and based on your Season 1 contributions. It is not a promise or entitlement. Any future distribution is conditional on mainnet launch, eligibility verification, acceptance of the applicable Usernode Testnet Program Terms, and remains subject to the company’s discretion.'**
+  /// **'Your allocation is indicative and based on your Season 1 contributions. Indicative allocations are not a promise or entitlement — any future distribution is conditional on mainnet launch and subject to the Usernode Testnet Program Terms, which you’ll be asked to review and accept before viewing your allocation.'**
   String get profileTokenAllocationGatedBody;
 
   /// Button that opens the terms screen from the withheld-tokens notice

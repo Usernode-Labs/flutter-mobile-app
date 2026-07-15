@@ -26,10 +26,11 @@ void main() {
       expect(
         find.text(
           'Your allocation is indicative and based on your Season 1 '
-          'contributions. It is not a promise or entitlement. Any future '
-          'distribution is conditional on mainnet launch, eligibility '
-          'verification, acceptance of the applicable Usernode Testnet '
-          'Program Terms, and remains subject to the company’s discretion.',
+          'contributions. Indicative allocations are not a promise or '
+          'entitlement — any future distribution is conditional on mainnet '
+          'launch and subject to the Usernode Testnet Program Terms, which '
+          'you’ll be asked to review and accept before viewing your '
+          'allocation.',
         ),
         findsOneWidget,
       );

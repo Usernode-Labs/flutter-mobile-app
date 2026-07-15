@@ -17,7 +17,7 @@ final $Default = _Story(
       'It is not a promise or entitlement. Any future distribution is '
       'conditional on mainnet launch, eligibility verification, acceptance of '
       'the applicable Usernode Testnet Program Terms, and remains subject to '
-      'the company’s discretion.',
+      'Usernode’s discretion.',
     ),
     revealLabel: StringArg('Reveal'),
     revealed: BoolArg(false),

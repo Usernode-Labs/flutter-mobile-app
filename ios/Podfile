@@ -1,5 +1,12 @@
 ENV['CMAKE'] = '/opt/homebrew/bin/cmake'
 
+# file_picker compiles its media picker in by default, linking PHPhotoLibrary
+# and UIImagePickerController. Only Android registers a WebView file selector
+# (iOS WKWebView shows its own), so the media path is dead weight here and
+# trips ITMS-90683 at App Store validation. Opting out also drops the
+# DKImagePickerController/PhotoGallery pod.
+Pod::PICKER_MEDIA = false
+
 # Define a global platform for your project
 platform :ios, '15.5'
 

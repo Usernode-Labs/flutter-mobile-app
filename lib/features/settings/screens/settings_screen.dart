@@ -25,6 +25,7 @@ import 'package:crypto_mobile_app/features/settings/widgets/quick_settings_panel
 import 'package:crypto_mobile_app/features/settings/widgets/general_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/diagnostics_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
+import 'package:crypto_mobile_app/features/settings/widgets/legal_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
@@ -521,6 +522,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onDebugModeChanged: (value) =>
                     ref.read(debugModeProvider.notifier).set(value),
                 onHttpLogsTap: () => context.push(AppRoutes.httpDebugLogs),
+              ),
+
+              SizedBox(height: spacing.space24),
+
+              LegalSettingsSection(
+                onTermsTap: () => context.push(AppRoutes.terms),
               ),
 
               SizedBox(height: spacing.space24),

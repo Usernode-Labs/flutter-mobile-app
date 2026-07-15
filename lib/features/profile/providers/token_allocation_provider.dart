@@ -5,31 +5,38 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
-const _unit = 'UNODE';
 const _revealedPreferenceKey = 'profile:token-allocation-revealed';
 
 /// A participant's token allocation for the selected season/event scope.
 class TokenAllocation {
   const TokenAllocation({
     required this.amount,
-    required this.unit,
     required this.acknowledged,
+    this.termsAccepted = true,
+    this.termsLink,
   });
 
   /// Whole-token amount returned by `GET /api/v2/mobile/me/ranking`.
+  ///
+  /// The backend forces this to 0 while [termsAccepted] is false, so it is not
+  /// a real balance in that state and must not be shown as one.
   final int amount;
-
-  /// Token ticker / symbol, e.g. "UNODE".
-  final String unit;
 
   /// Whether the user has already revealed (acknowledged) this allocation.
   /// Persisted so the celebration only plays once across refetches/restarts.
   final bool acknowledged;
 
+  /// Whether the participant has accepted the current terms version.
+  final bool termsAccepted;
+
+  /// Hosted copy of the terms, when the backend offers one.
+  final String? termsLink;
+
   TokenAllocation copyWith({bool? acknowledged}) => TokenAllocation(
         amount: amount,
-        unit: unit,
         acknowledged: acknowledged ?? this.acknowledged,
+        termsAccepted: termsAccepted,
+        termsLink: termsLink,
       );
 }
 
@@ -64,8 +71,9 @@ class TokenAllocationController extends AsyncNotifier<TokenAllocation?> {
 
     return TokenAllocation(
       amount: ranking.totalTokens,
-      unit: _unit,
       acknowledged: preferences.getBool(_preferenceKey!) ?? false,
+      termsAccepted: ranking.termsAccepted,
+      termsLink: ranking.termsLink,
     );
   }
 

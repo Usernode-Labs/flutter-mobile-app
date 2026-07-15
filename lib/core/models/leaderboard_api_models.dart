@@ -171,6 +171,11 @@ class RankingResult {
   final String? seasonName;
   final int? eventsParticipated;
   final int? totalProducedBlocks;
+  // Terms gating. The backend forces [totalTokens] to 0 while [termsAccepted]
+  // is false; [rank] and [totalPoints] are never affected.
+  final bool termsAccepted;
+  final String? termsVersionRequired;
+  final String? termsLink;
 
   const RankingResult({
     required this.scope,
@@ -185,6 +190,9 @@ class RankingResult {
     this.seasonName,
     this.eventsParticipated,
     this.totalProducedBlocks,
+    this.termsAccepted = true,
+    this.termsVersionRequired,
+    this.termsLink,
   });
 
   factory RankingResult.fromJson(Map<String, dynamic> json) {
@@ -202,6 +210,12 @@ class RankingResult {
       eventsParticipated:
           _jsonIntN(json['events_participated'] ?? json['phases_participated']),
       totalProducedBlocks: _jsonIntN(json['total_produced_blocks']),
+      // Absent key means a backend that predates terms gating, which is also a
+      // backend that never zeroes tokens — gating there would misreport a real
+      // balance as withheld.
+      termsAccepted: json['terms_accepted'] as bool? ?? true,
+      termsVersionRequired: _nonEmptyString(json['terms_version_required']),
+      termsLink: _sanitizeCtaLink(CtaType.url, json['terms_link']),
     );
   }
 
@@ -220,6 +234,11 @@ class RankingResult {
           'events_participated': eventsParticipated,
         if (totalProducedBlocks != null)
           'total_produced_blocks': totalProducedBlocks,
+        // Emitted unconditionally: omitting a false/null terms field would let
+        // it round-trip back to the permissive default and un-gate the UI.
+        'terms_accepted': termsAccepted,
+        'terms_version_required': termsVersionRequired,
+        'terms_link': termsLink,
       };
 }
 
@@ -1270,4 +1289,104 @@ List<ChallengeProgress> _parseChallengeProgressList(dynamic raw) {
           .map(ChallengeProgress.fromJson)
           .toList() ??
       const [];
+}
+
+// ---------------------------------------------------------------------------
+// Terms & conditions
+// ---------------------------------------------------------------------------
+
+/// A participant's response to a specific terms version.
+///
+/// Only present when `participant_id` was passed to `GET /terms/current`.
+class TermsConsent {
+  const TermsConsent({
+    this.status,
+    required this.accepted,
+    this.respondedAt,
+  });
+
+  /// `null` when the participant has never responded to this version,
+  /// otherwise `'accepted'` or `'refused'`.
+  final String? status;
+
+  final bool accepted;
+
+  /// ISO-8601 timestamp, kept as a string like every other date in this file.
+  final String? respondedAt;
+
+  factory TermsConsent.fromJson(Map<String, dynamic> json) => TermsConsent(
+        status: _nonEmptyString(json['status']),
+        accepted: json['accepted'] as bool? ?? false,
+        respondedAt: _nonEmptyString(json['responded_at']),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'status': status,
+        'accepted': accepted,
+        'responded_at': respondedAt,
+      };
+}
+
+/// The currently published terms version, from `GET /terms/current`.
+///
+/// A 404 from that endpoint means nothing is published and is not an error —
+/// the service maps it to null rather than surfacing it.
+class CurrentTerms {
+  const CurrentTerms({
+    required this.id,
+    required this.version,
+    required this.title,
+    required this.bodyMarkdown,
+    this.termsLink,
+    this.publishedAt,
+    this.consent,
+  });
+
+  /// Send this back as `terms_version_id` when posting consent. Never hardcode.
+  final int id;
+
+  final String version;
+  final String title;
+  final String bodyMarkdown;
+
+  /// Hosted copy of the terms. Nullable, so [bodyMarkdown] is what the user
+  /// actually reads and consents to.
+  final String? termsLink;
+
+  final String? publishedAt;
+  final TermsConsent? consent;
+
+  /// Whether this version still needs an answer. Drives the launch gate: a
+  /// refusal counts as an answer, so only a never-responded version prompts.
+  /// Publishing a new version resets [consent] server-side, which is what makes
+  /// re-prompting work without caching anything locally.
+  bool get awaitingResponse => consent?.status == null;
+
+  factory CurrentTerms.fromJson(Map<String, dynamic> json) => CurrentTerms(
+        id: _jsonInt(json['id']),
+        version: json['version'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        bodyMarkdown: json['body_markdown'] as String? ?? '',
+        termsLink: _sanitizeCtaLink(CtaType.url, json['terms_link']),
+        publishedAt: _nonEmptyString(json['published_at']),
+        consent: json['consent'] is Map<String, dynamic>
+            ? TermsConsent.fromJson(json['consent'] as Map<String, dynamic>)
+            : null,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'version': version,
+        'title': title,
+        'body_markdown': bodyMarkdown,
+        'terms_link': termsLink,
+        'published_at': publishedAt,
+        'consent': consent?.toJson(),
+      };
+}
+
+/// Wire values for `POST /terms/consent`.
+class TermsConsentStatus {
+  static const accepted = 'accepted';
+  static const refused = 'refused';
 }

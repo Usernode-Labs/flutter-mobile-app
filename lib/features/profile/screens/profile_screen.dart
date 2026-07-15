@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10
 import 'package:crypto_mobile_app/features/challenges/season_event_pickers.dart';
 import 'package:crypto_mobile_app/features/profile/providers/token_allocation_provider.dart';
 import 'package:crypto_mobile_app/features/profile/widgets/profile_leaderboard_list.dart';
+import 'package:crypto_mobile_app/features/profile/widgets/token_allocation_gated_notice.dart';
 
 /// "What I earned" surface (#440): points + rank summary over completed
 /// challenges and the season leaderboard, with Settings reached from the app
@@ -108,20 +109,29 @@ class ProfileScreen extends ConsumerWidget {
               ),
               sliver: SliverToBoxAdapter(
                 child: allocation.when(
-                  data: (data) => data == null
-                      ? const SizedBox.shrink()
-                      : TokenAllocationReveal(
-                          amount: NumberFormat.decimalPattern(
-                            Localizations.localeOf(context).toLanguageTag(),
-                          ).format(data.amount),
-                          unitLabel: data.unit,
-                          label: l10n.profileTokenAllocation,
-                          revealLabel: l10n.profileRevealTokens,
-                          revealed: data.acknowledged,
-                          onReveal: () => ref
-                              .read(tokenAllocationProvider.notifier)
-                              .acknowledge(),
-                        ),
+                  data: (data) {
+                    if (data == null) return const SizedBox.shrink();
+                    // A gated allocation is forced to 0 by the backend, so the
+                    // reveal card would present a withheld balance as a real one.
+                    if (!data.termsAccepted) {
+                      return TokenAllocationGatedNotice(
+                        termsLink: data.termsLink,
+                        onReviewTerms: () => context.push(AppRoutes.terms),
+                      );
+                    }
+                    return TokenAllocationReveal(
+                      amount: NumberFormat.decimalPattern(
+                        Localizations.localeOf(context).toLanguageTag(),
+                      ).format(data.amount),
+                      label: l10n.profileTokenAllocation,
+                      disclaimer: l10n.profileTokenAllocationDisclaimer,
+                      revealLabel: l10n.profileRevealTokens,
+                      revealed: data.acknowledged,
+                      onReveal: () => ref
+                          .read(tokenAllocationProvider.notifier)
+                          .acknowledge(),
+                    );
+                  },
                   loading: () => const ShimmerCardSkeleton(),
                   error: (_, __) => Card(
                     child: ListTile(

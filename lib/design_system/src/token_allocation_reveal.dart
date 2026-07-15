@@ -26,8 +26,8 @@ class TokenAllocationReveal extends StatefulWidget {
   const TokenAllocationReveal({
     super.key,
     required this.amount,
-    this.unitLabel = 'UNODE',
     this.label = 'Token Allocation',
+    this.disclaimer,
     this.revealLabel = 'Reveal',
     this.icon = Symbols.redeem_sharp,
     this.revealed = false,
@@ -37,11 +37,12 @@ class TokenAllocationReveal extends StatefulWidget {
   /// Formatted token amount, e.g. "1,250".
   final String amount;
 
-  /// Unit shown after the amount, e.g. "UNODE".
-  final String unitLabel;
-
   /// Card title, e.g. "Token Allocation".
   final String label;
+
+  /// Optional footnote under the card, e.g. allocation terms. Omitted when
+  /// null so the card stays a plain amount reveal.
+  final String? disclaimer;
 
   /// Label on the reveal button shown while the amount is hidden.
   final String revealLabel;
@@ -169,69 +170,68 @@ class _TokenAllocationRevealState extends State<TokenAllocationReveal>
                     horizontal: spacing.space16,
                     vertical: spacing.space12,
                   ),
-                  child: Row(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconBadge(
-                        icon: widget.icon,
-                        backgroundColor: badgeBg,
-                        iconColor: badgeFg,
-                      ),
-                      SizedBox(width: spacing.space16),
-                      Expanded(
-                        child: Text(
-                          widget.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.titleSmall?.copyWith(color: fg),
-                        ),
-                      ),
-                      SizedBox(width: spacing.space16),
-                      Stack(
-                        alignment: Alignment.centerRight,
+                      Row(
                         children: [
-                          if (t < 1.0)
-                            Opacity(
-                              opacity: buttonOpacity,
-                              child: IgnorePointer(
-                                ignoring: t > 0.0,
-                                child: Button(
-                                  label: widget.revealLabel,
-                                  variant: ButtonVariant.tonal,
-                                  onTap: t == 0.0 ? _handleReveal : null,
-                                ),
-                              ),
+                          IconBadge(
+                            icon: widget.icon,
+                            backgroundColor: badgeBg,
+                            iconColor: badgeFg,
+                          ),
+                          SizedBox(width: spacing.space16),
+                          Expanded(
+                            child: Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.titleSmall?.copyWith(color: fg),
                             ),
-                          if (t > 0.0)
-                            Opacity(
-                              opacity: amountOpacity,
-                              child: Transform.scale(
-                                scale: amountScale,
-                                alignment: Alignment.centerRight,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.baseline,
-                                  textBaseline: TextBaseline.alphabetic,
-                                  children: [
-                                    Text(
+                          ),
+                          SizedBox(width: spacing.space16),
+                          Stack(
+                            alignment: Alignment.centerRight,
+                            children: [
+                              if (t < 1.0)
+                                Opacity(
+                                  opacity: buttonOpacity,
+                                  child: IgnorePointer(
+                                    ignoring: t > 0.0,
+                                    child: Button(
+                                      label: widget.revealLabel,
+                                      variant: ButtonVariant.tonal,
+                                      onTap: t == 0.0 ? _handleReveal : null,
+                                    ),
+                                  ),
+                                ),
+                              if (t > 0.0)
+                                Opacity(
+                                  opacity: amountOpacity,
+                                  child: Transform.scale(
+                                    scale: amountScale,
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
                                       widget.amount,
                                       style: textTheme.headlineSmall?.copyWith(
                                         fontFamily: kMonoFontFamily,
                                         color: fg,
                                       ),
                                     ),
-                                    SizedBox(width: spacing.space4),
-                                    Text(
-                                      widget.unitLabel,
-                                      style: textTheme.labelMedium
-                                          ?.copyWith(color: fgDim),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ),
+                            ],
+                          ),
                         ],
                       ),
+                      if (widget.disclaimer != null) ...[
+                        SizedBox(height: spacing.space8),
+                        Text(
+                          widget.disclaimer!,
+                          style: textTheme.bodySmall?.copyWith(color: fgDim),
+                        ),
+                      ],
                     ],
                   ),
                 ),

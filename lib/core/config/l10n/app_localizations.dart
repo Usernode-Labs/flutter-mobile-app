@@ -2422,6 +2422,12 @@ abstract class AppLocalizations {
   /// **'Token Allocation'**
   String get profileTokenAllocation;
 
+  /// Legal footnote shown under the participant token allocation reveal
+  ///
+  /// In en, this message translates to:
+  /// **'Token allocations contingent on mainnet, acceptance of the terms and conditions, and subject to the discretion of the company.'**
+  String get profileTokenAllocationDisclaimer;
+
   /// Button label that reveals the participant token allocation
   ///
   /// In en, this message translates to:
@@ -2433,6 +2439,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Token allocation unavailable.'**
   String get profileTokenAllocationLoadError;
+
+  /// Title of the notice shown in place of the token allocation when the user has not accepted the terms
+  ///
+  /// In en, this message translates to:
+  /// **'Tokens on hold'**
+  String get profileTokenAllocationGated;
+
+  /// Body of the notice shown in place of the token allocation when the user has not accepted the terms
+  ///
+  /// In en, this message translates to:
+  /// **'Your token allocation is withheld until you accept the terms and conditions.'**
+  String get profileTokenAllocationGatedBody;
+
+  /// Button that opens the terms screen from the withheld-tokens notice
+  ///
+  /// In en, this message translates to:
+  /// **'Review terms'**
+  String get profileTokenAllocationGatedAction;
+
+  /// Settings section header for legal entries
+  ///
+  /// In en, this message translates to:
+  /// **'Legal'**
+  String get settingsLegal;
+
+  /// Subtitle of the Settings row that opens the terms screen
+  ///
+  /// In en, this message translates to:
+  /// **'Review the terms and change your response'**
+  String get settingsTermsSubtitle;
+
+  /// Title of the terms and conditions screen, and its Settings entry
+  ///
+  /// In en, this message translates to:
+  /// **'Terms & Conditions'**
+  String get termsTitle;
+
+  /// Button that accepts the terms and conditions
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get termsAccept;
+
+  /// Button that refuses the terms and conditions
+  ///
+  /// In en, this message translates to:
+  /// **'Refuse'**
+  String get termsRefuse;
+
+  /// Link that opens the hosted copy of the terms in a browser
+  ///
+  /// In en, this message translates to:
+  /// **'View full terms'**
+  String get termsViewFull;
+
+  /// Shown when the terms cannot be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Terms unavailable.'**
+  String get termsUnavailable;
+
+  /// Shown when the backend has no published terms version
+  ///
+  /// In en, this message translates to:
+  /// **'There are no terms to review right now.'**
+  String get termsNonePublished;
+
+  /// Shown when recording the user's accept or refuse decision fails
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save your response. Please try again.'**
+  String get termsSubmitFailed;
 
   /// Profile tab label for completed challenges
   ///

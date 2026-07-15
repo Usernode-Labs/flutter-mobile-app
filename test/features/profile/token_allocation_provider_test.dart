@@ -21,6 +21,8 @@ ProviderContainer _container({
   int seasonId = 1,
   int eventId = 12,
   int totalTokens = 1250,
+  bool termsAccepted = true,
+  String? termsLink,
 }) {
   final container = ProviderContainer(
     overrides: [
@@ -38,6 +40,8 @@ ProviderContainer _container({
             offchainPoints: 22468,
             totalParticipants: 138,
             eventId: eventId,
+            termsAccepted: termsAccepted,
+            termsLink: termsLink,
           ),
         ),
       ),
@@ -56,8 +60,32 @@ void main() {
 
       expect(data, isNotNull);
       expect(data!.amount, 1250);
-      expect(data.unit, 'UNODE');
       expect(data.acknowledged, isFalse);
+      expect(data.termsAccepted, isTrue);
+    });
+
+    test('carries the terms gating state from the ranking response', () async {
+      final data = await _container(
+        termsAccepted: false,
+        totalTokens: 0,
+        termsLink: 'https://example.com/terms',
+      ).read(tokenAllocationProvider.future);
+
+      expect(data!.termsAccepted, isFalse);
+      expect(data.termsLink, 'https://example.com/terms');
+    });
+
+    test('acknowledge preserves the terms fields', () async {
+      // copyWith rebuilds from a field list, so a forgotten field here would
+      // silently un-gate the card the moment the user taps Reveal.
+      final container = _container(termsAccepted: false, totalTokens: 0);
+      await container.read(tokenAllocationProvider.future);
+
+      await container.read(tokenAllocationProvider.notifier).acknowledge();
+
+      final data = container.read(tokenAllocationProvider).value!;
+      expect(data.acknowledged, isTrue);
+      expect(data.termsAccepted, isFalse);
     });
 
     test('persists the reveal across provider containers', () async {

@@ -1852,6 +1852,10 @@
   "@profileTokenAllocation": {
     "description": "Label for the participant token allocation reveal"
   },
+  "profileTokenAllocationDisclaimer": "Token allocations contingent on mainnet, acceptance of the terms and conditions, and subject to the discretion of the company.",
+  "@profileTokenAllocationDisclaimer": {
+    "description": "Legal footnote shown under the participant token allocation reveal"
+  },
   "profileRevealTokens": "Reveal",
   "@profileRevealTokens": {
     "description": "Button label that reveals the participant token allocation"
@@ -1859,6 +1863,54 @@
   "profileTokenAllocationLoadError": "Token allocation unavailable.",
   "@profileTokenAllocationLoadError": {
     "description": "Error shown when the participant token allocation cannot be loaded"
+  },
+  "profileTokenAllocationGated": "Tokens on hold",
+  "@profileTokenAllocationGated": {
+    "description": "Title of the notice shown in place of the token allocation when the user has not accepted the terms"
+  },
+  "profileTokenAllocationGatedBody": "Your token allocation is withheld until you accept the terms and conditions.",
+  "@profileTokenAllocationGatedBody": {
+    "description": "Body of the notice shown in place of the token allocation when the user has not accepted the terms"
+  },
+  "profileTokenAllocationGatedAction": "Review terms",
+  "@profileTokenAllocationGatedAction": {
+    "description": "Button that opens the terms screen from the withheld-tokens notice"
+  },
+  "settingsLegal": "Legal",
+  "@settingsLegal": {
+    "description": "Settings section header for legal entries"
+  },
+  "settingsTermsSubtitle": "Review the terms and change your response",
+  "@settingsTermsSubtitle": {
+    "description": "Subtitle of the Settings row that opens the terms screen"
+  },
+  "termsTitle": "Terms & Conditions",
+  "@termsTitle": {
+    "description": "Title of the terms and conditions screen, and its Settings entry"
+  },
+  "termsAccept": "Accept",
+  "@termsAccept": {
+    "description": "Button that accepts the terms and conditions"
+  },
+  "termsRefuse": "Refuse",
+  "@termsRefuse": {
+    "description": "Button that refuses the terms and conditions"
+  },
+  "termsViewFull": "View full terms",
+  "@termsViewFull": {
+    "description": "Link that opens the hosted copy of the terms in a browser"
+  },
+  "termsUnavailable": "Terms unavailable.",
+  "@termsUnavailable": {
+    "description": "Shown when the terms cannot be loaded"
+  },
+  "termsNonePublished": "There are no terms to review right now.",
+  "@termsNonePublished": {
+    "description": "Shown when the backend has no published terms version"
+  },
+  "termsSubmitFailed": "Could not save your response. Please try again.",
+  "@termsSubmitFailed": {
+    "description": "Shown when recording the user's accept or refuse decision fails"
   },
   "profileCompletedChallengesTab": "Completed Challenges",
   "@profileCompletedChallengesTab": {

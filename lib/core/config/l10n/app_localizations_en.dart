@@ -1356,10 +1356,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTokenAllocation => 'Token Allocation';
 
   @override
+  String get profileTokenAllocationDisclaimer =>
+      'Token allocations contingent on mainnet, acceptance of the terms and conditions, and subject to the discretion of the company.';
+
+  @override
   String get profileRevealTokens => 'Reveal';
 
   @override
   String get profileTokenAllocationLoadError => 'Token allocation unavailable.';
+
+  @override
+  String get profileTokenAllocationGated => 'Tokens on hold';
+
+  @override
+  String get profileTokenAllocationGatedBody =>
+      'Your token allocation is withheld until you accept the terms and conditions.';
+
+  @override
+  String get profileTokenAllocationGatedAction => 'Review terms';
+
+  @override
+  String get settingsLegal => 'Legal';
+
+  @override
+  String get settingsTermsSubtitle =>
+      'Review the terms and change your response';
+
+  @override
+  String get termsTitle => 'Terms & Conditions';
+
+  @override
+  String get termsAccept => 'Accept';
+
+  @override
+  String get termsRefuse => 'Refuse';
+
+  @override
+  String get termsViewFull => 'View full terms';
+
+  @override
+  String get termsUnavailable => 'Terms unavailable.';
+
+  @override
+  String get termsNonePublished => 'There are no terms to review right now.';
+
+  @override
+  String get termsSubmitFailed =>
+      'Could not save your response. Please try again.';
 
   @override
   String get profileCompletedChallengesTab => 'Completed Challenges';

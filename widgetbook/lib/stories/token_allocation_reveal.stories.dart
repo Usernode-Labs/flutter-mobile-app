@@ -11,8 +11,11 @@ const meta = Meta<TokenAllocationReveal>(path: 'live app/widgets/challenges');
 final $Default = _Story(
   args: _Args(
     amount: StringArg('1,250'),
-    unitLabel: StringArg('UNODE'),
     label: StringArg('Token Allocation'),
+    disclaimer: StringArg(
+      'Token allocations contingent on mainnet, acceptance of the terms and '
+      'conditions, and subject to the discretion of the company.',
+    ),
     revealLabel: StringArg('Reveal'),
     revealed: BoolArg(false),
   ),

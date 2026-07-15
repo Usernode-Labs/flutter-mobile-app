@@ -293,7 +293,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1,250'), findsOneWidget);
-    expect(find.text('UNODE'), findsOneWidget);
     expect(find.text('Reveal'), findsNothing);
   });
 

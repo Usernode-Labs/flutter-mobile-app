@@ -38,6 +38,7 @@ import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
 import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
+import 'package:crypto_mobile_app/features/terms/widgets/terms_gate_overlay.dart';
 
 Timer? _headlessProducedBlocksRefreshTimer;
 
@@ -569,6 +570,14 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
               children: [
                 child ?? const SizedBox.shrink(),
                 const ClockDriftWarningOverlay(),
+                // The terms gate is an overlay rather than a router redirect:
+                // it resolves after a network call, long after splash has
+                // already routed on, so a late redirect would replace the whole
+                // stack and destroy cold-start deep links (see the note on
+                // appRouterProvider). Stacking leaves the stack intact
+                // underneath, so the user lands where they were headed once
+                // they answer.
+                const TermsGateOverlay(),
                 if (showSleepScreen)
                   AppSleepScreen(
                     snapshot: snapshot,

@@ -246,6 +246,264 @@ void main() {
         ),
       );
     });
+
+    test('parses terms gating fields', () async {
+      final client = _mockClient(
+          200,
+          _envelope({
+            'scope': 'event',
+            'rank': 5,
+            'total_points': 1200,
+            'total_tokens': 0,
+            'offchain_points': 300,
+            'total_participants': 500,
+            'terms_accepted': false,
+            'terms_version_required': '1.0',
+            'terms_link': 'https://example.com/terms/1.0',
+          }));
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getRanking(participantId: 42);
+
+      expect(result.termsAccepted, false);
+      expect(result.termsVersionRequired, '1.0');
+      expect(result.termsLink, 'https://example.com/terms/1.0');
+      // Points and rank are never gated, only tokens.
+      expect(result.rank, 5);
+      expect(result.totalPoints, 1200);
+    });
+
+    test('defaults termsAccepted to true when the backend omits it', () async {
+      final client = _mockClient(
+          200,
+          _envelope({
+            'scope': 'event',
+            'rank': 5,
+            'total_points': 1200,
+            'total_tokens': 1250,
+            'offchain_points': 300,
+            'total_participants': 500,
+          }));
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getRanking(participantId: 42);
+
+      // A backend without terms gating is not zeroing tokens, so gating the UI
+      // would misreport a real balance as withheld.
+      expect(result.termsAccepted, true);
+      expect(result.termsVersionRequired, isNull);
+      expect(result.termsLink, isNull);
+    });
+
+    test('rejects a non-https terms_link', () async {
+      final client = _mockClient(
+          200,
+          _envelope({
+            'scope': 'event',
+            'rank': 5,
+            'total_points': 1200,
+            'total_tokens': 0,
+            'offchain_points': 300,
+            'total_participants': 500,
+            'terms_link': 'javascript:alert(1)',
+          }));
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getRanking(participantId: 42);
+
+      expect(result.termsLink, isNull);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // terms
+  // -------------------------------------------------------------------------
+
+  group('getCurrentTerms', () {
+    Map<String, dynamic> termsPayload({Object? consent}) => {
+          'id': 3,
+          'version': '1.0',
+          'title': 'Terms of Service',
+          'body_markdown': '# Terms…',
+          'terms_link': 'https://example.com/terms/1.0',
+          'published_at': '2026-07-15T10:00:00+00:00',
+          if (consent != null) 'consent': consent,
+        };
+
+    test('returns CurrentTerms on 200', () async {
+      Uri? capturedUri;
+      final client = _mockClient(
+        200,
+        _envelope(termsPayload(consent: {
+          'status': 'accepted',
+          'accepted': true,
+          'responded_at': '2026-07-15T11:00:00+00:00',
+        })),
+        onRequest: (r) => capturedUri = r.url,
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getCurrentTerms(participantId: 42);
+
+      expect(result, isNotNull);
+      expect(result!.id, 3);
+      expect(result.version, '1.0');
+      expect(result.bodyMarkdown, '# Terms…');
+      expect(result.consent!.status, 'accepted');
+      expect(result.consent!.accepted, true);
+      expect(result.awaitingResponse, false);
+      expect(capturedUri!.path, '/api/v2/mobile/terms/current');
+      expect(capturedUri!.queryParameters['participant_id'], '42');
+    });
+
+    test('returns null on 404 rather than throwing', () async {
+      final client = _mockClient(404, {'error': 'No terms published'});
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      // 404 means nothing is published — a normal state, not a failure.
+      expect(await service.getCurrentTerms(participantId: 42), isNull);
+    });
+
+    test('awaits a response when consent.status is null', () async {
+      final client = _mockClient(
+        200,
+        _envelope(termsPayload(consent: {'status': null, 'accepted': false})),
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getCurrentTerms(participantId: 42);
+
+      expect(result!.awaitingResponse, true);
+    });
+
+    test('awaits a response when consent is absent entirely', () async {
+      final client = _mockClient(200, _envelope(termsPayload()));
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getCurrentTerms(participantId: 42);
+
+      expect(result!.consent, isNull);
+      expect(result.awaitingResponse, true);
+    });
+
+    test('a refusal counts as a response', () async {
+      final client = _mockClient(
+        200,
+        _envelope(termsPayload(consent: {
+          'status': 'refused',
+          'accepted': false,
+        })),
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getCurrentTerms(participantId: 42);
+
+      // Refusers must not be re-prompted until a new version ships.
+      expect(result!.awaitingResponse, false);
+      expect(result.consent!.accepted, false);
+    });
+
+    test('rejects a non-https terms_link', () async {
+      final client = _mockClient(
+        200,
+        _envelope({...termsPayload(), 'terms_link': 'http://insecure.test/t'}),
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.getCurrentTerms(participantId: 42);
+
+      expect(result!.termsLink, isNull);
+    });
+  });
+
+  group('postTermsConsent', () {
+    test('sends the expected URL and body', () async {
+      http.Request? captured;
+      final client = _mockClient(
+        200,
+        _envelope({'ok': true}),
+        onRequest: (r) => captured = r,
+      );
+      final service = LeaderboardApiService(
+          baseUrl: _baseUrl, httpClient: client, writesEnabled: true);
+
+      await service.postTermsConsent(
+        participantId: 42,
+        termsVersionId: 3,
+        status: TermsConsentStatus.accepted,
+        appVersion: '3.2.1',
+      );
+
+      expect(captured!.method, 'POST');
+      expect(captured!.url.path, '/api/v2/mobile/terms/consent');
+      expect(jsonDecode(captured!.body), {
+        'participant_id': 42,
+        'terms_version_id': 3,
+        'status': 'accepted',
+        'app_version': '3.2.1',
+      });
+    });
+
+    test('sends refused status', () async {
+      http.Request? captured;
+      final client = _mockClient(200, _envelope({'ok': true}),
+          onRequest: (r) => captured = r);
+      final service = LeaderboardApiService(
+          baseUrl: _baseUrl, httpClient: client, writesEnabled: true);
+
+      await service.postTermsConsent(
+        participantId: 42,
+        termsVersionId: 3,
+        status: TermsConsentStatus.refused,
+        appVersion: '3.2.1',
+      );
+
+      expect(jsonDecode(captured!.body)['status'], 'refused');
+    });
+
+    test('throws on 422', () async {
+      final client = _mockClient(422, {'error': 'Version is not published'});
+      final service = LeaderboardApiService(
+          baseUrl: _baseUrl, httpClient: client, writesEnabled: true);
+
+      expect(
+        () => service.postTermsConsent(
+          participantId: 42,
+          termsVersionId: 99,
+          status: TermsConsentStatus.accepted,
+          appVersion: '3.2.1',
+        ),
+        throwsA(isA<LeaderboardApiException>()
+            .having((e) => e.statusCode, 'statusCode', 422)
+            .having((e) => e.message, 'message', 'Version is not published')),
+      );
+    });
+
+    test('throws 503 when writes are disabled', () async {
+      final client = _mockClient(200, _envelope({'ok': true}));
+      final service = LeaderboardApiService(
+          baseUrl: _baseUrl, httpClient: client, writesEnabled: false);
+
+      expect(
+        () => service.postTermsConsent(
+          participantId: 42,
+          termsVersionId: 3,
+          status: TermsConsentStatus.accepted,
+          appVersion: '3.2.1',
+        ),
+        throwsA(isA<LeaderboardApiException>()
+            .having((e) => e.statusCode, 'statusCode', 503)),
+      );
+    });
   });
 
   // -------------------------------------------------------------------------

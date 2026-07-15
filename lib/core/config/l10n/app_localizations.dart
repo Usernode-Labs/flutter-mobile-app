@@ -2419,8 +2419,14 @@ abstract class AppLocalizations {
   /// Label for the participant token allocation reveal
   ///
   /// In en, this message translates to:
-  /// **'Token Allocation'**
+  /// **'Indicative token allocation'**
   String get profileTokenAllocation;
+
+  /// Legal footnote shown under the participant token allocation reveal
+  ///
+  /// In en, this message translates to:
+  /// **'Your allocation is indicative and based on your Season 1 contributions. It is not a promise or entitlement. Any future distribution is conditional on mainnet launch, eligibility verification, acceptance of the applicable Usernode Testnet Program Terms, and remains subject to Usernode’s discretion.'**
+  String get profileTokenAllocationDisclaimer;
 
   /// Button label that reveals the participant token allocation
   ///
@@ -2433,6 +2439,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Token allocation unavailable.'**
   String get profileTokenAllocationLoadError;
+
+  /// Title of the notice shown in place of the token allocation when the user has not accepted the terms
+  ///
+  /// In en, this message translates to:
+  /// **'Indicative token allocation'**
+  String get profileTokenAllocationGated;
+
+  /// Body of the notice shown in place of the token allocation when the user has not accepted the terms
+  ///
+  /// In en, this message translates to:
+  /// **'Your allocation is indicative and based on your Season 1 contributions. Indicative allocations are not a promise or entitlement — any future distribution is conditional on mainnet launch and subject to the Usernode Testnet Program Terms, which you’ll be asked to review and accept before viewing your allocation.'**
+  String get profileTokenAllocationGatedBody;
+
+  /// Button that opens the terms screen from the withheld-tokens notice
+  ///
+  /// In en, this message translates to:
+  /// **'Review terms'**
+  String get profileTokenAllocationGatedAction;
+
+  /// Settings section header for legal entries
+  ///
+  /// In en, this message translates to:
+  /// **'Legal'**
+  String get settingsLegal;
+
+  /// Subtitle of the Settings row that opens the terms screen
+  ///
+  /// In en, this message translates to:
+  /// **'Review the terms and acceptance status'**
+  String get settingsTermsSubtitle;
+
+  /// Settings status when the current terms have been accepted
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get settingsTermsAccepted;
+
+  /// Settings status when the current terms have not been accepted
+  ///
+  /// In en, this message translates to:
+  /// **'Not accepted'**
+  String get settingsTermsNotAccepted;
+
+  /// Settings status while the current terms acceptance is loading
+  ///
+  /// In en, this message translates to:
+  /// **'Checking acceptance status…'**
+  String get settingsTermsStatusLoading;
+
+  /// Title of the terms and conditions screen, and its Settings entry
+  ///
+  /// In en, this message translates to:
+  /// **'Terms & Conditions'**
+  String get termsTitle;
+
+  /// Button that accepts the terms and conditions
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get termsAccept;
+
+  /// Shown when the terms cannot be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Terms unavailable.'**
+  String get termsUnavailable;
+
+  /// Shown when the backend has no published terms version
+  ///
+  /// In en, this message translates to:
+  /// **'There are no terms to review right now.'**
+  String get termsNonePublished;
+
+  /// Shown when recording the user's accept or refuse decision fails
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save your response. Please try again.'**
+  String get termsSubmitFailed;
 
   /// Profile tab label for completed challenges
   ///

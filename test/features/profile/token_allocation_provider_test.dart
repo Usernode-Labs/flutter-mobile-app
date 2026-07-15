@@ -21,6 +21,7 @@ ProviderContainer _container({
   int seasonId = 1,
   int eventId = 12,
   int totalTokens = 1250,
+  bool termsAccepted = true,
 }) {
   final container = ProviderContainer(
     overrides: [
@@ -38,6 +39,7 @@ ProviderContainer _container({
             offchainPoints: 22468,
             totalParticipants: 138,
             eventId: eventId,
+            termsAccepted: termsAccepted,
           ),
         ),
       ),
@@ -56,7 +58,6 @@ void main() {
 
       expect(data, isNotNull);
       expect(data!.amount, 1250);
-      expect(data.unit, 'UNODE');
       expect(data.acknowledged, isFalse);
     });
 
@@ -69,6 +70,14 @@ void main() {
 
       final restored = await _container().read(tokenAllocationProvider.future);
       expect(restored?.acknowledged, isTrue);
+    });
+
+    test('carries terms acceptance used to gate the allocation UI', () async {
+      final data = await _container(
+        termsAccepted: false,
+      ).read(tokenAllocationProvider.future);
+
+      expect(data!.termsAccepted, isFalse);
     });
 
     test('scopes reveal state to the event and allocation value', () async {

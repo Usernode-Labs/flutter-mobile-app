@@ -63,6 +63,7 @@ class TokenAllocationRevealStory
                amount: args.amount,
                unitLabel: args.unitLabel,
                label: args.label,
+               disclaimer: args.disclaimer,
                revealLabel: args.revealLabel,
                icon: args.icon,
                revealed: args.revealed,
@@ -75,8 +76,9 @@ class TokenAllocationRevealArgs extends StoryArgs<TokenAllocationReveal> {
   TokenAllocationRevealArgs({
     Arg<Key?>? key,
     Arg<String>? amount,
-    Arg<String>? unitLabel,
+    Arg<String?>? unitLabel,
     Arg<String>? label,
+    Arg<String?>? disclaimer,
     Arg<String>? revealLabel,
     Arg<IconData>? icon,
     Arg<bool>? revealed,
@@ -86,9 +88,14 @@ class TokenAllocationRevealArgs extends StoryArgs<TokenAllocationReveal> {
        this.unitLabelArg = $initArg(
          'unitLabel',
          unitLabel,
-         StringArg('UNODE'),
+         NullableStringArg(null),
        )!,
        this.labelArg = $initArg('label', label, StringArg('Token Allocation'))!,
+       this.disclaimerArg = $initArg(
+         'disclaimer',
+         disclaimer,
+         NullableStringArg(null),
+       )!,
        this.revealLabelArg = $initArg(
          'revealLabel',
          revealLabel,
@@ -101,16 +108,18 @@ class TokenAllocationRevealArgs extends StoryArgs<TokenAllocationReveal> {
   TokenAllocationRevealArgs.fixed({
     Key? key,
     String amount = '',
-    String unitLabel = 'UNODE',
+    String? unitLabel = null,
     String label = 'Token Allocation',
+    String? disclaimer = null,
     String revealLabel = 'Reveal',
     IconData icon = Symbols.redeem_sharp,
     bool revealed = false,
     void Function()? onReveal,
   }) : this.keyArg = key == null ? null : Arg.fixed(key),
        this.amountArg = Arg.fixed(amount),
-       this.unitLabelArg = Arg.fixed(unitLabel),
+       this.unitLabelArg = unitLabel == null ? null : Arg.fixed(unitLabel),
        this.labelArg = Arg.fixed(label),
+       this.disclaimerArg = disclaimer == null ? null : Arg.fixed(disclaimer),
        this.revealLabelArg = Arg.fixed(revealLabel),
        this.iconArg = Arg.fixed(icon),
        this.revealedArg = Arg.fixed(revealed),
@@ -120,9 +129,11 @@ class TokenAllocationRevealArgs extends StoryArgs<TokenAllocationReveal> {
 
   final Arg<String> amountArg;
 
-  final Arg<String> unitLabelArg;
+  final Arg<String?>? unitLabelArg;
 
   final Arg<String> labelArg;
+
+  final Arg<String?>? disclaimerArg;
 
   final Arg<String> revealLabelArg;
 
@@ -136,9 +147,11 @@ class TokenAllocationRevealArgs extends StoryArgs<TokenAllocationReveal> {
 
   String get amount => amountArg.value;
 
-  String get unitLabel => unitLabelArg.value;
+  String? get unitLabel => unitLabelArg?.value;
 
   String get label => labelArg.value;
+
+  String? get disclaimer => disclaimerArg?.value;
 
   String get revealLabel => revealLabelArg.value;
 
@@ -154,6 +167,7 @@ class TokenAllocationRevealArgs extends StoryArgs<TokenAllocationReveal> {
     amountArg,
     unitLabelArg,
     labelArg,
+    disclaimerArg,
     revealLabelArg,
     iconArg,
     revealedArg,

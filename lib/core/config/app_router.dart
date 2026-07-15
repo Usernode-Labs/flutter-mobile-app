@@ -14,6 +14,7 @@ import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_battery
 import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
+import 'package:crypto_mobile_app/features/terms/screens/terms_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
@@ -95,6 +96,9 @@ class AppRoutes {
   static const deviceBenchmarkResultDetail =
       '/settings/device-benchmark/result';
   static const httpDebugLogs = '/settings/http-debug-logs';
+
+  /// Terms page opened from Settings or the withheld-token notice.
+  static const terms = '/settings/terms';
 
   static String dappDetailFor(String slug) => '/dapps/$slug';
   static String dappPinnedFor(String id) => '/dapps/pinned/$id';
@@ -290,6 +294,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.httpDebugLogs,
         builder: (context, state) => const HttpDebugLogsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.terms,
+        builder: (context, state) => const TermsScreen(),
       ),
       GoRoute(
         path: AppRoutes.walletSendSuccess,

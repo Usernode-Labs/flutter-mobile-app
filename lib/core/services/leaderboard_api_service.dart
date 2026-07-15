@@ -220,6 +220,49 @@ class LeaderboardApiService {
     }
   }
 
+  /// Fetches the currently published terms, including this participant's
+  /// consent for that version.
+  ///
+  /// Returns null when the backend has nothing published (HTTP 404), which is a
+  /// normal state and not an error — callers skip the terms flow entirely.
+  /// Note a 404 also covers "participant not found"; both collapse to "no terms
+  /// to show", which is the safe reading either way.
+  Future<CurrentTerms?> getCurrentTerms({required int participantId}) async {
+    try {
+      final data = await _get(
+        '/terms/current',
+        queryParams: {'participant_id': participantId.toString()},
+        expectedStatuses: const {404},
+      );
+      return CurrentTerms.fromJson(data as Map<String, dynamic>);
+    } on LeaderboardApiException catch (e) {
+      if (e.statusCode == 404) return null; // nothing published
+      rethrow;
+    }
+  }
+
+  /// Records acceptance of a terms version.
+  ///
+  /// [termsVersionId] must be the `id` from [getCurrentTerms] — the backend
+  /// rejects a stale or unpublished version with HTTP 422.
+  Future<void> postTermsConsent({
+    required int participantId,
+    required int termsVersionId,
+    required String appVersion,
+  }) async {
+    _ensureWritesEnabled();
+    await _post(
+      '/terms/consent',
+      body: {
+        'participant_id': participantId,
+        'terms_version_id': termsVersionId,
+        'status': TermsConsentStatus.accepted,
+        'app_version': appVersion,
+      },
+      expectedStatuses: const {422},
+    );
+  }
+
   void dispose() => _http.close();
 
   // ---------------------------------------------------------------------------
@@ -229,6 +272,7 @@ class LeaderboardApiService {
   Future<dynamic> _get(
     String path, {
     Map<String, String>? queryParams,
+    Set<int> expectedStatuses = const {},
   }) async {
     final uri = Uri.parse('$_baseUrl$path');
     final url = queryParams != null && queryParams.isNotEmpty
@@ -238,12 +282,13 @@ class LeaderboardApiService {
 
     final resp =
         await _sendWithRetry(() => _http.get(url, headers: _acceptJson));
-    return _parseEnvelope(resp, url);
+    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
   }
 
   Future<dynamic> _post(
     String path, {
     required Map<String, dynamic> body,
+    Set<int> expectedStatuses = const {},
   }) async {
     final url = Uri.parse('$_baseUrl$path');
     _log.trace('POST $url');
@@ -251,7 +296,7 @@ class LeaderboardApiService {
     final resp = await _send(
       () => _http.post(url, headers: _jsonHeaders, body: jsonEncode(body)),
     );
-    return _parseEnvelope(resp, url);
+    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
   }
 
   void _ensureWritesEnabled() {
@@ -333,7 +378,17 @@ class LeaderboardApiService {
       error is SocketException ||
       error is http.ClientException;
 
-  Future<dynamic> _parseEnvelope(http.Response resp, Uri url) async {
+  /// Parses the `{success, data}` envelope.
+  ///
+  /// [expectedStatuses] lists non-2xx codes that carry meaning for the caller
+  /// rather than signalling a fault (e.g. 404 = no terms published). Those still
+  /// throw so the caller can branch, but they skip Sentry — reporting them would
+  /// bury real errors under routine noise.
+  Future<dynamic> _parseEnvelope(
+    http.Response resp,
+    Uri url, {
+    Set<int> expectedStatuses = const {},
+  }) async {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final decoded = jsonDecode(resp.body);
       if (decoded is! Map<String, dynamic> || decoded['success'] != true) {
@@ -354,15 +409,17 @@ class LeaderboardApiService {
       'url': url.toString(),
     });
 
-    await SentryUtil.captureMessageWithData(
-      'Leaderboard API error',
-      {
-        'status_code': resp.statusCode,
-        'url': url.toString(),
-        'error_message': message,
-      },
-      level: SentryLevel.error,
-    );
+    if (!expectedStatuses.contains(resp.statusCode)) {
+      await SentryUtil.captureMessageWithData(
+        'Leaderboard API error',
+        {
+          'status_code': resp.statusCode,
+          'url': url.toString(),
+          'error_message': message,
+        },
+        level: SentryLevel.error,
+      );
+    }
 
     throw LeaderboardApiException(resp.statusCode, message, body: resp.body);
   }
@@ -391,6 +448,8 @@ class LeaderboardApiService {
         return detail ?? 'Resource not found.';
       case 409:
         return detail ?? 'Conflict — resource already exists.';
+      case 422:
+        return detail ?? 'The submitted data was rejected. Please try again.';
       case 429:
         return detail ?? 'Too many requests. Please try again later.';
       default:

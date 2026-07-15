@@ -11,8 +11,14 @@ const meta = Meta<TokenAllocationReveal>(path: 'live app/widgets/challenges');
 final $Default = _Story(
   args: _Args(
     amount: StringArg('1,250'),
-    unitLabel: StringArg('UNODE'),
-    label: StringArg('Token Allocation'),
+    label: StringArg('Indicative token allocation'),
+    disclaimer: StringArg(
+      'Your allocation is indicative and based on your Season 1 contributions. '
+      'It is not a promise or entitlement. Any future distribution is '
+      'conditional on mainnet launch, eligibility verification, acceptance of '
+      'the applicable Usernode Testnet Program Terms, and remains subject to '
+      'Usernode’s discretion.',
+    ),
     revealLabel: StringArg('Reveal'),
     revealed: BoolArg(false),
   ),

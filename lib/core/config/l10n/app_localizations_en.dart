@@ -1353,13 +1353,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileTitle => 'Profile';
 
   @override
-  String get profileTokenAllocation => 'Token Allocation';
+  String get profileTokenAllocation => 'Indicative token allocation';
+
+  @override
+  String get profileTokenAllocationDisclaimer =>
+      'Your allocation is indicative and based on your Season 1 contributions. It is not a promise or entitlement. Any future distribution is conditional on mainnet launch, eligibility verification, acceptance of the applicable Usernode Testnet Program Terms, and remains subject to the company’s discretion.';
 
   @override
   String get profileRevealTokens => 'Reveal';
 
   @override
   String get profileTokenAllocationLoadError => 'Token allocation unavailable.';
+
+  @override
+  String get profileTokenAllocationGated => 'Indicative token allocation';
+
+  @override
+  String get profileTokenAllocationGatedBody =>
+      'Your allocation is indicative and based on your Season 1 contributions. It is not a promise or entitlement. Any future distribution is conditional on mainnet launch, eligibility verification, acceptance of the applicable Usernode Testnet Program Terms, and remains subject to the company’s discretion.';
+
+  @override
+  String get profileTokenAllocationGatedAction => 'Review terms';
+
+  @override
+  String get settingsLegal => 'Legal';
+
+  @override
+  String get settingsTermsSubtitle => 'Review the terms and acceptance status';
+
+  @override
+  String get settingsTermsAccepted => 'Accepted';
+
+  @override
+  String get settingsTermsNotAccepted => 'Not accepted';
+
+  @override
+  String get settingsTermsStatusLoading => 'Checking acceptance status…';
+
+  @override
+  String get termsTitle => 'Terms & Conditions';
+
+  @override
+  String get termsAccept => 'Accept';
+
+  @override
+  String get termsUnavailable => 'Terms unavailable.';
+
+  @override
+  String get termsNonePublished => 'There are no terms to review right now.';
+
+  @override
+  String get termsSubmitFailed =>
+      'Could not save your response. Please try again.';
 
   @override
   String get profileCompletedChallengesTab => 'Completed Challenges';

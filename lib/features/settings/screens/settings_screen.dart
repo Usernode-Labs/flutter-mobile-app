@@ -25,9 +25,11 @@ import 'package:crypto_mobile_app/features/settings/widgets/quick_settings_panel
 import 'package:crypto_mobile_app/features/settings/widgets/general_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/diagnostics_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/faq_section.dart';
+import 'package:crypto_mobile_app/features/settings/widgets/legal_settings_section.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/theme_picker_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
+import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart';
 import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
@@ -464,6 +466,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
+    final terms = ref.watch(currentTermsProvider);
+    final termsStatus = terms.when(
+      data: (snapshot) => snapshot?.terms?.consent?.accepted ?? false
+          ? l10n.settingsTermsAccepted
+          : l10n.settingsTermsNotAccepted,
+      loading: () => l10n.settingsTermsStatusLoading,
+      error: (_, __) => l10n.termsUnavailable,
+    );
 
     final themeMode = ref.watch(themeModeProvider);
     final debugModeEnabled = ref.watch(debugModeProvider);
@@ -521,6 +531,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 onDebugModeChanged: (value) =>
                     ref.read(debugModeProvider.notifier).set(value),
                 onHttpLogsTap: () => context.push(AppRoutes.httpDebugLogs),
+              ),
+
+              SizedBox(height: spacing.space24),
+
+              LegalSettingsSection(
+                status: termsStatus,
+                onTermsTap: () => context.push(AppRoutes.terms),
               ),
 
               SizedBox(height: spacing.space24),

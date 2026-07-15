@@ -273,6 +273,15 @@ void main() {
     expect(find.text('Leaderboard'), findsOneWidget);
     expect(find.text('Community Sprint'), findsOneWidget);
     expect(find.text('completed 3,000 pts'), findsOneWidget);
+
+    // The allocation disclaimer pushes the second challenge past the fold, and
+    // slivers don't build off-screen children.
+    await tester.scrollUntilVisible(
+      find.text('Produce Every Block - June 2026'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
     expect(find.text('Produce Every Block - June 2026'), findsOneWidget);
     expect(find.text('57% success'), findsOneWidget);
     expect(find.text('Earned 2,828 pts'), findsOneWidget);
@@ -285,7 +294,7 @@ void main() {
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
-    expect(find.text('Token Allocation'), findsOneWidget);
+    expect(find.text('Indicative token allocation'), findsOneWidget);
     expect(find.text('Reveal'), findsOneWidget);
     expect(find.text('1,250'), findsNothing);
 
@@ -293,7 +302,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1,250'), findsOneWidget);
-    expect(find.text('UNODE'), findsOneWidget);
+    // Profile deliberately omits unitLabel: the allocation is indicative, so it
+    // is not presented as a concrete UNODE balance.
+    expect(find.text('UNODE'), findsNothing);
     expect(find.text('Reveal'), findsNothing);
   });
 

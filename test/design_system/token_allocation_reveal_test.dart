@@ -32,7 +32,7 @@ void main() {
 
       expect(revealCount, 1);
       expect(find.text('1,250'), findsOneWidget);
-      expect(find.text('UNODE'), findsOneWidget);
+      expect(find.text('UNODE'), findsNothing);
       expect(find.text('Reveal'), findsNothing);
     });
 
@@ -77,6 +77,21 @@ void main() {
       expect(find.text('Season 2 Allocation'), findsOneWidget);
       expect(find.text('980'), findsOneWidget);
       expect(find.text('PTS'), findsOneWidget);
+    });
+
+    testWidgets('disclaimer stays visible before and after reveal',
+        (tester) async {
+      await tester.pumpWidget(wrap(
+        const TokenAllocationReveal(
+          amount: '1,250',
+          disclaimer: 'Subject to terms.',
+        ),
+      ));
+
+      expect(find.text('Subject to terms.'), findsOneWidget);
+      await tester.tap(find.text('Reveal'));
+      await tester.pumpAndSettle();
+      expect(find.text('Subject to terms.'), findsOneWidget);
     });
   });
 }

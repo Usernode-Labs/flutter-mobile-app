@@ -107,7 +107,7 @@ class AtomicChallengeDetailInputArgs
          'progressHelperText',
          progressHelperText,
          NullableStringArg(null),
-       ),
+       )!,
        this.phaseArg = $initArg(
          'phase',
          phase,
@@ -156,7 +156,7 @@ class AtomicChallengeDetailInputArgs
     String pointsLogic = 'Earn 500 pts when your proposed change is accepted.',
     String ctaLabel = 'Join the challenge',
     String? rules = null,
-    AtomicChallengeTechnicalHeroCardData? heroCard = null,
+    AtomicChallengeTechnicalHeroCardData? heroCard,
     AtomicChallengeRailTreatment railTreatment =
         AtomicChallengeRailTreatment.checkbox,
   }) : this.titleArg = Arg.fixed(title),

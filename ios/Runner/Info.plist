@@ -40,6 +40,8 @@
     <string>Camera is used to scan QR codes and documents.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Biometrics are used to unlock your private data.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Photo access lets you upload images to dapps you open in Usernode.</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>

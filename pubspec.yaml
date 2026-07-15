@@ -47,6 +47,7 @@ dependencies:
   mobile_scanner: "^7.0.0"
   material_symbols_icons: ^4.2906.0
   marionette_flutter: ^0.5.0
+  file_picker: ^11.0.2
 dev_dependencies:
   flutter_lints: "^5.0.0"
   flutter_test:

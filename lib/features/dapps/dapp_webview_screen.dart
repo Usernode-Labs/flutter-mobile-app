@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,6 +29,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
@@ -528,6 +530,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
               if (method == 'reorderHomeScreenShortcuts') {
                 await _handleReorderHomeScreenShortcuts(id, payload);
               }
+
+              if (method == 'openExternal') {
+                await _handleOpenExternal(id, payload);
+              }
             } catch (e, st) {
               debugPrint(
                   '[Usernode JS-channel] handler error method=$method id=$id: '
@@ -582,8 +588,80 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         ),
       )
       ..loadRequest(parseDappUrl(widget.url));
+    // Android WebView shows no OS file chooser for <input type="file">
+    // unless the host app registers one (WebChromeClient.onShowFileChooser)
+    // — without this, upload controls in dapps (including cross-origin
+    // iframes like staging previews) silently no-op. iOS WKWebView
+    // presents its own picker natively, so this is Android-only.
+    final platformController = _controller.platform;
+    if (platformController is AndroidWebViewController) {
+      platformController.setOnShowFileSelector(_showAndroidFileSelector);
+    }
     _loadTxRecords();
     _loadDappTxIds();
+  }
+
+  /// Presents the OS file picker for a WebView `<input type="file">` tap
+  /// and returns the chosen file URIs (empty list = user cancelled).
+  Future<List<String>> _showAndroidFileSelector(
+      FileSelectorParams params) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        allowMultiple: params.mode == FileSelectorMode.openMultiple,
+        type: _pickerTypeForAcceptTypes(params.acceptTypes),
+      );
+      if (result == null) return const [];
+      return result.paths
+          .whereType<String>()
+          .map((path) => Uri.file(path).toString())
+          .toList();
+    } catch (e, st) {
+      debugPrint('[webview file-chooser] pick failed: $e\n$st');
+      return const [];
+    }
+  }
+
+  /// Maps the input's `accept` MIME types to the closest picker filter.
+  /// Mixed or unknown accept lists fall back to the unfiltered picker —
+  /// the page still validates what it receives, this is just UX.
+  FileType _pickerTypeForAcceptTypes(List<String> acceptTypes) {
+    final types = acceptTypes
+        .expand((t) => t.split(','))
+        .map((t) => t.trim().toLowerCase())
+        .where((t) => t.isNotEmpty)
+        .toList();
+    if (types.isEmpty) return FileType.any;
+    if (types.every((t) => t.startsWith('image/'))) return FileType.image;
+    if (types.every((t) => t.startsWith('video/'))) return FileType.video;
+    if (types.every((t) => t.startsWith('audio/'))) return FileType.audio;
+    if (types.every((t) => t.startsWith('image/') || t.startsWith('video/'))) {
+      return FileType.media;
+    }
+    return FileType.any;
+  }
+
+  /// `openExternal` JS-channel method: opens the given http(s) URL in the
+  /// system browser. Non-web schemes are rejected so pages can't silently
+  /// fire intent://, tel:, etc. through this path.
+  Future<void> _handleOpenExternal(
+      String id, Map<String, dynamic> payload) async {
+    final args = payload['args'];
+    final url = args is Map<String, dynamic> ? args['url']?.toString() : null;
+    final uri = url == null ? null : Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'openExternal requires an http(s) url',
+      );
+      return;
+    }
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    await _resolveJsPromise(
+      id: id,
+      value: launched,
+      error: launched ? null : 'Could not open URL',
+    );
   }
 
   @override

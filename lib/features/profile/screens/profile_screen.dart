@@ -110,8 +110,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
     final colors = Theme.of(context).colorScheme;
     final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final textTheme = Theme.of(context).textTheme;
-    final borders = Theme.of(context).extension<AppBorders>()!;
     final l10n = AppLocalizations.of(context);
 
     ref.watch(seasonsProvider);
@@ -142,154 +140,191 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       length: 2,
       child: Scaffold(
         backgroundColor: colors.surfaceContainerLowest,
-        // Fixed header (not a NestedScrollView): a NestedScrollView routes its
-        // tab bodies' overscroll to the outer coordinator, so a RefreshIndicator
-        // never arms on a pull of the list. A fixed header lets each tab own a
-        // RefreshIndicator that works.
-        appBar: AppBar(
-          backgroundColor: colors.surfaceContainerLowest,
-          scrolledUnderElevation: 0,
-          titleSpacing: 0,
-          leading: IconButton(
-            onPressed: () {
-              if (context.canPop()) context.pop();
-            },
-            icon: const Icon(Symbols.arrow_back_sharp),
-          ),
-          title: Text(
-            l10n.profileTitle,
-            style: textTheme.titleLarge?.copyWith(color: colors.onSurface),
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: [
-            IconButton(
-              tooltip: l10n.settingsTitle,
-              onPressed: () => context.push(AppRoutes.profileSettings),
-              icon: const Icon(Symbols.settings_sharp),
-            ),
-            SizedBox(width: spacing.space16),
-          ],
-        ),
-        body: Column(
-          children: [
-            ScoreHeader(
-              score: score,
-              scoreLabel: l10n.challengePoints,
-              rankLabel: rankLabel,
-              showCountdown: false,
-              density: ScoreHeaderDensity.compact,
-              footer: Center(
-                child: DropdownChip(
-                  label: seasonLabel(context, ref),
-                  variant: ChipVariant.outlined,
-                  onTap: () => showSeasonPicker(context, ref),
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                spacing.space16,
-                spacing.space12,
-                spacing.space16,
-                spacing.space16,
-              ),
-              child: allocation.when(
-                // The 3s poll re-runs the async allocation build, which flips to
-                // AsyncLoading on every reload. Without this, the card would
-                // flash the skeleton each tick; keep the last value instead and
-                // only show the skeleton on the very first load.
-                skipLoadingOnReload: true,
-                data: (data) {
-                  if (data == null) return const SizedBox.shrink();
-                  // A gated allocation is forced to 0 by the backend, so the
-                  // reveal card would present a withheld balance as a real one.
-                  if (!data.termsAccepted) {
-                    return TokenAllocationGatedNotice(
-                      onReviewTerms: () => context.push(AppRoutes.terms),
-                    );
-                  }
-                  return TokenAllocationReveal(
-                    amount: NumberFormat.decimalPattern(
-                      Localizations.localeOf(context).toLanguageTag(),
-                    ).format(data.amount),
-                    label: l10n.profileTokenAllocation,
-                    disclaimer: l10n.profileTokenAllocationDisclaimer,
-                    revealLabel: l10n.profileRevealTokens,
-                    revealed: data.acknowledged,
-                    onReveal: () => ref
-                        .read(tokenAllocationProvider.notifier)
-                        .acknowledge(),
-                  );
+        // Pull-to-refresh over the whole surface — including the token card in
+        // the scrolling header. A NestedScrollView surfaces its coordinated
+        // overscroll at depth 2, so the default predicate (depth 0) would miss
+        // both a header pull and a tab-list pull and never arm the indicator.
+        body: RefreshIndicator(
+          onRefresh: _refresh,
+          notificationPredicate: (notification) => notification.depth == 2,
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              TopAppBar(
+                title: l10n.profileTitle,
+                onLeadingTap: () {
+                  if (context.canPop()) context.pop();
                 },
-                loading: () => const ShimmerCardSkeleton(),
-                error: (_, __) => Card(
-                  child: ListTile(
-                    title: Text(l10n.profileTokenAllocationLoadError),
-                    trailing: Button(
-                      label: l10n.commonRetry,
-                      variant: ButtonVariant.outlined,
-                      onTap: () {
-                        ref.invalidate(rankingProvider);
-                        ref.invalidate(tokenAllocationProvider);
-                      },
+                backgroundColor: colors.surfaceContainerLowest,
+                actions: [
+                  IconButton(
+                    tooltip: l10n.settingsTitle,
+                    onPressed: () => context.push(AppRoutes.profileSettings),
+                    icon: const Icon(Symbols.settings_sharp),
+                  ),
+                ],
+              ),
+              SliverToBoxAdapter(
+                child: ColoredBox(
+                  color: colors.surfaceContainerLowest,
+                  child: ScoreHeader(
+                    score: score,
+                    scoreLabel: l10n.challengePoints,
+                    rankLabel: rankLabel,
+                    showCountdown: false,
+                    density: ScoreHeaderDensity.compact,
+                    footer: Center(
+                      child: DropdownChip(
+                        label: seasonLabel(context, ref),
+                        variant: ChipVariant.outlined,
+                        onTap: () => showSeasonPicker(context, ref),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            TabBar(
-              labelColor: colors.onSurface,
-              unselectedLabelColor: colors.outline,
-              labelStyle: textTheme.titleSmall,
-              unselectedLabelStyle: textTheme.titleSmall,
-              indicatorColor: colors.primary,
-              indicatorWeight: 3,
-              dividerColor: colors.onSurface.withValues(alpha: borders.opacity),
-              dividerHeight: borders.width,
-              tabs: [
-                Tab(text: l10n.profileCompletedChallengesTab),
-                Tab(text: l10n.leaderboardTitle),
-              ],
-            ),
-            Expanded(
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  spacing.space16,
+                  spacing.space12,
+                  spacing.space16,
+                  spacing.space16,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: allocation.when(
+                    // The 3s poll re-runs the async allocation build, which
+                    // flips to AsyncLoading on every reload. Without this, the
+                    // card would flash the skeleton each tick; keep the last
+                    // value and only show the skeleton on the first load.
+                    skipLoadingOnReload: true,
+                    data: (data) {
+                      if (data == null) return const SizedBox.shrink();
+                      // A gated allocation is forced to 0 by the backend, so the
+                      // reveal card would present a withheld balance as a real
+                      // one.
+                      if (!data.termsAccepted) {
+                        return TokenAllocationGatedNotice(
+                          onReviewTerms: () => context.push(AppRoutes.terms),
+                        );
+                      }
+                      return TokenAllocationReveal(
+                        amount: NumberFormat.decimalPattern(
+                          Localizations.localeOf(context).toLanguageTag(),
+                        ).format(data.amount),
+                        label: l10n.profileTokenAllocation,
+                        disclaimer: l10n.profileTokenAllocationDisclaimer,
+                        revealLabel: l10n.profileRevealTokens,
+                        revealed: data.acknowledged,
+                        onReveal: () => ref
+                            .read(tokenAllocationProvider.notifier)
+                            .acknowledge(),
+                      );
+                    },
+                    loading: () => const ShimmerCardSkeleton(),
+                    error: (_, __) => Card(
+                      child: ListTile(
+                        title: Text(l10n.profileTokenAllocationLoadError),
+                        trailing: Button(
+                          label: l10n.commonRetry,
+                          variant: ButtonVariant.outlined,
+                          onTap: () {
+                            ref.invalidate(rankingProvider);
+                            ref.invalidate(tokenAllocationProvider);
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _ProfileTabBarDelegate(
+                  tabs: [
+                    Tab(text: l10n.profileCompletedChallengesTab),
+                    Tab(text: l10n.leaderboardTitle),
+                  ],
+                ),
+              ),
+            ],
+            body: ColoredBox(
+              color: colors.surfaceContainerLowest,
               child: TabBarView(
                 children: [
-                  RefreshIndicator(
-                    onRefresh: _refresh,
-                    child: _CompletedChallengesTab(
-                      challenges: completed,
-                      breakdown: completedBreakdown,
-                      labels: challengePresentationLabels(l10n),
-                    ),
+                  _CompletedChallengesTab(
+                    challenges: completed,
+                    breakdown: completedBreakdown,
+                    labels: challengePresentationLabels(l10n),
                   ),
-                  RefreshIndicator(
-                    onRefresh: _refresh,
-                    child: ProfileLeaderboardList(
-                      entries: [
-                        for (final entry in entries)
-                          ProfileLeaderboardEntryData(
-                            rank: '${entry.rank}',
-                            name: entry.displayName ??
-                                l10n.participantFallbackName(
-                                  entry.participantId.toString(),
-                                ),
-                            points: l10n.pointsAbbreviated(
-                              formatPoints(entry.totalPoints),
-                            ),
-                            isCurrentUser:
-                                entry.participantId == currentParticipantId,
+                  ProfileLeaderboardList(
+                    entries: [
+                      for (final entry in entries)
+                        ProfileLeaderboardEntryData(
+                          rank: '${entry.rank}',
+                          name: entry.displayName ??
+                              l10n.participantFallbackName(
+                                entry.participantId.toString(),
+                              ),
+                          points: l10n.pointsAbbreviated(
+                            formatPoints(entry.totalPoints),
                           ),
-                      ],
-                      emptyLabel: l10n.profileLeaderboardUnavailable,
-                    ),
+                          isCurrentUser:
+                              entry.participantId == currentParticipantId,
+                        ),
+                    ],
+                    emptyLabel: l10n.profileLeaderboardUnavailable,
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
+  }
+}
+
+class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
+  const _ProfileTabBarDelegate({
+    required this.tabs,
+  });
+
+  final List<Widget> tabs;
+
+  @override
+  double get minExtent => kTextTabBarHeight;
+
+  @override
+  double get maxExtent => kTextTabBarHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final borders = Theme.of(context).extension<AppBorders>()!;
+
+    return ColoredBox(
+      color: colors.surfaceContainerLowest,
+      child: TabBar(
+        labelColor: colors.onSurface,
+        unselectedLabelColor: colors.outline,
+        labelStyle: textTheme.titleSmall,
+        unselectedLabelStyle: textTheme.titleSmall,
+        indicatorColor: colors.primary,
+        indicatorWeight: 3,
+        dividerColor: colors.onSurface.withValues(alpha: borders.opacity),
+        dividerHeight: borders.width,
+        tabs: tabs,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_ProfileTabBarDelegate oldDelegate) {
+    return oldDelegate.tabs != tabs;
   }
 }
 

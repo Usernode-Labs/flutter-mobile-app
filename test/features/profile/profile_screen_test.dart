@@ -38,6 +38,19 @@ class _RefreshableRankingController extends RankingController {
   }
 }
 
+/// The real, accepted allocation the backend returns post-consent.
+const _acceptedRanking = RankingResult(
+  scope: 'season',
+  rank: 44,
+  totalPoints: 8000,
+  totalTokens: 1250,
+  offchainPoints: 8000,
+  totalParticipants: 100,
+  seasonId: 1,
+  seasonName: 'Season 1',
+  termsAccepted: true,
+);
+
 /// Gated (allocation withheld, forced to 0) until a refresh, then the real
 /// accepted allocation the backend returns.
 RankingController _gatedThenAcceptedRanking() => _RefreshableRankingController(
@@ -52,17 +65,7 @@ RankingController _gatedThenAcceptedRanking() => _RefreshableRankingController(
         seasonName: 'Season 1',
         termsAccepted: false,
       ),
-      const RankingResult(
-        scope: 'season',
-        rank: 44,
-        totalPoints: 8000,
-        totalTokens: 1250,
-        offchainPoints: 8000,
-        totalParticipants: 100,
-        seasonId: 1,
-        seasonName: 'Season 1',
-        termsAccepted: true,
-      ),
+      _acceptedRanking,
     );
 
 class _MockBreakdownController extends BreakdownController {
@@ -294,8 +297,8 @@ Widget _app({RankingController Function()? rankingController}) {
 }
 
 /// Sizes the test surface to a typical portrait phone. The default 800x600
-/// surface is wide-and-short (unlike any real device) and makes the fixed
-/// profile header overflow; a portrait size reflects real usage.
+/// surface is wide-and-short (unlike any real device); a portrait size gives
+/// the header room and matches how the pull-to-refresh gesture is really used.
 void _usePortrait(WidgetTester tester) {
   tester.view.physicalSize = const Size(1170, 2532);
   tester.view.devicePixelRatio = 3.0;
@@ -319,6 +322,7 @@ void main() {
     expect(find.text('Season 1'), findsOneWidget);
     expect(find.text('All Events'), findsNothing);
     expect(find.byType(DropdownChip), findsOneWidget);
+    expect(find.byType(NestedScrollView), findsOneWidget);
     expect(find.byType(TabBar), findsOneWidget);
     expect(find.byType(TabBarView), findsOneWidget);
     expect(find.text('Completed Challenges'), findsOneWidget);
@@ -326,18 +330,12 @@ void main() {
     expect(find.text('Community Sprint'), findsOneWidget);
     expect(find.text('completed 3,000 pts'), findsOneWidget);
 
-    // The allocation card takes fixed header space, so the second challenge can
-    // sit past the fold. Scroll the completed-challenges list (inside the first
-    // tab's RefreshIndicator), not the horizontal TabBarView pager.
+    // The allocation card scrolls in the header, so the second challenge can
+    // sit past the fold; scroll the NestedScrollView to reveal it.
     await tester.scrollUntilVisible(
       find.text('Produce Every Block - June 2026'),
       200,
-      scrollable: find
-          .descendant(
-            of: find.byType(RefreshIndicator).first,
-            matching: find.byType(Scrollable),
-          )
-          .first,
+      scrollable: find.byType(Scrollable).first,
     );
 
     expect(find.text('Produce Every Block - June 2026'), findsOneWidget);
@@ -380,13 +378,47 @@ void main() {
     expect(find.text('Review terms'), findsOneWidget);
     expect(find.text('Reveal'), findsNothing);
 
-    // The 30s poll fires, the controller serves the accepted allocation, and
-    // the profile re-renders the reveal card without any user action.
-    await tester.pump(const Duration(seconds: 31));
+    // The poll fires, the controller serves the accepted allocation, and the
+    // profile re-renders the reveal card without any user action.
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
     expect(find.text('Reveal'), findsOneWidget);
     expect(find.text('Review terms'), findsNothing);
+  });
+
+  testWidgets('Auto-refresh does not flash the loading skeleton',
+      (tester) async {
+    _usePortrait(tester);
+    // Ranking that re-serves the SAME accepted allocation on every poll.
+    await tester.pumpWidget(
+      _app(
+        rankingController: () => _RefreshableRankingController(
+          _acceptedRanking,
+          _acceptedRanking,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Reveal card is up; no skeleton.
+    expect(find.text('Indicative token allocation'), findsOneWidget);
+    expect(find.byType(ShimmerCardSkeleton), findsNothing);
+
+    // Fire the poll, then step frame-by-frame through the reload. The token
+    // card must never fall back to the loading skeleton (the blink).
+    await tester.pump(const Duration(seconds: 4));
+    for (var i = 0; i < 5; i++) {
+      expect(
+        find.byType(ShimmerCardSkeleton),
+        findsNothing,
+        reason: 'skeleton flashed on reload frame $i',
+      );
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(ShimmerCardSkeleton), findsNothing);
+    expect(find.text('Indicative token allocation'), findsOneWidget);
   });
 
   testWidgets(
@@ -402,15 +434,11 @@ void main() {
     expect(find.text('Review terms'), findsOneWidget);
     expect(find.text('Reveal'), findsNothing);
 
-    // Pull down on the completed-challenges list. An incremental drag (not a
-    // fling) sustains the overscroll RefreshIndicator needs to arm.
-    final list = find
-        .descendant(
-          of: find.byType(RefreshIndicator).first,
-          matching: find.byType(Scrollable),
-        )
-        .first;
-    final gesture = await tester.startGesture(tester.getCenter(list));
+    // Pull down from the top — over the score/allocation card in the scrolling
+    // header, the natural gesture. An incremental drag (not a fling) sustains
+    // the overscroll the RefreshIndicator needs to arm.
+    final gesture =
+        await tester.startGesture(tester.getCenter(find.byType(ScoreHeader)));
     for (var i = 0; i < 25; i++) {
       await gesture.moveBy(const Offset(0, 20));
       await tester.pump();

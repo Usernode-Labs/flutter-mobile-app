@@ -24,6 +24,47 @@ class _MockRankingController extends RankingController {
   Future<void> silentRefresh() async {}
 }
 
+/// Serves [_initial] on build, then swaps to [_refreshed] on the next
+/// [silentRefresh] — models the backend catching up after terms acceptance.
+class _RefreshableRankingController extends RankingController {
+  _RefreshableRankingController(this._initial, this._refreshed);
+  final RankingResult _initial;
+  final RankingResult _refreshed;
+  @override
+  Future<RankingResult?> build() async => _initial;
+  @override
+  Future<void> silentRefresh() async {
+    state = AsyncData(_refreshed);
+  }
+}
+
+/// Gated (allocation withheld, forced to 0) until a refresh, then the real
+/// accepted allocation the backend returns.
+RankingController _gatedThenAcceptedRanking() => _RefreshableRankingController(
+      const RankingResult(
+        scope: 'season',
+        rank: 44,
+        totalPoints: 8000,
+        totalTokens: 0,
+        offchainPoints: 8000,
+        totalParticipants: 100,
+        seasonId: 1,
+        seasonName: 'Season 1',
+        termsAccepted: false,
+      ),
+      const RankingResult(
+        scope: 'season',
+        rank: 44,
+        totalPoints: 8000,
+        totalTokens: 1250,
+        offchainPoints: 8000,
+        totalParticipants: 100,
+        seasonId: 1,
+        seasonName: 'Season 1',
+        termsAccepted: true,
+      ),
+    );
+
 class _MockBreakdownController extends BreakdownController {
   _MockBreakdownController(this._data);
   final BreakdownResult? _data;
@@ -137,22 +178,23 @@ const _completedProduceBlocksChallenge = ChallengeDto(
   scheduleEnd: '2026-12-01T00:00:00Z',
 );
 
-Widget _app() {
+Widget _app({RankingController Function()? rankingController}) {
   return ProviderScope(
     overrides: [
       rankingProvider.overrideWith(
-        () => _MockRankingController(
-          const RankingResult(
-            scope: 'season',
-            rank: 44,
-            totalPoints: 8000,
-            totalTokens: 1250,
-            offchainPoints: 8000,
-            totalParticipants: 100,
-            seasonId: 1,
-            seasonName: 'Season 1',
-          ),
-        ),
+        rankingController ??
+            () => _MockRankingController(
+                  const RankingResult(
+                    scope: 'season',
+                    rank: 44,
+                    totalPoints: 8000,
+                    totalTokens: 1250,
+                    offchainPoints: 8000,
+                    totalParticipants: 100,
+                    seasonId: 1,
+                    seasonName: 'Season 1',
+                  ),
+                ),
       ),
       leaderboardApiServiceProvider.overrideWithValue(
         _MockProfileHistoryService(),
@@ -251,11 +293,22 @@ Widget _app() {
   );
 }
 
+/// Sizes the test surface to a typical portrait phone. The default 800x600
+/// surface is wide-and-short (unlike any real device) and makes the fixed
+/// profile header overflow; a portrait size reflects real usage.
+void _usePortrait(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1170, 2532);
+  tester.view.devicePixelRatio = 3.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('Profile shows score, tabs and completed challenge',
       (tester) async {
+    _usePortrait(tester);
     await tester.pumpWidget(_app());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
@@ -266,7 +319,6 @@ void main() {
     expect(find.text('Season 1'), findsOneWidget);
     expect(find.text('All Events'), findsNothing);
     expect(find.byType(DropdownChip), findsOneWidget);
-    expect(find.byType(NestedScrollView), findsOneWidget);
     expect(find.byType(TabBar), findsOneWidget);
     expect(find.byType(TabBarView), findsOneWidget);
     expect(find.text('Completed Challenges'), findsOneWidget);
@@ -274,12 +326,18 @@ void main() {
     expect(find.text('Community Sprint'), findsOneWidget);
     expect(find.text('completed 3,000 pts'), findsOneWidget);
 
-    // The allocation disclaimer pushes the second challenge past the fold, and
-    // slivers don't build off-screen children.
+    // The allocation card takes fixed header space, so the second challenge can
+    // sit past the fold. Scroll the completed-challenges list (inside the first
+    // tab's RefreshIndicator), not the horizontal TabBarView pager.
     await tester.scrollUntilVisible(
       find.text('Produce Every Block - June 2026'),
       200,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .descendant(
+            of: find.byType(RefreshIndicator).first,
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
 
     expect(find.text('Produce Every Block - June 2026'), findsOneWidget);
@@ -291,6 +349,7 @@ void main() {
 
   testWidgets('Profile reveals the API-backed token allocation',
       (tester) async {
+    _usePortrait(tester);
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();
 
@@ -308,7 +367,63 @@ void main() {
     expect(find.text('Reveal'), findsNothing);
   });
 
+  testWidgets(
+      'Periodic auto-refresh surfaces the allocation once terms are accepted',
+      (tester) async {
+    _usePortrait(tester);
+    await tester.pumpWidget(
+      _app(rankingController: _gatedThenAcceptedRanking),
+    );
+    await tester.pumpAndSettle();
+
+    // Gated: the withheld-allocation notice, not the reveal card.
+    expect(find.text('Review terms'), findsOneWidget);
+    expect(find.text('Reveal'), findsNothing);
+
+    // The 30s poll fires, the controller serves the accepted allocation, and
+    // the profile re-renders the reveal card without any user action.
+    await tester.pump(const Duration(seconds: 31));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reveal'), findsOneWidget);
+    expect(find.text('Review terms'), findsNothing);
+  });
+
+  testWidgets(
+      'Pull-to-refresh surfaces the allocation once terms are accepted',
+      (tester) async {
+    _usePortrait(tester);
+    await tester.pumpWidget(
+      _app(rankingController: _gatedThenAcceptedRanking),
+    );
+    await tester.pumpAndSettle();
+
+    // Gated: the withheld-allocation notice, not the reveal card.
+    expect(find.text('Review terms'), findsOneWidget);
+    expect(find.text('Reveal'), findsNothing);
+
+    // Pull down on the completed-challenges list. An incremental drag (not a
+    // fling) sustains the overscroll RefreshIndicator needs to arm.
+    final list = find
+        .descendant(
+          of: find.byType(RefreshIndicator).first,
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final gesture = await tester.startGesture(tester.getCenter(list));
+    for (var i = 0; i < 25; i++) {
+      await gesture.moveBy(const Offset(0, 20));
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reveal'), findsOneWidget);
+    expect(find.text('Review terms'), findsNothing);
+  });
+
   testWidgets('Leaderboard tab shows ranked entries', (tester) async {
+    _usePortrait(tester);
     await tester.pumpWidget(_app());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));
@@ -322,6 +437,7 @@ void main() {
   });
 
   testWidgets('Profile season chip opens season picker', (tester) async {
+    _usePortrait(tester);
     await tester.pumpWidget(_app());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 1));

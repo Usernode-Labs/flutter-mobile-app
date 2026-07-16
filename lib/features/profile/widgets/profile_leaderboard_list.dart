@@ -33,15 +33,29 @@ class ProfileLeaderboardList extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     if (entries.isEmpty) {
-      return Center(
-        child: Text(
-          emptyLabel,
-          style: textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+      // Scrollable so a pull-to-refresh gesture still fires when there are no
+      // entries to show.
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Text(
+                emptyLabel,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
         ),
       );
     }
 
     return ListView.separated(
+      // Always overscrollable so pull-to-refresh fires on a short list.
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(
         spacing.space16,
         spacing.space12,

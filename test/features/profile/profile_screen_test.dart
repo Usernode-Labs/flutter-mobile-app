@@ -38,6 +38,19 @@ class _RefreshableRankingController extends RankingController {
   }
 }
 
+/// The real, accepted allocation the backend returns post-consent.
+const _acceptedRanking = RankingResult(
+  scope: 'season',
+  rank: 44,
+  totalPoints: 8000,
+  totalTokens: 1250,
+  offchainPoints: 8000,
+  totalParticipants: 100,
+  seasonId: 1,
+  seasonName: 'Season 1',
+  termsAccepted: true,
+);
+
 /// Gated (allocation withheld, forced to 0) until a refresh, then the real
 /// accepted allocation the backend returns.
 RankingController _gatedThenAcceptedRanking() => _RefreshableRankingController(
@@ -52,17 +65,7 @@ RankingController _gatedThenAcceptedRanking() => _RefreshableRankingController(
         seasonName: 'Season 1',
         termsAccepted: false,
       ),
-      const RankingResult(
-        scope: 'season',
-        rank: 44,
-        totalPoints: 8000,
-        totalTokens: 1250,
-        offchainPoints: 8000,
-        totalParticipants: 100,
-        seasonId: 1,
-        seasonName: 'Season 1',
-        termsAccepted: true,
-      ),
+      _acceptedRanking,
     );
 
 class _MockBreakdownController extends BreakdownController {
@@ -380,13 +383,47 @@ void main() {
     expect(find.text('Review terms'), findsOneWidget);
     expect(find.text('Reveal'), findsNothing);
 
-    // The 30s poll fires, the controller serves the accepted allocation, and
-    // the profile re-renders the reveal card without any user action.
-    await tester.pump(const Duration(seconds: 31));
+    // The poll fires, the controller serves the accepted allocation, and the
+    // profile re-renders the reveal card without any user action.
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
 
     expect(find.text('Reveal'), findsOneWidget);
     expect(find.text('Review terms'), findsNothing);
+  });
+
+  testWidgets('Auto-refresh does not flash the loading skeleton',
+      (tester) async {
+    _usePortrait(tester);
+    // Ranking that re-serves the SAME accepted allocation on every poll.
+    await tester.pumpWidget(
+      _app(
+        rankingController: () => _RefreshableRankingController(
+          _acceptedRanking,
+          _acceptedRanking,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Reveal card is up; no skeleton.
+    expect(find.text('Indicative token allocation'), findsOneWidget);
+    expect(find.byType(ShimmerCardSkeleton), findsNothing);
+
+    // Fire the poll, then step frame-by-frame through the reload. The token
+    // card must never fall back to the loading skeleton (the blink).
+    await tester.pump(const Duration(seconds: 4));
+    for (var i = 0; i < 5; i++) {
+      expect(
+        find.byType(ShimmerCardSkeleton),
+        findsNothing,
+        reason: 'skeleton flashed on reload frame $i',
+      );
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+    expect(find.byType(ShimmerCardSkeleton), findsNothing);
+    expect(find.text('Indicative token allocation'), findsOneWidget);
   });
 
   testWidgets(

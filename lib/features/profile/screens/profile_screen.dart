@@ -194,6 +194,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 spacing.space16,
               ),
               child: allocation.when(
+                // The 3s poll re-runs the async allocation build, which flips to
+                // AsyncLoading on every reload. Without this, the card would
+                // flash the skeleton each tick; keep the last value instead and
+                // only show the skeleton on the very first load.
+                skipLoadingOnReload: true,
                 data: (data) {
                   if (data == null) return const SizedBox.shrink();
                   // A gated allocation is forced to 0 by the backend, so the

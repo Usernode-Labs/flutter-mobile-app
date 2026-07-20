@@ -134,6 +134,13 @@ class AppConfig {
     defaultValue: '',
   );
 
+  // Usernode Activity API. Leave empty until the Activity service is deployed
+  // for this build environment; the Activity tab stays disabled when unset.
+  static const String activityApiBaseUrl = String.fromEnvironment(
+    'ACTIVITY_API_BASE_URL',
+    defaultValue: '',
+  );
+
   // zkPassport session server (bridge) base URL.
   static const String zkPassportBridgeBaseUrl = String.fromEnvironment(
     'ZKPASSPORT_BRIDGE_BASE_URL',

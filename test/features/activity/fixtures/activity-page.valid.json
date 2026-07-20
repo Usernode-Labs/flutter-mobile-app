@@ -1,0 +1,122 @@
+{
+  "items": [
+    {
+      "inboxSequence": "2",
+      "syncSequence": "7",
+      "defaultAttention": "receipt",
+      "readAt": null,
+      "activityEvent": {
+        "envelopeVersion": 1,
+        "ledgerId": "activity-test",
+        "activityEventId": "0190f58e-6570-7b91-b633-1a695d00a002",
+        "source": {
+          "system": "social",
+          "producerId": "social-dev",
+          "trustClass": "first_party_server"
+        },
+        "recipientResolution": {
+          "authority": "source_binding",
+          "reference": "social-binding-42",
+          "subject": "42"
+        },
+        "contractId": "social.dev_run.transition.v1",
+        "appliedPolicyId": "social.dev_run.cancelled.v1",
+        "ingestedAt": "2026-07-17T12:30:01Z",
+        "privacy": "private_preview",
+        "retentionClass": "account_activity",
+        "sourceEvent": {
+          "envelopeVersion": 1,
+          "sourceEventId": "social.dev_run:7:315:7",
+          "kind": "social.dev_run.transition",
+          "schemaVersion": 1,
+          "recipient": {
+            "relation": "social.user",
+            "subject": "42",
+            "scope": "account"
+          },
+          "resource": {
+            "type": "dev_session",
+            "id": "315",
+            "version": 7
+          },
+          "occurredAt": "2026-07-17T12:30:00Z",
+          "status": "cancelled",
+          "canonicality": "source_confirmed",
+          "facts": {
+            "runMode": "headless",
+            "cancellationReason": "superseded"
+          },
+          "aggregateKey": "social.dev_run:7:315",
+          "route": {
+            "kind": "social.session",
+            "schemaVersion": 1,
+            "parameters": {
+              "appId": "7",
+              "sessionId": "315"
+            }
+          }
+        }
+      }
+    },
+    {
+      "inboxSequence": "1",
+      "syncSequence": "6",
+      "defaultAttention": "unread",
+      "readAt": "2026-07-17T12:10:00Z",
+      "activityEvent": {
+        "envelopeVersion": 1,
+        "ledgerId": "activity-test",
+        "activityEventId": "0190f58e-6570-7b91-b633-1a695d00a001",
+        "source": {
+          "system": "social",
+          "producerId": "social-dev",
+          "trustClass": "first_party_server"
+        },
+        "recipientResolution": {
+          "authority": "source_binding",
+          "reference": "social-binding-42",
+          "subject": "42"
+        },
+        "contractId": "social.dev_run.transition.v1",
+        "appliedPolicyId": "social.dev_run.succeeded.v1",
+        "ingestedAt": "2026-07-17T12:05:01Z",
+        "privacy": "private_preview",
+        "retentionClass": "account_activity",
+        "sourceEvent": {
+          "envelopeVersion": 1,
+          "sourceEventId": "social.dev_run:7:314:2",
+          "kind": "social.dev_run.transition",
+          "schemaVersion": 1,
+          "recipient": {
+            "relation": "social.user",
+            "subject": "42",
+            "scope": "account"
+          },
+          "resource": {
+            "type": "dev_session",
+            "id": "314",
+            "version": 2
+          },
+          "occurredAt": "2026-07-17T12:05:00Z",
+          "status": "succeeded",
+          "canonicality": "source_confirmed",
+          "facts": {
+            "runMode": "build",
+            "result": "code"
+          },
+          "aggregateKey": "social.dev_run:7:314",
+          "route": {
+            "kind": "social.session",
+            "schemaVersion": 1,
+            "parameters": {
+              "appId": "7",
+              "sessionId": "314"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "nextCursor": "opaque-endpoint-specific-cursor",
+  "hasMore": true
+}

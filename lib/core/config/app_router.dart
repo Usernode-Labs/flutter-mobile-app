@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/auth/screens/auth_landing_screen.dart';
+import 'package:crypto_mobile_app/features/auth/screens/auth_email_screen.dart';
+import 'package:crypto_mobile_app/features/auth/screens/auth_password_screen.dart';
+import 'package:crypto_mobile_app/features/auth/screens/auth_otp_screen.dart';
+import 'package:crypto_mobile_app/features/auth/screens/auth_set_password_screen.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
@@ -70,6 +76,13 @@ class AppRoutes {
   static const onboardingBatteryComplete = '/onboarding/battery-complete';
   static const staleRegistration = '/stale-registration';
 
+  // v3 auth flow
+  static const authLanding = '/auth';
+  static const authEmail = '/auth/email';
+  static const authPassword = '/auth/password';
+  static const authOtp = '/auth/otp';
+  static const authSetPassword = '/auth/set-password';
+
   // Standalone routes
   static const slotAssignments = '/produced/slot-assignments';
   static const producedBlockDetails = '/produced/block-details';
@@ -115,10 +128,40 @@ class AppRoutes {
   static const mainNodePeers = '/main/node/peers';
 }
 
+const _authRoutes = <String>[
+  AppRoutes.authLanding,
+  AppRoutes.authEmail,
+  AppRoutes.authPassword,
+  AppRoutes.authOtp,
+  AppRoutes.authSetPassword,
+];
+
+/// First-stage auth gate. Returns a redirect target, or null to defer to the
+/// existing account/onboarding logic. Pure for unit testing.
+String? authRedirect(AuthStatus status, String location) {
+  final isAuthRoute = _authRoutes.contains(location);
+  switch (status) {
+    case AuthStatus.unknown:
+      return null; // still loading; don't bounce
+    case AuthStatus.unauthenticated:
+      return isAuthRoute ? null : AppRoutes.authLanding;
+    case AuthStatus.guest:
+    case AuthStatus.authenticated:
+      return isAuthRoute ? AppRoutes.splash : null;
+  }
+}
+
 /// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
 /// This bridges Riverpod's state management with GoRouter's refresh mechanism
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(this._ref) {
+    // Listen to auth status changes (v3 auth gate)
+    _ref.listen<AuthStatus>(
+      authStatusProvider,
+      (previous, next) {
+        notifyListeners();
+      },
+    );
     // Listen to hasAnyAccountProvider changes
     _ref.listen<AsyncValue<bool>>(
       hasAnyAccountProvider,
@@ -179,6 +222,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.splash,
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.authLanding,
+        builder: (context, state) => const AuthLandingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.authEmail,
+        builder: (context, state) => const AuthEmailScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.authPassword,
+        builder: (context, state) => const AuthPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.authOtp,
+        builder: (context, state) => const AuthOtpScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.authSetPassword,
+        builder: (context, state) => const AuthSetPasswordScreen(),
       ),
       GoRoute(
         path: AppRoutes.onboarding,
@@ -513,6 +576,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       _log.trace(
           'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
+
+      // v3 auth gate runs first. It forces unauthenticated users (including
+      // existing users upgrading) to the auth landing before any account or
+      // onboarding logic applies. Authenticated/guest users fall through.
+      final authStatus = ref.read(authStatusProvider);
+      final authGate = authRedirect(authStatus, currentLocation);
+      if (authGate != null) return authGate;
+      if (authStatus == AuthStatus.unauthenticated) {
+        // On an auth route while unauthenticated: allow it, skip account logic.
+        return null;
+      }
 
       if (shouldBlockUsernodeDeepLink(requestUri)) {
         _log.warn('Blocked unsupported app deep link: $requestUri');

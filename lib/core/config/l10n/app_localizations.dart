@@ -4131,6 +4131,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Done'**
   String get widgetInstructionsDone;
+
+  /// Title on the auth landing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome'**
+  String get authLandingTitle;
+
+  /// Log in button on the auth landing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get authLogIn;
+
+  /// Sign in button on the auth landing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get authSignIn;
+
+  /// Continue-as-guest button on the auth landing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Continue as guest'**
+  String get authContinueGuest;
+
+  /// Email field label on the auth email screen
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get authEmailLabel;
+
+  /// Continue button on the auth email screen
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get authEmailContinue;
+
+  /// Password field label on the auth password screen
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get authPasswordLabel;
+
+  /// Submit button on the auth password screen
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get authPasswordContinue;
+
+  /// OTP field label on the auth OTP screen
+  ///
+  /// In en, this message translates to:
+  /// **'6-digit code'**
+  String get authOtpLabel;
+
+  /// Verify button on the auth OTP screen
+  ///
+  /// In en, this message translates to:
+  /// **'Verify'**
+  String get authOtpVerify;
+
+  /// Resend-code button on the auth OTP screen
+  ///
+  /// In en, this message translates to:
+  /// **'Resend code'**
+  String get authOtpResend;
+
+  /// New-password field label on the set-password screen
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get authSetPasswordLabel;
+
+  /// Confirm-password field label on the set-password screen
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get authConfirmPasswordLabel;
+
+  /// Submit button on the set-password screen
+  ///
+  /// In en, this message translates to:
+  /// **'Set password'**
+  String get authSetPasswordSubmit;
+
+  /// Error shown when an auth request is rate limited
+  ///
+  /// In en, this message translates to:
+  /// **'Please try again shortly.'**
+  String get authErrorRateLimited;
+
+  /// Error shown when login credentials are invalid
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email or password.'**
+  String get authErrorInvalidCredentials;
+
+  /// Error shown when an OTP code is invalid or expired
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid or expired code.'**
+  String get authErrorInvalidCode;
+
+  /// Error shown when an auth request fails to reach the server
+  ///
+  /// In en, this message translates to:
+  /// **'Network error. Please try again.'**
+  String get authErrorNetwork;
+
+  /// Client-side error when the chosen password is too short
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 8 characters.'**
+  String get authErrorPasswordTooShort;
+
+  /// Client-side error when password and confirmation differ
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match.'**
+  String get authErrorPasswordMismatch;
 }
 
 class _AppLocalizationsDelegate

@@ -3115,5 +3115,85 @@
   "widgetInstructionsDone": "Done",
   "@widgetInstructionsDone": {
     "description": "Dismiss button of the iOS widget-setup instructions screen"
+  },
+  "authLandingTitle": "Welcome",
+  "@authLandingTitle": {
+    "description": "Title on the auth landing screen"
+  },
+  "authLogIn": "Log in",
+  "@authLogIn": {
+    "description": "Log in button on the auth landing screen"
+  },
+  "authSignIn": "Sign in",
+  "@authSignIn": {
+    "description": "Sign in button on the auth landing screen"
+  },
+  "authContinueGuest": "Continue as guest",
+  "@authContinueGuest": {
+    "description": "Continue-as-guest button on the auth landing screen"
+  },
+  "authEmailLabel": "Email",
+  "@authEmailLabel": {
+    "description": "Email field label on the auth email screen"
+  },
+  "authEmailContinue": "Continue",
+  "@authEmailContinue": {
+    "description": "Continue button on the auth email screen"
+  },
+  "authPasswordLabel": "Password",
+  "@authPasswordLabel": {
+    "description": "Password field label on the auth password screen"
+  },
+  "authPasswordContinue": "Log in",
+  "@authPasswordContinue": {
+    "description": "Submit button on the auth password screen"
+  },
+  "authOtpLabel": "6-digit code",
+  "@authOtpLabel": {
+    "description": "OTP field label on the auth OTP screen"
+  },
+  "authOtpVerify": "Verify",
+  "@authOtpVerify": {
+    "description": "Verify button on the auth OTP screen"
+  },
+  "authOtpResend": "Resend code",
+  "@authOtpResend": {
+    "description": "Resend-code button on the auth OTP screen"
+  },
+  "authSetPasswordLabel": "New password",
+  "@authSetPasswordLabel": {
+    "description": "New-password field label on the set-password screen"
+  },
+  "authConfirmPasswordLabel": "Confirm password",
+  "@authConfirmPasswordLabel": {
+    "description": "Confirm-password field label on the set-password screen"
+  },
+  "authSetPasswordSubmit": "Set password",
+  "@authSetPasswordSubmit": {
+    "description": "Submit button on the set-password screen"
+  },
+  "authErrorRateLimited": "Please try again shortly.",
+  "@authErrorRateLimited": {
+    "description": "Error shown when an auth request is rate limited"
+  },
+  "authErrorInvalidCredentials": "Invalid email or password.",
+  "@authErrorInvalidCredentials": {
+    "description": "Error shown when login credentials are invalid"
+  },
+  "authErrorInvalidCode": "Invalid or expired code.",
+  "@authErrorInvalidCode": {
+    "description": "Error shown when an OTP code is invalid or expired"
+  },
+  "authErrorNetwork": "Network error. Please try again.",
+  "@authErrorNetwork": {
+    "description": "Error shown when an auth request fails to reach the server"
+  },
+  "authErrorPasswordTooShort": "Password must be at least 8 characters.",
+  "@authErrorPasswordTooShort": {
+    "description": "Client-side error when the chosen password is too short"
+  },
+  "authErrorPasswordMismatch": "Passwords do not match.",
+  "@authErrorPasswordMismatch": {
+    "description": "Client-side error when password and confirmation differ"
   }
 }

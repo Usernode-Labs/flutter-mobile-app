@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 
 const _base = 'https://test.example.com/api/v3/mobile/auth';
@@ -21,14 +20,16 @@ AuthRepository _repo(http.Client c) =>
 void main() {
   group('checkEmail', () {
     test('parses exists/password_set', () async {
-      final r = await _repo(_client(200, {'exists': true, 'password_set': false}))
-          .checkEmail('a@b.com');
+      final r =
+          await _repo(_client(200, {'exists': true, 'password_set': false}))
+              .checkEmail('a@b.com');
       expect(r.exists, true);
       expect(r.passwordSet, false);
     });
     test('429 -> rateLimited', () async {
       expect(
-        () => _repo(_client(429, {'message': 'slow down'})).checkEmail('a@b.com'),
+        () =>
+            _repo(_client(429, {'message': 'slow down'})).checkEmail('a@b.com'),
         throwsA(isA<AuthException>()
             .having((e) => e.kind, 'kind', AuthErrorKind.rateLimited)),
       );
@@ -86,10 +87,17 @@ void main() {
   group('setPassword', () {
     test('sends bearer set_password_token and returns session', () async {
       String? auth;
-      final r = await _repo(_client(200, {
-        'token': 'sess-2',
-        'participant': {'id': 1, 'email': 'a@b.com', 'email_confirmed': false},
-      }, onReq: (req) => auth = req.headers['authorization']))
+      final r = await _repo(_client(
+              200,
+              {
+                'token': 'sess-2',
+                'participant': {
+                  'id': 1,
+                  'email': 'a@b.com',
+                  'email_confirmed': false
+                },
+              },
+              onReq: (req) => auth = req.headers['authorization']))
           .setPassword(
               setPasswordToken: 'spt-1',
               password: 'password1',

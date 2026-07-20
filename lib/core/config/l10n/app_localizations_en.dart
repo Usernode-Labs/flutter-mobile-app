@@ -2312,4 +2312,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetInstructionsDone => 'Done';
+
+  @override
+  String get authLandingTitle => 'Welcome';
+
+  @override
+  String get authLogIn => 'Log in';
+
+  @override
+  String get authSignIn => 'Sign in';
+
+  @override
+  String get authContinueGuest => 'Continue as guest';
+
+  @override
+  String get authEmailLabel => 'Email';
+
+  @override
+  String get authEmailContinue => 'Continue';
+
+  @override
+  String get authPasswordLabel => 'Password';
+
+  @override
+  String get authPasswordContinue => 'Log in';
+
+  @override
+  String get authOtpLabel => '6-digit code';
+
+  @override
+  String get authOtpVerify => 'Verify';
+
+  @override
+  String get authOtpResend => 'Resend code';
+
+  @override
+  String get authSetPasswordLabel => 'New password';
+
+  @override
+  String get authConfirmPasswordLabel => 'Confirm password';
+
+  @override
+  String get authSetPasswordSubmit => 'Set password';
+
+  @override
+  String get authErrorRateLimited => 'Please try again shortly.';
+
+  @override
+  String get authErrorInvalidCredentials => 'Invalid email or password.';
+
+  @override
+  String get authErrorInvalidCode => 'Invalid or expired code.';
+
+  @override
+  String get authErrorNetwork => 'Network error. Please try again.';
+
+  @override
+  String get authErrorPasswordTooShort =>
+      'Password must be at least 8 characters.';
+
+  @override
+  String get authErrorPasswordMismatch => 'Passwords do not match.';
 }

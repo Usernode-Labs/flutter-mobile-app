@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -167,6 +168,60 @@ void main() {
       repository.getFeed(),
       throwsA(isA<ActivitySessionRequiredException>()),
     );
+  });
+
+  test('rejects an in-flight response after the consumer session changes',
+      () async {
+    const replacementToken = 'act1_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+    final feedStarted = Completer<void>();
+    final feedResponse = Completer<http.Response>();
+    final api = ActivityApiClient(
+      baseUrl: 'https://activity.example',
+      httpClient: MockClient((request) {
+        if (request.url.path == '/v1/me/activity') {
+          feedStarted.complete();
+          return feedResponse.future;
+        }
+        return Future.value(
+          http.Response(
+            jsonEncode({
+              ...validActivitySessionJson(),
+              'accessToken': replacementToken,
+            }),
+            200,
+            headers: _privateHeaders,
+          ),
+        );
+      }),
+    );
+    addTearDown(api.dispose);
+    final store = ActivitySessionStore(
+      baseUrl: api.baseUrl,
+      secureStorage: secureStorage,
+    );
+    await store.save(ActivitySession.fromJson(validActivitySessionJson()));
+    final repository = ActivityRepository(
+      apiClient: api,
+      sessionStore: store,
+    );
+    await repository.restoreSession();
+
+    final staleFeed = repository.getFeed();
+    await feedStarted.future;
+    await repository.establishSession(_FakeAssertionProvider());
+    feedResponse.complete(
+      http.Response(
+        jsonEncode(validFeedPageJson()),
+        200,
+        headers: _privateHeaders,
+      ),
+    );
+
+    await expectLater(
+      staleFeed,
+      throwsA(isA<ActivitySessionChangedException>()),
+    );
+    expect((await store.load())?.accessToken, replacementToken);
   });
 }
 

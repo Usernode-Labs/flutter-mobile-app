@@ -25,6 +25,7 @@ void main() {
 
     test('rejects sensitive or unknown routes', () {
       expect(isAllowedAppDeepLinkPath('/wallet/send'), false);
+      expect(isAllowedAppDeepLinkPath('/activity'), false);
       expect(isAllowedAppDeepLinkPath('/settings'), false);
       expect(isAllowedAppDeepLinkPath('/main/node'), false);
       expect(isAllowedAppDeepLinkPath('/challenges/not-yet-shipped'), false);

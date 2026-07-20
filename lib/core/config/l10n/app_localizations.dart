@@ -1666,6 +1666,60 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get navSettings;
 
+  /// Navigation bar label and screen title for Activity
+  ///
+  /// In en, this message translates to:
+  /// **'Activity'**
+  String get navActivity;
+
+  /// Generic message shown when the Activity feed cannot be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load activity'**
+  String get activityLoadError;
+
+  /// Title shown when the Activity feed is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No activity yet'**
+  String get activityEmptyTitle;
+
+  /// Explanation shown when the Activity feed is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Important Usernode events will appear here'**
+  String get activityEmptyBody;
+
+  /// Generic message shown when an Activity item cannot be marked read
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t mark activity as read'**
+  String get activityMarkReadError;
+
+  /// Display name for the Social Activity source
+  ///
+  /// In en, this message translates to:
+  /// **'Social'**
+  String get activitySourceSocial;
+
+  /// Accessibility label for an unread Activity item
+  ///
+  /// In en, this message translates to:
+  /// **'Unread'**
+  String get activitySemanticUnread;
+
+  /// Title for a validated Social development-run Activity item
+  ///
+  /// In en, this message translates to:
+  /// **'{copyCase, select, scoutNeedsInput{Scout needs input} buildNeedsInput{Build needs input} headlessNeedsInput{Automated run needs input} scoutSucceeded{Scout completed} buildSucceeded{Build completed} headlessSucceeded{Automated run completed} scoutFailed{Scout failed} buildFailed{Build failed} headlessFailed{Automated run failed} scoutCancelled{Scout cancelled} buildCancelled{Build cancelled} headlessCancelled{Automated run cancelled} other{Development run updated}}'**
+  String activityItemTitle(String copyCase);
+
+  /// Body for a validated Social development-run Activity item
+  ///
+  /// In en, this message translates to:
+  /// **'{copyCase, select, needsClarification{The run is waiting for clarification} needsDecision{The run is waiting for a decision} needsApproval{The run is waiting for approval} succeededSpec{The run produced a specification} succeededCode{The run produced code} succeededSpecCode{The run produced a specification and code} succeededNoChanges{The run completed without changes} failedDispatchNoArtifacts{The run couldn\'t start} failedExecutionNoArtifacts{The run failed during execution} failedExecutionSpec{Execution failed, but a specification is available} failedExecutionCode{Execution failed, but code is available} failedExecutionSpecCode{Execution failed, but a specification and code are available} failedStagingSpec{Staging failed, but a specification is available} failedStagingCode{Staging failed, but code is available} failedStagingSpecCode{Staging failed, but a specification and code are available} failedPreviewSpec{Preview failed, but a specification is available} failedPreviewCode{Preview failed, but code is available} failedPreviewSpecCode{Preview failed, but a specification and code are available} cancelledExplicitStop{The run was stopped} cancelledSuperseded{A newer automated run replaced this one} other{The run has new activity}}'**
+  String activityItemBody(String copyCase);
+
   /// Claim account button text
   ///
   /// In en, this message translates to:
@@ -2101,19 +2155,19 @@ abstract class AppLocalizations {
   /// Time display for minutes ago
   ///
   /// In en, this message translates to:
-  /// **'{minutes} minutes ago'**
+  /// **'{minutes, plural, =1{1 minute ago} other{{minutes} minutes ago}}'**
   String timeMinutesAgo(int minutes);
 
   /// Time display for hours ago
   ///
   /// In en, this message translates to:
-  /// **'{hours} hours ago'**
+  /// **'{hours, plural, =1{1 hour ago} other{{hours} hours ago}}'**
   String timeHoursAgo(int hours);
 
   /// Time display for days ago
   ///
   /// In en, this message translates to:
-  /// **'{days} days ago'**
+  /// **'{days, plural, =1{1 day ago} other{{days} days ago}}'**
   String timeDaysAgo(int days);
 
   /// Mempool total stat label

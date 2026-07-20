@@ -15,10 +15,14 @@ class ActivityRepository {
   final ActivitySessionStore _sessionStore;
 
   ActivitySession? _session;
+  int _sessionGeneration = 0;
 
   Future<bool> restoreSession() async {
-    _session = await _sessionStore.load();
-    return _session != null;
+    final generation = _sessionGeneration;
+    final restored = await _sessionStore.load();
+    if (generation != _sessionGeneration) return _session != null;
+    _replaceSession(restored);
+    return restored != null;
   }
 
   Future<ActivitySession> establishSession(
@@ -29,7 +33,7 @@ class ActivityRepository {
     final assertion = await assertionProvider.acquireAssertion();
     final session = await _apiClient.exchangeAssertion(assertion);
     await _sessionStore.save(session);
-    _session = session;
+    _replaceSession(session);
     return session;
   }
 
@@ -75,7 +79,7 @@ class ActivityRepository {
   }
 
   Future<void> clearSession() async {
-    _session = null;
+    _replaceSession(null);
     await _sessionStore.clear();
   }
 
@@ -84,22 +88,41 @@ class ActivityRepository {
   ) async {
     var session = _session;
     if (session == null) {
-      session = await _sessionStore.load();
-      _session = session;
+      final generation = _sessionGeneration;
+      final restored = await _sessionStore.load();
+      if (generation == _sessionGeneration) {
+        _replaceSession(restored);
+        session = restored;
+      } else {
+        session = _session;
+      }
     }
     if (session == null) {
       await clearSession();
       throw const ActivitySessionRequiredException();
     }
 
+    final generation = _sessionGeneration;
     try {
-      return await operation(session.accessToken);
+      final result = await operation(session.accessToken);
+      if (generation != _sessionGeneration || !identical(session, _session)) {
+        throw const ActivitySessionChangedException();
+      }
+      return result;
     } on ActivityApiException catch (error) {
       if (error.statusCode == 401 &&
           error.code == ActivityApiErrorCode.unauthorizedConsumer) {
+        if (generation != _sessionGeneration || !identical(session, _session)) {
+          throw const ActivitySessionChangedException();
+        }
         await clearSession();
       }
       rethrow;
     }
+  }
+
+  void _replaceSession(ActivitySession? session) {
+    _session = session;
+    _sessionGeneration++;
   }
 }

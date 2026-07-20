@@ -908,6 +908,85 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navSettings => 'Settings';
 
   @override
+  String get navActivity => 'Activity';
+
+  @override
+  String get activityLoadError => 'Couldn\'t load activity';
+
+  @override
+  String get activityEmptyTitle => 'No activity yet';
+
+  @override
+  String get activityEmptyBody => 'Important Usernode events will appear here';
+
+  @override
+  String get activityMarkReadError => 'Couldn\'t mark activity as read';
+
+  @override
+  String get activitySourceSocial => 'Social';
+
+  @override
+  String get activitySemanticUnread => 'Unread';
+
+  @override
+  String activityItemTitle(String copyCase) {
+    String _temp0 = intl.Intl.selectLogic(
+      copyCase,
+      {
+        'scoutNeedsInput': 'Scout needs input',
+        'buildNeedsInput': 'Build needs input',
+        'headlessNeedsInput': 'Automated run needs input',
+        'scoutSucceeded': 'Scout completed',
+        'buildSucceeded': 'Build completed',
+        'headlessSucceeded': 'Automated run completed',
+        'scoutFailed': 'Scout failed',
+        'buildFailed': 'Build failed',
+        'headlessFailed': 'Automated run failed',
+        'scoutCancelled': 'Scout cancelled',
+        'buildCancelled': 'Build cancelled',
+        'headlessCancelled': 'Automated run cancelled',
+        'other': 'Development run updated',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String activityItemBody(String copyCase) {
+    String _temp0 = intl.Intl.selectLogic(
+      copyCase,
+      {
+        'needsClarification': 'The run is waiting for clarification',
+        'needsDecision': 'The run is waiting for a decision',
+        'needsApproval': 'The run is waiting for approval',
+        'succeededSpec': 'The run produced a specification',
+        'succeededCode': 'The run produced code',
+        'succeededSpecCode': 'The run produced a specification and code',
+        'succeededNoChanges': 'The run completed without changes',
+        'failedDispatchNoArtifacts': 'The run couldn\'t start',
+        'failedExecutionNoArtifacts': 'The run failed during execution',
+        'failedExecutionSpec':
+            'Execution failed, but a specification is available',
+        'failedExecutionCode': 'Execution failed, but code is available',
+        'failedExecutionSpecCode':
+            'Execution failed, but a specification and code are available',
+        'failedStagingSpec': 'Staging failed, but a specification is available',
+        'failedStagingCode': 'Staging failed, but code is available',
+        'failedStagingSpecCode':
+            'Staging failed, but a specification and code are available',
+        'failedPreviewSpec': 'Preview failed, but a specification is available',
+        'failedPreviewCode': 'Preview failed, but code is available',
+        'failedPreviewSpecCode':
+            'Preview failed, but a specification and code are available',
+        'cancelledExplicitStop': 'The run was stopped',
+        'cancelledSuperseded': 'A newer automated run replaced this one',
+        'other': 'The run has new activity',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get welcomeClaimAccount => 'Claim your account';
 
   @override
@@ -1161,17 +1240,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String timeMinutesAgo(int minutes) {
-    return '$minutes minutes ago';
+    String _temp0 = intl.Intl.pluralLogic(
+      minutes,
+      locale: localeName,
+      other: '$minutes minutes ago',
+      one: '1 minute ago',
+    );
+    return '$_temp0';
   }
 
   @override
   String timeHoursAgo(int hours) {
-    return '$hours hours ago';
+    String _temp0 = intl.Intl.pluralLogic(
+      hours,
+      locale: localeName,
+      other: '$hours hours ago',
+      one: '1 hour ago',
+    );
+    return '$_temp0';
   }
 
   @override
   String timeDaysAgo(int days) {
-    return '$days days ago';
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: '$days days ago',
+      one: '1 day ago',
+    );
+    return '$_temp0';
   }
 
   @override

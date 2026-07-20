@@ -56,6 +56,13 @@ class ActivitySessionRequiredException implements Exception {
   String toString() => 'ActivitySessionRequiredException()';
 }
 
+class ActivitySessionChangedException implements Exception {
+  const ActivitySessionChangedException();
+
+  @override
+  String toString() => 'ActivitySessionChangedException()';
+}
+
 class ActivityWriteDisabledException implements Exception {
   const ActivityWriteDisabledException();
 

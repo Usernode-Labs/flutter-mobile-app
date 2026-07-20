@@ -113,6 +113,22 @@ Mirrors `lib/features/onboarding/`.
   `authenticated` or `guest`, fall through to the **existing, unchanged**
   account/onboarding/permission redirect logic.
 
+## Upgrade / migration
+
+Users upgrading from a pre-auth version already have a node account (secret key),
+a completed-onboarding flag, and a leaderboard registration, but **no v3 auth
+state**. Decision: **force the auth landing on upgrade — no grandfathering.**
+
+- On first launch of this version they have no session token and no guest flag →
+  `authStatusProvider` boots to `unauthenticated` → redirect guard sends them to
+  `authLanding`. They pick Log in / Sign in / Continue as guest once.
+- Whatever they pick, they then proceed into the app; their existing node
+  account, onboarding completion, and registration are untouched. Picking Continue
+  as guest persists the guest flag so they are not re-prompted on later launches.
+- Consequence: boot logic needs no special "is this an upgrade?" detection — the
+  absence of both the session token and the guest flag is sufficient, whether the
+  install is fresh or upgraded.
+
 ## UX rules
 
 - 429 (rateLimited) → friendly "Please try again shortly."

@@ -205,6 +205,26 @@
   "@settingsAbout": {
     "description": "About section header"
   },
+  "settingsAccount": "Account",
+  "@settingsAccount": {
+    "description": "Account settings section header"
+  },
+  "settingsLogOut": "Log out",
+  "@settingsLogOut": {
+    "description": "Log out action in settings"
+  },
+  "settingsLogIn": "Log in",
+  "@settingsLogIn": {
+    "description": "Log in action shown to guests in settings"
+  },
+  "settingsLogOutConfirmTitle": "Log out?",
+  "@settingsLogOutConfirmTitle": {
+    "description": "Title of the log out confirmation dialog"
+  },
+  "settingsLogOutConfirmMessage": "You'll need to log in again to access your account. Your node stays set up on this device.",
+  "@settingsLogOutConfirmMessage": {
+    "description": "Body of the log out confirmation dialog"
+  },
   "settingsBuildInfo": "Build Info",
   "@settingsBuildInfo": {
     "description": "Build info setting label"

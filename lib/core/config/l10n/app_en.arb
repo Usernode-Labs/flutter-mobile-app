@@ -3120,7 +3120,7 @@
   "@authLandingTitle": {
     "description": "Title on the auth landing screen"
   },
-  "authLandingSubtitle": "Log in to sync your progress across devices, or keep exploring as a guest.",
+  "authLandingSubtitle": "Log in or sign up to unlock everything Usernode has to offer — track your rewards, climb the leaderboard, and take on challenges. Or keep exploring as a guest.",
   "@authLandingSubtitle": {
     "description": "Supporting subtitle on the auth landing screen"
   },

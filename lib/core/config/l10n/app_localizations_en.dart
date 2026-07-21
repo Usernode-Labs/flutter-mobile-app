@@ -2318,7 +2318,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authLandingSubtitle =>
-      'Log in to sync your progress across devices, or keep exploring as a guest.';
+      'Log in or sign up to unlock everything Usernode has to offer — track your rewards, climb the leaderboard, and take on challenges. Or keep exploring as a guest.';
 
   @override
   String get authLogIn => 'Log in';

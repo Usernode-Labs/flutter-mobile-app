@@ -4141,7 +4141,7 @@ abstract class AppLocalizations {
   /// Supporting subtitle on the auth landing screen
   ///
   /// In en, this message translates to:
-  /// **'Log in to sync your progress across devices, or keep exploring as a guest.'**
+  /// **'Log in or sign up to unlock everything Usernode has to offer — track your rewards, climb the leaderboard, and take on challenges. Or keep exploring as a guest.'**
   String get authLandingSubtitle;
 
   /// Log in button on the auth landing screen

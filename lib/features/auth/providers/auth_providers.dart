@@ -108,3 +108,11 @@ final sessionTokenProvider =
 /// True only when a session is fully established.
 final isAuthenticatedProvider = Provider<bool>(
     (ref) => ref.watch(authStatusProvider) == AuthStatus.authenticated);
+
+/// Whether the data screens should show the "sign in to view" gate. True once
+/// the session has resolved to guest/unauthenticated; `unknown` (still loading
+/// at boot) returns false so the gate never flashes before the state settles.
+final showSignInGateProvider = Provider<bool>((ref) {
+  final status = ref.watch(authStatusProvider);
+  return status == AuthStatus.guest || status == AuthStatus.unauthenticated;
+});

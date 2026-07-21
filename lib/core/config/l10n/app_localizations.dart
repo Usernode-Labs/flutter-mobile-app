@@ -4251,6 +4251,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Passwords do not match.'**
   String get authErrorPasswordMismatch;
+
+  /// Guest gate title on data screens
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view your progress'**
+  String get authSignInToView;
+
+  /// Guest gate button on data screens
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get authSignInToViewCta;
 }
 
 class _AppLocalizationsDelegate

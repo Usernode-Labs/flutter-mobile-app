@@ -2373,4 +2373,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authErrorPasswordMismatch => 'Passwords do not match.';
+
+  @override
+  String get authSignInToView => 'Sign in to view your progress';
+
+  @override
+  String get authSignInToViewCta => 'Sign in';
 }

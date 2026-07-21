@@ -277,6 +277,7 @@ Widget _app({RankingController Function()? rankingController}) {
       ),
       participantIdProvider.overrideWith((ref) async => 1),
       isAuthenticatedProvider.overrideWithValue(true),
+      showSignInGateProvider.overrideWithValue(false),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
       seasonEventContextProvider.overrideWith(
         (ref) => const SeasonEventContext(seasonId: 1, seasonName: 'Season 1'),

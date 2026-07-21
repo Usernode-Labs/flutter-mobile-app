@@ -2349,6 +2349,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authForgotPassword => 'Forgot your password?';
 
   @override
+  String get authLoginCardTitle => 'Get the full experience';
+
+  @override
+  String get authLoginCardBody =>
+      'Log in or create an account to track your rewards, climb the leaderboard, and take on challenges.';
+
+  @override
+  String get authGuestCardTitle => 'Just exploring?';
+
+  @override
+  String get authGuestCardBody =>
+      'Browse the app and public content without an account. You can sign in anytime.';
+
+  @override
   String get authContinueGuest => 'Continue as guest';
 
   @override

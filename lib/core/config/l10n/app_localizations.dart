@@ -4198,6 +4198,30 @@ abstract class AppLocalizations {
   /// **'Forgot your password?'**
   String get authForgotPassword;
 
+  /// Title of the login/sign-up card on the auth landing
+  ///
+  /// In en, this message translates to:
+  /// **'Get the full experience'**
+  String get authLoginCardTitle;
+
+  /// Explainer in the login/sign-up card on the auth landing
+  ///
+  /// In en, this message translates to:
+  /// **'Log in or create an account to track your rewards, climb the leaderboard, and take on challenges.'**
+  String get authLoginCardBody;
+
+  /// Title of the guest card on the auth landing
+  ///
+  /// In en, this message translates to:
+  /// **'Just exploring?'**
+  String get authGuestCardTitle;
+
+  /// Explainer in the guest card on the auth landing
+  ///
+  /// In en, this message translates to:
+  /// **'Browse the app and public content without an account. You can sign in anytime.'**
+  String get authGuestCardBody;
+
   /// Continue-as-guest button on the auth landing screen
   ///
   /// In en, this message translates to:

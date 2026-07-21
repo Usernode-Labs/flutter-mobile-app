@@ -66,7 +66,13 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
     final theme = Theme.of(context);
     final email = ref.watch(authFlowProvider).email ?? '';
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+          onPressed: () => context.go(AppRoutes.authLanding),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

@@ -45,6 +45,9 @@ Future<RegistrationFlowResult> registerAndApply({
     name: 'API Account',
     secretKey: registration.secretKey,
   );
+  // The new on-chain account is now active — switch the storage bucket so the
+  // account-scoped data below is written under this identity.
+  await refreshActiveAccountBucket(guest: false);
 
   // Persist season context so cold-start can detect staleness. Registration is
   // at the season level, so we don't persist the season-phase eventId.

@@ -23,6 +23,7 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
@@ -123,6 +124,10 @@ class AppBootstrap {
       container: container,
       repo: repo,
     );
+    // Resolve the active per-identity storage bucket before any account-scoped
+    // pref is read: a guest session gets the guest bucket, otherwise the active
+    // on-chain account's bucket.
+    await refreshActiveAccountBucket(guest: await AuthGuestFlag().isGuest());
     final hasAnyAccounts = await repo.hasAny();
     final activeId = repo.getActiveId();
 

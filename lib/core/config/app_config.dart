@@ -54,6 +54,17 @@ class AppConfig {
     defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
   );
 
+  // v3 mobile auth API. Same host as registration; no separate dart-define.
+  static String get authApiBaseUrl {
+    final reg = Uri.parse(registrationEndpoint);
+    return Uri(
+      scheme: reg.scheme,
+      host: reg.host,
+      port: reg.hasPort ? reg.port : null,
+      path: '/api/v3/mobile/auth',
+    ).toString();
+  }
+
   // Startup bootstrap for local/dev sign-in without registration.
   static const String _bootstrapSecretKey =
       String.fromEnvironment('BOOTSTRAP_SECRET_KEY', defaultValue: '');

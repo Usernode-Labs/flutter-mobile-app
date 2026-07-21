@@ -151,6 +151,16 @@ String? authRedirect(AuthStatus status, String location) {
   }
 }
 
+/// Where a guest should be routed. Guests never enter node onboarding: from
+/// splash/onboarding send them to the Dapps tab; elsewhere return null so they
+/// can roam the app shell. Pure for unit testing.
+String? guestRedirect(String location) {
+  if (location == AppRoutes.splash || location.startsWith('/onboarding/')) {
+    return AppRoutes.dapps;
+  }
+  return null;
+}
+
 /// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
 /// This bridges Riverpod's state management with GoRouter's refresh mechanism
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -586,6 +596,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (authStatus == AuthStatus.unauthenticated) {
         // On an auth route while unauthenticated: allow it, skip account logic.
         return null;
+      }
+
+      // Guests never enter node onboarding — they browse. Land them on Dapps
+      // from splash/onboarding; otherwise let them roam the app shell
+      // (account-gated screens surface their own "sign in to view" gate).
+      if (authStatus == AuthStatus.guest) {
+        return guestRedirect(currentLocation);
       }
 
       if (shouldBlockUsernodeDeepLink(requestUri)) {

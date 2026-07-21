@@ -3156,6 +3156,15 @@
   "@authOtpLabel": {
     "description": "OTP field label on the auth OTP screen"
   },
+  "authOtpExplainer": "We sent a 6-digit code to {email}. Enter it below to continue — it expires in 10 minutes.",
+  "@authOtpExplainer": {
+    "description": "Explainer above the OTP code field telling the user where the code was sent",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
   "authOtpVerify": "Verify",
   "@authOtpVerify": {
     "description": "Verify button on the auth OTP screen"

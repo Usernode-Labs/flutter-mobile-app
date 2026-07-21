@@ -4192,6 +4192,12 @@ abstract class AppLocalizations {
   /// **'6-digit code'**
   String get authOtpLabel;
 
+  /// Explainer above the OTP code field telling the user where the code was sent
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a 6-digit code to {email}. Enter it below to continue — it expires in 10 minutes.'**
+  String authOtpExplainer(String email);
+
   /// Verify button on the auth OTP screen
   ///
   /// In en, this message translates to:

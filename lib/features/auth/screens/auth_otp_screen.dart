@@ -63,13 +63,23 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final email = ref.watch(authFlowProvider).email ?? '';
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                l.authOtpExplainer(email),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
               TextField(
                 controller: _controller,
                 keyboardType: TextInputType.number,

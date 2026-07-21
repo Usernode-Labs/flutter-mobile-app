@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' show Memo;
@@ -370,15 +371,22 @@ class RustBackendService {
       // Load network configuration from URLs (with retry)
       await _configureNetworkFromUrls(builder);
 
-      if (AppConfig.viewOnly) {
-        _log.info('VIEW_ONLY enabled; skipping block producer configuration');
+      // A guest session is treated as view-only: the node still runs and syncs,
+      // but never produces blocks — a returning operator's leftover keys must
+      // not operate while browsing as a guest.
+      final guestSession = await AuthGuestFlag().isGuest();
+      final viewOnly = AppConfig.viewOnly || guestSession;
+      if (viewOnly) {
+        _log.info(guestSession
+            ? 'Guest session; node runs non-producing (no block producer)'
+            : 'VIEW_ONLY enabled; skipping block producer configuration');
       } else {
         _log.trace(
           'Configuring block producer with user secret key (length: ${secretKey.length})',
         );
         builder.blockProducerSecretKey(secretKey: secretKey);
       }
-      if (!AppConfig.viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+      if (!viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
         _log.info(
           'Enabling observability hub HTTP intake',
           context: {'base_url': AppConfig.observabilityHubBaseUrl},
@@ -393,7 +401,7 @@ class RustBackendService {
         _log.info('Forcing real prover mode');
         builder.enableRealProver();
       }
-      if (!AppConfig.viewOnly) {
+      if (!viewOnly) {
         builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
       }
       // Configure persistent node storage path so wallet cache state survives restarts.

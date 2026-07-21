@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
+import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 
 enum AuthStatus { unknown, unauthenticated, guest, authenticated }
@@ -12,8 +15,7 @@ final authRepositoryProvider =
 final authTokenStoreProvider =
     Provider<AuthTokenStore>((ref) => AuthTokenStore());
 
-final authGuestFlagProvider =
-    Provider<AuthGuestFlag>((ref) => AuthGuestFlag());
+final authGuestFlagProvider = Provider<AuthGuestFlag>((ref) => AuthGuestFlag());
 
 final authStatusProvider =
     StateNotifierProvider<AuthStatusNotifier, AuthStatus>((ref) {
@@ -89,9 +91,8 @@ class AuthFlowState {
       );
 }
 
-final authFlowProvider =
-    StateNotifierProvider<AuthFlowNotifier, AuthFlowState>(
-        (ref) => AuthFlowNotifier());
+final authFlowProvider = StateNotifierProvider<AuthFlowNotifier, AuthFlowState>(
+    (ref) => AuthFlowNotifier());
 
 class AuthFlowNotifier extends StateNotifier<AuthFlowState> {
   AuthFlowNotifier() : super(const AuthFlowState());
@@ -101,3 +102,34 @@ class AuthFlowNotifier extends StateNotifier<AuthFlowState> {
       state = state.copyWith(setPasswordToken: token);
   void reset() => state = const AuthFlowState();
 }
+
+final accountApiServiceProvider = Provider<AccountApiService>((ref) {
+  final service = AccountApiService(
+    tokenProvider: () => ref.read(authTokenStoreProvider).read(),
+    onUnauthorized: () =>
+        ref.read(authStatusProvider.notifier).onUnauthorized(),
+  );
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// The authenticated participant profile from `/me` (null when not
+/// authenticated). Carries the backend-resolved [Me.level].
+final meProvider = FutureProvider<Me?>((ref) async {
+  if (ref.watch(authStatusProvider) != AuthStatus.authenticated) return null;
+  return ref.read(accountApiServiceProvider).getMe();
+});
+
+/// The user's level (guest / member / operator). Backend-authoritative via
+/// `/me`, with a local fallback until it resolves or while offline.
+final userLevelProvider = Provider<UserLevel>((ref) {
+  final authenticated =
+      ref.watch(authStatusProvider) == AuthStatus.authenticated;
+  final me = ref.watch(meProvider).valueOrNull;
+  final onchain = ref.watch(hasAnyAccountProvider).valueOrNull ?? false;
+  return resolveUserLevel(
+    authenticated: authenticated,
+    me: me,
+    hasOnchainAccount: onchain,
+  );
+});

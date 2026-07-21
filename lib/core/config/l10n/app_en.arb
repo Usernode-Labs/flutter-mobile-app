@@ -3120,6 +3120,10 @@
   "@authLandingTitle": {
     "description": "Title on the auth landing screen"
   },
+  "authLandingSubtitle": "Log in or sign up to unlock everything Usernode has to offer — track your rewards, climb the leaderboard, and take on challenges. Or keep exploring as a guest.",
+  "@authLandingSubtitle": {
+    "description": "Supporting subtitle on the auth landing screen"
+  },
   "authLogIn": "Log in",
   "@authLogIn": {
     "description": "Log in button on the auth landing screen"
@@ -3151,6 +3155,15 @@
   "authOtpLabel": "6-digit code",
   "@authOtpLabel": {
     "description": "OTP field label on the auth OTP screen"
+  },
+  "authOtpExplainer": "We sent a 6-digit code to {email}. Enter it below to continue — it expires in 10 minutes.",
+  "@authOtpExplainer": {
+    "description": "Explainer above the OTP code field telling the user where the code was sent",
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
   },
   "authOtpVerify": "Verify",
   "@authOtpVerify": {

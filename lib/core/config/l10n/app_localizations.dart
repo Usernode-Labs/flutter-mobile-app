@@ -4138,6 +4138,12 @@ abstract class AppLocalizations {
   /// **'Welcome'**
   String get authLandingTitle;
 
+  /// Supporting subtitle on the auth landing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Log in or sign up to unlock everything Usernode has to offer — track your rewards, climb the leaderboard, and take on challenges. Or keep exploring as a guest.'**
+  String get authLandingSubtitle;
+
   /// Log in button on the auth landing screen
   ///
   /// In en, this message translates to:
@@ -4185,6 +4191,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'6-digit code'**
   String get authOtpLabel;
+
+  /// Explainer above the OTP code field telling the user where the code was sent
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a 6-digit code to {email}. Enter it below to continue — it expires in 10 minutes.'**
+  String authOtpExplainer(String email);
 
   /// Verify button on the auth OTP screen
   ///

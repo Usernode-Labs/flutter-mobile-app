@@ -63,13 +63,23 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final email = ref.watch(authFlowProvider).email ?? '';
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Text(
+                l.authOtpExplainer(email),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 24),
               TextField(
                 controller: _controller,
                 keyboardType: TextInputType.number,
@@ -80,11 +90,15 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
                     labelText: l.authOtpLabel, errorText: _error),
               ),
               const SizedBox(height: 24),
-              Button(
-                label: l.authOtpVerify,
-                variant: ButtonVariant.primary,
-                isLoading: _submitting,
-                onTap: _verify,
+              SizedBox(
+                width: double.infinity,
+                child: Button(
+                  label: l.authOtpVerify,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  isLoading: _submitting,
+                  onTap: _verify,
+                ),
               ),
               const SizedBox(height: 12),
               TextButton(

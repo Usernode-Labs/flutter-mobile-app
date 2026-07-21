@@ -2317,6 +2317,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authLandingTitle => 'Welcome';
 
   @override
+  String get authLandingSubtitle =>
+      'Log in or sign up to unlock everything Usernode has to offer — track your rewards, climb the leaderboard, and take on challenges. Or keep exploring as a guest.';
+
+  @override
   String get authLogIn => 'Log in';
 
   @override
@@ -2339,6 +2343,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get authOtpLabel => '6-digit code';
+
+  @override
+  String authOtpExplainer(String email) {
+    return 'We sent a 6-digit code to $email. Enter it below to continue — it expires in 10 minutes.';
+  }
 
   @override
   String get authOtpVerify => 'Verify';

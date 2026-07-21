@@ -154,6 +154,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAbout => 'About';
 
   @override
+  String get settingsAccount => 'Account';
+
+  @override
+  String get settingsLogOut => 'Log out';
+
+  @override
+  String get settingsLogIn => 'Log in';
+
+  @override
+  String get settingsLogOutConfirmTitle => 'Log out?';
+
+  @override
+  String get settingsLogOutConfirmMessage =>
+      'You\'ll need to log in again to access your account. Your node stays set up on this device.';
+
+  @override
   String get settingsBuildInfo => 'Build Info';
 
   @override

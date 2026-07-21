@@ -35,6 +35,7 @@ import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_pro
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 
 final _log =
@@ -455,6 +456,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _resetChallengeState() => resetChallengeState(ref, context);
 
+  Future<void> _confirmAndLogout() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.settingsLogOutConfirmTitle),
+        content: Text(l10n.settingsLogOutConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.settingsLogOut),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    // logout() flips authStatus to unauthenticated; the router redirect guard
+    // then sends the user to the auth landing.
+    await ref.read(authStatusProvider.notifier).logout();
+  }
+
   Future<void> _toggleAppSleep(bool value) async {
     await _appSleepService.setEnabled(value);
     if (!mounted) return;
@@ -475,6 +501,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       error: (_, __) => l10n.termsUnavailable,
     );
 
+    final authStatus = ref.watch(authStatusProvider);
     final themeMode = ref.watch(themeModeProvider);
     final debugModeEnabled = ref.watch(debugModeProvider);
     final zkSettings = ref.watch(zkPassportSettingsProvider);
@@ -539,6 +566,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 status: termsStatus,
                 onTermsTap: () => context.push(AppRoutes.terms),
               ),
+
+              if (authStatus == AuthStatus.authenticated ||
+                  authStatus == AuthStatus.guest) ...[
+                SizedBox(height: spacing.space24),
+                ListSectionHeader(title: l10n.settingsAccount),
+                Card(
+                  child: authStatus == AuthStatus.authenticated
+                      ? ListTile(
+                          leading: Icon(
+                            Symbols.logout,
+                            color: theme.colorScheme.error,
+                          ),
+                          title: Text(
+                            l10n.settingsLogOut,
+                            style: TextStyle(color: theme.colorScheme.error),
+                          ),
+                          onTap: _confirmAndLogout,
+                        )
+                      : ListTile(
+                          leading: const Icon(Symbols.login),
+                          title: Text(l10n.settingsLogIn),
+                          onTap: () => context.go(AppRoutes.authLanding),
+                        ),
+                ),
+              ],
 
               SizedBox(height: spacing.space24),
 

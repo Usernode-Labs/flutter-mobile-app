@@ -352,6 +352,36 @@ abstract class AppLocalizations {
   /// **'About'**
   String get settingsAbout;
 
+  /// Account settings section header
+  ///
+  /// In en, this message translates to:
+  /// **'Account'**
+  String get settingsAccount;
+
+  /// Log out action in settings
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get settingsLogOut;
+
+  /// Log in action shown to guests in settings
+  ///
+  /// In en, this message translates to:
+  /// **'Log in'**
+  String get settingsLogIn;
+
+  /// Title of the log out confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Log out?'**
+  String get settingsLogOutConfirmTitle;
+
+  /// Body of the log out confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll need to log in again to access your account. Your node stays set up on this device.'**
+  String get settingsLogOutConfirmMessage;
+
   /// Build info setting label
   ///
   /// In en, this message translates to:

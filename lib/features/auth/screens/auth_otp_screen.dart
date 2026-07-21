@@ -80,11 +80,15 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
                     labelText: l.authOtpLabel, errorText: _error),
               ),
               const SizedBox(height: 24),
-              Button(
-                label: l.authOtpVerify,
-                variant: ButtonVariant.primary,
-                isLoading: _submitting,
-                onTap: _verify,
+              SizedBox(
+                width: double.infinity,
+                child: Button(
+                  label: l.authOtpVerify,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  isLoading: _submitting,
+                  onTap: _verify,
+                ),
               ),
               const SizedBox(height: 12),
               TextButton(

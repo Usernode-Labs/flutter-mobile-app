@@ -65,11 +65,15 @@ class _AuthPasswordScreenState extends ConsumerState<AuthPasswordScreen> {
                     labelText: l.authPasswordLabel, errorText: _error),
               ),
               const SizedBox(height: 24),
-              Button(
-                label: l.authPasswordContinue,
-                variant: ButtonVariant.primary,
-                isLoading: _submitting,
-                onTap: _submit,
+              SizedBox(
+                width: double.infinity,
+                child: Button(
+                  label: l.authPasswordContinue,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  isLoading: _submitting,
+                  onTap: _submit,
+                ),
               ),
             ],
           ),

@@ -4138,6 +4138,12 @@ abstract class AppLocalizations {
   /// **'Welcome'**
   String get authLandingTitle;
 
+  /// Supporting subtitle on the auth landing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Log in to sync your progress across devices, or keep exploring as a guest.'**
+  String get authLandingSubtitle;
+
   /// Log in button on the auth landing screen
   ///
   /// In en, this message translates to:

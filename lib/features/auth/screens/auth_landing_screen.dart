@@ -13,34 +13,72 @@ class AuthLandingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(spacing.space16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(l.authLandingTitle,
-                  style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 32),
-              Button(
-                label: l.authLogIn,
-                variant: ButtonVariant.primary,
-                onTap: () => context.go(AppRoutes.authEmail),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l.authLandingTitle,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                      SizedBox(height: spacing.space24),
+                      Text(
+                        l.authLandingSubtitle,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 12),
-              Button(
-                label: l.authSignIn,
-                onTap: () => context.go(AppRoutes.authEmail),
+              SizedBox(
+                width: double.infinity,
+                child: Button(
+                  label: l.authLogIn,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  onTap: () => context.go(AppRoutes.authEmail),
+                ),
               ),
-              const SizedBox(height: 12),
-              Button(
-                label: l.authContinueGuest,
-                variant: ButtonVariant.outlined,
-                onTap: () async {
-                  await ref.read(authStatusProvider.notifier).continueAsGuest();
-                  if (context.mounted) context.go(AppRoutes.splash);
-                },
+              SizedBox(height: spacing.space12),
+              SizedBox(
+                width: double.infinity,
+                child: Button(
+                  label: l.authSignIn,
+                  size: ButtonSize.large,
+                  onTap: () => context.go(AppRoutes.authEmail),
+                ),
+              ),
+              SizedBox(height: spacing.space12),
+              SizedBox(
+                width: double.infinity,
+                child: Button(
+                  label: l.authContinueGuest,
+                  variant: ButtonVariant.outlined,
+                  size: ButtonSize.large,
+                  onTap: () async {
+                    await ref
+                        .read(authStatusProvider.notifier)
+                        .continueAsGuest();
+                    if (context.mounted) context.go(AppRoutes.splash);
+                  },
+                ),
               ),
             ],
           ),

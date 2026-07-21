@@ -3120,6 +3120,10 @@
   "@authLandingTitle": {
     "description": "Title on the auth landing screen"
   },
+  "authLandingSubtitle": "Log in to sync your progress across devices, or keep exploring as a guest.",
+  "@authLandingSubtitle": {
+    "description": "Supporting subtitle on the auth landing screen"
+  },
   "authLogIn": "Log in",
   "@authLogIn": {
     "description": "Log in button on the auth landing screen"

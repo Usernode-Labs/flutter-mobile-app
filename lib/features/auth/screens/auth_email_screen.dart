@@ -68,11 +68,15 @@ class _AuthEmailScreenState extends ConsumerState<AuthEmailScreen> {
                     labelText: l.authEmailLabel, errorText: _error),
               ),
               const SizedBox(height: 24),
-              Button(
-                label: l.authEmailContinue,
-                variant: ButtonVariant.primary,
-                isLoading: _submitting,
-                onTap: _submit,
+              SizedBox(
+                width: double.infinity,
+                child: Button(
+                  label: l.authEmailContinue,
+                  variant: ButtonVariant.primary,
+                  size: ButtonSize.large,
+                  isLoading: _submitting,
+                  onTap: _submit,
+                ),
               ),
             ],
           ),

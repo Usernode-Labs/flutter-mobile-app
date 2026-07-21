@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
@@ -20,69 +21,107 @@ class AuthLandingScreen extends ConsumerWidget {
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(spacing.space16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        l.authLandingTitle,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.normal,
-                        ),
-                      ),
-                      SizedBox(height: spacing.space24),
-                      Text(
-                        l.authLandingSubtitle,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    l.authLandingTitle,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall,
                   ),
-                ),
+                  SizedBox(height: spacing.space24),
+
+                  // Members: login / sign-up (one flow) + recovery.
+                  _AuthCard(
+                    title: l.authLoginCardTitle,
+                    body: l.authLoginCardBody,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Button(
+                          label: l.authLogInOrSignUp,
+                          variant: ButtonVariant.primary,
+                          size: ButtonSize.large,
+                          onTap: () {
+                            ref.read(authFlowProvider.notifier).start();
+                            context.go(AppRoutes.authEmail);
+                          },
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            ref
+                                .read(authFlowProvider.notifier)
+                                .start(recovery: true);
+                            context.go(AppRoutes.authEmail);
+                          },
+                          child: Text(l.authForgotPassword),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: spacing.space12),
+
+                  // Guests: browse without an account.
+                  _AuthCard(
+                    title: l.authGuestCardTitle,
+                    body: l.authGuestCardBody,
+                    child: Button(
+                      label: l.authContinueGuest,
+                      variant: ButtonVariant.outlined,
+                      size: ButtonSize.large,
+                      onTap: () async {
+                        await ref
+                            .read(authStatusProvider.notifier)
+                            .continueAsGuest();
+                        if (context.mounted) context.go(AppRoutes.splash);
+                      },
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(
-                width: double.infinity,
-                child: Button(
-                  label: l.authLogIn,
-                  variant: ButtonVariant.primary,
-                  size: ButtonSize.large,
-                  onTap: () => context.go(AppRoutes.authEmail),
-                ),
-              ),
-              SizedBox(height: spacing.space12),
-              SizedBox(
-                width: double.infinity,
-                child: Button(
-                  label: l.authSignIn,
-                  size: ButtonSize.large,
-                  onTap: () => context.go(AppRoutes.authEmail),
-                ),
-              ),
-              SizedBox(height: spacing.space12),
-              SizedBox(
-                width: double.infinity,
-                child: Button(
-                  label: l.authContinueGuest,
-                  variant: ButtonVariant.outlined,
-                  size: ButtonSize.large,
-                  onTap: () async {
-                    await ref
-                        .read(authStatusProvider.notifier)
-                        .continueAsGuest();
-                    if (context.mounted) context.go(AppRoutes.splash);
-                  },
-                ),
-              ),
-            ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A titled card with an explainer and an action below it.
+class _AuthCard extends StatelessWidget {
+  const _AuthCard({
+    required this.title,
+    required this.body,
+    required this.child,
+  });
+
+  final String title;
+  final String body;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final spacing = theme.extension<AppSpacing>()!;
+    return AppCard(
+      bordered: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: theme.textTheme.titleMedium),
+          SizedBox(height: spacing.space8),
+          Text(
+            body,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: spacing.space16),
+          child,
+        ],
       ),
     );
   }

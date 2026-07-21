@@ -80,14 +80,27 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
 }
 
 class AuthFlowState {
-  const AuthFlowState({this.email, this.setPasswordToken});
+  const AuthFlowState({
+    this.email,
+    this.setPasswordToken,
+    this.recovery = false,
+  });
   final String? email;
   final String? setPasswordToken;
 
-  AuthFlowState copyWith({String? email, String? setPasswordToken}) =>
+  /// When true, the email step skips the password branch and forces the OTP
+  /// path so the user can set a new password (forgot-password recovery).
+  final bool recovery;
+
+  AuthFlowState copyWith({
+    String? email,
+    String? setPasswordToken,
+    bool? recovery,
+  }) =>
       AuthFlowState(
         email: email ?? this.email,
         setPasswordToken: setPasswordToken ?? this.setPasswordToken,
+        recovery: recovery ?? this.recovery,
       );
 }
 
@@ -100,6 +113,11 @@ class AuthFlowNotifier extends StateNotifier<AuthFlowState> {
   void setEmail(String email) => state = state.copyWith(email: email);
   void setPasswordToken(String token) =>
       state = state.copyWith(setPasswordToken: token);
+
+  /// Start a fresh flow. [recovery] true forces the forgot-password OTP path.
+  void start({bool recovery = false}) =>
+      state = AuthFlowState(recovery: recovery);
+
   void reset() => state = const AuthFlowState();
 }
 

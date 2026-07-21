@@ -3152,6 +3152,30 @@
   "@authSignIn": {
     "description": "Sign in button on the auth landing screen"
   },
+  "authLogInOrSignUp": "Log in or sign up",
+  "@authLogInOrSignUp": {
+    "description": "Single primary CTA on the auth landing (login and signup are one flow)"
+  },
+  "authForgotPassword": "Forgot your password?",
+  "@authForgotPassword": {
+    "description": "Recovery link on the auth landing that starts the OTP password reset"
+  },
+  "authLoginCardTitle": "Get the full experience",
+  "@authLoginCardTitle": {
+    "description": "Title of the login/sign-up card on the auth landing"
+  },
+  "authLoginCardBody": "Log in or create an account to track your rewards, climb the leaderboard, and take on challenges.",
+  "@authLoginCardBody": {
+    "description": "Explainer in the login/sign-up card on the auth landing"
+  },
+  "authGuestCardTitle": "Just exploring?",
+  "@authGuestCardTitle": {
+    "description": "Title of the guest card on the auth landing"
+  },
+  "authGuestCardBody": "Browse the app and public content without an account. You can sign in anytime.",
+  "@authGuestCardBody": {
+    "description": "Explainer in the guest card on the auth landing"
+  },
   "authContinueGuest": "Continue as guest",
   "@authContinueGuest": {
     "description": "Continue-as-guest button on the auth landing screen"

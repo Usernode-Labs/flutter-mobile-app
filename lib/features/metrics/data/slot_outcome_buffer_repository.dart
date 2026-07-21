@@ -37,7 +37,7 @@ class SlotOutcomeBufferRepository {
   static const String _keyBase = 'slot_outcome_buffer';
   static const int _maxBufferSize = 200;
 
-  static String get _key => NetworkPrefs.prefixKey(_keyBase);
+  static String get _key => NetworkPrefs.prefixAccountKey(_keyBase);
 
   /// Serialises mutating ops so concurrent appends/discards from the
   /// monitor + reporting timer don't lose writes via read-modify-write

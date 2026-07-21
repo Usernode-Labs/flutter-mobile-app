@@ -82,13 +82,13 @@ String networkPrefix = '';
 
 // Network-prefixed keys
 String get _kEpochsWithDataKey =>
-    NetworkPrefs.prefixKey('$_kEpochsWithDataKeyBase:$networkPrefix');
-String get _kProducedBlockMetadataKeyPrefix => NetworkPrefs.prefixKey(
+    NetworkPrefs.prefixAccountKey('$_kEpochsWithDataKeyBase:$networkPrefix');
+String get _kProducedBlockMetadataKeyPrefix => NetworkPrefs.prefixAccountKey(
     '$_kProducedBlockMetadataKeyPrefixBase:$networkPrefix');
-String get _kEpochSlotResultsKeyPrefix =>
-    NetworkPrefs.prefixKey('$_kEpochSlotResultsKeyPrefixBase:$networkPrefix');
+String get _kEpochSlotResultsKeyPrefix => NetworkPrefs.prefixAccountKey(
+    '$_kEpochSlotResultsKeyPrefixBase:$networkPrefix');
 String get _kSlotTimeKeyPrefix =>
-    NetworkPrefs.prefixKey('$_kSlotTimeKeyPrefixBase:$networkPrefix');
+    NetworkPrefs.prefixAccountKey('$_kSlotTimeKeyPrefixBase:$networkPrefix');
 
 Future<ProducedBlocksSummary> _buildProducedBlocksSummary(Ref ref) async {
   final stopwatch = Stopwatch()..start();

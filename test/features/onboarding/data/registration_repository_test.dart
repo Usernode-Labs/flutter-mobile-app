@@ -128,7 +128,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(
         prefs.getInt(
-          NetworkPrefs.prefixKey('leaderboard:participant_id'),
+          NetworkPrefs.prefixAccountKey('leaderboard:participant_id'),
         ),
         equals(99),
       );

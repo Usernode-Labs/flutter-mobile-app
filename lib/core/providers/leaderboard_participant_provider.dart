@@ -15,14 +15,14 @@ final participantIdProvider = FutureProvider<int?>((ref) async {
 /// Persist a participant ID to SharedPreferences (network-prefixed).
 Future<void> saveParticipantId(int id) async {
   final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixKey(_participantIdKey);
+  final key = NetworkPrefs.prefixAccountKey(_participantIdKey);
   await prefs.setInt(key, id);
 }
 
 /// Loads the persisted participant ID directly from storage.
 Future<int?> loadParticipantId() async {
   final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixKey(_participantIdKey);
+  final key = NetworkPrefs.prefixAccountKey(_participantIdKey);
   return prefs.getInt(key);
 }
 

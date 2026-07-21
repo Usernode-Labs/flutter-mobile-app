@@ -36,17 +36,19 @@ void main() {
       // Verify participant ID persisted
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:participant_id')),
+        prefs.getInt(
+            NetworkPrefs.prefixAccountKey('leaderboard:participant_id')),
         42,
       );
 
       // Verify season persisted
       expect(
-        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        prefs.getInt(NetworkPrefs.prefixAccountKey('leaderboard:season_id')),
         1,
       );
       expect(
-        prefs.getString(NetworkPrefs.prefixKey('leaderboard:season_name')),
+        prefs.getString(
+            NetworkPrefs.prefixAccountKey('leaderboard:season_name')),
         'Season 1',
       );
     });
@@ -65,11 +67,11 @@ void main() {
     test('returns context when season data exists', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(
-        NetworkPrefs.prefixKey('leaderboard:season_id'),
+        NetworkPrefs.prefixAccountKey('leaderboard:season_id'),
         2,
       );
       await prefs.setString(
-        NetworkPrefs.prefixKey('leaderboard:season_name'),
+        NetworkPrefs.prefixAccountKey('leaderboard:season_name'),
         'Season 2',
       );
 
@@ -84,7 +86,7 @@ void main() {
     test('returns context with null name if only ID persisted', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(
-        NetworkPrefs.prefixKey('leaderboard:season_id'),
+        NetworkPrefs.prefixAccountKey('leaderboard:season_id'),
         3,
       );
 
@@ -113,11 +115,12 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        prefs.getInt(NetworkPrefs.prefixAccountKey('leaderboard:season_id')),
         5,
       );
       expect(
-        prefs.getString(NetworkPrefs.prefixKey('leaderboard:season_name')),
+        prefs.getString(
+            NetworkPrefs.prefixAccountKey('leaderboard:season_name')),
         'Season 5',
       );
     });
@@ -129,7 +132,7 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        prefs.getInt(NetworkPrefs.prefixAccountKey('leaderboard:season_id')),
         isNull,
       );
     });
@@ -147,11 +150,12 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:season_id')),
+        prefs.getInt(NetworkPrefs.prefixAccountKey('leaderboard:season_id')),
         2,
       );
       expect(
-        prefs.getString(NetworkPrefs.prefixKey('leaderboard:season_name')),
+        prefs.getString(
+            NetworkPrefs.prefixAccountKey('leaderboard:season_name')),
         'S2',
       );
     });
@@ -163,11 +167,12 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getInt(NetworkPrefs.prefixKey('leaderboard:event_id')),
+        prefs.getInt(NetworkPrefs.prefixAccountKey('leaderboard:event_id')),
         10,
       );
       expect(
-        prefs.getString(NetworkPrefs.prefixKey('leaderboard:event_name')),
+        prefs
+            .getString(NetworkPrefs.prefixAccountKey('leaderboard:event_name')),
         'Event 10',
       );
     });

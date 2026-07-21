@@ -421,8 +421,7 @@ void main() {
     expect(find.text('Indicative token allocation'), findsOneWidget);
   });
 
-  testWidgets(
-      'Pull-to-refresh surfaces the allocation once terms are accepted',
+  testWidgets('Pull-to-refresh surfaces the allocation once terms are accepted',
       (tester) async {
     _usePortrait(tester);
     await tester.pumpWidget(

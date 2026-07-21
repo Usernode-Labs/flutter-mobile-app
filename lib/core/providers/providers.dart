@@ -32,13 +32,13 @@ const _kOnboardingCompletedKeyBase = 'onboarding:completed';
 
 final hasCompletedOnboardingProvider = FutureProvider<bool>((ref) async {
   final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixKey(_kOnboardingCompletedKeyBase);
+  final key = NetworkPrefs.prefixAccountKey(_kOnboardingCompletedKeyBase);
   return prefs.getBool(key) ?? false;
 });
 
 Future<void> markOnboardingComplete() async {
   final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixKey(_kOnboardingCompletedKeyBase);
+  final key = NetworkPrefs.prefixAccountKey(_kOnboardingCompletedKeyBase);
   await prefs.setBool(key, true);
 }
 

@@ -66,7 +66,7 @@ class ZkPassportRegistrationRepository {
     required String nullifierHex,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    final key = NetworkPrefs.prefixAccountKey(_kPendingCompletionKey);
     await prefs.setString(
         key,
         jsonEncode({
@@ -81,7 +81,7 @@ class ZkPassportRegistrationRepository {
   /// Returns a pending completion if one exists, or null.
   Future<Map<String, dynamic>?> getPendingCompletion() async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    final key = NetworkPrefs.prefixAccountKey(_kPendingCompletionKey);
     final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) return null;
     try {
@@ -97,7 +97,7 @@ class ZkPassportRegistrationRepository {
   /// Clears a stored pending completion after successful retry.
   Future<void> clearPendingCompletion() async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kPendingCompletionKey);
+    final key = NetworkPrefs.prefixAccountKey(_kPendingCompletionKey);
     await prefs.remove(key);
   }
 
@@ -113,7 +113,7 @@ class ZkPassportRegistrationRepository {
   }
 
   String _registrationKeyForAccount(String accountId) {
-    return NetworkPrefs.prefixKey('$_kRegistrationKeyBase:$accountId');
+    return NetworkPrefs.prefixAccountKey('$_kRegistrationKeyBase:$accountId');
   }
 
   Future<ZkPassportLocalRegistration> _loadRegistrationForAccount(
@@ -135,7 +135,7 @@ class ZkPassportRegistrationRepository {
     }
 
     // Migration: older versions stored a single boolean for the whole network.
-    final legacyKey = NetworkPrefs.prefixKey(_kRegisteredKeyBase);
+    final legacyKey = NetworkPrefs.prefixAccountKey(_kRegisteredKeyBase);
     final legacyRegistered = prefs.getBool(legacyKey) ?? false;
     if (!legacyRegistered) {
       return ZkPassportLocalRegistration.unregistered();
@@ -156,7 +156,7 @@ class ZkPassportSettingsRepository {
 
   Future<ZkPassportSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kSettingsKeyBase);
+    final key = NetworkPrefs.prefixAccountKey(_kSettingsKeyBase);
     final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) {
       return ZkPassportSettings.defaults;
@@ -173,7 +173,7 @@ class ZkPassportSettingsRepository {
 
   Future<void> save(ZkPassportSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kSettingsKeyBase);
+    final key = NetworkPrefs.prefixAccountKey(_kSettingsKeyBase);
     await prefs.setString(key, jsonEncode(settings.toJson()));
   }
 
@@ -188,7 +188,7 @@ class ZkPassportRuntimeSessionRepository {
 
   Future<ZkPassportRuntimeSession?> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kRuntimeSessionKeyBase);
+    final key = NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase);
     final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) {
       return null;
@@ -213,13 +213,13 @@ class ZkPassportRuntimeSessionRepository {
 
   Future<void> save(ZkPassportRuntimeSession session) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kRuntimeSessionKeyBase);
+    final key = NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase);
     await prefs.setString(key, jsonEncode(session.toJson()));
   }
 
   Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixKey(_kRuntimeSessionKeyBase);
+    final key = NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase);
     await prefs.remove(key);
   }
 }

@@ -144,7 +144,7 @@ class ChallengePointTracker {
   // -- private ---------------------------------------------------------------
 
   static String _storageKey(String key) =>
-      NetworkPrefs.prefixKey('challenge_pts:$key');
+      NetworkPrefs.prefixAccountKey('challenge_pts:$key');
 
   static List<_Snapshot> _read(SharedPreferences prefs, String storageKey) {
     final raw = prefs.getString(storageKey);

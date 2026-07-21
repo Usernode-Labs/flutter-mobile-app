@@ -60,11 +60,13 @@ class LeaderboardBootstrap {
   /// Returns null if no leaderboard data has been persisted.
   static Future<SeasonEventContext?> loadPersistedContext() async {
     final prefs = await SharedPreferences.getInstance();
-    final seasonId = prefs.getInt(NetworkPrefs.prefixKey(_seasonIdKey));
+    final seasonId = prefs.getInt(NetworkPrefs.prefixAccountKey(_seasonIdKey));
     if (seasonId == null) return null;
-    final seasonName = prefs.getString(NetworkPrefs.prefixKey(_seasonNameKey));
-    final eventId = prefs.getInt(NetworkPrefs.prefixKey(_eventIdKey));
-    final eventName = prefs.getString(NetworkPrefs.prefixKey(_eventNameKey));
+    final seasonName =
+        prefs.getString(NetworkPrefs.prefixAccountKey(_seasonNameKey));
+    final eventId = prefs.getInt(NetworkPrefs.prefixAccountKey(_eventIdKey));
+    final eventName =
+        prefs.getString(NetworkPrefs.prefixAccountKey(_eventNameKey));
     return SeasonEventContext(
       seasonId: seasonId,
       seasonName: seasonName,
@@ -85,26 +87,28 @@ class LeaderboardBootstrap {
   static Future<void> _persistContext(SeasonEventContext ctx) async {
     final prefs = await SharedPreferences.getInstance();
     if (ctx.seasonId != null) {
-      await prefs.setInt(NetworkPrefs.prefixKey(_seasonIdKey), ctx.seasonId!);
+      await prefs.setInt(
+          NetworkPrefs.prefixAccountKey(_seasonIdKey), ctx.seasonId!);
     }
     if (ctx.seasonName != null) {
       await prefs.setString(
-        NetworkPrefs.prefixKey(_seasonNameKey),
+        NetworkPrefs.prefixAccountKey(_seasonNameKey),
         ctx.seasonName!,
       );
     }
     if (ctx.eventId != null) {
-      await prefs.setInt(NetworkPrefs.prefixKey(_eventIdKey), ctx.eventId!);
+      await prefs.setInt(
+          NetworkPrefs.prefixAccountKey(_eventIdKey), ctx.eventId!);
     } else {
-      await prefs.remove(NetworkPrefs.prefixKey(_eventIdKey));
+      await prefs.remove(NetworkPrefs.prefixAccountKey(_eventIdKey));
     }
     if (ctx.eventName != null) {
       await prefs.setString(
-        NetworkPrefs.prefixKey(_eventNameKey),
+        NetworkPrefs.prefixAccountKey(_eventNameKey),
         ctx.eventName!,
       );
     } else {
-      await prefs.remove(NetworkPrefs.prefixKey(_eventNameKey));
+      await prefs.remove(NetworkPrefs.prefixAccountKey(_eventNameKey));
     }
   }
 }

@@ -209,7 +209,7 @@ class _ActivityCard extends StatelessWidget {
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
     final l10n = AppLocalizations.of(context);
-    final visual = _visualFor(entry.transition.status, colors);
+    final visual = _visualFor(entry, colors);
     final canMarkRead = entry.isUnread && writesEnabled && !isMarkingRead;
     final time = _relativeTimeCopy(
       l10n,
@@ -232,7 +232,7 @@ class _ActivityCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${l10n.activitySourceSocial} • $time',
+              '${entry.isGeneric ? l10n.navActivity : l10n.activitySourceSocial} • $time',
               style: textTheme.labelSmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -293,9 +293,10 @@ class _ActivityCard extends StatelessWidget {
 }
 
 ({IconData icon, Color background, Color foreground}) _visualFor(
-  SocialDevRunStatus status,
+  ActivityFeedEntry entry,
   ColorScheme colors,
 ) {
+  final status = entry.transition?.status;
   return switch (status) {
     SocialDevRunStatus.needsInput => (
         icon: Symbols.help_sharp,
@@ -314,6 +315,11 @@ class _ActivityCard extends StatelessWidget {
       ),
     SocialDevRunStatus.cancelled => (
         icon: Symbols.cancel_sharp,
+        background: colors.surfaceContainerHighest,
+        foreground: colors.onSurfaceVariant,
+      ),
+    null => (
+        icon: Symbols.notifications_sharp,
         background: colors.surfaceContainerHighest,
         foreground: colors.onSurfaceVariant,
       ),

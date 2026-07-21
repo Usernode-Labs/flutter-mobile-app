@@ -1708,16 +1708,16 @@ abstract class AppLocalizations {
   /// **'Unread'**
   String get activitySemanticUnread;
 
-  /// Title for a validated Social development-run Activity item
+  /// Title for an Activity item selected from locally validated copy
   ///
   /// In en, this message translates to:
-  /// **'{copyCase, select, scoutNeedsInput{Scout needs input} buildNeedsInput{Build needs input} headlessNeedsInput{Automated run needs input} scoutSucceeded{Scout completed} buildSucceeded{Build completed} headlessSucceeded{Automated run completed} scoutFailed{Scout failed} buildFailed{Build failed} headlessFailed{Automated run failed} scoutCancelled{Scout cancelled} buildCancelled{Build cancelled} headlessCancelled{Automated run cancelled} other{Development run updated}}'**
+  /// **'{copyCase, select, generic{Activity update} scoutNeedsInput{Scout needs input} buildNeedsInput{Build needs input} headlessNeedsInput{Automated run needs input} scoutSucceeded{Scout completed} buildSucceeded{Build completed} headlessSucceeded{Automated run completed} scoutFailed{Scout failed} buildFailed{Build failed} headlessFailed{Automated run failed} scoutCancelled{Scout cancelled} buildCancelled{Build cancelled} headlessCancelled{Automated run cancelled} other{Activity update}}'**
   String activityItemTitle(String copyCase);
 
-  /// Body for a validated Social development-run Activity item
+  /// Body for an Activity item selected from locally validated copy
   ///
   /// In en, this message translates to:
-  /// **'{copyCase, select, needsClarification{The run is waiting for clarification} needsDecision{The run is waiting for a decision} needsApproval{The run is waiting for approval} succeededSpec{The run produced a specification} succeededCode{The run produced code} succeededSpecCode{The run produced a specification and code} succeededNoChanges{The run completed without changes} failedDispatchNoArtifacts{The run couldn\'t start} failedExecutionNoArtifacts{The run failed during execution} failedExecutionSpec{Execution failed, but a specification is available} failedExecutionCode{Execution failed, but code is available} failedExecutionSpecCode{Execution failed, but a specification and code are available} failedStagingSpec{Staging failed, but a specification is available} failedStagingCode{Staging failed, but code is available} failedStagingSpecCode{Staging failed, but a specification and code are available} failedPreviewSpec{Preview failed, but a specification is available} failedPreviewCode{Preview failed, but code is available} failedPreviewSpecCode{Preview failed, but a specification and code are available} cancelledExplicitStop{The run was stopped} cancelledSuperseded{A newer automated run replaced this one} other{The run has new activity}}'**
+  /// **'{copyCase, select, generic{Open the source app to view details} needsClarification{The run is waiting for clarification} needsDecision{The run is waiting for a decision} needsApproval{The run is waiting for approval} succeededSpec{The run produced a specification} succeededCode{The run produced code} succeededSpecCode{The run produced a specification and code} succeededNoChanges{The run completed without changes} failedDispatchNoArtifacts{The run couldn\'t start} failedExecutionNoArtifacts{The run failed during execution} failedExecutionSpec{Execution failed, but a specification is available} failedExecutionCode{Execution failed, but code is available} failedExecutionSpecCode{Execution failed, but a specification and code are available} failedStagingSpec{Staging failed, but a specification is available} failedStagingCode{Staging failed, but code is available} failedStagingSpecCode{Staging failed, but a specification and code are available} failedPreviewSpec{Preview failed, but a specification is available} failedPreviewCode{Preview failed, but code is available} failedPreviewSpecCode{Preview failed, but a specification and code are available} cancelledExplicitStop{The run was stopped} cancelledSuperseded{A newer automated run replaced this one} other{Open the source app to view details}}'**
   String activityItemBody(String copyCase);
 
   /// Claim account button text

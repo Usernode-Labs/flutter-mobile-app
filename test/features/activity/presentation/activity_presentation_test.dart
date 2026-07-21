@@ -7,6 +7,30 @@ import '../activity_test_fixtures.dart';
 
 void main() {
   group('ActivityFeedEntry', () {
+    test('uses neutral copy for an unknown service-valid contract', () {
+      final entry = ActivityFeedEntry.fromItem(
+        ActivityItem.fromJson(validGenericActivityItemJson()),
+      );
+
+      expect(entry.isGeneric, isTrue);
+      expect(entry.transition, isNull);
+      expect(entry.titleCopy, ActivityTitleCopy.generic);
+      expect(entry.bodyCopy, ActivityBodyCopy.generic);
+      expect(entry.isUnread, isTrue);
+    });
+
+    test('still strictly validates the known dev-run contract', () {
+      final item = validActivityItemJson();
+      final event = item['activityEvent']! as Map<String, dynamic>;
+      final sourceEvent = event['sourceEvent']! as Map<String, dynamic>;
+      sourceEvent['facts'] = {'privatePreview': 'not a dev-run fact'};
+
+      expect(
+        () => ActivityFeedEntry.fromItem(ActivityItem.fromJson(item)),
+        throwsFormatException,
+      );
+    });
+
     test('maps every run mode and status to a closed title case', () {
       final cases = <({String status, String mode, ActivityTitleCopy copy})>[
         (

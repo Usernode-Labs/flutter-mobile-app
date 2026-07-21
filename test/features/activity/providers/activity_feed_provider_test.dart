@@ -74,13 +74,37 @@ void main() {
     expect(state.entries, isEmpty);
   });
 
-  test('fails the page closed when presentation validation fails', () async {
-    final invalid = validActivityItemJson();
-    final event = invalid['activityEvent']! as Map<String, dynamic>;
-    event['contractId'] = 'other.event.v1';
+  test('loads known and generic contracts in the same page', () async {
     final repository = _FakeActivityRepository(
       pages: [
-        validFeedPageJson(items: [invalid])
+        validFeedPageJson(
+          items: [
+            validActivityItemJson(),
+            validGenericActivityItemJson(),
+          ],
+        ),
+      ],
+    );
+    final container = _container(repository: repository);
+
+    final state = await _waitFor(
+      container,
+      (value) => value.phase == ActivityFeedPhase.ready,
+    );
+
+    expect(state.entries, hasLength(2));
+    expect(state.entries.first.isGeneric, isFalse);
+    expect(state.entries.last.isGeneric, isTrue);
+  });
+
+  test('fails the page closed when the known contract is invalid', () async {
+    final invalid = validActivityItemJson();
+    final event = invalid['activityEvent']! as Map<String, dynamic>;
+    final sourceEvent = event['sourceEvent']! as Map<String, dynamic>;
+    sourceEvent['facts'] = {'privatePreview': 'not a dev-run fact'};
+    final repository = _FakeActivityRepository(
+      pages: [
+        validFeedPageJson(items: [invalid]),
       ],
     );
     final container = _container(repository: repository);
@@ -227,6 +251,31 @@ void main() {
       ['1', '2'],
     );
     expect(state.hasMore, isFalse);
+  });
+
+  test('loads a generic contract from an older cursor page', () async {
+    final repository = _FakeActivityRepository(
+      pagesByCursor: {
+        null: validFeedPageJson(
+          nextCursor: 'older-page',
+          hasMore: true,
+        ),
+        'older-page': validFeedPageJson(
+          items: [validGenericActivityItemJson()],
+        ),
+      },
+    );
+    final container = _container(repository: repository);
+    await _waitFor(
+      container,
+      (value) => value.phase == ActivityFeedPhase.ready,
+    );
+
+    await container.read(activityFeedProvider.notifier).loadMore();
+
+    final entries = container.read(activityFeedProvider).entries;
+    expect(entries, hasLength(2));
+    expect(entries.last.isGeneric, isTrue);
   });
 
   test('marking an older item preserves loaded pagination', () async {

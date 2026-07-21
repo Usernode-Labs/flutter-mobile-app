@@ -2,6 +2,7 @@ import 'package:crypto_mobile_app/features/activity/data/models/activity_models.
 import 'package:crypto_mobile_app/features/activity/data/models/social_dev_run_transition.dart';
 
 enum ActivityTitleCopy {
+  generic,
   scoutNeedsInput,
   buildNeedsInput,
   headlessNeedsInput,
@@ -17,6 +18,7 @@ enum ActivityTitleCopy {
 }
 
 enum ActivityBodyCopy {
+  generic,
   needsClarification,
   needsDecision,
   needsApproval,
@@ -49,13 +51,14 @@ class ActivityFeedEntry {
   });
 
   final ActivityItem item;
-  final SocialDevRunTransition transition;
+  final SocialDevRunTransition? transition;
   final ActivityTitleCopy titleCopy;
   final ActivityBodyCopy bodyCopy;
   final bool isUnread;
 
   String get inboxSequence => item.inboxSequence;
   DateTime get occurredAt => item.activityEvent.sourceEvent.occurredAt;
+  bool get isGeneric => transition == null;
 
   /// Applies the service's successful mark-read acknowledgement without
   /// inventing a server-owned `readAt` timestamp.
@@ -71,6 +74,16 @@ class ActivityFeedEntry {
   }
 
   factory ActivityFeedEntry.fromItem(ActivityItem item) {
+    if (item.activityEvent.contractId != socialDevRunTransitionContractId) {
+      return ActivityFeedEntry._(
+        item: item,
+        transition: null,
+        titleCopy: ActivityTitleCopy.generic,
+        bodyCopy: ActivityBodyCopy.generic,
+        isUnread: item.isUnread,
+      );
+    }
+
     final transition = SocialDevRunTransition.fromItem(item);
     return ActivityFeedEntry._(
       item: item,

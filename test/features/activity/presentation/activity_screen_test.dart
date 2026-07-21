@@ -93,6 +93,30 @@ void main() {
     expect(controller.markedRead, [entry.inboxSequence]);
   });
 
+  testWidgets('renders and marks read a privacy-safe generic row',
+      (tester) async {
+    final entry = ActivityFeedEntry.fromItem(
+      ActivityItem.fromJson(validGenericActivityItemJson()),
+    );
+    final controller = _FakeActivityFeedController(
+      ActivityFeedState(
+        phase: ActivityFeedPhase.ready,
+        entries: [entry],
+      ),
+    );
+    await tester.pumpWidget(_app(controller));
+
+    expect(find.text('Activity • Just now'), findsOneWidget);
+    expect(find.text('Activity update'), findsOneWidget);
+    expect(find.text('Open the source app to view details'), findsOneWidget);
+    expect(find.textContaining('must never be rendered'), findsNothing);
+
+    await tester.tap(find.text('Activity update'));
+    await tester.pump();
+
+    expect(controller.markedRead, [entry.inboxSequence]);
+  });
+
   testWidgets('shows generic feedback when mark-read fails', (tester) async {
     final controller = _FakeActivityFeedController(
       ActivityFeedState(

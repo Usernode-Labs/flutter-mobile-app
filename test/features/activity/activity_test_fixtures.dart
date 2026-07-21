@@ -108,6 +108,38 @@ Map<String, dynamic> validFeedPageJson({
       'hasMore': hasMore,
     };
 
+Map<String, dynamic> validGenericActivityItemJson({
+  String inboxSequence = '2',
+  String syncSequence = '7',
+  String attention = 'unread',
+  Object? readAt,
+}) {
+  final item = validActivityItemJson(
+    inboxSequence: inboxSequence,
+    syncSequence: syncSequence,
+    attention: attention,
+    readAt: readAt,
+  );
+  final event = item['activityEvent']! as Map<String, dynamic>;
+  event['contractId'] = 'social.notification.created.v1';
+  event['appliedPolicyId'] = 'social.notification.created.v1';
+  event['privacy'] = 'hidden_preview';
+
+  final sourceEvent = event['sourceEvent']! as Map<String, dynamic>;
+  sourceEvent['kind'] = 'social.notification.created';
+  sourceEvent['status'] = 'created';
+  sourceEvent['facts'] = {
+    'privatePreview': 'must never be rendered',
+    'nested': {'privateDetail': 'also must never be rendered'},
+  };
+  sourceEvent['route'] = {
+    'kind': 'social.notification',
+    'schemaVersion': 1,
+    'parameters': {'privateTarget': 'must never be rendered'},
+  };
+  return item;
+}
+
 Map<String, dynamic> validSyncPageJson({
   List<Map<String, dynamic>>? items,
   String nextCursor = 'sync-cursor',

@@ -933,6 +933,7 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.selectLogic(
       copyCase,
       {
+        'generic': 'Activity update',
         'scoutNeedsInput': 'Scout needs input',
         'buildNeedsInput': 'Build needs input',
         'headlessNeedsInput': 'Automated run needs input',
@@ -945,7 +946,7 @@ class AppLocalizationsEn extends AppLocalizations {
         'scoutCancelled': 'Scout cancelled',
         'buildCancelled': 'Build cancelled',
         'headlessCancelled': 'Automated run cancelled',
-        'other': 'Development run updated',
+        'other': 'Activity update',
       },
     );
     return '$_temp0';
@@ -956,6 +957,7 @@ class AppLocalizationsEn extends AppLocalizations {
     String _temp0 = intl.Intl.selectLogic(
       copyCase,
       {
+        'generic': 'Open the source app to view details',
         'needsClarification': 'The run is waiting for clarification',
         'needsDecision': 'The run is waiting for a decision',
         'needsApproval': 'The run is waiting for approval',
@@ -980,7 +982,7 @@ class AppLocalizationsEn extends AppLocalizations {
             'Preview failed, but a specification and code are available',
         'cancelledExplicitStop': 'The run was stopped',
         'cancelledSuperseded': 'A newer automated run replaced this one',
-        'other': 'The run has new activity',
+        'other': 'Open the source app to view details',
       },
     );
     return '$_temp0';

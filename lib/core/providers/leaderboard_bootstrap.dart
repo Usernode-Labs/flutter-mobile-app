@@ -297,10 +297,7 @@ Future<void> _validateRegistrationFreshness(
   );
   try {
     final service = ref.read(leaderboardApiServiceProvider);
-    await service.getRanking(
-      participantId: participantId,
-      seasonId: currentSeasonId,
-    );
+    await service.getRanking(seasonId: currentSeasonId);
     _log.info('Participant is in current season — backfilling seasonId');
     ref.read(registrationFreshnessProvider.notifier).state =
         RegistrationFreshness.current;

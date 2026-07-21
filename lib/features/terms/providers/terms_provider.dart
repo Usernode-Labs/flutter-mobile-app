@@ -3,9 +3,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_notifier.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Terms');
@@ -34,15 +34,12 @@ class TermsSnapshot {
 /// Depends on nothing but the participant id.
 class CurrentTermsController extends LeaderboardNotifier<TermsSnapshot> {
   @override
-  bool watchDeps() => ref.watch(participantIdProvider).valueOrNull != null;
+  bool watchDeps() => ref.watch(isAuthenticatedProvider);
 
   @override
   Future<TermsSnapshot> fetch() async {
-    final participantId = ref.read(participantIdProvider).value!;
     final service = ref.read(leaderboardApiServiceProvider);
-    return TermsSnapshot(
-      await service.getCurrentTerms(participantId: participantId),
-    );
+    return TermsSnapshot(await service.getCurrentTerms());
   }
 
   /// Accepts the current version, then refreshes the data that depends on it.
@@ -52,14 +49,12 @@ class CurrentTermsController extends LeaderboardNotifier<TermsSnapshot> {
     if (terms == null) {
       throw StateError('Cannot submit consent before terms are loaded.');
     }
-    final participantId = ref.read(participantIdProvider).valueOrNull;
-    if (participantId == null) {
-      throw StateError('Cannot submit consent without a participant.');
+    if (!ref.read(isAuthenticatedProvider)) {
+      throw StateError('Cannot submit consent without a session.');
     }
 
     final service = ref.read(leaderboardApiServiceProvider);
     await service.postTermsConsent(
-      participantId: participantId,
       termsVersionId: terms.id,
       appVersion: await _resolveAppVersion(),
     );

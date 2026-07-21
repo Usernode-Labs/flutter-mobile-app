@@ -3195,5 +3195,13 @@
   "authErrorPasswordMismatch": "Passwords do not match.",
   "@authErrorPasswordMismatch": {
     "description": "Client-side error when password and confirmation differ"
+  },
+  "authSignInToView": "Sign in to view your progress",
+  "@authSignInToView": {
+    "description": "Guest gate title on data screens"
+  },
+  "authSignInToViewCta": "Sign in",
+  "@authSignInToViewCta": {
+    "description": "Guest gate button on data screens"
   }
 }

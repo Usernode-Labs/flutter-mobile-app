@@ -15,6 +15,8 @@ import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart'
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/auth/widgets/sign_in_to_view_card.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
@@ -52,6 +54,9 @@ class _ChallengesScreenState extends ConsumerState<ChallengesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(showSignInGateProvider)) {
+      return const Scaffold(body: SafeArea(child: SignInToViewCard()));
+    }
     // Restore cold-start season/participant context.
     ref.watch(leaderboardBootstrapProvider);
 

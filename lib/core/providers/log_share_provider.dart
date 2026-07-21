@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 enum LogShareStatus { idle, sharing }
 
@@ -37,7 +38,10 @@ class LogShareController extends StateNotifier<LogShareState> {
     required this.ref,
     LogShareService? service,
     HttpDebugLogStore? store,
-  })  : _service = service ?? LogShareService(),
+  })  : _service = service ??
+            LogShareService(
+              tokenProvider: () => ref.read(authTokenStoreProvider).read(),
+            ),
         _store = store ?? HttpDebugLogStore.instance,
         super(const LogShareState());
 
@@ -104,7 +108,6 @@ class LogShareController extends StateNotifier<LogShareState> {
     _flushing = true;
     try {
       final outcome = await _service.postLogs(
-        participantId: participantId,
         body: _buildBody(toSend),
       );
       if (!mounted) return;

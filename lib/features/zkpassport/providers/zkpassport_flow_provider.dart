@@ -1305,7 +1305,6 @@ class ZkPassportPipelineController
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
           final ok = await api.completeZkPassport(
-            participantId: participantId,
             challengeId: challengeId,
             walletAddress: walletAddress,
             sessionId: sessionId,
@@ -1437,7 +1436,6 @@ class ZkPassportPipelineController
 
       final api = _ref.read(leaderboardApiServiceProvider);
       final ok = await api.completeZkPassport(
-        participantId: participantId,
         challengeId: challengeId,
         walletAddress: walletAddress,
         sessionId: sessionId,

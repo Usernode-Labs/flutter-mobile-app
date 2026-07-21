@@ -5,34 +5,31 @@ import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/profile_completed_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 class _RecordingLeaderboardApiService extends LeaderboardApiService {
   ({
     int? seasonId,
     int? eventId,
-    int? participantId,
     bool? activeOnly,
   })? challengesCall;
   final challengesCalls = <({
     int? seasonId,
     int? eventId,
-    int? participantId,
     bool? activeOnly,
   })>[];
-  ({int participantId, int? seasonId, int? eventId})? breakdownCall;
+  ({int? seasonId, int? eventId})? breakdownCall;
 
   @override
   Future<List<ChallengeDto>> getChallenges({
     int? seasonId,
     int? eventId,
-    int? participantId,
     bool? activeOnly,
     bool? onlyScheduled,
   }) async {
     final call = (
       seasonId: seasonId,
       eventId: eventId,
-      participantId: participantId,
       activeOnly: activeOnly,
     );
     challengesCall = call;
@@ -103,12 +100,10 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
 
   @override
   Future<BreakdownResult> getBreakdown({
-    required int participantId,
     int? seasonId,
     int? eventId,
   }) async {
     breakdownCall = (
-      participantId: participantId,
       seasonId: seasonId,
       eventId: eventId,
     );
@@ -189,7 +184,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         leaderboardApiServiceProvider.overrideWithValue(service),
-        participantIdProvider.overrideWith((ref) => 19),
+        isAuthenticatedProvider.overrideWithValue(true),
       ],
     );
     addTearDown(container.dispose);
@@ -202,11 +197,9 @@ void main() {
     expect(result!.completed.map((c) => c.dto.id), [101, 202]);
     expect(service.challengesCalls.map((call) => call.seasonId), [1, 2]);
     for (final call in service.challengesCalls) {
-      expect(call.participantId, 19);
       expect(call.eventId, isNull);
       expect(call.activeOnly, isFalse);
     }
-    expect(service.breakdownCall?.participantId, 19);
     expect(service.breakdownCall?.seasonId, isNull);
     expect(service.breakdownCall?.eventId, isNull);
   });
@@ -217,7 +210,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         leaderboardApiServiceProvider.overrideWithValue(service),
-        participantIdProvider.overrideWith((ref) => 19),
+        isAuthenticatedProvider.overrideWithValue(true),
       ],
     );
     addTearDown(container.dispose);
@@ -235,7 +228,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         leaderboardApiServiceProvider.overrideWithValue(service),
-        participantIdProvider.overrideWith((ref) => 19),
+        isAuthenticatedProvider.overrideWithValue(true),
         seasonEventContextProvider.overrideWith(
           (ref) => const SeasonEventContext(
             seasonId: 2,
@@ -264,7 +257,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         leaderboardApiServiceProvider.overrideWithValue(service),
-        participantIdProvider.overrideWith((ref) => 19),
+        isAuthenticatedProvider.overrideWithValue(true),
         seasonEventContextProvider.overrideWith(
           (ref) => const SeasonEventContext(
             seasonId: 2,

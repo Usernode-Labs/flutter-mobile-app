@@ -2343,6 +2343,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get authSignIn => 'Sign in';
 
   @override
+  String get authLogInOrSignUp => 'Log in or sign up';
+
+  @override
+  String get authForgotPassword => 'Forgot your password?';
+
+  @override
   String get authContinueGuest => 'Continue as guest';
 
   @override

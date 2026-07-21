@@ -3152,6 +3152,14 @@
   "@authSignIn": {
     "description": "Sign in button on the auth landing screen"
   },
+  "authLogInOrSignUp": "Log in or sign up",
+  "@authLogInOrSignUp": {
+    "description": "Single primary CTA on the auth landing (login and signup are one flow)"
+  },
+  "authForgotPassword": "Forgot your password?",
+  "@authForgotPassword": {
+    "description": "Recovery link on the auth landing that starts the OTP password reset"
+  },
   "authContinueGuest": "Continue as guest",
   "@authContinueGuest": {
     "description": "Continue-as-guest button on the auth landing screen"

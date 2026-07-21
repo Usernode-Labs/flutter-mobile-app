@@ -4186,6 +4186,18 @@ abstract class AppLocalizations {
   /// **'Sign in'**
   String get authSignIn;
 
+  /// Single primary CTA on the auth landing (login and signup are one flow)
+  ///
+  /// In en, this message translates to:
+  /// **'Log in or sign up'**
+  String get authLogInOrSignUp;
+
+  /// Recovery link on the auth landing that starts the OTP password reset
+  ///
+  /// In en, this message translates to:
+  /// **'Forgot your password?'**
+  String get authForgotPassword;
+
   /// Continue-as-guest button on the auth landing screen
   ///
   /// In en, this message translates to:

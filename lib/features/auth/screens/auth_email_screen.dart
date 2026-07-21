@@ -33,8 +33,16 @@ class _AuthEmailScreenState extends ConsumerState<AuthEmailScreen> {
       _error = null;
     });
     final repo = ref.read(authRepositoryProvider);
+    final recovery = ref.read(authFlowProvider).recovery;
     try {
       ref.read(authFlowProvider.notifier).setEmail(email);
+      // Recovery (forgot password) always goes through OTP so the user can set
+      // a new password, even when one is already set.
+      if (recovery) {
+        await repo.requestOtp(email);
+        if (mounted) context.go(AppRoutes.authOtp);
+        return;
+      }
       final res = await repo.checkEmail(email);
       if (res.exists && res.passwordSet) {
         if (mounted) context.go(AppRoutes.authPassword);

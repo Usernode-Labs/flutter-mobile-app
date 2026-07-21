@@ -50,19 +50,14 @@ class AuthLandingScreen extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: Button(
-                  label: l.authLogIn,
+                  // Login and sign-up are one flow; the email step decides which.
+                  label: l.authLogInOrSignUp,
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,
-                  onTap: () => context.go(AppRoutes.authEmail),
-                ),
-              ),
-              SizedBox(height: spacing.space12),
-              SizedBox(
-                width: double.infinity,
-                child: Button(
-                  label: l.authSignIn,
-                  size: ButtonSize.large,
-                  onTap: () => context.go(AppRoutes.authEmail),
+                  onTap: () {
+                    ref.read(authFlowProvider.notifier).start();
+                    context.go(AppRoutes.authEmail);
+                  },
                 ),
               ),
               SizedBox(height: spacing.space12),
@@ -79,6 +74,14 @@ class AuthLandingScreen extends ConsumerWidget {
                     if (context.mounted) context.go(AppRoutes.splash);
                   },
                 ),
+              ),
+              SizedBox(height: spacing.space8),
+              TextButton(
+                onPressed: () {
+                  ref.read(authFlowProvider.notifier).start(recovery: true);
+                  context.go(AppRoutes.authEmail);
+                },
+                child: Text(l.authForgotPassword),
               ),
             ],
           ),

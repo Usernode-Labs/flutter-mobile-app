@@ -230,6 +230,12 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   late final WebViewController _controller;
   int _progress = 0;
 
+  /// The app-scoped Riverpod container, captured so JS-channel handlers — which
+  /// the WebView can invoke after this screen is disposed — read through it
+  /// instead of the widget `ref` (which throws once disposed).
+  ProviderContainer? _providersContainer;
+  ProviderContainer get _providers => _providersContainer!;
+
   // True once the embedded hub has navigated into a dapp (web `pushState`
   // history exists). Drives the tab-root bar: shell affordances at the hub
   // root (`false`), browser chrome once drilled in (`true`). Kept in sync with
@@ -667,6 +673,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _providersContainer ??= ProviderScope.containerOf(context, listen: false);
     _controller.setBackgroundColor(
         Theme.of(context).colorScheme.surfaceContainerLowest);
   }
@@ -749,7 +756,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<String?> _getActiveNodeAddress() async {
-    final repo = await ref.read(accountsProvider.future);
+    final repo = await _providers.read(accountsProvider.future);
     final active = await repo.getActive();
     return active?.address;
   }
@@ -931,7 +938,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final repo = await ref.read(accountsProvider.future);
+    final repo = await _providers.read(accountsProvider.future);
     final active = await repo.getActive();
     if (active == null) {
       await _resolveJsPromise(
@@ -1255,7 +1262,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       if (iconUri != null) iconBytes = await _downloadShortcutIcon(iconUri);
     }
 
-    final pinned = await ref.read(pinnedDappsProvider.notifier).pin(
+    final pinned = await _providers.read(pinnedDappsProvider.notifier).pin(
           name: name,
           url: url.toString(),
           // Data-URI icons are not persisted in the registry (kilobytes
@@ -1324,7 +1331,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// succeeded; treats non-iOS as a successful no-op.
   Future<bool> _syncPinnedToWidget() async {
     if (!HomeShortcutsChannel.isIOS) return true;
-    final dapps = await ref.read(pinnedDappsProvider.future);
+    final dapps = await _providers.read(pinnedDappsProvider.future);
     return HomeShortcutsChannel.syncPinnedDapps(jsonEncode([
       for (final d in dapps)
         {
@@ -1351,7 +1358,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     // These three reads are independent — fetch them concurrently rather than
     // paying a prefs read plus two platform round-trips in series.
     final (dapps, iconIds, support) = await (
-      ref.read(pinnedDappsProvider.future),
+      _providers.read(pinnedDappsProvider.future),
       HomeShortcutsChannel.isIOS
           ? HomeShortcutsChannel.listWidgetIconIds()
           : Future.value(const <String>{}),
@@ -1391,7 +1398,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       await _resolveJsPromise(id: id, value: null, error: 'id is required');
       return;
     }
-    await ref.read(pinnedDappsProvider.notifier).unpin(shortcutId);
+    await _providers.read(pinnedDappsProvider.notifier).unpin(shortcutId);
     // Drop the icon PNG too, otherwise it lingers in the App Group store
     // forever and a later re-pin of the same URL would show the stale image.
     await HomeShortcutsChannel.deleteWidgetIcon(shortcutId);
@@ -1420,7 +1427,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
     final ids = [for (final v in rawIds) v.toString()];
-    final updated = await ref.read(pinnedDappsProvider.notifier).reorder(ids);
+    final updated =
+        await _providers.read(pinnedDappsProvider.notifier).reorder(ids);
     await _syncPinnedToWidget();
     await _resolveJsPromise(
       id: id,

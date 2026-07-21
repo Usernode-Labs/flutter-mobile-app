@@ -22,22 +22,28 @@ enum LogShareOutcome {
   failed,
 }
 
-/// Fire-and-forget client for `POST /api/v2/mobile/logs/{participant}`.
+/// Fire-and-forget client for `POST /api/v3/mobile/logs`.
 ///
-/// Public, unauthenticated endpoint that always returns 200 with
-/// `{"continue": bool}`. Per the spec: retry only network/5xx (exp backoff,
-/// ~3 tries); never retry a 200 or 404. This client never throws — every path
-/// resolves to a [LogShareOutcome] so logging can never crash the caller.
+/// Session-authenticated endpoint (the participant is resolved from the token)
+/// that returns 200 with `{"continue": bool}`. Per the spec: retry only
+/// network/5xx (exp backoff, ~3 tries); never retry a 200 or 4xx. This client
+/// never throws — every path resolves to a [LogShareOutcome] so logging can
+/// never crash the caller.
 class LogShareService {
   /// Defaults to a plain [http.Client] — deliberately NOT the app's logging
   /// client, so these share POSTs aren't captured into the debug buffer (which
   /// would feed them back into the next flush, an endless self-referential loop).
-  LogShareService({String? baseUrl, http.Client? httpClient})
-      : _baseUrl = baseUrl ?? AppConfig.leaderboardApiBaseUrl,
-        _http = httpClient ?? http.Client();
+  LogShareService({
+    String? baseUrl,
+    http.Client? httpClient,
+    Future<String?> Function()? tokenProvider,
+  })  : _baseUrl = baseUrl ?? AppConfig.mobileApiV3BaseUrl,
+        _http = httpClient ?? http.Client(),
+        _tokenProvider = tokenProvider;
 
   final String _baseUrl;
   final http.Client _http;
+  final Future<String?> Function()? _tokenProvider;
 
   static const _maxAttempts = 3;
   static const _baseBackoff = Duration(seconds: 1);
@@ -46,23 +52,30 @@ class LogShareService {
     'Accept': 'application/json',
   };
 
-  /// POST [body] for [participantId]. See [LogShareOutcome] for semantics.
+  /// POST [body] as the authed participant. See [LogShareOutcome] for semantics.
+  /// Without a session token the request is skipped (the v3 endpoint requires
+  /// one), reported as [LogShareOutcome.stop].
   Future<LogShareOutcome> postLogs({
-    required int participantId,
     required Map<String, dynamic> body,
   }) async {
-    final url = Uri.parse('$_baseUrl/logs/$participantId');
+    final token = await _tokenProvider?.call();
+    if (token == null || token.isEmpty) {
+      _log.debug('No session token; skipping log share');
+      return LogShareOutcome.stop;
+    }
+    final url = Uri.parse('$_baseUrl/logs');
+    final headers = {..._headers, 'Authorization': 'Bearer $token'};
     final payload = jsonEncode(body);
     var backoff = _baseBackoff;
 
     for (var attempt = 1; attempt <= _maxAttempts; attempt++) {
       try {
         final resp = await _http
-            .post(url, headers: _headers, body: payload)
+            .post(url, headers: headers, body: payload)
             .timeout(AppConfig.leaderboardApiTimeout);
 
-        if (resp.statusCode == 404) {
-          _log.warn('Bad participant id ($participantId); stopping log share');
+        if (resp.statusCode == 401 || resp.statusCode == 404) {
+          _log.warn('Log share rejected (${resp.statusCode}); stopping');
           return LogShareOutcome.stop;
         }
         if (resp.statusCode >= 500) {

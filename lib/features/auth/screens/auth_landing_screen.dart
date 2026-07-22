@@ -50,14 +50,20 @@ class AuthLandingScreen extends ConsumerWidget {
                             context.go(AppRoutes.authEmail);
                           },
                         ),
-                        TextButton(
-                          onPressed: () {
-                            ref
-                                .read(authFlowProvider.notifier)
-                                .start(recovery: true);
-                            context.go(AppRoutes.authEmail);
-                          },
-                          child: Text(l.authForgotPassword),
+                        // Centered rather than stretched so the recovery link
+                        // stays subordinate to the primary log-in CTA above.
+                        Align(
+                          child: Button(
+                            label: l.authForgotPassword,
+                            variant: ButtonVariant.outlined,
+                            size: ButtonSize.small,
+                            onTap: () {
+                              ref
+                                  .read(authFlowProvider.notifier)
+                                  .start(recovery: true);
+                              context.go(AppRoutes.authEmail);
+                            },
+                          ),
                         ),
                       ],
                     ),

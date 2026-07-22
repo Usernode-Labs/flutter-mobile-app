@@ -464,13 +464,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: Text(l10n.settingsLogOutConfirmTitle),
         content: Text(l10n.settingsLogOutConfirmMessage),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(l10n.commonCancel),
+          Button(
+            label: l10n.commonCancel,
+            size: ButtonSize.small,
+            variant: ButtonVariant.outlined,
+            onTap: () => Navigator.of(ctx).pop(false),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(l10n.settingsLogOut),
+          Button(
+            label: l10n.settingsLogOut,
+            size: ButtonSize.small,
+            onTap: () => Navigator.of(ctx).pop(true),
           ),
         ],
       ),

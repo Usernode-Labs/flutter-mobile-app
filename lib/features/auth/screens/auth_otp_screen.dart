@@ -107,9 +107,15 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextButton(
-                onPressed: _submitting ? null : _resend,
-                child: Text(l.authOtpResend),
+              // Centered rather than stretched so the secondary action stays
+              // subordinate to the full-width verify CTA above it.
+              Align(
+                child: Button(
+                  label: l.authOtpResend,
+                  variant: ButtonVariant.outlined,
+                  size: ButtonSize.small,
+                  onTap: _submitting ? null : _resend,
+                ),
               ),
             ],
           ),

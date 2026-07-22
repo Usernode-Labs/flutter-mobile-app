@@ -69,6 +69,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.community,
     required this.success,
     required this.warning,
+    required this.internalNetwork,
   });
 
   final SemanticColorGroup technical;
@@ -84,6 +85,18 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   /// General-purpose warning status (syncing, permissions needed, etc.).
   /// Distinct from [flash] which is challenge-category specific.
   final SemanticColorGroup warning;
+
+  /// Warm amber chrome marking a build pointed at a non-production (internal)
+  /// network. Used for persistent app-shell affordances such as the bottom-nav
+  /// backdrop, so an internal build is recognisable at a glance.
+  ///
+  /// [colorContainer] is the backdrop and [color] the hairline border. Unlike
+  /// the other groups, [colorContainer] holds the same hex across contrast
+  /// modes — the tint is an identity marker, so it must stay recognisable
+  /// rather than shift with contrast; only the foregrounds and border harden.
+  ///
+  /// Distinct from [warning], which flags a recoverable user-facing state.
+  final SemanticColorGroup internalNetwork;
 
   // ---------------------------------------------------------------------------
   // Factory constructors — values from material-theme.json extendedColors
@@ -141,6 +154,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorSurface: Color(0xFFEEE8E1),
           onColorSurface: Color(0xFF9C5700),
         ),
+        internalNetwork: SemanticColorGroup(
+          color: Color(0xFFE5C878),
+          onColor: Color(0xFF3D2914),
+          colorContainer: Color(0xFFFFF4E6),
+          onColorContainer: Color(0xFF874900),
+          colorSurface: Color(0xFFEEE8E1),
+          onColorSurface: Color(0xFF874900),
+        ),
       );
 
   factory AppSemanticColors.lightMediumContrast() => const AppSemanticColors(
@@ -191,6 +212,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           onColorContainer: Color(0xFFFFFFFF),
           colorSurface: Color(0xFFE6DFD8),
           onColorSurface: Color(0xFF7A4100),
+        ),
+        internalNetwork: SemanticColorGroup(
+          color: Color(0xFFA8853A),
+          onColor: Color(0xFFFFFFFF),
+          colorContainer: Color(0xFFFFF4E6),
+          onColorContainer: Color(0xFF6B3900),
+          colorSurface: Color(0xFFE6DFD8),
+          onColorSurface: Color(0xFF6B3900),
         ),
       );
 
@@ -243,6 +272,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorSurface: Color(0xFFD9D1C9),
           onColorSurface: Color(0xFF5C2E00),
         ),
+        internalNetwork: SemanticColorGroup(
+          color: Color(0xFF6B4A00),
+          onColor: Color(0xFFFFFFFF),
+          colorContainer: Color(0xFFFFF4E6),
+          onColorContainer: Color(0xFF3D2914),
+          colorSurface: Color(0xFFD9D1C9),
+          onColorSurface: Color(0xFF3D2914),
+        ),
       );
 
   factory AppSemanticColors.dark() => const AppSemanticColors(
@@ -293,6 +330,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           onColorContainer: Color(0xFFFFD5A0),
           colorSurface: Color(0xFF2D2820),
           onColorSurface: Color(0xFFFFB95D),
+        ),
+        internalNetwork: SemanticColorGroup(
+          color: Color(0xFF8B7355),
+          onColor: Color(0xFFFFF4E6),
+          colorContainer: Color(0xFF3D2914),
+          onColorContainer: Color(0xFFE5C878),
+          colorSurface: Color(0xFF2D2820),
+          onColorSurface: Color(0xFFE5C878),
         ),
       );
 
@@ -345,6 +390,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorSurface: Color(0xFF36322D),
           onColorSurface: Color(0xFFFFDDB3),
         ),
+        internalNetwork: SemanticColorGroup(
+          color: Color(0xFFB39A78),
+          onColor: Color(0xFF2A1A08),
+          colorContainer: Color(0xFF3D2914),
+          onColorContainer: Color(0xFFF5DFA8),
+          colorSurface: Color(0xFF36322D),
+          onColorSurface: Color(0xFFF5DFA8),
+        ),
       );
 
   factory AppSemanticColors.darkHighContrast() => const AppSemanticColors(
@@ -396,6 +449,14 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
           colorSurface: Color(0xFF44413D),
           onColorSurface: Color(0xFFFFEEDA),
         ),
+        internalNetwork: SemanticColorGroup(
+          color: Color(0xFFFFEEDA),
+          onColor: Color(0xFF000000),
+          colorContainer: Color(0xFF3D2914),
+          onColorContainer: Color(0xFFFFF4E6),
+          colorSurface: Color(0xFF44413D),
+          onColorSurface: Color(0xFFFFEEDA),
+        ),
       );
 
   @override
@@ -406,6 +467,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     SemanticColorGroup? community,
     SemanticColorGroup? success,
     SemanticColorGroup? warning,
+    SemanticColorGroup? internalNetwork,
   }) {
     return AppSemanticColors(
       technical: technical ?? this.technical,
@@ -414,6 +476,7 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       community: community ?? this.community,
       success: success ?? this.success,
       warning: warning ?? this.warning,
+      internalNetwork: internalNetwork ?? this.internalNetwork,
     );
   }
 
@@ -427,6 +490,11 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       community: SemanticColorGroup.lerp(community, other.community, t),
       success: SemanticColorGroup.lerp(success, other.success, t),
       warning: SemanticColorGroup.lerp(warning, other.warning, t),
+      internalNetwork: SemanticColorGroup.lerp(
+        internalNetwork,
+        other.internalNetwork,
+        t,
+      ),
     );
   }
 }

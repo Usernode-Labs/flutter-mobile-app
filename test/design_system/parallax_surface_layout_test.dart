@@ -17,7 +17,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
         ),
       ));
 
@@ -29,7 +29,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
         ),
       ));
 
@@ -44,7 +44,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
           headerHeight: 300,
         ),
       ));
@@ -60,7 +60,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         ParallaxSurfaceLayout(
           header: const Text('Header'),
-          surfaceBody: const Text('Body'),
+          surfaceSlivers: const [SliverToBoxAdapter(child: Text('Body'))],
           onRefresh: () async {},
         ),
       ));
@@ -72,7 +72,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
         ),
       ));
 
@@ -83,7 +83,9 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
+          // ignore: deprecated_member_use_from_same_package
           surfaceBody: Text('Body'),
+          // ignore: deprecated_member_use_from_same_package
           pinnedHeaderSliver: SliverToBoxAdapter(
             child: Text('Pinned'),
           ),
@@ -100,7 +102,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         ParallaxSurfaceLayout(
           header: const Text('Header'),
-          surfaceBody: const Text('Body'),
+          surfaceSlivers: const [SliverToBoxAdapter(child: Text('Body'))],
           scrollFractionNotifier: notifier,
         ),
       ));
@@ -114,7 +116,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
           showEdgeFade: true,
         ),
       ));
@@ -133,7 +135,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
         ),
       ));
 
@@ -150,7 +152,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
           headerFadesOnScroll: true,
         ),
       ));
@@ -175,7 +177,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
           headerFadesOnScroll: false,
         ),
       ));
@@ -291,7 +293,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         ParallaxSurfaceLayout(
           header: const Text('Header'),
-          surfaceBody: const Text('Body'),
+          surfaceSlivers: const [SliverToBoxAdapter(child: Text('Body'))],
           controller: controller,
         ),
       ));
@@ -306,7 +308,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
           pinnedHeaderSlivers: [
             SliverToBoxAdapter(child: Text('Pinned A')),
             SliverToBoxAdapter(child: Text('Pinned B')),
@@ -321,13 +323,16 @@ void main() {
 
     testWidgets('deprecated pinnedHeaderSliver still works', (tester) async {
       await tester.pumpWidget(wrapLayout(
-        // ignore: deprecated_member_use
+        // ignore: deprecated_member_use_from_same_package
         const ParallaxSurfaceLayout(
           header: Text('Header'),
+          // ignore: deprecated_member_use_from_same_package
           surfaceBody: Text('Body'),
+          // ignore: deprecated_member_use_from_same_package
           pinnedHeaderSliver: SliverToBoxAdapter(
             child: Text('Legacy Pinned'),
           ),
+          // ignore: deprecated_member_use_from_same_package
           pinnedHeaderHeight: 48,
         ),
       ));
@@ -341,8 +346,9 @@ void main() {
       expect(
         () => ParallaxSurfaceLayout(
           header: const Text('Header'),
+          // ignore: deprecated_member_use_from_same_package
           surfaceBody: const Text('Body'),
-          // ignore: deprecated_member_use
+          // ignore: deprecated_member_use_from_same_package
           pinnedHeaderSliver: const SliverToBoxAdapter(child: Text('Legacy')),
           pinnedHeaderSlivers: const [
             SliverToBoxAdapter(child: Text('New')),
@@ -361,7 +367,7 @@ void main() {
           child: wrapLayout(
             const ParallaxSurfaceLayout(
               header: Text('Header'),
-              surfaceBody: Text('Body'),
+              surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
             ),
           ),
         ),
@@ -379,7 +385,7 @@ void main() {
           child: wrapLayout(
             const ParallaxSurfaceLayout(
               header: Text('Header'),
-              surfaceBody: Text('Body'),
+              surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
               safeAreaOverlay: true,
               pinnedHeaderSlivers: [
                 SliverToBoxAdapter(child: SizedBox(height: 44)),
@@ -399,7 +405,7 @@ void main() {
       await tester.pumpWidget(wrapLayout(
         const ParallaxSurfaceLayout(
           header: Text('Header'),
-          surfaceBody: Text('Body'),
+          surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
         ),
       ));
 
@@ -442,9 +448,10 @@ void main() {
 
     testWidgets('deprecated surfaceBody path still works', (tester) async {
       await tester.pumpWidget(wrapLayout(
-        // ignore: deprecated_member_use
+        // ignore: deprecated_member_use_from_same_package
         const ParallaxSurfaceLayout(
           header: Text('Header'),
+          // ignore: deprecated_member_use_from_same_package
           surfaceBody: Text('Legacy Body'),
         ),
       ));
@@ -458,9 +465,10 @@ void main() {
         'assertion fires when both surfaceBody and surfaceSlivers provided',
         (tester) async {
       expect(
-        // ignore: deprecated_member_use
+        // ignore: deprecated_member_use_from_same_package
         () => ParallaxSurfaceLayout(
           header: const Text('Header'),
+          // ignore: deprecated_member_use_from_same_package
           surfaceBody: const Text('Body'),
           surfaceSlivers: [
             SliverList.list(children: const [Text('Item')]),
@@ -870,10 +878,11 @@ void main() {
           await tester.pumpWidget(wrapWithSafeArea(
             const ParallaxSurfaceLayout(
               header: Text('Header'),
-              surfaceBody: SizedBox(
-                key: ValueKey('surface_auto'),
-                height: 100,
-              ),
+              surfaceSlivers: [
+                SliverToBoxAdapter(
+                  child: SizedBox(key: ValueKey('surface_auto'), height: 100),
+                ),
+              ],
               headerHeight: headerHeight,
               title: 'Test',
             ),
@@ -887,10 +896,11 @@ void main() {
           await tester.pumpWidget(wrapWithSafeArea(
             ParallaxSurfaceLayout(
               header: const Text('Header'),
-              surfaceBody: const SizedBox(
-                key: ValueKey('surface_manual'),
-                height: 100,
-              ),
+              surfaceSlivers: const [
+                SliverToBoxAdapter(
+                  child: SizedBox(key: ValueKey('surface_manual'), height: 100),
+                ),
+              ],
               headerHeight: headerHeight,
               pinnedHeaderSlivers: [
                 SliverPersistentHeader(
@@ -913,24 +923,28 @@ void main() {
         },
       );
 
+      // The surfaceSlivers path prepends a kSurfaceTopInset spacer inside the
+      // decorated surface, so the first content sliver sits that far below the
+      // surface top edge.
       testWidgets('surface Y equals safeTop + kPinnedBarPadding + headerHeight',
           (tester) async {
         await tester.pumpWidget(wrapWithSafeArea(
           const ParallaxSurfaceLayout(
             header: Text('Header'),
-            surfaceBody: SizedBox(
-              key: ValueKey('surface_marker'),
-              height: 100,
-            ),
+            surfaceSlivers: [
+              SliverToBoxAdapter(
+                child: SizedBox(key: ValueKey('surface_marker'), height: 100),
+              ),
+            ],
             headerHeight: headerHeight,
             title: 'Test',
           ),
         ));
         final y =
             tester.getTopLeft(find.byKey(const ValueKey('surface_marker'))).dy;
-        expect(y, safeTop + kPinnedBarPadding + headerHeight,
-            reason:
-                'Surface Y=$y, expected ${safeTop + kPinnedBarPadding + headerHeight}');
+        const expected =
+            safeTop + kPinnedBarPadding + headerHeight + kSurfaceTopInset;
+        expect(y, expected, reason: 'Surface Y=$y, expected $expected');
       });
 
       testWidgets(
@@ -944,10 +958,11 @@ void main() {
             wrapLayout(
               ParallaxSurfaceLayout(
                 header: const Text('Header'),
-                surfaceBody: const SizedBox(
-                  key: ValueKey('surface_tall'),
-                  height: 100,
-                ),
+                surfaceSlivers: const [
+                  SliverToBoxAdapter(
+                    child: SizedBox(key: ValueKey('surface_tall'), height: 100),
+                  ),
+                ],
                 headerHeight: tallHeaderHeight,
                 pinnedHeaderSlivers: [
                   SliverPersistentHeader(
@@ -964,9 +979,8 @@ void main() {
           );
           final y =
               tester.getTopLeft(find.byKey(const ValueKey('surface_tall'))).dy;
-          expect(y, pinnedHeight + tallHeaderHeight,
-              reason:
-                  'Surface Y=$y, expected ${pinnedHeight + tallHeaderHeight}');
+          const expected = pinnedHeight + tallHeaderHeight + kSurfaceTopInset;
+          expect(y, expected, reason: 'Surface Y=$y, expected $expected');
         },
       );
 
@@ -975,7 +989,7 @@ void main() {
         await tester.pumpWidget(wrapWithSafeArea(
           const ParallaxSurfaceLayout(
             header: Text('Header'),
-            surfaceBody: Text('Body'),
+            surfaceSlivers: [SliverToBoxAdapter(child: Text('Body'))],
             headerHeight: headerHeight,
             title: 'Test',
           ),
@@ -988,7 +1002,7 @@ void main() {
         await tester.pumpWidget(wrapWithSafeArea(
           ParallaxSurfaceLayout(
             header: const Text('Header'),
-            surfaceBody: const Text('Body'),
+            surfaceSlivers: const [SliverToBoxAdapter(child: Text('Body'))],
             headerHeight: headerHeight,
             pinnedHeaderSlivers: [
               SliverPersistentHeader(

@@ -26,8 +26,9 @@ class SlotProductionRepository {
   static const int _maxRecordsToKeep = 500; // Keep last 500 records
 
   // Network-prefixed keys
-  static String get _recordsKey => NetworkPrefs.prefixKey(_recordsKeyBase);
-  static String get _statsKey => NetworkPrefs.prefixKey(_statsKeyBase);
+  static String get _recordsKey =>
+      NetworkPrefs.prefixAccountKey(_recordsKeyBase);
+  static String get _statsKey => NetworkPrefs.prefixAccountKey(_statsKeyBase);
 
   /// Initialize the repository
   Future<bool> initialize() async {

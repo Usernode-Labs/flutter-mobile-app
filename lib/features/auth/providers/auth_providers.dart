@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -55,11 +56,13 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
   Future<void> completeLogin(AuthSession session) async {
     await _tokenStore.write(session.token);
     await _guestFlag.clear();
+    await refreshActiveAccountBucket(guest: false);
     state = AuthStatus.authenticated;
   }
 
   Future<void> continueAsGuest() async {
     await _guestFlag.setGuest();
+    await refreshActiveAccountBucket(guest: true);
     state = AuthStatus.guest;
   }
 
@@ -70,11 +73,13 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
     }
     await _tokenStore.clear();
     await _guestFlag.clear();
+    await refreshActiveAccountBucket(guest: false);
     state = AuthStatus.unauthenticated;
   }
 
   Future<void> onUnauthorized() async {
     await _tokenStore.clear();
+    await refreshActiveAccountBucket(guest: false);
     state = AuthStatus.unauthenticated;
   }
 }

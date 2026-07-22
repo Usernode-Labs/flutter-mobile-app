@@ -7,7 +7,7 @@ class RecipientHistoryNotifier extends AsyncNotifier<List<String>> {
   static const String _keyBase = 'wallet:recent_recipients';
   static const int _maxEntries = 5;
 
-  static String get _key => NetworkPrefs.prefixKey(_keyBase);
+  static String get _key => NetworkPrefs.prefixAccountKey(_keyBase);
 
   @override
   Future<List<String>> build() async {

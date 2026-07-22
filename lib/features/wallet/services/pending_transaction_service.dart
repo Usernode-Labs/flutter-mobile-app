@@ -10,7 +10,7 @@ class PendingTransactionService {
   static const int _maxEntries = 100; // Limit stored pending transactions
   static const Duration _defaultMaxAge = Duration(hours: 24);
 
-  static String get _key => NetworkPrefs.prefixKey(_keyBase);
+  static String get _key => NetworkPrefs.prefixAccountKey(_keyBase);
 
   static final _log =
       LoggingService.instance.withTag('usernode/PendingTransactionService');

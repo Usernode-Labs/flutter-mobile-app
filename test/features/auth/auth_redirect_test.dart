@@ -26,4 +26,19 @@ void main() {
         AppRoutes.splash);
     expect(authRedirect(AuthStatus.guest, AppRoutes.home), isNull);
   });
+
+  group('guestRedirect', () {
+    test('splash -> dapps', () {
+      expect(guestRedirect(AppRoutes.splash), AppRoutes.dapps);
+    });
+    test('onboarding routes -> dapps (never node onboarding)', () {
+      expect(guestRedirect(AppRoutes.onboarding), AppRoutes.dapps);
+      expect(guestRedirect(AppRoutes.onboardingWelcomeSetup), AppRoutes.dapps);
+    });
+    test('other app routes -> allow (null)', () {
+      expect(guestRedirect(AppRoutes.dapps), isNull);
+      expect(guestRedirect(AppRoutes.home), isNull);
+      expect(guestRedirect(AppRoutes.profile), isNull);
+    });
+  });
 }

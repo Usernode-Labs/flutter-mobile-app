@@ -80,7 +80,7 @@ class SlotOutcomeDrainService {
 
   static const String _shippedKeyPrefsBase = 'slot_outcome_drain_shipped';
   static String get _shippedKeyPrefs =>
-      NetworkPrefs.prefixKey(_shippedKeyPrefsBase);
+      NetworkPrefs.prefixAccountKey(_shippedKeyPrefsBase);
 
   bool _initialized = false;
   SharedPreferences? _prefs;

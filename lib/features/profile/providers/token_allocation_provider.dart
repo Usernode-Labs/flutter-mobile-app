@@ -59,7 +59,7 @@ class TokenAllocationController extends AsyncNotifier<TokenAllocation?> {
       eventId ?? 'all',
       ranking.totalTokens,
     ].join(':');
-    _preferenceKey = NetworkPrefs.prefixKey(
+    _preferenceKey = NetworkPrefs.prefixAccountKey(
       '$_revealedPreferenceKey:$allocationKey',
     );
     final preferences = await SharedPreferences.getInstance();

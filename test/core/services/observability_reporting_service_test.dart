@@ -58,7 +58,7 @@ void main() {
         () async {
       SharedPreferences.setMockInitialValues({
         NetworkPrefs.networkKey: 'testnet',
-        'testnet:leaderboard:participant_id': 123,
+        'testnet:acct:guest:leaderboard:participant_id': 123,
       });
       await NetworkPrefs.init();
 

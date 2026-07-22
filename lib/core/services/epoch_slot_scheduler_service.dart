@@ -40,11 +40,11 @@ class EpochSlotSchedulerService {
 
   // Network-prefixed keys
   static String get _prefKeyCurrentEpoch =>
-      NetworkPrefs.prefixKey(_prefKeyCurrentEpochBase);
+      NetworkPrefs.prefixAccountKey(_prefKeyCurrentEpochBase);
   static String get _prefKeyScheduledSlots =>
-      NetworkPrefs.prefixKey(_prefKeyScheduledSlotsBase);
+      NetworkPrefs.prefixAccountKey(_prefKeyScheduledSlotsBase);
   static String get _prefKeyLastCheck =>
-      NetworkPrefs.prefixKey(_prefKeyLastCheckBase);
+      NetworkPrefs.prefixAccountKey(_prefKeyLastCheckBase);
 
   /// Check if the service is initialized
   bool get isInitialized => _initialized;

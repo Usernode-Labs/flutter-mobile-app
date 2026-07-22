@@ -28,7 +28,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final oldT = now - const Duration(hours: 25).inSeconds;
-      const key = 'testnet:challenge_pts:test_key';
+      const key = 'testnet:acct:guest:challenge_pts:test_key';
       await prefs.setString(
         key,
         jsonEncode([
@@ -46,7 +46,7 @@ void main() {
     test('record prunes entries older than 48 hours', () async {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
-      const key = 'testnet:challenge_pts:prune_key';
+      const key = 'testnet:acct:guest:challenge_pts:prune_key';
 
       // Seed an entry 50 hours ago (should be pruned) and one 23 hours ago
       await prefs.setString(
@@ -78,7 +78,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final oldT = now - const Duration(hours: 25).inSeconds;
-      const key = 'testnet:challenge_pts:since_key2';
+      const key = 'testnet:acct:guest:challenge_pts:since_key2';
       await prefs.setString(
         key,
         jsonEncode([
@@ -98,7 +98,7 @@ void main() {
     test('getDiff24h handles corrupt data gracefully', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        'testnet:challenge_pts:corrupt_key',
+        'testnet:acct:guest:challenge_pts:corrupt_key',
         'not valid json',
       );
       final diff = await ChallengePointTracker.getDiff24h('corrupt_key');
@@ -111,14 +111,14 @@ void main() {
       final oldT = now - const Duration(hours: 25).inSeconds;
 
       await prefs.setString(
-        'testnet:challenge_pts:key_a',
+        'testnet:acct:guest:challenge_pts:key_a',
         jsonEncode([
           {'p': 100, 't': oldT},
           {'p': 200, 't': now},
         ]),
       );
       await prefs.setString(
-        'testnet:challenge_pts:key_b',
+        'testnet:acct:guest:challenge_pts:key_b',
         jsonEncode([
           {'p': 50, 't': oldT},
           {'p': 75, 't': now},
@@ -149,7 +149,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final threeHoursAgo = now - const Duration(hours: 3).inSeconds;
-      const key = 'testnet:challenge_pts:best_effort_short';
+      const key = 'testnet:acct:guest:challenge_pts:best_effort_short';
 
       await prefs.setString(
         key,
@@ -173,7 +173,7 @@ void main() {
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final twentyFiveHoursAgo = now - const Duration(hours: 25).inSeconds;
       final twelveHoursAgo = now - const Duration(hours: 12).inSeconds;
-      const key = 'testnet:challenge_pts:best_effort_24h';
+      const key = 'testnet:acct:guest:challenge_pts:best_effort_24h';
 
       await prefs.setString(
         key,
@@ -197,7 +197,7 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 1000;
       final twoHoursAgo = now - const Duration(hours: 2).inSeconds;
-      const key = 'testnet:challenge_pts:best_effort_negative';
+      const key = 'testnet:acct:guest:challenge_pts:best_effort_negative';
 
       // Points decreased (e.g. backend correction)
       await prefs.setString(
@@ -218,7 +218,7 @@ void main() {
     test('handles corrupt data gracefully', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        'testnet:challenge_pts:best_effort_corrupt',
+        'testnet:acct:guest:challenge_pts:best_effort_corrupt',
         'not valid json',
       );
       final diff = await ChallengePointTracker.getDiffBestEffort(

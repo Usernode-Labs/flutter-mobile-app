@@ -13,7 +13,6 @@ import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/config/legacy_colors.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
@@ -82,7 +81,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final l10n = AppLocalizations.of(context);
     final currentNetwork = ref.watch(currentNetworkProvider);
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final index = ref.watch(currentHomeTabProvider);
     final isInternal = currentNetwork == 'internal';
 
@@ -104,7 +102,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         semantic,
         index,
         isInternal,
-        isDark,
       ),
     );
   }
@@ -114,7 +111,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     AppSemanticColors semantic,
     int index,
     bool isInternal,
-    bool isDark,
   ) {
     final items = [
       BottomNavItem(
@@ -155,11 +151,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (isInternal) {
       bottomNav = DecoratedBox(
         decoration: BoxDecoration(
-          color: LegacyColors.getInternalNetworkBackgroundColor(isDark),
+          color: semantic.internalNetwork.colorContainer,
           border: Border(
-            top: BorderSide(
-              color: LegacyColors.getInternalNetworkBorderColor(isDark),
-            ),
+            top: BorderSide(color: semantic.internalNetwork.color),
           ),
         ),
         child: bottomNav,

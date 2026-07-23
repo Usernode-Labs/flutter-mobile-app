@@ -146,6 +146,11 @@ String? authRedirect(AuthStatus status, String location) {
     case AuthStatus.unauthenticated:
       return isAuthRoute ? null : AppRoutes.authLanding;
     case AuthStatus.guest:
+      // Guests may enter the auth flow — that is how they upgrade to a real
+      // account (Settings shows them a "Log in" tile). Bouncing them off auth
+      // routes the way we bounce authenticated users sent them landing ->
+      // splash -> guestRedirect -> dapps, making the tile a no-op.
+      return null;
     case AuthStatus.authenticated:
       return isAuthRoute ? AppRoutes.splash : null;
   }

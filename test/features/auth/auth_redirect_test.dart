@@ -21,10 +21,24 @@ void main() {
   test('authenticated on private route -> defer to existing logic (null)', () {
     expect(authRedirect(AuthStatus.authenticated, AppRoutes.home), isNull);
   });
-  test('guest behaves like authenticated for the gate', () {
-    expect(authRedirect(AuthStatus.guest, AppRoutes.authLanding),
-        AppRoutes.splash);
+  test('guest on a private route -> defer to existing logic (null)', () {
     expect(authRedirect(AuthStatus.guest, AppRoutes.home), isNull);
+  });
+
+  // A guest reaching the auth flow is the whole upgrade path — Settings shows
+  // them a "Log in" tile that routes to the landing. Bouncing them off auth
+  // routes the way we bounce authenticated users sent them landing -> splash
+  // -> guestRedirect -> dapps, so the tile did nothing.
+  test('guest on an auth route -> allow (upgrade path)', () {
+    for (final route in [
+      AppRoutes.authLanding,
+      AppRoutes.authEmail,
+      AppRoutes.authPassword,
+      AppRoutes.authOtp,
+      AppRoutes.authSetPassword,
+    ]) {
+      expect(authRedirect(AuthStatus.guest, route), isNull, reason: route);
+    }
   });
 
   group('guestRedirect', () {
@@ -39,6 +53,14 @@ void main() {
       expect(guestRedirect(AppRoutes.dapps), isNull);
       expect(guestRedirect(AppRoutes.home), isNull);
       expect(guestRedirect(AppRoutes.profile), isNull);
+    });
+
+    // Second half of the upgrade path: authRedirect lets a guest onto an auth
+    // route, so guestRedirect must not pull them back off it.
+    test('auth routes -> allow (null), so the guest can log in', () {
+      expect(guestRedirect(AppRoutes.authLanding), isNull);
+      expect(guestRedirect(AppRoutes.authEmail), isNull);
+      expect(guestRedirect(AppRoutes.authOtp), isNull);
     });
   });
 }

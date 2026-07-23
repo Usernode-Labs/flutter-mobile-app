@@ -176,19 +176,28 @@ Delivered and safe:
   so a mid-start logout is caught; `backendLifecycle` stops a producing node on
   logout/demotion, and any restart returns keyless.
 
-Not closable in Dart — needs a `usernode` change:
+Addressed in `usernode` (branch `feat/awaitable-shutdown`):
 
-- **Cross-engine race.** The Android background alarm engine can build a keyed
-  node in the sub-second window during which the UI engine completes a logout.
-  The engines share only storage with no cross-engine lock, so the logout cannot
-  be observed in time. Fully closing this requires a graceful, awaitable node
-  shutdown and/or a session-verified production gate on a *live* node — so
-  producing state can be changed or refused after build, not only fixed at it.
-- **Within-session promotion** (member → operator) still needs an app restart to
-  become keyed, for the same reason: no safe rebind of a running node.
+- **Awaitable shutdown.** `NodeControl.shutdown_and_wait` signals shutdown and
+  awaits the run loop actually exiting. `stopNode` now awaits it, so on logout
+  block production has provably ceased before the stop returns — the timing hole
+  is closed for the single-engine case.
+- **One node per process (best-effort).** `new_inner` signals the previous
+  global node to shut down when a new one replaces it, so a second engine
+  building a node does not leave the first one's producer running.
 
-Recommendation: take these two to the `usernode` node lifecycle as a dedicated
-piece of work. The Flutter side is complete up to that boundary.
+Still open — needs a bigger `usernode` change:
+
+- **Cross-engine race.** The Android alarm engine can still build a keyed node
+  in the sub-second window around a UI-engine logout. The above narrows it a lot
+  but does not fully close it: a constructor cannot await the previous node's
+  shutdown.
+- **Within-session promotion** (member → operator) still needs an app restart.
+
+Both remaining items need a *live production gate* — the ability to toggle or
+refuse block production on a running node without rebuilding — which reaches into
+the VRF/consensus state machine. Recommended as dedicated follow-up work; the
+tier feature does not depend on it.
 
 - guest, member → keyless start: skip account/secret lookup,
   skip `blockProducerSecretKey`, skip `_configureWalletSigner`, skip mempool

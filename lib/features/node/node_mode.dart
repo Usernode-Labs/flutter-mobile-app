@@ -34,19 +34,24 @@ enum NodeMode { keyed, keyless }
 /// **Within a single isolate, session changes are handled.** `startNode`
 /// re-resolves the mode as its last `await` and then configures the producer
 /// and builds synchronously, so a logout mid-start is caught. `backendLifecycle`
-/// stops a producing node on logout/demotion, and — because the mode is decided
-/// inside `startNode` — anything that restarts it brings it back keyless.
+/// stops a producing node on logout/demotion via `stopNode`, which now awaits
+/// `NodeControl.shutdown_and_wait` — the run loop has provably exited (block
+/// production ceased) before the stop returns. Because the mode is decided
+/// inside `startNode`, anything that restarts the node brings it back keyless.
 ///
-/// **The residual gap is cross-engine and needs Rust.** Android runs a second
+/// **The residual gap is a narrow cross-engine race.** Android runs a second
 /// Flutter engine for background alarms (`BackgroundAlarmEngine`). The two
 /// engines share only storage, with no cross-engine lock, so a logout completing
 /// in the UI engine during the sub-second window in which the alarm engine is
-/// building a keyed node cannot be observed in time: the alarm engine may
-/// publish a producing node for a user who just signed out. Closing this fully
-/// requires a capability the Dart layer does not have — a graceful, awaitable
-/// node shutdown and/or single-owner production gate in `usernode`, so a node's
-/// producing state can be changed (or refused) on a live node rather than only
-/// fixed at build. Tracked as the node-lifecycle work.
+/// building a keyed node may not be observed in time. Two `usernode` changes
+/// narrow this substantially: `shutdown_and_wait` makes the UI-engine stop
+/// deterministic, and `new_inner` now signals the previous global node to shut
+/// down when a new one replaces it (best-effort, since a constructor cannot
+/// await). Fully closing it — and enabling within-session promotion
+/// member→operator without an app restart — needs a live production gate on a
+/// running node (toggle/refuse production without rebuilding), which reaches
+/// into the VRF/consensus state machine. Tracked as the remaining node-lifecycle
+/// work.
 NodeMode resolveNodeMode({
   required bool hasSessionToken,
   required bool hasOnchainAccount,

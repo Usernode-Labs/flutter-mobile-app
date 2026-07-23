@@ -76,6 +76,31 @@ class RustBackendService {
   Completer<void>?
       _initCompleter; // Prevents race condition on concurrent init() calls
   Completer<bool>? _startNodeCompleter;
+  Future<void>? _stopNodeInProgress;
+
+  /// Serialises node start and stop against **each other**, not just among
+  /// themselves. Start and stop each dedup their own concurrent callers, but a
+  /// start and a stop must never overlap: with an awaited shutdown, a start that
+  /// suspended mid-setup could publish a node right after a stop finished,
+  /// leaving it running untracked. Both run their body through this chain.
+  Future<void> _lifecycleLock = Future<void>.value();
+
+  Future<T> _serializeLifecycle<T>(Future<T> Function() body) {
+    final prev = _lifecycleLock;
+    final completer = Completer<T>();
+    // The lock advances regardless of this body's success, so a failed start or
+    // stop never wedges the chain.
+    _lifecycleLock = completer.future.then((_) {}, onError: (_) {});
+    prev.whenComplete(() async {
+      try {
+        completer.complete(await body());
+      } catch (e, st) {
+        completer.completeError(e, st);
+      }
+    });
+    return completer.future;
+  }
+
   bool _nodeRunning = false;
   bool _nodePaused = false;
 
@@ -287,7 +312,10 @@ class RustBackendService {
     final completer = Completer<bool>();
     _startNodeCompleter = completer;
     try {
-      final started = await _startNodeInternal(httpPort: httpPort);
+      // Runs after any in-flight stop (and vice versa), so start and stop can
+      // never publish/clear over each other.
+      final started = await _serializeLifecycle(
+          () => _startNodeInternal(httpPort: httpPort));
       completer.complete(started);
       return started;
     } catch (e, st) {
@@ -578,13 +606,43 @@ class RustBackendService {
     }
   }
 
-  Future<void> stopNode() async {
+  Future<void> stopNode() {
+    // Dedup concurrent stops, and run through the lifecycle lock so a stop and a
+    // start never overlap.
+    final inProgress = _stopNodeInProgress;
+    if (inProgress != null) return inProgress;
+    final future = _serializeLifecycle(_stopNodeInternal);
+    _stopNodeInProgress = future;
+    return future.whenComplete(() {
+      if (identical(_stopNodeInProgress, future)) _stopNodeInProgress = null;
+    });
+  }
+
+  Future<void> _stopNodeInternal() async {
     if (!_initialized && !_nodeRunning) return;
-    // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
     _log.warn(
-      'Stopping node (dropping references; FRB stays initialized)',
-    );
-    _control?.shutdown();
+        'Stopping node (awaiting graceful shutdown; FRB stays initialized)');
+    // Await the run loop actually exiting, not just the shutdown signal. On
+    // logout this is what lets the caller know block production has genuinely
+    // ceased before anything else proceeds. Guarded by a timeout so a wedged
+    // node can never hang the caller.
+    final control = _control;
+    if (control != null) {
+      try {
+        await control.shutdownAndWait().timeout(const Duration(seconds: 5));
+      } on TimeoutException {
+        _log.warn(
+            'Node shutdown did not confirm within 5s; dropping references');
+      } catch (e) {
+        _log.warn('Node shutdown error; dropping references: $e');
+      }
+    }
+    // Only clear if this is still the control we shut down — a startNode may
+    // have raced in and published a new node while we awaited.
+    if (!identical(_control, control)) {
+      _log.warn('A new node started during shutdown; leaving its state intact');
+      return;
+    }
     _nodeRunning = false;
     _nodePaused = false;
     _currentMode = null;

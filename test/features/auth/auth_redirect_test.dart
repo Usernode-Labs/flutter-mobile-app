@@ -63,4 +63,16 @@ void main() {
       expect(guestRedirect(AppRoutes.authOtp), isNull);
     });
   });
+
+  group('authGateAllowsAccountLogic', () {
+    // The account/onboarding logic below the gate is written for a signed-in
+    // user. Letting any other status reach it is how `unknown` ended up being
+    // routed by account state before the session had even been read.
+    test('only authenticated may reach the account/onboarding logic', () {
+      expect(authGateAllowsAccountLogic(AuthStatus.authenticated), isTrue);
+      expect(authGateAllowsAccountLogic(AuthStatus.unknown), isFalse);
+      expect(authGateAllowsAccountLogic(AuthStatus.unauthenticated), isFalse);
+      expect(authGateAllowsAccountLogic(AuthStatus.guest), isFalse);
+    });
+  });
 }

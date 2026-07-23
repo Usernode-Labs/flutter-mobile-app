@@ -156,6 +156,16 @@ String? authRedirect(AuthStatus status, String location) {
   }
 }
 
+/// Whether the account/onboarding logic below the auth gate may run.
+///
+/// That logic assumes a signed-in user with a local account. Only
+/// [AuthStatus.authenticated] qualifies. In particular [AuthStatus.unknown]
+/// must not: the session has not been read yet, and letting it through meant an
+/// unauthenticated user could be routed by account state — landing on `/home`
+/// or onboarding for a frame before being corrected. Pure for unit testing.
+bool authGateAllowsAccountLogic(AuthStatus status) =>
+    status == AuthStatus.authenticated;
+
 /// Where a guest should be routed. Guests never enter node onboarding: from
 /// splash/onboarding send them to the Dapps tab; elsewhere return null so they
 /// can roam the app shell. Pure for unit testing.
@@ -592,27 +602,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _log.trace(
           'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
-      // v3 auth gate runs first. It forces unauthenticated users (including
+      // Disallowed deep links are refused regardless of auth state, before the
+      // gate. A blocked URI is not an authorisation question: leaving it open
+      // while the session resolves — or for a guest, who returns below without
+      // ever reaching this check — would let it survive indefinitely.
+      if (shouldBlockUsernodeDeepLink(requestUri)) {
+        _log.warn('Blocked unsupported app deep link: $requestUri');
+        return AppRoutes.home;
+      }
+
+      // v3 auth gate runs next. It forces unauthenticated users (including
       // existing users upgrading) to the auth landing before any account or
       // onboarding logic applies. Authenticated/guest users fall through.
       final authStatus = ref.read(authStatusProvider);
       final authGate = authRedirect(authStatus, currentLocation);
       if (authGate != null) return authGate;
-      if (authStatus == AuthStatus.unauthenticated) {
-        // On an auth route while unauthenticated: allow it, skip account logic.
+
+      if (!authGateAllowsAccountLogic(authStatus)) {
+        // Guests never enter node onboarding — they browse. Land them on Dapps
+        // from splash/onboarding; otherwise let them roam the app shell
+        // (account-gated screens surface their own "sign in to view" gate).
+        if (authStatus == AuthStatus.guest) {
+          return guestRedirect(currentLocation);
+        }
+        // unauthenticated on an auth route: allow it.
+        // unknown: the session has not been read yet — stay put rather than let
+        // account state decide, which would flash /home or onboarding before
+        // GoRouterRefreshStream corrects us.
         return null;
-      }
-
-      // Guests never enter node onboarding — they browse. Land them on Dapps
-      // from splash/onboarding; otherwise let them roam the app shell
-      // (account-gated screens surface their own "sign in to view" gate).
-      if (authStatus == AuthStatus.guest) {
-        return guestRedirect(currentLocation);
-      }
-
-      if (shouldBlockUsernodeDeepLink(requestUri)) {
-        _log.warn('Blocked unsupported app deep link: $requestUri');
-        return AppRoutes.home;
       }
 
       // Still loading state

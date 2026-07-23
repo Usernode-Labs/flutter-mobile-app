@@ -1266,6 +1266,22 @@
   "@navProducedBlocks": {
     "description": "Navigation bar label for produced blocks tab"
   },
+  "navMore": "More",
+  "@navMore": {
+    "description": "Bottom navigation label for the More tab"
+  },
+  "moreSettings": "Settings",
+  "@moreSettings": {
+    "description": "More tab entry opening app settings"
+  },
+  "moreProfile": "Profile",
+  "@moreProfile": {
+    "description": "More tab entry opening the user profile"
+  },
+  "moreNodeStatus": "Node Status",
+  "@moreNodeStatus": {
+    "description": "More tab entry opening node status"
+  },
   "navWallet": "Wallet",
   "@navWallet": {
     "description": "Navigation bar label for wallet tab"

@@ -919,6 +919,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navProducedBlocks => 'Blocks';
 
   @override
+  String get navMore => 'More';
+
+  @override
+  String get moreSettings => 'Settings';
+
+  @override
+  String get moreProfile => 'Profile';
+
+  @override
+  String get moreNodeStatus => 'Node Status';
+
+  @override
   String get navWallet => 'Wallet';
 
   @override

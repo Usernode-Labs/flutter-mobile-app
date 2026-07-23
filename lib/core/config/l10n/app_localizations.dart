@@ -1678,6 +1678,30 @@ abstract class AppLocalizations {
   /// **'Blocks'**
   String get navProducedBlocks;
 
+  /// Bottom navigation label for the More tab
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get navMore;
+
+  /// More tab entry opening app settings
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get moreSettings;
+
+  /// More tab entry opening the user profile
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get moreProfile;
+
+  /// More tab entry opening node status
+  ///
+  /// In en, this message translates to:
+  /// **'Node Status'**
+  String get moreNodeStatus;
+
   /// Navigation bar label for wallet tab
   ///
   /// In en, this message translates to:

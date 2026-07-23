@@ -165,6 +165,31 @@ production.
 Keyed **iff** all three hold: session token present, on-chain account exists, and
 cached `app:user_type == operator`.
 
+### Status after implementation
+
+Delivered and safe:
+
+- **Cold start** picks keyed/keyless exactly. Guests and members run a syncing,
+  non-producing node; operators run the keyed path. This is the core requirement.
+- **Single-isolate session changes** are handled: `startNode` re-resolves the
+  mode as its final `await` and configures the producer + builds synchronously,
+  so a mid-start logout is caught; `backendLifecycle` stops a producing node on
+  logout/demotion, and any restart returns keyless.
+
+Not closable in Dart — needs a `usernode` change:
+
+- **Cross-engine race.** The Android background alarm engine can build a keyed
+  node in the sub-second window during which the UI engine completes a logout.
+  The engines share only storage with no cross-engine lock, so the logout cannot
+  be observed in time. Fully closing this requires a graceful, awaitable node
+  shutdown and/or a session-verified production gate on a *live* node — so
+  producing state can be changed or refused after build, not only fixed at it.
+- **Within-session promotion** (member → operator) still needs an app restart to
+  become keyed, for the same reason: no safe rebind of a running node.
+
+Recommendation: take these two to the `usernode` node lifecycle as a dedicated
+piece of work. The Flutter side is complete up to that boundary.
+
 - guest, member → keyless start: skip account/secret lookup,
   skip `blockProducerSecretKey`, skip `_configureWalletSigner`, skip mempool
   autoinsert and observability intake

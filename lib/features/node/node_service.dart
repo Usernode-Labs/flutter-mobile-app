@@ -13,6 +13,8 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
+import 'package:crypto_mobile_app/features/node/node_mode.dart';
+import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' show Memo;
@@ -76,6 +78,14 @@ class RustBackendService {
   Completer<bool>? _startNodeCompleter;
   bool _nodeRunning = false;
   bool _nodePaused = false;
+
+  /// Mode of the currently running node, null when stopped.
+  NodeMode? _currentMode;
+
+  /// Mode the *global* node was built with, or null if this isolate did not
+  /// build it. Read on the reuse path to label an adopted node by what it
+  /// actually is, since a running node's producer state cannot be changed.
+  static NodeMode? _globalBuiltMode;
   String? _instanceId;
   String? _cachedPeerId;
   int? _cachedGenesisTimestamp;
@@ -87,6 +97,11 @@ class RustBackendService {
   NodeRpcClient? _rpc;
   bool get isRunning => _nodeRunning;
   bool get isRuntimeActive => _nodeRunning && !_nodePaused;
+
+  /// True when the running node is keyed — i.e. actually producing blocks.
+  /// Watchdog / producer recovery keys off this, not off account existence: a
+  /// keyless guest or member node has nothing to recover.
+  bool get isBlockProducing => _nodeRunning && _currentMode == NodeMode.keyed;
   String? get instanceId => _instanceId;
   int? get nodeClockDriftMs => _nodeClockDriftMs;
   int? get lastNodeTimeMs => _lastNodeTimeMs;
@@ -301,55 +316,72 @@ class RustBackendService {
       return true;
     }
 
-    // Get active account
+    // Decide keyed vs keyless before touching any account. Guests and members
+    // run a keyless node — it syncs the chain but holds no key, produces no
+    // blocks and configures no wallet signer. Only an operator loads a secret.
     final repo = await AccountsRepository.create();
-    _log.trace('Checking if any accounts exist...');
-    final hasAny = await repo.hasAny();
-    _log.trace('Account check result: hasAny = $hasAny');
-    if (!hasAny) {
-      _log.trace('No accounts found - skipping node start');
-      return false;
+    var mode = await _resolveNodeMode(repo);
+    _log.debug('Node mode: ${mode.name}');
+
+    // For a keyed node, resolve the operator's secret up front. A missing
+    // account or key here is a real error for an operator; for a keyless node
+    // it is simply irrelevant.
+    AccountMeta? account;
+    String? secretKey;
+    if (mode == NodeMode.keyed) {
+      _log.trace('Retrieving active account...');
+      account = await repo.getActive();
+      if (account == null) {
+        _log.error('Keyed start requested but no active account');
+        return false;
+      }
+      _log.debug('Active account: ${account.id} (${account.name})');
+
+      secretKey = await repo.getSecretKey(account.id);
+      if (secretKey == null || secretKey.isEmpty) {
+        _log.error(
+          'Cannot start keyed node: secret key unavailable for ${account.id}',
+        );
+        return false;
+      }
+      // SECURITY: Only log key length, not value
+      _log.trace('Secret key retrieved (length: ${secretKey.length})');
     }
-
-    // Retrieve active account
-    _log.debug('Retrieving active account...');
-    final account = await repo.getActive();
-
-    if (account == null) {
-      _log.error('Failed to retrieve active account');
-      return false;
-    }
-
-    _log.debug('Active account: ${account.id} (${account.name})');
-
-    // Get secret key for active account
-    _log.trace('Retrieving secret key for account ${account.id}...');
-    final secretKey = await repo.getSecretKey(account.id);
-
-    if (secretKey == null || secretKey.isEmpty) {
-      _log.error(
-        'Cannot start node: secret key unavailable for account ${account.id}',
-      );
-      return false;
-    }
-
-    // SECURITY: Only log key length, not value
-    _log.trace('Secret key retrieved (length: ${secretKey.length})');
 
     // First try to reuse an already-running *global* node (shared across Dart
     // isolates / FlutterEngines in the same process) by grabbing its RPC client.
     // This avoids spinning up a second node when another engine already started it.
     final existing = Node.getGlobal();
     if (existing case (final rpc, final control)) {
+      // Producer state is fixed at build time and cannot be reconfigured on a
+      // running node, so the reused node's mode is the mode it was BUILT with —
+      // not the tier we just resolved. [_globalBuiltMode] is that mode when this
+      // isolate built the node; null when another isolate did and we cannot see
+      // it.
+      //
+      // On the unknown case we assume KEYED, not keyless. The invariant that
+      // must hold is "a non-operator never keeps producing": treating an unknown
+      // node as keyless could hide a genuinely keyed node from the tier
+      // listener's shutdown, whereas treating it as keyed only risks a
+      // redundant stop of a keyless node — harmless. Erring toward "might be
+      // producing" is the safe direction.
+      final builtMode = _globalBuiltMode ?? NodeMode.keyed;
       _rpc = rpc;
       _control = control;
       _nodeRunning = true;
       _nodePaused = false;
+      _currentMode = builtMode;
       control.resume();
       await _cachePeerIdFromRpc(rpc);
 
-      await _configureWalletSigner(secretKey, account.id);
-      _log.info('Reused previously started node');
+      // The wallet signer is not producer state; an operator can use the wallet
+      // on a reused node regardless of how it was built. Configure it from the
+      // freshly resolved mode, not the built mode.
+      if (mode == NodeMode.keyed) {
+        await _configureWalletSigner(secretKey!, account!.id);
+      }
+      _log.info('Reused previously started node '
+          '(built: ${builtMode.name}, tier: ${mode.name})');
       unawaited(
         ObservabilityReportingService.instance.reportNodeInitialized(
           resetStaticContext: true,
@@ -371,38 +403,11 @@ class RustBackendService {
       // Load network configuration from URLs (with retry)
       await _configureNetworkFromUrls(builder);
 
-      // A guest session is treated as view-only: the node still runs and syncs,
-      // but never produces blocks — a returning operator's leftover keys must
-      // not operate while browsing as a guest.
-      final guestSession = await UserTypeStore().isGuest();
-      final viewOnly = AppConfig.viewOnly || guestSession;
-      if (viewOnly) {
-        _log.info(guestSession
-            ? 'Guest session; node runs non-producing (no block producer)'
-            : 'VIEW_ONLY enabled; skipping block producer configuration');
-      } else {
-        _log.trace(
-          'Configuring block producer with user secret key (length: ${secretKey.length})',
-        );
-        builder.blockProducerSecretKey(secretKey: secretKey);
-      }
-      if (!viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
-        _log.info(
-          'Enabling observability hub HTTP intake',
-          context: {'base_url': AppConfig.observabilityHubBaseUrl},
-        );
-        builder.enableObservabilityHubHttp(
-          baseUrl: AppConfig.observabilityHubBaseUrl,
-        );
-      } else if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
-        _log.info('Skipping observability hub HTTP intake in view-only mode');
-      }
+      // Configure everything that does NOT depend on the key first, so all
+      // remaining awaits happen before the mode is finally settled.
       if (AppConfig.enableRealProver) {
         _log.info('Forcing real prover mode');
         builder.enableRealProver();
-      }
-      if (!viewOnly) {
-        builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
       }
       // Configure persistent node storage path so wallet cache state survives restarts.
       // Use network-specific paths to avoid conflicts when switching networks.
@@ -420,6 +425,40 @@ class RustBackendService {
       _log.trace('Using VRF storage path: $vrfPath');
       builder.vrfStoragePath(path: vrfPath);
 
+      // Final mode decision, then producer config and build with NO await in
+      // between. Dart runs synchronous code atomically, so a logout completing
+      // during the re-resolve's reads is caught (it reads the fresh stores),
+      // and none can interleave between the decision and the build. This is the
+      // window blocker that repeated re-checks alone could not close.
+      if (mode == NodeMode.keyed &&
+          await _resolveNodeMode(repo) == NodeMode.keyless) {
+        _log.warn('Tier changed mid-start; downgrading to keyless');
+        mode = NodeMode.keyless;
+        account = null;
+        secretKey = null;
+      }
+
+      // --- synchronous from here to publish; do not add awaits ---
+      final viewOnly = mode == NodeMode.keyless;
+      if (viewOnly) {
+        _log.info('Keyless node; no block producer, signer, or intake');
+      } else {
+        _log.trace(
+          'Configuring block producer with user secret key (length: ${secretKey!.length})',
+        );
+        builder.blockProducerSecretKey(secretKey: secretKey);
+        if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+          _log.info(
+            'Enabling observability hub HTTP intake',
+            context: {'base_url': AppConfig.observabilityHubBaseUrl},
+          );
+          builder.enableObservabilityHubHttp(
+            baseUrl: AppConfig.observabilityHubBaseUrl,
+          );
+        }
+        builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+      }
+
       final node = builder.build();
       _rpc = node.rpc();
 
@@ -427,6 +466,8 @@ class RustBackendService {
       _control = node.runForeverInNewThread();
       _nodeRunning = true;
       _nodePaused = false;
+      _currentMode = mode;
+      _globalBuiltMode = mode;
 
       // Cache peer ID once on startup.
       // Prefer RPC status so callers don't depend on holding a Node handle.
@@ -438,9 +479,11 @@ class RustBackendService {
         _log.warn('Failed to cache peer ID (node may still be starting): $e');
       }
 
-      await _configureWalletSigner(secretKey, account.id);
+      if (mode == NodeMode.keyed) {
+        await _configureWalletSigner(secretKey!, account!.id);
+      }
 
-      _log.info('Node started with user account block producer');
+      _log.info('Node started (${mode.name})');
       unawaited(
         ObservabilityReportingService.instance.reportNodeInitialized(
           resetStaticContext: true,
@@ -448,11 +491,32 @@ class RustBackendService {
       );
       return true;
     } catch (e, st) {
-      _log.error('Failed to start node with account ${account.id}',
-          error: e, stackTrace: st);
+      _log.error('Failed to start ${mode.name} node', error: e, stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'startNode');
       return false;
     }
+  }
+
+  /// Resolves [NodeMode] from local state, so the node can start before `/me`.
+  ///
+  /// Reads the session token, whether a local account exists, and the cached
+  /// tier — the same inputs the UI resolves the tier from, but without touching
+  /// the widget tree, since this runs on a background engine too.
+  ///
+  /// [AppConfig.viewOnly] forces keyless: it is the build-level "never produce"
+  /// switch, so folding it in here keeps [_currentMode] — and therefore
+  /// [isBlockProducing] — an honest reflection of whether a producer was
+  /// actually configured.
+  Future<NodeMode> _resolveNodeMode(AccountsRepository repo) async {
+    if (AppConfig.viewOnly) return NodeMode.keyless;
+    final token = await AuthTokenStore().read();
+    final hasAccount = await repo.hasAny();
+    final cachedLevel = await UserTypeStore().read();
+    return resolveNodeMode(
+      hasSessionToken: token != null && token.isNotEmpty,
+      hasOnchainAccount: hasAccount,
+      cachedLevel: cachedLevel,
+    );
   }
 
   Future<void> _configureWalletSigner(
@@ -523,6 +587,8 @@ class RustBackendService {
     _control?.shutdown();
     _nodeRunning = false;
     _nodePaused = false;
+    _currentMode = null;
+    _globalBuiltMode = null;
     _rpc = null;
     _control = null;
     _cachedPeerId = null;

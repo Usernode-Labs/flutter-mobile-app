@@ -8,6 +8,8 @@ import 'package:crypto_mobile_app/core/services/android_foreground_task_controll
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/config/theme_mode.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
@@ -54,8 +56,12 @@ final backendLifecycleProvider = Provider<void>((ref) {
       // Account created/imported: false → true
       if (!prevHasAccount && nextHasAccount) {
         _log.trace('Account created - starting backend');
-        final started = await RustBackendService.instance.startNode();
-        if (Platform.isAndroid && started) {
+        await RustBackendService.instance.startNode();
+        // Watchdog/foreground monitoring is for block production only. A member
+        // who imported an account but is not yet a confirmed operator gets a
+        // keyless node — startNode returns true, but there is nothing to guard.
+        if (Platform.isAndroid &&
+            RustBackendService.instance.isBlockProducing) {
           BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
           BlockProductionAlarmAuditService.instance.auditBestEffort(
             reason: 'account_available',
@@ -83,6 +89,29 @@ final backendLifecycleProvider = Provider<void>((ref) {
         }
       }
     },
+  );
+
+  // Stop block production the moment the user stops being an operator — a
+  // logout or an /me demotion. The account (and key) stay on the device, so the
+  // hasAnyAccount listener above never fires; without this a logged-out
+  // operator would keep producing. Stopping is safe now that mode is decided in
+  // startNode: anything that restarts the node brings it back keyless.
+  ref.listen<UserLevel>(
+    userLevelProvider,
+    (previous, next) async {
+      if (next == UserLevel.operator) return;
+      if (!RustBackendService.instance.isBlockProducing) return;
+      _log.info('No longer an operator ($next) - stopping producing node');
+      if (Platform.isAndroid) {
+        BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
+        await AndroidForegroundTaskController.instance.stopMonitoring(
+          reason: 'tier_downgrade',
+        );
+        await PlatformAlarmService.instance.cancelAlarmWatchdog();
+      }
+      await RustBackendService.instance.stopNode();
+    },
+    fireImmediately: true,
   );
 
   return;

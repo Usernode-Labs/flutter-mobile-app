@@ -168,13 +168,17 @@ void main() {
       }
     });
 
-    test('every other page is identical across tiers', () {
+    // Wallet and Challenges are the only tier-varying pages: Wallet becomes a
+    // placeholder, Challenges becomes the gate screen. Everything else must be
+    // identical, so a tier change cannot quietly swap an unrelated screen.
+    test('only wallet and challenges vary across tiers', () {
       final operator = homePagesFor(UserLevel.operator);
       final guest = homePagesFor(UserLevel.guest);
+      const tierVarying = {HomeTab.wallet, HomeTab.challenges};
       for (final tab in HomeTab.values) {
-        if (tab == HomeTab.wallet) continue;
-        expect(guest[tab.index].runtimeType, operator[tab.index].runtimeType,
-            reason: tab.name);
+        final same =
+            guest[tab.index].runtimeType == operator[tab.index].runtimeType;
+        expect(same, !tierVarying.contains(tab), reason: tab.name);
       }
     });
 

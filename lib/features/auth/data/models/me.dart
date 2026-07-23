@@ -47,16 +47,32 @@ class Me {
       );
 }
 
-/// Resolves the user's level. Not authenticated → guest. Authenticated → the
-/// backend `level` from [me] when available, otherwise a local derivation
-/// (operator when an on-chain account exists, else member) used until `/me`
-/// resolves or while offline.
+/// Resolves the user's level.
+///
+/// Not authenticated → guest. Authenticated → the backend `level` from [me]
+/// when available, otherwise [cachedLevel]: the last level the backend
+/// confirmed, which keeps an operator working offline.
+///
+/// Deliberately never infers `operator` from the presence of a local on-chain
+/// account. A key on the device is not authority — a demoted or waitlisted
+/// member can still hold one, and inferring from it would promote them for as
+/// long as `/me` stayed unreachable.
+///
+/// When nothing has been confirmed, falls back to `member` — the tier with no
+/// privileges. This does mean a real operator sees member UI in the window
+/// between signing in and `/me` resolving. That is the intended trade: signing
+/// in requires the network, so `/me` normally answers moments later, and being
+/// briefly under-privileged is recoverable in a way that briefly producing
+/// blocks as a demoted member is not.
 UserLevel resolveUserLevel({
   required bool authenticated,
   required Me? me,
-  required bool hasOnchainAccount,
+  required UserLevel? cachedLevel,
 }) {
   if (!authenticated) return UserLevel.guest;
   if (me != null) return me.level;
-  return hasOnchainAccount ? UserLevel.operator : UserLevel.member;
+  if (cachedLevel == null || cachedLevel == UserLevel.guest) {
+    return UserLevel.member;
+  }
+  return cachedLevel;
 }

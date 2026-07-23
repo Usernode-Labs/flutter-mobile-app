@@ -41,40 +41,61 @@ void main() {
           level: level,
         );
 
-    test('not authenticated -> guest regardless of onchain', () {
-      expect(
-        resolveUserLevel(
-            authenticated: false, me: null, hasOnchainAccount: true),
-        UserLevel.guest,
-      );
+    test('not authenticated -> guest, whatever is cached', () {
+      for (final cached in [null, ...UserLevel.values]) {
+        expect(
+          resolveUserLevel(authenticated: false, me: null, cachedLevel: cached),
+          UserLevel.guest,
+          reason: '$cached',
+        );
+      }
     });
 
-    test('authenticated uses backend level when present', () {
+    test('backend level wins over the cache', () {
       expect(
         resolveUserLevel(
             authenticated: true,
             me: me(UserLevel.operator),
-            hasOnchainAccount: false),
+            cachedLevel: UserLevel.member),
         UserLevel.operator,
       );
+      // The demotion case: a cached operator must not survive /me saying member.
       expect(
         resolveUserLevel(
             authenticated: true,
             me: me(UserLevel.member),
-            hasOnchainAccount: true),
+            cachedLevel: UserLevel.operator),
         UserLevel.member,
       );
     });
 
-    test('falls back to onchain flag until /me resolves', () {
+    test('falls back to the last confirmed tier while /me is unresolved', () {
       expect(
         resolveUserLevel(
-            authenticated: true, me: null, hasOnchainAccount: true),
+            authenticated: true, me: null, cachedLevel: UserLevel.operator),
         UserLevel.operator,
+        reason: 'an operator keeps working offline',
       );
       expect(
         resolveUserLevel(
-            authenticated: true, me: null, hasOnchainAccount: false),
+            authenticated: true, me: null, cachedLevel: UserLevel.member),
+        UserLevel.member,
+      );
+    });
+
+    // Nothing confirmed yet -> the tier with no privileges. Never operator:
+    // holding a local key is not authority, and a demoted member can still
+    // have one.
+    test('unconfirmed authenticated user is a member, never an operator', () {
+      expect(
+        resolveUserLevel(authenticated: true, me: null, cachedLevel: null),
+        UserLevel.member,
+      );
+      // A stale `guest` cache on an authenticated session is incoherent;
+      // resolve it to member rather than stripping them back to guest.
+      expect(
+        resolveUserLevel(
+            authenticated: true, me: null, cachedLevel: UserLevel.guest),
         UserLevel.member,
       );
     });

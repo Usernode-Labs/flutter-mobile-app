@@ -1266,6 +1266,30 @@
   "@navProducedBlocks": {
     "description": "Navigation bar label for produced blocks tab"
   },
+  "challengesGuestGateTitle": "Sign in to unlock challenges",
+  "@challengesGuestGateTitle": {
+    "description": "Challenges tab title shown to guests"
+  },
+  "challengesGuestGateBody": "Sign in or create an account to get access to more features.",
+  "@challengesGuestGateBody": {
+    "description": "Challenges tab body shown to guests"
+  },
+  "challengesGuestGateAction": "Sign in or sign up",
+  "@challengesGuestGateAction": {
+    "description": "Challenges tab CTA opening the auth flow"
+  },
+  "challengesWaitlistJoinTitle": "Join the waiting list",
+  "@challengesWaitlistJoinTitle": {
+    "description": "Challenges tab title for a member not yet on the waiting list"
+  },
+  "challengesWaitlistJoinedTitle": "You are on the waiting list",
+  "@challengesWaitlistJoinedTitle": {
+    "description": "Challenges tab title for a member already on the waiting list"
+  },
+  "challengesWaitlistBody": "Challenges will be enabled as soon as a place opens up for you.",
+  "@challengesWaitlistBody": {
+    "description": "Challenges tab body shown to members"
+  },
   "navMore": "More",
   "@navMore": {
     "description": "Bottom navigation label for the More tab"

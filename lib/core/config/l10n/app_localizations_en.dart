@@ -919,6 +919,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navProducedBlocks => 'Blocks';
 
   @override
+  String get challengesGuestGateTitle => 'Sign in to unlock challenges';
+
+  @override
+  String get challengesGuestGateBody =>
+      'Sign in or create an account to get access to more features.';
+
+  @override
+  String get challengesGuestGateAction => 'Sign in or sign up';
+
+  @override
+  String get challengesWaitlistJoinTitle => 'Join the waiting list';
+
+  @override
+  String get challengesWaitlistJoinedTitle => 'You are on the waiting list';
+
+  @override
+  String get challengesWaitlistBody =>
+      'Challenges will be enabled as soon as a place opens up for you.';
+
+  @override
   String get navMore => 'More';
 
   @override

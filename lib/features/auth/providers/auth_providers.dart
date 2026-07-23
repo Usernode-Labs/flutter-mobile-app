@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/api_version_gate.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -30,6 +29,8 @@ final authStatusProvider =
     tokenStore: ref.watch(authTokenStoreProvider),
     userTypeStore: ref.watch(userTypeStoreProvider),
     repository: ref.watch(authRepositoryProvider),
+    onTierChanged: (level) =>
+        ref.read(cachedUserTypeProvider.notifier).state = level,
   )..load();
 });
 
@@ -38,14 +39,23 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
     required AuthTokenStore tokenStore,
     required UserTypeStore userTypeStore,
     required AuthRepository repository,
+    void Function(UserLevel?)? onTierChanged,
   })  : _tokenStore = tokenStore,
         _userTypeStore = userTypeStore,
         _repository = repository,
+        _onTierChanged = onTierChanged,
         super(AuthStatus.unknown);
 
   final AuthTokenStore _tokenStore;
   final UserTypeStore _userTypeStore;
   final AuthRepository _repository;
+
+  /// Publishes the tier into [cachedUserTypeProvider] synchronously.
+  ///
+  /// Must land before the new auth state is published: a dependent recomputing
+  /// on the status change would otherwise still read the previous session's
+  /// tier and briefly see an `operator`.
+  final void Function(UserLevel?)? _onTierChanged;
 
   /// Bumped on every identity transition, inside the serialised block so it
   /// always reflects the last transition that actually ran.
@@ -77,16 +87,35 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
     return next;
   }
 
+  /// Writes (or clears, when [level] is null) the stored tier, then publishes
+  /// it to [cachedUserTypeProvider] in the same turn.
+  ///
+  /// The publish must land before the new [state] does: a dependent
+  /// recomputing on the status change would otherwise still read the previous
+  /// session's tier and briefly see an `operator`.
+  Future<void> _setTier(UserLevel? level) async {
+    if (level == null) {
+      await _userTypeStore.clear();
+    } else {
+      await _userTypeStore.write(level);
+    }
+    _onTierChanged?.call(level);
+  }
+
   Future<void> load() async {
     final token = await _tokenStore.read();
+    final cached = await _userTypeStore.read();
     if (!mounted) return;
+    // Seed the in-memory mirror before publishing a status, so nothing
+    // recomputing on that status reads an empty tier.
+    _onTierChanged?.call(cached);
     if (token != null && token.isNotEmpty) {
       state = AuthStatus.authenticated;
       return;
     }
-    final guest = await _userTypeStore.isGuest();
-    if (!mounted) return;
-    state = guest ? AuthStatus.guest : AuthStatus.unauthenticated;
+    state = cached == UserLevel.guest
+        ? AuthStatus.guest
+        : AuthStatus.unauthenticated;
   }
 
   Future<void> completeLogin(AuthSession session) => _serialise(() async {
@@ -95,7 +124,7 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
         // Conservative until `/me` confirms otherwise: a fresh session is a
         // member, never an operator, so nothing starts producing blocks on the
         // strength of a stale local key alone.
-        await _userTypeStore.write(UserLevel.member);
+        await _setTier(UserLevel.member);
         await refreshActiveAccountBucket(guest: false);
         await markApiVersionCurrent();
         state = AuthStatus.authenticated;
@@ -103,7 +132,7 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
 
   Future<void> continueAsGuest() => _serialise(() async {
         _generation++;
-        await _userTypeStore.write(UserLevel.guest);
+        await _setTier(UserLevel.guest);
         await refreshActiveAccountBucket(guest: true);
         await markApiVersionCurrent();
         state = AuthStatus.guest;
@@ -125,7 +154,7 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
           }
         }
         await _tokenStore.clear();
-        await _userTypeStore.clear();
+        await _setTier(null);
         await refreshActiveAccountBucket(guest: false);
         state = AuthStatus.unauthenticated;
       });
@@ -133,7 +162,7 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
   Future<void> onUnauthorized() => _serialise(() async {
         _generation++;
         await _tokenStore.clear();
-        await _userTypeStore.clear();
+        await _setTier(null);
         await refreshActiveAccountBucket(guest: false);
         state = AuthStatus.unauthenticated;
       });
@@ -151,7 +180,7 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
       if (seq != _writeSeq) return; // superseded by a newer write
       if (gen != _generation) return; // session changed before our turn
       if (state != AuthStatus.authenticated) return;
-      await _userTypeStore.write(level);
+      await _setTier(level);
     });
   }
 }
@@ -215,8 +244,20 @@ final meProvider = FutureProvider<Me?>((ref) async {
   return ref.read(accountApiServiceProvider).getMe();
 });
 
+/// In-memory mirror of the `app:user_type` pref.
+///
+/// Synchronous on purpose. This was a `FutureProvider` reading straight from
+/// disk, but `invalidate` does not drop a FutureProvider's previous value while
+/// it refreshes, so `valueOrNull` could still hand out the *previous session's*
+/// `operator` after a logout.
+///
+/// [AuthStatusNotifier] is the only writer of that pref: it seeds this on load
+/// and updates it in the same turn as every write, so the mirror cannot lag the
+/// store.
+final cachedUserTypeProvider = StateProvider<UserLevel?>((ref) => null);
+
 /// The user's level (guest / member / operator). Backend-authoritative via
-/// `/me`, with a local fallback until it resolves or while offline.
+/// `/me`, falling back to the last backend-confirmed tier while offline.
 ///
 /// Whenever `/me` confirms a level, it is written through to [UserTypeStore].
 /// That cache is what bootstrap and the Android background engine read to pick
@@ -226,11 +267,11 @@ final userLevelProvider = Provider<UserLevel>((ref) {
   final authenticated =
       ref.watch(authStatusProvider) == AuthStatus.authenticated;
   final me = ref.watch(meProvider).valueOrNull;
-  final onchain = ref.watch(hasAnyAccountProvider).valueOrNull ?? false;
+  final cached = ref.watch(cachedUserTypeProvider);
   return resolveUserLevel(
     authenticated: authenticated,
     me: me,
-    hasOnchainAccount: onchain,
+    cachedLevel: cached,
   );
 });
 
@@ -242,9 +283,8 @@ final userLevelProvider = Provider<UserLevel>((ref) {
 /// call `/me` and the cache would sit on the login-time `member` forever —
 /// meaning an operator would never start a keyed node.
 ///
-/// Only backend-confirmed levels are persisted. The `hasOnchainAccount`
-/// fallback in [resolveUserLevel] is a guess, and caching a guessed `operator`
-/// is precisely the over-privilege the node gate exists to prevent.
+/// Only backend-confirmed levels are persisted, so the cache can be trusted as
+/// a stand-in for `/me` rather than compounding a guess.
 final userLevelCacheSyncProvider = Provider<void>((ref) {
   void sync(UserLevel level) {
     if (ref.read(authStatusProvider) != AuthStatus.authenticated) return;

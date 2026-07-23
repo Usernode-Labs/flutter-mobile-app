@@ -254,6 +254,61 @@ void main() {
     expect(await c.read(userTypeStoreProvider).read(), UserLevel.guest);
   });
 
+  // The cached tier must be invalidated before the new status is published,
+  // or a dependent recomputing on the status change reads the old session.
+  test('cached tier is current the moment login publishes authenticated',
+      () async {
+    SharedPreferences.setMockInitialValues({'app:user_type': 'operator'});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+
+    UserLevel? seenAtTransition;
+    c.listen<AuthStatus>(authStatusProvider, (_, next) {
+      if (next == AuthStatus.authenticated) {
+        seenAtTransition = c.read(cachedUserTypeProvider);
+      }
+    });
+
+    await c.read(authStatusProvider.notifier).completeLogin(_session('s'));
+
+    expect(seenAtTransition, isNot(UserLevel.operator),
+        reason: 'stale operator from the previous session');
+  });
+
+  // Signing out locally must succeed even when the server call fails, or the
+  // token survives on disk and the next launch restores the ended session.
+  test('logout clears local session even if the remote call throws', () async {
+    final c = ProviderContainer(overrides: [
+      authRepositoryProvider.overrideWithValue(_ThrowingLogoutRepository()),
+    ]);
+    addTearDown(c.dispose);
+    await _settle(c);
+    final n = c.read(authStatusProvider.notifier);
+    await n.completeLogin(_session('s'));
+
+    await n.logout();
+
+    expect(c.read(authStatusProvider), AuthStatus.unauthenticated);
+    expect(await c.read(authTokenStoreProvider).read(), isNull);
+    expect(await c.read(userTypeStoreProvider).read(), isNull);
+  });
+
+  // A cached operator must not leak into the next session while its /me loads.
+  test('cached tier is re-read after an auth transition', () async {
+    SharedPreferences.setMockInitialValues({'app:user_type': 'operator'});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    expect(c.read(cachedUserTypeProvider), UserLevel.operator);
+
+    await c.read(authStatusProvider.notifier).logout();
+    expect(c.read(cachedUserTypeProvider), isNull);
+
+    await c.read(authStatusProvider.notifier).completeLogin(_session('s'));
+    expect(c.read(cachedUserTypeProvider), UserLevel.member);
+  });
+
   // Signing out locally must succeed even when the server call fails, or the
   // token survives on disk and the next launch restores the ended session.
   test('logout clears local session even if the remote call throws', () async {
@@ -273,18 +328,18 @@ void main() {
   });
 }
 
-class _ThrowingLogoutRepository implements AuthRepository {
+class _SlowLogoutRepository implements AuthRepository {
   @override
-  Future<void> logout(String token) async => throw Exception('offline');
+  Future<void> logout(String token) =>
+      Future.delayed(const Duration(milliseconds: 80));
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _SlowLogoutRepository implements AuthRepository {
+class _ThrowingLogoutRepository implements AuthRepository {
   @override
-  Future<void> logout(String token) =>
-      Future.delayed(const Duration(milliseconds: 80));
+  Future<void> logout(String token) async => throw Exception('offline');
 
   @override
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

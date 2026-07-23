@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/features/wallet/screens/wallet_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapps_screen.dart';
+import 'package:crypto_mobile_app/features/challenges/screens/challenges_gate_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
@@ -336,7 +337,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 Widget _pageFor(HomeTab tab, UserLevel level) {
   switch (tab) {
     case HomeTab.challenges:
-      return const ChallengesScreen();
+      // Guests get a sign-in prompt, members a waiting-list notice. Only
+      // operators run the real screen and its provider graph.
+      return level == UserLevel.operator
+          ? const ChallengesScreen()
+          : ChallengesGateScreen(level: level);
     case HomeTab.wallet:
       return level == UserLevel.operator
           ? const WalletScreen()

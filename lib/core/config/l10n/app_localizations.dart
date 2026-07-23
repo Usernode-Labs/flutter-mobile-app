@@ -1678,6 +1678,42 @@ abstract class AppLocalizations {
   /// **'Blocks'**
   String get navProducedBlocks;
 
+  /// Challenges tab title shown to guests
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to unlock challenges'**
+  String get challengesGuestGateTitle;
+
+  /// Challenges tab body shown to guests
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in or create an account to get access to more features.'**
+  String get challengesGuestGateBody;
+
+  /// Challenges tab CTA opening the auth flow
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in or sign up'**
+  String get challengesGuestGateAction;
+
+  /// Challenges tab title for a member not yet on the waiting list
+  ///
+  /// In en, this message translates to:
+  /// **'Join the waiting list'**
+  String get challengesWaitlistJoinTitle;
+
+  /// Challenges tab title for a member already on the waiting list
+  ///
+  /// In en, this message translates to:
+  /// **'You are on the waiting list'**
+  String get challengesWaitlistJoinedTitle;
+
+  /// Challenges tab body shown to members
+  ///
+  /// In en, this message translates to:
+  /// **'Challenges will be enabled as soon as a place opens up for you.'**
+  String get challengesWaitlistBody;
+
   /// Bottom navigation label for the More tab
   ///
   /// In en, this message translates to:

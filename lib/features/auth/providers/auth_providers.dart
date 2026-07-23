@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/config/api_version_gate.dart';
+import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
@@ -7,6 +11,8 @@ import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
+
+final _log = LoggingService.instance.withTag('usernode/Auth');
 
 enum AuthStatus { unknown, unauthenticated, guest, authenticated }
 
@@ -16,13 +22,13 @@ final authRepositoryProvider =
 final authTokenStoreProvider =
     Provider<AuthTokenStore>((ref) => AuthTokenStore());
 
-final authGuestFlagProvider = Provider<AuthGuestFlag>((ref) => AuthGuestFlag());
+final userTypeStoreProvider = Provider<UserTypeStore>((ref) => UserTypeStore());
 
 final authStatusProvider =
     StateNotifierProvider<AuthStatusNotifier, AuthStatus>((ref) {
   return AuthStatusNotifier(
     tokenStore: ref.watch(authTokenStoreProvider),
-    guestFlag: ref.watch(authGuestFlagProvider),
+    userTypeStore: ref.watch(userTypeStoreProvider),
     repository: ref.watch(authRepositoryProvider),
   )..load();
 });
@@ -30,16 +36,46 @@ final authStatusProvider =
 class AuthStatusNotifier extends StateNotifier<AuthStatus> {
   AuthStatusNotifier({
     required AuthTokenStore tokenStore,
-    required AuthGuestFlag guestFlag,
+    required UserTypeStore userTypeStore,
     required AuthRepository repository,
   })  : _tokenStore = tokenStore,
-        _guestFlag = guestFlag,
+        _userTypeStore = userTypeStore,
         _repository = repository,
         super(AuthStatus.unknown);
 
   final AuthTokenStore _tokenStore;
-  final AuthGuestFlag _guestFlag;
+  final UserTypeStore _userTypeStore;
   final AuthRepository _repository;
+
+  /// Bumped on every identity transition, inside the serialised block so it
+  /// always reflects the last transition that actually ran.
+  ///
+  /// A `/me` write-through is async: one issued for the previous session can
+  /// still be queued when a logout runs. Without this guard it would restore a
+  /// privileged `operator` tier after sign-out.
+  int _generation = 0;
+
+  /// Sequence number for `/me` write-throughs.
+  int _writeSeq = 0;
+
+  /// Serialises **every** identity transition and tier write.
+  ///
+  /// The chain slot is reserved synchronously at invocation, so ordering
+  /// follows call order rather than however long each transition's network and
+  /// storage work happens to take. Reserving it late was subtly wrong: a slow
+  /// `logout()` awaiting its repository call could enqueue its clear *after* a
+  /// `continueAsGuest()` that was called later, wiping the newer tier.
+  ///
+  /// Wiping matters more than it looks: an empty store is not read as `guest`
+  /// (`UserTypeStore.isGuest`), so the node would treat the session as
+  /// producing.
+  Future<void> _chain = Future<void>.value();
+
+  Future<void> _serialise(Future<void> Function() action) {
+    final next = _chain.then((_) => action());
+    _chain = next.catchError((_) {});
+    return next;
+  }
 
   Future<void> load() async {
     final token = await _tokenStore.read();
@@ -48,39 +84,75 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
       state = AuthStatus.authenticated;
       return;
     }
-    final guest = await _guestFlag.isGuest();
+    final guest = await _userTypeStore.isGuest();
     if (!mounted) return;
     state = guest ? AuthStatus.guest : AuthStatus.unauthenticated;
   }
 
-  Future<void> completeLogin(AuthSession session) async {
-    await _tokenStore.write(session.token);
-    await _guestFlag.clear();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.authenticated;
-  }
+  Future<void> completeLogin(AuthSession session) => _serialise(() async {
+        _generation++;
+        await _tokenStore.write(session.token);
+        // Conservative until `/me` confirms otherwise: a fresh session is a
+        // member, never an operator, so nothing starts producing blocks on the
+        // strength of a stale local key alone.
+        await _userTypeStore.write(UserLevel.member);
+        await refreshActiveAccountBucket(guest: false);
+        await markApiVersionCurrent();
+        state = AuthStatus.authenticated;
+      });
 
-  Future<void> continueAsGuest() async {
-    await _guestFlag.setGuest();
-    await refreshActiveAccountBucket(guest: true);
-    state = AuthStatus.guest;
-  }
+  Future<void> continueAsGuest() => _serialise(() async {
+        _generation++;
+        await _userTypeStore.write(UserLevel.guest);
+        await refreshActiveAccountBucket(guest: true);
+        await markApiVersionCurrent();
+        state = AuthStatus.guest;
+      });
 
-  Future<void> logout() async {
-    final token = await _tokenStore.read();
-    if (token != null && token.isNotEmpty) {
-      await _repository.logout(token);
-    }
-    await _tokenStore.clear();
-    await _guestFlag.clear();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.unauthenticated;
-  }
+  Future<void> logout() => _serialise(() async {
+        _generation++;
+        final token = await _tokenStore.read();
+        if (token != null && token.isNotEmpty) {
+          // Best effort. Signing out locally must succeed even when the server
+          // is unreachable or rejects the call — otherwise a failed request
+          // leaves the token on disk and the next launch silently restores the
+          // session the user just ended.
+          try {
+            await _repository.logout(token);
+          } catch (e) {
+            _log.warn(
+                'Remote logout failed; clearing local session anyway: $e');
+          }
+        }
+        await _tokenStore.clear();
+        await _userTypeStore.clear();
+        await refreshActiveAccountBucket(guest: false);
+        state = AuthStatus.unauthenticated;
+      });
 
-  Future<void> onUnauthorized() async {
-    await _tokenStore.clear();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.unauthenticated;
+  Future<void> onUnauthorized() => _serialise(() async {
+        _generation++;
+        await _tokenStore.clear();
+        await _userTypeStore.clear();
+        await refreshActiveAccountBucket(guest: false);
+        state = AuthStatus.unauthenticated;
+      });
+
+  /// Persists a `/me`-confirmed tier.
+  ///
+  /// Last-write-wins: a superseded or wrong-generation write is dropped before
+  /// it touches the store. Because identity transitions share this chain, a
+  /// stale write can never land on top of a newer tier, so there is nothing to
+  /// undo afterwards.
+  Future<void> cacheConfirmedLevel(UserLevel level) {
+    final seq = ++_writeSeq;
+    final gen = _generation;
+    return _serialise(() async {
+      if (seq != _writeSeq) return; // superseded by a newer write
+      if (gen != _generation) return; // session changed before our turn
+      if (state != AuthStatus.authenticated) return;
+      await _userTypeStore.write(level);
+    });
   }
 }
 
@@ -145,6 +217,11 @@ final meProvider = FutureProvider<Me?>((ref) async {
 
 /// The user's level (guest / member / operator). Backend-authoritative via
 /// `/me`, with a local fallback until it resolves or while offline.
+///
+/// Whenever `/me` confirms a level, it is written through to [UserTypeStore].
+/// That cache is what bootstrap and the Android background engine read to pick
+/// the node mode, and neither can call `/me`; without the write-through an
+/// operator would stay cached as `member` forever and never start keyed.
 final userLevelProvider = Provider<UserLevel>((ref) {
   final authenticated =
       ref.watch(authStatusProvider) == AuthStatus.authenticated;
@@ -155,4 +232,26 @@ final userLevelProvider = Provider<UserLevel>((ref) {
     me: me,
     hasOnchainAccount: onchain,
   );
+});
+
+/// Keeps [UserTypeStore] in step with the backend-confirmed tier.
+///
+/// Must be kept alive explicitly (see `main.dart`, alongside
+/// `backendLifecycleProvider`). Riverpod providers are lazy: [userLevelProvider]
+/// and [meProvider] have no other consumers, so without this nothing would ever
+/// call `/me` and the cache would sit on the login-time `member` forever —
+/// meaning an operator would never start a keyed node.
+///
+/// Only backend-confirmed levels are persisted. The `hasOnchainAccount`
+/// fallback in [resolveUserLevel] is a guess, and caching a guessed `operator`
+/// is precisely the over-privilege the node gate exists to prevent.
+final userLevelCacheSyncProvider = Provider<void>((ref) {
+  void sync(UserLevel level) {
+    if (ref.read(authStatusProvider) != AuthStatus.authenticated) return;
+    if (ref.read(meProvider).valueOrNull == null) return;
+    unawaited(ref.read(authStatusProvider.notifier).cacheConfirmedLevel(level));
+  }
+
+  ref.listen<UserLevel>(userLevelProvider, (_, next) => sync(next));
+  sync(ref.read(userLevelProvider));
 });

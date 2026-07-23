@@ -22,6 +22,7 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/core/config/api_version_gate.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
@@ -67,6 +68,20 @@ class AppBootstrap {
 
     if (installErrorHandlers) {
       _installGlobalErrorHandlers(log);
+    }
+
+    // Reconcile the stored api-version before ANY session-state reader can run.
+    //
+    // This must precede alarm initialisation and the native-event callback
+    // below: a delivered alarm can enter watchdog recovery, which reaches
+    // UserTypeStore via node_service, and that would otherwise observe the old
+    // tier while this reconciliation was still awaiting storage.
+    final versionCheck = await reconcileApiVersion();
+    if (versionCheck.cleared) {
+      log.info(
+        'Session cleared by api-version gate (stored=${versionCheck.stored}); '
+        'user will be sent to the welcome screen',
+      );
     }
 
     // Initialize platform alarm service early to capture native events
@@ -127,7 +142,7 @@ class AppBootstrap {
     // Resolve the active per-identity storage bucket before any account-scoped
     // pref is read: a guest session gets the guest bucket, otherwise the active
     // on-chain account's bucket.
-    await refreshActiveAccountBucket(guest: await AuthGuestFlag().isGuest());
+    await refreshActiveAccountBucket(guest: await UserTypeStore().isGuest());
     final hasAnyAccounts = await repo.hasAny();
     final activeId = repo.getActiveId();
 

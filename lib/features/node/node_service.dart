@@ -374,7 +374,7 @@ class RustBackendService {
       // A guest session is treated as view-only: the node still runs and syncs,
       // but never produces blocks — a returning operator's leftover keys must
       // not operate while browsing as a guest.
-      final guestSession = await AuthGuestFlag().isGuest();
+      final guestSession = await UserTypeStore().isGuest();
       final viewOnly = AppConfig.viewOnly || guestSession;
       if (viewOnly) {
         _log.info(guestSession

@@ -29,6 +29,7 @@ import 'core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/onboarding/widgets/participant_recovery_dialog.dart';
 import 'package:crypto_mobile_app/core/providers/metrics_provider.dart';
@@ -170,7 +171,12 @@ Future<void> _startHeadlessServices(
       log.debug('Metrics disabled or not configured in headless mode');
     }
 
-    // Initialize backend lifecycle provider manually
+    // Initialize backend lifecycle provider manually.
+    //
+    // userLevelCacheSyncProvider is deliberately NOT kept alive here: it watches
+    // meProvider, so retaining it would make every background-engine start issue
+    // a /me request — new network and battery cost, and an offline timeout, on a
+    // path that only ever reads the cached tier.
     container.read(backendLifecycleProvider);
 
     if (Platform.isAndroid) {
@@ -299,6 +305,7 @@ class CryptoMobileApp extends ConsumerWidget {
 
     // Initialize backend lifecycle manager
     ref.watch(backendLifecycleProvider);
+    ref.watch(userLevelCacheSyncProvider);
 
     // Initialize metrics lifecycle manager
     ref.watch(metricsLifecycleProvider);

@@ -230,6 +230,21 @@ class AppSleepService extends ChangeNotifier {
       return;
     }
 
+    if (isSleeping) {
+      // Sleep only pauses the node — the UI stays interactive (there is no
+      // full-screen sleep overlay), so any touch while foregrounded is the
+      // wake gesture. Bypasses the interaction throttle so the wake isn't
+      // delayed by an interaction recorded just before sleep began.
+      if (_snapshot.lifecycleState == AppLifecycleState.resumed) {
+        final now = DateTime.now();
+        _lastRecordedInteractionAt = now;
+        _snapshot = _snapshot.copyWith(lastInteractionAt: now);
+        notifyListeners();
+        unawaited(wake(reason: manualUiWakeReason));
+      }
+      return;
+    }
+
     final now = DateTime.now();
     final last = _lastRecordedInteractionAt;
     if (last != null && now.difference(last) < _interactionThrottle) {
@@ -239,10 +254,6 @@ class AppSleepService extends ChangeNotifier {
     _lastRecordedInteractionAt = now;
     _snapshot = _snapshot.copyWith(lastInteractionAt: now);
     notifyListeners();
-
-    if (isSleeping) {
-      return;
-    }
 
     _rescheduleIdleTimer();
   }

@@ -106,36 +106,6 @@ abstract class AppLocalizations {
   /// **'Your Gateway to DeFi'**
   String get appTagline;
 
-  /// Title shown on the full-screen sleep page
-  ///
-  /// In en, this message translates to:
-  /// **'App asleep'**
-  String get appSleepTitle;
-
-  /// Message shown when the next scheduled slot time is known
-  ///
-  /// In en, this message translates to:
-  /// **'Sleeping until slot {slotNumber} at {dateTime}.'**
-  String appSleepUntilSlot(int slotNumber, String dateTime);
-
-  /// Message shown when only the next wake time is known
-  ///
-  /// In en, this message translates to:
-  /// **'Sleeping until {dateTime}.'**
-  String appSleepUntilTime(String dateTime);
-
-  /// Fallback message shown when the next scheduled slot time is unavailable
-  ///
-  /// In en, this message translates to:
-  /// **'Sleeping until the next exact-alarm wake.'**
-  String get appSleepUntilUnknown;
-
-  /// Instruction shown on the sleep page
-  ///
-  /// In en, this message translates to:
-  /// **'Tap anywhere to wake now.'**
-  String get appSleepTapToWake;
-
   /// Loading text on splash screen
   ///
   /// In en, this message translates to:
@@ -3316,22 +3286,22 @@ abstract class AppLocalizations {
   /// **'General'**
   String get settingsGeneral;
 
-  /// Settings toggle label for automatic app sleep
+  /// Settings toggle label for automatic node sleep
   ///
   /// In en, this message translates to:
-  /// **'Sleep On Inactivity'**
+  /// **'Node Sleep On Inactivity'**
   String get settingsAutomaticAppSleep;
 
-  /// Subtitle shown when automatic app sleep is enabled
+  /// Subtitle shown when automatic node sleep is enabled
   ///
   /// In en, this message translates to:
-  /// **'Force the app to sleep when it becomes inactive, even if the display stays on. This helps avoid unnecessary battery and bandwidth drain in always-on setups.'**
+  /// **'Pauses the node when the app is inactive, even if the display stays on. The app itself stays usable — touching the screen wakes the node. Avoids unnecessary battery and bandwidth drain in always-on setups.'**
   String get settingsAutomaticAppSleepEnabled;
 
-  /// Subtitle shown when automatic app sleep is disabled
+  /// Subtitle shown when automatic node sleep is disabled
   ///
   /// In en, this message translates to:
-  /// **'When disabled, the app will not force itself to sleep during inactivity. In always-on setups with the display left on, enabling this avoids unnecessary battery and bandwidth drain.'**
+  /// **'When disabled, the node keeps running during inactivity. In always-on setups with the display left on, enabling this avoids unnecessary battery and bandwidth drain.'**
   String get settingsAutomaticAppSleepDisabled;
 
   /// Appearance settings tile title and sheet title
@@ -4329,6 +4299,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Passwords do not match.'**
   String get authErrorPasswordMismatch;
+
+  /// First-launch gate of the full-screen SV shell: shown while the Social Vibecoding webapp loads for the first time on this install
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to Usernode…'**
+  String get svShellConnectingTitle;
+
+  /// First-launch gate of the full-screen SV shell: shown when the first-ever load of the Social Vibecoding webapp fails
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach Usernode. Check your connection and try again.'**
+  String get svShellOfflineMessage;
 }
 
 class _AppLocalizationsDelegate

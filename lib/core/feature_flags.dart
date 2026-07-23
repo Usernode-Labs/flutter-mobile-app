@@ -17,12 +17,21 @@ class FeatureFlags {
     AppFeature.settings,
   ];
 
-  /// Compute enabled set from compile-time env or fallback defaults.
-  static Set<AppFeature> _enabled = _loadEnabledFromEnv();
-
   /// Additional granular feature keys, e.g. 'wallet.send', 'home.bridgeCard'.
-  static final Set<String> _tagsEnabled = <String>{};
-  static final Set<String> _tagsDisabled = <String>{};
+  ///
+  /// Parse these directly rather than relying on `_enabled`'s lazy
+  /// initializer: shell routing reads a granular flag before any top-level
+  /// feature, so `_loadEnabledFromEnv()` may not have run yet.
+  static final Set<String> _tagsEnabled =
+      _granularTagsFromEnv('ENABLED_FEATURES');
+  static final Set<String> _tagsDisabled =
+      _granularTagsFromEnv('DISABLED_FEATURES');
+
+  /// Compute enabled set from compile-time env or fallback defaults.
+  ///
+  /// This must be initialized after the granular tag sets: the environment
+  /// parser populates those sets as a side effect.
+  static Set<AppFeature> _enabled = _loadEnabledFromEnv();
 
   static bool isEnabled(AppFeature feature) => _enabled.contains(feature);
 
@@ -36,6 +45,14 @@ class FeatureFlags {
     if (_tagsEnabled.contains(key)) return true;
     return defaultOn;
   }
+
+  /// Full-screen SV shell mode (app-as-SV-chrome migration): `/home` renders
+  /// the Social Vibecoding webapp full-bleed — no bottom nav, no native top
+  /// bar — with SV's own header providing node status / wallet / challenges.
+  /// Default off; enable with `--dart-define=ENABLED_FEATURES=shell.sv` or
+  /// `"enabled": ["shell.sv"]` in assets/feature_flags.json. Rollback is
+  /// flipping the flag — the native tab shell stays intact behind it.
+  static bool get svShellEnabled => on('shell.sv', defaultOn: false);
 
   /// Load flags from `assets/feature_flags.json` if present.
   /// Schema example:
@@ -60,10 +77,15 @@ class FeatureFlags {
       // Reset tags each time we load from asset
       _tagsEnabled
         ..clear()
-        ..addAll(enabledItems);
+        ..addAll(enabledItems)
+        // Asset flags augment compile-time flags; they must not erase a
+        // rollout flag such as `--dart-define=ENABLED_FEATURES=shell.sv`
+        // after the router has already rendered.
+        ..addAll(_granularTagsFromEnv('ENABLED_FEATURES'));
       _tagsDisabled
         ..clear()
-        ..addAll(disabledItems);
+        ..addAll(disabledItems)
+        ..addAll(_granularTagsFromEnv('DISABLED_FEATURES'));
 
       // Map any recognized top-level features from enabled/disabled
       final mappedEnabled = <AppFeature>{};
@@ -151,5 +173,19 @@ class FeatureFlags {
     // Safety: ensure at least Node exists to avoid empty nav.
     if (mapped.isEmpty) mapped.add(AppFeature.node);
     return mapped;
+  }
+
+  static Set<String> _granularTagsFromEnv(String name) {
+    final csv = name == 'ENABLED_FEATURES'
+        ? const String.fromEnvironment('ENABLED_FEATURES', defaultValue: '')
+        : const String.fromEnvironment('DISABLED_FEATURES', defaultValue: '');
+    if (csv.trim().isEmpty || csv.trim().toLowerCase() == 'all') {
+      return const <String>{};
+    }
+    return csv
+        .split(',')
+        .map((item) => item.trim().toLowerCase())
+        .where((item) => item.isNotEmpty && _fromString(item) == null)
+        .toSet();
   }
 }

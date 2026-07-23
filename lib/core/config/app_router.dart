@@ -33,8 +33,11 @@ import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detai
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
+import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
+import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
@@ -127,6 +130,12 @@ class AppRoutes {
   static const mainNodeMempool = '/main/node/mempool';
   static const mainNodePeers = '/main/node/peers';
 }
+
+/// Full-screen SV shell mode is active: flag on AND a hub URL configured.
+/// When true, the home route renders [SvShellScreen] and the retired native
+/// tabs (dapps home, challenges leaderboard) remap into SV hash routes.
+bool svShellActive() =>
+    FeatureFlags.svShellEnabled && AppConfig.dappsTabUrl.trim().isNotEmpty;
 
 const _authRoutes = <String>[
   AppRoutes.authLanding,
@@ -292,11 +301,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.homeSlash,
-        builder: (context, state) => const HomeScreen(),
+        // Shell mode (app-as-SV-chrome): home is the full-bleed SV webview.
+        // `?sv=<hash>` carries a target SV hash route for deep-link remaps
+        // (e.g. /home?sv=challenges from usernode://app/challenges links).
+        builder: (context, state) => svShellActive()
+            ? SvShellScreen(initialHash: state.uri.queryParameters['sv'])
+            : const HomeScreen(),
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => svShellActive()
+            ? SvShellScreen(initialHash: state.uri.queryParameters['sv'])
+            : const HomeScreen(),
       ),
       GoRoute(
         path: AppRoutes.slotAssignments,
@@ -429,6 +445,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.leaderboard,
+        // Shell mode: usernode://app/challenges/leaderboard remaps to SV's
+        // challenges hash route (the native tab is retired inside the
+        // shell). ZK-identity routes stay native — they run hardware flows.
+        redirect: (context, state) =>
+            svShellActive() ? '${AppRoutes.home}?sv=challenges' : null,
         builder: (context, state) => const LeaderboardScreen(),
       ),
       GoRoute(
@@ -446,6 +467,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.dapps,
+        // Shell mode: SV *is* the dapps home, so the tab route folds into
+        // the shell (guests redirected here from splash land in SV too).
+        redirect: (context, state) => svShellActive() ? AppRoutes.home : null,
         builder: (context, state) => const HomeScreen(
           initialTab: HomeTab.dapps,
         ),

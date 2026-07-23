@@ -72,7 +72,8 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('sleeping app wakes on explicit manual request', (tester) async {
+  testWidgets('sleeping app wakes on user interaction once resumed',
+      (tester) async {
     final sleepReasons = <AppSleepReason>[];
     final wakeReasons = <String>[];
     var wakelockHeld = true;
@@ -96,14 +97,17 @@ void main() {
     expect(service.isSleeping, isTrue);
     expect(sleepReasons, [AppSleepReason.lifecycleInactive]);
 
-    await service.handleLifecycleStateChanged(AppLifecycleState.resumed);
+    // Interaction while backgrounded (not resumed) must not wake the node.
     service.recordUserInteraction(source: 'test_tap');
     await tester.pump();
 
     expect(service.isSleeping, isTrue);
     expect(wakeReasons, isEmpty);
 
-    await service.wake(reason: AppSleepService.manualUiWakeReason);
+    // Sleep no longer covers the UI, so once the app is foregrounded any
+    // interaction is the wake gesture.
+    await service.handleLifecycleStateChanged(AppLifecycleState.resumed);
+    service.recordUserInteraction(source: 'test_tap');
     await tester.pump();
 
     expect(service.isSleeping, isFalse);

@@ -8,39 +8,6 @@
   "@appTagline": {
     "description": "Application tagline"
   },
-  "appSleepTitle": "App asleep",
-  "@appSleepTitle": {
-    "description": "Title shown on the full-screen sleep page"
-  },
-  "appSleepUntilSlot": "Sleeping until slot {slotNumber} at {dateTime}.",
-  "@appSleepUntilSlot": {
-    "description": "Message shown when the next scheduled slot time is known",
-    "placeholders": {
-      "slotNumber": {
-        "type": "int"
-      },
-      "dateTime": {
-        "type": "String"
-      }
-    }
-  },
-  "appSleepUntilTime": "Sleeping until {dateTime}.",
-  "@appSleepUntilTime": {
-    "description": "Message shown when only the next wake time is known",
-    "placeholders": {
-      "dateTime": {
-        "type": "String"
-      }
-    }
-  },
-  "appSleepUntilUnknown": "Sleeping until the next exact-alarm wake.",
-  "@appSleepUntilUnknown": {
-    "description": "Fallback message shown when the next scheduled slot time is unavailable"
-  },
-  "appSleepTapToWake": "Tap anywhere to wake now.",
-  "@appSleepTapToWake": {
-    "description": "Instruction shown on the sleep page"
-  },
   "initializingNode": "Initializing node...",
   "@initializingNode": {
     "description": "Loading text on splash screen"
@@ -2501,17 +2468,17 @@
   "@settingsGeneral": {
     "description": "General settings section header"
   },
-  "settingsAutomaticAppSleep": "Sleep On Inactivity",
+  "settingsAutomaticAppSleep": "Node Sleep On Inactivity",
   "@settingsAutomaticAppSleep": {
-    "description": "Settings toggle label for automatic app sleep"
+    "description": "Settings toggle label for automatic node sleep"
   },
-  "settingsAutomaticAppSleepEnabled": "Force the app to sleep when it becomes inactive, even if the display stays on. This helps avoid unnecessary battery and bandwidth drain in always-on setups.",
+  "settingsAutomaticAppSleepEnabled": "Pauses the node when the app is inactive, even if the display stays on. The app itself stays usable — touching the screen wakes the node. Avoids unnecessary battery and bandwidth drain in always-on setups.",
   "@settingsAutomaticAppSleepEnabled": {
-    "description": "Subtitle shown when automatic app sleep is enabled"
+    "description": "Subtitle shown when automatic node sleep is enabled"
   },
-  "settingsAutomaticAppSleepDisabled": "When disabled, the app will not force itself to sleep during inactivity. In always-on setups with the display left on, enabling this avoids unnecessary battery and bandwidth drain.",
+  "settingsAutomaticAppSleepDisabled": "When disabled, the node keeps running during inactivity. In always-on setups with the display left on, enabling this avoids unnecessary battery and bandwidth drain.",
   "@settingsAutomaticAppSleepDisabled": {
-    "description": "Subtitle shown when automatic app sleep is disabled"
+    "description": "Subtitle shown when automatic node sleep is disabled"
   },
   "settingsAppearance": "Appearance",
   "@settingsAppearance": {
@@ -3252,5 +3219,13 @@
   "authErrorPasswordMismatch": "Passwords do not match.",
   "@authErrorPasswordMismatch": {
     "description": "Client-side error when password and confirmation differ"
+  },
+  "svShellConnectingTitle": "Connecting to Usernode\u2026",
+  "@svShellConnectingTitle": {
+    "description": "First-launch gate of the full-screen SV shell: shown while the Social Vibecoding webapp loads for the first time on this install"
+  },
+  "svShellOfflineMessage": "Can't reach Usernode. Check your connection and try again.",
+  "@svShellOfflineMessage": {
+    "description": "First-launch gate of the full-screen SV shell: shown when the first-ever load of the Social Vibecoding webapp fails"
   }
 }

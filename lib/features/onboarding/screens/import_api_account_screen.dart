@@ -18,7 +18,15 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 final _log = LoggingService.instance.withTag('usernode/ImportApiAccountScreen');
 
 class OnboardingImportApiAccountScreen extends ConsumerStatefulWidget {
-  const OnboardingImportApiAccountScreen({super.key});
+  const OnboardingImportApiAccountScreen({super.key, this.onCompleteRoute});
+
+  /// Where to go after a successful registration.
+  ///
+  /// Defaults to the onboarding permission flow. The restore-registration entry
+  /// in More passes [AppRoutes.home] instead: an existing user re-registering to
+  /// recover a lost participant ID has already been through onboarding, and
+  /// pushing them back into the permission chain would be wrong.
+  final String? onCompleteRoute;
 
   @override
   ConsumerState<OnboardingImportApiAccountScreen> createState() =>
@@ -111,8 +119,13 @@ class _OnboardingImportApiAccountScreenState
         );
       }
 
-      ref.read(onboardingUserIdProvider.notifier).state = contact;
-      context.go(AppRoutes.onboardingWelcomeSetup);
+      final destination = widget.onCompleteRoute;
+      if (destination == null) {
+        // Onboarding-only transient state; the restore path skips it since it
+        // goes straight home rather than into the welcome-setup screen.
+        ref.read(onboardingUserIdProvider.notifier).state = contact;
+      }
+      context.go(destination ?? AppRoutes.onboardingWelcomeSetup);
     } on RegistrationApiException catch (e) {
       if (!mounted) return;
       setState(() => _formError = e.message);
@@ -146,7 +159,29 @@ class _OnboardingImportApiAccountScreenState
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
 
+    // The onboarding entry replaces the route as part of a linear flow, so it
+    // needs no back affordance. The restore entry is pushed from More and must
+    // be escapable, so give it an app bar with a back button.
+    final isRestore = widget.onCompleteRoute != null;
     return Scaffold(
+      appBar: isRestore
+          ? AppBar(
+              title: Text(l10n.moreRestoreRegistration),
+              // Pushed from More, so provide an explicit close: an AppBar auto
+              // back button is absent when this is the top route, and platform
+              // back/edge-swipe alone is not a visible escape.
+              leading: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  if (context.canPop()) {
+                    context.pop();
+                  } else {
+                    context.go(AppRoutes.home);
+                  }
+                },
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Padding(
           padding: EdgeInsets.all(spacing.space16),

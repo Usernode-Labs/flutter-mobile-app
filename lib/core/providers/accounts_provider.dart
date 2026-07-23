@@ -194,9 +194,16 @@ class AccountsRepository {
 
     final current = await list();
 
-    final index = current.length;
-    final id = _makeId(address, index);
-    _log.trace('Generated account ID: $id (index: $index)');
+    // Re-importing the same address replaces its entry rather than appending a
+    // second one. Registration hands back the same key for the same identity,
+    // so an operator re-registering to recover a lost participant ID would
+    // otherwise end up with a duplicate account — made active, while the
+    // running node stayed bound to the original.
+    final existing = current.indexWhere((a) => a.address == address);
+    final index = existing >= 0 ? current[existing].hdIndex : current.length;
+    final id = existing >= 0 ? current[existing].id : _makeId(address, index);
+    _log.trace('Generated account ID: $id (index: $index, '
+        'replacing: ${existing >= 0})');
 
     final meta = AccountMeta(
       id: id,
@@ -220,7 +227,12 @@ class AccountsRepository {
         key: '$_network:account:$id:hdIndex', value: index.toString());
     _log.debug('Secure storage writes complete');
 
-    final next = [...current, meta];
+    final next = [...current];
+    if (existing >= 0) {
+      next[existing] = meta;
+    } else {
+      next.add(meta);
+    }
     await _saveIndex(next);
     _log.debug('Index saved successfully');
 

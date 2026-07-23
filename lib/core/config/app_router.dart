@@ -76,6 +76,11 @@ class AppRoutes {
   static const onboardingBatteryComplete = '/onboarding/battery-complete';
   static const staleRegistration = '/stale-registration';
 
+  /// Re-registration for an existing user who lost their participant ID.
+  /// Deliberately outside `/onboarding/*`, which the guard redirects to /home
+  /// once an account exists and onboarding is complete.
+  static const restoreRegistration = '/more/restore-registration';
+
   // v3 auth flow
   static const authLanding = '/auth';
   static const authEmail = '/auth/email';
@@ -155,6 +160,15 @@ String? authRedirect(AuthStatus status, String location) {
       return isAuthRoute ? AppRoutes.splash : null;
   }
 }
+
+/// Whether a stale registration should be redirected to the recovery screen
+/// from [location]. False on the screens that are themselves the fix — the
+/// stale screen, the onboarding import, and Restore registration — so the
+/// repair stays reachable. Pure for unit testing.
+bool redirectsStaleRegistration(String location) =>
+    location != AppRoutes.staleRegistration &&
+    location != AppRoutes.onboardingImportApi &&
+    location != AppRoutes.restoreRegistration;
 
 /// Whether the account/onboarding logic below the auth gate may run.
 ///
@@ -275,6 +289,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboardingImportApi,
         builder: (context, state) => const OnboardingImportApiAccountScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.restoreRegistration,
+        builder: (context, state) => const OnboardingImportApiAccountScreen(
+          onCompleteRoute: AppRoutes.home,
+        ),
       ),
       GoRoute(
         path: AppRoutes.onboardingWelcomeSetup,
@@ -687,8 +707,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Block app usage when registration belongs to a previous season.
       if (registrationFreshness == RegistrationFreshness.stale &&
-          currentLocation != AppRoutes.staleRegistration &&
-          currentLocation != AppRoutes.onboardingImportApi) {
+          redirectsStaleRegistration(currentLocation)) {
         return AppRoutes.staleRegistration;
       }
 

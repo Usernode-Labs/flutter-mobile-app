@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -99,9 +98,11 @@ class RegistrationRepository {
           body: resp.body,
         );
       }
-      final result = RegistrationResult.fromJson(data);
-      await saveParticipantId(result.participantId);
-      return result;
+      // Intentionally does not persist the participant ID: that is a
+      // bucket-scoped write, and the active identity is not settled until the
+      // caller has imported the account and switched buckets. registerAndApply
+      // owns that write. See its comment for why order matters.
+      return RegistrationResult.fromJson(data);
     }
 
     // Map known error codes to messages

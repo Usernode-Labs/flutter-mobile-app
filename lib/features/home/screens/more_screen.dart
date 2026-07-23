@@ -47,6 +47,12 @@ class MoreScreen extends ConsumerWidget {
                         .state = HomeTab.nodeStatus,
                   ),
                   ListTile(
+                    leading: const Icon(Symbols.restore_sharp),
+                    title: Text(l10n.moreRestoreRegistration),
+                    trailing: const Icon(Symbols.chevron_right),
+                    onTap: () => context.push(AppRoutes.restoreRegistration),
+                  ),
+                  ListTile(
                     leading: const Icon(Symbols.settings_sharp),
                     title: Text(l10n.moreSettings),
                     trailing: const Icon(Symbols.chevron_right),

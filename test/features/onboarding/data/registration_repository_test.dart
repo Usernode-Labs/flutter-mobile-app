@@ -90,7 +90,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
-    test('persists participant id to shared preferences', () async {
+    test('returns the participant id without persisting it', () async {
       final mockClient = MockClient((request) async {
         expect(request.url.toString(), equals('https://example.com'));
         expect(request.method, equals('POST'));
@@ -125,12 +125,14 @@ void main() {
       );
 
       expect(result.participantId, 99);
+      // register() returns the ID but must NOT persist it: that is a
+      // bucket-scoped write the caller performs after switching identities.
       final prefs = await SharedPreferences.getInstance();
       expect(
         prefs.getInt(
           NetworkPrefs.prefixAccountKey('leaderboard:participant_id'),
         ),
-        equals(99),
+        isNull,
       );
     });
 

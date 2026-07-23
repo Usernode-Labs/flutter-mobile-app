@@ -75,4 +75,21 @@ void main() {
       expect(authGateAllowsAccountLogic(AuthStatus.guest), isFalse);
     });
   });
+
+  group('redirectsStaleRegistration', () {
+    test('redirects an ordinary route', () {
+      expect(redirectsStaleRegistration(AppRoutes.home), isTrue);
+      expect(redirectsStaleRegistration(AppRoutes.dapps), isTrue);
+    });
+
+    // The three screens that are themselves the fix must be exempt, or a stale
+    // registration can never be repaired.
+    test('exempts the recovery screens', () {
+      expect(redirectsStaleRegistration(AppRoutes.staleRegistration), isFalse);
+      expect(
+          redirectsStaleRegistration(AppRoutes.onboardingImportApi), isFalse);
+      expect(
+          redirectsStaleRegistration(AppRoutes.restoreRegistration), isFalse);
+    });
+  });
 }

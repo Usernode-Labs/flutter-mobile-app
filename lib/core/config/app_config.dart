@@ -221,24 +221,16 @@ class AppConfig {
   static String get networkSwitcherCode => _rawNetworkSwitcherCode.isNotEmpty
       ? _rawNetworkSwitcherCode
       : _defaultNetworkSwitcherCode;
-  // Metrics configuration (compile-time)
   // Node prover configuration
   static const bool enableRealProver =
       bool.fromEnvironment('ENABLE_REAL_PROVER', defaultValue: false);
 
-  static const bool metricsEnabled =
-      bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);
-  static const String metricsEndpoint =
-      String.fromEnvironment('METRICS_ENDPOINT', defaultValue: '');
-  static const int metricsInterval =
-      int.fromEnvironment('METRICS_INTERVAL', defaultValue: 30);
-  static const String metricsHealthEndpoint = String.fromEnvironment(
-      'METRICS_HEALTH_ENDPOINT',
-      defaultValue: 'https://leaderboard.usernodelabs.org/api/health');
-
   // Block Production configuration (all in seconds)
-  static const int metricsCollectionIntervalSeconds = int.fromEnvironment(
-      'METRICS_COLLECTION_INTERVAL_SECONDS',
+  // Headless produced-blocks refresh cadence: in background mode we keep
+  // producedBlocksSummaryProvider warm on this interval without any UI. (Was
+  // previously shared with the now-removed topochain metrics collector.)
+  static const int headlessRefreshIntervalSeconds = int.fromEnvironment(
+      'HEADLESS_REFRESH_INTERVAL_SECONDS',
       defaultValue: 30);
   static const int blockProductionWakeBeforeSlotSeconds = int.fromEnvironment(
       'BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS',
@@ -248,8 +240,8 @@ class AppConfig {
       defaultValue: 900);
 
   // Convert to Duration for convenience
-  static Duration get metricsCollectionInterval =>
-      const Duration(seconds: metricsCollectionIntervalSeconds);
+  static Duration get headlessRefreshInterval =>
+      const Duration(seconds: headlessRefreshIntervalSeconds);
   static Duration get blockProductionWakeBeforeSlot =>
       const Duration(seconds: blockProductionWakeBeforeSlotSeconds);
   static Duration get epochMonitorBaseInterval =>

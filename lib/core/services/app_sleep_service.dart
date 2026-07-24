@@ -8,7 +8,6 @@ import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -139,7 +138,6 @@ class AppSleepService extends ChangeNotifier {
   DateTime? _lastRecordedInteractionAt;
   bool _initialized = false;
   bool _isEnabled;
-  bool _resumeMetricsOnWake = false;
   bool _resumeNodeOnWake = false;
   bool _resumeIosKeepAliveOnWake = false;
   bool _resumeEpochMonitoringOnWake = false;
@@ -299,7 +297,6 @@ class AppSleepService extends ChangeNotifier {
     _scheduledWakeTimer = null;
     _awaitingInactivityAfterWakelockRelease = false;
 
-    _resumeMetricsOnWake = MetricsReportingService.instance.isRunning;
     _resumeNodeOnWake = RustBackendService.instance.isRunning;
     _resumeIosKeepAliveOnWake =
         Platform.isIOS && IOSForegroundKeepAliveService.instance.isActive;
@@ -333,10 +330,6 @@ class AppSleepService extends ChangeNotifier {
     }
 
     await PlatformAlarmService.instance.initialize();
-
-    if (_resumeMetricsOnWake) {
-      await MetricsReportingService.instance.stop();
-    }
 
     AppVersionCheck.instance.stopPeriodicChecks();
     EpochSlotSchedulerService.instance.stopEpochMonitoring();
@@ -393,10 +386,6 @@ class AppSleepService extends ChangeNotifier {
     if (_resumeEpochMonitoringOnWake) {
       await EpochSlotSchedulerService.instance.initialize();
       EpochSlotSchedulerService.instance.startEpochMonitoring();
-    }
-
-    if (_resumeMetricsOnWake) {
-      await MetricsReportingService.instance.start();
     }
 
     if (!_useWakelockTransitionFlow &&

@@ -70,4 +70,62 @@ void main() {
     );
     await expectLater(service.getMe(), throwsA(isA<AccountApiException>()));
   });
+
+  test('omits Authorization header when there is no token', () async {
+    String? auth = 'unset';
+    final service = AccountApiService(
+      baseUrl: _base,
+      tokenProvider: () async => '',
+      httpClient: MockClient((req) async {
+        auth = req.headers['authorization'];
+        return http.Response(jsonEncode(_envelope(_meData)), 200,
+            headers: {'content-type': 'application/json'});
+      }),
+    );
+    await service.getMe();
+    expect(auth, isNull);
+  });
+
+  test('network error maps to AccountApiException(0)', () async {
+    final service = AccountApiService(
+      baseUrl: _base,
+      httpClient: MockClient((req) async => throw Exception('boom')),
+    );
+    await expectLater(
+      service.getMe(),
+      throwsA(isA<AccountApiException>()
+          .having((e) => e.statusCode, 'statusCode', 0)),
+    );
+  });
+
+  test('non-2xx (non-401) throws with the status code', () async {
+    final service = AccountApiService(
+      baseUrl: _base,
+      httpClient: MockClient((req) async => http.Response('err', 500)),
+    );
+    await expectLater(
+      service.getMe(),
+      throwsA(isA<AccountApiException>()
+          .having((e) => e.statusCode, 'statusCode', 500)),
+    );
+  });
+
+  test('default base URL is derived when none is supplied', () async {
+    Uri? url;
+    final service = AccountApiService(
+      httpClient: MockClient((req) async {
+        url = req.url;
+        return http.Response(jsonEncode(_envelope(_meData)), 200,
+            headers: {'content-type': 'application/json'});
+      }),
+    );
+    await service.getMe();
+    expect(url!.path, endsWith('/me'));
+    service.dispose();
+  });
+
+  test('AccountApiException.toString includes code and message', () {
+    expect(AccountApiException(404, 'nope').toString(),
+        'AccountApiException(404, nope)');
+  });
 }

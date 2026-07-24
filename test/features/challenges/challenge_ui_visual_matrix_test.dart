@@ -18,7 +18,6 @@ import 'package:crypto_mobile_app/core/services/challenge_ui_visual_fixture.dart
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
-import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 
 import '../../design_system/helpers/ds_test_helpers.dart';
@@ -127,18 +126,6 @@ List<Override> _commonOverrides() => [
         ),
       ),
     ];
-
-Widget _challengesScreenApp(GlobalKey screenshotKey) {
-  return ProviderScope(
-    overrides: _commonOverrides(),
-    child: _localizedApp(
-      RepaintBoundary(
-        key: screenshotKey,
-        child: const ChallengesScreen(),
-      ),
-    ),
-  );
-}
 
 Widget _profileScreenApp(GlobalKey screenshotKey) {
   return ProviderScope(
@@ -391,30 +378,6 @@ void main() {
         tester,
         screenshotKey,
         'api-challenge-contract-matrix.png',
-      );
-      expect(artifact.existsSync(), isTrue);
-    });
-
-    testWidgets('ChallengesScreen renders the full matrix including completed',
-        (tester) async {
-      final screenshotKey = GlobalKey();
-      await setScreenshotSurfaceSize(tester, const Size(440, 5200));
-
-      await _pumpStatic(tester, _challengesScreenApp(screenshotKey));
-
-      expect(
-        find.byType(AtomicChallengeCard),
-        findsNWidgets(ChallengeUiVisualFixture.allCases.length),
-      );
-      for (final fixtureCase in ChallengeUiVisualFixture.allCases) {
-        expect(find.text(fixtureCase.challenge.goal), findsOneWidget);
-      }
-      expect(tester.takeException(), isNull);
-
-      final artifact = await writeWidgetScreenshotArtifact(
-        tester,
-        screenshotKey,
-        'challenges-active-matrix.png',
       );
       expect(artifact.existsSync(), isTrue);
     });

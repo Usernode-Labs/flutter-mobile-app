@@ -899,16 +899,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navProducedBlocks => 'Blocks';
 
   @override
-  String get navWallet => 'Wallet';
-
-  @override
   String get navDapps => 'dApps';
 
   @override
   String get navNodeStatus => 'Node Status';
-
-  @override
-  String get navChallenges => 'Challenges';
 
   @override
   String get navSettings => 'Settings';
@@ -2245,23 +2239,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String httpLogsFilterCount(int count, int total) {
     return '$count of $total';
   }
-
-  @override
-  String get participantRecoveryTitle => 'Onboarding has evolved';
-
-  @override
-  String get participantRecoveryBody =>
-      'Set your Discord handle and registration code again to restore your leaderboard participation.';
-
-  @override
-  String get participantRecoveryRestore => 'Restore';
-
-  @override
-  String get participantRecoveryLater => 'Later';
-
-  @override
-  String get participantRecoverySuccess =>
-      'Leaderboard participation restored.';
 
   @override
   String get shortcutConfirmTitle => 'Add to Home Screen';

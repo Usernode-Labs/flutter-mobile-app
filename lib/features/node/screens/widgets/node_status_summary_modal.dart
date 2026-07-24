@@ -8,7 +8,6 @@ import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
-import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
 
 /// Shows a bottom sheet with node status summary
@@ -621,17 +620,12 @@ class _NodeStatusSummaryModalState
                 variant: ButtonVariant.primary,
                 leadingIcon: const Icon(Symbols.visibility_sharp),
                 onTap: () {
-                  // Switch the home shell to the Node Status tab and clear
-                  // any imperatively-pushed routes (the modal itself, plus
-                  // a dapp WebView when the modal was opened from there) so
-                  // we land on /home with the bottom navigation visible.
-                  // The standalone /main/node route renders NodeStatusScreen
-                  // outside HomeScreen's IndexedStack and would lose the bar.
+                  // Dismiss the bottom sheet first (else it lingers under the
+                  // node page and reappears on back), then push the standalone
+                  // /main/node route so back returns to wherever we came from.
                   final goRouter = GoRouter.of(context);
-                  ref.read(currentHomeTabProvider.notifier).state =
-                      HomeTab.nodeStatus;
-                  Navigator.of(context).popUntil((r) => r.isFirst);
-                  goRouter.go(AppRoutes.home);
+                  Navigator.of(context).pop();
+                  goRouter.push(AppRoutes.mainNode);
                 },
               ),
             ),

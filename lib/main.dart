@@ -7,17 +7,13 @@ import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_ser
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/features/app_sleep/screens/app_sleep_screen.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
-import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
@@ -452,35 +448,11 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     final isSleeping = _appSleepService.isSleeping;
     _syncVersionChecks();
     if (_wasSleeping && !isSleeping) {
+      // Sleep only pauses the node; the UI never went away, so there is no
+      // post-wake navigation reset — just refresh the node-backed data.
       unawaited(_refreshWakeData());
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final zkIdentityChallengeActive =
-            ref.read(zkIdentityChallengeActiveProvider);
-        final zkPassportPipeline = ref.read(zkPassportPipelineProvider);
-        final shouldPreserveCurrentRoute = zkIdentityChallengeActive ||
-            zkPassportPipeline.status == ZkPassportPipelineStatus.processing;
-        if (shouldPreserveCurrentRoute) {
-          return;
-        }
-        final navContext = appNavigatorKey.currentContext;
-        if (navContext == null) return;
-        final router = GoRouter.of(navContext);
-        // Waking via a homescreen widget tap deep-links straight into a
-        // pinned dapp; the post-wake reset must not stomp that route (the
-        // deep link can land before this callback runs).
-        final currentPath = router.routerDelegate.currentConfiguration.uri.path;
-        if (currentPath.startsWith('/dapps/pinned/')) return;
-        router.go(AppRoutes.home);
-      });
     }
     _wasSleeping = isSleeping;
-  }
-
-  void _handleSleepScreenWakeRequested() {
-    unawaited(
-      _appSleepService.wake(reason: AppSleepService.manualUiWakeReason),
-    );
   }
 
   Future<void> _refreshWakeData() async {
@@ -556,29 +528,16 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       onPointerSignal: (_) {
         _appSleepService.recordUserInteraction(source: 'pointer_signal');
       },
-      child: ListenableBuilder(
-        listenable: _appSleepService,
-        builder: (context, child) {
-          final snapshot = _appSleepService.snapshot;
-          final showSleepScreen = snapshot.isSleeping &&
-              snapshot.lifecycleState == AppLifecycleState.resumed;
-          return TickerMode(
-            enabled: !_appSleepService.isSleeping,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child ?? const SizedBox.shrink(),
-                const ClockDriftWarningOverlay(),
-                if (showSleepScreen)
-                  AppSleepScreen(
-                    snapshot: snapshot,
-                    onWakeRequested: _handleSleepScreenWakeRequested,
-                  ),
-              ],
-            ),
-          );
-        },
-        child: widget.child ?? const SizedBox.shrink(),
+      // App sleep only pauses the node — the UI stays live and interactive,
+      // so no sleep overlay or ticker freeze here. The pointer listeners
+      // above double as the wake gesture (see
+      // AppSleepService.recordUserInteraction).
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          widget.child ?? const SizedBox.shrink(),
+          const ClockDriftWarningOverlay(),
+        ],
       ),
     );
   }

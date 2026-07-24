@@ -6,7 +6,16 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart'
+    show participantIdProvider;
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart'
+    show buildEnvProvider, debugModeProvider;
 import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
+import 'package:crypto_mobile_app/core/providers/wallet_provider.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
@@ -15,10 +24,18 @@ import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
+    show authStatusProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart'
+    show resetChallengeState;
+import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart'
+    show currentTermsProvider;
+import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart'
+    show zkPassportFlowControllerProvider, zkPassportSettingsProvider;
 import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:file_picker/file_picker.dart';
@@ -27,6 +44,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -215,11 +233,25 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   /// System back / WebView back-history handling is unaffected.
   final bool embedded;
 
+  /// Full-screen shell mode (app-as-SV-chrome): no Flutter app bar at all —
+  /// the web page owns its own header. Back handling, the JS bridge, and the
+  /// tx confirmation chrome are unaffected. Implies the tab-root behavior of
+  /// [embedded] (no leading "Home" button, because there is no bar).
+  final bool chromeless;
+
+  /// Fired exactly once with the outcome of the first main-frame load:
+  /// `true` on the first successful [onPageFinished], `false` if a
+  /// main-frame resource error lands first. Used by the shell's
+  /// first-launch gate ("has SV ever rendered on this install?").
+  final void Function(bool ok)? onFirstLoadResult;
+
   const DappWebViewScreen({
     super.key,
     required this.url,
     required this.name,
     this.embedded = false,
+    this.chromeless = false,
+    this.onFirstLoadResult,
   });
 
   @override
@@ -256,6 +288,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   // navigation (e.g. SV's `App.setHeaderTitle` after `/api/apps/:slug`
   // resolves). Falls back to [widget.name] when null/empty.
   String? _pageTitle;
+
+  // First main-frame load outcome has been reported via
+  // widget.onFirstLoadResult (shell first-launch gate). Never reset.
+  bool _firstLoadReported = false;
 
   // Set to true the first time the page posts a `titleChanged` message via
   // the JS channel. Once true, we stop trusting `_controller.getTitle()` in
@@ -413,7 +449,20 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
+    // iOS: opt this webview into App-Bound Domains (WKAppBoundDomains in
+    // Info.plist). This unlocks Service Workers — SV's offline PWA mode —
+    // at the cost of restricting navigation to the bound domains. All dapp
+    // surfaces we host live on those domains; external links route through
+    // the openExternal bridge method / system browser instead.
+    final PlatformWebViewControllerCreationParams creationParams;
+    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+      creationParams = WebKitWebViewControllerCreationParams(
+        limitsNavigationsToAppBoundDomains: true,
+      );
+    } else {
+      creationParams = const PlatformWebViewControllerCreationParams();
+    }
+    _controller = WebViewController.fromPlatformCreationParams(creationParams)
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       // Pipe WebView console.* output (including the iframe-relay tracing in
       // usernode-bridge.js) into Flutter's debug logs so it shows up in
@@ -540,6 +589,77 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
               if (method == 'openExternal') {
                 await _handleOpenExternal(id, payload);
               }
+
+              if (method == 'getBridgeInfo') {
+                await _resolveJsPromise(
+                  id: id,
+                  value: {
+                    'version': _bridgeVersion,
+                    'capabilities': _bridgeCapabilities,
+                  },
+                  error: null,
+                );
+              }
+
+              if (method == 'getNodeStatus') {
+                await _resolveJsPromise(
+                  id: id,
+                  value: _nodeStatusSnapshot(),
+                  error: null,
+                );
+              }
+
+              if (method == 'getWalletState') {
+                await _handleGetWalletState(id);
+              }
+
+              if (method == 'getTransactionRecords') {
+                await _handleGetTransactionRecords(id);
+              }
+
+              if (method == 'openNativeScreen') {
+                await _handleOpenNativeScreen(id, payload);
+              }
+
+              if (method == 'getProfileInfo') {
+                await _handleGetProfileInfo(id);
+              }
+
+              if (method == 'getSettingsState') {
+                await _handleGetSettingsState(id);
+              }
+
+              if (method == 'setNodeSleepEnabled') {
+                await _handleSetNodeSleepEnabled(id, payload);
+              }
+
+              if (method == 'setDebugMode') {
+                await _handleSetDebugMode(id, payload);
+              }
+
+              if (method == 'setFacematchStrict') {
+                await _handleSetFacematchStrict(id, payload);
+              }
+
+              if (method == 'resetZkChallenge') {
+                await _handleResetZkChallenge(id);
+              }
+
+              if (method == 'requestPermissions') {
+                await _handleRequestPermissions(id);
+              }
+
+              if (method == 'openBatterySettings') {
+                await _handleOpenBatterySettings(id);
+              }
+
+              if (method == 'setIosKeepAlive') {
+                await _handleSetIosKeepAlive(id, payload);
+              }
+
+              if (method == 'logout') {
+                await _handleLogout(id);
+              }
             } catch (e, st) {
               debugPrint(
                   '[Usernode JS-channel] handler error method=$method id=$id: '
@@ -579,17 +699,27 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           onPageFinished: (_) {
             if (!mounted) return;
             setState(() => _progress = 100);
+            _reportFirstLoadResult(true);
             _refreshPageTitle();
             _refreshCanGoBack();
+            _logServiceWorkerStateForDebug();
+            // Seed the freshly loaded page with the current node status so
+            // SV chrome renders the pill immediately (no first-poll gap).
+            _dispatchNodeStatusEvent();
           },
           onUrlChange: (_) {
             // SPA pushState navigation — title typically changes too.
             _refreshPageTitle();
             _refreshCanGoBack();
           },
-          onWebResourceError: (_) {
+          onWebResourceError: (error) {
             if (!mounted) return;
             setState(() => _progress = 100);
+            // Sub-resource failures (an image, a beacon) don't mean the
+            // page failed; only main-frame errors flunk the first-load gate.
+            if (error.isForMainFrame != false) {
+              _reportFirstLoadResult(false);
+            }
           },
         ),
       )
@@ -603,6 +733,14 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     if (platformController is AndroidWebViewController) {
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
     }
+    // Push node pill-state transitions into the page (SV header pill).
+    // Chrome-level provider only changes on real state flips (hysteresis
+    // inside), so this doesn't spam the page with the 1s status poll.
+    // Subscription is auto-closed when this State is disposed.
+    ref.listenManual(
+      topStatusChromeNodeStatusProvider,
+      (_, __) => _dispatchNodeStatusEvent(),
+    );
     _loadTxRecords();
     _loadDappTxIds();
   }
@@ -670,6 +808,391 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     );
   }
 
+  /// Bridge protocol version. Bump only on breaking changes; additive
+  /// methods just append to [_bridgeCapabilities] so SV chrome can
+  /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
+  static const int _bridgeVersion = 3;
+  static const List<String> _bridgeCapabilities = [
+    'getNodeAddress',
+    'sendTransaction',
+    'signMessage',
+    'txObserved',
+    'getHomeScreenShortcutSupport',
+    'addHomeScreenShortcut',
+    'getHomeScreenShortcuts',
+    'removeHomeScreenShortcut',
+    'reorderHomeScreenShortcuts',
+    'openExternal',
+    'getBridgeInfo',
+    'getNodeStatus',
+    'nodeStatusEvents',
+    'getWalletState',
+    'getTransactionRecords',
+    'openNativeScreen',
+    'getProfileInfo',
+    'getSettingsState',
+    'setNodeSleepEnabled',
+    'setDebugMode',
+    'setFacematchStrict',
+    'resetZkChallenge',
+    'requestPermissions',
+    'openBatterySettings',
+    'setIosKeepAlive',
+    'logout',
+  ];
+
+  /// One JSON shape shared by the `getNodeStatus` reply and the pushed
+  /// `usernode:node-status` CustomEvent, so SV renders both identically.
+  /// `status` is the chrome-level pill state (hysteresis applied):
+  /// synced | syncing | connecting | offline.
+  Map<String, dynamic> _nodeStatusSnapshot() {
+    final chrome = ref.read(topStatusChromeNodeStatusProvider);
+    final node = ref.read(nodeStatusProvider).valueOrNull;
+    return {
+      'status': chrome.name,
+      'localBestHeight': node?.localBestHeight,
+      'networkBestHeight': node?.networkBestHeight,
+      'connectedPeers': node?.connectedPeers,
+      'totalPeers': node?.totalPeers,
+    };
+  }
+
+  /// Pushes the current node status into the page as a
+  /// `usernode:node-status` CustomEvent, so SV's header pill can update
+  /// without polling. Fired on chrome pill-state transitions and once per
+  /// page load (see initState / onPageFinished).
+  void _dispatchNodeStatusEvent() {
+    final detail = jsonEncode(_nodeStatusSnapshot());
+    _controller
+        .runJavaScript('window.dispatchEvent(new CustomEvent('
+            '"usernode:node-status", { detail: $detail }));')
+        .catchError((_) {});
+  }
+
+  /// Reports the first main-frame load outcome exactly once (shell
+  /// first-launch gate). Success and failure race; whichever navigation
+  /// callback lands first wins.
+  void _reportFirstLoadResult(bool ok) {
+    if (_firstLoadReported) return;
+    _firstLoadReported = true;
+    widget.onFirstLoadResult?.call(ok);
+  }
+
+  Future<void> _handleGetWalletState(String id) async {
+    final address = await _getActiveNodeAddress();
+    // First read lazily initializes the provider; wait briefly for the
+    // initial load so a fresh page doesn't always see nulls, but never
+    // hang the page's promise on a slow node.
+    WalletState? wallet;
+    try {
+      wallet = await ref
+          .read(walletProvider.future)
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {
+      wallet = ref.read(walletProvider).valueOrNull;
+    }
+    final balance = wallet?.balance;
+    await _resolveJsPromise(
+      id: id,
+      value: {
+        'address': address,
+        // Base units as a string (BigInt-safe for JS consumers).
+        'balance': balance?.totalBalance.toString(),
+        'tokenAmount': balance?.tokenAmount,
+        'tokenSymbol': balance?.tokenSymbol,
+        'lastUpdatedMs': balance?.lastUpdated?.millisecondsSinceEpoch,
+      },
+      error: null,
+    );
+  }
+
+  /// Returns this webview's persisted dapp-transaction receipts (the same
+  /// `_TxRecord` list backing the native receipts sheet), newest first.
+  Future<void> _handleGetTransactionRecords(String id) async {
+    final records = _txRecords.values.toList()
+      ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
+    await _resolveJsPromise(
+      id: id,
+      value: {
+        'items': [for (final r in records.take(100)) r.toJson()],
+      },
+      error: null,
+    );
+  }
+
+  /// `openNativeScreen` JS-channel method: pushes an allowlisted native
+  /// route. Escape hatch for chrome that stays native (settings, profile)
+  /// while SV owns the rest of the UI. Only the trusted SV origin may
+  /// drive native navigation — sub-apps get a rejection.
+  Future<void> _handleOpenNativeScreen(
+      String id, Map<String, dynamic> payload) async {
+    const allowedScreens = <String, String>{
+      'settings': AppRoutes.profileSettings,
+      'profile': AppRoutes.profile,
+      // Deep-links for the SV settings sections that stay native: the
+      // benchmark and HTTP log viewers are debugging UIs over native-only
+      // data, and terms records consent through the native flow.
+      'benchmark': AppRoutes.deviceBenchmark,
+      'httpLogs': AppRoutes.httpDebugLogs,
+      'terms': AppRoutes.terms,
+    };
+    final args = payload['args'];
+    final screen =
+        args is Map<String, dynamic> ? args['screen']?.toString() : null;
+    final route = screen == null ? null : allowedScreens[screen];
+    if (route == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Unknown screen; allowed: ${allowedScreens.keys.join(', ')}',
+      );
+      return;
+    }
+    if (!await _isTrustedShortcutOrigin()) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'openNativeScreen is only available to the dapps home',
+      );
+      return;
+    }
+    if (!mounted) return;
+    context.push(route);
+    await _resolveJsPromise(id: id, value: true, error: null);
+  }
+
+  /// Shared gate for the bridge v3 profile/settings methods: they read and
+  /// mutate app-level native state, so only the trusted SV origin may call
+  /// them. Rejects the JS promise and returns false for anyone else.
+  Future<bool> _requireTrustedChromeOrigin(String id, String method) async {
+    if (await _isTrustedShortcutOrigin()) return true;
+    await _resolveJsPromise(
+      id: id,
+      value: null,
+      error: '$method is only available to the dapps home',
+    );
+    return false;
+  }
+
+  /// `getProfileInfo`: the leaderboard participant id SV's #profile screen
+  /// needs to query /me/ranking and /me/breakdown. Null when this install
+  /// hasn't registered with the leaderboard yet.
+  Future<void> _handleGetProfileInfo(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'getProfileInfo')) return;
+    int? participantId;
+    try {
+      participantId = await ref
+          .read(participantIdProvider.future)
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      participantId = ref.read(participantIdProvider).valueOrNull;
+    }
+    await _resolveJsPromise(
+      id: id,
+      value: {'participantId': participantId},
+      error: null,
+    );
+  }
+
+  /// One JSON shape shared by `getSettingsState` and every settings setter
+  /// (each setter resolves with the refreshed state so SV re-renders from a
+  /// single source of truth). Mirrors what the native settings screen shows.
+  Future<Map<String, dynamic>> _settingsStateSnapshot() async {
+    // Permission checks mirror the native QuickSettingsPanel wiring.
+    bool exactAlarmGranted = false;
+    bool? batteryOptDisabled;
+    String? deviceManufacturer;
+    bool? iosKeepAliveActive;
+    try {
+      await PlatformAlarmService.instance.initialize();
+      exactAlarmGranted = PlatformAlarmService.instance.hasPermissions;
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        batteryOptDisabled =
+            await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
+        deviceManufacturer =
+            await PlatformAlarmService.instance.getDeviceManufacturer();
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        iosKeepAliveActive = IOSForegroundKeepAliveService.instance.isActive;
+      }
+    } catch (e) {
+      debugPrint('[Usernode JS-channel] permission probe failed: $e');
+    }
+
+    PackageInfo? packageInfo;
+    try {
+      packageInfo = await PackageInfo.fromPlatform();
+    } catch (_) {}
+
+    String? nodeVersion;
+    String? commitHash;
+    String? branch;
+    try {
+      final env = ref.read(buildEnvProvider);
+      nodeVersion = env.version;
+      final hash = env.git.commitHash;
+      commitHash = hash.length >= 7 ? hash.substring(0, 7) : hash;
+      branch = env.git.branch;
+    } catch (_) {}
+
+    // Terms load lazily; wait briefly so a fresh page doesn't always see
+    // null, but never hang the settings sheet on a slow network.
+    bool? termsAccepted;
+    try {
+      final snapshot = await ref
+          .read(currentTermsProvider.future)
+          .timeout(const Duration(seconds: 5));
+      termsAccepted = snapshot?.terms?.consent?.accepted ?? false;
+    } catch (_) {
+      final snapshot = ref.read(currentTermsProvider).valueOrNull;
+      termsAccepted = snapshot?.terms?.consent?.accepted;
+    }
+
+    final facematchStrict = ref
+            .read(zkPassportSettingsProvider)
+            .whenOrNull(data: (s) => s.facematchStrict) ??
+        true;
+
+    return {
+      'buildInfo': {
+        'appVersion': packageInfo?.version,
+        'buildNumber': packageInfo?.buildNumber,
+        'nodeVersion': nodeVersion,
+        'commitHash': commitHash,
+        'branch': branch,
+      },
+      'nodeSleepEnabled': AppSleepService.instance.isEnabled,
+      'debugMode': ref.read(debugModeProvider),
+      'facematchStrict': facematchStrict,
+      'termsAccepted': termsAccepted,
+      'authStatus': ref.read(authStatusProvider).name,
+      'permissions': {
+        'platform':
+            defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+        'exactAlarmGranted': exactAlarmGranted,
+        'batteryOptDisabled': batteryOptDisabled,
+        'deviceManufacturer': deviceManufacturer,
+        'iosKeepAliveActive': iosKeepAliveActive,
+      },
+    };
+  }
+
+  Future<void> _handleGetSettingsState(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'getSettingsState')) return;
+    await _resolveJsPromise(
+      id: id,
+      value: await _settingsStateSnapshot(),
+      error: null,
+    );
+  }
+
+  /// Extracts a required bool from `payload.args[key]`; rejects the promise
+  /// and returns null when missing or mistyped.
+  Future<bool?> _requireBoolArg(
+      String id, Map<String, dynamic> payload, String key) async {
+    final args = payload['args'];
+    final value = args is Map<String, dynamic> ? args[key] : null;
+    if (value is bool) return value;
+    await _resolveJsPromise(
+      id: id,
+      value: null,
+      error: 'args.$key (bool) is required',
+    );
+    return null;
+  }
+
+  Future<void> _handleSetNodeSleepEnabled(
+      String id, Map<String, dynamic> payload) async {
+    if (!await _requireTrustedChromeOrigin(id, 'setNodeSleepEnabled')) return;
+    final enabled = await _requireBoolArg(id, payload, 'enabled');
+    if (enabled == null) return;
+    await AppSleepService.instance.setEnabled(enabled);
+    await _resolveJsPromise(
+      id: id,
+      value: await _settingsStateSnapshot(),
+      error: null,
+    );
+  }
+
+  Future<void> _handleSetDebugMode(
+      String id, Map<String, dynamic> payload) async {
+    if (!await _requireTrustedChromeOrigin(id, 'setDebugMode')) return;
+    final enabled = await _requireBoolArg(id, payload, 'enabled');
+    if (enabled == null) return;
+    await ref.read(debugModeProvider.notifier).set(enabled);
+    await _resolveJsPromise(
+      id: id,
+      value: await _settingsStateSnapshot(),
+      error: null,
+    );
+  }
+
+  Future<void> _handleSetFacematchStrict(
+      String id, Map<String, dynamic> payload) async {
+    if (!await _requireTrustedChromeOrigin(id, 'setFacematchStrict')) return;
+    final enabled = await _requireBoolArg(id, payload, 'enabled');
+    if (enabled == null) return;
+    await ref.read(zkPassportFlowControllerProvider).setFacematchStrict(
+          enabled,
+        );
+    await _resolveJsPromise(
+      id: id,
+      value: await _settingsStateSnapshot(),
+      error: null,
+    );
+  }
+
+  /// `resetZkChallenge`: same reset the native settings screen offers.
+  /// Confirmation happens web-side; this is the commit.
+  Future<void> _handleResetZkChallenge(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'resetZkChallenge')) return;
+    if (!mounted) return;
+    await resetChallengeState(ref, context);
+    await _resolveJsPromise(id: id, value: true, error: null);
+  }
+
+  Future<void> _handleRequestPermissions(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'requestPermissions')) return;
+    final granted = await PlatformAlarmService.instance.requestPermissions();
+    final state = await _settingsStateSnapshot();
+    await _resolveJsPromise(
+      id: id,
+      value: {...state, 'granted': granted},
+      error: null,
+    );
+  }
+
+  Future<void> _handleOpenBatterySettings(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'openBatterySettings')) return;
+    await PlatformAlarmService.instance.openBatteryOptimizationSettings();
+    await _resolveJsPromise(id: id, value: true, error: null);
+  }
+
+  Future<void> _handleSetIosKeepAlive(
+      String id, Map<String, dynamic> payload) async {
+    if (!await _requireTrustedChromeOrigin(id, 'setIosKeepAlive')) return;
+    final enabled = await _requireBoolArg(id, payload, 'enabled');
+    if (enabled == null) return;
+    if (enabled) {
+      await IOSForegroundKeepAliveService.instance.startKeepAlive();
+    } else {
+      await IOSForegroundKeepAliveService.instance.stopKeepAlive();
+    }
+    await _resolveJsPromise(
+      id: id,
+      value: await _settingsStateSnapshot(),
+      error: null,
+    );
+  }
+
+  /// `logout`: web-side confirm, native commit. The router's auth guard
+  /// takes over from here (post-logout flow stays native chrome, same
+  /// category as onboarding).
+  Future<void> _handleLogout(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
+    await ref.read(authStatusProvider.notifier).logout();
+    await _resolveJsPromise(id: id, value: true, error: null);
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -684,6 +1207,28 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     _urlController.dispose();
     _urlFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Debug builds only: reports whether the page can (and did) register a
+  /// service worker. On iOS this verifies the App-Bound Domains opt-in took
+  /// effect (without it, `navigator.serviceWorker` is undefined in
+  /// WKWebView). Output lands in the piped webview console logs.
+  void _logServiceWorkerStateForDebug() {
+    if (!kDebugMode) return;
+    _controller.runJavaScript('''
+      (function () {
+        if (!('serviceWorker' in navigator)) {
+          console.log('[sw-check] navigator.serviceWorker unavailable');
+          return;
+        }
+        navigator.serviceWorker.getRegistration().then(function (reg) {
+          console.log('[sw-check] serviceWorker available; registration: '
+            + (reg ? reg.scope : 'none'));
+        }).catch(function (e) {
+          console.log('[sw-check] getRegistration failed: ' + e);
+        });
+      })();
+    ''').catchError((_) {});
   }
 
   Future<void> _refreshPageTitle() async {
@@ -1745,12 +2290,22 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       },
       child: Scaffold(
         backgroundColor: colors.surfaceContainerLowest,
-        appBar: isShellRoot
-            ? _buildShellAppBar(context)
-            : _buildBrowserAppBar(context),
+        // Chromeless (full-screen SV shell): the page owns its own header,
+        // so no Flutter bar at all — just keep the webview out from under
+        // the OS status bar.
+        appBar: widget.chromeless
+            ? null
+            : isShellRoot
+                ? _buildShellAppBar(context)
+                : _buildBrowserAppBar(context),
         body: ColoredBox(
           color: colors.surfaceContainerLowest,
-          child: WebViewWidget(controller: _controller),
+          child: widget.chromeless
+              ? SafeArea(
+                  bottom: false,
+                  child: WebViewWidget(controller: _controller),
+                )
+              : WebViewWidget(controller: _controller),
         ),
       ),
     );

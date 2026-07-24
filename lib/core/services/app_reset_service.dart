@@ -7,7 +7,6 @@ import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_ser
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
-import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/wallet/services/pending_transaction_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -67,12 +66,6 @@ class AppResetService {
   Future<void> _stopServices() async {
     AppVersionCheck.instance.stopPeriodicChecks();
     BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-
-    try {
-      await MetricsReportingService.instance.resetForAppRestart();
-    } catch (e) {
-      _log.warn('Failed to stop metrics reporting cleanly: $e');
-    }
 
     try {
       await AndroidForegroundTaskController.instance

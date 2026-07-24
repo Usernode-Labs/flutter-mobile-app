@@ -7,7 +7,6 @@ import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_ser
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/features/metrics/metrics_reporting_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -25,7 +24,6 @@ import 'core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/providers/metrics_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/epoch_rewards_provider.dart';
@@ -145,24 +143,9 @@ Future<void> _startHeadlessServices(
   TaggedLogger log,
 ) async {
   try {
-    log.info('Starting headless services (metrics, lifecycle, etc.)');
+    log.info('Starting headless services (produced-blocks refresh, lifecycle, etc.)');
 
     _startHeadlessProducedBlocksRefresh(container, log);
-
-    // Start metrics reporting service if enabled
-    if (AppConfig.metricsEnabled && AppConfig.metricsEndpoint.isNotEmpty) {
-      log.info(
-        'Starting metrics reporting service in headless mode',
-        context: {
-          'endpoint': AppConfig.metricsEndpoint,
-          'interval_seconds': AppConfig.metricsCollectionIntervalSeconds,
-        },
-      );
-      await MetricsReportingService.instance.start();
-      log.info('Metrics reporting service started successfully');
-    } else {
-      log.debug('Metrics disabled or not configured in headless mode');
-    }
 
     // Initialize backend lifecycle provider manually
     container.read(backendLifecycleProvider);
@@ -192,7 +175,7 @@ void _startHeadlessProducedBlocksRefresh(
 
   _headlessProducedBlocksRefreshTimer?.cancel();
 
-  final interval = AppConfig.metricsCollectionInterval;
+  final interval = AppConfig.headlessRefreshInterval;
   log.debug(
     'Starting headless produced blocks refresh timer',
     context: {'interval': interval.toString()},
@@ -293,9 +276,6 @@ class CryptoMobileApp extends ConsumerWidget {
 
     // Initialize backend lifecycle manager
     ref.watch(backendLifecycleProvider);
-
-    // Initialize metrics lifecycle manager
-    ref.watch(metricsLifecycleProvider);
 
     // Initialize zkPassport pipeline state early so session-server polling
     // and foreground recovery are active before the registration UI opens.
@@ -438,10 +418,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       'produced_blocks_summary',
       () => ref.refresh(producedBlocksSummaryProvider.future),
     );
-
-    if (MetricsReportingService.instance.isRunning) {
-      await MetricsReportingService.instance.reportNow();
-    }
   }
 
   void _syncVersionChecks() {

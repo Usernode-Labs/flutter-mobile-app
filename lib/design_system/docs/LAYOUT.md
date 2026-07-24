@@ -4,7 +4,7 @@ Mobile-only layout targeting the compact window class (<600dp). All spacing deri
 
 ## Screen Anatomy
 
-The app has two screen shapes. Tab screens live inside `HomeScreen`'s `IndexedStack` and receive BottomNav from the shell. Detail screens are pushed via `context.push()`.
+The native app is chromeless: `/home` renders the SV webview full-bleed (see `SvShellScreen`) and the old `HomeScreen` `IndexedStack` + BottomNav tab shell has been retired. Every native screen is now pushed via `context.push()`. The "tab screen" shape below is kept only as a spacing reference — screens like Node Status and Settings still use it as root scaffolds, just without a BottomNav underneath.
 
 ```
 Tab Screen (Challenges, Wallet, Node)    Detail Screen (Leaderboard, ChallengeDetail)

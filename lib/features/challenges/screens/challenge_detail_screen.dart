@@ -20,7 +20,6 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
-import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
@@ -303,8 +302,8 @@ class ChallengeDetailScreen extends ConsumerWidget {
     int? currentEpoch,
   ) {
     void networkOnTap() {
-      ref.read(currentHomeTabProvider.notifier).state = HomeTab.nodeStatus;
-      context.go(AppRoutes.home);
+      // Node status is its own pushed route now (SV shell owns home).
+      context.push(AppRoutes.mainNode);
     }
 
     final AtomicChallengeHeroOverviewItem networkStep;

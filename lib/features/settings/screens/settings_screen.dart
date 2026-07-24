@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -72,7 +71,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Timer? _autoTimer;
   Timer? _longPressTimer;
   bool _refreshing = false;
-  bool _active = false;
 
   PackageInfo? _packageInfo;
 
@@ -82,17 +80,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _appSleepService.addListener(_handleAppSleepChanged);
     _checkStatus();
     _loadPackageInfo();
-    _active = _isActiveTab();
-    if (_active) _startTimer();
-
-    // React to tab changes and start/stop the refresh timer.
-    ref.listenManual(currentHomeTabProvider, (_, next) {
-      final shouldBeActive = next == HomeTab.settings;
-      if (shouldBeActive != _active) {
-        _active = shouldBeActive;
-        shouldBeActive ? _startTimer() : _stopTimer();
-      }
-    });
+    // Settings is a pushed route (SV shell owns the home): it only exists while
+    // visible, so the refresh timer runs for its whole lifetime (sleep aside).
+    _startTimer();
   }
 
   Future<void> _loadPackageInfo() async {
@@ -111,20 +101,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.dispose();
   }
 
-  bool _isActiveTab() {
-    try {
-      return ref.read(currentHomeTabProvider) == HomeTab.settings;
-    } catch (_) {
-      return false;
-    }
-  }
-
   void _startTimer() {
     if (_appSleepService.isSleeping) return;
     _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (_appSleepService.isSleeping) return;
-      if (mounted && _active && !_refreshing) {
+      if (mounted && !_refreshing) {
         _checkStatus();
       }
     });
@@ -142,10 +124,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return;
     }
 
-    if (_active) {
-      _startTimer();
-      unawaited(_checkStatus());
-    }
+    _startTimer();
+    unawaited(_checkStatus());
   }
 
   Future<void> _checkStatus() async {

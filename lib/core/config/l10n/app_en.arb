@@ -1245,49 +1245,6 @@
   "@navSettings": {
     "description": "Navigation bar label for settings tab"
   },
-  "navActivity": "Activity",
-  "@navActivity": {
-    "description": "Navigation bar label and screen title for Activity"
-  },
-  "activityLoadError": "Couldn't load activity",
-  "@activityLoadError": {
-    "description": "Generic message shown when the Activity feed cannot be loaded"
-  },
-  "activityEmptyTitle": "No activity yet",
-  "@activityEmptyTitle": {
-    "description": "Title shown when the Activity feed is empty"
-  },
-  "activityEmptyBody": "Important Usernode events will appear here",
-  "@activityEmptyBody": {
-    "description": "Explanation shown when the Activity feed is empty"
-  },
-  "activityMarkReadError": "Couldn't mark activity as read",
-  "@activityMarkReadError": {
-    "description": "Generic message shown when an Activity item cannot be marked read"
-  },
-  "activitySourceSocial": "Social",
-  "@activitySourceSocial": {
-    "description": "Display name for the Social Activity source"
-  },
-  "activitySemanticUnread": "Unread",
-  "@activitySemanticUnread": {
-    "description": "Accessibility label for an unread Activity item"
-  },
-  "activityItemTitle": "{copyCase, select, generic{Activity update} scoutNeedsInput{Scout needs input} buildNeedsInput{Build needs input} headlessNeedsInput{Automated run needs input} scoutSucceeded{Scout completed} buildSucceeded{Build completed} headlessSucceeded{Automated run completed} scoutFailed{Scout failed} buildFailed{Build failed} headlessFailed{Automated run failed} scoutCancelled{Scout cancelled} buildCancelled{Build cancelled} headlessCancelled{Automated run cancelled} other{Activity update}}",
-  "@activityItemTitle": {
-    "description": "Title for an Activity item selected from locally validated copy",
-    "placeholders": {
-      "copyCase": {"type": "String"}
-    }
-  },
-  "activityItemBody": "{copyCase, select, generic{Open the source app to view details} needsClarification{The run is waiting for clarification} needsDecision{The run is waiting for a decision} needsApproval{The run is waiting for approval} succeededSpec{The run produced a specification} succeededCode{The run produced code} succeededSpecCode{The run produced a specification and code} succeededNoChanges{The run completed without changes} failedDispatchNoArtifacts{The run couldn't start} failedExecutionNoArtifacts{The run failed during execution} failedExecutionSpec{Execution failed, but a specification is available} failedExecutionCode{Execution failed, but code is available} failedExecutionSpecCode{Execution failed, but a specification and code are available} failedStagingSpec{Staging failed, but a specification is available} failedStagingCode{Staging failed, but code is available} failedStagingSpecCode{Staging failed, but a specification and code are available} failedPreviewSpec{Preview failed, but a specification is available} failedPreviewCode{Preview failed, but code is available} failedPreviewSpecCode{Preview failed, but a specification and code are available} cancelledExplicitStop{The run was stopped} cancelledSuperseded{A newer automated run replaced this one} other{Open the source app to view details}}",
-  "@activityItemBody": {
-    "description": "Body for an Activity item selected from locally validated copy",
-    "placeholders": {
-      "copyCase": {"type": "String"}
-    }
-  },
-
   "welcomeClaimAccount": "Claim your account",
   "@welcomeClaimAccount": {
     "description": "Claim account button text"

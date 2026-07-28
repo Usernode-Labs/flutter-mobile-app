@@ -48,7 +48,7 @@ class WelcomeClaimScreen extends StatelessWidget {
                   label: l10n.welcomeAlphaClaimSpot,
                   variant: ButtonVariant.primary,
                   size: ButtonSize.large,
-                  onTap: () => context.go(AppRoutes.onboardingImportApi),
+                  onTap: () => context.go(AppRoutes.authLanding),
                 ),
               ),
             ],

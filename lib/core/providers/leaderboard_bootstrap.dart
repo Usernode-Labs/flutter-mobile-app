@@ -21,41 +21,10 @@ const _seasonNameKey = 'leaderboard:season_name';
 const _eventIdKey = 'leaderboard:event_id';
 const _eventNameKey = 'leaderboard:event_name';
 
-/// Bootstraps leaderboard state from persisted data and registration results.
-///
-/// Two primary use cases:
-///
-/// 1. **After v2 registration** — call [handleRegistration] to persist
-///    participant + season data, then set the returned context:
-///    ```dart
-///    final ctx = await LeaderboardBootstrap.handleRegistration(v2Result);
-///    ref.read(seasonEventContextProvider.notifier).state = ctx;
-///    ref.invalidate(participantIdProvider);
-///    ```
-///
-/// 2. **Cold start** — watch [leaderboardBootstrapProvider] in the app shell
-///    to auto-restore the [SeasonEventContext] from SharedPreferences.
+/// Bootstraps leaderboard state from persisted data: watch
+/// [leaderboardBootstrapProvider] in the app shell to auto-restore the
+/// [SeasonEventContext] from SharedPreferences on cold start.
 class LeaderboardBootstrap {
-  /// Persist registration data. Returns the [SeasonEventContext] to set on
-  /// [seasonEventContextProvider].
-  static Future<SeasonEventContext> handleRegistration(
-    RegistrationV2Result result,
-  ) async {
-    await saveParticipantId(result.participantId);
-    final ctx = SeasonEventContext(
-      seasonId: result.seasonId,
-      seasonName: result.seasonName,
-    );
-    if (result.seasonId != null) {
-      await _persistContext(ctx);
-    }
-    _log.info(
-      'Persisted participant=${result.participantId}, '
-      'season=${result.seasonId} (${result.seasonName})',
-    );
-    return ctx;
-  }
-
   /// Load persisted season context for cold-start hydration.
   /// Returns null if no leaderboard data has been persisted.
   static Future<SeasonEventContext?> loadPersistedContext() async {

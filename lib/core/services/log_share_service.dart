@@ -37,7 +37,7 @@ class LogShareService {
     String? baseUrl,
     http.Client? httpClient,
     Future<String?> Function()? tokenProvider,
-  })  : _baseUrl = baseUrl ?? AppConfig.mobileApiV3BaseUrl,
+  })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
         _http = httpClient ?? http.Client(),
         _tokenProvider = tokenProvider;
 

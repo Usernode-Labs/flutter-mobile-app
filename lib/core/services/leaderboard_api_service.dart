@@ -26,7 +26,7 @@ class LeaderboardApiService {
     Duration? retryBaseDelay,
     Future<String?> Function()? tokenProvider,
     Future<void> Function()? onUnauthorized,
-  })  : _baseUrl = baseUrl ?? AppConfig.mobileApiV3BaseUrl,
+  })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
         _http = httpClient ?? createAppHttpClient(),
         _writesEnabled = writesEnabled ?? !AppConfig.viewOnly,
         _maxGetRetries = maxGetRetries ?? 2,
@@ -64,26 +64,18 @@ class LeaderboardApiService {
   // Public API
   // ---------------------------------------------------------------------------
 
-  Future<RegistrationV2Result> register({
-    required String registrationCode,
-    required String identifier,
-  }) async {
-    _ensureWritesEnabled();
-    // Registration has no v3 equivalent; it stays on the v2 mobile API.
-    final data = await _postAbsolute(
-      '${AppConfig.leaderboardApiBaseUrl}/register',
-      body: {
-        'registration_code': registrationCode,
-        'identifier': identifier,
-      },
-    );
-    return RegistrationV2Result.fromJson(data as Map<String, dynamic>);
+  /// Event scope is sent as both `season_event_id` (SV v4's name) and the
+  /// legacy `event_id` (topochain v3's name); each backend reads its own key
+  /// and ignores the other, so one binary works against either base URL.
+  static void _addEventScope(Map<String, String> params, int eventId) {
+    params['season_event_id'] = eventId.toString();
+    params['event_id'] = eventId.toString();
   }
 
   Future<RankingResult> getRanking({int? seasonId, int? eventId}) async {
     final params = <String, String>{};
     if (eventId != null) {
-      params['event_id'] = eventId.toString();
+      _addEventScope(params, eventId);
     } else if (seasonId != null) {
       params['season_id'] = seasonId.toString();
     }
@@ -100,7 +92,7 @@ class LeaderboardApiService {
   }) async {
     final params = <String, String>{};
     if (eventId != null) {
-      params['event_id'] = eventId.toString();
+      _addEventScope(params, eventId);
     } else if (seasonId != null) {
       params['season_id'] = seasonId.toString();
     }
@@ -130,7 +122,7 @@ class LeaderboardApiService {
       'page': page.toString(),
       'per_page': perPage.toString(),
     };
-    if (eventId != null) params['event_id'] = eventId.toString();
+    if (eventId != null) _addEventScope(params, eventId);
 
     final data = await _get('/leaderboard', queryParams: params);
     return LeaderboardResult.fromJson(data as Map<String, dynamic>);
@@ -139,7 +131,7 @@ class LeaderboardApiService {
   Future<BreakdownResult> getBreakdown({int? seasonId, int? eventId}) async {
     final params = <String, String>{'include_activity': '1'};
     if (eventId != null) {
-      params['event_id'] = eventId.toString();
+      _addEventScope(params, eventId);
     } else if (seasonId != null) {
       params['season_id'] = seasonId.toString();
     }
@@ -149,8 +141,9 @@ class LeaderboardApiService {
   }
 
   Future<EventPointsResult> getEventPoints({required int eventId}) async {
-    final data = await _get('/event/points',
-        queryParams: {'event_id': eventId.toString()});
+    final params = <String, String>{};
+    _addEventScope(params, eventId);
+    final data = await _get('/event/points', queryParams: params);
     return EventPointsResult.fromJson(data as Map<String, dynamic>);
   }
 

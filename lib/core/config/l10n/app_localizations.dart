@@ -1120,60 +1120,6 @@ abstract class AppLocalizations {
   /// **'Failed to import demo account: {error}'**
   String demoImportFailedWithError(String error);
 
-  /// Import API account card title and screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Import Pre-configured Account'**
-  String get importApiAccountTitle;
-
-  /// Import API account card description
-  ///
-  /// In en, this message translates to:
-  /// **'Import a pre-configured account from the API'**
-  String get importApiAccountDesc;
-
-  /// Contact field label
-  ///
-  /// In en, this message translates to:
-  /// **'Discord, Email, or Telegram'**
-  String get importApiAccountContactLabel;
-
-  /// Contact field hint
-  ///
-  /// In en, this message translates to:
-  /// **'@username or name@example.com'**
-  String get importApiAccountContactHint;
-
-  /// Activation code field label
-  ///
-  /// In en, this message translates to:
-  /// **'Activation Code'**
-  String get importApiAccountCodeLabel;
-
-  /// Activation code field hint
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your code'**
-  String get importApiAccountCodeHint;
-
-  /// Submit button text
-  ///
-  /// In en, this message translates to:
-  /// **'Verify Code'**
-  String get importApiAccountSubmit;
-
-  /// API account import failure message
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to import account from API'**
-  String get importApiAccountFailed;
-
-  /// API registration failure with error
-  ///
-  /// In en, this message translates to:
-  /// **'Registration failed: {error}'**
-  String importApiAccountRegistrationFailed(String error);
-
   /// No active account error
   ///
   /// In en, this message translates to:
@@ -3813,54 +3759,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No produced blocks available'**
   String get producedBlocksNoData;
-
-  /// Error when Rust FFI key derivation fails during account import
-  ///
-  /// In en, this message translates to:
-  /// **'Account setup failed. Please try again or contact support.'**
-  String get importApiAccountKeyDerivationFailed;
-
-  /// Error when secure storage write fails during account import
-  ///
-  /// In en, this message translates to:
-  /// **'Could not save account securely. Please check device storage and try again.'**
-  String get importApiAccountStorageFailed;
-
-  /// Warning when backend fails to start after account creation
-  ///
-  /// In en, this message translates to:
-  /// **'Account created, but node startup failed. The app will retry automatically.'**
-  String get importApiAccountBackendStartFailed;
-
-  /// Validation error for empty username field
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter your username.'**
-  String get registrationUsernameEmpty;
-
-  /// Validation error for empty activation code field
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter your activation code.'**
-  String get registrationCodeEmpty;
-
-  /// Error when registration request times out
-  ///
-  /// In en, this message translates to:
-  /// **'Connection timed out. Please check your internet and try again.'**
-  String get registrationTimeoutError;
-
-  /// Error when registration request fails due to network
-  ///
-  /// In en, this message translates to:
-  /// **'Could not reach the server. Please check your internet and try again.'**
-  String get registrationNetworkError;
-
-  /// Generic fallback error for unexpected registration failures
-  ///
-  /// In en, this message translates to:
-  /// **'An unexpected error occurred. Please try again or contact support.'**
-  String get registrationUnexpectedError;
 
   /// Title for stale registration blocking screen
   ///

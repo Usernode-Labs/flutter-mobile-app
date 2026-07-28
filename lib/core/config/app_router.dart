@@ -10,7 +10,6 @@ import 'package:crypto_mobile_app/features/auth/screens/auth_otp_screen.dart';
 import 'package:crypto_mobile_app/features/auth/screens/auth_set_password_screen.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/stale_registration_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permission1_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
@@ -64,7 +63,6 @@ class AppRoutes {
   static const main = '/main';
 
   // Onboarding flow
-  static const onboardingImportApi = '/onboarding/import-api';
   static const onboardingWelcomeSetup = '/onboarding/welcome-setup';
   static const onboardingExactAlarmPermission1 =
       '/onboarding/exact-alarm-permission1';
@@ -259,10 +257,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.onboarding,
         builder: (context, state) => const WelcomeClaimScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onboardingImportApi,
-        builder: (context, state) => const OnboardingImportApiAccountScreen(),
       ),
       GoRoute(
         path: AppRoutes.onboardingWelcomeSetup,
@@ -632,7 +626,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       const publicRoutes = [
         AppRoutes.splash,
         AppRoutes.onboarding,
-        AppRoutes.onboardingImportApi,
         AppRoutes.onboardingWelcomeSetup,
       ];
 
@@ -678,7 +671,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Block app usage when registration belongs to a previous season.
       if (registrationFreshness == RegistrationFreshness.stale &&
           currentLocation != AppRoutes.staleRegistration &&
-          currentLocation != AppRoutes.onboardingImportApi) {
+          currentLocation != AppRoutes.authLanding) {
         return AppRoutes.staleRegistration;
       }
 

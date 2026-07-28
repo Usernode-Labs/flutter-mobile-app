@@ -11,50 +11,6 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // handleRegistration
-  // ---------------------------------------------------------------------------
-
-  group('handleRegistration', () {
-    test('persists participant ID and season, returns context', () async {
-      const result = RegistrationV2Result(
-        participantId: 42,
-        identityUid: 'uid-abc',
-        publicKey: 'pk-123',
-        secretKey: 'sk-456',
-        address: 'addr-789',
-        tier: 'gold',
-        seasonId: 1,
-        seasonName: 'Season 1',
-      );
-
-      final ctx = await LeaderboardBootstrap.handleRegistration(result);
-
-      expect(ctx.seasonId, 1);
-      expect(ctx.seasonName, 'Season 1');
-      expect(ctx.eventId, isNull);
-
-      // Verify participant ID persisted
-      final prefs = await SharedPreferences.getInstance();
-      expect(
-        prefs.getInt(
-            NetworkPrefs.prefixAccountKey('leaderboard:participant_id')),
-        42,
-      );
-
-      // Verify season persisted
-      expect(
-        prefs.getInt(NetworkPrefs.prefixAccountKey('leaderboard:season_id')),
-        1,
-      );
-      expect(
-        prefs.getString(
-            NetworkPrefs.prefixAccountKey('leaderboard:season_name')),
-        'Season 1',
-      );
-    });
-  });
-
-  // ---------------------------------------------------------------------------
   // loadPersistedContext
   // ---------------------------------------------------------------------------
 

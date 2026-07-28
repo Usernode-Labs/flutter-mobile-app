@@ -48,20 +48,28 @@ class AppConfig {
         verboseLogging: _verbose,
       );
 
-  // Registration API
-  static const String registrationEndpoint = String.fromEnvironment(
-    'REGISTRATION_ENDPOINT',
-    defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
-  );
+  // Token-scoped mobile API (data + auth). Default is the Social Vibecoding
+  // platform's v4 mobile API, which replaced topochain's v2/v3 leaderboard
+  // API after the account/leaderboard data migration. `MOBILE_API_BASE_URL`
+  // overrides; the legacy `MOBILE_API_V3_BASE_URL` define is still honored
+  // (second priority) so existing build configs keep working — point it at
+  // topochain's `/api/v3/mobile` to run a build against the old backend.
+  static const String _rawMobileApiBaseUrl =
+      String.fromEnvironment('MOBILE_API_BASE_URL', defaultValue: '');
+  static const String _rawMobileApiV3BaseUrl =
+      String.fromEnvironment('MOBILE_API_V3_BASE_URL', defaultValue: '');
+  static const String _defaultMobileApiBaseUrl =
+      'https://social-vibecoding.usernodelabs.org/api/v4/mobile';
+  static String get mobileApiBaseUrl => _rawMobileApiBaseUrl.isNotEmpty
+      ? _rawMobileApiBaseUrl
+      : _rawMobileApiV3BaseUrl.isNotEmpty
+          ? _rawMobileApiV3BaseUrl
+          : _defaultMobileApiBaseUrl;
 
-  // v3 mobile API (token-scoped data + auth). Same host as v2 leaderboard.
-  static const String mobileApiV3BaseUrl = String.fromEnvironment(
-    'MOBILE_API_V3_BASE_URL',
-    defaultValue: 'https://leaderboard.usernodelabs.org/api/v3/mobile',
-  );
-
-  // v3 auth endpoints live under the v3 mobile base.
-  static String get authApiBaseUrl => '$mobileApiV3BaseUrl/auth';
+  // Auth endpoints live under the mobile API base (v4: /auth/check-email,
+  // /auth/login, /auth/otp/*, /auth/set-password, /auth/logout — same paths
+  // as topochain v3).
+  static String get authApiBaseUrl => '$mobileApiBaseUrl/auth';
 
   // Startup bootstrap for local/dev sign-in without registration.
   static const String _bootstrapSecretKey =
@@ -246,9 +254,14 @@ class AppConfig {
       const Duration(seconds: epochMonitorBaseIntervalSeconds);
 
   // Version check configuration
-  // If empty, version checking is disabled
-  static const String versionCheckApiUrl =
-      String.fromEnvironment('VERSION_CHECK_API_URL', defaultValue: '');
+  // If empty, version checking is disabled. Default is the SV platform's
+  // public v4 endpoint (same POST body and {success, data} envelope as the
+  // old topochain endpoint).
+  static const String versionCheckApiUrl = String.fromEnvironment(
+    'VERSION_CHECK_API_URL',
+    defaultValue:
+        'https://social-vibecoding.usernodelabs.org/api/v4/app-version/check',
+  );
   static const int versionCheckIntervalSeconds =
       int.fromEnvironment('VERSION_CHECK_INTERVAL_SECONDS', defaultValue: 7200);
 

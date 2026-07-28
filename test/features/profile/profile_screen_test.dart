@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart'
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 
@@ -100,7 +101,6 @@ class _MockProfileHistoryService extends LeaderboardApiService {
   Future<List<ChallengeDto>> getChallenges({
     int? seasonId,
     int? eventId,
-    int? participantId,
     bool? activeOnly,
     bool? onlyScheduled,
   }) async =>
@@ -108,7 +108,6 @@ class _MockProfileHistoryService extends LeaderboardApiService {
 
   @override
   Future<BreakdownResult> getBreakdown({
-    required int participantId,
     int? seasonId,
     int? eventId,
   }) async =>
@@ -277,6 +276,8 @@ Widget _app({RankingController Function()? rankingController}) {
         ),
       ),
       participantIdProvider.overrideWith((ref) async => 1),
+      isAuthenticatedProvider.overrideWithValue(true),
+      showSignInGateProvider.overrideWithValue(false),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
       seasonEventContextProvider.overrideWith(
         (ref) => const SeasonEventContext(seasonId: 1, seasonName: 'Season 1'),

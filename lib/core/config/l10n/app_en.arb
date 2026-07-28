@@ -3199,5 +3199,13 @@
   "svShellOfflineMessage": "Can't reach Usernode. Check your connection and try again.",
   "@svShellOfflineMessage": {
     "description": "First-launch gate of the full-screen SV shell: shown when the first-ever load of the Social Vibecoding webapp fails"
+  },
+  "authSignInToView": "Sign in to view your progress",
+  "@authSignInToView": {
+    "description": "Guest gate title on data screens"
+  },
+  "authSignInToViewCta": "Sign in",
+  "@authSignInToViewCta": {
+    "description": "Guest gate button on data screens"
   }
 }

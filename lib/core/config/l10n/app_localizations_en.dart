@@ -2382,4 +2382,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get svShellOfflineMessage =>
       'Can\'t reach Usernode. Check your connection and try again.';
+
+  @override
+  String get authSignInToView => 'Sign in to view your progress';
+
+  @override
+  String get authSignInToViewCta => 'Sign in';
 }

@@ -54,16 +54,14 @@ class AppConfig {
     defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
   );
 
-  // v3 mobile auth API. Same host as registration; no separate dart-define.
-  static String get authApiBaseUrl {
-    final reg = Uri.parse(registrationEndpoint);
-    return Uri(
-      scheme: reg.scheme,
-      host: reg.host,
-      port: reg.hasPort ? reg.port : null,
-      path: '/api/v3/mobile/auth',
-    ).toString();
-  }
+  // v3 mobile API (token-scoped data + auth). Same host as v2 leaderboard.
+  static const String mobileApiV3BaseUrl = String.fromEnvironment(
+    'MOBILE_API_V3_BASE_URL',
+    defaultValue: 'https://leaderboard.usernodelabs.org/api/v3/mobile',
+  );
+
+  // v3 auth endpoints live under the v3 mobile base.
+  static String get authApiBaseUrl => '$mobileApiV3BaseUrl/auth';
 
   // Startup bootstrap for local/dev sign-in without registration.
   static const String _bootstrapSecretKey =

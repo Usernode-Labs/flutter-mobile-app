@@ -4269,6 +4269,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Can\'t reach Usernode. Check your connection and try again.'**
   String get svShellOfflineMessage;
+
+  /// Guest gate title on data screens
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view your progress'**
+  String get authSignInToView;
+
+  /// Guest gate button on data screens
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get authSignInToViewCta;
 }
 
 class _AppLocalizationsDelegate

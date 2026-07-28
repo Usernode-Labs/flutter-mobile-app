@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
@@ -115,6 +116,7 @@ Widget _localizedApp(Widget home) {
 }
 
 List<Override> _commonOverrides() => [
+      showSignInGateProvider.overrideWithValue(false),
       challengesProvider.overrideWith(_MockChallengesController.new),
       breakdownProvider.overrideWith(_MockBreakdownController.new),
       rankingProvider.overrideWith(_MockRankingController.new),

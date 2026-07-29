@@ -6,6 +6,8 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/auth/widgets/sign_in_to_view_card.dart';
 import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart';
 
 /// Presents the current terms and lets an unaccepted user accept them.
@@ -65,6 +67,18 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+
+    // The provider deliberately stops loading for unauthenticated users
+    // (its watchDeps gate), which surfaces here as a null snapshot — the
+    // same shape as "nothing published". Distinguish them: guests get the
+    // standard sign-in gate, not a misleading empty state.
+    if (ref.watch(showSignInGateProvider)) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l10n.termsTitle)),
+        body: const SafeArea(child: SignInToViewCard()),
+      );
+    }
+
     final snapshot = ref.watch(currentTermsProvider);
 
     final body = snapshot.when(

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -57,6 +58,12 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
     await _tokenStore.write(session.token);
     await _guestFlag.clear();
     await refreshActiveAccountBucket(guest: false);
+    // The retired registration flow was the only writer of the persisted
+    // participant id; sessions are now the source of it. Persist AFTER the
+    // bucket refresh so it lands in the active account's bucket. The v4
+    // `user.id` is the same id every token-scoped endpoint resolves from
+    // the session server-side.
+    await saveParticipantId(session.participant.id);
     state = AuthStatus.authenticated;
   }
 

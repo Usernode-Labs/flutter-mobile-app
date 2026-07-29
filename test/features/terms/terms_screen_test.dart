@@ -51,13 +51,15 @@ CurrentTerms _terms({required bool accepted}) => CurrentTerms(
 ProviderContainer _container(_FakeService service) => ProviderContainer(
       overrides: [
         isAuthenticatedProvider.overrideWithValue(true),
+        showSignInGateProvider.overrideWithValue(false),
         leaderboardApiServiceProvider.overrideWithValue(service),
       ],
     );
 
-Widget _app(_FakeService service) => ProviderScope(
+Widget _app(_FakeService service, {bool signedIn = true}) => ProviderScope(
       overrides: [
-        isAuthenticatedProvider.overrideWithValue(true),
+        isAuthenticatedProvider.overrideWithValue(signedIn),
+        showSignInGateProvider.overrideWithValue(!signedIn),
         leaderboardApiServiceProvider.overrideWithValue(service),
       ],
       child: MaterialApp(
@@ -95,6 +97,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(service.posted, [TermsConsentStatus.accepted]);
+  });
+
+  // Regression: the provider deliberately returns null for guests (its
+  // watchDeps gate), which used to render as "no terms published" — a
+  // misleading empty state. Guests must get the standard sign-in gate.
+  testWidgets('guest sees the sign-in gate, not "no terms published"',
+      (tester) async {
+    await tester.pumpWidget(
+        _app(_FakeService(_terms(accepted: false)), signedIn: false));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('There are no terms to review right now.'), findsNothing);
+    expect(find.text('Accept'), findsNothing);
   });
 
   testWidgets('accepted user sees final status without an action',

@@ -307,7 +307,8 @@ class ChallengeDto {
       displayOrder: _jsonIntN(json['display_order']) ?? 0,
       featured: json['featured'] as bool? ?? false,
       featuredOrder: _jsonIntN(json['featured_order']),
-      subCategory: json['sub_category'] as String?,
+      // v4 renames a challenge's `sub_category` to `kind` (SPEC §8.2).
+      subCategory: (json['kind'] ?? json['sub_category']) as String?,
       source: json['source'] is Map<String, dynamic>
           ? ChallengeSource.fromJson(json['source'] as Map<String, dynamic>)
           : null,
@@ -544,7 +545,7 @@ class LeaderboardEntry {
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) {
     return LeaderboardEntry(
       rank: _jsonInt(json['rank']),
-      participantId: _jsonInt(json['participant_id']),
+      participantId: _jsonInt(json['user_id'] ?? json['participant_id']),
       displayName: json['display_name'] as String?,
       totalPoints: _jsonInt(json['total_points']),
       offchainPoints: _jsonInt(json['extra_points'] ?? json['offchain_points']),
@@ -671,7 +672,9 @@ class BreakdownActivity {
       description: json['description'] as String?,
       activityAt: json['activity_at'] as String?,
       challengeId: _jsonIntN(json['challenge_id']),
-      activitySubCategory: json['activity_sub_category'] as String?,
+      // v4 renames `activity_sub_category` to `activity_kind` (SPEC §8.2).
+      activitySubCategory:
+          (json['activity_kind'] ?? json['activity_sub_category']) as String?,
     );
   }
 
@@ -953,7 +956,7 @@ class ParticipantPoints {
 
   factory ParticipantPoints.fromJson(Map<String, dynamic> json) {
     return ParticipantPoints(
-      participantId: _jsonInt(json['participant_id']),
+      participantId: _jsonInt(json['user_id'] ?? json['participant_id']),
       totalPoints: _jsonInt(json['total_points']),
     );
   }
@@ -986,7 +989,8 @@ class EventPointsResult {
       eventId: _jsonInt(json['season_event_id'] ?? json['event_id']),
       eventName: json['event_name'] as String? ?? '',
       eventTotalPoints: _jsonInt(json['event_total_points']),
-      participantTotalPoints: _jsonInt(json['participant_total_points']),
+      participantTotalPoints: _jsonInt(
+          json['user_total_points'] ?? json['participant_total_points']),
       totalPointsPerUser: (json['total_points_per_user'] as List?)
               ?.map(
                   (e) => ParticipantPoints.fromJson(e as Map<String, dynamic>))

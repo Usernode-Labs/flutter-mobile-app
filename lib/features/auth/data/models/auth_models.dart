@@ -25,10 +25,11 @@ class AuthSession {
   final String token;
   final Participant participant;
 
+  // v4 returns `{token, user}` — the SPEC §4.8 rename of the source's
+  // participant vocabulary. The inner object's fields are unchanged.
   factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
         token: json['token'] as String,
-        participant:
-            Participant.fromJson(json['participant'] as Map<String, dynamic>),
+        participant: Participant.fromJson(json['user'] as Map<String, dynamic>),
       );
 }
 

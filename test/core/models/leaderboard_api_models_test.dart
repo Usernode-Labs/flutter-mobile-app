@@ -96,6 +96,33 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('ChallengeDto', () {
+    test('fromJson reads the v4 kind key into subCategory', () {
+      final c = ChallengeDto.fromJson({
+        'id': 7,
+        'season_event_id': 2,
+        'category': 'block_production',
+        'kind': 'ZK_IDENTITY_VERIFICATION',
+        'goal': 'Verify',
+        'task': 'ZK',
+        'reward': 100,
+      });
+      expect(c.eventId, 2);
+      expect(c.subCategory, 'ZK_IDENTITY_VERIFICATION');
+    });
+
+    test('v4 kind wins over a stale sub_category key', () {
+      final c = ChallengeDto.fromJson({
+        'id': 7,
+        'category': 'x',
+        'kind': 'NEW',
+        'sub_category': 'OLD',
+        'goal': '',
+        'task': '',
+        'reward': 0,
+      });
+      expect(c.subCategory, 'NEW');
+    });
+
     test('fromJson parses all fields', () {
       final c = ChallengeDto.fromJson({
         'id': 7,
@@ -734,6 +761,25 @@ void main() {
       expect(e.eventsParticipated, 3);
     });
 
+    test('fromJson parses the v4 row shape (user_id, extra_points)', () {
+      // Mirrors SV's formatMobileLeaderboardRow (season scope).
+      final e = LeaderboardEntry.fromJson({
+        'rank': 1,
+        'total_points': 9999,
+        'extra_points': 500,
+        'events_participated': 3,
+        'total_produced_blocks': 100,
+        'vrf_total_won_slots': 50,
+        'success_rate': 0.95,
+        'user_id': 42,
+        'is_non_podium': false,
+        'display_name': 'Alice',
+      });
+      expect(e.participantId, 42);
+      expect(e.offchainPoints, 500);
+      expect(e.displayName, 'Alice');
+    });
+
     test('fromJson falls back to phases_participated (cache compat)', () {
       final e = LeaderboardEntry.fromJson({
         'rank': 1,
@@ -866,6 +912,16 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('BreakdownActivity', () {
+    test('fromJson reads the v4 activity_kind key', () {
+      final a = BreakdownActivity.fromJson({
+        'activity_id': 1,
+        'activity_type': 'block_produced',
+        'points': 50,
+        'activity_kind': 'PRODUCE_BLOCKS_CHALLENGE',
+      });
+      expect(a.activitySubCategory, 'PRODUCE_BLOCKS_CHALLENGE');
+    });
+
     test('fromJson parses activity_id key', () {
       final a = BreakdownActivity.fromJson({
         'activity_id': 1,
@@ -1731,6 +1787,44 @@ void main() {
       expect(a, b);
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(c));
+    });
+  });
+
+  group('EventPointsResult', () {
+    test('fromJson parses the v4 response shape', () {
+      // Mirrors SV's GET /event/points data object.
+      final r = EventPointsResult.fromJson({
+        'season_event_id': 5,
+        'event_name': 'Event 5',
+        'event_total_points': 1200,
+        'user_total_points': 1200,
+        'total_points_per_user': [
+          {'user_id': 42, 'total_points': 700},
+          {'user_id': 7, 'total_points': 500},
+        ],
+        'total_participants': 2,
+      });
+      expect(r.eventId, 5);
+      expect(r.participantTotalPoints, 1200);
+      expect(r.totalPointsPerUser, hasLength(2));
+      expect(r.totalPointsPerUser.first.participantId, 42);
+      expect(r.totalPointsPerUser.first.totalPoints, 700);
+    });
+
+    test('fromJson still reads the legacy keys (cache compat)', () {
+      final r = EventPointsResult.fromJson({
+        'event_id': 5,
+        'event_name': 'Event 5',
+        'event_total_points': 100,
+        'participant_total_points': 100,
+        'total_points_per_user': [
+          {'participant_id': 42, 'total_points': 100},
+        ],
+        'total_participants': 1,
+      });
+      expect(r.eventId, 5);
+      expect(r.participantTotalPoints, 100);
+      expect(r.totalPointsPerUser.first.participantId, 42);
     });
   });
 }

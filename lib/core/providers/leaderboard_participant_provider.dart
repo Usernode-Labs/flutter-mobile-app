@@ -3,12 +3,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 const _participantIdKey = 'leaderboard:participant_id';
 
 /// Reads the persisted participant ID from SharedPreferences (network-prefixed).
-/// Returns null until onboarding persists the ID.
+/// Written by [AuthStatusNotifier.completeLogin] from the v4 session's
+/// `user.id`; null until the user has signed in at least once.
 final participantIdProvider = FutureProvider<int?>((ref) async {
+  // Re-read storage on every auth transition so a fresh login's id is
+  // picked up without an app restart (and a logout's stale id isn't
+  // served to a new session).
+  ref.watch(authStatusProvider);
   return loadParticipantId();
 });
 

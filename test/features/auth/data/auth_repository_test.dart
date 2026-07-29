@@ -38,13 +38,16 @@ void main() {
 
   group('login', () {
     test('200 -> AuthSession', () async {
+      // v4 shape: {success, token, user} — the user key, not participant.
       final r = await _repo(_client(200, {
+        'success': true,
         'token': 'sess-1',
-        'participant': {
+        'user': {
           'id': 7,
           'email': 'a@b.com',
           'display_name': 'Ann',
           'email_confirmed': true,
+          'level': 'member',
         },
       })).login(email: 'a@b.com', password: 'pw');
       expect(r.token, 'sess-1');
@@ -54,7 +57,8 @@ void main() {
     });
     test('401 -> invalidCredentials', () async {
       expect(
-        () => _repo(_client(401, {'message': 'Invalid email or password.'}))
+        () => _repo(_client(
+                401, {'success': false, 'error': 'Invalid email or password.'}))
             .login(email: 'a@b.com', password: 'x'),
         throwsA(isA<AuthException>()
             .having((e) => e.kind, 'kind', AuthErrorKind.invalidCredentials)),
@@ -76,7 +80,8 @@ void main() {
     });
     test('422 -> invalidCode', () async {
       expect(
-        () => _repo(_client(422, {'message': 'Invalid or expired code.'}))
+        () => _repo(_client(
+                422, {'success': false, 'error': 'Invalid or expired code.'}))
             .verifyOtp(email: 'a@b.com', code: '000000'),
         throwsA(isA<AuthException>()
             .having((e) => e.kind, 'kind', AuthErrorKind.invalidCode)),
@@ -90,11 +95,13 @@ void main() {
       final r = await _repo(_client(
               200,
               {
+                'success': true,
                 'token': 'sess-2',
-                'participant': {
+                'user': {
                   'id': 1,
                   'email': 'a@b.com',
-                  'email_confirmed': false
+                  'email_confirmed': false,
+                  'level': 'guest',
                 },
               },
               onReq: (req) => auth = req.headers['authorization']))
@@ -107,8 +114,11 @@ void main() {
     });
     test('422 -> validation', () async {
       expect(
-        () => _repo(_client(422, {'message': 'too short'})).setPassword(
-            setPasswordToken: 't', password: 'x', passwordConfirmation: 'x'),
+        () => _repo(_client(422, {'success': false, 'error': 'too short'}))
+            .setPassword(
+                setPasswordToken: 't',
+                password: 'x',
+                passwordConfirmation: 'x'),
         throwsA(isA<AuthException>()
             .having((e) => e.kind, 'kind', AuthErrorKind.validation)),
       );

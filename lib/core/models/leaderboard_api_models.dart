@@ -286,7 +286,10 @@ class ChallengeDto {
         useMobileCta ? mobileCtaLabel ?? baseCtaLabel : baseCtaLabel;
     final ctaLink = useMobileCta ? sanitizedMobileCtaLink : baseCtaLink;
     return ChallengeDto(
-      id: _jsonInt(json['id']),
+      // v4's compact per-season/per-event challenge item (GET /seasons'
+      // season_challenges and events[].challenges) keys the id as
+      // challenge_id; the full /challenges shape keeps id.
+      id: _jsonInt(json['id'] ?? json['challenge_id']),
       eventId: _jsonIntN(json['season_event_id'] ?? json['event_id']),
       eventName: json['event_name'] as String?,
       eventType: json['event_type'] as String?,
@@ -793,16 +796,26 @@ class SeasonBreakdown {
 
   factory SeasonBreakdown.fromJson(Map<String, dynamic> json) {
     final seasonObj = json['season'] as Map<String, dynamic>?;
+    final events = (json['events'] as List?)
+            ?.map((e) => EventBreakdown.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const <EventBreakdown>[];
     return SeasonBreakdown(
-      seasonId: _jsonInt(seasonObj?['id'] ?? json['season_id']),
-      seasonName: (seasonObj?['name'] ?? json['season_name']) as String? ?? '',
-      totalPoints: _jsonPointInt(json['total_points']),
+      // v4 global entries are {id, name, events}; the v4 season-scope
+      // response carries no season identity at all (the caller supplied
+      // the season_id) — fall back to 0 rather than failing the parse.
+      seasonId:
+          _jsonIntN(seasonObj?['id'] ?? json['season_id'] ?? json['id']) ?? 0,
+      seasonName: (seasonObj?['name'] ?? json['season_name'] ?? json['name'])
+              as String? ??
+          '',
+      // v4 has no per-season totals — derive them from the events.
+      totalPoints: _jsonPointIntN(json['total_points']) ??
+          events.fold<int>(0, (a, e) => a + e.totalPoints),
       offchainPoints:
-          _jsonPointInt(json['extra_points'] ?? json['offchain_points']),
-      events: (json['events'] as List?)
-              ?.map((e) => EventBreakdown.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
+          _jsonPointIntN(json['extra_points'] ?? json['offchain_points']) ??
+              events.fold<int>(0, (a, e) => a + e.offchainPoints),
+      events: events,
     );
   }
 
@@ -849,22 +862,33 @@ class BreakdownResult {
   factory BreakdownResult.fromJson(Map<String, dynamic> json) {
     final scope = json['scope'] as String? ?? 'event';
     final progress = _parseChallengeProgressList(json['challenge_progress']);
+    final eventBreakdown =
+        scope == 'event' ? EventBreakdown.fromJson(json) : null;
+    final seasonBreakdown =
+        scope == 'season' ? SeasonBreakdown.fromJson(json) : null;
+    final globalSeasons = scope == 'global'
+        ? (json['seasons'] as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(SeasonBreakdown.fromJson)
+                .toList() ??
+            const <SeasonBreakdown>[]
+        : const <SeasonBreakdown>[];
+    // v4 season/global responses carry only {display_name, scope,
+    // events|seasons} — no top-level totals (only event scope spreads them
+    // in). Derive from the nested breakdowns instead of failing the parse.
     return BreakdownResult(
       scope: scope,
       displayName: json['display_name'] as String? ?? '',
-      totalPoints: _jsonPointInt(json['total_points']),
+      totalPoints: _jsonPointIntN(json['total_points']) ??
+          seasonBreakdown?.totalPoints ??
+          globalSeasons.fold<int>(0, (a, s) => a + s.totalPoints),
       offchainPoints:
-          _jsonPointInt(json['extra_points'] ?? json['offchain_points']),
-      eventBreakdown: scope == 'event' ? EventBreakdown.fromJson(json) : null,
-      seasonBreakdown:
-          scope == 'season' ? SeasonBreakdown.fromJson(json) : null,
-      globalSeasons: scope == 'global'
-          ? (json['seasons'] as List?)
-                  ?.whereType<Map<String, dynamic>>()
-                  .map(SeasonBreakdown.fromJson)
-                  .toList() ??
-              const []
-          : const [],
+          _jsonPointIntN(json['extra_points'] ?? json['offchain_points']) ??
+              seasonBreakdown?.offchainPoints ??
+              globalSeasons.fold<int>(0, (a, s) => a + s.offchainPoints),
+      eventBreakdown: eventBreakdown,
+      seasonBreakdown: seasonBreakdown,
+      globalSeasons: globalSeasons,
       challengeProgress: progress.isEmpty ? null : progress,
     );
   }

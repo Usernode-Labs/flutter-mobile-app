@@ -179,8 +179,12 @@ class LeaderboardApiService {
 
   /// Notifies the backend that a ZK Passport verification completed.
   ///
-  /// Returns `true` on success. Treats HTTP 409 (duplicate) as success since
-  /// the backend prevents duplicate claims.
+  /// Returns `true` on success. A v4 409 is a REAL rejection (challenge no
+  /// longer accepting completions, session already used by another claim,
+  /// or proof already claimed) — true idempotency (same user re-posting the
+  /// same completion) returns 200, so 409 must propagate as a failure. The
+  /// old backend's "409 = duplicate = success" mapping would clear the
+  /// pending completion and permanently discard a rejected claim.
   Future<bool> completeZkPassport({
     required int challengeId,
     required String walletAddress,
@@ -189,19 +193,14 @@ class LeaderboardApiService {
     String? completedAt,
   }) async {
     _ensureWritesEnabled();
-    try {
-      await _post('/zkpassport/complete', body: {
-        'challenge_id': challengeId,
-        'wallet_address': walletAddress,
-        'session_id': sessionId,
-        'nullifier_hex': nullifierHex,
-        if (completedAt != null) 'completed_at': completedAt,
-      });
-      return true;
-    } on LeaderboardApiException catch (e) {
-      if (e.statusCode == 409) return true; // duplicate — already claimed
-      rethrow;
-    }
+    await _post('/zkpassport/complete', body: {
+      'challenge_id': challengeId,
+      'wallet_address': walletAddress,
+      'session_id': sessionId,
+      'nullifier_hex': nullifierHex,
+      if (completedAt != null) 'completed_at': completedAt,
+    });
+    return true;
   }
 
   /// Fetches the currently published terms, including this participant's

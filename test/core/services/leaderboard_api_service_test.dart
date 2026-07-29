@@ -364,6 +364,47 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // completeZkPassport
+  // -------------------------------------------------------------------------
+
+  group('completeZkPassport', () {
+    test('returns true on 200', () async {
+      final client = _mockClient(200, _envelope({'status': 'completed'}));
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final ok = await service.completeZkPassport(
+        challengeId: 7,
+        walletAddress: 'ut1abc',
+        sessionId: 'sess-1',
+        nullifierHex: '0xdead',
+      );
+
+      expect(ok, true);
+    });
+
+    test('throws on 409 (v4 real rejection, not duplicate-success)', () async {
+      final client = _mockClient(409, {
+        'success': false,
+        'error': 'Challenge is not accepting completions.',
+      });
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      expect(
+        () => service.completeZkPassport(
+          challengeId: 7,
+          walletAddress: 'ut1abc',
+          sessionId: 'sess-1',
+          nullifierHex: '0xdead',
+        ),
+        throwsA(isA<LeaderboardApiException>()
+            .having((e) => e.statusCode, 'statusCode', 409)),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Error handling
   // -------------------------------------------------------------------------
 

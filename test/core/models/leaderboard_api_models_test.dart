@@ -123,6 +123,17 @@ void main() {
       expect(c.subCategory, 'NEW');
     });
 
+    test('fromJson falls back to challenge_id (v4 compact season shape)', () {
+      final c = ChallengeDto.fromJson({
+        'challenge_id': 42,
+        'category': 'technical',
+        'goal': 'Do the thing',
+        'task': 'Task',
+        'reward': 50,
+      });
+      expect(c.id, 42);
+    });
+
     test('fromJson parses all fields', () {
       final c = ChallengeDto.fromJson({
         'id': 7,
@@ -1215,6 +1226,77 @@ void main() {
       expect(br.globalSeasons.single.events.single.challengeProgress,
           hasLength(1));
       expect(br.allScopedChallengeProgress.single.eventId, 3);
+    });
+
+    test('fromJson parses the v4 season scope (no top-level totals)', () {
+      // v4's season response is {display_name, scope, events} — no season
+      // identity and no top-level or per-season totals. Totals derive from
+      // the events.
+      final br = BreakdownResult.fromJson({
+        'display_name': 'Dana',
+        'scope': 'season',
+        'events': [
+          {
+            'event': {'id': 1, 'name': 'E1'},
+            'total_points': 2500,
+            'extra_points': 500,
+            'rank': 2,
+          },
+          {
+            'event': {'id': 2, 'name': 'E2'},
+            'total_points': 1500,
+            'extra_points': 250,
+            'rank': 9,
+          },
+        ],
+      });
+      expect(br.scope, 'season');
+      expect(br.totalPoints, 4000);
+      expect(br.offchainPoints, 750);
+      expect(br.seasonBreakdown!.totalPoints, 4000);
+      expect(br.seasonBreakdown!.events, hasLength(2));
+    });
+
+    test('fromJson parses the v4 global scope (seasons keyed by id/name)', () {
+      // v4's global response is {display_name, scope, seasons: [{id, name,
+      // events}]} — no totals anywhere above the event level.
+      final br = BreakdownResult.fromJson({
+        'display_name': 'Eve',
+        'scope': 'global',
+        'seasons': [
+          {
+            'id': 1,
+            'name': 'Season 1',
+            'events': [
+              {
+                'event': {'id': 3, 'name': 'Phase 1'},
+                'total_points': 800,
+                'extra_points': 100,
+                'rank': 5,
+              },
+            ],
+          },
+          {
+            'id': 2,
+            'name': 'Season 2',
+            'events': [
+              {
+                'event': {'id': 7, 'name': 'Phase 2'},
+                'total_points': 200,
+                'extra_points': 50,
+                'rank': 1,
+              },
+            ],
+          },
+        ],
+      });
+      expect(br.scope, 'global');
+      expect(br.globalSeasons, hasLength(2));
+      expect(br.globalSeasons.first.seasonId, 1);
+      expect(br.globalSeasons.first.seasonName, 'Season 1');
+      expect(br.globalSeasons.first.totalPoints, 800);
+      expect(br.totalPoints, 1000);
+      expect(br.offchainPoints, 150);
     });
 
     test('progressForChallenge resolves by event and rejects ambiguity', () {

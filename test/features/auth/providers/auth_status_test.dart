@@ -91,4 +91,15 @@ void main() {
     expect(c.read(authStatusProvider), AuthStatus.unauthenticated);
     expect(await c.read(authTokenStoreProvider).read(), isNull);
   });
+
+  test('onUnauthorized keeps a remembered guest as guest', () async {
+    // A stray 401 (auth-required endpoint reached while browsing as guest)
+    // invalidates the token, not the user's explicit guest choice.
+    SharedPreferences.setMockInitialValues({'auth:v3:guest': true});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(authStatusProvider.notifier).onUnauthorized();
+    expect(c.read(authStatusProvider), AuthStatus.guest);
+  });
 }

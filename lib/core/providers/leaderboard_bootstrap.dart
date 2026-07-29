@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 final _log = LoggingService.instance.withTag('usernode/LeaderboardBootstrap');
 
@@ -139,6 +140,13 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
 /// [seasonEventContextProvider] and rebuild automatically once the context is
 /// populated.
 final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
+  // The router keeps this provider alive for EVERY session type, but the
+  // v4 data endpoints (starting with /seasons below) all require a session
+  // token — an unauthenticated call 401s and tears down the session via
+  // onUnauthorized, which would bounce a restored guest to the auth
+  // landing. Watching the status also re-runs the bootstrap after login.
+  if (ref.watch(authStatusProvider) != AuthStatus.authenticated) return;
+
   final persisted = await LeaderboardBootstrap.loadPersistedContext();
 
   // Fast path: restore persisted context immediately so downstream

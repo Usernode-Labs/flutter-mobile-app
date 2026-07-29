@@ -86,8 +86,13 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
 
   Future<void> onUnauthorized() async {
     await _tokenStore.clear();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.unauthenticated;
+    // A 401 invalidates the TOKEN, not the user's explicit guest choice —
+    // re-resolve rather than forcing unauthenticated, so a stray 401 (e.g.
+    // an auth-required endpoint reached while browsing as guest) doesn't
+    // kick a remembered guest back to the auth landing.
+    final guest = await _guestFlag.isGuest();
+    await refreshActiveAccountBucket(guest: guest);
+    state = guest ? AuthStatus.guest : AuthStatus.unauthenticated;
   }
 }
 

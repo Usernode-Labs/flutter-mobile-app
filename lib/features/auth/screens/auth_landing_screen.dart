@@ -34,38 +34,27 @@ class AuthLandingScreen extends ConsumerWidget {
                   ),
                   SizedBox(height: spacing.space24),
 
-                  // Members: login / sign-up (one flow) + recovery.
+                  // Members: login / sign-up (one flow).
+                  //
+                  // No "forgot password" link for now: the v4 backend
+                  // deliberately refuses to issue a set-password token for
+                  // accounts that already have a password (its OTP flow
+                  // would otherwise double as an unauthenticated password
+                  // reset for shared platform accounts), so the recovery
+                  // flow cannot succeed against it. Re-add once the
+                  // platform ships a real reset flow. The AuthFlowState
+                  // `recovery` machinery is kept for that day.
                   _AuthCard(
                     title: l.authLoginCardTitle,
                     body: l.authLoginCardBody,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Button(
-                          label: l.authLogInOrSignUp,
-                          variant: ButtonVariant.primary,
-                          size: ButtonSize.large,
-                          onTap: () {
-                            ref.read(authFlowProvider.notifier).start();
-                            context.go(AppRoutes.authEmail);
-                          },
-                        ),
-                        // Centered rather than stretched so the recovery link
-                        // stays subordinate to the primary log-in CTA above.
-                        Align(
-                          child: Button(
-                            label: l.authForgotPassword,
-                            variant: ButtonVariant.outlined,
-                            size: ButtonSize.small,
-                            onTap: () {
-                              ref
-                                  .read(authFlowProvider.notifier)
-                                  .start(recovery: true);
-                              context.go(AppRoutes.authEmail);
-                            },
-                          ),
-                        ),
-                      ],
+                    child: Button(
+                      label: l.authLogInOrSignUp,
+                      variant: ButtonVariant.primary,
+                      size: ButtonSize.large,
+                      onTap: () {
+                        ref.read(authFlowProvider.notifier).start();
+                        context.go(AppRoutes.authEmail);
+                      },
                     ),
                   ),
                   SizedBox(height: spacing.space12),

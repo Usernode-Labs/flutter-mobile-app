@@ -143,7 +143,8 @@ Future<void> _startHeadlessServices(
   TaggedLogger log,
 ) async {
   try {
-    log.info('Starting headless services (produced-blocks refresh, lifecycle, etc.)');
+    log.info(
+        'Starting headless services (produced-blocks refresh, lifecycle, etc.)');
 
     _startHeadlessProducedBlocksRefresh(container, log);
 

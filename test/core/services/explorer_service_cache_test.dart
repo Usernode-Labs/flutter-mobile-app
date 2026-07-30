@@ -71,8 +71,8 @@ void main() {
 
     test('returns null when the cache entry is expired', () async {
       SharedPreferences.setMockInitialValues({
-        'flutter.explorer_balance_acct': balanceCache(
-            42, DateTime.now().subtract(const Duration(days: 3))),
+        'flutter.explorer_balance_acct':
+            balanceCache(42, DateTime.now().subtract(const Duration(days: 3))),
       });
       service = build();
       expect(await service.getCachedBalance('acct'), isNull);

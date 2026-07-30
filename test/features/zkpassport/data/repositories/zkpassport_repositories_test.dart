@@ -78,8 +78,8 @@ void main() {
         baseUrl: 'https://sv.example.com/',
         writesEnabled: true,
         httpClient: MockClient((req) async {
-          expect(req.url.toString(),
-              'https://sv.example.com/v1/zkp/sessions/sid');
+          expect(
+              req.url.toString(), 'https://sv.example.com/v1/zkp/sessions/sid');
           return http.Response(
               jsonEncode({'session_id': 'sid', 'status': 'pending'}), 200);
         }),
@@ -154,8 +154,8 @@ void main() {
     });
 
     test('non-2xx surfaces error/message from the body', () async {
-      final r = repo(MockClient((_) async =>
-          http.Response(jsonEncode({'error': 'nope'}), 400)));
+      final r = repo(MockClient(
+          (_) async => http.Response(jsonEncode({'error': 'nope'}), 400)));
       await expectLater(
         r.getSessionStatus(sessionId: 'sid'),
         throwsA(isA<ZkPassportSessionServerException>()

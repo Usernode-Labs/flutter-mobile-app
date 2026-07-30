@@ -333,7 +333,6 @@ class SlotMonitorService {
             'Failed to record production success for slot $slotNumber: $e');
       }
 
-
       // Stop monitoring this slot
       await stopMonitoring();
     } on StateError {

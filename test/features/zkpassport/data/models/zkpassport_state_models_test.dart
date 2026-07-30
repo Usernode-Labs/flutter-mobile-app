@@ -45,15 +45,20 @@ void main() {
         );
 
     test('isTerminal only for success/failed/timedOut', () {
-      expect(session(phase: ZkPassportPipelinePhase.success).isTerminal, isTrue);
+      expect(
+          session(phase: ZkPassportPipelinePhase.success).isTerminal, isTrue);
       expect(session(phase: ZkPassportPipelinePhase.failed).isTerminal, isTrue);
-      expect(session(phase: ZkPassportPipelinePhase.timedOut).isTerminal, isTrue);
-      expect(session(phase: ZkPassportPipelinePhase.waiting).isTerminal, isFalse);
+      expect(
+          session(phase: ZkPassportPipelinePhase.timedOut).isTerminal, isTrue);
+      expect(
+          session(phase: ZkPassportPipelinePhase.waiting).isTerminal, isFalse);
     });
 
     test('toJson omits blank userPublicKey but includes a real one', () {
-      expect(session(pubKey: null).toJson().containsKey('userPublicKey'), isFalse);
-      expect(session(pubKey: '   ').toJson().containsKey('userPublicKey'), isFalse);
+      expect(
+          session(pubKey: null).toJson().containsKey('userPublicKey'), isFalse);
+      expect(session(pubKey: '   ').toJson().containsKey('userPublicKey'),
+          isFalse);
       expect(session(pubKey: 'PK').toJson()['userPublicKey'], 'PK');
       expect(session().toJson()['phase'], 'waiting');
     });
@@ -103,18 +108,20 @@ void main() {
   group('ZkPassportSettings', () {
     test('defaults + toJson + copyWith', () {
       expect(ZkPassportSettings.defaults.facematchStrict, isTrue);
-      expect(ZkPassportSettings.defaults.toJson(),
-          {'facematch_strict': true});
+      expect(ZkPassportSettings.defaults.toJson(), {'facematch_strict': true});
       expect(
-        ZkPassportSettings.defaults.copyWith(facematchStrict: false)
+        ZkPassportSettings.defaults
+            .copyWith(facematchStrict: false)
             .facematchStrict,
         isFalse,
       );
     });
 
     test('fromJson reads map, rejects non-map', () {
-      expect(ZkPassportSettings.fromJson({'facematch_strict': false})!
-          .facematchStrict, isFalse);
+      expect(
+          ZkPassportSettings.fromJson({'facematch_strict': false})!
+              .facematchStrict,
+          isFalse);
       expect(ZkPassportSettings.fromJson('nope'), isNull);
     });
   });

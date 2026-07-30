@@ -24,6 +24,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final _log = LoggingService.instance.withTag('usernode/ZkPassportFlow');
 
+/// True when [error] is a backend completion response that can never succeed
+/// on retry: a 4xx other than 401 (expired/invalid session — the API layer
+/// clears the token and the app re-authenticates, after which the same
+/// completion can succeed), 408 (timeout), and 429 (rate limit). E.g. 409
+/// duplicate nullifier or 422 closed challenge. Transport failures,
+/// 401/408/429, and 5xx responses are persisted for a cold-start retry.
+bool isTerminalZkCompletionRejection(Object? error) {
+  return error is LeaderboardApiException &&
+      error.statusCode >= 400 &&
+      error.statusCode < 500 &&
+      error.statusCode != 401 &&
+      error.statusCode != 408 &&
+      error.statusCode != 429;
+}
+
 final zkPassportBridgeBaseUrlProvider = Provider<String?>((ref) {
   final value = AppConfig.zkPassportBridgeBaseUrl.trim();
   if (value.isEmpty) {
@@ -325,6 +340,7 @@ class ZkPassportPipelineController
 
   final Ref _ref;
   late final Future<void> _startupResetFuture;
+  Future<void>? _pendingCompletionRetryInFlight;
   bool _inFlight = false;
   Timer? _serverPollingTimer;
   bool _serverPollingInFlight = false;
@@ -438,8 +454,29 @@ class ZkPassportPipelineController
     } finally {
       // Retry any pending backend completion from a previous session.
       // Must run unconditionally — even when a non-expired session is preserved.
-      unawaited(_retryPendingCompletion());
+      unawaited(_retryPendingCompletionGuarded());
     }
+  }
+
+  /// Retries a stored pending backend completion outside cold start.
+  ///
+  /// Called when auth transitions to authenticated (see
+  /// `postSignInSyncProvider`) so a proof preserved across a 401 is
+  /// submitted as soon as a fresh session exists, instead of only on the
+  /// next process restart. Waits for the startup reset so it cannot race
+  /// cold-start recovery; concurrent invocations coalesce onto one run.
+  Future<void> retryPendingCompletion() async {
+    await _startupResetFuture;
+    await _retryPendingCompletionGuarded();
+  }
+
+  Future<void> _retryPendingCompletionGuarded() {
+    final inFlight = _pendingCompletionRetryInFlight;
+    if (inFlight != null) return inFlight;
+    final run = _retryPendingCompletion()
+        .whenComplete(() => _pendingCompletionRetryInFlight = null);
+    _pendingCompletionRetryInFlight = run;
+    return run;
   }
 
   Future<void> markLaunchStarted({
@@ -1305,7 +1342,6 @@ class ZkPassportPipelineController
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
           final ok = await api.completeZkPassport(
-            participantId: participantId,
             challengeId: challengeId,
             walletAddress: walletAddress,
             sessionId: sessionId,
@@ -1335,6 +1371,14 @@ class ZkPassportPipelineController
           if (attempt == delays.length - 1) break;
           await Future<void>.delayed(delays[attempt]);
         }
+      }
+
+      // Terminal client rejection (4xx other than 408/429): the backend has
+      // permanently refused this completion — retrying can never succeed.
+      // Roll back instead of persisting a retry that would loop forever.
+      if (isTerminalZkCompletionRejection(lastError)) {
+        await _handleTerminalCompletionRejection(lastError!, lastStack);
+        return;
       }
 
       _log.warn('Backend completion failed, storing for retry', context: {
@@ -1392,7 +1436,45 @@ class ZkPassportPipelineController
     }
   }
 
-  /// Retries any stored pending completion. Called on cold start.
+  /// The backend permanently rejected this completion (e.g. 409 duplicate
+  /// nullifier, 422 closed challenge). Clear the pending record so cold
+  /// starts stop retrying it, and roll back the optimistic local
+  /// registration so the challenge stops rendering as earned and the retry
+  /// CTA returns.
+  Future<void> _handleTerminalCompletionRejection(
+    Object error,
+    StackTrace? stack,
+  ) async {
+    _log.warn('Backend permanently rejected zkPassport completion', context: {
+      'error': error.toString(),
+    });
+    await SentryUtil.captureError(
+      error,
+      stack ?? StackTrace.current,
+      tag: 'zkpassport_completion_rejected',
+    );
+
+    try {
+      final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+      await repo.clearPendingCompletion();
+    } catch (e, st) {
+      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
+    }
+
+    try {
+      await _ref
+          .read(zkPassportFlowControllerProvider)
+          .clearActiveRegistration();
+    } catch (e, st) {
+      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
+    }
+
+    unawaited(refreshAllLeaderboardData(_ref));
+  }
+
+  /// Retries any stored pending completion. Reached (via
+  /// [_retryPendingCompletionGuarded]) from cold start and from
+  /// [retryPendingCompletion] when a sign-in restores authentication.
   Future<void> _retryPendingCompletion() async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     try {
@@ -1437,7 +1519,6 @@ class ZkPassportPipelineController
 
       final api = _ref.read(leaderboardApiServiceProvider);
       final ok = await api.completeZkPassport(
-        participantId: participantId,
         challengeId: challengeId,
         walletAddress: walletAddress,
         sessionId: sessionId,
@@ -1449,6 +1530,19 @@ class ZkPassportPipelineController
         await repo.clearPendingCompletion();
         unawaited(refreshAllLeaderboardData(_ref));
       }
+    } on LeaderboardApiException catch (e, st) {
+      if (isTerminalZkCompletionRejection(e)) {
+        await _handleTerminalCompletionRejection(e, st);
+        return;
+      }
+      // Retryable (5xx/408/429): keep the pending record for the next
+      // cold start.
+      _log.warn('Pending completion retry failed: $e');
+      await SentryUtil.captureError(
+        e,
+        st,
+        tag: 'zkpassport_completion_retry',
+      );
     } catch (e, st) {
       _log.warn('Pending completion retry failed: $e');
       await SentryUtil.captureError(

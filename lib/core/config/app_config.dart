@@ -48,22 +48,25 @@ class AppConfig {
         verboseLogging: _verbose,
       );
 
-  // Registration API
-  static const String registrationEndpoint = String.fromEnvironment(
-    'REGISTRATION_ENDPOINT',
-    defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile/register',
-  );
+  // Token-scoped mobile API (data + auth). Default is the Social Vibecoding
+  // platform's v4 mobile API, which replaced topochain's v2/v3 leaderboard
+  // API after the account/leaderboard data migration. `MOBILE_API_BASE_URL`
+  // overrides (e.g. a staging deployment of the same v4 API). The retired
+  // topochain v3 backend is NOT supported: onboarding depends on the
+  // v4-only `/wallet/provision`, so a v3-pointed build could never onboard
+  // a fresh user (the old `MOBILE_API_V3_BASE_URL` define is ignored).
+  static const String _rawMobileApiBaseUrl =
+      String.fromEnvironment('MOBILE_API_BASE_URL', defaultValue: '');
+  static const String _defaultMobileApiBaseUrl =
+      'https://social-vibecoding.usernodelabs.org/api/v4/mobile';
+  static String get mobileApiBaseUrl => _rawMobileApiBaseUrl.isNotEmpty
+      ? _rawMobileApiBaseUrl
+      : _defaultMobileApiBaseUrl;
 
-  // v3 mobile auth API. Same host as registration; no separate dart-define.
-  static String get authApiBaseUrl {
-    final reg = Uri.parse(registrationEndpoint);
-    return Uri(
-      scheme: reg.scheme,
-      host: reg.host,
-      port: reg.hasPort ? reg.port : null,
-      path: '/api/v3/mobile/auth',
-    ).toString();
-  }
+  // Auth endpoints live under the mobile API base (v4: /auth/check-email,
+  // /auth/login, /auth/otp/*, /auth/set-password, /auth/logout — same paths
+  // as topochain v3).
+  static String get authApiBaseUrl => '$mobileApiBaseUrl/auth';
 
   // Startup bootstrap for local/dev sign-in without registration.
   static const String _bootstrapSecretKey =
@@ -221,24 +224,16 @@ class AppConfig {
   static String get networkSwitcherCode => _rawNetworkSwitcherCode.isNotEmpty
       ? _rawNetworkSwitcherCode
       : _defaultNetworkSwitcherCode;
-  // Metrics configuration (compile-time)
   // Node prover configuration
   static const bool enableRealProver =
       bool.fromEnvironment('ENABLE_REAL_PROVER', defaultValue: false);
 
-  static const bool metricsEnabled =
-      bool.fromEnvironment('METRICS_ENABLED', defaultValue: false);
-  static const String metricsEndpoint =
-      String.fromEnvironment('METRICS_ENDPOINT', defaultValue: '');
-  static const int metricsInterval =
-      int.fromEnvironment('METRICS_INTERVAL', defaultValue: 30);
-  static const String metricsHealthEndpoint = String.fromEnvironment(
-      'METRICS_HEALTH_ENDPOINT',
-      defaultValue: 'https://leaderboard.usernodelabs.org/api/health');
-
   // Block Production configuration (all in seconds)
-  static const int metricsCollectionIntervalSeconds = int.fromEnvironment(
-      'METRICS_COLLECTION_INTERVAL_SECONDS',
+  // Headless produced-blocks refresh cadence: in background mode we keep
+  // producedBlocksSummaryProvider warm on this interval without any UI. (Was
+  // previously shared with the now-removed topochain metrics collector.)
+  static const int headlessRefreshIntervalSeconds = int.fromEnvironment(
+      'HEADLESS_REFRESH_INTERVAL_SECONDS',
       defaultValue: 30);
   static const int blockProductionWakeBeforeSlotSeconds = int.fromEnvironment(
       'BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS',
@@ -248,17 +243,22 @@ class AppConfig {
       defaultValue: 900);
 
   // Convert to Duration for convenience
-  static Duration get metricsCollectionInterval =>
-      const Duration(seconds: metricsCollectionIntervalSeconds);
+  static Duration get headlessRefreshInterval =>
+      const Duration(seconds: headlessRefreshIntervalSeconds);
   static Duration get blockProductionWakeBeforeSlot =>
       const Duration(seconds: blockProductionWakeBeforeSlotSeconds);
   static Duration get epochMonitorBaseInterval =>
       const Duration(seconds: epochMonitorBaseIntervalSeconds);
 
   // Version check configuration
-  // If empty, version checking is disabled
-  static const String versionCheckApiUrl =
-      String.fromEnvironment('VERSION_CHECK_API_URL', defaultValue: '');
+  // If empty, version checking is disabled. Default is the SV platform's
+  // public v4 endpoint (same POST body and {success, data} envelope as the
+  // old topochain endpoint).
+  static const String versionCheckApiUrl = String.fromEnvironment(
+    'VERSION_CHECK_API_URL',
+    defaultValue:
+        'https://social-vibecoding.usernodelabs.org/api/v4/app-version/check',
+  );
   static const int versionCheckIntervalSeconds =
       int.fromEnvironment('VERSION_CHECK_INTERVAL_SECONDS', defaultValue: 7200);
 

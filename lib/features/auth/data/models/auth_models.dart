@@ -25,10 +25,15 @@ class AuthSession {
   final String token;
   final Participant participant;
 
+  // v4 returns `{token, user}` — the SPEC §4.8 rename of the source's
+  // participant vocabulary. The inner object's fields are unchanged. The
+  // v3 `participant` key is not accepted: v3 backends are unsupported
+  // (fresh onboarding requires the v4-only /wallet/provision endpoint).
   factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
         token: json['token'] as String,
-        participant:
-            Participant.fromJson(json['participant'] as Map<String, dynamic>),
+        participant: Participant.fromJson(
+          json['user'] as Map<String, dynamic>,
+        ),
       );
 }
 

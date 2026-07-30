@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
@@ -18,7 +19,6 @@ import 'package:crypto_mobile_app/core/services/challenge_ui_visual_fixture.dart
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
-import 'package:crypto_mobile_app/features/challenges/screens/challenges_screen.dart';
 import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 
 import '../../design_system/helpers/ds_test_helpers.dart';
@@ -116,6 +116,7 @@ Widget _localizedApp(Widget home) {
 }
 
 List<Override> _commonOverrides() => [
+      showSignInGateProvider.overrideWithValue(false),
       challengesProvider.overrideWith(_MockChallengesController.new),
       breakdownProvider.overrideWith(_MockBreakdownController.new),
       rankingProvider.overrideWith(_MockRankingController.new),
@@ -127,18 +128,6 @@ List<Override> _commonOverrides() => [
         ),
       ),
     ];
-
-Widget _challengesScreenApp(GlobalKey screenshotKey) {
-  return ProviderScope(
-    overrides: _commonOverrides(),
-    child: _localizedApp(
-      RepaintBoundary(
-        key: screenshotKey,
-        child: const ChallengesScreen(),
-      ),
-    ),
-  );
-}
 
 Widget _profileScreenApp(GlobalKey screenshotKey) {
   return ProviderScope(
@@ -391,30 +380,6 @@ void main() {
         tester,
         screenshotKey,
         'api-challenge-contract-matrix.png',
-      );
-      expect(artifact.existsSync(), isTrue);
-    });
-
-    testWidgets('ChallengesScreen renders the full matrix including completed',
-        (tester) async {
-      final screenshotKey = GlobalKey();
-      await setScreenshotSurfaceSize(tester, const Size(440, 5200));
-
-      await _pumpStatic(tester, _challengesScreenApp(screenshotKey));
-
-      expect(
-        find.byType(AtomicChallengeCard),
-        findsNWidgets(ChallengeUiVisualFixture.allCases.length),
-      );
-      for (final fixtureCase in ChallengeUiVisualFixture.allCases) {
-        expect(find.text(fixtureCase.challenge.goal), findsOneWidget);
-      }
-      expect(tester.takeException(), isNull);
-
-      final artifact = await writeWidgetScreenshotArtifact(
-        tester,
-        screenshotKey,
-        'challenges-active-matrix.png',
       );
       expect(artifact.existsSync(), isTrue);
     });

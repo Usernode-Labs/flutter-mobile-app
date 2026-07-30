@@ -10,14 +10,12 @@ import 'package:crypto_mobile_app/features/auth/screens/auth_otp_screen.dart';
 import 'package:crypto_mobile_app/features/auth/screens/auth_set_password_screen.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/import_api_account_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/stale_registration_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permission1_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/welcome_setup_screen.dart';
 import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_battery_complete_screen.dart';
-import 'package:crypto_mobile_app/features/home/screens/home_screen.dart';
 import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
 import 'package:crypto_mobile_app/features/terms/screens/terms_screen.dart';
@@ -33,15 +31,11 @@ import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detai
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
-import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
-import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
-import 'package:crypto_mobile_app/features/leaderboard/screens/leaderboard_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
@@ -69,7 +63,6 @@ class AppRoutes {
   static const main = '/main';
 
   // Onboarding flow
-  static const onboardingImportApi = '/onboarding/import-api';
   static const onboardingWelcomeSetup = '/onboarding/welcome-setup';
   static const onboardingExactAlarmPermission1 =
       '/onboarding/exact-alarm-permission1';
@@ -130,12 +123,6 @@ class AppRoutes {
   static const mainNodeMempool = '/main/node/mempool';
   static const mainNodePeers = '/main/node/peers';
 }
-
-/// Full-screen SV shell mode is active: flag on AND a hub URL configured.
-/// When true, the home route renders [SvShellScreen] and the retired native
-/// tabs (dapps home, challenges leaderboard) remap into SV hash routes.
-bool svShellActive() =>
-    FeatureFlags.svShellEnabled && AppConfig.dappsTabUrl.trim().isNotEmpty;
 
 const _authRoutes = <String>[
   AppRoutes.authLanding,
@@ -272,10 +259,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const WelcomeClaimScreen(),
       ),
       GoRoute(
-        path: AppRoutes.onboardingImportApi,
-        builder: (context, state) => const OnboardingImportApiAccountScreen(),
-      ),
-      GoRoute(
         path: AppRoutes.onboardingWelcomeSetup,
         builder: (context, state) => const WelcomeSetupScreen(),
       ),
@@ -301,18 +284,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.homeSlash,
-        // Shell mode (app-as-SV-chrome): home is the full-bleed SV webview.
-        // `?sv=<hash>` carries a target SV hash route for deep-link remaps
-        // (e.g. /home?sv=challenges from usernode://app/challenges links).
-        builder: (context, state) => svShellActive()
-            ? SvShellScreen(initialHash: state.uri.queryParameters['sv'])
-            : const HomeScreen(),
+        // Home is the full-bleed SV webview (app-as-SV-chrome). `?sv=<hash>`
+        // carries a target SV hash route for deep-link remaps (e.g.
+        // /home?sv=challenges from usernode://app/challenges links).
+        builder: (context, state) =>
+            SvShellScreen(initialHash: state.uri.queryParameters['sv']),
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) => svShellActive()
-            ? SvShellScreen(initialHash: state.uri.queryParameters['sv'])
-            : const HomeScreen(),
+        builder: (context, state) =>
+            SvShellScreen(initialHash: state.uri.queryParameters['sv']),
       ),
       GoRoute(
         path: AppRoutes.slotAssignments,
@@ -445,12 +426,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.leaderboard,
-        // Shell mode: usernode://app/challenges/leaderboard remaps to SV's
-        // challenges hash route (the native tab is retired inside the
-        // shell). ZK-identity routes stay native — they run hardware flows.
-        redirect: (context, state) =>
-            svShellActive() ? '${AppRoutes.home}?sv=challenges' : null,
-        builder: (context, state) => const LeaderboardScreen(),
+        // usernode://app/challenges/leaderboard remaps to SV's challenges hash
+        // route — the native leaderboard is retired inside the SV shell.
+        // ZK-identity routes stay native — they run hardware flows.
+        redirect: (context, state) => '${AppRoutes.home}?sv=challenges',
       ),
       GoRoute(
         path: AppRoutes.profile,
@@ -467,12 +446,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.dapps,
-        // Shell mode: SV *is* the dapps home, so the tab route folds into
-        // the shell (guests redirected here from splash land in SV too).
-        redirect: (context, state) => svShellActive() ? AppRoutes.home : null,
-        builder: (context, state) => const HomeScreen(
-          initialTab: HomeTab.dapps,
-        ),
+        // SV *is* the dapps home, so this route folds into the shell. Kept as a
+        // redirect (not deleted): it's in the deep-link allowlist, the guest
+        // redirect target, and the dapp-browser Home button all point here.
+        redirect: (context, state) => AppRoutes.home,
       ),
       GoRoute(
         // Registered before dappDetail for clarity; no actual overlap since
@@ -649,7 +626,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       const publicRoutes = [
         AppRoutes.splash,
         AppRoutes.onboarding,
-        AppRoutes.onboardingImportApi,
         AppRoutes.onboardingWelcomeSetup,
       ];
 
@@ -695,7 +671,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Block app usage when registration belongs to a previous season.
       if (registrationFreshness == RegistrationFreshness.stale &&
           currentLocation != AppRoutes.staleRegistration &&
-          currentLocation != AppRoutes.onboardingImportApi) {
+          currentLocation != AppRoutes.authLanding) {
         return AppRoutes.staleRegistration;
       }
 

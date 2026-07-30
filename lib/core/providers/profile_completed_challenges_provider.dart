@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 
 class ProfileCompletedChallengeHistory {
@@ -22,20 +23,15 @@ class ProfileCompletedChallengeHistory {
 /// to the broader participant history exposed by the breakdown contract.
 final profileCompletedChallengesProvider =
     FutureProvider<ProfileCompletedChallengeHistory?>((ref) async {
-  final participantId = await ref.watch(participantIdProvider.future);
+  if (!ref.watch(isAuthenticatedProvider)) return null;
   final ctx = ref.watch(seasonEventContextProvider);
-  if (participantId == null) return null;
 
   final service = ref.read(leaderboardApiServiceProvider);
   final seasonId = ctx.seasonId;
 
-  final breakdown = await service.getBreakdown(
-    participantId: participantId,
-    seasonId: seasonId,
-  );
+  final breakdown = await service.getBreakdown(seasonId: seasonId);
   final challenges = await _fetchProfileChallenges(
     service: service,
-    participantId: participantId,
     seasonId: seasonId,
     breakdown: breakdown,
   );
@@ -56,33 +52,21 @@ final profileCompletedChallengesProvider =
 
 Future<List<ChallengeDto>> _fetchProfileChallenges({
   required LeaderboardApiService service,
-  required int participantId,
   required int? seasonId,
   required BreakdownResult breakdown,
 }) async {
   if (seasonId != null) {
-    return service.getChallenges(
-      seasonId: seasonId,
-      participantId: participantId,
-      activeOnly: false,
-    );
+    return service.getChallenges(seasonId: seasonId, activeOnly: false);
   }
 
   final seasonIds = _seasonIdsWithProfileProgress(breakdown);
   if (seasonIds.isEmpty) {
-    return service.getChallenges(
-      participantId: participantId,
-      activeOnly: false,
-    );
+    return service.getChallenges(activeOnly: false);
   }
 
   return (await Future.wait([
     for (final seasonId in seasonIds)
-      service.getChallenges(
-        seasonId: seasonId,
-        participantId: participantId,
-        activeOnly: false,
-      ),
+      service.getChallenges(seasonId: seasonId, activeOnly: false),
   ]))
       .expand((items) => items)
       .toList(growable: false);

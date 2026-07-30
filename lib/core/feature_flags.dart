@@ -46,14 +46,6 @@ class FeatureFlags {
     return defaultOn;
   }
 
-  /// Full-screen SV shell mode (app-as-SV-chrome migration): `/home` renders
-  /// the Social Vibecoding webapp full-bleed — no bottom nav, no native top
-  /// bar — with SV's own header providing node status / wallet / challenges.
-  /// Default off; enable with `--dart-define=ENABLED_FEATURES=shell.sv` or
-  /// `"enabled": ["shell.sv"]` in assets/feature_flags.json. Rollback is
-  /// flipping the flag — the native tab shell stays intact behind it.
-  static bool get svShellEnabled => on('shell.sv', defaultOn: false);
-
   /// Load flags from `assets/feature_flags.json` if present.
   /// Schema example:
   /// {
@@ -79,7 +71,7 @@ class FeatureFlags {
         ..clear()
         ..addAll(enabledItems)
         // Asset flags augment compile-time flags; they must not erase a
-        // rollout flag such as `--dart-define=ENABLED_FEATURES=shell.sv`
+        // compile-time rollout flag (`--dart-define=ENABLED_FEATURES=...`)
         // after the router has already rendered.
         ..addAll(_granularTagsFromEnv('ENABLED_FEATURES'));
       _tagsDisabled

@@ -8,7 +8,7 @@ import 'package:http/testing.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 
-const _baseUrl = 'https://test.example.com/api/v2/mobile';
+const _baseUrl = 'https://test.example.com/api/v3/mobile';
 
 /// Creates a [MockClient] that returns a fixed status code and JSON body.
 MockClient _mockClient(
@@ -37,144 +37,6 @@ void main() {
   // register
   // -------------------------------------------------------------------------
 
-  group('register', () {
-    test('returns RegistrationV2Result on 200 success', () async {
-      final client = _mockClient(
-          200,
-          _envelope({
-            'participant_id': 42,
-            'identity_uid': 'uid-abc',
-            'public_key': 'pk-123',
-            'secret_key': 'sk-456',
-            'address': 'addr-789',
-            'tier': 'gold',
-            'season_id': 1,
-            'season_name': 'Season 1',
-            'event': {
-              'event_id': 2,
-              'name': 'Event 2',
-              'ends_at': '2025-06-01',
-            },
-          }));
-      final service = LeaderboardApiService(
-        baseUrl: _baseUrl,
-        httpClient: client,
-        writesEnabled: true,
-      );
-
-      final result = await service.register(
-        registrationCode: 'code-123',
-        identifier: 'test-id',
-      );
-
-      expect(result.participantId, 42);
-      expect(result.identityUid, 'uid-abc');
-      expect(result.tier, 'gold');
-      expect(result.event?.id, 2);
-    });
-
-    test('sends POST with correct body', () async {
-      http.Request? captured;
-      final client = _mockClient(
-        200,
-        _envelope({
-          'participant_id': 1,
-          'identity_uid': 'u',
-          'public_key': 'p',
-          'secret_key': 's',
-          'address': 'a',
-          'tier': 't',
-        }),
-        onRequest: (r) => captured = r,
-      );
-      final service = LeaderboardApiService(
-        baseUrl: _baseUrl,
-        httpClient: client,
-        writesEnabled: true,
-      );
-
-      await service.register(
-        registrationCode: 'my-code',
-        identifier: 'my-id',
-      );
-
-      expect(captured, isNotNull);
-      expect(captured!.method, 'POST');
-      expect(captured!.url.path, '/api/v2/mobile/register');
-
-      final body = jsonDecode(captured!.body) as Map<String, dynamic>;
-      expect(body['registration_code'], 'my-code');
-      expect(body['identifier'], 'my-id');
-    });
-
-    test('throws LeaderboardApiException on 400', () async {
-      final client = _mockClient(400, {'error': 'Bad request'});
-      final service = LeaderboardApiService(
-        baseUrl: _baseUrl,
-        httpClient: client,
-        writesEnabled: true,
-      );
-
-      expect(
-        () => service.register(
-          registrationCode: 'bad',
-          identifier: 'test',
-        ),
-        throwsA(
-          isA<LeaderboardApiException>()
-              .having((e) => e.statusCode, 'statusCode', 400)
-              .having((e) => e.message, 'message', 'Bad request'),
-        ),
-      );
-    });
-
-    test('throws LeaderboardApiException on 409 conflict', () async {
-      final client = _mockClient(409, {'error': 'Already registered'});
-      final service = LeaderboardApiService(
-        baseUrl: _baseUrl,
-        httpClient: client,
-        writesEnabled: true,
-      );
-
-      expect(
-        () => service.register(
-          registrationCode: 'dup',
-          identifier: 'test',
-        ),
-        throwsA(
-          isA<LeaderboardApiException>()
-              .having((e) => e.statusCode, 'statusCode', 409)
-              .having((e) => e.message, 'message', 'Already registered'),
-        ),
-      );
-    });
-
-    test('fails fast in view-only mode before sending request', () async {
-      var requestSent = false;
-      final client = MockClient((request) async {
-        requestSent = true;
-        return http.Response('{}', 200);
-      });
-      final service = LeaderboardApiService(
-        baseUrl: _baseUrl,
-        httpClient: client,
-        writesEnabled: false,
-      );
-
-      expect(
-        () => service.register(
-          registrationCode: 'code-123',
-          identifier: 'test-id',
-        ),
-        throwsA(
-          isA<LeaderboardApiException>()
-              .having((e) => e.statusCode, 'statusCode', 503),
-        ),
-      );
-      expect(requestSent, isFalse);
-    });
-  });
-
   // -------------------------------------------------------------------------
   // getRanking
   // -------------------------------------------------------------------------
@@ -196,7 +58,7 @@ void main() {
       final service =
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
-      final result = await service.getRanking(participantId: 42);
+      final result = await service.getRanking();
 
       expect(result.scope, 'event');
       expect(result.rank, 5);
@@ -220,15 +82,11 @@ void main() {
       final service =
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
-      await service.getRanking(
-        participantId: 42,
-        seasonId: 1,
-        eventId: 5,
-      );
+      await service.getRanking(seasonId: 1, eventId: 5);
 
       expect(capturedUri, isNotNull);
-      expect(capturedUri!.path, '/api/v2/mobile/me/ranking');
-      expect(capturedUri!.queryParameters['participant_id'], '42');
+      expect(capturedUri!.path, '/api/v3/mobile/me/ranking');
+      expect(capturedUri!.queryParameters.containsKey('participant_id'), false);
       expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '5');
     });
@@ -239,7 +97,7 @@ void main() {
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
-        () => service.getRanking(participantId: 999),
+        () => service.getRanking(),
         throwsA(
           isA<LeaderboardApiException>()
               .having((e) => e.statusCode, 'statusCode', 404),
@@ -303,7 +161,7 @@ void main() {
         activeOnly: true,
       );
 
-      expect(capturedUri!.path, '/api/v2/mobile/challenges');
+      expect(capturedUri!.path, '/api/v3/mobile/challenges');
       expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '3');
       expect(capturedUri!.queryParameters['active_only'], '1');
@@ -429,7 +287,7 @@ void main() {
         perPage: 25,
       );
 
-      expect(capturedUri!.path, '/api/v2/mobile/leaderboard');
+      expect(capturedUri!.path, '/api/v3/mobile/leaderboard');
       expect(capturedUri!.queryParameters['season_id'], '1');
       expect(capturedUri!.queryParameters['event_id'], '2');
       expect(capturedUri!.queryParameters['page'], '3');
@@ -471,7 +329,7 @@ void main() {
       final service =
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
-      final result = await service.getBreakdown(participantId: 42);
+      final result = await service.getBreakdown();
 
       expect(result.scope, 'event');
       expect(result.displayName, 'Alice');
@@ -496,16 +354,102 @@ void main() {
       final service =
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
-      await service.getBreakdown(
-        participantId: 42,
-        seasonId: 1,
-        eventId: 3,
-      );
+      await service.getBreakdown(seasonId: 1, eventId: 3);
 
-      expect(capturedUri!.path, '/api/v2/mobile/me/breakdown');
-      expect(capturedUri!.queryParameters['participant_id'], '42');
+      expect(capturedUri!.path, '/api/v3/mobile/me/breakdown');
+      expect(capturedUri!.queryParameters.containsKey('participant_id'), false);
       expect(capturedUri!.queryParameters.containsKey('season_id'), false);
       expect(capturedUri!.queryParameters['event_id'], '3');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // provisionWallet
+  // -------------------------------------------------------------------------
+
+  group('provisionWallet', () {
+    test('returns WalletProvisionResult on 200', () async {
+      http.Request? captured;
+      final client = _mockClient(
+        200,
+        _envelope({
+          'address': 'ut1pool0',
+          'public_key': 'utpk1pool0',
+          'secret_key': 'utsk1pool0',
+          'season_id': 10,
+          'season_event_id': null,
+          'newly_allocated': true,
+        }),
+        onRequest: (r) => captured = r,
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.provisionWallet();
+
+      expect(captured!.url.path, endsWith('/wallet/provision'));
+      expect(result.address, 'ut1pool0');
+      expect(result.publicKey, 'utpk1pool0');
+      expect(result.secretKey, 'utsk1pool0');
+      expect(result.seasonId, 10);
+      expect(result.seasonEventId, isNull);
+      expect(result.newlyAllocated, true);
+    });
+
+    test('throws on 409 (season account pool exhausted)', () async {
+      final client = _mockClient(409, {
+        'success': false,
+        'error': 'No on-chain accounts are available for the current season.',
+      });
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      expect(
+        () => service.provisionWallet(),
+        throwsA(isA<LeaderboardApiException>()
+            .having((e) => e.statusCode, 'statusCode', 409)),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // completeZkPassport
+  // -------------------------------------------------------------------------
+
+  group('completeZkPassport', () {
+    test('returns true on 200', () async {
+      final client = _mockClient(200, _envelope({'status': 'completed'}));
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final ok = await service.completeZkPassport(
+        challengeId: 7,
+        walletAddress: 'ut1abc',
+        sessionId: 'sess-1',
+        nullifierHex: '0xdead',
+      );
+
+      expect(ok, true);
+    });
+
+    test('throws on 409 (v4 real rejection, not duplicate-success)', () async {
+      final client = _mockClient(409, {
+        'success': false,
+        'error': 'Challenge is not accepting completions.',
+      });
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      expect(
+        () => service.completeZkPassport(
+          challengeId: 7,
+          walletAddress: 'ut1abc',
+          sessionId: 'sess-1',
+          nullifierHex: '0xdead',
+        ),
+        throwsA(isA<LeaderboardApiException>()
+            .having((e) => e.statusCode, 'statusCode', 409)),
+      );
     });
   });
 
@@ -520,7 +464,7 @@ void main() {
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
-        () => service.getRanking(participantId: 1),
+        () => service.getRanking(),
         throwsA(
           isA<LeaderboardApiException>()
               .having((e) => e.statusCode, 'statusCode', 500)
@@ -539,7 +483,7 @@ void main() {
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
-        () => service.getRanking(participantId: 1),
+        () => service.getRanking(),
         throwsA(
           isA<LeaderboardApiException>()
               .having((e) => e.message, 'message', 'Something went wrong'),
@@ -555,7 +499,7 @@ void main() {
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
-        () => service.getRanking(participantId: 1),
+        () => service.getRanking(),
         throwsA(isA<TimeoutException>()),
       );
     });
@@ -626,7 +570,7 @@ void main() {
         retryBaseDelay: Duration.zero,
       );
 
-      final result = await service.getBreakdown(participantId: 42);
+      final result = await service.getBreakdown();
 
       expect(attempts, 2);
       expect(result.totalPoints, 1000);
@@ -651,7 +595,7 @@ void main() {
         retryBaseDelay: Duration.zero,
       );
 
-      final result = await service.getBreakdown(participantId: 42);
+      final result = await service.getBreakdown();
 
       expect(attempts, 2);
       expect(result.totalPoints, 1000);
@@ -671,7 +615,7 @@ void main() {
       );
 
       await expectLater(
-        () => service.getBreakdown(participantId: 42),
+        () => service.getBreakdown(),
         throwsA(
           isA<LeaderboardApiException>()
               .having((e) => e.statusCode, 'statusCode', 500),
@@ -698,10 +642,7 @@ void main() {
       );
 
       await expectLater(
-        () => service.register(
-          registrationCode: 'code',
-          identifier: 'id',
-        ),
+        () => service.postTermsConsent(termsVersionId: 1, appVersion: '1.0.0'),
         throwsA(isA<LeaderboardApiException>()),
       );
       expect(attempts, 1);
@@ -724,10 +665,74 @@ void main() {
       );
 
       await expectLater(
-        () => service.getBreakdown(participantId: 999),
+        () => service.getBreakdown(),
         throwsA(isA<LeaderboardApiException>()),
       );
       expect(attempts, 1);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Auth (session token) behavior
+  // -------------------------------------------------------------------------
+
+  group('auth', () {
+    test('attaches Bearer token from tokenProvider on GET', () async {
+      String? auth;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: _mockClient(
+          200,
+          _envelope({
+            'scope': 'global',
+            'rank': 1,
+            'total_points': 0,
+            'offchain_points': 0,
+            'total_participants': 0,
+          }),
+          onRequest: (r) => auth = r.headers['authorization'],
+        ),
+        tokenProvider: () async => 'sess-xyz',
+      );
+      await service.getRanking(seasonId: 1);
+      expect(auth, 'Bearer sess-xyz');
+    });
+
+    test('omits Authorization header when no token', () async {
+      String? auth = 'unset';
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: _mockClient(
+          200,
+          _envelope({
+            'scope': 'global',
+            'rank': 1,
+            'total_points': 0,
+            'offchain_points': 0,
+            'total_participants': 0,
+          }),
+          onRequest: (r) => auth = r.headers['authorization'],
+        ),
+        tokenProvider: () async => null,
+      );
+      await service.getRanking(seasonId: 1);
+      expect(auth, isNull);
+    });
+
+    test('401 invokes onUnauthorized then throws', () async {
+      var cleared = false;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: _mockClient(401, {'error': 'unauth'}),
+        tokenProvider: () async => 'sess-xyz',
+        onUnauthorized: () async => cleared = true,
+        maxGetRetries: 0,
+      );
+      await expectLater(
+        () => service.getRanking(seasonId: 1),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+      expect(cleared, true);
     });
   });
 }

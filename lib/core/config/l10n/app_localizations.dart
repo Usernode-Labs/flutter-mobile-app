@@ -1120,60 +1120,6 @@ abstract class AppLocalizations {
   /// **'Failed to import demo account: {error}'**
   String demoImportFailedWithError(String error);
 
-  /// Import API account card title and screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Import Pre-configured Account'**
-  String get importApiAccountTitle;
-
-  /// Import API account card description
-  ///
-  /// In en, this message translates to:
-  /// **'Import a pre-configured account from the API'**
-  String get importApiAccountDesc;
-
-  /// Contact field label
-  ///
-  /// In en, this message translates to:
-  /// **'Discord, Email, or Telegram'**
-  String get importApiAccountContactLabel;
-
-  /// Contact field hint
-  ///
-  /// In en, this message translates to:
-  /// **'@username or name@example.com'**
-  String get importApiAccountContactHint;
-
-  /// Activation code field label
-  ///
-  /// In en, this message translates to:
-  /// **'Activation Code'**
-  String get importApiAccountCodeLabel;
-
-  /// Activation code field hint
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your code'**
-  String get importApiAccountCodeHint;
-
-  /// Submit button text
-  ///
-  /// In en, this message translates to:
-  /// **'Verify Code'**
-  String get importApiAccountSubmit;
-
-  /// API account import failure message
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to import account from API'**
-  String get importApiAccountFailed;
-
-  /// API registration failure with error
-  ///
-  /// In en, this message translates to:
-  /// **'Registration failed: {error}'**
-  String importApiAccountRegistrationFailed(String error);
-
   /// No active account error
   ///
   /// In en, this message translates to:
@@ -1648,12 +1594,6 @@ abstract class AppLocalizations {
   /// **'Blocks'**
   String get navProducedBlocks;
 
-  /// Navigation bar label for wallet tab
-  ///
-  /// In en, this message translates to:
-  /// **'Wallet'**
-  String get navWallet;
-
   /// Navigation bar label for dapps tab
   ///
   /// In en, this message translates to:
@@ -1665,12 +1605,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Node Status'**
   String get navNodeStatus;
-
-  /// Navigation bar label for challenges tab
-  ///
-  /// In en, this message translates to:
-  /// **'Challenges'**
-  String get navChallenges;
 
   /// Navigation bar label for settings tab
   ///
@@ -1731,6 +1665,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Start Setup'**
   String get onboardingWelcomeSetupStartButton;
+
+  /// Error shown when creating the local node account fails during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t set up your node account. Please try again.'**
+  String get onboardingAccountSetupError;
 
   /// Exact alarms permission screen title
   ///
@@ -3826,54 +3766,6 @@ abstract class AppLocalizations {
   /// **'No produced blocks available'**
   String get producedBlocksNoData;
 
-  /// Error when Rust FFI key derivation fails during account import
-  ///
-  /// In en, this message translates to:
-  /// **'Account setup failed. Please try again or contact support.'**
-  String get importApiAccountKeyDerivationFailed;
-
-  /// Error when secure storage write fails during account import
-  ///
-  /// In en, this message translates to:
-  /// **'Could not save account securely. Please check device storage and try again.'**
-  String get importApiAccountStorageFailed;
-
-  /// Warning when backend fails to start after account creation
-  ///
-  /// In en, this message translates to:
-  /// **'Account created, but node startup failed. The app will retry automatically.'**
-  String get importApiAccountBackendStartFailed;
-
-  /// Validation error for empty username field
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter your username.'**
-  String get registrationUsernameEmpty;
-
-  /// Validation error for empty activation code field
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter your activation code.'**
-  String get registrationCodeEmpty;
-
-  /// Error when registration request times out
-  ///
-  /// In en, this message translates to:
-  /// **'Connection timed out. Please check your internet and try again.'**
-  String get registrationTimeoutError;
-
-  /// Error when registration request fails due to network
-  ///
-  /// In en, this message translates to:
-  /// **'Could not reach the server. Please check your internet and try again.'**
-  String get registrationNetworkError;
-
-  /// Generic fallback error for unexpected registration failures
-  ///
-  /// In en, this message translates to:
-  /// **'An unexpected error occurred. Please try again or contact support.'**
-  String get registrationUnexpectedError;
-
   /// Title for stale registration blocking screen
   ///
   /// In en, this message translates to:
@@ -4029,36 +3921,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} of {total}'**
   String httpLogsFilterCount(int count, int total);
-
-  /// Title of the dialog prompting the user to re-register to restore their participant ID
-  ///
-  /// In en, this message translates to:
-  /// **'Onboarding has evolved'**
-  String get participantRecoveryTitle;
-
-  /// Body of the participant-recovery dialog
-  ///
-  /// In en, this message translates to:
-  /// **'Set your Discord handle and registration code again to restore your leaderboard participation.'**
-  String get participantRecoveryBody;
-
-  /// Primary button that submits the participant-recovery form
-  ///
-  /// In en, this message translates to:
-  /// **'Restore'**
-  String get participantRecoveryRestore;
-
-  /// Dismiss button on the participant-recovery dialog
-  ///
-  /// In en, this message translates to:
-  /// **'Later'**
-  String get participantRecoveryLater;
-
-  /// Snackbar confirmation after participant ID is restored
-  ///
-  /// In en, this message translates to:
-  /// **'Leaderboard participation restored.'**
-  String get participantRecoverySuccess;
 
   /// App bar title of the homescreen-shortcut confirmation screen
   ///
@@ -4311,6 +4173,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Can\'t reach Usernode. Check your connection and try again.'**
   String get svShellOfflineMessage;
+
+  /// Guest gate title on data screens
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to view your progress'**
+  String get authSignInToView;
+
+  /// Guest gate button on data screens
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get authSignInToViewCta;
 }
 
 class _AppLocalizationsDelegate

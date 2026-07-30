@@ -12,7 +12,6 @@ import 'package:crypto_mobile_app/core/utils/time_format.dart';
 import 'package:crypto_mobile_app/core/utils/utils.dart';
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/core/widgets/app_progress_bar.dart';
-import 'package:crypto_mobile_app/features/home/home_tab_provider.dart';
 import 'package:crypto_mobile_app/core/providers/node_data_providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
@@ -39,7 +38,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
   // State flags
   bool _refreshing = false;
   String? _error;
-  bool _active = true;
 
   // Cached data
   List<RpcPeerInfo> _peers = const [];
@@ -63,19 +61,6 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeData();
       _startTimer();
-    });
-
-    // React to tab changes — start/stop timer when node tab becomes active.
-    ref.listenManual(currentHomeTabProvider, (previous, next) {
-      final shouldBeActive = next == HomeTab.nodeStatus;
-      if (shouldBeActive != _active) {
-        _active = shouldBeActive;
-        if (shouldBeActive) {
-          _startTimer();
-        } else {
-          _stopTimer();
-        }
-      }
     });
   }
 
@@ -211,7 +196,7 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     _autoTimer?.cancel();
     _autoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (_appSleepService.isSleeping) return;
-      if (mounted && _active && !_refreshing) {
+      if (mounted && !_refreshing) {
         _refresh();
       }
     });
@@ -229,10 +214,8 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
       return;
     }
 
-    if (_active) {
-      _startTimer();
-      unawaited(_refresh());
-    }
+    _startTimer();
+    unawaited(_refresh());
   }
 
   // ============== BUILD ==============

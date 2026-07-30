@@ -262,7 +262,7 @@ AppCard.regular(child: content)
 
 | Screen Type | Shell | TopAppBar | SafeArea | Scroll Container | Bottom Padding |
 |---|---|---|---|---|---|
-| Tab screen | HomeScreen IndexedStack + BottomNav | No SliverAppBar | Explicit `SafeArea` | `ListView` or `CustomScrollView` | `space32` (above BottomNav) |
+| Root screen (e.g. Node Status, Settings) | Pushed root scaffold — no BottomNav (native tab shell retired for the SV shell) | No SliverAppBar | Explicit `SafeArea` | `ListView` or `CustomScrollView` | `space32` |
 | Detail screen | Pushed via `context.push()` | `SliverAppBar` (pinned) | Automatic via AppBar | `CustomScrollView` | `space32` |
 | Full-screen (onboarding) | Standalone | None or minimal | Explicit `SafeArea` | `SingleChildScrollView` or `Column` | `space24` |
 | Modal / Bottom sheet | `showModalBottomSheet` | DragHandle or header | Not needed | `ListView` or `Column` | `space16` |

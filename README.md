@@ -138,7 +138,6 @@ This is **not a light client** - it's a full validator node with consensus parti
   - **iOS**: Three-tier approach (Foreground Keep-Alive, BGTask + Notifications)
 - Production statistics and success rate tracking
 - Reward tracking and epoch-based analytics
-- **Event-Driven Metrics**: 42 distinct event types tracking alarm execution, slot monitoring, and block production
 
 ### Advanced Notifications
 
@@ -154,11 +153,6 @@ This is **not a light client** - it's a full validator node with consensus parti
 - Historical data visualization (Limited since the node does not keep the full history of transactions and blocks)
 - Performance monitoring
 - Production success rate analytics
-- **Comprehensive Metrics System**:
-  - Event-driven + periodic health check metrics (every 5 seconds)
-  - 42 distinct event types with targeted collection strategies
-  - Real-time reporting to centralized API endpoint
-  - Tracks app state, device info, battery, network, node status, consensus, and production events
 
 ### Platform-Specific Optimizations
 
@@ -177,11 +171,6 @@ For detailed documentation on specific features and workflows, refer to the foll
 
 - **[Background Block Production](docs/BACKGROUND_PRODUCTION.md)** - Comprehensive guide to background block production system, architecture, and platform-specific implementations
 - **[Android Background Block Production Workflow](docs/ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md)** - Detailed flow diagram and implementation details for Android
-
-### Metrics & Monitoring
-
-- **[Metrics Documentation](docs/METRICS.md)** - Complete metrics system documentation including event types, API specs, and configuration
-- **[Metrics Fields Reference](docs/METRICS_FIELDS_REFERENCE.md)** - Detailed JSON field reference with iOS/Android platform differences
 
 ### Development & Architecture
 
@@ -1145,9 +1134,6 @@ The following environment variables are used in production builds:
 | `USE_RESULT_PROVIDERS` | Enable result providers           | No       | `true`, `false`             |
 | `ENABLED_FEATURES`     | Comma-separated enabled features  | No       | `feature1,feature2`         |
 | `DISABLED_FEATURES`    | Comma-separated disabled features | No       | `feature3,feature4`         |
-| `METRICS_ENABLED` | Enable metrics collection | No | `true`, `false` |
-| `METRICS_ENDPOINT` | Metrics API endpoint URL | No | `https://metrics.example.com/v1/metrics` |
-| `METRICS_COLLECTION_INTERVAL_SECONDS` | Periodic health check interval in seconds | No | `5` (default: 5) |
 
 ### Local Development .env File
 
@@ -1166,9 +1152,6 @@ GITHUB_TOKEN=
 USE_RESULT_PROVIDERS=true
 ENABLED_FEATURES=
 DISABLED_FEATURES=
-METRICS_ENABLED=false
-METRICS_ENDPOINT=
-METRICS_COLLECTION_INTERVAL_SECONDS=5
 ```
 
 ### Production/CI Environment Setup

@@ -384,7 +384,7 @@ The app monitors permission status and emits events:
 - `ios_notification_permission_granted/denied`
 - `ios_background_refresh_status_checked`
 
-**Note:** For a complete list of all 42 event types including alarm execution, foreground service lifecycle, boot recovery, and persistent mode events, see [METRICS.md](./METRICS.md) and [ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md).
+**Note:** For alarm execution, foreground service lifecycle, boot recovery, and persistent mode details, see [ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md).
 
 ---
 
@@ -399,9 +399,9 @@ The Background Block Production settings screen provides comprehensive status an
 Configure block production via `.env` file:
 
 ```bash
-# Metrics collection interval for periodic health checks (seconds)
+# Headless produced-blocks refresh interval (seconds)
 # Default: 30
-METRICS_COLLECTION_INTERVAL_SECONDS=30
+HEADLESS_REFRESH_INTERVAL_SECONDS=30
 
 # Wake up time before slot (seconds)
 # Allows time for app startup and node sync
@@ -664,8 +664,7 @@ User must:
 
 ## Related Documentation
 
-- [METRICS.md](./METRICS.md) - Metrics system with 42 event types
-- [METRICS_FIELDS_REFERENCE.md](./METRICS_FIELDS_REFERENCE.md) - Detailed JSON field reference with iOS/Android platform differences
+- [ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md](./ANDROID_BACKGROUND_BLOCK_PRODUCTION_WORKFLOW.md)
 
 ---
 

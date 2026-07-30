@@ -829,46 +829,6 @@
     }
   },
 
-  "importApiAccountTitle": "Import Pre-configured Account",
-  "@importApiAccountTitle": {
-    "description": "Import API account card title and screen title"
-  },
-  "importApiAccountDesc": "Import a pre-configured account from the API",
-  "@importApiAccountDesc": {
-    "description": "Import API account card description"
-  },
-  "importApiAccountContactLabel": "Discord, Email, or Telegram",
-  "@importApiAccountContactLabel": {
-    "description": "Contact field label"
-  },
-  "importApiAccountContactHint": "@username or name@example.com",
-  "@importApiAccountContactHint": {
-    "description": "Contact field hint"
-  },
-  "importApiAccountCodeLabel": "Activation Code",
-  "@importApiAccountCodeLabel": {
-    "description": "Activation code field label"
-  },
-  "importApiAccountCodeHint": "Enter your code",
-  "@importApiAccountCodeHint": {
-    "description": "Activation code field hint"
-  },
-  "importApiAccountSubmit": "Verify Code",
-  "@importApiAccountSubmit": {
-    "description": "Submit button text"
-  },
-  "importApiAccountFailed": "Failed to import account from API",
-  "@importApiAccountFailed": {
-    "description": "API account import failure message"
-  },
-  "importApiAccountRegistrationFailed": "Registration failed: {error}",
-  "@importApiAccountRegistrationFailed": {
-    "description": "API registration failure with error",
-    "placeholders": {
-      "error": {"type": "String"}
-    }
-  },
-
   "walletNoActiveAccount": "No active account found. Please create or select an account.",
   "@walletNoActiveAccount": {
     "description": "No active account error"
@@ -1233,10 +1193,6 @@
   "@navProducedBlocks": {
     "description": "Navigation bar label for produced blocks tab"
   },
-  "navWallet": "Wallet",
-  "@navWallet": {
-    "description": "Navigation bar label for wallet tab"
-  },
   "navDapps": "dApps",
   "@navDapps": {
     "description": "Navigation bar label for dapps tab"
@@ -1244,10 +1200,6 @@
   "navNodeStatus": "Node Status",
   "@navNodeStatus": {
     "description": "Navigation bar label for node status tab"
-  },
-  "navChallenges": "Challenges",
-  "@navChallenges": {
-    "description": "Navigation bar label for challenges tab"
   },
   "navSettings": "Settings",
   "@navSettings": {
@@ -1295,6 +1247,10 @@
   "onboardingWelcomeSetupStartButton": "Start Setup",
   "@onboardingWelcomeSetupStartButton": {
     "description": "Button text to start the setup flow"
+  },
+  "onboardingAccountSetupError": "Couldn't set up your node account. Please try again.",
+  "@onboardingAccountSetupError": {
+    "description": "Error shown when creating the local node account fails during onboarding"
   },
 
   "permExactAlarmsTitle": "Exact Alarms",
@@ -2875,38 +2831,6 @@
     "description": "No produced blocks message"
   },
 
-  "importApiAccountKeyDerivationFailed": "Account setup failed. Please try again or contact support.",
-  "@importApiAccountKeyDerivationFailed": {
-    "description": "Error when Rust FFI key derivation fails during account import"
-  },
-  "importApiAccountStorageFailed": "Could not save account securely. Please check device storage and try again.",
-  "@importApiAccountStorageFailed": {
-    "description": "Error when secure storage write fails during account import"
-  },
-  "importApiAccountBackendStartFailed": "Account created, but node startup failed. The app will retry automatically.",
-  "@importApiAccountBackendStartFailed": {
-    "description": "Warning when backend fails to start after account creation"
-  },
-  "registrationUsernameEmpty": "Please enter your username.",
-  "@registrationUsernameEmpty": {
-    "description": "Validation error for empty username field"
-  },
-  "registrationCodeEmpty": "Please enter your activation code.",
-  "@registrationCodeEmpty": {
-    "description": "Validation error for empty activation code field"
-  },
-  "registrationTimeoutError": "Connection timed out. Please check your internet and try again.",
-  "@registrationTimeoutError": {
-    "description": "Error when registration request times out"
-  },
-  "registrationNetworkError": "Could not reach the server. Please check your internet and try again.",
-  "@registrationNetworkError": {
-    "description": "Error when registration request fails due to network"
-  },
-  "registrationUnexpectedError": "An unexpected error occurred. Please try again or contact support.",
-  "@registrationUnexpectedError": {
-    "description": "Generic fallback error for unexpected registration failures"
-  },
   "registrationStaleTitle": "Registration Expired",
   "@registrationStaleTitle": {
     "description": "Title for stale registration blocking screen"
@@ -3019,26 +2943,6 @@
         "type": "int"
       }
     }
-  },
-  "participantRecoveryTitle": "Onboarding has evolved",
-  "@participantRecoveryTitle": {
-    "description": "Title of the dialog prompting the user to re-register to restore their participant ID"
-  },
-  "participantRecoveryBody": "Set your Discord handle and registration code again to restore your leaderboard participation.",
-  "@participantRecoveryBody": {
-    "description": "Body of the participant-recovery dialog"
-  },
-  "participantRecoveryRestore": "Restore",
-  "@participantRecoveryRestore": {
-    "description": "Primary button that submits the participant-recovery form"
-  },
-  "participantRecoveryLater": "Later",
-  "@participantRecoveryLater": {
-    "description": "Dismiss button on the participant-recovery dialog"
-  },
-  "participantRecoverySuccess": "Leaderboard participation restored.",
-  "@participantRecoverySuccess": {
-    "description": "Snackbar confirmation after participant ID is restored"
   },
   "shortcutConfirmTitle": "Add to Home Screen",
   "@shortcutConfirmTitle": {
@@ -3227,5 +3131,13 @@
   "svShellOfflineMessage": "Can't reach Usernode. Check your connection and try again.",
   "@svShellOfflineMessage": {
     "description": "First-launch gate of the full-screen SV shell: shown when the first-ever load of the Social Vibecoding webapp fails"
+  },
+  "authSignInToView": "Sign in to view your progress",
+  "@authSignInToView": {
+    "description": "Guest gate title on data screens"
+  },
+  "authSignInToViewCta": "Sign in",
+  "@authSignInToViewCta": {
+    "description": "Guest gate button on data screens"
   }
 }

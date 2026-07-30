@@ -128,7 +128,9 @@ class AuthRepository {
   }
 
   AuthException _mapError(int status, Map<String, dynamic>? json) {
-    final serverMsg = json?['message'] as String?;
+    // v4's error envelope is `{success: false, error, details?}`; `message`
+    // is kept as a fallback for older/other servers.
+    final serverMsg = (json?['error'] ?? json?['message']) as String?;
     switch (status) {
       case 401:
         return AuthException(AuthErrorKind.invalidCredentials,

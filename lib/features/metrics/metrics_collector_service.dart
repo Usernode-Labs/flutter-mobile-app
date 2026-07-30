@@ -5,14 +5,9 @@ import 'package:crypto/crypto.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/models/block_production_event.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
-import 'package:crypto_mobile_app/features/metrics/models/metrics_payload.dart';
-import 'package:crypto_mobile_app/features/metrics/models/slot_outcome_report.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/core/providers/node_provider.dart';
-import 'package:crypto_mobile_app/core/providers/produced_blocks_provider.dart';
+import 'package:crypto_mobile_app/features/metrics/models/mobile_context_metrics.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,9 +29,11 @@ String _hashDeviceId(String deviceId) {
   return digest.toString();
 }
 
-/// Service responsible for collecting all metrics from various sources
+/// Collects mobile-context snapshots (identity, runtime, platform, device,
+/// battery, network, foreground-service) for the observability hub.
 ///
-/// Supports both periodic health checks and event-driven metric collection.
+/// Implements [MobileContextSnapshotCollector], which
+/// [ObservabilityReportingService] uses to enrich its node events.
 class MetricsCollectorService implements MobileContextSnapshotCollector {
   MetricsCollectorService._();
   static final MetricsCollectorService instance = MetricsCollectorService._();
@@ -45,11 +42,8 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   final Connectivity _connectivity = Connectivity();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
-  /// Provider container for accessing node status providers
+  /// Provider container for reading the participant id.
   static ProviderContainer? _container;
-
-  /// Debug: check if container is set
-  bool get hasContainer => _container != null;
 
   /// Track app startup time
   DateTime? _appStartTime;
@@ -62,7 +56,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   // Immutable data - cache indefinitely
   PackageInfo? _cachedPackageInfo;
   BaseDeviceInfo? _cachedDeviceInfo;
-  String? _cachedPeerId;
 
   // Semi-static data with TTL
   DateTime? _batteryOptimizationCacheTime;
@@ -93,7 +86,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     _appLifecycleState = AppLifecycleState.resumed;
     _cachedPackageInfo = null;
     _cachedDeviceInfo = null;
-    _cachedPeerId = null;
     _batteryOptimizationCacheTime = null;
     _cachedBatteryOptimization = null;
   }
@@ -222,166 +214,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     }
 
     return {'participant_id': participantId};
-  }
-
-  /// Capture a focused snapshot of client-side context for slot outcome
-  /// reports.
-  ///
-  /// Unlike [collectMetrics], this skips node status / provider reads and
-  /// only collects the fields a [SlotOutcomeReport] needs (app state,
-  /// network, platform, app version, battery, wakelock / FG status). Cheap
-  /// enough to call inline at slot terminal time without slowing down
-  /// monitoring teardown. Any individual field failure degrades to `null`
-  /// rather than throwing, so the recorder always gets *some* context.
-  Future<ClientContextSnapshot> collectClientContextSnapshot() async {
-    Future<T?> safe<T>(Future<T> Function() f) async {
-      try {
-        return await f();
-      } catch (e) {
-        _log.debug('client-context field failed: $e');
-        return null;
-      }
-    }
-
-    final results = await Future.wait([
-      safe(_collectRuntimeMetrics),
-      safe(_collectPlatformMetrics),
-      safe(_collectBatteryMetrics),
-      safe(_collectNetworkMetrics),
-      Platform.isAndroid
-          ? safe(_collectForegroundServiceMetrics)
-          : Future<ForegroundServiceMetrics?>.value(null),
-    ]);
-
-    final runtime = results[0] as RuntimeMetrics?;
-    final platform = results[1] as PlatformMetrics?;
-    final battery = results[2] as BatteryMetrics?;
-    final network = results[3] as NetworkMetrics?;
-    final fg = results[4] as ForegroundServiceMetrics?;
-
-    return ClientContextSnapshot(
-      appState: runtime?.appState,
-      networkType: network?.networkType,
-      networkConnected: network?.networkConnected,
-      platform: platform?.platform,
-      platformVersion: platform?.platformVersion,
-      appVersion: runtime?.appVersion,
-      appBuildNumber: runtime?.appBuildNumber,
-      batteryLevel: battery?.batteryLevel,
-      wakelockHeld: fg?.wakelockHeld ?? runtime?.keepAliveModeActive,
-      foregroundServiceRunning: fg?.foregroundServiceRunning,
-    );
-  }
-
-  /// Collect metrics for a specific block production event
-  ///
-  /// Always collects full metrics for all event types, providing complete
-  /// visibility into app health, node performance, and block production.
-  Future<MetricsPayload> collectMetricsForEvent(
-    BlockProductionEvent event,
-  ) async {
-    _log.debug('Collecting full metrics for event: ${event.eventType}');
-
-    return await collectMetrics(
-      eventType: event.eventType,
-      eventData: event.toJson(),
-    );
-  }
-
-  /// Collect all metrics and return a complete payload
-  ///
-  /// Always collects full metrics for comprehensive system state visibility.
-  Future<MetricsPayload> collectMetrics({
-    String eventType = 'health_check',
-    Map<String, dynamic>? eventData,
-  }) async {
-    // For full collection, fetch node status ONCE from provider to avoid expensive FFI calls
-    NodeStatusState? rawStatus;
-    if (_container != null && RustBackendService.instance.isRunning) {
-      try {
-        final rawStatusAsync = _container!.read(nodeStatusProvider);
-        rawStatus = rawStatusAsync.valueOrNull;
-        _log.debug(
-            'nodeStatusProvider: isLoading=${rawStatusAsync.isLoading}, hasValue=${rawStatusAsync.hasValue}, hasError=${rawStatusAsync.hasError}');
-      } catch (e) {
-        _log.warn('Failed to read nodeStatusProvider: $e');
-      }
-    }
-
-    // The metrics-API payload carries only event metadata, the hashed
-    // device id, node identity, consensus and peers. App runtime/platform/
-    // battery/network/permissions and node status/blockchain/wallet are
-    // intentionally not reported here (see metrics_payload.dart).
-    final event = await _collectEventMetrics(eventType, eventData);
-    final device = await _collectDeviceMetrics();
-    final identity = await _collectIdentityMetrics();
-    final consensus = await _collectConsensusMetrics(rawStatus: rawStatus);
-    final peers = await _collectPeersMetrics(rawStatus: rawStatus);
-
-    final app = AppMetricsGroup(device: device);
-
-    final node = NodeMetricsGroup(
-      identity: identity,
-      consensus: consensus,
-      peers: peers,
-    );
-
-    return MetricsPayload(
-      event: event,
-      app: app,
-      node: node,
-    );
-  }
-
-  /// Collect event metadata
-  Future<EventMetrics> _collectEventMetrics(
-    String eventType,
-    Map<String, dynamic>? eventData,
-  ) async {
-    return EventMetrics(
-      eventType: eventType,
-      timestamp: DateTime.now().toUtc().toIso8601String(),
-      eventData: eventData,
-    );
-  }
-
-  /// Collect node identity
-  Future<IdentityMetrics> _collectIdentityMetrics() async {
-    // Get peer ID from backend service - CACHED (static per session)
-    _cachedPeerId ??= RustBackendService.instance.getPeerId();
-    final peerId = _cachedPeerId;
-
-    // Read chain_id directly from the Rust node, *not* from the Riverpod
-    // cache. `nodeStatusProvider` is a one-shot AsyncNotifier — it builds
-    // exactly once per app session and never refreshes itself. At cold
-    // boot the first read often happens before the embedded node has
-    // reported its chain hash, so the provider caches `null` for the rest
-    // of the session and every consumer that reads through it gets a
-    // stale value. The metrics POST tick is the single best moment to
-    // ask for fresh state, and a direct FFI hop here is cheap enough at
-    // the once-per-25-60s cadence we run at.
-    //
-    // We intentionally do NOT fall back to the selected-network name
-    // (e.g. 'testnet'). A null chain_id is a real signal that the node
-    // wasn't reachable at this instant; stamping a fake string instead
-    // poisons the analytics join against `vrf_slots` server-side and
-    // makes legitimate reports invisible. Leaving chain_id null keeps
-    // those reports debuggable on the server.
-    String? chainId;
-    try {
-      final node = await RustBackendService.instance.getStatusNode();
-      chainId = node?.chainId.toString();
-      _log.debug(
-          'Got chain_id from RustBackendService.getStatusNode(): $chainId');
-    } catch (e) {
-      _log.debug('Failed to get chain_id from getStatusNode(): $e');
-    }
-
-    return IdentityMetrics(
-      peerId: peerId,
-      chainId: chainId,
-      participantId: await _loadParticipantId(),
-    );
   }
 
   Future<int?> _loadParticipantId() async {
@@ -598,82 +430,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     );
   }
 
-  /// Collect consensus and block production metrics
-  ///
-  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
-  /// This avoids expensive FFI calls when status is already available.
-  Future<ConsensusMetrics> _collectConsensusMetrics(
-      {NodeStatusState? rawStatus}) async {
-    int? currentEpoch;
-    int? currentEpochWonSlots;
-    int? currentEpochProduced;
-    int? currentEpochFailed;
-    double? bpSuccessRate;
-
-    if (RustBackendService.instance.isRunning) {
-      try {
-        // Use provided rawStatus
-        if (rawStatus != null) {
-          final bestTip = rawStatus.networkBest ?? rawStatus.localBest;
-          currentEpoch = bestTip?.epoch;
-
-          // Won slots come from the VRF evaluator details.
-          final vrfEvaluator = rawStatus.vrfEvaluator;
-          if (vrfEvaluator != null) {
-            currentEpochWonSlots =
-                vrfEvaluator.details?.wonSlotsCurrentEpoch.toInt();
-          }
-        }
-
-        // Get produced blocks data from producedBlocksSummaryProvider (same as Produced Blocks screen)
-        if (_container != null) {
-          try {
-            final summaryAsync =
-                _container!.read(producedBlocksSummaryProvider);
-            final summary = summaryAsync.valueOrNull;
-            _log.debug(
-                'producedBlocksSummaryProvider: hasValue=${summaryAsync.hasValue}, currentEpoch=${summary?.currentEpoch}');
-
-            if (summary != null && summary.epochScores.isNotEmpty) {
-              final summaryCurrentEpoch = summary.currentEpoch;
-              if (summaryCurrentEpoch >= 0 &&
-                  summaryCurrentEpoch < summary.epochScores.length) {
-                final epochScore = summary.epochScores[summaryCurrentEpoch];
-                currentEpochWonSlots ??= epochScore.won;
-                currentEpochProduced = epochScore.produced;
-                currentEpochFailed = epochScore.missed;
-
-                // Calculate bp_success_rate (0-100)
-                final rate = epochScore.evaluatedPercent *
-                    epochScore.producedOfEvaluatedPercent *
-                    100;
-                if (!rate.isNaN && !rate.isInfinite) {
-                  bpSuccessRate = rate.clamp(0.0, 100.0);
-                }
-              }
-            }
-          } catch (e) {
-            _log.warn('Failed to read producedBlocksSummaryProvider: $e');
-          }
-        }
-      } catch (e) {
-        _log.debug('Error collecting consensus metrics: $e');
-      }
-    }
-
-    return ConsensusMetrics(
-      currentEpoch: currentEpoch,
-      currentEpochWonSlots: currentEpochWonSlots,
-      currentEpochProduced: currentEpochProduced,
-      currentEpochFailed: currentEpochFailed,
-      bpSuccessRate: bpSuccessRate,
-      // Total metrics not implemented yet
-      totalWonSlots: null,
-      totalBlocksProduced: null,
-      totalBlocksFailed: null,
-    );
-  }
-
   /// Collect foreground service metrics (Android only)
   Future<ForegroundServiceMetrics?> _collectForegroundServiceMetrics() async {
     if (!Platform.isAndroid) return null;
@@ -687,35 +443,5 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
       foregroundServiceRunning: foregroundServiceRunning,
       wakelockHeld: wakelockHeld,
     );
-  }
-
-  /// Collect peers metrics
-  ///
-  /// If [rawStatus] is provided, it will be used instead of fetching from backend.
-  /// This avoids expensive FFI calls when status is already available.
-  Future<List<PeerMetrics>> _collectPeersMetrics(
-      {NodeStatusState? rawStatus}) async {
-    if (!RustBackendService.instance.isRunning) {
-      return [];
-    }
-
-    try {
-      // Use provided rawStatus
-      if (rawStatus == null) return [];
-
-      return rawStatus.peers.map((peer) {
-        return PeerMetrics(
-          peerId: peer.peerId.toString(),
-          address: peer.address,
-          bestTip: null, // Not available in current RpcPeerInfo
-          bestTipGlobalSlot: peer.bestTipGlobalSlot,
-          connectionStatus: peer.connectionStatus.toString().split('.').last,
-          incoming: peer.incoming,
-        );
-      }).toList();
-    } catch (e) {
-      _log.debug('Error collecting peers metrics: $e');
-      return [];
-    }
   }
 }

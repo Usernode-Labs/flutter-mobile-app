@@ -45,9 +45,13 @@ class LoggingHttpClient extends http.BaseClient {
           statusCode: response.statusCode,
           durationMs: sw.elapsedMilliseconds,
           requestHeaders: request.headers,
-          requestBody: truncateBody(requestBody),
+          // Redact BEFORE truncating so a sensitive value can't survive by
+          // straddling the truncation boundary. HttpLogEntry redacts again
+          // (idempotently) as a chokepoint.
+          requestBody: truncateBody(redactSensitiveBodyFields(requestBody)),
           responseHeaders: response.headers,
-          responseBody: truncateBody(_decodeBody(bytes)),
+          responseBody:
+              truncateBody(redactSensitiveBodyFields(_decodeBody(bytes))),
         ),
       );
 
@@ -70,7 +74,7 @@ class LoggingHttpClient extends http.BaseClient {
           url: request.url.toString(),
           durationMs: sw.elapsedMilliseconds,
           requestHeaders: request.headers,
-          requestBody: truncateBody(requestBody),
+          requestBody: truncateBody(redactSensitiveBodyFields(requestBody)),
           error: e.toString(),
         ),
       );

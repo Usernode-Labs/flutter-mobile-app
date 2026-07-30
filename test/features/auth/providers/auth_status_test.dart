@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
@@ -59,6 +60,19 @@ void main() {
     expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
   });
 
+  test('completeLogin persists the session user id as participant id',
+      () async {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(authStatusProvider.notifier).completeLogin(_session('sess-2'));
+    // The retired registration flow was the old writer of this id; sessions
+    // are now its only source (ZK completion, log sharing, token allocation
+    // all key off it).
+    expect(await loadParticipantId(), 1);
+    expect(await c.read(participantIdProvider.future), 1);
+  });
+
   test('continueAsGuest sets guest', () async {
     final c = ProviderContainer();
     addTearDown(c.dispose);
@@ -76,5 +90,16 @@ void main() {
     await c.read(authStatusProvider.notifier).onUnauthorized();
     expect(c.read(authStatusProvider), AuthStatus.unauthenticated);
     expect(await c.read(authTokenStoreProvider).read(), isNull);
+  });
+
+  test('onUnauthorized keeps a remembered guest as guest', () async {
+    // A stray 401 (auth-required endpoint reached while browsing as guest)
+    // invalidates the token, not the user's explicit guest choice.
+    SharedPreferences.setMockInitialValues({'auth:v3:guest': true});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(authStatusProvider.notifier).onUnauthorized();
+    expect(c.read(authStatusProvider), AuthStatus.guest);
   });
 }

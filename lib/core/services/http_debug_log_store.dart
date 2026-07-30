@@ -12,6 +12,33 @@ const _sensitiveHeaders = <String>{
   'api-key',
 };
 
+/// JSON field names whose values are masked in captured request/response
+/// bodies. Credentials and key material must never reach the log store: the
+/// buffer is user-visible in Debug Mode and uploadable via log sharing.
+/// Matching is case-insensitive and matches exact key names only
+/// (`"token"` masks `"token": "…"`, not `"token_type": "…"`).
+const _sensitiveBodyFields = <String>{
+  'secret_key',
+  'private_key',
+  'secret',
+  'token',
+  'session_token',
+  'set_password_token',
+  'password',
+  'code',
+  'otp',
+  'api_key',
+};
+
+/// Matches `"<sensitive-key>" : <string|number|bool|null>` in a JSON body,
+/// tolerating escaped quotes inside string values. Applied textually (no
+/// jsonDecode) so it also works on truncated or malformed payloads.
+final _sensitiveBodyFieldRe = RegExp(
+  '"(${_sensitiveBodyFields.join('|')})"'
+  r'\s*:\s*(?:"(?:\\.|[^"\\])*"?|-?\d[\d.eE+-]*|true|false|null)',
+  caseSensitive: false,
+);
+
 /// Per-body capture cap. Bodies longer than this are truncated so a single
 /// large response can't dominate (or blow past) the buffer's byte budget.
 const int _maxBodyChars = 8 * 1024;
@@ -24,6 +51,18 @@ Map<String, String> redactHeaders(Map<String, String> headers) {
   return headers.map(
     (k, v) => MapEntry(
         k, _sensitiveHeaders.contains(k.toLowerCase()) ? _redactedMarker : v),
+  );
+}
+
+/// Mask the values of [_sensitiveBodyFields] in a JSON(-ish) [body].
+/// Idempotent; non-JSON bodies without matching patterns pass through
+/// unchanged. Run BEFORE [truncateBody] so a secret can't survive by
+/// straddling the truncation boundary.
+String? redactSensitiveBodyFields(String? body) {
+  if (body == null || body.isEmpty) return body;
+  return body.replaceAllMapped(
+    _sensitiveBodyFieldRe,
+    (m) => '"${m[1]}":"$_redactedMarker"',
   );
 }
 
@@ -46,12 +85,17 @@ class HttpLogEntry {
     this.statusCode,
     this.durationMs,
     Map<String, String> requestHeaders = const {},
-    this.requestBody,
+    String? requestBody,
     Map<String, String> responseHeaders = const {},
-    this.responseBody,
+    String? responseBody,
     this.error,
   })  : requestHeaders = redactHeaders(requestHeaders),
-        responseHeaders = redactHeaders(responseHeaders);
+        responseHeaders = redactHeaders(responseHeaders),
+        // Chokepoint: no producer can get an unredacted body into the store.
+        // Producers should still redact before truncating (see
+        // LoggingHttpClient) — this pass is idempotent defense in depth.
+        requestBody = redactSensitiveBodyFields(requestBody),
+        responseBody = redactSensitiveBodyFields(responseBody);
 
   final DateTime timestamp;
   final String method;

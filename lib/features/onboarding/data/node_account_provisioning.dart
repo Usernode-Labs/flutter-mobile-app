@@ -9,9 +9,16 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 final _log =
     LoggingService.instance.withTag('usernode/NodeAccountProvisioning');
 
-/// Ensures the signed-in user's platform-allocated on-chain account is
-/// imported locally, fetching it from `POST /wallet/provision` when no
-/// local account exists yet.
+/// Reconciles the local account registry with the signed-in user's
+/// platform-allocated on-chain account.
+final nodeAccountReconcilerProvider = Provider<NodeAccountReconciler>(
+  (ref) => NodeAccountReconciler(ref),
+);
+
+/// Fetches the authenticated user's allocated account from
+/// `POST /wallet/provision` and makes it the active local account:
+/// activated when it already exists in the registry, imported when it does
+/// not.
 ///
 /// The retired v2 registration flow imported a server-allocated secret key;
 /// the v4 provisioning endpoint restores exactly that: the backend returns
@@ -22,54 +29,85 @@ final _log =
 /// completion, slot-outcome attribution), so the account must come from the
 /// platform.
 ///
-/// Returns `true` when an account was imported, `false` when one already
-/// existed. Throws ([LeaderboardApiException], [AccountImportException],
-/// network errors) on failure so the caller can surface it; onboarding must
-/// not proceed without an account or the router loops back to onboarding
-/// forever (`hasAny == false`).
-Future<bool> ensureLocalNodeAccount(WidgetRef ref) async {
-  final repo = await AccountsRepository.create();
-  if (await repo.hasAny()) {
-    _log.trace('Account already exists - nothing to provision');
-    return false;
+/// Reconciliation runs on every sign-in (see `postSignInSyncProvider`) and
+/// from onboarding, NOT just when no local account exists: the registry
+/// persists across logout, so "some account exists locally" says nothing
+/// about whether it belongs to the CURRENT session's user. Without the
+/// ownership check, user B signing in on user A's device would run the node
+/// (and every wallet-scoped backend call) against A's wallet.
+class NodeAccountReconciler {
+  NodeAccountReconciler(this._ref);
+
+  final Ref _ref;
+  Future<bool>? _inFlight;
+
+  /// Runs a reconcile, coalescing concurrent calls onto one in-flight run
+  /// (sign-in listener and onboarding tap can race; two parallel imports of
+  /// the same account would duplicate registry entries).
+  ///
+  /// Returns `true` when the local state changed (account imported or a
+  /// different account activated). Throws ([LeaderboardApiException],
+  /// [AccountImportException], network errors) on failure so the caller can
+  /// surface it; onboarding must not proceed without an account or the
+  /// router loops back to onboarding forever (`hasAny == false`).
+  Future<bool> reconcile() {
+    final inFlight = _inFlight;
+    if (inFlight != null) return inFlight;
+    final run = _reconcile().whenComplete(() => _inFlight = null);
+    _inFlight = run;
+    return run;
   }
 
-  final api = ref.read(leaderboardApiServiceProvider);
-  final provisioned = await api.provisionWallet();
-  _log.info('Wallet provisioned', context: {
-    'address': provisioned.address,
-    'newlyAllocated': provisioned.newlyAllocated,
-  });
+  Future<bool> _reconcile() async {
+    final api = _ref.read(leaderboardApiServiceProvider);
+    final provisioned = await api.provisionWallet();
+    // NEVER log provisioned.secretKey — address only.
+    _log.info('Wallet provisioned', context: {
+      'address': provisioned.address,
+      'newlyAllocated': provisioned.newlyAllocated,
+    });
 
-  await repo.importFromSecretKey(
-    name: 'Node Account',
-    secretKey: provisioned.secretKey,
-  );
+    final repo = await AccountsRepository.create();
+    final accounts = await repo.list();
+    final existing =
+        accounts.where((a) => a.address == provisioned.address).firstOrNull;
 
-  // The participant id was persisted at login, when no account existed yet,
-  // so it lives in the pre-account storage bucket. Read it BEFORE switching
-  // buckets and re-save it under the new account's bucket, or it resolves
-  // null after the next restart and ZK backend completion gets skipped.
-  final participantId = await loadParticipantId();
+    var changed = false;
+    if (existing != null) {
+      if (repo.getActiveId() != existing.id) {
+        await repo.setActiveId(existing.id);
+        changed = true;
+        _log.info('Activated existing local account for provisioned address');
+      } else {
+        _log.trace('Provisioned account already active - nothing to do');
+      }
+    } else {
+      await repo.importFromSecretKey(
+        name: 'Node Account',
+        secretKey: provisioned.secretKey,
+      );
+      changed = true;
+      _log.info('Imported platform-allocated node account');
+    }
 
-  // The new on-chain account is now active — switch the storage bucket so
-  // account-scoped data is written under this identity.
-  await refreshActiveAccountBucket(guest: false);
+    // The provisioned account is now active — resolve its storage bucket,
+    // then move a participant id a pre-account login left in the guest
+    // bucket. The migration is idempotent and re-runs on every reconcile, so
+    // an interruption between import and migration self-heals on the next
+    // sign-in or onboarding attempt.
+    await refreshActiveAccountBucket(guest: false);
+    await migrateGuestParticipantId();
 
-  if (participantId != null) {
-    await saveParticipantId(participantId);
-  } else {
-    _log.warn('No persisted participant id to migrate into account bucket');
+    if (changed) {
+      // Let the router and account-gated UI see the new state immediately.
+      // backendLifecycleProvider watches hasAnyAccountProvider and starts
+      // the node when it flips false -> true.
+      _ref.invalidate(hasAnyAccountProvider);
+      _ref.invalidate(accountsProvider);
+      _ref.invalidate(activeAccountProvider);
+    }
+    _ref.invalidate(participantIdProvider);
+
+    return changed;
   }
-
-  // Let the router and account-gated UI see the new state immediately.
-  // backendLifecycleProvider watches hasAnyAccountProvider and starts the
-  // node when it flips false -> true.
-  ref.invalidate(hasAnyAccountProvider);
-  ref.invalidate(accountsProvider);
-  ref.invalidate(activeAccountProvider);
-  ref.invalidate(participantIdProvider);
-
-  _log.info('Imported platform-allocated node account');
-  return true;
 }

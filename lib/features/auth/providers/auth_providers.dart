@@ -57,18 +57,23 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
   Future<void> completeLogin(AuthSession session) async {
     await _tokenStore.write(session.token);
     await _guestFlag.clear();
-    await refreshActiveAccountBucket(guest: false);
     // The retired registration flow was the only writer of the persisted
-    // participant id; sessions are now the source of it. Persist AFTER the
-    // bucket refresh so it lands in the active account's bucket. The v4
-    // `user.id` is the same id every token-scoped endpoint resolves from
-    // the session server-side.
-    await saveParticipantId(session.participant.id);
+    // participant id; sessions are now the source of it. Stage it in the
+    // guest bucket — NOT the active bucket, which at this point may still
+    // belong to a previously signed-in user's account. The post-sign-in
+    // account reconcile activates this user's account and moves the id
+    // into its bucket. The v4 `user.id` is the same id every token-scoped
+    // endpoint resolves from the session server-side.
+    await stageParticipantIdInGuestBucket(session.participant.id);
+    await refreshActiveAccountBucket(guest: false);
     state = AuthStatus.authenticated;
   }
 
   Future<void> continueAsGuest() async {
     await _guestFlag.setGuest();
+    // A leftover staged id (interrupted earlier login) must not resolve for
+    // an explicit guest session.
+    await clearGuestParticipantId();
     await refreshActiveAccountBucket(guest: true);
     state = AuthStatus.guest;
   }
@@ -80,6 +85,7 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
     }
     await _tokenStore.clear();
     await _guestFlag.clear();
+    await clearGuestParticipantId();
     await refreshActiveAccountBucket(guest: false);
     state = AuthStatus.unauthenticated;
   }

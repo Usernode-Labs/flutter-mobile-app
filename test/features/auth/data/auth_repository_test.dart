@@ -64,22 +64,6 @@ void main() {
             .having((e) => e.kind, 'kind', AuthErrorKind.invalidCredentials)),
       );
     });
-    test('v3 participant key still parses (MOBILE_API_V3_BASE_URL)', () async {
-      final r = await _repo(_client(200, {
-        'success': true,
-        'token': 'sess-3',
-        'participant': {
-          'id': 9,
-          'email': 'c@d.com',
-          'display_name': 'Cara',
-          'email_confirmed': false,
-          'level': 'member',
-        },
-      })).login(email: 'c@d.com', password: 'pw');
-      expect(r.token, 'sess-3');
-      expect(r.participant.id, 9);
-      expect(r.participant.displayName, 'Cara');
-    });
   });
 
   group('requestOtp', () {

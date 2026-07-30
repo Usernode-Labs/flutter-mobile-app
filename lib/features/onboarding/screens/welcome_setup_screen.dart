@@ -32,7 +32,7 @@ class _WelcomeSetupScreenState extends ConsumerState<WelcomeSetupScreen> {
     // an account the router bounces every private route back to onboarding
     // (hasAny == false), so onboarding must not proceed until this succeeds.
     try {
-      await ensureLocalNodeAccount(ref);
+      await ref.read(nodeAccountReconcilerProvider).reconcile();
     } catch (e, st) {
       _log.error('Node account provisioning failed', error: e, stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'onboarding_provision_account');

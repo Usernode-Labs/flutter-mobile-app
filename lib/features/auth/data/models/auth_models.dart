@@ -26,13 +26,13 @@ class AuthSession {
   final Participant participant;
 
   // v4 returns `{token, user}` — the SPEC §4.8 rename of the source's
-  // participant vocabulary. The inner object's fields are unchanged. Keep
-  // the v3 `participant` key as a fallback so a build pointed at the old
-  // backend (MOBILE_API_V3_BASE_URL override) can still log in.
+  // participant vocabulary. The inner object's fields are unchanged. The
+  // v3 `participant` key is not accepted: v3 backends are unsupported
+  // (fresh onboarding requires the v4-only /wallet/provision endpoint).
   factory AuthSession.fromJson(Map<String, dynamic> json) => AuthSession(
         token: json['token'] as String,
         participant: Participant.fromJson(
-          (json['user'] ?? json['participant']) as Map<String, dynamic>,
+          json['user'] as Map<String, dynamic>,
         ),
       );
 }

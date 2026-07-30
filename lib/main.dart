@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -281,6 +282,10 @@ class CryptoMobileApp extends ConsumerWidget {
     // Initialize zkPassport pipeline state early so session-server polling
     // and foreground recovery are active before the registration UI opens.
     ref.watch(zkPassportPipelineProvider);
+
+    // Keep the post-sign-in sync listener alive for the whole app lifetime
+    // (account reconcile + pending zk completion retry on every sign-in).
+    ref.watch(postSignInSyncProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,

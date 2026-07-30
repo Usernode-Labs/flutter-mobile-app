@@ -83,4 +83,13 @@ class NetworkPrefs {
     if (_globalKeys.contains(key)) return key;
     return '$currentNetwork:acct:$_activeBucket:$key';
   }
+
+  /// Prefix an account-scoped key with an explicitly named [bucket] instead of
+  /// the active one. Used for cross-bucket migrations (e.g. moving data
+  /// written under [guestBucket] before an account existed into the account's
+  /// bucket) where "whatever bucket is active" is exactly the wrong address.
+  static String prefixAccountKeyFor(String key, String bucket) {
+    if (_globalKeys.contains(key)) return key;
+    return '$currentNetwork:acct:$bucket:$key';
+  }
 }

@@ -51,20 +51,17 @@ class AppConfig {
   // Token-scoped mobile API (data + auth). Default is the Social Vibecoding
   // platform's v4 mobile API, which replaced topochain's v2/v3 leaderboard
   // API after the account/leaderboard data migration. `MOBILE_API_BASE_URL`
-  // overrides; the legacy `MOBILE_API_V3_BASE_URL` define is still honored
-  // (second priority) so existing build configs keep working — point it at
-  // topochain's `/api/v3/mobile` to run a build against the old backend.
+  // overrides (e.g. a staging deployment of the same v4 API). The retired
+  // topochain v3 backend is NOT supported: onboarding depends on the
+  // v4-only `/wallet/provision`, so a v3-pointed build could never onboard
+  // a fresh user (the old `MOBILE_API_V3_BASE_URL` define is ignored).
   static const String _rawMobileApiBaseUrl =
       String.fromEnvironment('MOBILE_API_BASE_URL', defaultValue: '');
-  static const String _rawMobileApiV3BaseUrl =
-      String.fromEnvironment('MOBILE_API_V3_BASE_URL', defaultValue: '');
   static const String _defaultMobileApiBaseUrl =
       'https://social-vibecoding.usernodelabs.org/api/v4/mobile';
   static String get mobileApiBaseUrl => _rawMobileApiBaseUrl.isNotEmpty
       ? _rawMobileApiBaseUrl
-      : _rawMobileApiV3BaseUrl.isNotEmpty
-          ? _rawMobileApiV3BaseUrl
-          : _defaultMobileApiBaseUrl;
+      : _defaultMobileApiBaseUrl;
 
   // Auth endpoints live under the mobile API base (v4: /auth/check-email,
   // /auth/login, /auth/otp/*, /auth/set-password, /auth/logout — same paths

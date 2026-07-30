@@ -2,170 +2,129 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
-import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
-final _log = LoggingService.instance.withTag('usernode/PostSignInSync');
+final _log = LoggingService.instance.withTag('usernode/IdentityDriver');
 
-/// True when the auth state change is a genuine sign-in: a settled signed-out
-/// state ([AuthStatus.unauthenticated] or [AuthStatus.guest]) transitioning to
-/// [AuthStatus.authenticated].
+/// Drives the work each identity phase demands. The [SessionController] owns
+/// WHAT the identity is; this driver owns making the app converge on it:
 ///
-/// Boot restore (`unknown -> authenticated`, a stored token found at startup)
-/// is intentionally excluded: cold-start recovery paths already run then, and
-/// reconciling on every launch would add a network round-trip to each boot.
-/// The exception is an interrupted reconcile — see [isBootRestore] and the
-/// reconcile-pending marker handling in [PostSignInSync.onAuthStatusChanged].
-bool isSignInTransition(AuthStatus? previous, AuthStatus next) {
-  if (next != AuthStatus.authenticated) return false;
-  return previous == AuthStatus.unauthenticated || previous == AuthStatus.guest;
-}
-
-/// True when the auth state change is a boot restore: a stored session token
-/// found at startup ([AuthStatus.unknown] or no previous state transitioning
-/// to [AuthStatus.authenticated]).
-bool isBootRestore(AuthStatus? previous, AuthStatus next) {
-  if (next != AuthStatus.authenticated) return false;
-  return previous == null || previous == AuthStatus.unknown;
-}
-
-/// Runs session-dependent repair work whenever a sign-in completes:
-///
-/// 1. Reconciles the local node account against the authenticated user's
-///    platform allocation ([NodeAccountReconciler]) — the local registry
-///    persists across logout, so a different user signing in on the same
-///    device must not inherit the previous user's wallet.
-/// 2. Retries any pending zkPassport backend completion — a proof preserved
-///    across a 401 would otherwise wait for the next cold start while the
-///    optimistic local registration renders as complete.
+/// - [IdentityPhase.reconciling] → run the [NodeAccountReconciler]. Covers
+///   fresh sign-ins, boot restores of an interrupted reconcile, and season
+///   rollovers — every path that publishes a reconciling identity.
+/// - transition into [IdentityPhase.ready] → retry any pending zkPassport
+///   backend completion (the identity-keyed outbox row). Runs only once the
+///   identity is settled so a proof is never submitted under an unsettled
+///   bucket/token pairing.
 ///
 /// Failures are logged and reported, never rethrown: this is opportunistic
-/// repair, and each unit also has its own recovery path (onboarding retry,
-/// cold-start retry).
-class PostSignInSync {
-  PostSignInSync({
+/// repair, and each unit has its own recovery path (onboarding retry, the
+/// persisted reconciling phase re-runs on next boot, cold-start ZK retry).
+class IdentityDriver {
+  IdentityDriver({
     required Future<void> Function() reconcileNodeAccount,
     required Future<void> Function() retryPendingZkCompletion,
-    Future<bool> Function() isReconcilePending = isAccountReconcilePending,
   })  : _reconcileNodeAccount = reconcileNodeAccount,
-        _retryPendingZkCompletion = retryPendingZkCompletion,
-        _isReconcilePending = isReconcilePending;
+        _retryPendingZkCompletion = retryPendingZkCompletion;
 
   final Future<void> Function() _reconcileNodeAccount;
   final Future<void> Function() _retryPendingZkCompletion;
-  final Future<bool> Function() _isReconcilePending;
 
-  /// The run started by the most recent sign-in transition, for tests and
-  /// callers that need to observe completion. Null until the first sign-in.
+  /// The run started by the most recent identity change, for tests and
+  /// callers that need to observe completion. Null until the first trigger.
   Future<void>? lastRun;
 
-  void onAuthStatusChanged(AuthStatus? previous, AuthStatus next) {
-    if (isSignInTransition(previous, next)) {
-      _log.info('Sign-in detected - running post-sign-in sync');
-      lastRun = _run();
+  void onIdentityChanged(Identity? previous, Identity next) {
+    if (next.phase == IdentityPhase.reconciling) {
+      // The reconciler coalesces per epoch, so redundant triggers are cheap.
+      _log.info('Identity reconciling (epoch ${next.epoch}) - '
+          'running account reconcile');
+      lastRun = _runReconcile();
       unawaited(lastRun);
       return;
     }
-    if (isBootRestore(previous, next)) {
-      // A login whose reconcile never completed (app killed, network drop)
-      // leaves a pending marker; without this the device would stay under
-      // the previous identity across restarts because no further sign-in
-      // transition ever happens.
-      lastRun = _runIfReconcilePending();
+    final becameReady = next.phase == IdentityPhase.ready &&
+        previous?.phase != IdentityPhase.ready;
+    if (becameReady) {
+      lastRun = _runZkRetry();
       unawaited(lastRun);
     }
   }
 
-  Future<void> _runIfReconcilePending() async {
-    bool pending;
-    try {
-      pending = await _isReconcilePending();
-    } catch (e) {
-      _log.warn('Reconcile-pending check failed: $e');
-      return;
-    }
-    if (!pending) return;
-    _log.info('Boot restore with unfinished reconcile - running sync');
-    await _run();
-  }
-
-  Future<void> _run() async {
-    // Reconcile first: the ZK retry reads account-bucket-scoped state
-    // (pending record, participant id), which the reconcile settles.
+  Future<void> _runReconcile() async {
     try {
       await _reconcileNodeAccount();
     } catch (e, st) {
-      _log.warn('Post-sign-in account reconcile failed: $e');
-      await SentryUtil.captureError(e, st, tag: 'post_sign_in_reconcile');
+      _log.warn('Account reconcile failed: $e');
+      await SentryUtil.captureError(e, st, tag: 'identity_reconcile');
     }
+  }
+
+  Future<void> _runZkRetry() async {
     try {
       await _retryPendingZkCompletion();
     } catch (e, st) {
-      _log.warn('Post-sign-in zk completion retry failed: $e');
-      await SentryUtil.captureError(e, st, tag: 'post_sign_in_zk_retry');
+      _log.warn('Pending zk completion retry failed: $e');
+      await SentryUtil.captureError(e, st, tag: 'identity_zk_retry');
     }
   }
 }
 
-/// Always-alive listener wiring [PostSignInSync] to [authStatusProvider].
+/// Always-alive listener wiring [IdentityDriver] to [identityProvider].
 /// Read once from the app root (like `backendLifecycleProvider`) so the
 /// listener exists for the whole app lifetime.
-final postSignInSyncProvider = Provider<PostSignInSync>((ref) {
-  final sync = PostSignInSync(
+final identityDriverProvider = Provider<IdentityDriver>((ref) {
+  final driver = IdentityDriver(
     reconcileNodeAccount: () =>
         ref.read(nodeAccountReconcilerProvider).reconcile(),
     retryPendingZkCompletion: () =>
         ref.read(zkPassportPipelineProvider.notifier).retryPendingCompletion(),
   );
-  ref.listen<AuthStatus>(
-    authStatusProvider,
-    sync.onAuthStatusChanged,
+  ref.listen<Identity>(
+    identityProvider,
+    driver.onIdentityChanged,
+    fireImmediately: true,
   );
-  return sync;
+  return driver;
 });
 
-/// True when a season-context change is a genuine rollover: both sides carry
-/// a season id and they differ. `null -> id` transitions (fresh install,
-/// first discovery after a cache clear) are NOT rollovers — the sign-in /
-/// onboarding reconcile covers those, and treating them as rollovers would
-/// reconcile on every fresh boot.
-bool isSeasonRollover(int? previousSeasonId, int? nextSeasonId) {
-  return previousSeasonId != null &&
-      nextSeasonId != null &&
-      previousSeasonId != nextSeasonId;
+/// The backend's ACTIVE season id from the authoritative `/seasons` response
+/// — NOT the user-selected reporting season (`seasonEventContextProvider`,
+/// which the season picker mutates and bootstrap restores from cache).
+/// Null while unknown (loading, unauthenticated, or no active season).
+int? activeSeasonIdOf(List<SeasonDto>? seasons) {
+  if (seasons == null) return null;
+  for (final season in seasons) {
+    if (season.isActive) return season.id;
+  }
+  return null;
 }
 
-/// Always-alive listener that re-runs the account reconcile when the active
-/// season changes mid-session. `/wallet/provision` allocates per season: a
-/// user who stays signed in across a rollover would otherwise keep the
-/// previous season's wallet (and be stuck on stale-registration) until they
-/// logged out and back in — no sign-in transition ever fires for them.
+/// Always-alive listener that hands the authoritative active season to the
+/// [SessionController]. `/wallet/provision` allocates per season: a user who
+/// stays signed in across a rollover would otherwise keep the previous
+/// season's wallet (and be stuck on stale-registration) until they logged
+/// out and back in — no sign-in transition ever fires for them.
 ///
-/// The persisted season context is bucket-scoped and restored at boot, so a
-/// rollover that happened while the app was closed still surfaces here as
-/// `restored old id -> freshly fetched new id`.
+/// The controller compares the reported season against the identity's
+/// provisioned season (persisted at reconcile commit) and re-enters the
+/// reconciling phase only on a genuine mismatch, so this can safely fire on
+/// every `/seasons` refresh.
 final seasonRolloverSyncProvider = Provider<void>((ref) {
-  ref.listen<SeasonEventContext>(seasonEventContextProvider, (previous, next) {
-    if (!isSeasonRollover(previous?.seasonId, next.seasonId)) return;
-    if (ref.read(authStatusProvider) != AuthStatus.authenticated) return;
-    _log.info('Active season changed '
-        '(${previous?.seasonId} -> ${next.seasonId}) - reconciling account');
-    unawaited(() async {
-      try {
-        // Marked so an interrupted rollover reconcile is retried on the next
-        // boot restore, exactly like an interrupted sign-in reconcile.
-        await markAccountReconcilePending();
-        await ref.read(nodeAccountReconcilerProvider).reconcile();
-      } catch (e, st) {
-        _log.warn('Season-rollover reconcile failed: $e');
-        await SentryUtil.captureError(e, st, tag: 'season_rollover_reconcile');
-      }
-    }());
+  ref.listen<AsyncValue<List<SeasonDto>?>>(seasonsProvider, (previous, next) {
+    final activeSeasonId = activeSeasonIdOf(next.valueOrNull);
+    if (activeSeasonId == null) return;
+    unawaited(
+      ref
+          .read(identityProvider.notifier)
+          .beginSeasonRollover(activeSeasonId: activeSeasonId),
+    );
   });
 });

@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -36,10 +39,10 @@ AuthSession _session(String token) => AuthSession(
     );
 
 Future<AuthStatus> _settle(ProviderContainer c) async {
-  // Reading instantiates the provider, which kicks off load(); then pump the
-  // event loop so the async boot resolves off `unknown`.
-  c.read(authStatusProvider);
-  for (var i = 0; i < 5; i++) {
+  // Reading instantiates the SessionController, which kicks off restore();
+  // then pump the event loop so the async boot resolves off `unknown`.
+  c.read(identityProvider);
+  for (var i = 0; i < 8; i++) {
     await Future<void>.delayed(Duration.zero);
   }
   return c.read(authStatusProvider);
@@ -51,20 +54,86 @@ void main() {
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
+    IdentitySnapshots.reset();
+    NetworkPrefs.setActiveBucket(null, guest: true);
   });
 
   test('boots to unauthenticated when nothing stored', () async {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     expect(await _settle(c), AuthStatus.unauthenticated);
+    expect(c.read(identityProvider).phase, IdentityPhase.unauthenticated);
   });
 
-  test('boots to authenticated when token stored', () async {
+  test(
+      'boots into the reconciling phase when a token is stored but the '
+      'account was never confirmed', () async {
     FlutterSecureStorage.setMockInitialValues(
         {'auth:v3:session_token': 'sess-1'});
     final c = ProviderContainer();
     addTearDown(c.dispose);
     expect(await _settle(c), AuthStatus.authenticated);
+    // No account bucket carries a confirmed participant id, so the boot
+    // routes through reconciling rather than trusting local state.
+    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
+  });
+
+  test(
+      'boots directly to ready when the previous session settled '
+      '(account bucket owner recorded, no marker)', () async {
+    const address = 'ut1activeaccount';
+    final bucket = NetworkPrefs.bucketForAddress(address);
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        {
+          'id': 'acc_1',
+          'name': 'Node Account',
+          'createdAt': '2026-01-01T00:00:00.000',
+          'derivationPath': 'imported',
+          'hdIndex': 0,
+          'address': address,
+          'publicKey': 'utpk1$address',
+          'backupConfirmed': true,
+          'isDemo': false,
+        }
+      ]),
+      'testnet:accounts:activeId': 'acc_1',
+      // A past reconcile recorded participant 7 as this bucket's owner and
+      // cleared the marker — the boot can trust local state (network-free).
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+      'testnet:acct:$bucket:identity:provisioned_season': 4,
+    });
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    expect(await _settle(c), AuthStatus.authenticated);
+    final identity = c.read(identityProvider);
+    expect(identity.phase, IdentityPhase.ready);
+    expect(identity.participantId, 7);
+    expect(identity.address, address);
+    expect(identity.provisionedSeasonId, 4);
+    expect(NetworkPrefs.activeBucket, bucket);
+  });
+
+  test(
+      'boots into reconciling when a reconcile-pending marker survives a '
+      'crash, restoring the staged participant id', () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    SharedPreferences.setMockInitialValues({
+      'testnet:account:reconcile_pending': true,
+      'testnet:acct:guest:leaderboard:participant_id': 42,
+    });
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    expect(await _settle(c), AuthStatus.authenticated);
+    final identity = c.read(identityProvider);
+    expect(identity.phase, IdentityPhase.reconciling);
+    expect(identity.participantId, 42);
+    // The previous user's bucket is not activated while ownership is
+    // unsettled.
+    expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
   });
 
   test('boots to guest when guest flag set', () async {
@@ -74,25 +143,26 @@ void main() {
     expect(await _settle(c), AuthStatus.guest);
   });
 
-  test('completeLogin persists token and authenticates', () async {
+  test('completeLogin persists token and enters reconciling', () async {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(authStatusProvider.notifier).completeLogin(_session('sess-2'));
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
     expect(c.read(authStatusProvider), AuthStatus.authenticated);
+    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
+    expect(c.read(identityProvider).participantId, 1);
     expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
   });
 
-  test('completeLogin persists the session user id as participant id',
+  test('completeLogin stages the session user id in the guest bucket',
       () async {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(authStatusProvider.notifier).completeLogin(_session('sess-2'));
-    // The retired registration flow was the old writer of this id; sessions
-    // are now its only source (ZK completion, log sharing, token allocation
-    // all key off it).
-    expect(await loadParticipantId(), 1);
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    // Until the reconcile confirms an account bucket, the id lives in the
+    // guest staging area and on the identity snapshot itself.
+    expect(await loadParticipantIdInBucket(NetworkPrefs.guestBucket), 1);
     expect(await c.read(participantIdProvider.future), 1);
   });
 
@@ -105,15 +175,91 @@ void main() {
     ]);
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(authStatusProvider.notifier).completeLogin(_session('sess-2'));
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
     expect(probe.payloadPersistedBeforeTokenWrite, isTrue);
+  });
+
+  test('reconcileSucceeded settles the identity to ready', () async {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    final epoch = c.read(identityProvider).epoch;
+    final committed =
+        await c.read(identityProvider.notifier).reconcileSucceeded(
+              epoch: epoch,
+              accountId: 'acc-1',
+              address: 'addr-1',
+              participantId: 1,
+              provisionedSeasonId: 7,
+            );
+    expect(committed, isTrue);
+    final identity = c.read(identityProvider);
+    expect(identity.phase, IdentityPhase.ready);
+    expect(identity.epoch, epoch);
+    expect(identity.address, 'addr-1');
+    expect(identity.provisionedSeasonId, 7);
+    expect(identity.allowsSigning, isTrue);
+    expect(identity.allowsNodeStart, isTrue);
+  });
+
+  test('reconcileSucceeded from a superseded epoch is discarded', () async {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    final staleEpoch = c.read(identityProvider).epoch;
+    // A second login supersedes the first reconcile.
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-3'));
+    final committed =
+        await c.read(identityProvider.notifier).reconcileSucceeded(
+              epoch: staleEpoch,
+              accountId: 'acc-stale',
+              address: 'addr-stale',
+              participantId: 1,
+            );
+    expect(committed, isFalse);
+    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
+    expect(c.read(identityProvider).accountId, isNull);
+  });
+
+  test('beginSeasonRollover re-enters reconciling on a season mismatch',
+      () async {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    final epoch = c.read(identityProvider).epoch;
+    await c.read(identityProvider.notifier).reconcileSucceeded(
+          epoch: epoch,
+          accountId: 'acc-1',
+          address: 'addr-1',
+          participantId: 1,
+          provisionedSeasonId: 7,
+        );
+
+    // Same season: no-op.
+    await c
+        .read(identityProvider.notifier)
+        .beginSeasonRollover(activeSeasonId: 7);
+    expect(c.read(identityProvider).phase, IdentityPhase.ready);
+
+    // New season: reconcile again under a new epoch.
+    await c
+        .read(identityProvider.notifier)
+        .beginSeasonRollover(activeSeasonId: 8);
+    final identity = c.read(identityProvider);
+    expect(identity.phase, IdentityPhase.reconciling);
+    expect(identity.epoch, greaterThan(epoch));
+    expect(identity.allowsSigning, isFalse);
+    expect(identity.allowsNodeStart, isFalse);
   });
 
   test('continueAsGuest sets guest', () async {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(authStatusProvider.notifier).continueAsGuest();
+    await c.read(identityProvider.notifier).continueAsGuest();
     expect(c.read(authStatusProvider), AuthStatus.guest);
   });
 
@@ -123,9 +269,25 @@ void main() {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(authStatusProvider.notifier).onUnauthorized();
+    final epoch = c.read(identityProvider).epoch;
+    await c.read(identityProvider.notifier).onUnauthorized(epoch: epoch);
     expect(c.read(authStatusProvider), AuthStatus.unauthenticated);
     expect(await c.read(authTokenStoreProvider).read(), isNull);
+  });
+
+  test('onUnauthorized from a superseded epoch is ignored', () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    final staleEpoch = c.read(identityProvider).epoch;
+    // A newer login writes a fresh token; the stale request's late 401 must
+    // not clear it.
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    await c.read(identityProvider.notifier).onUnauthorized(epoch: staleEpoch);
+    expect(c.read(authStatusProvider), AuthStatus.authenticated);
+    expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
   });
 
   test('onUnauthorized keeps a remembered guest as guest', () async {
@@ -135,7 +297,8 @@ void main() {
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(authStatusProvider.notifier).onUnauthorized();
+    final epoch = c.read(identityProvider).epoch;
+    await c.read(identityProvider.notifier).onUnauthorized(epoch: epoch);
     expect(c.read(authStatusProvider), AuthStatus.guest);
   });
 }

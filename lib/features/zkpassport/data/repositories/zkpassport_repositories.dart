@@ -57,16 +57,19 @@ class ZkPassportRegistrationRepository {
     await prefs.setString(key, jsonEncode(payload.toJson()));
   }
 
-  /// Stores a pending backend completion for retry on next cold start.
+  /// Stores a pending backend completion (the identity-keyed outbox row) for
+  /// retry on the next settled-identity opportunity (cold start, sign-in,
+  /// reconcile completion). See [getPendingCompletion] for [bucket] semantics.
   Future<void> storePendingCompletion({
     required int participantId,
     required int challengeId,
     required String walletAddress,
     required String sessionId,
     required String nullifierHex,
+    String? bucket,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixAccountKey(_kPendingCompletionKey);
+    final key = _pendingCompletionKey(bucket);
     await prefs.setString(
         key,
         jsonEncode({

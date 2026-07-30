@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -31,62 +30,6 @@ final activeAccountProvider = FutureProvider<AccountMeta?>((ref) async {
   final repo = await ref.watch(accountsProvider.future);
   return repo.getActive();
 });
-
-const _kReconcilePendingKeyBase = 'account:reconcile_pending';
-
-/// In-memory mirror of the persisted reconcile-pending marker, so the router
-/// can gate identity-sensitive routes synchronously and re-evaluate when the
-/// marker flips (GoRouterRefreshStream listens to this). Kept in sync by the
-/// mark/clear/read functions below — never write it directly.
-final ValueNotifier<bool> accountReconcilePendingListenable =
-    ValueNotifier<bool>(false);
-
-/// Synchronous view of the marker for redirect guards. Accurate once
-/// [isAccountReconcilePending] (called on boot restore) or a mark/clear has
-/// run in this process.
-bool get isAccountReconcilePendingSync =>
-    accountReconcilePendingListenable.value;
-
-/// Marks that a sign-in happened whose account reconciliation has not yet
-/// completed. Set by `completeLogin`, cleared by `NodeAccountReconciler`
-/// after a successful run. On boot restore (stored token, no sign-in
-/// transition) the post-sign-in sync only re-runs the reconcile when this
-/// marker is set — so an interrupted reconcile can't strand the device
-/// under the previous identity across restarts, while normal launches stay
-/// network-free.
-Future<void> markAccountReconcilePending() async {
-  accountReconcilePendingListenable.value = true;
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool(NetworkPrefs.prefixKey(_kReconcilePendingKeyBase), true);
-}
-
-Future<bool> isAccountReconcilePending() async {
-  final prefs = await SharedPreferences.getInstance();
-  final pending =
-      prefs.getBool(NetworkPrefs.prefixKey(_kReconcilePendingKeyBase)) ?? false;
-  accountReconcilePendingListenable.value = pending;
-  return pending;
-}
-
-Future<void> clearAccountReconcilePending() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove(NetworkPrefs.prefixKey(_kReconcilePendingKeyBase));
-  accountReconcilePendingListenable.value = false;
-}
-
-/// Recomputes the active per-identity storage bucket ([NetworkPrefs]). A guest
-/// session always resolves to the guest bucket (no on-chain identity loaded);
-/// otherwise the bucket follows the active on-chain account's address. Call on
-/// every identity transition (boot, login, logout, guest, account activation).
-Future<void> refreshActiveAccountBucket({required bool guest}) async {
-  if (guest) {
-    NetworkPrefs.setActiveBucket(null, guest: true);
-    return;
-  }
-  final repo = await AccountsRepository.create();
-  final active = await repo.getActive();
-  NetworkPrefs.setActiveBucket(active?.address, guest: false);
-}
 
 class AccountsRepository {
   static const _kIndexKeyBase = 'accounts:index';

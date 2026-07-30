@@ -461,7 +461,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (confirmed != true) return;
     // logout() flips authStatus to unauthenticated; the router redirect guard
     // then sends the user to the auth landing.
-    await ref.read(authStatusProvider.notifier).logout();
+    await ref.read(identityProvider.notifier).logout();
   }
 
   Future<void> _toggleAppSleep(bool value) async {

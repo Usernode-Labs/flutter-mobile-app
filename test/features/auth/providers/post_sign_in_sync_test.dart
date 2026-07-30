@@ -1,174 +1,155 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
+
+Identity _identity(IdentityPhase phase, {int epoch = 1}) =>
+    Identity(epoch: epoch, phase: phase);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('isSignInTransition', () {
-    test('true for settled signed-out states -> authenticated', () {
-      expect(
-        isSignInTransition(
-            AuthStatus.unauthenticated, AuthStatus.authenticated),
-        isTrue,
-      );
-      expect(
-        isSignInTransition(AuthStatus.guest, AuthStatus.authenticated),
-        isTrue,
-      );
-    });
-
-    test('false for boot restore (unknown -> authenticated)', () {
-      expect(
-        isSignInTransition(AuthStatus.unknown, AuthStatus.authenticated),
-        isFalse,
-      );
-      expect(isSignInTransition(null, AuthStatus.authenticated), isFalse);
-      // ...which is exactly what isBootRestore captures.
-      expect(
-        isBootRestore(AuthStatus.unknown, AuthStatus.authenticated),
-        isTrue,
-      );
-      expect(isBootRestore(null, AuthStatus.authenticated), isTrue);
-      expect(
-        isBootRestore(AuthStatus.unauthenticated, AuthStatus.authenticated),
-        isFalse,
-      );
-    });
-
-    test('false for any transition not ending authenticated', () {
-      expect(
-        isSignInTransition(
-            AuthStatus.authenticated, AuthStatus.unauthenticated),
-        isFalse,
-      );
-      expect(
-        isSignInTransition(AuthStatus.unauthenticated, AuthStatus.guest),
-        isFalse,
-      );
-      expect(
-        isSignInTransition(AuthStatus.authenticated, AuthStatus.authenticated),
-        isFalse,
-      );
-    });
-  });
-
-  group('PostSignInSync', () {
-    test('sign-in runs account reconcile then zk completion retry', () async {
+  group('IdentityDriver', () {
+    test('a reconciling identity triggers the account reconcile', () async {
       final calls = <String>[];
-      final sync = PostSignInSync(
+      final driver = IdentityDriver(
         reconcileNodeAccount: () async => calls.add('reconcile'),
         retryPendingZkCompletion: () async => calls.add('zk-retry'),
-        isReconcilePending: () async => false,
       );
 
-      // The 401 -> auth landing -> successful login lifecycle: the proof
-      // preserved across the 401 must be retried NOW, not on next cold start.
-      sync.onAuthStatusChanged(
-        AuthStatus.unauthenticated,
-        AuthStatus.authenticated,
+      // Covers sign-in, boot restore of an interrupted reconcile, and season
+      // rollover uniformly: each publishes a reconciling identity.
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.unauthenticated),
+        _identity(IdentityPhase.reconciling, epoch: 2),
       );
-      await sync.lastRun;
+      await driver.lastRun;
 
-      expect(calls, ['reconcile', 'zk-retry']);
+      expect(calls, ['reconcile']);
     });
 
-    test('non-sign-in, non-boot transitions run nothing', () async {
+    test('becoming ready triggers the pending zk completion retry', () async {
       final calls = <String>[];
-      final sync = PostSignInSync(
+      final driver = IdentityDriver(
         reconcileNodeAccount: () async => calls.add('reconcile'),
         retryPendingZkCompletion: () async => calls.add('zk-retry'),
-        isReconcilePending: () async => true,
       );
 
-      sync.onAuthStatusChanged(
-        AuthStatus.authenticated,
-        AuthStatus.unauthenticated,
+      // The reconcile commit publishes ready; the proof preserved across a
+      // 401 (or an interrupted send) must be retried NOW under the settled
+      // identity, not on the next cold start.
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.reconciling),
+        _identity(IdentityPhase.ready),
       );
-      sync.onAuthStatusChanged(AuthStatus.unauthenticated, AuthStatus.guest);
-      expect(sync.lastRun, isNull);
-      expect(calls, isEmpty);
-    });
-
-    test('boot restore without a pending reconcile runs nothing', () async {
-      final calls = <String>[];
-      final sync = PostSignInSync(
-        reconcileNodeAccount: () async => calls.add('reconcile'),
-        retryPendingZkCompletion: () async => calls.add('zk-retry'),
-        isReconcilePending: () async => false,
-      );
-
-      sync.onAuthStatusChanged(AuthStatus.unknown, AuthStatus.authenticated);
-      await sync.lastRun;
-
-      expect(calls, isEmpty);
-    });
-
-    test('boot restore with a pending reconcile re-runs the sync', () async {
-      final calls = <String>[];
-      final sync = PostSignInSync(
-        reconcileNodeAccount: () async => calls.add('reconcile'),
-        retryPendingZkCompletion: () async => calls.add('zk-retry'),
-        isReconcilePending: () async => true,
-      );
-
-      // A login whose reconcile was interrupted (app killed / offline)
-      // must be repaired on the next launch, not stranded forever.
-      sync.onAuthStatusChanged(AuthStatus.unknown, AuthStatus.authenticated);
-      await sync.lastRun;
-
-      expect(calls, ['reconcile', 'zk-retry']);
-    });
-
-    test('a failing reconcile does not block the zk retry', () async {
-      final calls = <String>[];
-      final sync = PostSignInSync(
-        reconcileNodeAccount: () async => throw Exception('offline'),
-        retryPendingZkCompletion: () async => calls.add('zk-retry'),
-        isReconcilePending: () async => false,
-      );
-
-      sync.onAuthStatusChanged(AuthStatus.guest, AuthStatus.authenticated);
-      await sync.lastRun;
+      await driver.lastRun;
 
       expect(calls, ['zk-retry']);
     });
 
-    test('a failing zk retry does not propagate', () async {
-      final sync = PostSignInSync(
-        reconcileNodeAccount: () async {},
-        retryPendingZkCompletion: () async => throw Exception('still 401'),
-        isReconcilePending: () async => false,
+    test('a boot that restores directly to ready also retries zk', () async {
+      final calls = <String>[];
+      final driver = IdentityDriver(
+        reconcileNodeAccount: () async => calls.add('reconcile'),
+        retryPendingZkCompletion: () async => calls.add('zk-retry'),
       );
 
-      sync.onAuthStatusChanged(
-        AuthStatus.unauthenticated,
-        AuthStatus.authenticated,
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.unknown),
+        _identity(IdentityPhase.ready),
       );
-      // Must complete without throwing: post-sign-in sync is opportunistic
-      // repair, each unit has its own recovery path.
-      await sync.lastRun;
+      await driver.lastRun;
+
+      expect(calls, ['zk-retry']);
+    });
+
+    test('ready -> ready republications do not re-trigger the retry', () async {
+      final calls = <String>[];
+      final driver = IdentityDriver(
+        reconcileNodeAccount: () async => calls.add('reconcile'),
+        retryPendingZkCompletion: () async => calls.add('zk-retry'),
+      );
+
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.ready),
+        _identity(IdentityPhase.ready),
+      );
+      expect(driver.lastRun, isNull);
+      expect(calls, isEmpty);
+    });
+
+    test('signed-out transitions run nothing', () async {
+      final calls = <String>[];
+      final driver = IdentityDriver(
+        reconcileNodeAccount: () async => calls.add('reconcile'),
+        retryPendingZkCompletion: () async => calls.add('zk-retry'),
+      );
+
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.ready),
+        _identity(IdentityPhase.unauthenticated, epoch: 2),
+      );
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.unauthenticated, epoch: 2),
+        _identity(IdentityPhase.guest, epoch: 3),
+      );
+      expect(driver.lastRun, isNull);
+      expect(calls, isEmpty);
+    });
+
+    test('a failing reconcile does not propagate', () async {
+      final driver = IdentityDriver(
+        reconcileNodeAccount: () async => throw Exception('offline'),
+        retryPendingZkCompletion: () async {},
+      );
+
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.unauthenticated),
+        _identity(IdentityPhase.reconciling, epoch: 2),
+      );
+      // Must complete without throwing: the driver is opportunistic repair;
+      // the persisted reconciling phase re-runs on the next boot.
+      await driver.lastRun;
+    });
+
+    test('a failing zk retry does not propagate', () async {
+      final driver = IdentityDriver(
+        reconcileNodeAccount: () async {},
+        retryPendingZkCompletion: () async => throw Exception('still 401'),
+      );
+
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.reconciling),
+        _identity(IdentityPhase.ready),
+      );
+      await driver.lastRun;
     });
   });
 
-  group('isSeasonRollover', () {
-    test('a genuine id change is a rollover', () {
-      expect(isSeasonRollover(4, 5), isTrue);
+  group('activeSeasonIdOf', () {
+    SeasonDto season(int id, {required bool active}) => SeasonDto(
+          id: id,
+          name: 'Season $id',
+          isActive: active,
+        );
+
+    test('returns the active season id', () {
+      expect(
+        activeSeasonIdOf([season(4, active: false), season(5, active: true)]),
+        5,
+      );
     });
 
-    test('first discovery (null -> id) is not a rollover', () {
-      // Fresh installs and cache clears must not trigger a reconcile on
-      // every boot — the sign-in/onboarding reconcile covers them.
-      expect(isSeasonRollover(null, 5), isFalse);
+    test('returns null when no season is active', () {
+      // Old seasons normally remain in the response; the ACTIVE flag is the
+      // authoritative signal, never list membership or the UI-selected
+      // reporting season.
+      expect(activeSeasonIdOf([season(4, active: false)]), isNull);
     });
 
-    test('losing the id (id -> null) is not a rollover', () {
-      expect(isSeasonRollover(4, null), isFalse);
-    });
-
-    test('same id is not a rollover', () {
-      expect(isSeasonRollover(5, 5), isFalse);
+    test('returns null while unknown', () {
+      expect(activeSeasonIdOf(null), isNull);
     });
   });
 }

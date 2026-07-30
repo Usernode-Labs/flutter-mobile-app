@@ -1,9 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
-import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 class RecipientHistoryNotifier extends AsyncNotifier<List<String>> {
   static const String _keyBase = 'wallet:recent_recipients';
@@ -13,12 +12,11 @@ class RecipientHistoryNotifier extends AsyncNotifier<List<String>> {
 
   @override
   Future<List<String>> build() async {
-    // The key is bucket-derived and read once per build. Rebuild whenever the
-    // identity that owns the bucket can have changed — an auth transition or
-    // a mid-session account switch by the reconciler — so user B is never
-    // shown (or merges into their bucket) user A's recent recipients.
-    ref.watch(authStatusProvider);
-    ref.watch(identityRevisionProvider);
+    // The key is bucket-derived and read once per build. Every identity
+    // transition (login, logout, reconcile account switch, season rollover)
+    // publishes a new snapshot and rebuilds this provider, so user B is
+    // never shown (or merges into their bucket) user A's recent recipients.
+    ref.watch(identityProvider);
     final prefs = await SharedPreferences.getInstance();
     return prefs.getStringList(_key) ?? const [];
   }

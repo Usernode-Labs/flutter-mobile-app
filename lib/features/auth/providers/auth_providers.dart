@@ -1,148 +1,39 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
-import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
-import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
-import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
+
+export 'package:crypto_mobile_app/core/identity/session_controller.dart'
+    show
+        identityProvider,
+        SessionController,
+        authRepositoryProvider,
+        authTokenStoreProvider,
+        authGuestFlagProvider;
 
 enum AuthStatus { unknown, unauthenticated, guest, authenticated }
 
-final authRepositoryProvider =
-    Provider<AuthRepository>((ref) => AuthRepository());
-
-final authTokenStoreProvider =
-    Provider<AuthTokenStore>((ref) => AuthTokenStore());
-
-final authGuestFlagProvider = Provider<AuthGuestFlag>((ref) => AuthGuestFlag());
-
-final authStatusProvider =
-    StateNotifierProvider<AuthStatusNotifier, AuthStatus>((ref) {
-  return AuthStatusNotifier(
-    tokenStore: ref.watch(authTokenStoreProvider),
-    guestFlag: ref.watch(authGuestFlagProvider),
-    repository: ref.watch(authRepositoryProvider),
-  )..load();
+/// Coarse auth view of the current [Identity]. Both [IdentityPhase.ready]
+/// and [IdentityPhase.reconciling] map to [AuthStatus.authenticated] — a
+/// session exists in both; whether account-scoped state can be trusted is
+/// the finer-grained `identity.isSettled`, which identity-sensitive
+/// consumers (router wallet gate, signer, node start) check separately.
+final authStatusProvider = Provider<AuthStatus>((ref) {
+  switch (ref.watch(identityProvider).phase) {
+    case IdentityPhase.unknown:
+      return AuthStatus.unknown;
+    case IdentityPhase.unauthenticated:
+      return AuthStatus.unauthenticated;
+    case IdentityPhase.guest:
+      return AuthStatus.guest;
+    case IdentityPhase.reconciling:
+    case IdentityPhase.ready:
+      return AuthStatus.authenticated;
+  }
 });
-
-class AuthStatusNotifier extends StateNotifier<AuthStatus> {
-  AuthStatusNotifier({
-    required AuthTokenStore tokenStore,
-    required AuthGuestFlag guestFlag,
-    required AuthRepository repository,
-    Future<void> Function()? suspendNode,
-  })  : _tokenStore = tokenStore,
-        _guestFlag = guestFlag,
-        _repository = repository,
-        _suspendNode = suspendNode ?? _defaultSuspendNode,
-        super(AuthStatus.unknown);
-
-  final AuthTokenStore _tokenStore;
-  final AuthGuestFlag _guestFlag;
-  final AuthRepository _repository;
-
-  /// Stops a running node when a sign-in leaves local account ownership
-  /// unknown. Injectable for tests; the default touches the Rust backend
-  /// (a no-op when the node was never started).
-  final Future<void> Function() _suspendNode;
-
-  static Future<void> _defaultSuspendNode() =>
-      RustBackendService.instance.stopNode();
-
-  Future<void> load() async {
-    final token = await _tokenStore.read();
-    if (!mounted) return;
-    if (token != null && token.isNotEmpty) {
-      // Sync the reconcile-pending mirror before publishing authenticated so
-      // the router's identity gate sees an accurate value from the first
-      // redirect evaluation.
-      await isAccountReconcilePending();
-      if (!mounted) return;
-      state = AuthStatus.authenticated;
-      return;
-    }
-    final guest = await _guestFlag.isGuest();
-    if (!mounted) return;
-    state = guest ? AuthStatus.guest : AuthStatus.unauthenticated;
-  }
-
-  Future<void> completeLogin(AuthSession session) async {
-    // A new identity generation: any in-flight reconcile / retry started for
-    // the previous session must not apply its result to this one.
-    IdentityGenerations.bump();
-    // Marked BEFORE the token write: if the app dies between persisting the
-    // token and the reconcile completing, the next boot restore sees the
-    // marker and re-runs the reconcile instead of stranding the device
-    // under the previous identity. Cleared by NodeAccountReconciler.
-    await markAccountReconcilePending();
-    // Staged BEFORE the token write too: the marker + staged id together are
-    // the crash-recovery payload. If the token became boot-restorable first
-    // and the app died, the id would exist only in the lost AuthSession —
-    // the boot reconcile would then succeed, find nothing to migrate, and
-    // clear the marker with participantId still null.
-    //
-    // The id goes in the guest bucket — NOT the active bucket, which at this
-    // point may still belong to a previously signed-in user's account. The
-    // post-sign-in account reconcile activates this user's account and moves
-    // the id into its bucket. The v4 `user.id` is the same id every
-    // token-scoped endpoint resolves from the session server-side.
-    await stageParticipantIdInGuestBucket(session.participant.id);
-    await _tokenStore.write(session.token);
-    await _guestFlag.clear();
-    // Only activate the local active account's bucket when it provably
-    // belongs to this session's user; otherwise stay on the guest bucket
-    // until the reconcile confirms ownership.
-    final owned = await activateBucketForSession(session.participant.id);
-    if (!owned) {
-      // Ownership unknown: a running node would keep signing/producing under
-      // the previous identity. Suspend it now; the reconciler restarts it
-      // under the confirmed account.
-      NodeIdentitySuspension.markSuspended();
-      await _suspendNode();
-    }
-    state = AuthStatus.authenticated;
-  }
-
-  Future<void> continueAsGuest() async {
-    IdentityGenerations.bump();
-    await _guestFlag.setGuest();
-    // A leftover staged id (interrupted earlier login) must not resolve for
-    // an explicit guest session.
-    await clearGuestParticipantId();
-    await refreshActiveAccountBucket(guest: true);
-    state = AuthStatus.guest;
-  }
-
-  Future<void> logout() async {
-    IdentityGenerations.bump();
-    final token = await _tokenStore.read();
-    if (token != null && token.isNotEmpty) {
-      await _repository.logout(token);
-    }
-    await _tokenStore.clear();
-    await _guestFlag.clear();
-    await clearGuestParticipantId();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.unauthenticated;
-  }
-
-  Future<void> onUnauthorized() async {
-    IdentityGenerations.bump();
-    await _tokenStore.clear();
-    // A 401 invalidates the TOKEN, not the user's explicit guest choice —
-    // re-resolve rather than forcing unauthenticated, so a stray 401 (e.g.
-    // an auth-required endpoint reached while browsing as guest) doesn't
-    // kick a remembered guest back to the auth landing.
-    final guest = await _guestFlag.isGuest();
-    await refreshActiveAccountBucket(guest: guest);
-    state = guest ? AuthStatus.guest : AuthStatus.unauthenticated;
-  }
-}
 
 class AuthFlowState {
   const AuthFlowState({
@@ -189,8 +80,8 @@ class AuthFlowNotifier extends StateNotifier<AuthFlowState> {
 final accountApiServiceProvider = Provider<AccountApiService>((ref) {
   final service = AccountApiService(
     tokenProvider: () => ref.read(authTokenStoreProvider).read(),
-    onUnauthorized: () =>
-        ref.read(authStatusProvider.notifier).onUnauthorized(),
+    onUnauthorized: (epoch) =>
+        ref.read(identityProvider.notifier).onUnauthorized(epoch: epoch),
   );
   ref.onDispose(service.dispose);
   return service;

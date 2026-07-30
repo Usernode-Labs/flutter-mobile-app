@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 
@@ -65,12 +66,11 @@ void main() {
   });
 
   group('identityGateRedirect', () {
-    test('authenticated + reconcile pending blocks wallet routes', () {
+    test('a reconciling identity blocks wallet routes', () {
       for (final route in identityGatedRoutes) {
         expect(
           identityGateRedirect(
-            status: AuthStatus.authenticated,
-            reconcilePending: true,
+            phase: IdentityPhase.reconciling,
             location: route,
           ),
           AppRoutes.home,
@@ -79,12 +79,11 @@ void main() {
       }
     });
 
-    test('non-wallet routes stay reachable while pending', () {
+    test('non-wallet routes stay reachable while reconciling', () {
       for (final route in [AppRoutes.home, AppRoutes.profile]) {
         expect(
           identityGateRedirect(
-            status: AuthStatus.authenticated,
-            reconcilePending: true,
+            phase: IdentityPhase.reconciling,
             location: route,
           ),
           isNull,
@@ -93,31 +92,29 @@ void main() {
       }
     });
 
-    test('wallet routes open once the reconcile completes', () {
+    test('wallet routes open once the identity settles to ready', () {
       expect(
         identityGateRedirect(
-          status: AuthStatus.authenticated,
-          reconcilePending: false,
+          phase: IdentityPhase.ready,
           location: AppRoutes.walletSend,
         ),
         isNull,
       );
     });
 
-    test('non-authenticated states are never gated', () {
-      for (final status in [
-        AuthStatus.unknown,
-        AuthStatus.unauthenticated,
-        AuthStatus.guest,
+    test('settled non-authenticated phases are never gated', () {
+      for (final phase in [
+        IdentityPhase.unknown,
+        IdentityPhase.unauthenticated,
+        IdentityPhase.guest,
       ]) {
         expect(
           identityGateRedirect(
-            status: status,
-            reconcilePending: true,
+            phase: phase,
             location: AppRoutes.walletSend,
           ),
           isNull,
-          reason: status.name,
+          reason: phase.name,
         );
       }
     });

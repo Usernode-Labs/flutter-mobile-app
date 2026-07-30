@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_item.dart'
     as transaction_item;
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/mempool_provider.dart';
@@ -24,6 +25,11 @@ class WalletState {
 class WalletController extends AsyncNotifier<WalletState> {
   @override
   Future<WalletState> build() async {
+    // Balance and history derive from the ACTIVE account. Rebuild on every
+    // identity transition (login, logout, reconcile account switch, season
+    // rollover) so user B never sees — or serves to dApps via
+    // getWalletState — user A's cached balance and transactions.
+    ref.watch(identityProvider);
     var balance = await _calculateBalance();
     var allTransactions = await _getAllTransactions();
 

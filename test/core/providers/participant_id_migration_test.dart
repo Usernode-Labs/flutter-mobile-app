@@ -1,31 +1,19 @@
-import 'dart:convert';
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 const _guestKey = 'testnet:acct:guest:leaderboard:participant_id';
 
-String _accountKey() =>
-    'testnet:acct:${NetworkPrefs.activeBucket}:leaderboard:participant_id';
-
-Map<String, dynamic> _accountJson(String id, String address) => {
-      'id': id,
-      'name': 'Node Account',
-      'createdAt': '2026-01-01T00:00:00.000',
-      'derivationPath': 'imported',
-      'hdIndex': 0,
-      'address': address,
-      'publicKey': 'utpk1$address',
-      'backupConfirmed': true,
-      'isDemo': false,
-    };
+String _keyFor(String bucket) =>
+    'testnet:acct:$bucket:leaderboard:participant_id';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  const accountBucket = 'bucket1234567890';
 
   setUp(() async {
     FlutterSecureStorage.setMockInitialValues({});
@@ -38,56 +26,76 @@ void main() {
     NetworkPrefs.setActiveBucket(null, guest: true);
   });
 
-  group('migrateGuestParticipantId', () {
-    test('moves the staged id into the active account bucket', () async {
+  group('installParticipantIdInBucket', () {
+    test('installs the id and removes the matching staged copy', () async {
       SharedPreferences.setMockInitialValues({_guestKey: 42});
-      NetworkPrefs.setActiveBucket('ut1accountaddr', guest: false);
 
-      await migrateGuestParticipantId();
+      await installParticipantIdInBucket(
+        participantId: 42,
+        bucket: accountBucket,
+      );
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt(_accountKey()), 42);
-      // A true move: the source is removed, so a later guest session can
-      // never resolve this user's id out of the guest bucket.
+      expect(prefs.getInt(_keyFor(accountBucket)), 42);
+      // A true move: the staged source is removed, so a later guest session
+      // can never resolve this user's id out of the guest bucket.
       expect(prefs.getInt(_guestKey), isNull);
-      expect(await loadParticipantId(), 42);
     });
 
-    test('is a no-op while the guest bucket is active', () async {
-      SharedPreferences.setMockInitialValues({_guestKey: 42});
+    test('leaves a staged id belonging to ANOTHER user in place', () async {
+      // User B logged in mid-reconcile: the guest bucket now stages B's id.
+      // A's (stale) install must not consume it — it belongs to B's own
+      // reconcile.
+      SharedPreferences.setMockInitialValues({_guestKey: 100});
 
-      await migrateGuestParticipantId();
+      await installParticipantIdInBucket(
+        participantId: 42,
+        bucket: accountBucket,
+      );
 
       final prefs = await SharedPreferences.getInstance();
-      // Nowhere to move to yet — the staged value must survive so the move
-      // can happen once an account bucket becomes active.
-      expect(prefs.getInt(_guestKey), 42);
+      expect(prefs.getInt(_keyFor(accountBucket)), 42);
+      expect(prefs.getInt(_guestKey), 100);
     });
 
-    test('is a no-op when nothing is staged', () async {
-      NetworkPrefs.setActiveBucket('ut1accountaddr', guest: false);
+    test('overwrites a stale destination value and is idempotent', () async {
+      SharedPreferences.setMockInitialValues({
+        _guestKey: 42,
+        _keyFor(accountBucket): 7, // stale id from an older login
+      });
+
+      await installParticipantIdInBucket(
+        participantId: 42,
+        bucket: accountBucket,
+      );
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_accountKey(), 7);
+      expect(prefs.getInt(_keyFor(accountBucket)), 42);
 
-      await migrateGuestParticipantId();
-
-      // The existing destination value is untouched.
-      expect(prefs.getInt(_accountKey()), 7);
-    });
-
-    test('is idempotent and overwrites a stale destination value', () async {
-      SharedPreferences.setMockInitialValues({_guestKey: 42});
-      NetworkPrefs.setActiveBucket('ut1accountaddr', guest: false);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_accountKey(), 7); // stale id from an older login
-
-      await migrateGuestParticipantId();
-      expect(prefs.getInt(_accountKey()), 42);
-
-      // Re-running after a completed move changes nothing.
-      await migrateGuestParticipantId();
-      expect(prefs.getInt(_accountKey()), 42);
+      // Re-running after a completed install changes nothing.
+      await installParticipantIdInBucket(
+        participantId: 42,
+        bucket: accountBucket,
+      );
+      expect(prefs.getInt(_keyFor(accountBucket)), 42);
       expect(prefs.getInt(_guestKey), isNull);
+    });
+
+    test('does not depend on which bucket is active', () async {
+      // The reconcile addresses the provisioned account's bucket explicitly;
+      // the active bucket (still guest during reconcile) must be irrelevant.
+      NetworkPrefs.setActiveBucket('ut1someoneelse', guest: false);
+
+      await installParticipantIdInBucket(
+        participantId: 42,
+        bucket: accountBucket,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(_keyFor(accountBucket)), 42);
+      expect(
+        prefs.getInt(_keyFor(NetworkPrefs.bucketForAddress('ut1someoneelse'))),
+        isNull,
+      );
     });
   });
 
@@ -102,7 +110,10 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(_guestKey), 42);
       // The active (previous user's) bucket must NOT be polluted.
-      expect(prefs.getInt(_accountKey()), isNull);
+      expect(
+        prefs.getInt(_keyFor(NetworkPrefs.bucketForAddress('ut1previoususer'))),
+        isNull,
+      );
     });
 
     test('clearGuestParticipantId removes a staged id', () async {
@@ -113,62 +124,23 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(_guestKey), isNull);
     });
-  });
 
-  group('activateBucketForSession', () {
-    const address = 'ut1activeaccount';
-    final bucket = NetworkPrefs.bucketForAddress(address);
-    final registry = {
-      'testnet:accounts:index': jsonEncode([_accountJson('acc_1', address)]),
-      'testnet:accounts:activeId': 'acc_1',
-    };
+    test('loadParticipantIdInBucket reads an explicit bucket', () async {
+      SharedPreferences.setMockInitialValues({_keyFor(accountBucket): 42});
 
-    test('activates the account bucket when it belongs to the session user',
-        () async {
+      expect(await loadParticipantIdInBucket(accountBucket), 42);
+      expect(await loadParticipantIdInBucket(NetworkPrefs.guestBucket), isNull);
+    });
+
+    test('loadParticipantId reads the ACTIVE bucket', () async {
       SharedPreferences.setMockInitialValues({
-        ...registry,
-        // A past reconcile recorded participant 7 as this bucket's owner.
-        'testnet:acct:$bucket:leaderboard:participant_id': 7,
+        _guestKey: 1,
+        _keyFor(NetworkPrefs.bucketForAddress('ut1accountaddr')): 2,
       });
-      await NetworkPrefs.init();
 
-      await activateBucketForSession(7);
-
-      expect(NetworkPrefs.activeBucket, bucket);
-    });
-
-    test(
-        'stays on the guest bucket when the active account belongs to '
-        'another user', () async {
-      SharedPreferences.setMockInitialValues({
-        ...registry,
-        // The device's active account was reconciled for participant 7...
-        'testnet:acct:$bucket:leaderboard:participant_id': 7,
-      });
-      await NetworkPrefs.init();
-
-      // ...but participant 8 is the one signing in. Their identity is
-      // unknown until reconcile — the previous user's bucket must not be
-      // read or written.
-      await activateBucketForSession(8);
-
-      expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
-    });
-
-    test('stays on the guest bucket when ownership was never recorded',
-        () async {
-      SharedPreferences.setMockInitialValues({...registry});
-      await NetworkPrefs.init();
-
-      await activateBucketForSession(7);
-
-      expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
-    });
-
-    test('resolves to the guest bucket when no local account exists', () async {
-      await activateBucketForSession(7);
-
-      expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
+      expect(await loadParticipantId(), 1);
+      NetworkPrefs.setActiveBucket('ut1accountaddr', guest: false);
+      expect(await loadParticipantId(), 2);
     });
   });
 }

@@ -283,13 +283,14 @@ class CryptoMobileApp extends ConsumerWidget {
     // and foreground recovery are active before the registration UI opens.
     ref.watch(zkPassportPipelineProvider);
 
-    // Keep the post-sign-in sync listener alive for the whole app lifetime
-    // (account reconcile + pending zk completion retry on every sign-in).
-    ref.watch(postSignInSyncProvider);
+    // Keep the identity driver alive for the whole app lifetime: it runs
+    // the account reconcile whenever the identity enters the reconciling
+    // phase and retries pending zk completions once it settles.
+    ref.watch(identityDriverProvider);
 
-    // Re-run the account reconcile when the active season rolls over
-    // mid-session — /wallet/provision allocates per season, and no sign-in
-    // transition fires for users who stay signed in across the rollover.
+    // Hand the authoritative active season to the SessionController — a
+    // rollover re-enters the reconciling phase (per-season wallets), and no
+    // sign-in transition fires for users who stay signed in across it.
     ref.watch(seasonRolloverSyncProvider);
 
     return MaterialApp.router(

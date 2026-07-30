@@ -9,7 +9,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
-import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -26,7 +26,7 @@ class LeaderboardApiService {
     int? maxGetRetries,
     Duration? retryBaseDelay,
     Future<String?> Function()? tokenProvider,
-    Future<void> Function()? onUnauthorized,
+    Future<void> Function(int epoch)? onUnauthorized,
   })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
         _http = httpClient ?? createAppHttpClient(),
         _writesEnabled = writesEnabled ?? !AppConfig.viewOnly,
@@ -41,9 +41,12 @@ class LeaderboardApiService {
 
   /// Resolves the current session token for the `Authorization` header, and the
   /// callback to run on a 401 (clear token, bounce to auth). Both optional so
-  /// tests can construct the service without auth wiring.
+  /// tests can construct the service without auth wiring. The callback
+  /// receives the identity epoch the failing request was issued under; the
+  /// SessionController ignores 401s from superseded epochs so a stale
+  /// request's late 401 can't clear a token a newer sign-in just wrote.
   final Future<String?> Function()? _tokenProvider;
-  final Future<void> Function()? _onUnauthorized;
+  final Future<void> Function(int epoch)? _onUnauthorized;
 
   /// Number of additional attempts for idempotent GETs after the first one.
   /// Writes (POST) are never retried to avoid duplicate side effects.
@@ -283,12 +286,11 @@ class LeaderboardApiService {
 
     // Captured when the token is attached: a 401 for THIS request must not
     // clear a token written by a later sign-in (see _parseEnvelope).
-    final requestGeneration = IdentityGenerations.current;
+    final requestEpoch = IdentitySnapshots.current.epoch;
     final headers = await _authHeaders(_acceptJson);
     final resp = await _sendWithRetry(() => _http.get(url, headers: headers));
     return _parseEnvelope(resp, url,
-        expectedStatuses: expectedStatuses,
-        requestGeneration: requestGeneration);
+        expectedStatuses: expectedStatuses, requestEpoch: requestEpoch);
   }
 
   Future<dynamic> _post(
@@ -307,14 +309,13 @@ class LeaderboardApiService {
     final url = Uri.parse(absoluteUrl);
     _log.trace('POST $url');
 
-    final requestGeneration = IdentityGenerations.current;
+    final requestEpoch = IdentitySnapshots.current.epoch;
     final headers = await _authHeaders(_jsonHeaders);
     final resp = await _send(
       () => _http.post(url, headers: headers, body: jsonEncode(body)),
     );
     return _parseEnvelope(resp, url,
-        expectedStatuses: expectedStatuses,
-        requestGeneration: requestGeneration);
+        expectedStatuses: expectedStatuses, requestEpoch: requestEpoch);
   }
 
   void _ensureWritesEnabled() {
@@ -406,7 +407,7 @@ class LeaderboardApiService {
     http.Response resp,
     Uri url, {
     Set<int> expectedStatuses = const {},
-    int? requestGeneration,
+    int? requestEpoch,
   }) async {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final decoded = jsonDecode(resp.body);
@@ -442,17 +443,12 @@ class LeaderboardApiService {
 
     // An expired/invalid session token: clear it and let the app bounce back
     // to the auth landing. Still throws so the caller's normal error path
-    // runs. Skipped when the session changed since the request captured its
-    // token — a stale request's late 401 must not clear a token a NEWER
-    // sign-in just wrote.
+    // runs. The epoch the request was issued under is forwarded — the
+    // SessionController discards 401s from superseded epochs, so a stale
+    // request's late 401 can't clear a token a NEWER sign-in just wrote.
     if (resp.statusCode == 401) {
-      if (requestGeneration == null ||
-          requestGeneration == IdentityGenerations.current) {
-        await _onUnauthorized?.call();
-      } else {
-        _log.warn('Ignoring 401 from a request issued under a previous '
-            'session generation');
-      }
+      await _onUnauthorized
+          ?.call(requestEpoch ?? IdentitySnapshots.current.epoch);
     }
 
     throw LeaderboardApiException(resp.statusCode, message, body: resp.body);
@@ -499,8 +495,8 @@ class LeaderboardApiService {
 final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
   final service = LeaderboardApiService(
     tokenProvider: () => ref.read(authTokenStoreProvider).read(),
-    onUnauthorized: () =>
-        ref.read(authStatusProvider.notifier).onUnauthorized(),
+    onUnauthorized: (epoch) =>
+        ref.read(identityProvider.notifier).onUnauthorized(epoch: epoch),
   );
   ref.onDispose(service.dispose);
   return service;

@@ -48,7 +48,7 @@ void main() {
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
-      onUnauthorized: () async => cleared = true,
+      onUnauthorized: (epoch) async => cleared = true,
       httpClient: MockClient((req) async => http.Response('{}', 401)),
     );
 

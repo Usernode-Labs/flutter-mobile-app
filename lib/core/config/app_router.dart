@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/screens/auth_landing_screen.dart';
 import 'package:crypto_mobile_app/features/auth/screens/auth_email_screen.dart';
@@ -45,7 +46,6 @@ import 'package:crypto_mobile_app/features/wallet/screens/scan_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
@@ -172,15 +172,14 @@ const identityGatedRoutes = <String>[
   AppRoutes.walletScan,
 ];
 
-/// Identity gate: authenticated sessions whose account reconciliation has
-/// not completed are bounced off wallet routes. Pure for unit testing.
+/// Identity gate: sessions whose identity is not settled (account
+/// reconciliation in progress) are bounced off wallet routes. Pure for unit
+/// testing.
 String? identityGateRedirect({
-  required AuthStatus status,
-  required bool reconcilePending,
+  required IdentityPhase phase,
   required String location,
 }) {
-  if (status != AuthStatus.authenticated) return null;
-  if (!reconcilePending) return null;
+  if (phase != IdentityPhase.reconciling) return null;
   return identityGatedRoutes.contains(location) ? AppRoutes.home : null;
 }
 
@@ -188,16 +187,16 @@ String? identityGateRedirect({
 /// This bridges Riverpod's state management with GoRouter's refresh mechanism
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(this._ref) {
-    // Listen to auth status changes (v3 auth gate)
-    _ref.listen<AuthStatus>(
-      authStatusProvider,
+    // Every identity transition (login, logout, guest, reconcile completion,
+    // season rollover) publishes a new snapshot — re-run the redirect guard
+    // for each one. This subsumes the old auth-status listener: authStatus
+    // is derived from the same snapshot.
+    _ref.listen<Identity>(
+      identityProvider,
       (previous, next) {
         notifyListeners();
       },
     );
-    // Re-evaluate the identity gate when the reconcile-pending marker flips
-    // (set at login, cleared when reconciliation confirms account ownership).
-    accountReconcilePendingListenable.addListener(notifyListeners);
     // Listen to hasAnyAccountProvider changes
     _ref.listen<AsyncValue<bool>>(
       hasAnyAccountProvider,
@@ -223,12 +222,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 
   final Ref _ref;
-
-  @override
-  void dispose() {
-    accountReconcilePendingListenable.removeListener(notifyListeners);
-    super.dispose();
-  }
 }
 
 // Create a stable navigator key outside the provider
@@ -645,8 +638,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // local account may still belong to a previous user — keep the session
       // off routes that sign or spend with it.
       final identityGate = identityGateRedirect(
-        status: authStatus,
-        reconcilePending: isAccountReconcilePendingSync,
+        phase: ref.read(identityProvider).phase,
         location: currentLocation,
       );
       if (identityGate != null) {

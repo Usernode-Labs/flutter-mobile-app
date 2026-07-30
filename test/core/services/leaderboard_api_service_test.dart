@@ -725,7 +725,7 @@ void main() {
         baseUrl: _baseUrl,
         httpClient: _mockClient(401, {'error': 'unauth'}),
         tokenProvider: () async => 'sess-xyz',
-        onUnauthorized: () async => cleared = true,
+        onUnauthorized: (epoch) async => cleared = true,
         maxGetRetries: 0,
       );
       await expectLater(

@@ -24,8 +24,9 @@ import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
-    show authStatusProvider;
+    show authStatusProvider, identityProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
@@ -1189,7 +1190,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// category as onboarding).
   Future<void> _handleLogout(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
-    await ref.read(authStatusProvider.notifier).logout();
+    await ref.read(identityProvider.notifier).logout();
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 
@@ -1322,6 +1323,18 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   Future<void> _handleSendTransaction(
       String id, Map<String, dynamic> payload) async {
+    // Route-level gating cannot cover this bridge (every dApp webview can
+    // request a send) — enforce identity readiness at the signing chokepoint
+    // itself. While a reconcile is pending the active account may still
+    // belong to a previous user.
+    if (!IdentitySnapshots.current.allowsSigning) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Account is being set up; please retry in a moment.',
+      );
+      return;
+    }
     final args = payload['args'];
     if (args is! Map<String, dynamic>) {
       await _resolveJsPromise(id: id, value: null, error: 'Missing args');
@@ -1467,6 +1480,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   Future<void> _handleSignMessage(
       String id, Map<String, dynamic> payload) async {
+    // Same identity gate as _handleSendTransaction: this handler loads the
+    // active account's private key, which must never happen while account
+    // ownership is unsettled.
+    if (!IdentitySnapshots.current.allowsSigning) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Account is being set up; please retry in a moment.',
+      );
+      return;
+    }
     final args = payload['args'];
     if (args is! Map<String, dynamic>) {
       await _resolveJsPromise(id: id, value: null, error: 'Missing args');

@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -263,7 +264,22 @@ class RustBackendService {
   /// Start the node using the active account's secret key.
   /// Returns true if started successfully, false if no account or error.
   /// Safe to call multiple times; subsequent calls return true if already running.
-  Future<bool> startNode({int? httpPort}) async {
+  ///
+  /// Identity gate: every start path (bootstrap, wake, foreground task,
+  /// alarms, lifecycle) funnels through here, so this is where "never run
+  /// the node while account ownership is unsettled" is enforced. While the
+  /// identity is reconciling (a sign-in or season rollover whose account
+  /// reconcile has not completed), the active account may still belong to a
+  /// previous user — refuse to start. The [NodeAccountReconciler] is the ONE
+  /// caller allowed through (via [identityOverride]) because it starts the
+  /// node under the account it just confirmed.
+  Future<bool> startNode({int? httpPort, bool identityOverride = false}) async {
+    if (!identityOverride && !IdentitySnapshots.current.allowsNodeStart) {
+      _log.warn('startNode refused: identity is '
+          '${IdentitySnapshots.current.phase.name} (account ownership '
+          'unsettled until the reconcile completes)');
+      return false;
+    }
     if (_startNodeCompleter != null) {
       _log.debug('startNode already in progress; waiting for existing start');
       return _startNodeCompleter!.future;

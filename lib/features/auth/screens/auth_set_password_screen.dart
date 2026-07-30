@@ -56,7 +56,7 @@ class _AuthSetPasswordScreenState extends ConsumerState<AuthSetPasswordScreen> {
             password: password,
             passwordConfirmation: confirm,
           );
-      await ref.read(authStatusProvider.notifier).completeLogin(session);
+      await ref.read(identityProvider.notifier).completeLogin(session);
       ref.read(authFlowProvider.notifier).reset();
       if (mounted) context.go(AppRoutes.splash);
     } on AuthException catch (e) {

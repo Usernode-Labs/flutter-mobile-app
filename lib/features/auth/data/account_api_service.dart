@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
-import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 
@@ -24,7 +24,7 @@ class AccountApiService {
     http.Client? httpClient,
     String? baseUrl,
     Future<String?> Function()? tokenProvider,
-    Future<void> Function()? onUnauthorized,
+    Future<void> Function(int epoch)? onUnauthorized,
   })  : _http = httpClient ?? createAppHttpClient(),
         _baseUrl = baseUrl ?? _deriveV3Base(),
         _tokenProvider = tokenProvider,
@@ -33,7 +33,11 @@ class AccountApiService {
   final http.Client _http;
   final String _baseUrl;
   final Future<String?> Function()? _tokenProvider;
-  final Future<void> Function()? _onUnauthorized;
+
+  /// Invoked with the identity epoch the failing request was issued under;
+  /// the SessionController ignores 401s from superseded epochs so a late
+  /// response can't tear down a newer sign-in's token.
+  final Future<void> Function(int epoch)? _onUnauthorized;
 
   /// The v3 mobile base is the parent of the auth base (`…/api/v3/mobile/auth`).
   static String _deriveV3Base() {
@@ -48,7 +52,7 @@ class AccountApiService {
   Future<Me> getMe() async {
     // Captured when the token is attached: a late 401 for THIS request must
     // not clear a token written by a later sign-in.
-    final requestGeneration = IdentityGenerations.current;
+    final requestEpoch = IdentitySnapshots.current.epoch;
     final token = await _tokenProvider?.call();
     final url = Uri.parse('$_baseUrl/me');
     _log.trace('GET $url');
@@ -63,9 +67,8 @@ class AccountApiService {
       throw AccountApiException(0, 'Network error.');
     }
 
-    if (resp.statusCode == 401 &&
-        requestGeneration == IdentityGenerations.current) {
-      await _onUnauthorized?.call();
+    if (resp.statusCode == 401) {
+      await _onUnauthorized?.call(requestEpoch);
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw AccountApiException(resp.statusCode, 'Request failed.');

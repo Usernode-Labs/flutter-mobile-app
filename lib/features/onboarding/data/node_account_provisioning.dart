@@ -5,6 +5,8 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/NodeAccountProvisioning');
@@ -36,10 +38,21 @@ final nodeAccountReconcilerProvider = Provider<NodeAccountReconciler>(
 /// ownership check, user B signing in on user A's device would run the node
 /// (and every wallet-scoped backend call) against A's wallet.
 class NodeAccountReconciler {
-  NodeAccountReconciler(this._ref);
+  NodeAccountReconciler(this._ref, {Future<void> Function()? restartNode})
+      : _restartNode = restartNode ?? _defaultRestartNode;
 
   final Ref _ref;
+
+  /// Restarts a running node so it re-reads the active account's key.
+  /// Injectable for tests (the default touches the Rust backend).
+  final Future<void> Function() _restartNode;
   Future<bool>? _inFlight;
+
+  static Future<void> _defaultRestartNode() async {
+    if (!RustBackendService.instance.isRunning) return;
+    await RustBackendService.instance.stopNode();
+    await RustBackendService.instance.startNode();
+  }
 
   /// Runs a reconcile, coalescing concurrent calls onto one in-flight run
   /// (sign-in listener and onboarding tap can race; two parallel imports of
@@ -72,6 +85,13 @@ class NodeAccountReconciler {
     final existing =
         accounts.where((a) => a.address == provisioned.address).firstOrNull;
 
+    // Captured before any mutation: non-null means some account was already
+    // active — if the reconcile changes it, a running node is signing under
+    // the OLD identity and must be restarted (the node binds the active
+    // account's key at start; backendLifecycleProvider only reacts to
+    // has-any-account flips, not switches).
+    final previousActiveId = repo.getActiveId();
+
     var changed = false;
     if (existing != null) {
       if (repo.getActiveId() != existing.id) {
@@ -99,14 +119,34 @@ class NodeAccountReconciler {
     await migrateGuestParticipantId();
 
     if (changed) {
+      if (previousActiveId != null) {
+        // Active account switched away from a previously active one: restart
+        // a running node so it picks up the new identity. Failure is logged,
+        // not rethrown — the registry/bucket state is already correct and
+        // the next node start self-heals.
+        try {
+          await _restartNode();
+        } catch (e, st) {
+          _log.error('Node restart after account switch failed',
+              error: e, stackTrace: st);
+          await SentryUtil.captureError(e, st, tag: 'reconcile_node_restart');
+        }
+      }
       // Let the router and account-gated UI see the new state immediately.
       // backendLifecycleProvider watches hasAnyAccountProvider and starts
-      // the node when it flips false -> true.
+      // the node when it flips false -> true (fresh-install import).
       _ref.invalidate(hasAnyAccountProvider);
       _ref.invalidate(accountsProvider);
       _ref.invalidate(activeAccountProvider);
+      // Onboarding completion is bucket-scoped; after a switch the new
+      // identity's flag must drive routing now, not on the next cold start.
+      _ref.invalidate(hasCompletedOnboardingProvider);
     }
     _ref.invalidate(participantIdProvider);
+
+    // The session's identity is now reconciled — boot restores no longer
+    // need to re-run this (set by completeLogin).
+    await clearAccountReconcilePending();
 
     return changed;
   }

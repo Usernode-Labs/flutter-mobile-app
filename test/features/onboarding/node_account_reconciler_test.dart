@@ -88,13 +88,22 @@ void main() {
       'testnet:accounts:activeId': 'acc_0_a',
       // User B's login staged their participant id in the guest bucket.
       guestPidKey: 99,
+      // ...and marked the reconcile as pending (cleared below on success).
+      'testnet:account:reconcile_pending': true,
     });
     await NetworkPrefs.init();
 
     final provisionCalls = <int>[];
+    var nodeRestarts = 0;
     final container = ProviderContainer(overrides: [
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          restartNode: () async => nodeRestarts++,
+        ),
+      ),
     ]);
     addTearDown(container.dispose);
 
@@ -105,6 +114,10 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('testnet:accounts:activeId'), 'acc_1_b');
 
+    // A node that was running under A's identity must be restarted so it
+    // re-reads the (now B's) active account key.
+    expect(nodeRestarts, 1);
+
     // The bucket now follows B's account, and B's staged participant id
     // was moved into it (and out of the guest bucket).
     expect(NetworkPrefs.activeBucket, isNot(NetworkPrefs.guestBucket));
@@ -112,6 +125,9 @@ void main() {
         'testnet:acct:${NetworkPrefs.activeBucket}:leaderboard:participant_id';
     expect(prefs.getInt(bucketKey), 99);
     expect(prefs.getInt(guestPidKey), isNull);
+
+    // Reconcile completed — boot restores no longer need to re-run it.
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isNull);
   });
 
   test(
@@ -129,9 +145,16 @@ void main() {
     await NetworkPrefs.init();
 
     final provisionCalls = <int>[];
+    var nodeRestarts = 0;
     final container = ProviderContainer(overrides: [
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          restartNode: () async => nodeRestarts++,
+        ),
+      ),
     ]);
     addTearDown(container.dispose);
 
@@ -139,6 +162,8 @@ void main() {
         await container.read(nodeAccountReconcilerProvider).reconcile();
 
     expect(changed, isFalse);
+    // No identity change — the running node must NOT be bounced.
+    expect(nodeRestarts, 0);
     final prefs = await SharedPreferences.getInstance();
     final bucketKey =
         'testnet:acct:${NetworkPrefs.activeBucket}:leaderboard:participant_id';

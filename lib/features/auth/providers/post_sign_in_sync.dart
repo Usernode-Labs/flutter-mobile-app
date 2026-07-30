@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
@@ -17,9 +18,19 @@ final _log = LoggingService.instance.withTag('usernode/PostSignInSync');
 /// Boot restore (`unknown -> authenticated`, a stored token found at startup)
 /// is intentionally excluded: cold-start recovery paths already run then, and
 /// reconciling on every launch would add a network round-trip to each boot.
+/// The exception is an interrupted reconcile — see [isBootRestore] and the
+/// reconcile-pending marker handling in [PostSignInSync.onAuthStatusChanged].
 bool isSignInTransition(AuthStatus? previous, AuthStatus next) {
   if (next != AuthStatus.authenticated) return false;
   return previous == AuthStatus.unauthenticated || previous == AuthStatus.guest;
+}
+
+/// True when the auth state change is a boot restore: a stored session token
+/// found at startup ([AuthStatus.unknown] or no previous state transitioning
+/// to [AuthStatus.authenticated]).
+bool isBootRestore(AuthStatus? previous, AuthStatus next) {
+  if (next != AuthStatus.authenticated) return false;
+  return previous == null || previous == AuthStatus.unknown;
 }
 
 /// Runs session-dependent repair work whenever a sign-in completes:
@@ -39,21 +50,47 @@ class PostSignInSync {
   PostSignInSync({
     required Future<void> Function() reconcileNodeAccount,
     required Future<void> Function() retryPendingZkCompletion,
+    Future<bool> Function() isReconcilePending = isAccountReconcilePending,
   })  : _reconcileNodeAccount = reconcileNodeAccount,
-        _retryPendingZkCompletion = retryPendingZkCompletion;
+        _retryPendingZkCompletion = retryPendingZkCompletion,
+        _isReconcilePending = isReconcilePending;
 
   final Future<void> Function() _reconcileNodeAccount;
   final Future<void> Function() _retryPendingZkCompletion;
+  final Future<bool> Function() _isReconcilePending;
 
   /// The run started by the most recent sign-in transition, for tests and
   /// callers that need to observe completion. Null until the first sign-in.
   Future<void>? lastRun;
 
   void onAuthStatusChanged(AuthStatus? previous, AuthStatus next) {
-    if (!isSignInTransition(previous, next)) return;
-    _log.info('Sign-in detected - running post-sign-in sync');
-    lastRun = _run();
-    unawaited(lastRun);
+    if (isSignInTransition(previous, next)) {
+      _log.info('Sign-in detected - running post-sign-in sync');
+      lastRun = _run();
+      unawaited(lastRun);
+      return;
+    }
+    if (isBootRestore(previous, next)) {
+      // A login whose reconcile never completed (app killed, network drop)
+      // leaves a pending marker; without this the device would stay under
+      // the previous identity across restarts because no further sign-in
+      // transition ever happens.
+      lastRun = _runIfReconcilePending();
+      unawaited(lastRun);
+    }
+  }
+
+  Future<void> _runIfReconcilePending() async {
+    bool pending;
+    try {
+      pending = await _isReconcilePending();
+    } catch (e) {
+      _log.warn('Reconcile-pending check failed: $e');
+      return;
+    }
+    if (!pending) return;
+    _log.info('Boot restore with unfinished reconcile - running sync');
+    await _run();
   }
 
   Future<void> _run() async {

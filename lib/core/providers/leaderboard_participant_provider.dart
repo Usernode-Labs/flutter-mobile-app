@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
@@ -57,6 +58,33 @@ Future<int?> loadParticipantId() async {
   final prefs = await SharedPreferences.getInstance();
   final key = NetworkPrefs.prefixAccountKey(_participantIdKey);
   return prefs.getInt(key);
+}
+
+/// Activates the storage bucket for a NEW session, before reconciliation has
+/// confirmed which on-chain account the session user owns.
+///
+/// The active account in the registry may still belong to a previously
+/// signed-in user, so its bucket is only activated when provably owned by
+/// this session: the bucket's stored participant ID (written there by a past
+/// reconcile) must match [participantId]. Otherwise the guest bucket stays
+/// active — a safe staging area where another identity's data is neither
+/// read nor written — until `NodeAccountReconciler` activates the right
+/// account and calls `refreshActiveAccountBucket`.
+Future<void> activateBucketForSession(int participantId) async {
+  final repo = await AccountsRepository.create();
+  final active = await repo.getActive();
+  if (active == null) {
+    // No local account yet — resolves to the guest bucket.
+    NetworkPrefs.setActiveBucket(null, guest: false);
+    return;
+  }
+  final prefs = await SharedPreferences.getInstance();
+  final bucket = NetworkPrefs.bucketForAddress(active.address);
+  final ownerId = prefs.getInt(
+    NetworkPrefs.prefixAccountKeyFor(_participantIdKey, bucket),
+  );
+  final owned = ownerId == participantId;
+  NetworkPrefs.setActiveBucket(owned ? active.address : null, guest: !owned);
 }
 
 /// Moves a participant ID persisted under the guest bucket into the currently

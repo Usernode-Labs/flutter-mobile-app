@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,10 +12,23 @@ const _guestKey = 'testnet:acct:guest:leaderboard:participant_id';
 String _accountKey() =>
     'testnet:acct:${NetworkPrefs.activeBucket}:leaderboard:participant_id';
 
+Map<String, dynamic> _accountJson(String id, String address) => {
+      'id': id,
+      'name': 'Node Account',
+      'createdAt': '2026-01-01T00:00:00.000',
+      'derivationPath': 'imported',
+      'hdIndex': 0,
+      'address': address,
+      'publicKey': 'utpk1$address',
+      'backupConfirmed': true,
+      'isDemo': false,
+    };
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
+    FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
     await NetworkPrefs.init();
     NetworkPrefs.setActiveBucket(null, guest: true);
@@ -96,6 +112,63 @@ void main() {
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(_guestKey), isNull);
+    });
+  });
+
+  group('activateBucketForSession', () {
+    const address = 'ut1activeaccount';
+    final bucket = NetworkPrefs.bucketForAddress(address);
+    final registry = {
+      'testnet:accounts:index': jsonEncode([_accountJson('acc_1', address)]),
+      'testnet:accounts:activeId': 'acc_1',
+    };
+
+    test('activates the account bucket when it belongs to the session user',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        ...registry,
+        // A past reconcile recorded participant 7 as this bucket's owner.
+        'testnet:acct:$bucket:leaderboard:participant_id': 7,
+      });
+      await NetworkPrefs.init();
+
+      await activateBucketForSession(7);
+
+      expect(NetworkPrefs.activeBucket, bucket);
+    });
+
+    test(
+        'stays on the guest bucket when the active account belongs to '
+        'another user', () async {
+      SharedPreferences.setMockInitialValues({
+        ...registry,
+        // The device's active account was reconciled for participant 7...
+        'testnet:acct:$bucket:leaderboard:participant_id': 7,
+      });
+      await NetworkPrefs.init();
+
+      // ...but participant 8 is the one signing in. Their identity is
+      // unknown until reconcile — the previous user's bucket must not be
+      // read or written.
+      await activateBucketForSession(8);
+
+      expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
+    });
+
+    test('stays on the guest bucket when ownership was never recorded',
+        () async {
+      SharedPreferences.setMockInitialValues({...registry});
+      await NetworkPrefs.init();
+
+      await activateBucketForSession(7);
+
+      expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
+    });
+
+    test('resolves to the guest bucket when no local account exists', () async {
+      await activateBucketForSession(7);
+
+      expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
     });
   });
 }

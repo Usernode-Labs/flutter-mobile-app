@@ -59,16 +59,21 @@ class NetworkPrefs {
   /// [guestBucket]).
   static String get activeBucket => _activeBucket;
 
+  /// The bucket name for an on-chain [address]: first 16 hex chars of
+  /// sha256(address). Exposed so callers can address a bucket without
+  /// activating it (ownership checks, cross-bucket migrations).
+  static String bucketForAddress(String address) =>
+      sha256.convert(utf8.encode(address)).toString().substring(0, 16);
+
   /// Sets the active bucket from the on-chain [address]. A guest session, or the
   /// absence of an address, resolves to [guestBucket] so no on-chain identity's
-  /// data is loaded. The bucket is the first 16 hex chars of sha256(address).
+  /// data is loaded. See [bucketForAddress] for the naming scheme.
   static void setActiveBucket(String? address, {required bool guest}) {
     if (guest || address == null || address.isEmpty) {
       _activeBucket = guestBucket;
       return;
     }
-    _activeBucket =
-        sha256.convert(utf8.encode(address)).toString().substring(0, 16);
+    _activeBucket = bucketForAddress(address);
   }
 
   /// Prefix an account-scoped key with the current network AND active identity

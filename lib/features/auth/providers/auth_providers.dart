@@ -55,6 +55,11 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
   }
 
   Future<void> completeLogin(AuthSession session) async {
+    // Marked BEFORE the token write: if the app dies between persisting the
+    // token and the reconcile completing, the next boot restore sees the
+    // marker and re-runs the reconcile instead of stranding the device
+    // under the previous identity. Cleared by NodeAccountReconciler.
+    await markAccountReconcilePending();
     await _tokenStore.write(session.token);
     await _guestFlag.clear();
     // The retired registration flow was the only writer of the persisted
@@ -65,7 +70,10 @@ class AuthStatusNotifier extends StateNotifier<AuthStatus> {
     // into its bucket. The v4 `user.id` is the same id every token-scoped
     // endpoint resolves from the session server-side.
     await stageParticipantIdInGuestBucket(session.participant.id);
-    await refreshActiveAccountBucket(guest: false);
+    // Only activate the local active account's bucket when it provably
+    // belongs to this session's user; otherwise stay on the guest bucket
+    // until the reconcile confirms ownership.
+    await activateBucketForSession(session.participant.id);
     state = AuthStatus.authenticated;
   }
 

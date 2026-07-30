@@ -25,6 +25,16 @@ void main() {
         isFalse,
       );
       expect(isSignInTransition(null, AuthStatus.authenticated), isFalse);
+      // ...which is exactly what isBootRestore captures.
+      expect(
+        isBootRestore(AuthStatus.unknown, AuthStatus.authenticated),
+        isTrue,
+      );
+      expect(isBootRestore(null, AuthStatus.authenticated), isTrue);
+      expect(
+        isBootRestore(AuthStatus.unauthenticated, AuthStatus.authenticated),
+        isFalse,
+      );
     });
 
     test('false for any transition not ending authenticated', () {
@@ -50,6 +60,7 @@ void main() {
       final sync = PostSignInSync(
         reconcileNodeAccount: () async => calls.add('reconcile'),
         retryPendingZkCompletion: () async => calls.add('zk-retry'),
+        isReconcilePending: () async => false,
       );
 
       // The 401 -> auth landing -> successful login lifecycle: the proof
@@ -63,20 +74,51 @@ void main() {
       expect(calls, ['reconcile', 'zk-retry']);
     });
 
-    test('non-sign-in transitions run nothing', () async {
+    test('non-sign-in, non-boot transitions run nothing', () async {
       final calls = <String>[];
       final sync = PostSignInSync(
         reconcileNodeAccount: () async => calls.add('reconcile'),
         retryPendingZkCompletion: () async => calls.add('zk-retry'),
+        isReconcilePending: () async => true,
       );
 
-      sync.onAuthStatusChanged(AuthStatus.unknown, AuthStatus.authenticated);
       sync.onAuthStatusChanged(
         AuthStatus.authenticated,
         AuthStatus.unauthenticated,
       );
+      sync.onAuthStatusChanged(AuthStatus.unauthenticated, AuthStatus.guest);
       expect(sync.lastRun, isNull);
       expect(calls, isEmpty);
+    });
+
+    test('boot restore without a pending reconcile runs nothing', () async {
+      final calls = <String>[];
+      final sync = PostSignInSync(
+        reconcileNodeAccount: () async => calls.add('reconcile'),
+        retryPendingZkCompletion: () async => calls.add('zk-retry'),
+        isReconcilePending: () async => false,
+      );
+
+      sync.onAuthStatusChanged(AuthStatus.unknown, AuthStatus.authenticated);
+      await sync.lastRun;
+
+      expect(calls, isEmpty);
+    });
+
+    test('boot restore with a pending reconcile re-runs the sync', () async {
+      final calls = <String>[];
+      final sync = PostSignInSync(
+        reconcileNodeAccount: () async => calls.add('reconcile'),
+        retryPendingZkCompletion: () async => calls.add('zk-retry'),
+        isReconcilePending: () async => true,
+      );
+
+      // A login whose reconcile was interrupted (app killed / offline)
+      // must be repaired on the next launch, not stranded forever.
+      sync.onAuthStatusChanged(AuthStatus.unknown, AuthStatus.authenticated);
+      await sync.lastRun;
+
+      expect(calls, ['reconcile', 'zk-retry']);
     });
 
     test('a failing reconcile does not block the zk retry', () async {
@@ -84,6 +126,7 @@ void main() {
       final sync = PostSignInSync(
         reconcileNodeAccount: () async => throw Exception('offline'),
         retryPendingZkCompletion: () async => calls.add('zk-retry'),
+        isReconcilePending: () async => false,
       );
 
       sync.onAuthStatusChanged(AuthStatus.guest, AuthStatus.authenticated);
@@ -96,6 +139,7 @@ void main() {
       final sync = PostSignInSync(
         reconcileNodeAccount: () async {},
         retryPendingZkCompletion: () async => throw Exception('still 401'),
+        isReconcilePending: () async => false,
       );
 
       sync.onAuthStatusChanged(

@@ -98,8 +98,15 @@ class Identity {
   /// override.
   bool get allowsNodeStart => phase != IdentityPhase.reconciling;
 
-  /// Signing (dApp bridge, Send flow) requires a settled identity.
-  bool get allowsSigning => isSettled;
+  /// Signing (dApp bridge, Send flow) requires an identity that OWNS an
+  /// account: a confirmed authenticated identity, or the local-only
+  /// unauthenticated mode where the active account is the device owner's.
+  /// Guests are refused — the active registry account (and its key) may
+  /// belong to a previously signed-in user, and a guest session must never
+  /// operate it. When this is true, [address] is always non-null.
+  bool get allowsSigning =>
+      phase == IdentityPhase.ready ||
+      (phase == IdentityPhase.unauthenticated && address != null);
 
   Identity copyWith({
     int? epoch,

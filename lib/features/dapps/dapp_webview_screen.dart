@@ -543,7 +543,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
             // bridge caller always settles instead of hanging.
             try {
               if (method == 'getNodeAddress') {
-                final address = await _getActiveNodeAddress();
+                final address = _bridgeWalletIdentity()?.address;
                 if (address == null || address.isEmpty) {
                   await _resolveJsPromise(
                     id: id,
@@ -880,7 +880,25 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<void> _handleGetWalletState(String id) async {
-    final address = await _getActiveNodeAddress();
+    // Unavailable-shaped response (all nulls) unless the identity owns a
+    // wallet: mid-reconcile and guest sessions must not be served the
+    // registry's active account or its cached balance.
+    final identity = _bridgeWalletIdentity();
+    if (identity == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: {
+          'address': null,
+          'balance': null,
+          'tokenAmount': null,
+          'tokenSymbol': null,
+          'lastUpdatedMs': null,
+        },
+        error: null,
+      );
+      return;
+    }
+    final address = identity.address;
     // First read lazily initializes the provider; wait briefly for the
     // initial load so a fresh page doesn't always see nulls, but never
     // hang the page's promise on a slow node.
@@ -1301,10 +1319,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     await _controller.loadRequest(uri);
   }
 
-  Future<String?> _getActiveNodeAddress() async {
-    final repo = await _providers.read(accountsProvider.future);
-    final active = await repo.getActive();
-    return active?.address;
+  /// The identity whose wallet this bridge may expose, or null when there is
+  /// none: reconciling/unknown (account ownership unsettled) and guest
+  /// sessions (the active registry account may belong to a previously
+  /// signed-in user) get nothing. When non-null, [Identity.address] is the
+  /// confirmed wallet address — handlers use it instead of reading the
+  /// registry's active account, so a mid-transition registry state can never
+  /// leak another identity's address.
+  Identity? _bridgeWalletIdentity() {
+    final identity = IdentitySnapshots.current;
+    if (!identity.allowsSigning) return null;
+    return identity;
   }
 
   Future<void> _resolveJsPromise({
@@ -1326,8 +1351,12 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     // Route-level gating cannot cover this bridge (every dApp webview can
     // request a send) — enforce identity readiness at the signing chokepoint
     // itself. While a reconcile is pending the active account may still
-    // belong to a previous user.
-    if (!IdentitySnapshots.current.allowsSigning) {
+    // belong to a previous user; guests never sign. The snapshot is CAPTURED
+    // here and revalidated right before the RPC send: this handler spans a
+    // user-paced confirmation dialog, during which a login/logout/rollover
+    // can replace the identity out from under the entry check.
+    final signingIdentity = _bridgeWalletIdentity();
+    if (signingIdentity == null) {
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1372,7 +1401,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     }
     final memo = frb_types.Memo.fromUtf8Str(s: memoString);
 
-    final fromAddress = await _getActiveNodeAddress();
+    // The sender is the CAPTURED identity's confirmed address — never the
+    // registry's active account, which a mid-transition reconcile may have
+    // already switched to another user's.
+    final fromAddress = signingIdentity.address;
     if (fromAddress == null || fromAddress.isEmpty) {
       await _resolveJsPromise(
         id: id,
@@ -1425,6 +1457,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         id: id,
         value: null,
         error: errorMessage,
+      );
+      return;
+    }
+
+    // Effect-point revalidation: the confirmation dialog above is unbounded
+    // user time. If the identity transitioned since capture, the runtime's
+    // wallet signer no longer (or may no longer) belong to the identity the
+    // user confirmed for — refuse instead of signing as someone else.
+    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed; please retry the transaction.',
       );
       return;
     }
@@ -1482,8 +1527,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       String id, Map<String, dynamic> payload) async {
     // Same identity gate as _handleSendTransaction: this handler loads the
     // active account's private key, which must never happen while account
-    // ownership is unsettled.
-    if (!IdentitySnapshots.current.allowsSigning) {
+    // ownership is unsettled or for a guest. Captured once, revalidated at
+    // the key-load effect point below.
+    final signingIdentity = _bridgeWalletIdentity();
+    if (signingIdentity == null) {
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1509,7 +1556,9 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     final repo = await _providers.read(accountsProvider.future);
     final active = await repo.getActive();
-    if (active == null) {
+    if (active == null || active.address != signingIdentity.address) {
+      // The registry's active account must be the captured identity's — a
+      // mismatch means a transition is mutating the registry mid-request.
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1524,6 +1573,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         id: id,
         value: null,
         error: 'User denied the signature request',
+      );
+      return;
+    }
+
+    // Effect-point revalidation after the user-paced confirmation dialog —
+    // the private key is loaded on the next line.
+    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed; please retry the request.',
       );
       return;
     }
@@ -2127,7 +2187,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final address = await _getActiveNodeAddress();
+    final address = _bridgeWalletIdentity()?.address;
     if (address == null || address.isEmpty) return;
 
     final dappUri = parseDappUrl(widget.url);
@@ -2242,7 +2302,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<void> _openTxDebugPanel() async {
-    final userAddress = await _getActiveNodeAddress();
+    final userAddress = _bridgeWalletIdentity()?.address;
     final dappUri = parseDappUrl(widget.url);
     final explorerOrigin = Uri(
       scheme: dappUri.scheme,

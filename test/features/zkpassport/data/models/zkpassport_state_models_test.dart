@@ -73,6 +73,37 @@ void main() {
       expect(parsed.userPublicKey, 'PK');
     });
 
+    test('launch identity fields persist across a round-trip', () {
+      const original = ZkPassportRuntimeSession(
+        requestId: 'req',
+        facematchStrict: true,
+        phase: ZkPassportPipelinePhase.waiting,
+        createdAtMs: 100,
+        lastProgressAtMs: 200,
+        resumeAttemptCount: 0,
+        launchEpoch: 4,
+        launchBucket: 'acct_ut1abc',
+        launchParticipantId: 77,
+      );
+      final parsed = ZkPassportRuntimeSession.fromJson(original.toJson());
+      expect(parsed, isNotNull);
+      expect(parsed!.launchEpoch, 4);
+      expect(parsed.launchBucket, 'acct_ut1abc');
+      expect(parsed.launchParticipantId, 77);
+    });
+
+    test('legacy sessions without launch identity parse with nulls', () {
+      final legacy = session().toJson()
+        ..remove('launchEpoch')
+        ..remove('launchBucket')
+        ..remove('launchParticipantId');
+      final parsed = ZkPassportRuntimeSession.fromJson(legacy);
+      expect(parsed, isNotNull);
+      expect(parsed!.launchEpoch, isNull);
+      expect(parsed.launchBucket, isNull);
+      expect(parsed.launchParticipantId, isNull);
+    });
+
     test('fromJson rejects missing/invalid required fields', () {
       final ok = session().toJson();
       expect(ZkPassportRuntimeSession.fromJson({...ok}..remove('requestId')),

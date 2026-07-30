@@ -273,7 +273,21 @@ class RustBackendService {
   /// previous user — refuse to start. The [NodeAccountReconciler] is the ONE
   /// caller allowed through (via [identityOverride]) because it starts the
   /// node under the account it just confirmed.
-  Future<bool> startNode({int? httpPort, bool identityOverride = false}) async {
+  ///
+  /// The gate is checked at entry AND re-checked after the (long) internal
+  /// start: a login can close the gate while a start is in flight, and the
+  /// runtime it built holds the pre-login account's key — tear it down
+  /// instead of returning it as a success.
+  ///
+  /// [freshRuntime] (reconciler only): never adopt an already-running global
+  /// node — its block-producer key was fixed at build time for whichever
+  /// account was active then and cannot be swapped. The existing runtime is
+  /// shut down and a new one is built under the now-active account.
+  Future<bool> startNode({
+    int? httpPort,
+    bool identityOverride = false,
+    bool freshRuntime = false,
+  }) async {
     if (!identityOverride && !IdentitySnapshots.current.allowsNodeStart) {
       _log.warn('startNode refused: identity is '
           '${IdentitySnapshots.current.phase.name} (account ownership '
@@ -288,7 +302,25 @@ class RustBackendService {
     final completer = Completer<bool>();
     _startNodeCompleter = completer;
     try {
-      final started = await _startNodeInternal(httpPort: httpPort);
+      final started = await _startNodeInternal(
+        httpPort: httpPort,
+        freshRuntime: freshRuntime,
+      );
+      if (started &&
+          !identityOverride &&
+          !IdentitySnapshots.current.allowsNodeStart) {
+        // The identity became unsettled while the start was in flight; the
+        // runtime captured the pre-transition account's key. Settle waiters
+        // first (stopNode waits on this completer), then tear down.
+        _log.warn('startNode: identity became unsettled mid-start; '
+            'stopping the just-started node');
+        if (identical(_startNodeCompleter, completer)) {
+          _startNodeCompleter = null;
+        }
+        completer.complete(false);
+        await stopNode();
+        return false;
+      }
       completer.complete(started);
       return started;
     } catch (e, st) {
@@ -320,7 +352,10 @@ class RustBackendService {
     }
   }
 
-  Future<bool> _startNodeInternal({int? httpPort}) async {
+  Future<bool> _startNodeInternal({
+    int? httpPort,
+    bool freshRuntime = false,
+  }) async {
     if (!_initialized) {
       await init();
     }
@@ -374,21 +409,45 @@ class RustBackendService {
     // This avoids spinning up a second node when another engine already started it.
     final existing = Node.getGlobal();
     if (existing case (final rpc, final control)) {
-      _rpc = rpc;
-      _control = control;
-      _nodeRunning = true;
-      _nodePaused = false;
-      control.resume();
-      await _cachePeerIdFromRpc(rpc);
+      if (freshRuntime) {
+        // A reconciler start must bind BOTH runtime identities (block
+        // producer + wallet signer) to the reconciled account. The producer
+        // key of an existing runtime was fixed at build time and cannot be
+        // swapped, so the existing node is torn down and rebuilt. Waiting
+        // for it to actually go down avoids two producers racing.
+        _log.warn('Fresh-runtime start found an existing global node; '
+            'shutting it down before rebuilding');
+        control.shutdown();
+        final wentDown = await _waitForGlobalNodeDown();
+        if (!wentDown) {
+          _log.error('Existing global node did not shut down; refusing to '
+              'bind the reconciled account to a runtime with unknown keys');
+          return false;
+        }
+      } else {
+        _rpc = rpc;
+        _control = control;
+        _nodeRunning = true;
+        _nodePaused = false;
+        control.resume();
+        await _cachePeerIdFromRpc(rpc);
 
-      await _configureWalletSigner(secretKey, account.id);
-      _log.info('Reused previously started node');
-      unawaited(
-        ObservabilityReportingService.instance.reportNodeInitialized(
-          resetStaticContext: true,
-        ),
-      );
-      return true;
+        final signerOk = await _configureWalletSigner(secretKey, account.id);
+        if (!signerOk) {
+          // The reused runtime still holds whichever signer it was left
+          // with — possibly a previous account's. Running like that lets
+          // wallet RPC sends sign as the wrong account; tear down instead.
+          _teardownRuntimeAfterFailedBind();
+          return false;
+        }
+        _log.info('Reused previously started node');
+        unawaited(
+          ObservabilityReportingService.instance.reportNodeInitialized(
+            resetStaticContext: true,
+          ),
+        );
+        return true;
+      }
     }
 
     // Start node
@@ -471,7 +530,15 @@ class RustBackendService {
         _log.warn('Failed to cache peer ID (node may still be starting): $e');
       }
 
-      await _configureWalletSigner(secretKey, account.id);
+      final signerOk = await _configureWalletSigner(secretKey, account.id);
+      if (!signerOk) {
+        // The producer key is correct (set at build), but wallet RPC sends
+        // would fail or — worse, after a future reuse — sign under a stale
+        // signer. A start that cannot bind the signer is a failed start;
+        // the reconciler must not commit `ready` on top of it.
+        _teardownRuntimeAfterFailedBind();
+        return false;
+      }
 
       _log.info('Node started with user account block producer');
       unawaited(
@@ -488,7 +555,10 @@ class RustBackendService {
     }
   }
 
-  Future<void> _configureWalletSigner(
+  /// Returns true when the signer was bound. A false return means the
+  /// runtime is left with whatever signer it previously held — callers must
+  /// treat the start as failed (see call sites).
+  Future<bool> _configureWalletSigner(
       String secretKey, String accountId) async {
     const maxAttempts = 5;
     const retryDelay = Duration(milliseconds: 500);
@@ -505,7 +575,7 @@ class RustBackendService {
 
         if (resp != null && resp.ok) {
           _log.info('Wallet signer configured for account $accountId');
-          return;
+          return true;
         }
 
         final error =
@@ -521,11 +591,46 @@ class RustBackendService {
     }
     _log.error(
       'Wallet signer configuration failed after $maxAttempts attempts '
-      'for account $accountId — dapp transactions will not work',
+      'for account $accountId — refusing to run with an unbound signer',
     );
+    return false;
+  }
+
+  /// Shuts down a runtime whose identity binding failed mid-start. Direct
+  /// shutdown (not [stopNode]) because this runs INSIDE the start that
+  /// [stopNode] would wait on.
+  void _teardownRuntimeAfterFailedBind() {
+    _control?.shutdown();
+    _nodeRunning = false;
+    _nodePaused = false;
+    _rpc = null;
+    _control = null;
+    _cachedPeerId = null;
+  }
+
+  /// Polls until [Node.getGlobal] reports the process-wide node as down
+  /// (shutdown is signal-based and completes asynchronously). Returns false
+  /// on timeout.
+  Future<bool> _waitForGlobalNodeDown() async {
+    const timeout = Duration(seconds: 10);
+    const pollInterval = Duration(milliseconds: 100);
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (Node.getGlobal() == null) return true;
+      await Future.delayed(pollInterval);
+    }
+    return Node.getGlobal() == null;
   }
 
   Future<void> resumeNode() async {
+    // Same gate as startNode: resume is a secondary "make the runtime
+    // operate" path (ZK pipeline, lifecycle foreground) and must not wake a
+    // suspended runtime while account ownership is unsettled.
+    if (!IdentitySnapshots.current.allowsNodeStart) {
+      _log.warn('resumeNode refused: identity is '
+          '${IdentitySnapshots.current.phase.name}');
+      return;
+    }
     _log.info('Resuming node');
     final wasPaused = _nodePaused;
     _nodePaused = false;
@@ -548,6 +653,12 @@ class RustBackendService {
   }
 
   Future<void> stopNode() async {
+    // A start in flight has already captured an account key while
+    // `_nodeRunning` is still false — a stop that returned now would leave
+    // that node running AFTER the caller believes everything is down (the
+    // exact wrong-key window login suspension exists to close). Wait it
+    // out, then stop whatever it produced.
+    await waitForStartCompletion();
     if (!_initialized && !_nodeRunning) return;
     // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
     _log.warn(

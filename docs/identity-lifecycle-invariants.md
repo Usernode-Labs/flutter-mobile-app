@@ -68,15 +68,28 @@ whenever the identity is `reconciling`, and by `WelcomeSetupScreen`.
 active account's secret key at start. `RustBackendService.startNode` — the
 chokepoint every start path funnels through (bootstrap, wake, foreground
 task, alarms) — refuses to start while the identity is `reconciling`
-(`Identity.allowsNodeStart`); only the reconciler passes
-`identityOverride: true`, and only for the account it just confirmed.
-Entering `reconciling` (login, season rollover) stops a running node; the
-reconciler waits out any in-flight start
-(`waitForStartCompletion`), bounces a running node, and treats
+(`Identity.allowsNodeStart`), and `resumeNode` applies the same gate; only
+the reconciler passes `identityOverride: true`, and only for the account
+it just confirmed. The gate is airtight against races on both sides:
+`completeLogin` / `beginSeasonRollover` publish the `reconciling` snapshot
+*before their first `await`*, so a start racing the transition already
+sees the closed gate; `startNode` re-checks the gate after the runtime
+comes up and tears it down if the identity became unsettled mid-start; and
+`stopNode` waits out any in-flight start before stopping, so a suspend can
+never interleave with a start and lose. Entering `reconciling` stops a
+running node; the reconciler then requests `freshRuntime: true`, which
+shuts down and rebuilds any existing global node — the block producer key
+is captured at build time and cannot be swapped on a live runtime — and a
+wallet-signer bind failure fails the start and tears the runtime down
+rather than leaving a half-bound node running. The reconciler treats
 `startNode() == false` as failure — the identity must not become `ready`
 with an unconfirmed runtime.
-*Enforced by:* the gate in `startNode`, `_suspendNode` in
-`SessionController.completeLogin` / `beginSeasonRollover`, and
+*Enforced by:* the gates in `startNode` / `resumeNode`, the post-start
+re-check and `_teardownRuntimeAfterFailedBind` in
+`RustBackendService._startNodeInternal`, the publish-before-await order
+and `_suspendNode` in `SessionController.completeLogin` /
+`beginSeasonRollover` (gate-ordering test in
+`test/features/auth/providers/auth_status_test.dart`), and
 `NodeAccountReconciler._defaultEnsureNodeIdentity` (runs before the
 `reconcileSucceeded` commit).
 
@@ -127,20 +140,35 @@ step may assume a previous run completed.
 `test/core/providers/participant_id_migration_test.dart`.
 
 **I7 — A pending ZK completion is eventually submitted or explicitly
-rolled back, under the identity that owns it.** The pending record is an
-identity-keyed outbox row: persisted (pinned to the owning identity's
-bucket) BEFORE the first delivery attempt, so killing the app mid-send
-never loses the retry. Terminal 4xx (except 401/408/429) clears the record
-AND rolls back the optimistic local registration — but only when the
-identity that answered is still the identity that submitted. 401 preserves
-the proof; the retry fires when the identity settles to `ready` — not only
-on cold start. The retry never runs under an unsettled identity
+rolled back, under the identity that owns it.** A ZK run is *bound to its
+launch identity*: `markLaunchStarted` persists the launching epoch,
+bucket, and participant id in the runtime session, and every later stage
+— foreground recovery, server polling, the proof pipeline — re-validates
+the current identity against that launch identity
+(`_checkLaunchIdentity`): a different user's session is discarded, an
+unsettled identity defers rather than proceeding. The pending completion
+record is an identity-keyed outbox row: persisted (pinned to the owning
+identity's bucket) BEFORE the first delivery attempt, so killing the app
+mid-send never loses the retry. Every completion POST re-checks the epoch
+immediately before the request fires — not just at the retry's entry —
+because retry backoff delays are suspension points a login can pass
+through. Terminal 4xx (except 401/408/429) clears the record AND rolls
+back the optimistic local registration — but only when the identity that
+answered is still the identity that submitted (the rollback itself
+re-validates the epoch it was told to target). 401 preserves the proof;
+the retry fires when the identity settles to `ready` — not only on cold
+start. The retry never runs under an unsettled identity
 (`Identity.isSettled`), pins reads and clears to the bucket captured at
 start, and epoch-scopes its coalescing so a newer identity's caller never
 joins a stale run.
-*Enforced by:* `isTerminalZkCompletionRejection`,
-`retryPendingCompletion` / `_attemptBackendCompletion`
+*Enforced by:* `markLaunchStarted` / `_checkLaunchIdentity` /
+`isTerminalZkCompletionRejection`, `retryPendingCompletion` /
+`_attemptBackendCompletion` / `_handleTerminalCompletionRejection`
 (`lib/features/zkpassport/providers/zkpassport_flow_provider.dart`),
+the launch-identity fields on `ZkPassportRuntimeSession`
+(`lib/features/zkpassport/data/models/zkpassport_models.dart`, round-trip
+tests in
+`test/features/zkpassport/data/models/zkpassport_state_models_test.dart`),
 `storePendingCompletion(bucket:)`
 (`lib/features/zkpassport/data/repositories/zkpassport_repositories.dart`),
 and the ready-transition trigger in the `IdentityDriver`.
@@ -194,17 +222,31 @@ probe test in `test/features/auth/providers/auth_status_test.dart`),
 `NodeAccountReconciler._resolveParticipantId`, and the commit gating in
 `reconcileSucceeded`.
 
-**I12 — Identity is gated until reconciled.** While the identity is
-`reconciling`, an authenticated session must not sign or spend with the
-active local account — it may still belong to a previous user. Three
+**I12 — Identity is gated until reconciled, and signing authority is
+re-proven at the effect point.** While the identity is `reconciling`, an
+authenticated session must not sign or spend with the active local
+account — it may still belong to a previous user; guest sessions never
+sign at all (`Identity.allowsSigning` refuses `guest` outright). Three
 independent gates enforce this: the router bounces wallet routes
 (`identityGateRedirect`), the dApp bridge refuses `sendTransaction` /
-`signMessage` (`Identity.allowsSigning`), and the node-start chokepoint
-refuses to start (I2). The router re-evaluates on every published
+`signMessage`, and the node-start chokepoint refuses to start (I2). Entry
+gates alone are not enough: the dApp handlers capture the signing
+identity when the request arrives and re-validate its epoch *after* the
+user confirmation dialog, immediately before loading the secret key or
+issuing the RPC — a login/logout while the dialog is up must not let the
+old confirmation sign under the new identity. All wallet reads exposed to
+dApps (`getNodeAddress`, `getWalletState`, balance/transaction fetches)
+derive their address from the same identity snapshot, never from the
+account registry directly. The router re-evaluates on every published
 snapshot.
 *Enforced by:* `identityGateRedirect` (`lib/core/config/app_router.dart`),
-the guards in `DappWebViewScreen._handleSendTransaction` /
-`_handleSignMessage`, and the `startNode` gate.
+`Identity.allowsSigning` (guest-refusal test in
+`test/features/auth/providers/auth_status_test.dart`),
+`_bridgeWalletIdentity` and the post-confirmation epoch re-checks in
+`DappWebViewScreen._handleSendTransaction` / `_handleSignMessage`
+(`lib/features/dapps/dapp_webview_screen.dart`), the identity-derived
+address in `walletProvider` (`lib/core/providers/wallet_provider.dart`),
+and the `startNode` gate.
 
 **I13 — Reconciliation follows the active season.** `/wallet/provision`
 allocates per season. A session that lives across a season rollover must
@@ -213,10 +255,18 @@ signal is the backend's `is_active` season from `/seasons`
 (`activeSeasonIdOf`), never the user-selected reporting season the season
 picker mutates. The controller compares it against the identity's
 persisted `provisionedSeasonId` and re-enters `reconciling` (new epoch)
-only on a genuine mismatch, so the listener can fire on every refresh.
+only on a genuine mismatch, so the listener can fire on every refresh. A
+rollover also suspends a running node (I2) — it was producing under the
+previous season's binding. Installs upgraded from before season tracking
+have a `ready` identity with *no* baseline: the first authoritative season
+report triggers a one-time migration reconcile (guarded by a persisted
+per-account flag so a backend that still reports no season id cannot loop
+it).
 *Enforced by:* `seasonRolloverSyncProvider` / `activeSeasonIdOf`
 (`lib/features/auth/providers/post_sign_in_sync.dart`) and
-`SessionController.beginSeasonRollover`.
+`SessionController.beginSeasonRollover` (rollover-suspend and
+baseline-migration tests in
+`test/features/auth/providers/auth_status_test.dart`).
 
 ## Known residual risks (accepted for now)
 

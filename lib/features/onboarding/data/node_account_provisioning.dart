@@ -73,15 +73,23 @@ class NodeAccountReconciler {
   /// - the start passes `identityOverride` because the identity phase is
   ///   still `reconciling` at this point — the general [startNode] gate
   ///   refuses to start under an unsettled identity;
-  /// - `startNode() == false` is a failure: the caller must not commit the
-  ///   reconcile with an unconfirmed node identity.
+  /// - the start passes `freshRuntime` because adopting an already-running
+  ///   global runtime would keep its build-time block-producer key (there
+  ///   is no swap API); the runtime must be rebuilt so BOTH the producer
+  ///   key and the wallet signer belong to the reconciled account;
+  /// - `startNode() == false` is a failure (including a failed wallet-signer
+  ///   bind, which startNode treats as a failed start): the caller must not
+  ///   commit the reconcile with an unconfirmed node identity.
   static Future<void> _defaultEnsureNodeIdentity() async {
     final svc = RustBackendService.instance;
     await svc.waitForStartCompletion();
     if (svc.isRunning) {
       await svc.stopNode();
     }
-    final started = await svc.startNode(identityOverride: true);
+    final started = await svc.startNode(
+      identityOverride: true,
+      freshRuntime: true,
+    );
     if (!started) {
       throw StateError('Node failed to start under the reconciled account');
     }
@@ -167,6 +175,13 @@ class NodeAccountReconciler {
   }
 
   Future<bool> _reconcile(int epoch) async {
+    // Gate-closing transitions publish the reconciling identity BEFORE
+    // their persistence writes finish (see SessionController.completeLogin),
+    // so the session token this authenticated call needs may not be
+    // readable yet. Wait for the transition queue to drain first.
+    await _ref.read(identityProvider.notifier).transitionsSettled;
+    if (!_stillCurrent(epoch)) return false;
+
     final identity = _currentIdentity();
     final api = _ref.read(leaderboardApiServiceProvider);
     final provisioned = await api.provisionWallet();

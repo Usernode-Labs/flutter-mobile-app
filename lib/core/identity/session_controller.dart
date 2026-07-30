@@ -72,6 +72,8 @@ class SessionController extends StateNotifier<Identity> {
 
   static const _kReconcilePendingKeyBase = 'account:reconcile_pending';
   static const _kProvisionedSeasonKeyBase = 'identity:provisioned_season';
+  static const _kSeasonBaselineMigratedKeyBase =
+      'identity:season_baseline_migrated';
 
   final AuthTokenStore _tokenStore;
   final AuthGuestFlag _guestFlag;
@@ -87,6 +89,14 @@ class SessionController extends StateNotifier<Identity> {
 
   Future<void>? _restoreFuture;
   Future<void> _queueTail = Future.value();
+
+  /// Completes when every transition queued so far has finished its
+  /// persistence writes. Gate-closing transitions publish the new identity
+  /// BEFORE they persist (so concurrent node starts / signing see the closed
+  /// gate immediately); work triggered by that publish which needs the
+  /// persisted side (e.g. the reconciler's authenticated provision call
+  /// reading the just-written session token) awaits this first.
+  Future<void> get transitionsSettled => _queueTail;
 
   /// Runs [body] after every previously queued transition has finished, so
   /// transitions never interleave.
@@ -140,6 +150,24 @@ class SessionController extends StateNotifier<Identity> {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(
         NetworkPrefs.prefixAccountKeyFor(_kProvisionedSeasonKeyBase, bucket));
+  }
+
+  /// One-shot flag for the null-baseline migration in [beginSeasonRollover]:
+  /// set before the migration reconcile is published so the migration can
+  /// never loop if the backend does not return a season id.
+  Future<bool> _readSeasonBaselineMigrated(String bucket) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(NetworkPrefs.prefixAccountKeyFor(
+            _kSeasonBaselineMigratedKeyBase, bucket)) ??
+        false;
+  }
+
+  Future<void> _writeSeasonBaselineMigrated(String bucket) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(
+        NetworkPrefs.prefixAccountKeyFor(
+            _kSeasonBaselineMigratedKeyBase, bucket),
+        true);
   }
 
   // -- transitions ------------------------------------------------------------
@@ -223,23 +251,33 @@ class SessionController extends StateNotifier<Identity> {
   /// owns — until then the node stays suspended, signing is refused, and the
   /// guest bucket is active so no other identity's data is read or written.
   Future<void> completeLogin(AuthSession session) => _transition(() async {
-        // Marker + staged id BEFORE the token write: they are the
-        // crash-recovery payload. If the token became boot-restorable first
-        // and the app died, the participant id would exist only in the lost
-        // AuthSession.
-        await _writeReconcileMarker();
-        await stageParticipantIdInGuestBucket(session.participant.id);
-        await _tokenStore.write(session.token);
-        await _guestFlag.clear();
-        // A running node keeps signing/producing under whichever account was
-        // active before this login. Ownership is now unknown — stop it. The
-        // reconciler restarts it under the confirmed account.
-        await _suspendNode();
+        // Close the gate FIRST — before any await. From this instant every
+        // concurrent path (a node start racing this login, a dApp signing
+        // request mid-confirmation) sees the reconciling identity and
+        // refuses; publishing after the writes below would leave a window
+        // where such work passes an entry check under the old settled
+        // identity. Consumers that need the persisted side of this
+        // transition (the reconciler reading the session token) await
+        // [transitionsSettled].
         _publish(Identity(
           epoch: state.epoch + 1,
           phase: IdentityPhase.reconciling,
           participantId: session.participant.id,
         ));
+        // Marker + staged id BEFORE the token write: they are the
+        // crash-recovery payload. If the token became boot-restorable first
+        // and the app died, the participant id would exist only in the lost
+        // AuthSession. (A crash before the token write loses only the
+        // in-memory publish above — the next boot restores signed-out.)
+        await _writeReconcileMarker();
+        await stageParticipantIdInGuestBucket(session.participant.id);
+        await _tokenStore.write(session.token);
+        await _guestFlag.clear();
+        // A running node keeps signing/producing under whichever account was
+        // active before this login. Ownership is now unknown — stop it (this
+        // also waits out any in-flight start that slipped past the gate).
+        // The reconciler restarts it under the confirmed account.
+        await _suspendNode();
       });
 
   Future<void> continueAsGuest() => _transition(() async {
@@ -345,17 +383,34 @@ class SessionController extends StateNotifier<Identity> {
   /// The current account/bucket are kept — they still belong to the same
   /// USER — but wallet routes, signing, and node starts are gated until the
   /// reconcile settles the new season binding.
+  /// A ready identity with a null baseline is an install upgraded from
+  /// before season baselines were persisted — rollovers are undetectable
+  /// for it. Route it through ONE reconcile (the `/wallet/provision`
+  /// response establishes the baseline); the persisted flag keeps this from
+  /// looping on every `/seasons` refresh if the backend returns no season id.
   Future<void> beginSeasonRollover({required int activeSeasonId}) =>
       _transition(() async {
         if (state.phase != IdentityPhase.ready) return;
         final provisioned = state.provisionedSeasonId;
-        if (provisioned == null || provisioned == activeSeasonId) return;
-        _log.info('Season rollover detected '
-            '($provisioned -> $activeSeasonId) - reconciling account');
-        await _writeReconcileMarker();
+        if (provisioned == activeSeasonId) return;
+        if (provisioned == null) {
+          if (await _readSeasonBaselineMigrated(state.bucket)) return;
+          await _writeSeasonBaselineMigrated(state.bucket);
+          _log.info('No provisioned-season baseline (pre-baseline install) - '
+              'running one-time reconcile to establish it');
+        } else {
+          _log.info('Season rollover detected '
+              '($provisioned -> $activeSeasonId) - reconciling account');
+        }
+        // Close the gate before the awaits below — same ordering rationale
+        // as completeLogin.
         _publish(state.copyWith(
           epoch: state.epoch + 1,
           phase: IdentityPhase.reconciling,
         ));
+        await _writeReconcileMarker();
+        // The node is producing/signing under the previous season's account
+        // binding; suspend it until the reconcile rebinds the runtime.
+        await _suspendNode();
       });
 }

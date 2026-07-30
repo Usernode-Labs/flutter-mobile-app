@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 /// Records whether the login recovery payload (reconcile-pending marker +
@@ -16,8 +17,13 @@ import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 /// token write made the session boot-restorable. A crash after the token
 /// write must find the payload in place, or the boot reconcile "succeeds"
 /// with nothing to migrate and the participant id is lost.
+///
+/// Also records the published identity phase at write time: the gate must
+/// close (reconciling published) BEFORE any of the transition's awaits, so
+/// concurrent signing/node-start checks can't pass under the old identity.
 class _OrderProbeTokenStore extends AuthTokenStore {
   bool payloadPersistedBeforeTokenWrite = false;
+  IdentityPhase? phaseAtTokenWrite;
 
   @override
   Future<void> write(String token) async {
@@ -28,6 +34,7 @@ class _OrderProbeTokenStore extends AuthTokenStore {
         prefs.getBool(NetworkPrefs.prefixKey('account:reconcile_pending')) ??
             false;
     payloadPersistedBeforeTokenWrite = stagedId != null && markerSet;
+    phaseAtTokenWrite = IdentitySnapshots.current.phase;
     await super.write(token);
   }
 }
@@ -288,6 +295,118 @@ void main() {
     await c.read(identityProvider.notifier).onUnauthorized(epoch: staleEpoch);
     expect(c.read(authStatusProvider), AuthStatus.authenticated);
     expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
+  });
+
+  test(
+      'completeLogin closes the identity gate before its persistence writes '
+      '(concurrent signing/node checks see reconciling)', () async {
+    final probe = _OrderProbeTokenStore();
+    final c = ProviderContainer(overrides: [
+      authTokenStoreProvider.overrideWithValue(probe),
+    ]);
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    // By the time the token write ran (mid-transition), the reconciling
+    // identity was already published — the gate was closed first.
+    expect(probe.phaseAtTokenWrite, IdentityPhase.reconciling);
+  });
+
+  test('guest sessions never allow signing or wallet exposure', () async {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(identityProvider.notifier).continueAsGuest();
+    final identity = c.read(identityProvider);
+    expect(identity.phase, IdentityPhase.guest);
+    // Guests are settled (their own bucket is trustworthy) but must never
+    // operate the registry's active account or its keys.
+    expect(identity.isSettled, isTrue);
+    expect(identity.allowsSigning, isFalse);
+  });
+
+  test('local-only unauthenticated identity signs only with an account', () {
+    const withAccount = Identity(
+      epoch: 1,
+      phase: IdentityPhase.unauthenticated,
+      accountId: 'acc-1',
+      address: 'addr-1',
+    );
+    const withoutAccount =
+        Identity(epoch: 1, phase: IdentityPhase.unauthenticated);
+    expect(withAccount.allowsSigning, isTrue);
+    expect(withoutAccount.allowsSigning, isFalse);
+    expect(
+        const Identity(epoch: 1, phase: IdentityPhase.reconciling)
+            .allowsSigning,
+        isFalse);
+  });
+
+  group('node suspension and season baseline (injected suspendNode)', () {
+    late int suspendCount;
+    late SessionController controller;
+
+    setUp(() {
+      suspendCount = 0;
+      controller = SessionController(
+        tokenStore: AuthTokenStore(),
+        guestFlag: AuthGuestFlag(),
+        repository: AuthRepository(),
+        suspendNode: () async => suspendCount++,
+      );
+    });
+
+    tearDown(() => controller.dispose());
+
+    Future<void> settleReady({int? provisionedSeasonId}) async {
+      await controller.restore();
+      await controller.completeLogin(_session('sess-2'));
+      final committed = await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'acc-1',
+        address: 'addr-1',
+        participantId: 1,
+        provisionedSeasonId: provisionedSeasonId,
+      );
+      expect(committed, isTrue);
+    }
+
+    test('completeLogin and season rollover both suspend the node', () async {
+      await settleReady(provisionedSeasonId: 7);
+      expect(suspendCount, 1); // login suspension
+
+      await controller.beginSeasonRollover(activeSeasonId: 8);
+      expect(controller.state.phase, IdentityPhase.reconciling);
+      // The rollover suspended the node too: it was producing under the
+      // previous season's account binding.
+      expect(suspendCount, 2);
+    });
+
+    test(
+        'a ready identity with no provisioned-season baseline reconciles '
+        'once (pre-baseline install migration), and only once', () async {
+      await settleReady(provisionedSeasonId: null);
+      expect(controller.state.provisionedSeasonId, isNull);
+      final readyEpoch = controller.state.epoch;
+
+      // First authoritative season report: one-time migration reconcile.
+      await controller.beginSeasonRollover(activeSeasonId: 5);
+      expect(controller.state.phase, IdentityPhase.reconciling);
+      expect(controller.state.epoch, greaterThan(readyEpoch));
+
+      // The migration reconcile commits — but the backend again returned no
+      // season id. The persisted flag must prevent an endless loop.
+      final committed = await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'acc-1',
+        address: 'addr-1',
+        participantId: 1,
+        provisionedSeasonId: null,
+      );
+      expect(committed, isTrue);
+      await controller.beginSeasonRollover(activeSeasonId: 5);
+      expect(controller.state.phase, IdentityPhase.ready);
+    });
   });
 
   test('onUnauthorized keeps a remembered guest as guest', () async {

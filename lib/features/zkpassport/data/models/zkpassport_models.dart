@@ -96,6 +96,9 @@ class ZkPassportRuntimeSession {
     required this.lastProgressAtMs,
     required this.resumeAttemptCount,
     this.userPublicKey,
+    this.launchEpoch,
+    this.launchBucket,
+    this.launchParticipantId,
   });
 
   final String requestId;
@@ -105,6 +108,17 @@ class ZkPassportRuntimeSession {
   final int lastProgressAtMs;
   final int resumeAttemptCount;
   final String? userPublicKey;
+
+  /// Identity that launched this session, captured at launch time and
+  /// persisted with it. Resume/polling/finalization validate the CURRENT
+  /// identity against these before acting: [launchBucket] +
+  /// [launchParticipantId] identify the launching user durably (they
+  /// survive process restarts, unlike [launchEpoch], which is only
+  /// meaningful within the process that wrote it). Null on sessions
+  /// persisted by older app versions — validation fails open for those.
+  final int? launchEpoch;
+  final String? launchBucket;
+  final int? launchParticipantId;
 
   bool get isTerminal =>
       phase == ZkPassportPipelinePhase.success ||
@@ -121,6 +135,11 @@ class ZkPassportRuntimeSession {
       'resumeAttemptCount': resumeAttemptCount,
       if (userPublicKey != null && userPublicKey!.trim().isNotEmpty)
         'userPublicKey': userPublicKey,
+      if (launchEpoch != null) 'launchEpoch': launchEpoch,
+      if (launchBucket != null && launchBucket!.trim().isNotEmpty)
+        'launchBucket': launchBucket,
+      if (launchParticipantId != null)
+        'launchParticipantId': launchParticipantId,
     };
   }
 
@@ -170,6 +189,9 @@ class ZkPassportRuntimeSession {
       lastProgressAtMs: lastProgressAtMs,
       resumeAttemptCount: resumeAttemptCount < 0 ? 0 : resumeAttemptCount,
       userPublicKey: _optionalString(json['userPublicKey']),
+      launchEpoch: _optionalInt(json['launchEpoch']),
+      launchBucket: _optionalString(json['launchBucket']),
+      launchParticipantId: _optionalInt(json['launchParticipantId']),
     );
   }
 
@@ -181,6 +203,9 @@ class ZkPassportRuntimeSession {
     int? lastProgressAtMs,
     int? resumeAttemptCount,
     String? userPublicKey,
+    int? launchEpoch,
+    String? launchBucket,
+    int? launchParticipantId,
   }) {
     return ZkPassportRuntimeSession(
       requestId: requestId ?? this.requestId,
@@ -190,6 +215,9 @@ class ZkPassportRuntimeSession {
       lastProgressAtMs: lastProgressAtMs ?? this.lastProgressAtMs,
       resumeAttemptCount: resumeAttemptCount ?? this.resumeAttemptCount,
       userPublicKey: userPublicKey ?? this.userPublicKey,
+      launchEpoch: launchEpoch ?? this.launchEpoch,
+      launchBucket: launchBucket ?? this.launchBucket,
+      launchParticipantId: launchParticipantId ?? this.launchParticipantId,
     );
   }
 }
@@ -200,6 +228,16 @@ String? _optionalString(Object? value) {
   }
   final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
+}
+
+int? _optionalInt(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
 }
 
 class ZkPassportSettings {

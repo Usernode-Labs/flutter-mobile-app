@@ -5,8 +5,8 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart';
 import 'package:crypto_mobile_app/features/wallet/models/transaction_item.dart'
     as transaction_item;
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/mempool_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -25,13 +25,20 @@ class WalletState {
 class WalletController extends AsyncNotifier<WalletState> {
   @override
   Future<WalletState> build() async {
-    // Balance and history derive from the ACTIVE account. Rebuild on every
-    // identity transition (login, logout, reconcile account switch, season
-    // rollover) so user B never sees — or serves to dApps via
+    // Balance and history derive from the identity's confirmed address.
+    // Rebuild on every identity transition (login, logout, reconcile account
+    // switch, season rollover) so user B never sees — or serves to dApps via
     // getWalletState — user A's cached balance and transactions.
-    ref.watch(identityProvider);
-    var balance = await _calculateBalance();
-    var allTransactions = await _getAllTransactions();
+    final identity = ref.watch(identityProvider);
+    final address = _walletAddressFor(identity);
+    if (address == null) {
+      // No identity owns a wallet right now (guest, mid-reconcile, boot):
+      // an empty wallet, never the registry's active account (it may belong
+      // to a previous user).
+      return WalletState(balance: _emptyBalance(), recent: const []);
+    }
+    var balance = await _calculateBalance(address);
+    var allTransactions = await _getAllTransactions(address);
 
     // Startup race guard: wallet can initialize before node/RPC is running.
     // Retry once so initial UI does not get stuck on transient 0 balance.
@@ -41,8 +48,8 @@ class WalletController extends AsyncNotifier<WalletState> {
       _log.debug(
           'Initial wallet load happened before node start; retrying once');
       await Future.delayed(const Duration(seconds: 2));
-      balance = await _calculateBalance();
-      allTransactions = await _getAllTransactions();
+      balance = await _calculateBalance(address);
+      allTransactions = await _getAllTransactions(address);
     }
 
     return WalletState(
@@ -51,20 +58,26 @@ class WalletController extends AsyncNotifier<WalletState> {
     );
   }
 
+  /// The address whose wallet this provider may expose, or null when the
+  /// current identity does not own one. Same policy as the dApp bridge:
+  /// [Identity.allowsSigning] — ready, or local-only unauthenticated with
+  /// an active account; when it holds, [Identity.address] is non-null.
+  String? _walletAddressFor(Identity identity) {
+    if (!identity.allowsSigning) return null;
+    return identity.address;
+  }
+
+  WalletBalance _emptyBalance() => WalletBalance(
+        tokenAmount: 0.0,
+        tokenSymbol: 'TOKENS',
+        totalBalance: BigInt.zero,
+        dataSource: DataSource.local,
+        lastUpdated: DateTime.now(),
+      );
+
   /// Calculate wallet balance using explorer APIs with fallback to UTXOs
-  Future<WalletBalance> _calculateBalance() async {
+  Future<WalletBalance> _calculateBalance(String userAddress) async {
     try {
-      // Get active account
-      final accountsRepo = await AccountsRepository.create();
-      final activeAccount = await accountsRepo.getActive();
-
-      if (activeAccount == null || activeAccount.address.isEmpty) {
-        _log.debug('No active account available for balance calculation');
-        throw Exception(
-            'No active account found. Please create or select an account.');
-      }
-
-      final userAddress = activeAccount.address;
       _log.debug('Calculating balance for address: $userAddress');
 
       // Try explorer APIs first (primary -> secondary -> cached)
@@ -140,19 +153,8 @@ class WalletController extends AsyncNotifier<WalletState> {
   }
 
   /// Get all transactions (confirmed from explorer + pending from mempool) sorted by timestamp
-  Future<List<TransactionModel>> _getAllTransactions() async {
+  Future<List<TransactionModel>> _getAllTransactions(String userAddress) async {
     try {
-      // Get current user address
-      final accountsRepo = await AccountsRepository.create();
-      final activeAccount = await accountsRepo.getActive();
-
-      if (activeAccount == null || activeAccount.address.isEmpty) {
-        _log.debug('No active account for transaction fetch');
-        return [];
-      }
-
-      final userAddress = activeAccount.address;
-
       // Get confirmed transactions from explorer APIs or UTXO fallback
       final confirmedTransactions =
           await _getConfirmedTransactions(userAddress);
@@ -356,14 +358,23 @@ class WalletController extends AsyncNotifier<WalletState> {
   }
 
   Future<void> refresh() async {
+    // Manual refreshes bypass build(); apply the same identity gate so a
+    // refresh racing a transition can't repopulate the wallet from the
+    // registry's (possibly switched) active account.
+    final address = _walletAddressFor(ref.read(identityProvider));
+    if (address == null) {
+      state = AsyncValue.data(
+          WalletState(balance: _emptyBalance(), recent: const []));
+      return;
+    }
     state = const AsyncLoading();
 
     try {
       // Also refresh the mempool data
       await ref.read(walletMempoolProvider.notifier).refresh();
 
-      final balance = await _calculateBalance();
-      final allTransactions = await _getAllTransactions();
+      final balance = await _calculateBalance(address);
+      final allTransactions = await _getAllTransactions(address);
       state = AsyncValue.data(WalletState(
         balance: balance,
         recent: allTransactions,
@@ -375,12 +386,16 @@ class WalletController extends AsyncNotifier<WalletState> {
 
   /// Silent refresh - updates data without showing loading spinner
   Future<void> silentRefresh() async {
+    final address = _walletAddressFor(ref.read(identityProvider));
+    if (address == null) {
+      return;
+    }
     try {
       // Silently refresh mempool data too
       await ref.read(walletMempoolProvider.notifier).refresh();
 
-      final balance = await _calculateBalance();
-      final allTransactions = await _getAllTransactions();
+      final balance = await _calculateBalance(address);
+      final allTransactions = await _getAllTransactions(address);
       state = AsyncValue.data(WalletState(
         balance: balance,
         recent: allTransactions,

@@ -25,6 +25,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final _log = LoggingService.instance.withTag('usernode/ZkPassportFlow');
 
+/// Result of validating the current identity against a runtime session's
+/// persisted launch identity.
+enum _LaunchIdentityCheck {
+  /// Same user (or a legacy session without launch info) — proceed.
+  match,
+
+  /// The current identity is unsettled (boot restore or reconcile in
+  /// flight) — retry later; neither act nor discard.
+  defer,
+
+  /// A different settled identity — the session belongs to another user and
+  /// must not be resumed, stored, or completed under this one.
+  mismatch,
+}
+
 /// True when [error] is a backend completion response that can never succeed
 /// on retry: a 4xx other than 401 (expired/invalid session — the API layer
 /// clears the token and the app re-authenticates, after which the same
@@ -352,6 +367,32 @@ class ZkPassportPipelineController
   int _serverPollingBurstUntilAtMs = 0;
   ZkPassportRuntimeSession? _runtimeSession;
 
+  /// How the CURRENT identity relates to the identity that launched
+  /// [runtime] (see [ZkPassportRuntimeSession.launchBucket]).
+  ///
+  /// The launching USER is identified by bucket + participant id — durable
+  /// across process restarts, unlike the epoch, which is process-local and
+  /// restarts from small values on every boot (so raw epoch equality across
+  /// a restart would be meaningless). Sessions persisted by older app
+  /// versions carry no launch identity and fail open as [match].
+  _LaunchIdentityCheck _checkLaunchIdentity(ZkPassportRuntimeSession runtime) {
+    final launchBucket = runtime.launchBucket;
+    if (launchBucket == null) {
+      return _LaunchIdentityCheck.match; // legacy session — fail open
+    }
+    final current = IdentitySnapshots.current;
+    if (!current.isSettled) {
+      // Boot restore / reconcile still in progress: WHO the app is hasn't
+      // been established, so neither acting nor discarding is safe yet.
+      return _LaunchIdentityCheck.defer;
+    }
+    final sameUser = current.bucket == launchBucket &&
+        current.participantId == runtime.launchParticipantId;
+    return sameUser
+        ? _LaunchIdentityCheck.match
+        : _LaunchIdentityCheck.mismatch;
+  }
+
   bool _isPollingActiveFor(String requestId) {
     if (!_serverPollingInFlight) {
       return false;
@@ -517,6 +558,12 @@ class ZkPassportPipelineController
   }) async {
     await _startupResetFuture;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
+    // Persist WHO launched this session. Every later stage (foreground
+    // resume, polling, the proof pipeline) validates the current identity
+    // against these before acting, so a session launched by user A is never
+    // resumed, stored, or completed under user B — including across an app
+    // restart, which the durable bucket + participant id survive.
+    final launchIdentity = IdentitySnapshots.current;
     final session = ZkPassportRuntimeSession(
       requestId: requestId,
       facematchStrict: facematchStrict,
@@ -525,6 +572,9 @@ class ZkPassportPipelineController
       lastProgressAtMs: nowMs,
       resumeAttemptCount: 0,
       userPublicKey: userPublicKey,
+      launchEpoch: launchIdentity.epoch,
+      launchBucket: launchIdentity.bucket,
+      launchParticipantId: launchIdentity.participantId,
     );
     _runtimeSession = session;
     await _runtimeRepo.save(session);
@@ -622,26 +672,23 @@ class ZkPassportPipelineController
   }) async {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final current = _runtimeSession;
-    final createdAtMs = current != null && current.requestId == requestId
-        ? current.createdAtMs
-        : nowMs;
+    final sameSession = current != null && current.requestId == requestId;
+    final createdAtMs = sameSession ? current.createdAtMs : nowMs;
     final next = ZkPassportRuntimeSession(
       requestId: requestId,
-      facematchStrict: current != null && current.requestId == requestId
-          ? current.facematchStrict
-          : false,
+      facematchStrict: sameSession ? current.facematchStrict : false,
       phase: phase,
       createdAtMs: createdAtMs,
       lastProgressAtMs: nowMs,
       resumeAttemptCount: resetResumeAttempts
           ? 0
           : (resumeAttemptCount ??
-              (current != null && current.requestId == requestId
-                  ? current.resumeAttemptCount
-                  : 0)),
-      userPublicKey: current != null && current.requestId == requestId
-          ? current.userPublicKey
-          : null,
+              (sameSession ? current.resumeAttemptCount : 0)),
+      userPublicKey: sameSession ? current.userPublicKey : null,
+      // The launch identity is fixed for the session's lifetime.
+      launchEpoch: sameSession ? current.launchEpoch : null,
+      launchBucket: sameSession ? current.launchBucket : null,
+      launchParticipantId: sameSession ? current.launchParticipantId : null,
     );
     _runtimeSession = next;
     await _runtimeRepo.save(next);
@@ -694,6 +741,25 @@ class ZkPassportPipelineController
     }
     final requestId = runtime.requestId.trim();
     if (requestId.isEmpty) {
+      return;
+    }
+    // A preserved session launched by a DIFFERENT user (sign-out + sign-in
+    // while the app was backgrounded or killed) must not resume under the
+    // current identity — its proof would be stored and completed as the
+    // wrong user. Deferred (unsettled identity) is fine here: the polling
+    // attempts re-validate on every tick.
+    if (_checkLaunchIdentity(runtime) == _LaunchIdentityCheck.mismatch) {
+      _log.warn(
+        'Discarding zkPassport session launched by another identity',
+        context: {'requestId': requestId},
+      );
+      await _finalizeRuntimeSession(
+        requestId: requestId,
+        phase: ZkPassportPipelinePhase.failed,
+        status: ZkPassportPipelineStatus.failure,
+        message: 'The zkPassport session belongs to a different signed-in '
+            'account. Start a new verification.',
+      );
       return;
     }
     _setState(
@@ -750,6 +816,33 @@ class ZkPassportPipelineController
           runtime.isTerminal) {
         _stopServerPollingWorker();
         return;
+      }
+
+      // Every polling tick re-validates the launch identity: a login /
+      // logout / season rollover mid-poll must stop this session before a
+      // ready result is fetched and fed to the pipeline as the new user.
+      switch (_checkLaunchIdentity(runtime)) {
+        case _LaunchIdentityCheck.match:
+          break;
+        case _LaunchIdentityCheck.defer:
+          // Identity not settled yet (boot restore / reconcile): check
+          // again on the next tick instead of acting or discarding.
+          _scheduleServerPollingAttempt(requestId: requestId);
+          return;
+        case _LaunchIdentityCheck.mismatch:
+          _log.warn(
+            'Stopping zkPassport polling: session launched by another '
+            'identity',
+            context: {'requestId': requestId},
+          );
+          await _finalizeRuntimeSession(
+            requestId: requestId,
+            phase: ZkPassportPipelinePhase.failed,
+            status: ZkPassportPipelineStatus.failure,
+            message: 'The zkPassport session belongs to a different '
+                'signed-in account. Start a new verification.',
+          );
+          return;
       }
 
       final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -983,10 +1076,26 @@ class ZkPassportPipelineController
     int? fetchOuterProofMs,
   }) async {
     _inFlight = true;
-    // Bind this run to the identity that launched it: registration storage
-    // and backend completion below are refused if a login / logout / season
-    // reconcile switched the identity while proving was in flight — A's
-    // proof must never be stored or submitted under B's account.
+    // Bind this run to the identity that LAUNCHED the session (validated
+    // here against the current one), not to whoever happens to be current
+    // at result arrival: registration storage and backend completion below
+    // are refused if a login / logout / season reconcile switched the
+    // identity while proving was in flight — A's proof must never be stored
+    // or submitted under B's account.
+    final runtimeAtStart = _runtimeSession;
+    if (runtimeAtStart != null &&
+        runtimeAtStart.requestId == requestId &&
+        _checkLaunchIdentity(runtimeAtStart) != _LaunchIdentityCheck.match) {
+      _inFlight = false;
+      await _finalizeRuntimeSession(
+        requestId: requestId,
+        phase: ZkPassportPipelinePhase.failed,
+        status: ZkPassportPipelineStatus.failure,
+        message: 'The signed-in identity changed while the proof was being '
+            'produced. Please retry the verification.',
+      );
+      return;
+    }
     final pipelineIdentity = IdentitySnapshots.current;
     List<String>? outerPublicInputsHex;
     try {
@@ -1441,6 +1550,15 @@ class ZkPassportPipelineController
       StackTrace? lastStack;
 
       for (var attempt = 0; attempt < 3; attempt++) {
+        // Revalidate immediately before EVERY POST, not just at entry: the
+        // retry delays below are exactly where a login can complete and
+        // swap the token, and a request sent after that submits this proof
+        // under the new identity's credentials.
+        if (!identityStillCurrent()) {
+          _log.warn('Deferring backend completion: identity changed before '
+              'delivery (outbox row kept for its own identity)');
+          return;
+        }
         try {
           final ok = await api.completeZkPassport(
             challengeId: challengeId,
@@ -1484,7 +1602,7 @@ class ZkPassportPipelineController
           return;
         }
         await _handleTerminalCompletionRejection(lastError!, lastStack,
-            bucket: bucket);
+            bucket: bucket, requireEpoch: identity.epoch);
         return;
       }
 
@@ -1510,10 +1628,16 @@ class ZkPassportPipelineController
   /// starts stop retrying it, and roll back the optimistic local
   /// registration so the challenge stops rendering as earned and the retry
   /// CTA returns.
+  ///
+  /// Rollback targets are explicit: [bucket] pins the outbox clear to the
+  /// bucket the record lives in, and [requireEpoch] re-validates the
+  /// identity IMMEDIATELY before the registration clear (which resolves the
+  /// ambient active account) — the callers' pre-check has awaits after it.
   Future<void> _handleTerminalCompletionRejection(
     Object error,
     StackTrace? stack, {
     String? bucket,
+    required int requireEpoch,
   }) async {
     _log.warn('Backend permanently rejected zkPassport completion', context: {
       'error': error.toString(),
@@ -1534,6 +1658,11 @@ class ZkPassportPipelineController
       await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
     }
 
+    if (IdentitySnapshots.current.epoch != requireEpoch) {
+      _log.warn('Skipping registration rollback: identity changed during '
+          'rejection handling');
+      return;
+    }
     try {
       await _ref
           .read(zkPassportFlowControllerProvider)
@@ -1616,6 +1745,14 @@ class ZkPassportPipelineController
       }
 
       final api = _ref.read(leaderboardApiServiceProvider);
+      // Last revalidation before the POST: the reads above are suspension
+      // points where a transition can swap the token this request would be
+      // sent with.
+      if (!identityStillCurrent()) {
+        _log.warn('Skipping pending-completion retry: identity changed '
+            'before delivery');
+        return;
+      }
       final ok = await api.completeZkPassport(
         challengeId: challengeId,
         walletAddress: walletAddress,
@@ -1643,7 +1780,8 @@ class ZkPassportPipelineController
           _log.warn('Ignoring terminal rejection from a superseded session');
           return;
         }
-        await _handleTerminalCompletionRejection(e, st, bucket: bucket);
+        await _handleTerminalCompletionRejection(e, st,
+            bucket: bucket, requireEpoch: identity.epoch);
         return;
       }
       // Retryable (5xx/408/429): keep the pending record for the next

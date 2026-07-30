@@ -287,6 +287,11 @@ class CryptoMobileApp extends ConsumerWidget {
     // (account reconcile + pending zk completion retry on every sign-in).
     ref.watch(postSignInSyncProvider);
 
+    // Re-run the account reconcile when the active season rolls over
+    // mid-session — /wallet/provision allocates per season, and no sign-in
+    // transition fires for users who stay signed in across the rollover.
+    ref.watch(seasonRolloverSyncProvider);
+
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,
       theme: _lightTheme,

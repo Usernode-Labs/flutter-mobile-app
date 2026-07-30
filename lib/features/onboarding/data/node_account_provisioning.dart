@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
@@ -38,25 +39,65 @@ final nodeAccountReconcilerProvider = Provider<NodeAccountReconciler>(
 /// ownership check, user B signing in on user A's device would run the node
 /// (and every wallet-scoped backend call) against A's wallet.
 class NodeAccountReconciler {
-  NodeAccountReconciler(this._ref, {Future<void> Function()? restartNode})
-      : _restartNode = restartNode ?? _defaultRestartNode;
+  NodeAccountReconciler(
+    this._ref, {
+    Future<void> Function({required bool startIfSuspended})? ensureNodeIdentity,
+    int Function()? currentGeneration,
+  })  : _ensureNodeIdentity = ensureNodeIdentity ?? _defaultEnsureNodeIdentity,
+        _currentGeneration =
+            currentGeneration ?? (() => IdentityGenerations.current);
 
   final Ref _ref;
 
-  /// Restarts a running node so it re-reads the active account's key.
-  /// Injectable for tests (the default touches the Rust backend).
-  final Future<void> Function() _restartNode;
-  Future<bool>? _inFlight;
+  /// Brings the node runtime in line with the (just reconciled) active
+  /// account. Injectable for tests (the default touches the Rust backend).
+  final Future<void> Function({required bool startIfSuspended})
+      _ensureNodeIdentity;
 
-  static Future<void> _defaultRestartNode() async {
-    if (!RustBackendService.instance.isRunning) return;
-    await RustBackendService.instance.stopNode();
-    await RustBackendService.instance.startNode();
+  /// Source of the identity generation (see [IdentityGenerations]);
+  /// injectable for tests.
+  final int Function() _currentGeneration;
+
+  Future<bool>? _inFlight;
+  int? _inFlightGeneration;
+
+  /// Serializes an account switch with node startup and binds the runtime to
+  /// the active account:
+  ///
+  /// - waits for any in-flight [RustBackendService.startNode] — a cold-boot
+  ///   start may already have captured the OLD account's key while
+  ///   `isRunning` is still false, so deciding before it settles would race;
+  /// - a running node is stopped and started again (re-reads the active
+  ///   account's key at start);
+  /// - a node that is NOT running is only started when login suspended it
+  ///   ([NodeIdentitySuspension]) — otherwise a deliberately stopped node
+  ///   stays stopped;
+  /// - `startNode() == false` is a failure: the caller must not report the
+  ///   node identity as confirmed.
+  static Future<void> _defaultEnsureNodeIdentity(
+      {required bool startIfSuspended}) async {
+    final svc = RustBackendService.instance;
+    await svc.waitForStartCompletion();
+    if (svc.isRunning) {
+      await svc.stopNode();
+    } else if (!startIfSuspended) {
+      return;
+    }
+    final started = await svc.startNode();
+    if (!started) {
+      throw StateError('Node failed to start under the reconciled account');
+    }
   }
 
-  /// Runs a reconcile, coalescing concurrent calls onto one in-flight run
-  /// (sign-in listener and onboarding tap can race; two parallel imports of
-  /// the same account would duplicate registry entries).
+  /// Runs a reconcile, coalescing concurrent calls FOR THE SAME identity
+  /// generation onto one in-flight run (sign-in listener and onboarding tap
+  /// can race; two parallel imports of the same account would duplicate
+  /// registry entries).
+  ///
+  /// A caller from a NEWER generation (the user signed out / another user
+  /// signed in while a run was in flight) never joins the stale run — its
+  /// result would belong to the wrong session. It waits the stale run out,
+  /// then starts a fresh one.
   ///
   /// Returns `true` when the local state changed (account imported or a
   /// different account activated). Throws ([LeaderboardApiException],
@@ -64,16 +105,50 @@ class NodeAccountReconciler {
   /// surface it; onboarding must not proceed without an account or the
   /// router loops back to onboarding forever (`hasAny == false`).
   Future<bool> reconcile() {
+    final gen = _currentGeneration();
     final inFlight = _inFlight;
-    if (inFlight != null) return inFlight;
-    final run = _reconcile().whenComplete(() => _inFlight = null);
+    if (inFlight != null && _inFlightGeneration == gen) return inFlight;
+
+    late Future<bool> run;
+    run = _runAfter(inFlight, gen).whenComplete(() {
+      if (identical(_inFlight, run)) {
+        _inFlight = null;
+        _inFlightGeneration = null;
+      }
+    });
     _inFlight = run;
+    _inFlightGeneration = gen;
     return run;
   }
 
-  Future<bool> _reconcile() async {
+  Future<bool> _runAfter(Future<bool>? previous, int gen) async {
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {
+        // The stale run's failure was surfaced to its own caller.
+      }
+    }
+    if (_currentGeneration() != gen) {
+      // Superseded while waiting; the newest session's caller runs its own.
+      return false;
+    }
+    return _reconcile(gen);
+  }
+
+  Future<bool> _reconcile(int gen) async {
     final api = _ref.read(leaderboardApiServiceProvider);
     final provisioned = await api.provisionWallet();
+    // The provision round-trip is the long pole: if the session changed
+    // while it was in flight, this response belongs to a user who is no
+    // longer signed in. Mutating local state with it would hand their
+    // wallet to the current session (or to nobody). Abort before ANY
+    // mutation; the pending marker stays set so the new session's own
+    // reconcile repairs state.
+    if (_currentGeneration() != gen) {
+      _log.warn('Discarding stale provision response (session changed)');
+      return false;
+    }
     // NEVER log provisioned.secretKey — address only.
     _log.info('Wallet provisioned', context: {
       'address': provisioned.address,
@@ -86,8 +161,8 @@ class NodeAccountReconciler {
         accounts.where((a) => a.address == provisioned.address).firstOrNull;
 
     // Captured before any mutation: non-null means some account was already
-    // active — if the reconcile changes it, a running node is signing under
-    // the OLD identity and must be restarted (the node binds the active
+    // active — if the reconcile changes it, a node is (or may start) running
+    // under the OLD identity and must be bounced (the node binds the active
     // account's key at start; backendLifecycleProvider only reacts to
     // has-any-account flips, not switches).
     final previousActiveId = repo.getActiveId();
@@ -118,20 +193,26 @@ class NodeAccountReconciler {
     await refreshActiveAccountBucket(guest: false);
     await migrateGuestParticipantId();
 
-    if (changed) {
-      if (previousActiveId != null) {
-        // Active account switched away from a previously active one: restart
-        // a running node so it picks up the new identity. Failure is logged,
-        // not rethrown — the registry/bucket state is already correct and
-        // the next node start self-heals.
-        try {
-          await _restartNode();
-        } catch (e, st) {
-          _log.error('Node restart after account switch failed',
-              error: e, stackTrace: st);
-          await SentryUtil.captureError(e, st, tag: 'reconcile_node_restart');
-        }
+    // Bind the node runtime to the reconciled account when (a) login
+    // suspended it because ownership was unknown, or (b) this run switched
+    // the active account away from a previously active one. Failure keeps
+    // the pending marker set (below): the registry/bucket are correct, but
+    // "which key the runtime holds" is not yet confirmed.
+    final suspended = NodeIdentitySuspension.isSuspended;
+    var nodeIdentityConfirmed = true;
+    if (suspended || (changed && previousActiveId != null)) {
+      try {
+        await _ensureNodeIdentity(startIfSuspended: suspended);
+        NodeIdentitySuspension.clear();
+      } catch (e, st) {
+        nodeIdentityConfirmed = false;
+        _log.error('Node restart after account reconcile failed',
+            error: e, stackTrace: st);
+        await SentryUtil.captureError(e, st, tag: 'reconcile_node_restart');
       }
+    }
+
+    if (changed) {
       // Let the router and account-gated UI see the new state immediately.
       // backendLifecycleProvider watches hasAnyAccountProvider and starts
       // the node when it flips false -> true (fresh-install import).
@@ -143,10 +224,17 @@ class NodeAccountReconciler {
       _ref.invalidate(hasCompletedOnboardingProvider);
     }
     _ref.invalidate(participantIdProvider);
+    // Rebuild providers that cache bucket-scoped reads (recipient history
+    // etc.) — they can't see a mid-session bucket switch otherwise.
+    _ref.read(identityRevisionProvider.notifier).state++;
 
-    // The session's identity is now reconciled — boot restores no longer
-    // need to re-run this (set by completeLogin).
-    await clearAccountReconcilePending();
+    // Clear the boot-recovery marker only when this run still belongs to the
+    // current session AND the node runtime is confirmed under the reconciled
+    // account. Otherwise leave it set: the next sign-in or boot restore
+    // re-runs the reconcile and repairs whatever this run couldn't confirm.
+    if (_currentGeneration() == gen && nodeIdentityConfirmed) {
+      await clearAccountReconcilePending();
+    }
 
     return changed;
   }

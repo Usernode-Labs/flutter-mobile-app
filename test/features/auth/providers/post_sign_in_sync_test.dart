@@ -151,4 +151,24 @@ void main() {
       await sync.lastRun;
     });
   });
+
+  group('isSeasonRollover', () {
+    test('a genuine id change is a rollover', () {
+      expect(isSeasonRollover(4, 5), isTrue);
+    });
+
+    test('first discovery (null -> id) is not a rollover', () {
+      // Fresh installs and cache clears must not trigger a reconcile on
+      // every boot — the sign-in/onboarding reconcile covers them.
+      expect(isSeasonRollover(null, 5), isFalse);
+    });
+
+    test('losing the id (id -> null) is not a rollover', () {
+      expect(isSeasonRollover(4, null), isFalse);
+    });
+
+    test('same id is not a rollover', () {
+      expect(isSeasonRollover(5, 5), isFalse);
+    });
+  });
 }

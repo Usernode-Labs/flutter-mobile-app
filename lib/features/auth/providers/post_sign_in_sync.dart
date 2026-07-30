@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
@@ -126,4 +128,44 @@ final postSignInSyncProvider = Provider<PostSignInSync>((ref) {
     sync.onAuthStatusChanged,
   );
   return sync;
+});
+
+/// True when a season-context change is a genuine rollover: both sides carry
+/// a season id and they differ. `null -> id` transitions (fresh install,
+/// first discovery after a cache clear) are NOT rollovers — the sign-in /
+/// onboarding reconcile covers those, and treating them as rollovers would
+/// reconcile on every fresh boot.
+bool isSeasonRollover(int? previousSeasonId, int? nextSeasonId) {
+  return previousSeasonId != null &&
+      nextSeasonId != null &&
+      previousSeasonId != nextSeasonId;
+}
+
+/// Always-alive listener that re-runs the account reconcile when the active
+/// season changes mid-session. `/wallet/provision` allocates per season: a
+/// user who stays signed in across a rollover would otherwise keep the
+/// previous season's wallet (and be stuck on stale-registration) until they
+/// logged out and back in — no sign-in transition ever fires for them.
+///
+/// The persisted season context is bucket-scoped and restored at boot, so a
+/// rollover that happened while the app was closed still surfaces here as
+/// `restored old id -> freshly fetched new id`.
+final seasonRolloverSyncProvider = Provider<void>((ref) {
+  ref.listen<SeasonEventContext>(seasonEventContextProvider, (previous, next) {
+    if (!isSeasonRollover(previous?.seasonId, next.seasonId)) return;
+    if (ref.read(authStatusProvider) != AuthStatus.authenticated) return;
+    _log.info('Active season changed '
+        '(${previous?.seasonId} -> ${next.seasonId}) - reconciling account');
+    unawaited(() async {
+      try {
+        // Marked so an interrupted rollover reconcile is retried on the next
+        // boot restore, exactly like an interrupted sign-in reconcile.
+        await markAccountReconcilePending();
+        await ref.read(nodeAccountReconcilerProvider).reconcile();
+      } catch (e, st) {
+        _log.warn('Season-rollover reconcile failed: $e');
+        await SentryUtil.captureError(e, st, tag: 'season_rollover_reconcile');
+      }
+    }());
+  });
 });

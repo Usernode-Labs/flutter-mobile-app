@@ -70,13 +70,19 @@ Future<int?> loadParticipantId() async {
 /// active — a safe staging area where another identity's data is neither
 /// read nor written — until `NodeAccountReconciler` activates the right
 /// account and calls `refreshActiveAccountBucket`.
-Future<void> activateBucketForSession(int participantId) async {
+///
+/// Returns whether the session provably owns the local state: `false` means
+/// an active account exists whose ownership is unknown — the caller must
+/// treat the device's node/wallet identity as unsettled (suspend the node)
+/// until reconciliation completes. No local account returns `true` (there is
+/// no foreign identity to protect).
+Future<bool> activateBucketForSession(int participantId) async {
   final repo = await AccountsRepository.create();
   final active = await repo.getActive();
   if (active == null) {
     // No local account yet — resolves to the guest bucket.
     NetworkPrefs.setActiveBucket(null, guest: false);
-    return;
+    return true;
   }
   final prefs = await SharedPreferences.getInstance();
   final bucket = NetworkPrefs.bucketForAddress(active.address);
@@ -85,6 +91,7 @@ Future<void> activateBucketForSession(int participantId) async {
   );
   final owned = ownerId == participantId;
   NetworkPrefs.setActiveBucket(owned ? active.address : null, guest: !owned);
+  return owned;
 }
 
 /// Moves a participant ID persisted under the guest bucket into the currently

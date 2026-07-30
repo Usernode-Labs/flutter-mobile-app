@@ -25,6 +25,13 @@ const _sensitiveBodyFields = <String>{
   'session_token',
   'set_password_token',
   'password',
+  // Common aliases carrying the same plaintext credential — setPassword
+  // sends `password_confirmation` alongside `password`.
+  'password_confirmation',
+  'new_password',
+  'current_password',
+  'old_password',
+  'passphrase',
   'code',
   'otp',
   'api_key',

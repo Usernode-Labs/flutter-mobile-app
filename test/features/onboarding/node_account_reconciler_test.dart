@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
@@ -68,10 +69,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await NetworkPrefs.init();
     NetworkPrefs.setActiveBucket(null, guest: true);
+    NodeIdentitySuspension.clear();
+    IdentityGenerations.reset();
   });
 
   tearDown(() {
     NetworkPrefs.setActiveBucket(null, guest: true);
+    NodeIdentitySuspension.clear();
   });
 
   test(
@@ -101,7 +105,8 @@ void main() {
       nodeAccountReconcilerProvider.overrideWith(
         (ref) => NodeAccountReconciler(
           ref,
-          restartNode: () async => nodeRestarts++,
+          ensureNodeIdentity: ({required bool startIfSuspended}) async =>
+              nodeRestarts++,
         ),
       ),
     ]);
@@ -152,7 +157,8 @@ void main() {
       nodeAccountReconcilerProvider.overrideWith(
         (ref) => NodeAccountReconciler(
           ref,
-          restartNode: () async => nodeRestarts++,
+          ensureNodeIdentity: ({required bool startIfSuspended}) async =>
+              nodeRestarts++,
         ),
       ),
     ]);
@@ -197,6 +203,178 @@ void main() {
     // A later reconcile is a fresh run again.
     await reconciler.reconcile();
     expect(provisionCalls.length, 2);
+  });
+
+  test(
+      'a session change while provisioning is in flight discards the '
+      'response and keeps the reconcile-pending marker', () async {
+    // B's provisioning is slow; B logs out and C signs in while it's in
+    // flight. B's response must not activate B's wallet or clear C's
+    // recovery marker.
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_0_a', _addressA),
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_0_a',
+      'testnet:account:reconcile_pending': true,
+    });
+    await NetworkPrefs.init();
+
+    var generation = 1;
+    final client = MockClient((request) async {
+      // The session changes while the provision round-trip is in flight.
+      generation = 2;
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'address': _addressB,
+            'public_key': 'utpk1$_addressB',
+            'secret_key': 'utsk1secret',
+            'newly_allocated': false,
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(LeaderboardApiService(
+        baseUrl: 'https://test.example.com/api/v4/mobile',
+        httpClient: client,
+      )),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          ensureNodeIdentity: ({required bool startIfSuspended}) async {},
+          currentGeneration: () => generation,
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final changed =
+        await container.read(nodeAccountReconcilerProvider).reconcile();
+
+    expect(changed, isFalse);
+    final prefs = await SharedPreferences.getInstance();
+    // No mutation: A's account is still active, marker still set so the new
+    // session's own reconcile repairs state.
+    expect(prefs.getString('testnet:accounts:activeId'), 'acc_0_a');
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
+  });
+
+  test('a caller from a newer session does not join a stale in-flight run',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+
+    var generation = 1;
+    final provisionCalls = <int>[];
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          ensureNodeIdentity: ({required bool startIfSuspended}) async {},
+          currentGeneration: () => generation,
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    final first = reconciler.reconcile();
+    // A new session starts while the first run is in flight: its caller
+    // must get its own provision round-trip, not the stale run's result.
+    generation = 2;
+    final second = reconciler.reconcile();
+    await Future.wait([first, second]);
+
+    expect(provisionCalls.length, 2);
+  });
+
+  test(
+      'a login-suspended node is started again even when the account did '
+      'not change', () async {
+    // Legacy install: same user re-logs in but the bucket has no stored
+    // participant id, so login can't prove ownership and suspends the node.
+    // The reconcile confirms the account and must bring the node back.
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+    NodeIdentitySuspension.markSuspended();
+
+    final provisionCalls = <int>[];
+    final ensureCalls = <bool>[];
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          ensureNodeIdentity: ({required bool startIfSuspended}) async =>
+              ensureCalls.add(startIfSuspended),
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final changed =
+        await container.read(nodeAccountReconcilerProvider).reconcile();
+
+    expect(changed, isFalse);
+    expect(ensureCalls, [true]); // startIfSuspended: bring the node back up
+    expect(NodeIdentitySuspension.isSuspended, isFalse);
+  });
+
+  test(
+      'a failed node restart keeps the reconcile-pending marker so the next '
+      'boot repairs the runtime identity', () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_0_a', _addressA),
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_0_a',
+      'testnet:account:reconcile_pending': true,
+    });
+    await NetworkPrefs.init();
+
+    final provisionCalls = <int>[];
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          ensureNodeIdentity: ({required bool startIfSuspended}) async =>
+              throw StateError('node failed to start'),
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    final changed =
+        await container.read(nodeAccountReconcilerProvider).reconcile();
+
+    // The registry/bucket switch itself succeeded...
+    expect(changed, isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('testnet:accounts:activeId'), 'acc_1_b');
+    // ...but the runtime identity is unconfirmed — the marker must survive.
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
   });
 
   test('propagates provisioning failure so onboarding can surface it',

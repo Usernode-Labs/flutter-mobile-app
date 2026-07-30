@@ -79,9 +79,14 @@ class ZkPassportRegistrationRepository {
   }
 
   /// Returns a pending completion if one exists, or null.
-  Future<Map<String, dynamic>?> getPendingCompletion() async {
+  ///
+  /// [bucket] pins the read to an explicit storage bucket. Retry flows
+  /// capture the active bucket once at the start and pass it to every
+  /// subsequent read/clear, so a mid-flight bucket switch (account
+  /// reconcile) can't make the clear target a different identity's record.
+  Future<Map<String, dynamic>?> getPendingCompletion({String? bucket}) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixAccountKey(_kPendingCompletionKey);
+    final key = _pendingCompletionKey(bucket);
     final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) return null;
     try {
@@ -95,11 +100,15 @@ class ZkPassportRegistrationRepository {
   }
 
   /// Clears a stored pending completion after successful retry.
-  Future<void> clearPendingCompletion() async {
+  /// See [getPendingCompletion] for [bucket] semantics.
+  Future<void> clearPendingCompletion({String? bucket}) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixAccountKey(_kPendingCompletionKey);
-    await prefs.remove(key);
+    await prefs.remove(_pendingCompletionKey(bucket));
   }
+
+  String _pendingCompletionKey(String? bucket) => bucket == null
+      ? NetworkPrefs.prefixAccountKey(_kPendingCompletionKey)
+      : NetworkPrefs.prefixAccountKeyFor(_kPendingCompletionKey, bucket);
 
   Future<void> clearActiveRegistration() async {
     final accounts = await AccountsRepository.create();

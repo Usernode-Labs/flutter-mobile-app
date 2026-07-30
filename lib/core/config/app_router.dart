@@ -45,6 +45,7 @@ import 'package:crypto_mobile_app/features/wallet/screens/scan_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
@@ -162,6 +163,27 @@ String? guestRedirect(String location) {
   return null;
 }
 
+/// Routes that read the active local account directly (Send builds
+/// transactions against `AccountsRepository.getActive()`). While a sign-in's
+/// account reconciliation is still pending, that account may belong to a
+/// PREVIOUS user — block these routes until ownership is confirmed.
+const identityGatedRoutes = <String>[
+  AppRoutes.walletSend,
+  AppRoutes.walletScan,
+];
+
+/// Identity gate: authenticated sessions whose account reconciliation has
+/// not completed are bounced off wallet routes. Pure for unit testing.
+String? identityGateRedirect({
+  required AuthStatus status,
+  required bool reconcilePending,
+  required String location,
+}) {
+  if (status != AuthStatus.authenticated) return null;
+  if (!reconcilePending) return null;
+  return identityGatedRoutes.contains(location) ? AppRoutes.home : null;
+}
+
 /// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
 /// This bridges Riverpod's state management with GoRouter's refresh mechanism
 class GoRouterRefreshStream extends ChangeNotifier {
@@ -173,6 +195,9 @@ class GoRouterRefreshStream extends ChangeNotifier {
         notifyListeners();
       },
     );
+    // Re-evaluate the identity gate when the reconcile-pending marker flips
+    // (set at login, cleared when reconciliation confirms account ownership).
+    accountReconcilePendingListenable.addListener(notifyListeners);
     // Listen to hasAnyAccountProvider changes
     _ref.listen<AsyncValue<bool>>(
       hasAnyAccountProvider,
@@ -201,7 +226,7 @@ class GoRouterRefreshStream extends ChangeNotifier {
 
   @override
   void dispose() {
-    // Clean up listener
+    accountReconcilePendingListenable.removeListener(notifyListeners);
     super.dispose();
   }
 }
@@ -614,6 +639,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (shouldBlockUsernodeDeepLink(requestUri)) {
         _log.warn('Blocked unsupported app deep link: $requestUri');
         return AppRoutes.home;
+      }
+
+      // Identity gate: while account reconciliation is pending, the active
+      // local account may still belong to a previous user — keep the session
+      // off routes that sign or spend with it.
+      final identityGate = identityGateRedirect(
+        status: authStatus,
+        reconcilePending: isAccountReconcilePendingSync,
+        location: currentLocation,
+      );
+      if (identityGate != null) {
+        _log.warn('Identity gate: blocking $currentLocation until the '
+            'account reconcile completes');
+        return identityGate;
       }
 
       // Still loading state

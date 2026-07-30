@@ -9,6 +9,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
+import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -280,9 +281,14 @@ class LeaderboardApiService {
         : uri;
     _log.trace('GET $url');
 
+    // Captured when the token is attached: a 401 for THIS request must not
+    // clear a token written by a later sign-in (see _parseEnvelope).
+    final requestGeneration = IdentityGenerations.current;
     final headers = await _authHeaders(_acceptJson);
     final resp = await _sendWithRetry(() => _http.get(url, headers: headers));
-    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
+    return _parseEnvelope(resp, url,
+        expectedStatuses: expectedStatuses,
+        requestGeneration: requestGeneration);
   }
 
   Future<dynamic> _post(
@@ -301,11 +307,14 @@ class LeaderboardApiService {
     final url = Uri.parse(absoluteUrl);
     _log.trace('POST $url');
 
+    final requestGeneration = IdentityGenerations.current;
     final headers = await _authHeaders(_jsonHeaders);
     final resp = await _send(
       () => _http.post(url, headers: headers, body: jsonEncode(body)),
     );
-    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
+    return _parseEnvelope(resp, url,
+        expectedStatuses: expectedStatuses,
+        requestGeneration: requestGeneration);
   }
 
   void _ensureWritesEnabled() {
@@ -397,6 +406,7 @@ class LeaderboardApiService {
     http.Response resp,
     Uri url, {
     Set<int> expectedStatuses = const {},
+    int? requestGeneration,
   }) async {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final decoded = jsonDecode(resp.body);
@@ -430,10 +440,19 @@ class LeaderboardApiService {
       );
     }
 
-    // An expired/invalid session token: clear it and let the app bounce back to
-    // the auth landing. Still throws so the caller's normal error path runs.
+    // An expired/invalid session token: clear it and let the app bounce back
+    // to the auth landing. Still throws so the caller's normal error path
+    // runs. Skipped when the session changed since the request captured its
+    // token — a stale request's late 401 must not clear a token a NEWER
+    // sign-in just wrote.
     if (resp.statusCode == 401) {
-      await _onUnauthorized?.call();
+      if (requestGeneration == null ||
+          requestGeneration == IdentityGenerations.current) {
+        await _onUnauthorized?.call();
+      } else {
+        _log.warn('Ignoring 401 from a request issued under a previous '
+            'session generation');
+      }
     }
 
     throw LeaderboardApiException(resp.statusCode, message, body: resp.body);

@@ -63,4 +63,63 @@ void main() {
       expect(guestRedirect(AppRoutes.authOtp), isNull);
     });
   });
+
+  group('identityGateRedirect', () {
+    test('authenticated + reconcile pending blocks wallet routes', () {
+      for (final route in identityGatedRoutes) {
+        expect(
+          identityGateRedirect(
+            status: AuthStatus.authenticated,
+            reconcilePending: true,
+            location: route,
+          ),
+          AppRoutes.home,
+          reason: route,
+        );
+      }
+    });
+
+    test('non-wallet routes stay reachable while pending', () {
+      for (final route in [AppRoutes.home, AppRoutes.profile]) {
+        expect(
+          identityGateRedirect(
+            status: AuthStatus.authenticated,
+            reconcilePending: true,
+            location: route,
+          ),
+          isNull,
+          reason: route,
+        );
+      }
+    });
+
+    test('wallet routes open once the reconcile completes', () {
+      expect(
+        identityGateRedirect(
+          status: AuthStatus.authenticated,
+          reconcilePending: false,
+          location: AppRoutes.walletSend,
+        ),
+        isNull,
+      );
+    });
+
+    test('non-authenticated states are never gated', () {
+      for (final status in [
+        AuthStatus.unknown,
+        AuthStatus.unauthenticated,
+        AuthStatus.guest,
+      ]) {
+        expect(
+          identityGateRedirect(
+            status: status,
+            reconcilePending: true,
+            location: AppRoutes.walletSend,
+          ),
+          isNull,
+          reason: status.name,
+        );
+      }
+    });
+  });
 }

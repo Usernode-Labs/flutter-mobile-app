@@ -5,12 +5,14 @@ import 'dart:typed_data';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
+import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -341,6 +343,7 @@ class ZkPassportPipelineController
   final Ref _ref;
   late final Future<void> _startupResetFuture;
   Future<void>? _pendingCompletionRetryInFlight;
+  int? _pendingCompletionRetryGeneration;
   bool _inFlight = false;
   Timer? _serverPollingTimer;
   bool _serverPollingInFlight = false;
@@ -470,13 +473,40 @@ class ZkPassportPipelineController
     await _retryPendingCompletionGuarded();
   }
 
+  /// Coalesces concurrent retries FOR THE SAME identity generation onto one
+  /// run. A caller from a newer generation (sign-in after a stale cold-start
+  /// retry began — whose request may already carry an expired token) never
+  /// joins the stale run; it waits it out and starts fresh with the current
+  /// session's credentials.
   Future<void> _retryPendingCompletionGuarded() {
+    final gen = IdentityGenerations.current;
     final inFlight = _pendingCompletionRetryInFlight;
-    if (inFlight != null) return inFlight;
-    final run = _retryPendingCompletion()
-        .whenComplete(() => _pendingCompletionRetryInFlight = null);
+    if (inFlight != null && _pendingCompletionRetryGeneration == gen) {
+      return inFlight;
+    }
+
+    late Future<void> run;
+    run = _retryAfter(inFlight, gen).whenComplete(() {
+      if (identical(_pendingCompletionRetryInFlight, run)) {
+        _pendingCompletionRetryInFlight = null;
+        _pendingCompletionRetryGeneration = null;
+      }
+    });
     _pendingCompletionRetryInFlight = run;
+    _pendingCompletionRetryGeneration = gen;
     return run;
+  }
+
+  Future<void> _retryAfter(Future<void>? previous, int gen) async {
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {
+        // The stale run's failure was surfaced to its own caller.
+      }
+    }
+    if (IdentityGenerations.current != gen) return; // superseded while waiting
+    await _retryPendingCompletion(gen);
   }
 
   Future<void> markLaunchStarted({
@@ -1443,8 +1473,9 @@ class ZkPassportPipelineController
   /// CTA returns.
   Future<void> _handleTerminalCompletionRejection(
     Object error,
-    StackTrace? stack,
-  ) async {
+    StackTrace? stack, {
+    String? bucket,
+  }) async {
     _log.warn('Backend permanently rejected zkPassport completion', context: {
       'error': error.toString(),
     });
@@ -1456,7 +1487,10 @@ class ZkPassportPipelineController
 
     try {
       final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-      await repo.clearPendingCompletion();
+      // [bucket] pins the clear to the bucket the rejected record was read
+      // from (retry path); null falls back to the active bucket (live
+      // completion path, where the flow runs entirely within one identity).
+      await repo.clearPendingCompletion(bucket: bucket);
     } catch (e, st) {
       await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
     }
@@ -1475,16 +1509,34 @@ class ZkPassportPipelineController
   /// Retries any stored pending completion. Reached (via
   /// [_retryPendingCompletionGuarded]) from cold start and from
   /// [retryPendingCompletion] when a sign-in restores authentication.
-  Future<void> _retryPendingCompletion() async {
+  ///
+  /// The run is bound to the identity it started under:
+  /// - it does not run at all while an account reconcile is pending — the
+  ///   active bucket/token pairing is unsettled (an interrupted A→B switch
+  ///   can expose A's bucket with B's token, and submitting A's proof as B
+  ///   would 422-terminally erase A's valid record);
+  /// - the storage bucket is captured once and every read/clear is pinned to
+  ///   it, so a mid-flight bucket switch can't redirect the clear;
+  /// - [gen] is re-checked before every clear/rollback — if the session
+  ///   changed, the record is left in place for the new identity's own run.
+  Future<void> _retryPendingCompletion(int gen) async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+    final bucket = NetworkPrefs.activeBucket;
+    bool identityStillCurrent() => IdentityGenerations.current == gen;
     try {
       if (AppConfig.viewOnly) {
-        await repo.clearPendingCompletion();
+        await repo.clearPendingCompletion(bucket: bucket);
         _log.info('Cleared pending zkPassport completion in view-only mode');
         return;
       }
 
-      final pending = await repo.getPendingCompletion();
+      if (await isAccountReconcilePending()) {
+        _log.info('Skipping pending-completion retry: account reconcile is '
+            'pending (identity not yet settled)');
+        return;
+      }
+
+      final pending = await repo.getPendingCompletion(bucket: bucket);
       if (pending == null) return;
 
       // Validate types before casting — corrupt data should be cleared, not
@@ -1500,7 +1552,7 @@ class ZkPassportPipelineController
           sessionId is! String ||
           nullifierHex is! String) {
         _log.warn('Clearing corrupt pending completion data');
-        await repo.clearPendingCompletion();
+        await repo.clearPendingCompletion(bucket: bucket);
         return;
       }
 
@@ -1513,7 +1565,7 @@ class ZkPassportPipelineController
           'Clearing pending completion targeting stale challenge_id=$challengeId '
           '(active row is $currentChallengeId)',
         );
-        await repo.clearPendingCompletion();
+        await repo.clearPendingCompletion(bucket: bucket);
         return;
       }
 
@@ -1525,14 +1577,27 @@ class ZkPassportPipelineController
         nullifierHex: nullifierHex,
       );
 
+      if (!identityStillCurrent()) {
+        _log.warn('Session changed during pending-completion retry - '
+            'leaving stored record untouched');
+        return;
+      }
       if (ok) {
         _log.info('Pending completion retry succeeded');
-        await repo.clearPendingCompletion();
+        await repo.clearPendingCompletion(bucket: bucket);
         unawaited(refreshAllLeaderboardData(_ref));
       }
     } on LeaderboardApiException catch (e, st) {
       if (isTerminalZkCompletionRejection(e)) {
-        await _handleTerminalCompletionRejection(e, st);
+        if (!identityStillCurrent()) {
+          // The rejection answered a submission made under a session that no
+          // longer exists — it says nothing about the CURRENT identity's
+          // record. Erasing the proof/registration here is how an interrupted
+          // account switch destroys the previous user's valid pending proof.
+          _log.warn('Ignoring terminal rejection from a superseded session');
+          return;
+        }
+        await _handleTerminalCompletionRejection(e, st, bucket: bucket);
         return;
       }
       // Retryable (5xx/408/429): keep the pending record for the next

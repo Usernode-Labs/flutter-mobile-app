@@ -3,8 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+
+/// Records whether the login recovery payload (reconcile-pending marker +
+/// participant id staged in the guest bucket) was already persisted when the
+/// token write made the session boot-restorable. A crash after the token
+/// write must find the payload in place, or the boot reconcile "succeeds"
+/// with nothing to migrate and the participant id is lost.
+class _OrderProbeTokenStore extends AuthTokenStore {
+  bool payloadPersistedBeforeTokenWrite = false;
+
+  @override
+  Future<void> write(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    final stagedId = prefs.getInt(NetworkPrefs.prefixAccountKeyFor(
+        'leaderboard:participant_id', NetworkPrefs.guestBucket));
+    final markerSet =
+        prefs.getBool(NetworkPrefs.prefixKey('account:reconcile_pending')) ??
+            false;
+    payloadPersistedBeforeTokenWrite = stagedId != null && markerSet;
+    await super.write(token);
+  }
+}
 
 AuthSession _session(String token) => AuthSession(
       token: token,
@@ -71,6 +94,19 @@ void main() {
     // all key off it).
     expect(await loadParticipantId(), 1);
     expect(await c.read(participantIdProvider.future), 1);
+  });
+
+  test(
+      'completeLogin persists the recovery payload before the token becomes '
+      'boot-restorable (crash-atomic login)', () async {
+    final probe = _OrderProbeTokenStore();
+    final c = ProviderContainer(overrides: [
+      authTokenStoreProvider.overrideWithValue(probe),
+    ]);
+    addTearDown(c.dispose);
+    await _settle(c);
+    await c.read(authStatusProvider.notifier).completeLogin(_session('sess-2'));
+    expect(probe.payloadPersistedBeforeTokenWrite, isTrue);
   });
 
   test('continueAsGuest sets guest', () async {

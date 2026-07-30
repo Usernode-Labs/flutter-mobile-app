@@ -287,6 +287,23 @@ class RustBackendService {
     }
   }
 
+  /// Completes when any in-flight [startNode] call has finished (its result
+  /// and errors are swallowed — callers re-check [isRunning] afterwards).
+  ///
+  /// Used to serialize account switches with node startup: a start in
+  /// progress has already captured the (possibly old) active account's key
+  /// while [isRunning] is still false, so a switcher must wait for it to
+  /// settle before deciding whether to bounce the node.
+  Future<void> waitForStartCompletion() async {
+    final completer = _startNodeCompleter;
+    if (completer == null) return;
+    try {
+      await completer.future;
+    } catch (_) {
+      // The starter surfaces its own error; the waiter only needs quiescence.
+    }
+  }
+
   Future<bool> _startNodeInternal({int? httpPort}) async {
     if (!_initialized) {
       await init();

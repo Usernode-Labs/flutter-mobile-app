@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
+import 'package:crypto_mobile_app/core/providers/identity_lifecycle.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 
@@ -45,6 +46,9 @@ class AccountApiService {
 
   /// Fetches the authenticated participant profile (including `level`).
   Future<Me> getMe() async {
+    // Captured when the token is attached: a late 401 for THIS request must
+    // not clear a token written by a later sign-in.
+    final requestGeneration = IdentityGenerations.current;
     final token = await _tokenProvider?.call();
     final url = Uri.parse('$_baseUrl/me');
     _log.trace('GET $url');
@@ -59,7 +63,8 @@ class AccountApiService {
       throw AccountApiException(0, 'Network error.');
     }
 
-    if (resp.statusCode == 401) {
+    if (resp.statusCode == 401 &&
+        requestGeneration == IdentityGenerations.current) {
       await _onUnauthorized?.call();
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {

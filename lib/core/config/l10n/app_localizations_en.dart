@@ -910,6 +910,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingWelcomeSetupStartButton => 'Start Setup';
 
   @override
+  String get onboardingAccountSetupError =>
+      'Couldn\'t set up your node account. Please try again.';
+
+  @override
   String get permExactAlarmsTitle => 'Exact Alarms';
 
   @override

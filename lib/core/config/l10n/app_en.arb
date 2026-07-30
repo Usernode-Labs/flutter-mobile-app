@@ -1248,6 +1248,10 @@
   "@onboardingWelcomeSetupStartButton": {
     "description": "Button text to start the setup flow"
   },
+  "onboardingAccountSetupError": "Couldn't set up your node account. Please try again.",
+  "@onboardingAccountSetupError": {
+    "description": "Error shown when creating the local node account fails during onboarding"
+  },
 
   "permExactAlarmsTitle": "Exact Alarms",
   "@permExactAlarmsTitle": {

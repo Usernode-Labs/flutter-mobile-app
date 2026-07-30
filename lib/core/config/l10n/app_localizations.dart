@@ -1666,6 +1666,12 @@ abstract class AppLocalizations {
   /// **'Start Setup'**
   String get onboardingWelcomeSetupStartButton;
 
+  /// Error shown when creating the local node account fails during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t set up your node account. Please try again.'**
+  String get onboardingAccountSetupError;
+
   /// Exact alarms permission screen title
   ///
   /// In en, this message translates to:

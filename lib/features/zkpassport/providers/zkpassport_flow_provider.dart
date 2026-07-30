@@ -24,6 +24,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final _log = LoggingService.instance.withTag('usernode/ZkPassportFlow');
 
+/// True when [error] is a backend completion response that can never succeed
+/// on retry: a 4xx other than 408 (timeout) and 429 (rate limit), e.g. 409
+/// duplicate nullifier or 422 closed challenge. Only transport failures,
+/// 408/429, and 5xx responses are worth persisting for a cold-start retry.
+bool isTerminalZkCompletionRejection(Object? error) {
+  return error is LeaderboardApiException &&
+      error.statusCode >= 400 &&
+      error.statusCode < 500 &&
+      error.statusCode != 408 &&
+      error.statusCode != 429;
+}
+
 final zkPassportBridgeBaseUrlProvider = Provider<String?>((ref) {
   final value = AppConfig.zkPassportBridgeBaseUrl.trim();
   if (value.isEmpty) {
@@ -1336,6 +1348,14 @@ class ZkPassportPipelineController
         }
       }
 
+      // Terminal client rejection (4xx other than 408/429): the backend has
+      // permanently refused this completion — retrying can never succeed.
+      // Roll back instead of persisting a retry that would loop forever.
+      if (isTerminalZkCompletionRejection(lastError)) {
+        await _handleTerminalCompletionRejection(lastError!, lastStack);
+        return;
+      }
+
       _log.warn('Backend completion failed, storing for retry', context: {
         'error': lastError?.toString(),
       });
@@ -1389,6 +1409,42 @@ class ZkPassportPipelineController
         }
       }
     }
+  }
+
+  /// The backend permanently rejected this completion (e.g. 409 duplicate
+  /// nullifier, 422 closed challenge). Clear the pending record so cold
+  /// starts stop retrying it, and roll back the optimistic local
+  /// registration so the challenge stops rendering as earned and the retry
+  /// CTA returns.
+  Future<void> _handleTerminalCompletionRejection(
+    Object error,
+    StackTrace? stack,
+  ) async {
+    _log.warn('Backend permanently rejected zkPassport completion', context: {
+      'error': error.toString(),
+    });
+    await SentryUtil.captureError(
+      error,
+      stack ?? StackTrace.current,
+      tag: 'zkpassport_completion_rejected',
+    );
+
+    try {
+      final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+      await repo.clearPendingCompletion();
+    } catch (e, st) {
+      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
+    }
+
+    try {
+      await _ref
+          .read(zkPassportFlowControllerProvider)
+          .clearActiveRegistration();
+    } catch (e, st) {
+      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
+    }
+
+    unawaited(refreshAllLeaderboardData(_ref));
   }
 
   /// Retries any stored pending completion. Called on cold start.
@@ -1447,6 +1503,19 @@ class ZkPassportPipelineController
         await repo.clearPendingCompletion();
         unawaited(refreshAllLeaderboardData(_ref));
       }
+    } on LeaderboardApiException catch (e, st) {
+      if (isTerminalZkCompletionRejection(e)) {
+        await _handleTerminalCompletionRejection(e, st);
+        return;
+      }
+      // Retryable (5xx/408/429): keep the pending record for the next
+      // cold start.
+      _log.warn('Pending completion retry failed: $e');
+      await SentryUtil.captureError(
+        e,
+        st,
+        tag: 'zkpassport_completion_retry',
+      );
     } catch (e, st) {
       _log.warn('Pending completion retry failed: $e');
       await SentryUtil.captureError(

@@ -364,6 +364,55 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // provisionWallet
+  // -------------------------------------------------------------------------
+
+  group('provisionWallet', () {
+    test('returns WalletProvisionResult on 200', () async {
+      http.Request? captured;
+      final client = _mockClient(
+        200,
+        _envelope({
+          'address': 'ut1pool0',
+          'public_key': 'utpk1pool0',
+          'secret_key': 'utsk1pool0',
+          'season_id': 10,
+          'season_event_id': null,
+          'newly_allocated': true,
+        }),
+        onRequest: (r) => captured = r,
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      final result = await service.provisionWallet();
+
+      expect(captured!.url.path, endsWith('/wallet/provision'));
+      expect(result.address, 'ut1pool0');
+      expect(result.publicKey, 'utpk1pool0');
+      expect(result.secretKey, 'utsk1pool0');
+      expect(result.seasonId, 10);
+      expect(result.seasonEventId, isNull);
+      expect(result.newlyAllocated, true);
+    });
+
+    test('throws on 409 (season account pool exhausted)', () async {
+      final client = _mockClient(409, {
+        'success': false,
+        'error': 'No on-chain accounts are available for the current season.',
+      });
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      expect(
+        () => service.provisionWallet(),
+        throwsA(isA<LeaderboardApiException>()
+            .having((e) => e.statusCode, 'statusCode', 409)),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // completeZkPassport
   // -------------------------------------------------------------------------
 

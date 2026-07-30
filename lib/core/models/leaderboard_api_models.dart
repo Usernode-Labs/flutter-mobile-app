@@ -91,8 +91,42 @@ class LeaderboardApiException implements Exception {
 }
 
 // ---------------------------------------------------------------------------
-// Registration v2
+// Wallet provisioning (v4 replacement for the retired v2 registration)
 // ---------------------------------------------------------------------------
+
+/// The platform-allocated on-chain account returned by
+/// `POST /wallet/provision`. Idempotent server-side: reinstalls and
+/// migrated users get the same account back. [secretKey] is the credential
+/// the device imports to run its node — the same exposure the retired v2
+/// registration response had.
+class WalletProvisionResult {
+  const WalletProvisionResult({
+    required this.address,
+    required this.publicKey,
+    required this.secretKey,
+    this.seasonId,
+    this.seasonEventId,
+    this.newlyAllocated = false,
+  });
+
+  final String address;
+  final String publicKey;
+  final String secretKey;
+  final int? seasonId;
+  final int? seasonEventId;
+  final bool newlyAllocated;
+
+  factory WalletProvisionResult.fromJson(Map<String, dynamic> json) {
+    return WalletProvisionResult(
+      address: json['address'] as String,
+      publicKey: json['public_key'] as String,
+      secretKey: json['secret_key'] as String,
+      seasonId: _jsonIntN(json['season_id']),
+      seasonEventId: _jsonIntN(json['season_event_id']),
+      newlyAllocated: json['newly_allocated'] == true,
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Ranking

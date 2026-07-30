@@ -203,6 +203,18 @@ class LeaderboardApiService {
     return true;
   }
 
+  /// Fetches (or allocates) this user's platform-assigned on-chain account
+  /// for the current season.
+  ///
+  /// Idempotent server-side: migrated users and reinstalls on a new device
+  /// get the SAME account back. 409 means the season's account pool is
+  /// exhausted; 422 means no active season exists.
+  Future<WalletProvisionResult> provisionWallet() async {
+    _ensureWritesEnabled();
+    final data = await _post('/wallet/provision', body: const {});
+    return WalletProvisionResult.fromJson(data as Map<String, dynamic>);
+  }
+
   /// Fetches the currently published terms, including this participant's
   /// consent for that version.
   ///

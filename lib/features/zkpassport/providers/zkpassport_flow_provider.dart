@@ -25,13 +25,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final _log = LoggingService.instance.withTag('usernode/ZkPassportFlow');
 
 /// True when [error] is a backend completion response that can never succeed
-/// on retry: a 4xx other than 408 (timeout) and 429 (rate limit), e.g. 409
-/// duplicate nullifier or 422 closed challenge. Only transport failures,
-/// 408/429, and 5xx responses are worth persisting for a cold-start retry.
+/// on retry: a 4xx other than 401 (expired/invalid session — the API layer
+/// clears the token and the app re-authenticates, after which the same
+/// completion can succeed), 408 (timeout), and 429 (rate limit). E.g. 409
+/// duplicate nullifier or 422 closed challenge. Transport failures,
+/// 401/408/429, and 5xx responses are persisted for a cold-start retry.
 bool isTerminalZkCompletionRejection(Object? error) {
   return error is LeaderboardApiException &&
       error.statusCode >= 400 &&
       error.statusCode < 500 &&
+      error.statusCode != 401 &&
       error.statusCode != 408 &&
       error.statusCode != 429;
 }

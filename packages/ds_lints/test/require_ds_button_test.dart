@@ -1,23 +1,7 @@
-import 'package:analyzer/dart/analysis/features.dart';
-import 'package:analyzer/dart/analysis/utilities.dart';
-import 'package:ds_lints/src/lint_visitor.dart';
-
-List<String> _rulesFor(
-  String source, {
-  String filePath = 'lib/features/example.dart',
-}) {
-  final result = parseString(
-    content: source,
-    featureSet: FeatureSet.latestLanguageVersion(),
-    throwIfDiagnostics: false,
-  );
-  final visitor = DsLintVisitor(filePath: filePath);
-  result.unit.visitChildren(visitor);
-  return visitor.findings.map((finding) => finding.ruleName).toList();
-}
+import 'fixture_harness.dart';
 
 void _expectRequireDsButton(String constructor) {
-  final rules = _rulesFor('''
+  final rules = lintRulesFor('''
 import 'package:flutter/material.dart';
 
 Widget build() {
@@ -46,7 +30,7 @@ void main() {
     _expectRequireDsButton(constructor);
   }
 
-  final dsButtonRules = _rulesFor(
+  final dsButtonRules = lintRulesFor(
     '''
 import 'package:flutter/material.dart';
 

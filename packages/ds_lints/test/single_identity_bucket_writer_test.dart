@@ -1,20 +1,4 @@
-import 'package:analyzer/dart/analysis/features.dart';
-import 'package:analyzer/dart/analysis/utilities.dart';
-import 'package:ds_lints/src/lint_visitor.dart';
-
-List<String> _rulesFor(
-  String source, {
-  String filePath = 'lib/features/example.dart',
-}) {
-  final result = parseString(
-    content: source,
-    featureSet: FeatureSet.latestLanguageVersion(),
-    throwIfDiagnostics: false,
-  );
-  final visitor = DsLintVisitor(filePath: filePath);
-  result.unit.visitChildren(visitor);
-  return visitor.findings.map((finding) => finding.ruleName).toList();
-}
+import 'fixture_harness.dart';
 
 const _source = '''
 void f() {
@@ -24,7 +8,7 @@ void f() {
 
 void main() {
   // Any file outside the allowlist is a violation.
-  final outside = _rulesFor(_source);
+  final outside = lintRulesFor(_source);
   if (!outside.contains('single_identity_bucket_writer')) {
     throw StateError(
         'Expected single_identity_bucket_writer outside the controller; '
@@ -32,7 +16,7 @@ void main() {
   }
 
   // The SessionController (the single writer) is exempt.
-  final controller = _rulesFor(
+  final controller = lintRulesFor(
     _source,
     filePath: 'lib/core/identity/session_controller.dart',
   );
@@ -41,7 +25,7 @@ void main() {
   }
 
   // The declaring file's own doc-comment references are exempt.
-  final declaration = _rulesFor(
+  final declaration = lintRulesFor(
     _source,
     filePath: 'lib/core/utils/network_prefs.dart',
   );

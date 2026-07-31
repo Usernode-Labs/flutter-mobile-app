@@ -35,17 +35,24 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
   @override
   void visitMethodInvocation(MethodInvocation node) {
     final target = node.target;
+    final targetName = _invocationTargetName(node);
+    final methodName = node.methodName.name;
+
+    _checkIdentityBucketWriter(node, targetName, methodName);
+    _checkIdentitySnapshotWriter(node, targetName, methodName);
+    _checkWalletEffectGateway(node, targetName, methodName);
+    _checkAmbientWalletAccountInvocation(node, targetName, methodName);
+
     String? typeName;
     String? constructorName;
 
     if (target is SimpleIdentifier) {
       // Named constructor: EdgeInsets.all(16), BorderRadius.circular(12)
       typeName = target.name;
-      constructorName = node.methodName.name;
-      _checkIdentityBucketWriter(node, typeName, constructorName);
+      constructorName = methodName;
     } else if (target == null) {
       // Default constructor: SizedBox(height: 16), Icon(Icons.star)
-      final name = node.methodName.name;
+      final name = methodName;
       if (_defaultConstructorTypes.contains(name)) {
         typeName = name;
         constructorName = null;
@@ -57,6 +64,26 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     }
 
     super.visitMethodInvocation(node);
+  }
+
+  @override
+  void visitPrefixedIdentifier(PrefixedIdentifier node) {
+    _checkAmbientWalletAccountProperty(
+      node,
+      node.prefix.name,
+      node.identifier.name,
+    );
+    super.visitPrefixedIdentifier(node);
+  }
+
+  @override
+  void visitPropertyAccess(PropertyAccess node) {
+    _checkAmbientWalletAccountProperty(
+      node,
+      _terminalTargetName(node.target),
+      node.propertyName.name,
+    );
+    super.visitPropertyAccess(node);
   }
 
   @override
@@ -94,20 +121,56 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
     'core/utils/network_prefs.dart',
   ];
 
+  /// Files allowed to publish the process-wide identity mirror. The identity
+  /// declaration initializes the mirror; SessionController is its only runtime
+  /// writer.
+  static const _identitySnapshotWriterAllowlist = [
+    'core/identity/identity.dart',
+    'core/identity/session_controller.dart',
+  ];
+
+  /// The node facade is the only place allowed to call the raw Rust wallet
+  /// send APIs. UI and bridge code must cross its identity-aware effect gate.
+  static const _walletEffectGatewayAllowlist = [
+    'features/node/node_service.dart',
+  ];
+
+  /// Account-sensitive areas where ambient account/bucket lookup is unsafe.
+  /// These paths must receive an explicit AccountStorageScope or wallet lease.
+  static const _ambientWalletAccountPathMarkers = [
+    '/features/wallet/',
+    '/features/dapps/',
+    '/core/providers/wallet_provider.dart',
+    '/core/providers/mempool_provider.dart',
+    '/core/providers/recipient_history_provider.dart',
+    '/core/services/explorer_service.dart',
+  ];
+
+  static const _accountRepositoryTargetNames = {
+    'accountRepo',
+    'accounts',
+    'repo',
+    'repository',
+    'accountRepository',
+    'accountsRepository',
+  };
+
+  /// Temporary, file-specific exceptions for legacy stores which cannot yet
+  /// accept an explicit scope. Keep this list narrow: new files must not be
+  /// added merely to silence the rule.
+  static const _ambientWalletAccountAllowlist = <String>[];
+
   /// `NetworkPrefs.setActiveBucket` outside the SessionController breaks the
   /// single-writer invariant the identity lifecycle depends on (see
   /// docs/identity-lifecycle-invariants.md): a second writer can flip the
   /// bucket mid-transition and leak one identity's data into another's.
   void _checkIdentityBucketWriter(
     AstNode node,
-    String typeName,
+    String? typeName,
     String methodName,
   ) {
     if (typeName != 'NetworkPrefs' || methodName != 'setActiveBucket') return;
-    final normalized = filePath.replaceAll('\\', '/');
-    for (final allowed in _identityBucketWriterAllowlist) {
-      if (normalized.endsWith(allowed)) return;
-    }
+    if (_isAllowlisted(_identityBucketWriterAllowlist)) return;
     _report(
       node,
       'single_identity_bucket_writer',
@@ -117,6 +180,132 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
           'transitions through the SessionController instead.',
       'WARNING',
     );
+  }
+
+  /// `IdentitySnapshots.publish` outside SessionController creates a second
+  /// identity writer and lets the ambient mirror diverge from Riverpod state.
+  void _checkIdentitySnapshotWriter(
+    AstNode node,
+    String? typeName,
+    String methodName,
+  ) {
+    if (typeName != 'IdentitySnapshots' || methodName != 'publish') return;
+    if (_isAllowlisted(_identitySnapshotWriterAllowlist)) return;
+    _report(
+      node,
+      'single_identity_snapshot_writer',
+      'IdentitySnapshots.publish called outside SessionController. '
+          'The ambient identity mirror has exactly one runtime writer '
+          '(core/identity/session_controller.dart); route identity '
+          'transitions through that controller instead.',
+      'WARNING',
+    );
+  }
+
+  /// Raw Rust wallet sends bypass the facade's final identity/runtime check.
+  void _checkWalletEffectGateway(
+    AstNode node,
+    String? targetName,
+    String methodName,
+  ) {
+    if (targetName != 'wallet' ||
+        (methodName != 'txSend' && methodName != 'txSendResult')) {
+      return;
+    }
+    if (_isAllowlisted(_walletEffectGatewayAllowlist)) return;
+    _report(
+      node,
+      'wallet_effect_gateway_only',
+      'Raw wallet.$methodName call outside node_service.dart. Route wallet '
+          'effects through RustBackendService so the exact wallet lease and '
+          'runtime authority are checked immediately before the RPC begins.',
+      'WARNING',
+    );
+  }
+
+  void _checkAmbientWalletAccountInvocation(
+    AstNode node,
+    String? typeName,
+    String methodName,
+  ) {
+    if (!_isAmbientWalletAccountPath ||
+        _isAllowlisted(_ambientWalletAccountAllowlist)) {
+      return;
+    }
+
+    final isActiveAccountRead = methodName == 'getActive' &&
+        _accountRepositoryTargetNames.contains(typeName);
+    final isAmbientAccountKey =
+        typeName == 'NetworkPrefs' && methodName == 'prefixAccountKey';
+    if (!isActiveAccountRead && !isAmbientAccountKey) return;
+
+    _reportAmbientWalletAccount(
+        node,
+        isActiveAccountRead
+            ? 'AccountsRepository.getActive()'
+            : 'NetworkPrefs.prefixAccountKey()');
+  }
+
+  void _checkAmbientWalletAccountProperty(
+    AstNode node,
+    String? typeName,
+    String propertyName,
+  ) {
+    if (!_isAmbientWalletAccountPath ||
+        _isAllowlisted(_ambientWalletAccountAllowlist) ||
+        typeName != 'NetworkPrefs' ||
+        propertyName != 'activeBucket') {
+      return;
+    }
+    _reportAmbientWalletAccount(node, 'NetworkPrefs.activeBucket');
+  }
+
+  void _reportAmbientWalletAccount(AstNode node, String expression) {
+    _report(
+      node,
+      'no_ambient_wallet_account',
+      '$expression used in an account-sensitive wallet path. Capture an '
+          'AccountStorageScope or wallet identity lease at the operation '
+          'boundary and pass it through explicitly instead of consulting '
+          'mutable ambient account state after an await.',
+      'WARNING',
+    );
+  }
+
+  String get _normalizedPath => filePath.replaceAll('\\', '/');
+
+  bool _isAllowlisted(List<String> allowlist) =>
+      allowlist.any(_normalizedPath.endsWith);
+
+  bool get _isAmbientWalletAccountPath {
+    final path = '/$_normalizedPath';
+    return _ambientWalletAccountPathMarkers.any(path.contains);
+  }
+
+  /// Returns the final name in a syntactic target such as
+  /// `IdentitySnapshots`, `alias.IdentitySnapshots`, or
+  /// `alias.api.IdentitySnapshots`. No element resolution is required.
+  String? _terminalTargetName(Expression? target) {
+    if (target is SimpleIdentifier) return target.name;
+    if (target is PrefixedIdentifier) return target.identifier.name;
+    if (target is PropertyAccess) return target.propertyName.name;
+    if (target is MethodInvocation) return target.methodName.name;
+    return null;
+  }
+
+  /// Resolves the direct receiver, or the enclosing cascade target for calls
+  /// such as `wallet..txSendResult()` and `repo..getActive()`.
+  String? _invocationTargetName(MethodInvocation node) {
+    final direct = _terminalTargetName(node.target);
+    if (direct != null || !node.isCascaded) return direct;
+    AstNode? ancestor = node.parent;
+    while (ancestor != null) {
+      if (ancestor is CascadeExpression) {
+        return _terminalTargetName(ancestor.target);
+      }
+      ancestor = ancestor.parent;
+    }
+    return null;
   }
 
   /// Types that use default (unnamed) constructors we care about.

@@ -154,6 +154,9 @@ jobs:
           cd packages/ds_lints
           dart pub get
           dart run bin/lint.dart ../..
+          for fixture in test/*_test.dart; do
+            dart run "$fixture"
+          done
 
       - name: Check DESIGN_SYSTEM.md token frontmatter
         run: flutter test test/design_system/design_system_md_tokens_test.dart

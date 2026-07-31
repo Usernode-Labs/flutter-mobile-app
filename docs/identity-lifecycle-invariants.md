@@ -22,17 +22,30 @@ An `Identity` carries:
   while credentials and the node runtime are being replaced. `reconciling`
   means "a session exists but which on-chain account it owns has not been
   confirmed"; both phases gate wallet routes, dApp signing, and node starts.
-- **`epoch`** — a monotonic counter bumped on every transition (login,
-  logout, guest, 401, season rollover). Async work captures the epoch it
-  started under and its results are discarded if the epoch moved on.
+- **`epoch`** — a monotonic counter bumped on every identity-changing
+  transition (login, logout, guest, 401, season rollover). It invalidates
+  ephemeral authority; it is deliberately not part of durable data ownership.
 - **`participantId` / `accountId` / `address` / `provisionedSeasonId`** —
   the confirmed bindings, populated as the phase settles.
+
+Async code carries one of two explicit capabilities:
+
+- `AuthenticatedUserScope`, `AccountStorageScope`, `WalletDataScope`, and
+  `ZkIdentityScope` are stable owners. Reads and writes already addressed to
+  one of these scopes may finish after logout; they must only publish if that
+  scope is still the current view.
+- `IdentityLease`, `AuthenticatedUserLease`, `WalletIdentityLease`,
+  `WalletRuntimeLease`, and `NodeStartAuthority` are ephemeral authority. They
+  are revalidated at the boundary of an authenticated transport, signature,
+  node-local wallet read, wallet RPC, or native runtime transition — not after
+  every harmless suspension point.
 
 The controller serializes every transition on an internal queue, publishes
 each snapshot to the ambient `IdentitySnapshots` mirror (for non-Riverpod
 call sites like the node service and dApp bridge), and is the **single
-writer** of `NetworkPrefs.setActiveBucket` — enforced by the
-`single_identity_bucket_writer` ds_lint.
+writer** of both identity snapshots and `NetworkPrefs.setActiveBucket` —
+enforced by the `single_identity_snapshot_writer` and
+`single_identity_bucket_writer` ds_lints.
 
 The `IdentityDriver` (`lib/features/auth/providers/post_sign_in_sync.dart`)
 makes the app converge on each published snapshot: a `reconciling` identity
@@ -55,6 +68,9 @@ transition into `ready` retries any pending ZK completion.
 | ZK request outcome | Append-only request-version/outcome-addressed pref | Permanent terminal decision for one launch |
 | Onboarding-completed flag | Account-bucket-scoped pref (`lib/core/providers/providers.dart`) | Per identity |
 | Node runtime | `RustBackendService` (`lib/features/node/node_service.dart`), binds active account's key **at start time** | Until stop/restart |
+| Wallet/explorer data | `WalletDataScope` (account + chain) | Stable across node downtime/restarts; published only to the same account/chain |
+| Node-local wallet/mempool read | `WalletRuntimeLease` (wallet data scope + runtime generation) | Discarded when that exact runtime stops or is replaced |
+| dApp receipts / recipient history / HTTP logs | Explicit account or authenticated-user scope | Never exposed through a replacement identity |
 
 ## Invariants
 
@@ -66,42 +82,40 @@ ownership signal — the registry persists across logout.
 *Enforced by:* `NodeAccountReconciler`, invoked by the `IdentityDriver`
 whenever the identity is `reconciling`, and by `WelcomeSetupScreen`.
 
-**I2 — Node identity follows the settled identity.** The node binds the
-active account's secret key at start. `RustBackendService.startNode` — the
-chokepoint every start path funnels through (bootstrap, wake, foreground
-task, alarms) — refuses to start while the identity is `transitioning` or
-`reconciling` (`Identity.allowsNodeStart`), and `resumeNode` applies the same
-gate; only the reconciler passes `identityOverride: true`, and only for the account
-it just confirmed. The gate is airtight against races on both sides:
-`completeLogin` publishes `transitioning` before its first `await`, so a start
-racing login already sees the closed gate. Season rollover closes the gate
-after its one-time baseline-migration lookup. `startNode` re-checks the gate
-after the runtime comes up and tears it down if the identity became unsettled
-mid-start; and
-`stopNode` waits out any in-flight start before stopping, so a suspend can
-never interleave with a start and lose. Entering `reconciling` stops a
-running node; the reconciler then requests `freshRuntime: true`, which
-shuts down and rebuilds any existing global node — the block producer key
-is captured at build time and cannot be swapped on a live runtime — and a
-wallet-signer bind failure fails the start and tears the runtime down
-rather than leaving a half-bound node running. The reconciler treats
-`startNode() == false` as failure — the identity must not become `ready`
-with an unconfirmed runtime.
-Entering guest mode also publishes `transitioning`, requests shutdown of the
-observed process-global runtime, and waits for it to disappear before guest
-becomes visible. A guest/view-only start in the same engine never adopts an
-unknown process-global runtime: it shuts that runtime down and rebuilds without
-either a producer key or wallet signer. Cross-engine restart authority remains
-a residual risk below.
-*Enforced by:* the gates in `startNode` / `resumeNode`, the post-start
-re-check and `_teardownRuntimeAfterFailedBind` in
-`RustBackendService._startNodeInternal`, the publish-before-await order
-and `_suspendNode` in `SessionController.completeLogin` /
-`beginSeasonRollover` (gate-ordering test in
-`test/features/auth/providers/auth_status_test.dart`), and
-`NodeAccountReconciler._defaultEnsureNodeIdentity` (runs before the
-`reconcileSucceeded` commit). `IdentityDriver` restarts the keyless runtime
-after an exact guest identity settles.
+**I2 — Node identity follows explicit start and runtime authority.** Every
+start path funnels through `RustBackendService.startNode`. Normal callers must
+capture a settled `NodeStartAuthority`; the reconciler constructs a distinct
+authority naming the exact network, account, and address it has just confirmed.
+There is no boolean gate bypass. Equivalent concurrent starts coalesce;
+different authorities wait, then revalidate independently.
+
+A locally tracked runtime is reusable only when its native `NodeHandle` is
+active and its `NodeRuntimeAuthority` matches the requested account/keyless
+mode and runtime generation. An ambient process-wide handle has no proven Dart
+identity and is never adopted: it is only the compare-and-swap target for a
+fresh configured runtime. Guest/view-only builders contain neither producer
+key nor wallet signer. Producer starts bind both the build-time producer key
+and wallet signer; signer failure makes the start fail.
+
+`stopNode` waits for any in-flight start, targets only this engine's exact
+handle, and awaits `MobileNode.shutdown`, which completes after the driver
+thread exits. A stop barrier revokes older queued starts; starts requested
+after the barrier wait for it, so shutdown cannot miss a successor. Pause is a
+desired lifecycle state applied before an in-flight start publishes its
+facade. A stale handle is detached without falling back to stopping the new
+process-wide current handle. A handle monitor clears local authority only for
+the same generation on unexpected exit. Starts revalidate their lease at the
+native transition and signer effects; if it changed, that exact newly returned
+handle is shut down. The reconciler must not commit `ready` unless this process
+succeeds.
+
+*Enforced by:* `NodeStartAuthority` / `NodeRuntimeAuthority`, the start,
+replace, monitor, and exact-shutdown state machine in
+`lib/features/node/node_service.dart`; publish-before-await suspension in
+`SessionController.completeLogin` / `beginSeasonRollover`; and
+`NodeAccountReconciler._defaultEnsureNodeIdentity` before the
+`reconcileSucceeded` commit. The remaining empty-slot cross-engine ambiguity
+is documented below.
 
 **I3 — Secrets never reach logs or log exports.** Key material and
 credentials (`secret_key`, `token`, `password` and its aliases, `otp`, …)
@@ -151,54 +165,54 @@ step may assume a previous run completed.
 
 **I7 — A pending ZK completion is eventually submitted or explicitly
 rolled back, under the identity and request version that own it.** Every
-launch gets a persisted exact version (`request id`, wall-clock creation time,
-and a random 128-bit nonce), which is copied unchanged into its runtime,
-outbox, optimistic registration, and terminal outcome. An outcome for one
-version cannot hide rows tagged with another version. A ZK run is
-also *bound to its launch identity*: `markLaunchStarted` persists the launching
-epoch, bucket, and participant id in the runtime session, and every later stage
-— foreground recovery, server polling, the proof pipeline — re-validates
-the current identity against that launch identity
-(`_checkLaunchIdentity`): a different user's session is discarded, an
-unsettled identity defers rather than proceeding. The pending completion
-record is an identity-keyed outbox row: persisted (pinned to the owning
-identity's bucket) BEFORE both the optimistic registration and the first
-delivery attempt, so killing the app never leaves an earned-looking
-registration without a retry record. The outbox carries the exact account and
-registration payload, allowing retry to repair a crash between those two
-writes. Every completion POST re-checks the exact identity scope
-immediately before the request fires — not just at the retry's entry —
-because retry backoff delays are suspension points a login can pass
-through. Append-only exact-version outcome markers form the crash-consistency
-boundary: `delivered` hides the outbox while preserving registration and takes
-deterministic precedence if concurrent engines also record a rejection;
-`rejected` or `discarded` hides both outbox and registration. Cleanup of the
-source rows is optional and cannot split that decision across a crash.
-Terminal 4xx (except 401/408/429) records `rejected` only when the identity
-that answered is still the identity that submitted. 401 preserves the proof;
-the retry fires when the identity settles to `ready` — not only on cold
-start. The retry never runs under an unsettled identity
-(`Identity.isSettled`), pins reads and clears to the bucket captured at
-start, and epoch-scopes its coalescing so a newer identity's caller never
-joins a stale run.
-*Enforced by:* `markLaunchStarted` / `_checkLaunchIdentity` /
+launch is reserved in the controller before the first server call, so rapid
+duplicate triggers share one session. The persisted exact version (`request
+id`, wall-clock creation time, and random 128-bit nonce) is copied unchanged
+into the runtime, outbox, optimistic registration, and terminal outcome; an
+outcome for one version cannot hide another.
+
+The runtime persists a complete stable launch scope (network, bucket,
+participant, account, address, challenge). Foreground and cold-start recovery
+resume polling automatically only when that scope matches; an unsettled
+identity defers, and a different settled owner detaches without acting as that
+owner. Poll and finalizer work is keyed by the exact request generation, and
+compare-and-clear refuses to erase a replacement generation. Launch waits for
+cold restoration before inspecting `idle`, so it cannot overwrite an unseen
+request. The session server's consumptive result is persisted into that exact
+runtime row before any post-response identity check; recovery replays it
+without calling `/result` again.
+
+The pending completion is written before both optimistic registration and the
+first delivery attempt. An unresolved account outbox blocks a new launch
+instead of being overwritten. Exact authority is checked immediately before
+every authenticated completion POST. Once that transport starts, its success
+or terminal rejection is a fact about the original stable request scope and
+is recorded there—even ahead of best-effort telemetry—if the UI identity
+changes while the response is in flight. Append-only outcomes are the
+crash-consistency boundary: `delivered` hides the outbox while preserving
+registration; `rejected` or `discarded` hides both. A 401 or retryable
+transport failure preserves the row for the next ready identity opportunity.
+
+*Enforced by:* the launch single-flight, `markLaunchStarted`,
+`_checkLaunchIdentity`, request-keyed polling/finalization,
 `isTerminalZkCompletionRejection`, `retryPendingCompletion` /
 `_prepareBackendCompletion` / `_deliverBackendCompletion` /
 `_handleTerminalCompletionRejection`
 (`lib/features/zkpassport/providers/zkpassport_flow_provider.dart`),
-the launch-identity fields on `ZkPassportRuntimeSession`
+the launch scope and request version on `ZkPassportRuntimeSession`
 (`lib/features/zkpassport/data/models/zkpassport_models.dart`, round-trip
 tests in
 `test/features/zkpassport/data/models/zkpassport_state_models_test.dart`),
-`storePendingCompletion(bucket:)` / `recordRequestOutcome`
+`storePendingCompletion` / `recordRequestOutcome` / runtime compare-and-clear
 (`lib/features/zkpassport/data/repositories/zkpassport_repositories.dart`),
 and the ready-transition trigger in the `IdentityDriver`.
 
 **I8 — Identity transitions recompute identity-derived state.** Every
 transition publishes a new `Identity` snapshot; providers holding
 identity-derived or bucket-scoped data watch `identityProvider` (e.g.
-`participantIdProvider`, `walletProvider`, `recipientHistoryProvider`) or
-are invalidated by the reconciler (`hasAnyAccountProvider`,
+`participantIdProvider`, `walletProvider`) or are keyed by a scope selected
+from that snapshot (e.g. `recipientHistoryProvider`). Other providers are
+invalidated by the reconciler (`hasAnyAccountProvider`,
 `activeAccountProvider`, `accountsProvider`,
 `hasCompletedOnboardingProvider`). An auth-status watch alone cannot see a
 mid-session bucket switch — watch the snapshot.
@@ -210,25 +224,29 @@ data never mix. Account-scoped keys are additionally bucket-prefixed.
 *Enforced by:* `NetworkPrefs.prefixKey*` — never build storage keys by
 hand.
 
-**I10 — Async identity work is epoch-scoped.** Every transition bumps
-`Identity.epoch`, and transitions themselves are serialized on the
-controller's queue so their persistence writes never interleave. In-flight
-async work started under an older epoch must not: join a newer caller's
-coalescing slot (the newer caller waits it out and runs fresh), mutate
-identity state with its now-stale response, clear recovery markers, or
-clear a session token on a late 401. Commits (`reconcileSucceeded`,
-`onUnauthorized`) re-validate the epoch inside the serialized queue. HTTP
-requests retain the exact `(epoch, token)` credential they carried, re-read
-secure storage before sends/retries, and may invalidate only that exact pair.
-This is what stops
-"B's slow provision response activates B's wallet inside C's session".
-*Enforced by:* the epoch guards in `NodeAccountReconciler.reconcile` /
-`_reconcile` (re-checked before every mutation, each `await` being a
-suspension point), `_retryPendingCompletionGuarded`, the epoch-carrying
-credential callbacks in `LeaderboardApiService._parseEnvelope` and
-`AccountApiService.getMe`, and the epoch checks inside
-`SessionController.reconcileSucceeded` / `onUnauthorized`; regression
-tests in `test/features/onboarding/node_account_reconciler_test.dart` and
+**I10 — Async work separates stable ownership from live authority.** Every
+identity-changing transition bumps `Identity.epoch`, and identity transitions
+themselves are serialized on the controller queue. Work that can cause an
+external effect (authenticated transport, key access, signature, wallet send,
+node start) captures a lease and revalidates it immediately before that
+effect. Work that already has an explicit stable owner may finish reading or
+persisting into that old scope; only publication into the current UI is
+conditional on the scope still matching. This avoids both cross-user effects
+and the opposite bug where a valid response for A is lost merely because the
+user moved to B while it was in flight.
+
+Coalescing is lease-aware: a newer caller does not join a stale identity's
+run. Commits (`reconcileSucceeded`, `onUnauthorized`) validate the exact
+epoch inside the serialized queue. Authenticated requests retain the exact
+credential they carried and may invalidate only that credential.
+
+*Enforced by:* the lease/scope types in
+`lib/core/identity/identity_scope.dart`, effect gates in
+`LeaderboardApiService`, `RustBackendService`, wallet and dApp send/sign
+paths, publication gates in scoped providers, and epoch checks inside
+`SessionController.reconcileSucceeded` / `onUnauthorized`; regression tests
+in `test/core/identity/identity_scope_test.dart`,
+`test/features/onboarding/node_account_reconciler_test.dart`, and
 `test/features/auth/providers/auth_status_test.dart`.
 
 **I11 — Credential replacement has a crash-atomic recovery payload.** Login
@@ -257,23 +275,28 @@ sign at all (`Identity.allowsSigning` refuses `guest` outright). Three
 independent gates enforce this: the router bounces wallet routes
 (`identityGateRedirect`), the dApp bridge refuses `sendTransaction` /
 `signMessage`, and the node-start chokepoint refuses to start (I2). Entry
-gates alone are not enough: the dApp handlers capture the signing identity when
+gates alone are not enough: the dApp handlers capture a wallet lease when
 the request arrives and re-validate its exact snapshot *after* the user
 confirmation dialog, immediately before loading the secret key or
 issuing the RPC — a login/logout while the dialog is up must not let the
-old confirmation sign under the new identity. All wallet reads exposed to
-dApps (`getNodeAddress`, `getWalletState`, balance/transaction fetches)
-derive their address from the same identity snapshot, never from the
-account registry directly. The router re-evaluates on every published
-snapshot.
+old confirmation sign under the new identity. The sender is derived by the
+final node-service gateway from that lease, not accepted from the caller.
+Explorer reads and caches carry stable account + chain ownership and remain
+available while the node is offline. Only node-local balance/mempool reads
+carry a runtime generation, and their result is discarded when that lease is
+replaced. dApp receipts are account-scoped and are blanked when their lease is
+revoked. No wallet path resolves an ambient active account after suspending.
+The router re-evaluates on every published snapshot.
 *Enforced by:* `identityGateRedirect` (`lib/core/config/app_router.dart`),
 `Identity.allowsSigning` (guest-refusal test in
 `test/features/auth/providers/auth_status_test.dart`),
-`_bridgeWalletIdentity` and the post-confirmation epoch re-checks in
+`_bridgeWalletIdentity` and the post-confirmation lease checks in
 `DappWebViewScreen._handleSendTransaction` / `_handleSignMessage`
 (`lib/features/dapps/dapp_webview_screen.dart`), the identity-derived
-address in `walletProvider` (`lib/core/providers/wallet_provider.dart`),
-and the `startNode` gate.
+scope in `walletProvider` (`lib/core/providers/wallet_provider.dart`), the
+wallet-effect gateway in `RustBackendService`, and the `startNode` gate. The
+`no_ambient_wallet_account` and `wallet_effect_gateway_only` ds_lints keep new
+call sites on these boundaries.
 
 **I13 — Reconciliation follows the active season.** `/wallet/provision`
 allocates per season. A session that lives across a season rollover must
@@ -297,11 +320,14 @@ baseline-migration tests in
 
 **I14 — Long-lived callbacks retain exact identity authority.** A log-sharing
 session captures one identity and credential, validates both before every
-send/retry and after each response, and never advances its cursor after either
-is replaced. dApp profile/logout callbacks capture identity before origin
-validation and re-check it after that await; profile data comes only from the
-captured snapshot, and a stale callback cannot log out its successor.
-*Enforced by:* `LogShareController` / `LogShareService`, and
+send/retry, and never advances its owner-specific cursor with another user's
+row. Authenticated HTTP debug entries are tagged with the stable owner captured
+before transport; anonymous entries remain ownerless. The viewer and
+copy/export paths filter to the current owner. dApp profile/logout callbacks
+capture identity before origin validation and re-check it at their effect
+boundary; a stale callback cannot log out its successor.
+*Enforced by:* `LoggingHttpClient`, `HttpDebugLogStore`,
+`LogShareController` / `LogShareService`, and
 `DappWebViewScreen._handleGetProfileInfo` / `_handleLogout`.
 
 ## Known residual risks (accepted for now)
@@ -319,17 +345,25 @@ captured snapshot, and a stale callback cannot log out its successor.
   boot). The node stays down and signing stays refused in the meantime
   (I2/I12), and B's session stays on the guest bucket (I5), so no
   cross-identity reads, writes, signatures, or block production occur.
-- **Native producer-host ownership is not yet generation-bound.** This patch
-  shuts down the process-global runtime it observes and makes guest starts in
-  the current engine keyless. Another Flutter engine can still race and restart
-  a producer because node/foreground-service/wakelock authority has no shared
-  generation yet; that is the next hardening change.
-- **ZK runtime and source-row ownership is still engine-local.** Exact outcome
-  markers are append-only, but runtime, outbox, and registration source rows
-  remain single mutable preferences. Cross-engine serialization/versioned row
-  selection is deferred to the follow-up hardening PR.
+- **The native mobile-node slot has no identity authority metadata or vacant
+  compare-and-swap result.** Exact handles make shutdown and replacement
+  generation-safe, but `getOrStart` cannot distinguish “started from the
+  observed empty slot” from “reused a runtime another engine installed in that
+  race.” A native account/network authority tag or start-if-still-empty CAS is
+  required before simultaneous Flutter engines can prove producer ownership.
+- **ZK runtime and outbox source rows remain one mutable preference per
+  account.** Exact request outcomes are append-only, local updates use
+  compare-and-clear, and an unresolved outbox prevents a second local flow
+  from overwriting it. SharedPreferences still cannot make that guard or CAS
+  transactional across Flutter engines. Concurrent-engine support requires
+  request-keyed rows in a native transactional store.
+- **Event-points pagination has no backend snapshot token or cursor.** The
+  client validates page metadata and participant uniqueness, then retries one
+  whole read when it detects drift. That bounds common corruption modes but
+  cannot prove a consistent multi-page snapshot while ranks are changing; a
+  backend as-of token or keyset cursor is the durable fix.
 - **The pre-baseline season migration reads its persisted one-time flag before
   publishing the rollover gate.** A start can race that lookup on upgraded
   installs whose identity has no provisioned-season baseline. Moving the
-  baseline attempt into the identity transaction belongs with the follow-up
-  process-authority work.
+  baseline attempt into the identity transaction remains separate lifecycle
+  work.

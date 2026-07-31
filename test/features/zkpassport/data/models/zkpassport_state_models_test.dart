@@ -3,6 +3,121 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 
 void main() {
+  group('ZkIdentityScope', () {
+    const scope = ZkIdentityScope(
+      network: 'testnet',
+      bucket: 'bucket-a',
+      participantId: 7,
+      accountId: 'account-a',
+      address: 'ut1a',
+      challengeId: 42,
+    );
+
+    test('equality includes every durable ownership field', () {
+      const sameScope = ZkIdentityScope(
+        network: 'testnet',
+        bucket: 'bucket-a',
+        participantId: 7,
+        accountId: 'account-a',
+        address: 'ut1a',
+        challengeId: 42,
+      );
+      const differentScopes = <ZkIdentityScope>[
+        ZkIdentityScope(
+          network: 'internal',
+          bucket: 'bucket-a',
+          participantId: 7,
+          accountId: 'account-a',
+          address: 'ut1a',
+          challengeId: 42,
+        ),
+        ZkIdentityScope(
+          network: 'testnet',
+          bucket: 'bucket-b',
+          participantId: 7,
+          accountId: 'account-a',
+          address: 'ut1a',
+          challengeId: 42,
+        ),
+        ZkIdentityScope(
+          network: 'testnet',
+          bucket: 'bucket-a',
+          participantId: 8,
+          accountId: 'account-a',
+          address: 'ut1a',
+          challengeId: 42,
+        ),
+        ZkIdentityScope(
+          network: 'testnet',
+          bucket: 'bucket-a',
+          participantId: 7,
+          accountId: 'account-b',
+          address: 'ut1a',
+          challengeId: 42,
+        ),
+        ZkIdentityScope(
+          network: 'testnet',
+          bucket: 'bucket-a',
+          participantId: 7,
+          accountId: 'account-a',
+          address: 'ut1b',
+          challengeId: 42,
+        ),
+        ZkIdentityScope(
+          network: 'testnet',
+          bucket: 'bucket-a',
+          participantId: 7,
+          accountId: 'account-a',
+          address: 'ut1a',
+          challengeId: 43,
+        ),
+      ];
+
+      expect(scope, sameScope);
+      expect(scope.hashCode, sameScope.hashCode);
+      for (final different in differentScopes) {
+        expect(scope, isNot(different));
+      }
+    });
+
+    test('JSON round-trip requires the complete scope', () {
+      expect(ZkIdentityScope.fromJson(scope.toJson()), scope);
+      expect(
+        ZkIdentityScope.fromJson({...scope.toJson()}..remove('challenge_id')),
+        isNull,
+      );
+      expect(
+        ZkIdentityScope.fromJson({...scope.toJson(), 'account_id': '  '}),
+        isNull,
+      );
+    });
+  });
+
+  group('ZkRequestKey', () {
+    test('nonce distinguishes a reused session ID', () {
+      const first = ZkRequestKey(sessionId: 'same', nonce: 'nonce-a');
+      const second = ZkRequestKey(sessionId: 'same', nonce: 'nonce-b');
+      const third = ZkRequestKey(sessionId: 'different', nonce: 'nonce-a');
+
+      expect(first, isNot(second));
+      expect(first, isNot(third));
+      expect({first, second, third}, hasLength(3));
+    });
+
+    test('request version exposes the same exact key', () {
+      const version = ZkPassportRequestVersion(
+        requestId: 'session-a',
+        createdAtMs: 100,
+        nonce: 'nonce-a',
+      );
+
+      expect(
+        version.key,
+        const ZkRequestKey(sessionId: 'session-a', nonce: 'nonce-a'),
+      );
+    });
+  });
+
   group('ZkPassportPipelineState', () {
     test('idle() has idle status/phase and empty message', () {
       final s = ZkPassportPipelineState.idle();
@@ -85,7 +200,7 @@ void main() {
       expect(first.createdAtMs, second.createdAtMs);
     });
 
-    test('launch identity fields persist across a round-trip', () {
+    test('launch identity scope persists across a round-trip', () {
       const original = ZkPassportRuntimeSession(
         requestId: 'req',
         facematchStrict: true,
@@ -93,27 +208,44 @@ void main() {
         createdAtMs: 100,
         lastProgressAtMs: 200,
         resumeAttemptCount: 0,
-        launchEpoch: 4,
-        launchBucket: 'acct_ut1abc',
-        launchParticipantId: 77,
+        launchScope: ZkIdentityScope(
+          network: 'testnet',
+          bucket: 'acct_ut1abc',
+          participantId: 77,
+          accountId: 'account-a',
+          address: 'ut1abc',
+          challengeId: 42,
+        ),
       );
       final parsed = ZkPassportRuntimeSession.fromJson(original.toJson());
       expect(parsed, isNotNull);
-      expect(parsed!.launchEpoch, 4);
-      expect(parsed.launchBucket, 'acct_ut1abc');
-      expect(parsed.launchParticipantId, 77);
+      expect(parsed!.launchScope, original.launchScope);
     });
 
-    test('legacy sessions without launch identity parse with nulls', () {
-      final legacy = session().toJson()
-        ..remove('launchEpoch')
-        ..remove('launchBucket')
-        ..remove('launchParticipantId');
+    test('consumed server result persists with the exact runtime generation',
+        () {
+      final original = session().copyWith(
+        consumedResult: const ZkPassportConsumedResult(
+          success: true,
+          outerProofB64Url: 'proof-payload',
+          nullifierHex: 'nullifier',
+          fetchOuterProofMs: 37,
+        ),
+      );
+
+      final parsed = ZkPassportRuntimeSession.fromJson(original.toJson());
+      expect(parsed?.requestVersion, original.requestVersion);
+      expect(parsed?.consumedResult?.hasUsableProof, isTrue);
+      expect(parsed?.consumedResult?.outerProofB64Url, 'proof-payload');
+      expect(parsed?.consumedResult?.nullifierHex, 'nullifier');
+      expect(parsed?.consumedResult?.fetchOuterProofMs, 37);
+    });
+
+    test('legacy sessions without launch scope parse with null', () {
+      final legacy = session().toJson()..remove('launchScope');
       final parsed = ZkPassportRuntimeSession.fromJson(legacy);
       expect(parsed, isNotNull);
-      expect(parsed!.launchEpoch, isNull);
-      expect(parsed.launchBucket, isNull);
-      expect(parsed.launchParticipantId, isNull);
+      expect(parsed!.launchScope, isNull);
     });
 
     test('fromJson rejects missing/invalid required fields', () {

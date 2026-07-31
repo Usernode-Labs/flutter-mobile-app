@@ -23,6 +23,8 @@ import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
+import 'package:crypto_mobile_app/core/identity/wallet_identity_lease.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
     show authStatusProvider, identityProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
@@ -222,6 +224,17 @@ class _TxRecord {
   }
 }
 
+class _ReceiptState {
+  _ReceiptState({
+    Set<String>? ids,
+    Map<String, _TxRecord>? records,
+  })  : ids = ids ?? <String>{},
+        records = records ?? <String, _TxRecord>{};
+
+  final Set<String> ids;
+  final Map<String, _TxRecord> records;
+}
+
 class DappWebViewScreen extends ConsumerStatefulWidget {
   final String url;
   final String name;
@@ -304,74 +317,251 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   // wire up the channel still get title refreshes via the legacy
   // `getTitle()` polling path.
   bool _titleFromChannel = false;
-  final Set<String> _dappTxIds = {};
-  final Map<String, _TxRecord> _txRecords = {};
+  Set<String> _dappTxIds = {};
+  Map<String, _TxRecord> _txRecords = {};
+  AccountStorageScope? _receiptScope;
+  int _receiptLoadGeneration = 0;
+  // All webviews in this isolate share the same persisted receipt rows. The
+  // mutex must therefore be shared too and keyed exactly like persistence;
+  // an instance-local/account-object lock still permits lost updates between
+  // two routes showing the same dApp and bucket.
+  static final Map<String, Future<void>> _receiptStateTails = {};
   Timer? _confirmPoller;
-  String? _cachedChainId;
+  final Set<AccountStorageScope> _confirmationPollsInFlight = {};
 
   static const _maxPersistedIds = 200;
   static const _maxTxRecords = 500;
 
-  String get _dappTxIdsPrefsKey => 'dapp_tx_ids:${widget.url}';
-  String get _txRecordsPrefsKey => 'tx_records:${widget.url}';
-
-  Future<void> _loadDappTxIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_dappTxIdsPrefsKey);
-    if (raw == null) return;
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      _dappTxIds.addAll(list.cast<String>());
-    } catch (_) {}
+  String _receiptPrefsKey(AccountStorageScope scope, String kind) {
+    final encodedUrl =
+        base64Url.encode(utf8.encode(widget.url)).replaceAll('=', '');
+    return scope.preferenceKey('dapp:$kind:$encodedUrl');
   }
 
-  Future<void> _saveDappTxIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (_dappTxIds.length > _maxPersistedIds) {
-      final sorted =
-          _dappTxIds.where((id) => _txRecords.containsKey(id)).toList()
-            ..sort((a, b) {
-              final ra = _txRecords[a]!;
-              final rb = _txRecords[b]!;
-              return rb.sentAt.compareTo(ra.sentAt);
-            });
-      final kept = sorted.take(_maxPersistedIds).toSet();
-      _dappTxIds
-        ..clear()
-        ..addAll(kept);
+  Future<T> _serializeReceiptState<T>(
+    AccountStorageScope scope,
+    Future<T> Function() operation,
+  ) {
+    final storageKey = _receiptPrefsKey(scope, 'receipt_state_v2');
+    final previous = _receiptStateTails[storageKey] ?? Future<void>.value();
+    final result = (() async {
+      try {
+        await previous;
+      } catch (_) {}
+      return operation();
+    })();
+    final tail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    _receiptStateTails[storageKey] = tail;
+    unawaited(tail.then((_) {
+      if (identical(_receiptStateTails[storageKey], tail)) {
+        _receiptStateTails.remove(storageKey);
+      }
+    }));
+    return result;
+  }
+
+  _ReceiptState _decodeReceiptState(Map<String, dynamic> payload) {
+    final state = _ReceiptState();
+    final rawIds = payload['ids'];
+    if (rawIds is List<dynamic>) {
+      state.ids.addAll(rawIds.whereType<String>());
     }
-    await prefs.setString(_dappTxIdsPrefsKey, jsonEncode(_dappTxIds.toList()));
+    final rawRecords = payload['records'];
+    if (rawRecords is Map<String, dynamic>) {
+      for (final entry in rawRecords.entries) {
+        final value = entry.value;
+        if (value is! Map<String, dynamic>) continue;
+        try {
+          state.records[entry.key] = _TxRecord.fromJson(value);
+        } catch (_) {}
+      }
+    }
+    return state;
   }
 
-  Future<void> _loadTxRecords() async {
+  Future<_ReceiptState> _readReceiptStateRaw(AccountStorageScope scope) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_txRecordsPrefsKey);
-    if (raw == null) return;
+    final canonical = prefs.getString(
+      _receiptPrefsKey(scope, 'receipt_state_v2'),
+    );
+    if (canonical != null) {
+      try {
+        final payload = jsonDecode(canonical) as Map<String, dynamic>;
+        return _decodeReceiptState(payload);
+      } catch (_) {
+        // Fall through to the scoped split-key format used by older builds.
+      }
+    }
+
+    final state = _ReceiptState();
     try {
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      for (final entry in map.entries) {
-        _txRecords[entry.key] =
-            _TxRecord.fromJson(entry.value as Map<String, dynamic>);
+      final raw = prefs.getString(_receiptPrefsKey(scope, 'tx_ids'));
+      if (raw != null) {
+        state.ids.addAll(
+          (jsonDecode(raw) as List<dynamic>).whereType<String>(),
+        );
       }
     } catch (_) {}
+    try {
+      final raw = prefs.getString(_receiptPrefsKey(scope, 'tx_records'));
+      if (raw != null) {
+        final map = jsonDecode(raw) as Map<String, dynamic>;
+        for (final entry in map.entries) {
+          final value = entry.value;
+          if (value is! Map<String, dynamic>) continue;
+          try {
+            state.records[entry.key] = _TxRecord.fromJson(value);
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    return state;
   }
 
-  Future<void> _saveTxRecords() async {
-    final prefs = await SharedPreferences.getInstance();
-    final entries = _txRecords.entries.toList()
+  void _normalizeReceiptState(_ReceiptState state) {
+    final entries = state.records.entries.toList()
       ..sort((a, b) => b.value.sentAt.compareTo(a.value.sentAt));
-
-    final map = <String, dynamic>{};
-    for (final e in entries.take(_maxTxRecords)) {
-      map[e.key] = e.value.toJson();
-    }
-
     if (entries.length > _maxTxRecords) {
-      final kept = entries.take(_maxTxRecords).map((e) => e.key).toSet();
-      _txRecords.removeWhere((k, _) => !kept.contains(k));
+      final kept =
+          entries.take(_maxTxRecords).map((entry) => entry.key).toSet();
+      state.records.removeWhere((key, _) => !kept.contains(key));
+    }
+    state.ids.removeWhere((id) => !state.records.containsKey(id));
+    if (state.ids.length > _maxPersistedIds) {
+      final newestIds = entries
+          .where((entry) => state.ids.contains(entry.key))
+          .take(_maxPersistedIds)
+          .map((entry) => entry.key)
+          .toSet();
+      state.ids
+        ..clear()
+        ..addAll(newestIds);
+    }
+  }
+
+  Future<void> _writeReceiptStateRaw(
+    AccountStorageScope scope,
+    _ReceiptState state,
+  ) async {
+    _normalizeReceiptState(state);
+    final payload = <String, dynamic>{
+      'version': 2,
+      'ids': state.ids.toList(),
+      'records': <String, dynamic>{
+        for (final entry in state.records.entries)
+          entry.key: entry.value.toJson(),
+      },
+    };
+    final prefs = await SharedPreferences.getInstance();
+    final persisted = await prefs.setString(
+      _receiptPrefsKey(scope, 'receipt_state_v2'),
+      jsonEncode(payload),
+    );
+    if (!persisted) {
+      throw StateError('Failed to persist dApp receipt state');
     }
 
-    await prefs.setString(_txRecordsPrefsKey, jsonEncode(map));
+    // A successful canonical write makes both split-key formats redundant.
+    // The unscoped rows cannot be migrated safely because they have no owner.
+    try {
+      await Future.wait([
+        prefs.remove(_receiptPrefsKey(scope, 'tx_ids')),
+        prefs.remove(_receiptPrefsKey(scope, 'tx_records')),
+        prefs.remove('dapp_tx_ids:${widget.url}'),
+        prefs.remove('tx_records:${widget.url}'),
+      ]);
+    } catch (_) {}
+  }
+
+  Future<_ReceiptState> _readReceiptState(
+    AccountStorageScope scope,
+  ) =>
+      _serializeReceiptState(scope, () => _readReceiptStateRaw(scope));
+
+  bool _hasPendingReceipts(_ReceiptState state) => state.ids.any((id) {
+        final record = state.records[id];
+        return record != null &&
+            record.status == _TxStatus.queued &&
+            !record.id.startsWith('local_') &&
+            record.confirmedAt == null;
+      });
+
+  void _publishReceiptState(
+    AccountStorageScope scope,
+    _ReceiptState state,
+  ) {
+    final authority = _bridgeWalletIdentity();
+    if (!mounted ||
+        authority == null ||
+        !authority.isCurrent ||
+        authority.accountScope != scope) {
+      return;
+    }
+
+    _receiptScope = scope;
+    _dappTxIds = Set<String>.of(state.ids);
+    _txRecords = Map<String, _TxRecord>.of(state.records);
+    if (_hasPendingReceipts(state)) {
+      _ensureConfirmPoller();
+    } else {
+      _confirmPoller?.cancel();
+      _confirmPoller = null;
+    }
+    setState(() {});
+  }
+
+  Future<void> _updateReceiptState(
+    AccountStorageScope scope,
+    void Function(_ReceiptState state) update,
+  ) async {
+    await _serializeReceiptState(scope, () async {
+      final state = await _readReceiptStateRaw(scope);
+      update(state);
+      _normalizeReceiptState(state);
+      try {
+        await _writeReceiptStateRaw(scope, state);
+      } finally {
+        // Persistence failure must not make a completed wallet effect vanish
+        // from the current in-memory receipt view.
+        _publishReceiptState(scope, state);
+      }
+    });
+  }
+
+  Future<void> _reloadReceiptState() async {
+    final generation = ++_receiptLoadGeneration;
+    final authority = _bridgeWalletIdentity();
+    final scope = authority?.accountScope;
+    if (scope == null) {
+      _receiptScope = null;
+      _dappTxIds = {};
+      _txRecords = {};
+      _confirmPoller?.cancel();
+      _confirmPoller = null;
+      if (mounted) setState(() {});
+      return;
+    }
+
+    // Clear the old account from memory before the asynchronous scoped read.
+    _receiptScope = null;
+    _dappTxIds = {};
+    _txRecords = {};
+    _confirmPoller?.cancel();
+    _confirmPoller = null;
+    if (mounted) setState(() {});
+
+    await _serializeReceiptState(scope, () async {
+      final loaded = await _readReceiptStateRaw(scope);
+      if (!mounted ||
+          generation != _receiptLoadGeneration ||
+          !authority!.isCurrent) {
+        return;
+      }
+      _publishReceiptState(scope, loaded);
+    });
   }
 
   // Stamp a tx with the wall-clock time the dapp's bridge first observed
@@ -398,45 +588,52 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     final observedAtMs = (args['observed_at_ms'] as num?)?.toInt();
     if (txId == null || txId.isEmpty || observedAtMs == null) return;
 
-    final rec = _txRecords[txId];
-    if (rec == null) return;
-    if (rec.dappObservedAtMs != null) return;
-
     final blockHeight = (args['block_height'] as num?)?.toInt();
     final blockTimestampMs = (args['block_timestamp_ms'] as num?)?.toInt();
+    final authority = _bridgeWalletIdentity();
+    if (authority == null) return;
 
-    // Inclusion latency = block timestamp − sent timestamp. Skip when we
-    // can't compute it (no block_timestamp_ms, or negative due to clock
-    // skew between phone and node).
-    int? inclusionLatencyMs;
-    if (blockTimestampMs != null) {
-      final ms = blockTimestampMs - rec.sentAt.millisecondsSinceEpoch;
-      if (ms >= 0) inclusionLatencyMs = ms;
-    }
+    await _updateReceiptState(authority.accountScope, (state) {
+      final rec = state.records[txId];
+      if (rec == null || rec.dappObservedAtMs != null) return;
 
-    final updated = rec.copyWith(
-      dappObservedAtMs: observedAtMs,
-      // Don't clobber values the explorer poll may have already filled in.
-      onChainStatus: rec.onChainStatus ?? 'confirmed',
-      blockHeight: rec.blockHeight ?? blockHeight,
-      onChainTimestampMs: rec.onChainTimestampMs ?? blockTimestampMs,
-      inclusionLatencyMs: rec.inclusionLatencyMs ?? inclusionLatencyMs,
-    );
-    if (mounted) {
-      setState(() {
-        _txRecords[txId] = updated;
-      });
-    } else {
-      _txRecords[txId] = updated;
-    }
-    await _saveTxRecords();
+      // Inclusion latency = block timestamp − sent timestamp. Skip when we
+      // can't compute it (no block_timestamp_ms, or negative due to clock
+      // skew between phone and node).
+      int? inclusionLatencyMs;
+      if (blockTimestampMs != null) {
+        final ms = blockTimestampMs - rec.sentAt.millisecondsSinceEpoch;
+        if (ms >= 0) inclusionLatencyMs = ms;
+      }
+
+      state.records[txId] = rec.copyWith(
+        dappObservedAtMs: observedAtMs,
+        // Don't clobber values the explorer poll may have already filled in.
+        onChainStatus: rec.onChainStatus ?? 'confirmed',
+        blockHeight: rec.blockHeight ?? blockHeight,
+        onChainTimestampMs: rec.onChainTimestampMs ?? blockTimestampMs,
+        inclusionLatencyMs: rec.inclusionLatencyMs ?? inclusionLatencyMs,
+      );
+    });
   }
 
-  void _addRecord(_TxRecord record) {
-    _dappTxIds.add(record.id);
-    _txRecords[record.id] = record;
-    _saveDappTxIds();
-    _saveTxRecords();
+  Future<void> _addRecord(
+    AccountStorageScope scope,
+    _TxRecord record,
+  ) async {
+    try {
+      // The identity may change after an irreversible transaction begins. The
+      // serialized scoped update preserves its original owner without ever
+      // replacing a newer receipt snapshot for that owner.
+      await _updateReceiptState(scope, (state) {
+        state.ids.add(record.id);
+        state.records[record.id] = record;
+      });
+    } catch (error) {
+      // Receipt persistence is auxiliary: a storage error must never rewrite
+      // an already-started transaction's outcome or encourage a duplicate.
+      debugPrint('[Usernode JS-channel] receipt persistence failed: $error');
+    }
   }
 
   // Transaction confirmation uses Navigator.push with an opaque route instead
@@ -740,8 +937,11 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       topStatusChromeNodeStatusProvider,
       (_, __) => _dispatchNodeStatusEvent(),
     );
-    _loadTxRecords();
-    _loadDappTxIds();
+    ref.listenManual<Identity>(
+      identityProvider,
+      (_, __) => unawaited(_reloadReceiptState()),
+    );
+    unawaited(_reloadReceiptState());
   }
 
   /// Presents the OS file picker for a WebView `<input type="file">` tap
@@ -908,11 +1108,24 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     } catch (_) {
       wallet = ref.read(walletProvider).valueOrNull;
     }
-    final balance = wallet?.balance;
+    final scope = wallet?.scope;
+    final rawCurrentChainId =
+        ref.read(nodeStatusProvider).valueOrNull?.chainId?.trim();
+    final currentChainId =
+        rawCurrentChainId == null || rawCurrentChainId.isEmpty
+            ? null
+            : rawCurrentChainId;
+    final scopeIsCurrent = scope != null &&
+        identity.isCurrent &&
+        scope.accountScope == identity.accountScope &&
+        (currentChainId == null || currentChainId == scope.chainId);
+    final balance = scopeIsCurrent ? wallet?.balance : null;
     await _resolveJsPromise(
       id: id,
       value: {
-        'address': address,
+        // The exact wallet lease proves the address independently of explorer
+        // data or live chain discovery. Only the balance needs a data scope.
+        'address': identity.isCurrent ? address : null,
         // Base units as a string (BigInt-safe for JS consumers).
         'balance': balance?.totalBalance.toString(),
         'tokenAmount': balance?.tokenAmount,
@@ -926,7 +1139,14 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// Returns this webview's persisted dapp-transaction receipts (the same
   /// `_TxRecord` list backing the native receipts sheet), newest first.
   Future<void> _handleGetTransactionRecords(String id) async {
-    final records = _txRecords.values.toList()
+    final authority = _bridgeWalletIdentity();
+    if (authority != null && _receiptScope != authority.accountScope) {
+      await _reloadReceiptState();
+    }
+    final canRead = authority != null &&
+        authority.isCurrent &&
+        _receiptScope == authority.accountScope;
+    final records = (canRead ? _txRecords.values : const <_TxRecord>[]).toList()
       ..sort((a, b) => b.sentAt.compareTo(a.sentAt));
     await _resolveJsPromise(
       id: id,
@@ -1351,15 +1571,12 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// The identity whose wallet this bridge may expose, or null when there is
   /// none: reconciling/unknown (account ownership unsettled) and guest
   /// sessions (the active registry account may belong to a previously
-  /// signed-in user) get nothing. When non-null, [Identity.address] is the
+  /// signed-in user) get nothing. When non-null, the lease's address is the
   /// confirmed wallet address — handlers use it instead of reading the
   /// registry's active account, so a mid-transition registry state can never
   /// leak another identity's address.
-  Identity? _bridgeWalletIdentity() {
-    final identity = IdentitySnapshots.current;
-    if (!identity.allowsSigning) return null;
-    return identity;
-  }
+  WalletIdentityLease? _bridgeWalletIdentity() =>
+      WalletIdentityLease.capture(IdentitySnapshots.current);
 
   Future<void> _resolveJsPromise({
     required String id,
@@ -1434,14 +1651,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     // registry's active account, which a mid-transition reconcile may have
     // already switched to another user's.
     final fromAddress = signingIdentity.address;
-    if (fromAddress == null || fromAddress.isEmpty) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'No active account/address available',
-      );
-      return;
-    }
 
     final userConfirmed = await _requestTransactionConfirmation(
       from: fromAddress,
@@ -1453,15 +1662,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     );
 
     if (!userConfirmed) {
-      _addRecord(_TxRecord(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        sentAt: DateTime.now(),
-        from: fromAddress,
-        to: destinationPubkey,
-        amount: amount,
-        memo: memoString,
-        status: _TxStatus.denied,
-      ));
+      await _addRecord(
+          signingIdentity.accountScope,
+          _TxRecord(
+            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+            sentAt: DateTime.now(),
+            from: fromAddress,
+            to: destinationPubkey,
+            amount: amount,
+            memo: memoString,
+            status: _TxStatus.denied,
+          ));
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1472,16 +1683,18 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     if (AppConfig.viewOnly) {
       const errorMessage = 'Transactions are disabled in view-only mode.';
-      _addRecord(_TxRecord(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        sentAt: DateTime.now(),
-        from: fromAddress,
-        to: destinationPubkey,
-        amount: amount,
-        memo: memoString,
-        status: _TxStatus.error,
-        errorMessage: errorMessage,
-      ));
+      await _addRecord(
+          signingIdentity.accountScope,
+          _TxRecord(
+            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+            sentAt: DateTime.now(),
+            from: fromAddress,
+            to: destinationPubkey,
+            amount: amount,
+            memo: memoString,
+            status: _TxStatus.error,
+            errorMessage: errorMessage,
+          ));
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1494,7 +1707,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     // user time. If the identity transitioned since capture, the runtime's
     // wallet signer no longer (or may no longer) belong to the identity the
     // user confirmed for — refuse instead of signing as someone else.
-    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
+    if (!signingIdentity.isCurrent) {
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1503,43 +1716,42 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final fromPkHash = frb_types.publicKeyHashFromString(s: fromAddress);
     final toPkHash = frb_types.publicKeyHashFromString(s: destinationPubkey);
 
-    final rpc = RustBackendService.instance.rpc;
-    if (rpc == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Node RPC unavailable',
-      );
-      return;
-    }
-
-    final resp = await rpc.wallet().txSendResult(
-          fromPkHash: fromPkHash,
-          amount: amount,
-          toPkHash: toPkHash,
-          memo: memo,
-        );
+    final resp = await RustBackendService.instance.sendTransaction(
+      authority: signingIdentity,
+      amount: amount,
+      toPkHash: toPkHash,
+      memo: memo,
+    );
 
     final rpcError = resp?.error;
     final isQueued = resp?.queued ?? false;
     final recordId =
         resp?.txId ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
-    _addRecord(_TxRecord(
-      id: recordId,
-      sentAt: DateTime.now(),
-      from: fromAddress,
-      to: destinationPubkey,
-      amount: amount,
-      memo: memoString,
-      status: isQueued ? _TxStatus.queued : _TxStatus.error,
-      errorMessage: rpcError,
-    ));
+    await _addRecord(
+        signingIdentity.accountScope,
+        _TxRecord(
+          id: recordId,
+          sentAt: DateTime.now(),
+          from: fromAddress,
+          to: destinationPubkey,
+          amount: amount,
+          memo: memoString,
+          status: isQueued ? _TxStatus.queued : _TxStatus.error,
+          errorMessage: rpcError,
+        ));
 
-    if (isQueued && resp?.txId != null) {
-      _ensureConfirmPoller();
+    // The send already began under the captured wallet and its receipt belongs
+    // to that stable account scope. Do not disclose its late result through a
+    // webview that now belongs to a replacement identity.
+    if (!signingIdentity.isCurrent) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed while the transaction was sent.',
+      );
+      return;
     }
 
     await _resolveJsPromise(
@@ -1583,11 +1795,18 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final repo = await _providers.read(accountsProvider.future);
-    final active = await repo.getActive();
-    if (active == null || active.address != signingIdentity.address) {
-      // The registry's active account must be the captured identity's — a
-      // mismatch means a transition is mutating the registry mid-request.
+    final repo = await AccountsRepository.create(
+      network: signingIdentity.accountScope.network,
+    );
+    final accounts = await repo.list();
+    final account = accounts
+        .where(
+          (candidate) => candidate.id == signingIdentity.accountScope.accountId,
+        )
+        .firstOrNull;
+    if (account == null || account.address != signingIdentity.address) {
+      // Resolve exactly the account named by the lease; the registry's active
+      // entry is ambient mutable state and is not signing authority.
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1608,7 +1827,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     // Effect-point revalidation after the user-paced confirmation dialog —
     // the private key is loaded on the next line.
-    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
+    if (!signingIdentity.isCurrent) {
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1617,7 +1836,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final secretKey = await repo.getSecretKey(active.id);
+    final secretKey =
+        await repo.getSecretKey(signingIdentity.accountScope.accountId);
     if (secretKey == null || secretKey.isEmpty) {
       await _resolveJsPromise(
         id: id,
@@ -1627,7 +1847,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    if (!signingIdentity.sameScopeAs(IdentitySnapshots.current)) {
+    if (!signingIdentity.isCurrent) {
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1644,8 +1864,8 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       await _resolveJsPromise(
         id: id,
         value: <String, dynamic>{
-          'pubkey': active.address,
-          'publicKey': active.publicKey,
+          'pubkey': account.address,
+          'publicKey': account.publicKey,
           'signature': signature,
         },
         error: null,
@@ -2204,58 +2424,74 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   void _ensureConfirmPoller() {
     if (_confirmPoller != null) return;
     _confirmPoller = Timer.periodic(const Duration(seconds: 3), (_) {
-      _pollForConfirmations();
+      unawaited(_pollForConfirmations());
     });
   }
 
   Future<void> _pollForConfirmations() async {
-    final pending = <String, DateTime>{};
-    for (final id in _dappTxIds) {
-      final rec = _txRecords[id];
-      if (rec == null) continue;
-      if (rec.status != _TxStatus.queued) continue;
-      if (rec.id.startsWith('local_')) continue;
-      if (rec.confirmedAt != null) continue;
-      pending[rec.id] = rec.sentAt;
-    }
-
-    if (pending.isEmpty) {
-      _confirmPoller?.cancel();
-      _confirmPoller = null;
+    final authority = _bridgeWalletIdentity();
+    final scope = _receiptScope;
+    if (authority == null || scope == null || authority.accountScope != scope) {
       return;
     }
-
-    final address = _bridgeWalletIdentity()?.address;
-    if (address == null || address.isEmpty) return;
-
-    final dappUri = parseDappUrl(widget.url);
-    final base = Uri(
-      scheme: dappUri.scheme,
-      host: dappUri.host,
-      port: dappUri.port,
-    );
+    if (!_confirmationPollsInFlight.add(scope)) return;
 
     try {
-      if (_cachedChainId == null) {
-        final chainRes =
-            await http.get(base.resolve('/explorer-api/active_chain'));
-        if (chainRes.statusCode != 200) return;
-        final chainData = jsonDecode(chainRes.body) as Map<String, dynamic>;
-        _cachedChainId = chainData['chain_id'] as String?;
-        if (_cachedChainId == null) return;
+      final snapshot = await _readReceiptState(scope);
+      final pending = <String, DateTime>{};
+      for (final id in snapshot.ids) {
+        final rec = snapshot.records[id];
+        if (rec == null) continue;
+        if (rec.status != _TxStatus.queued) continue;
+        if (rec.id.startsWith('local_')) continue;
+        if (rec.confirmedAt != null) continue;
+        pending[rec.id] = rec.sentAt;
       }
+
+      if (pending.isEmpty) {
+        // Cancel only for the still-current scope. A serialized update that
+        // added a receipt after this snapshot either already kept the timer
+        // alive in memory or will restart it when that update publishes.
+        if (_receiptScope == scope) {
+          final currentHasPending = _dappTxIds.any((id) {
+            final record = _txRecords[id];
+            return record != null &&
+                record.status == _TxStatus.queued &&
+                !record.id.startsWith('local_') &&
+                record.confirmedAt == null;
+          });
+          if (!currentHasPending) {
+            _confirmPoller?.cancel();
+            _confirmPoller = null;
+          }
+        }
+        return;
+      }
+
+      final dappUri = parseDappUrl(widget.url);
+      final base = Uri(
+        scheme: dappUri.scheme,
+        host: dappUri.host,
+        port: dappUri.port,
+      );
+      final chainRes =
+          await http.get(base.resolve('/explorer-api/active_chain'));
+      if (chainRes.statusCode != 200) return;
+      final chainData = jsonDecode(chainRes.body) as Map<String, dynamic>;
+      final chainId = chainData['chain_id'] as String?;
+      if (chainId == null || chainId.isEmpty) return;
 
       final earliest = pending.values.reduce(
         (a, b) => a.isBefore(b) ? a : b,
       );
       final fromTs = earliest.millisecondsSinceEpoch - 60000;
 
-      final txUrl = base.resolve('/explorer-api/$_cachedChainId/transactions');
+      final txUrl = base.resolve('/explorer-api/$chainId/transactions');
       final txRes = await http.post(
         txUrl,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'sender': address,
+          'sender': authority.address,
           'from_timestamp': fromTs,
           'limit': 50,
         }),
@@ -2265,7 +2501,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
       final items = (txData['items'] as List<dynamic>?) ?? [];
       final now = DateTime.now();
-      var found = false;
+      final confirmations = <String, _TxRecord>{};
 
       for (final item in items) {
         final j = item as Map<String, dynamic>;
@@ -2275,28 +2511,47 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         if (txId.isNotEmpty &&
             status == 'confirmed' &&
             pending.containsKey(txId)) {
-          final rec = _txRecords[txId];
+          final rec = snapshot.records[txId];
           if (rec != null && rec.confirmedAt == null) {
-            _txRecords[txId] = rec.copyWith(
+            confirmations[txId] = rec.copyWith(
               confirmedAt: now,
               inclusionLatencyMs: (j['inclusion_latency_ms'] as num?)?.toInt(),
               blockHeight: (j['block_height'] as num?)?.toInt(),
               onChainTimestampMs: (j['timestamp_ms'] as num?)?.toInt(),
               onChainStatus: status,
             );
-            found = true;
           }
         }
       }
 
-      if (found) {
-        _saveTxRecords();
-        if (mounted) setState(() {});
+      if (confirmations.isNotEmpty) {
+        await _mergeExplorerConfirmations(scope, confirmations);
       }
     } catch (_) {
       // Silently ignore — will retry on next tick.
+    } finally {
+      _confirmationPollsInFlight.remove(scope);
     }
   }
+
+  Future<void> _mergeExplorerConfirmations(
+    AccountStorageScope scope,
+    Map<String, _TxRecord> confirmations,
+  ) =>
+      _updateReceiptState(scope, (state) {
+        for (final entry in confirmations.entries) {
+          final current = state.records[entry.key];
+          if (current == null || current.confirmedAt != null) continue;
+          final confirmation = entry.value;
+          state.records[entry.key] = current.copyWith(
+            confirmedAt: confirmation.confirmedAt,
+            inclusionLatencyMs: confirmation.inclusionLatencyMs,
+            blockHeight: confirmation.blockHeight,
+            onChainTimestampMs: confirmation.onChainTimestampMs,
+            onChainStatus: confirmation.onChainStatus,
+          );
+        }
+      });
 
   /// Pushes a full-screen opaque route for transaction confirmation.
   /// Returns `true` if confirmed, `false` if denied.
@@ -2340,7 +2595,22 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<void> _openTxDebugPanel() async {
-    final userAddress = _bridgeWalletIdentity()?.address;
+    final authority = _bridgeWalletIdentity();
+    final scope = authority?.accountScope;
+    if (authority == null || scope == null) return;
+
+    // Read through the shared per-row serializer before snapshotting. This
+    // waits for initial loading and any concurrent receipt writer from a
+    // second webview, so opening the panel early cannot freeze an empty view.
+    final receiptState = await _readReceiptState(scope);
+    if (!mounted ||
+        !authority.isCurrent ||
+        _bridgeWalletIdentity()?.accountScope != scope) {
+      return;
+    }
+    _publishReceiptState(scope, receiptState);
+    final dappTxIds = Set<String>.of(receiptState.ids);
+    final txRecords = Map<String, _TxRecord>.of(receiptState.records);
     final dappUri = parseDappUrl(widget.url);
     final explorerOrigin = Uri(
       scheme: dappUri.scheme,
@@ -2357,12 +2627,13 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 250),
         pageBuilder: (_, __, ___) => _TxDebugPanel(
-          dappTxIds: _dappTxIds,
-          txRecords: _txRecords,
-          userAddress: userAddress,
+          authority: authority,
+          dappTxIds: dappTxIds,
+          txRecords: txRecords,
           explorerOrigin: explorerOrigin,
-          onRecordsUpdated: () {
-            _saveTxRecords();
+          onConfirmations: (confirmations) async {
+            if (!authority.isCurrent) return;
+            await _mergeExplorerConfirmations(scope, confirmations);
           },
         ),
         transitionsBuilder: (_, animation, __, child) {
@@ -2605,38 +2876,53 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 // Transaction debug panel (opaque route — no WebView overlap)
 // ---------------------------------------------------------------------------
 
-class _TxDebugPanel extends StatefulWidget {
+class _TxDebugPanel extends ConsumerStatefulWidget {
+  final WalletIdentityLease authority;
   final Set<String> dappTxIds;
   final Map<String, _TxRecord> txRecords;
-  final String? userAddress;
   final Uri explorerOrigin;
-  final VoidCallback onRecordsUpdated;
+  final Future<void> Function(Map<String, _TxRecord> confirmations)
+      onConfirmations;
 
   const _TxDebugPanel({
+    required this.authority,
     required this.dappTxIds,
     required this.txRecords,
-    required this.userAddress,
     required this.explorerOrigin,
-    required this.onRecordsUpdated,
+    required this.onConfirmations,
   });
 
   @override
-  State<_TxDebugPanel> createState() => _TxDebugPanelState();
+  ConsumerState<_TxDebugPanel> createState() => _TxDebugPanelState();
 }
 
-class _TxDebugPanelState extends State<_TxDebugPanel> {
+class _TxDebugPanelState extends ConsumerState<_TxDebugPanel> {
   bool _loading = false;
   String? _fetchError;
   int? _expandedIndex;
+  bool _revoked = false;
   late final Timer _ageTicker;
+  late final Set<String> _dappTxIds;
+  late final Map<String, _TxRecord> _txRecords;
 
   @override
   void initState() {
     super.initState();
+    _dappTxIds = Set<String>.of(widget.dappTxIds);
+    _txRecords = Map<String, _TxRecord>.of(widget.txRecords);
     _ageTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
-    _fetchExplorerData();
+    ref.listenManual<Identity>(identityProvider, (_, __) {
+      if (!widget.authority.isCurrent) {
+        _revoke();
+      }
+    });
+    if (!widget.authority.isCurrent) {
+      _revoke();
+    } else {
+      unawaited(_fetchExplorerData());
+    }
   }
 
   @override
@@ -2647,15 +2933,44 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
 
   List<_TxRecord> _sortedRecords() {
     final records = <_TxRecord>[];
-    for (final id in widget.dappTxIds) {
-      final rec = widget.txRecords[id];
+    for (final id in _dappTxIds) {
+      final rec = _txRecords[id];
       if (rec != null) records.add(rec);
     }
     records.sort((a, b) => b.sentAt.compareTo(a.sentAt));
     return records;
   }
 
+  bool _isAuthorityCurrent() => widget.authority.isCurrent;
+
+  void _revoke() {
+    if (_revoked) return;
+    _revoked = true;
+    _dappTxIds.clear();
+    _txRecords.clear();
+    if (mounted) setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_revoked) return;
+      final route = ModalRoute.of(context);
+      if (route == null) return;
+      final navigator = Navigator.of(context);
+      if (route.isCurrent) {
+        navigator.pop();
+      } else {
+        navigator.removeRoute(route);
+      }
+    });
+  }
+
+  bool _canApplyExplorerResult() {
+    if (!mounted || _revoked) return false;
+    if (_isAuthorityCurrent()) return true;
+    _revoke();
+    return false;
+  }
+
   Future<void> _refresh() async {
+    if (!_canApplyExplorerResult()) return;
     setState(() {
       _fetchError = null;
       _loading = true;
@@ -2664,15 +2979,12 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
   }
 
   Future<void> _fetchExplorerData() async {
-    final address = widget.userAddress;
-    if (address == null || address.isEmpty) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
+    if (!_canApplyExplorerResult()) return;
+    final address = widget.authority.address;
 
     final pending = <String, DateTime>{};
-    for (final id in widget.dappTxIds) {
-      final rec = widget.txRecords[id];
+    for (final id in _dappTxIds) {
+      final rec = _txRecords[id];
       if (rec == null) continue;
       if (rec.status != _TxStatus.queued) continue;
       if (rec.id.startsWith('local_')) continue;
@@ -2691,6 +3003,7 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
       final base = widget.explorerOrigin;
       final chainRes =
           await http.get(base.resolve('/explorer-api/active_chain'));
+      if (!_canApplyExplorerResult()) return;
       if (chainRes.statusCode != 200) {
         throw Exception('Chain discovery failed (${chainRes.statusCode})');
       }
@@ -2713,13 +3026,14 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
           'limit': 50,
         }),
       );
+      if (!_canApplyExplorerResult()) return;
       if (txRes.statusCode != 200) {
         throw Exception('Transaction fetch failed (${txRes.statusCode})');
       }
 
       final txData = jsonDecode(txRes.body) as Map<String, dynamic>;
       final items = (txData['items'] as List<dynamic>?) ?? [];
-      var found = false;
+      final confirmations = <String, _TxRecord>{};
       final now = DateTime.now();
 
       for (final item in items) {
@@ -2730,23 +3044,31 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
         if (txId.isNotEmpty &&
             status == 'confirmed' &&
             pending.containsKey(txId)) {
-          final rec = widget.txRecords[txId];
+          final rec = _txRecords[txId];
           if (rec != null && rec.confirmedAt == null) {
-            widget.txRecords[txId] = rec.copyWith(
+            confirmations[txId] = rec.copyWith(
               confirmedAt: now,
               inclusionLatencyMs: (j['inclusion_latency_ms'] as num?)?.toInt(),
               blockHeight: (j['block_height'] as num?)?.toInt(),
               onChainTimestampMs: (j['timestamp_ms'] as num?)?.toInt(),
               onChainStatus: status,
             );
-            found = true;
           }
         }
       }
 
-      if (found) widget.onRecordsUpdated();
+      if (confirmations.isNotEmpty) {
+        if (!_canApplyExplorerResult()) return;
+        await widget.onConfirmations(confirmations);
+        if (!_canApplyExplorerResult()) return;
+        _txRecords.addAll(confirmations);
+      }
       if (mounted) setState(() => _loading = false);
     } catch (e) {
+      if (!_isAuthorityCurrent()) {
+        _revoke();
+        return;
+      }
       if (mounted) {
         setState(() {
           _fetchError = e.toString();
@@ -2763,6 +3085,12 @@ class _TxDebugPanelState extends State<_TxDebugPanel> {
     final radii = theme.extension<AppRadii>()!;
     final muted = theme.colorScheme.onSurfaceVariant;
     final records = _sortedRecords();
+
+    if (_revoked || !_isAuthorityCurrent()) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(

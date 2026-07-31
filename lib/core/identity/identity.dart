@@ -37,11 +37,11 @@ enum IdentityPhase {
 
 /// An immutable snapshot of "who the app is right now".
 ///
-/// Every field is fixed at publish time. Async work captures the snapshot
-/// once when it starts and compares [epoch] before applying results — a
-/// changed epoch means the identity this work was started for no longer
-/// exists, and the work must abort rather than apply another identity's
-/// result. See docs/identity-lifecycle-invariants.md.
+/// Every field is fixed at publish time. Identity-sensitive effects capture
+/// an exact lease from this snapshot and revalidate it at their effect
+/// boundary. Data already addressed to a stable owner may finish in that
+/// owner's scope after [epoch] changes, but must not be published as the new
+/// identity's data. See docs/identity-lifecycle-invariants.md.
 @immutable
 class Identity {
   const Identity({
@@ -99,13 +99,16 @@ class Identity {
 
   /// Node starts are refused while the identity is unsettled: the runtime
   /// would capture the active account's key, which may belong to a previous
-  /// user. Only the reconciler (which is establishing that binding) may
-  /// override.
-  // FIXME(follow-up): Explicitly reject IdentityPhase.unknown; queued recovery
-  // can otherwise start the previous account before restore settles.
+  /// user. The reconciler instead constructs an explicit authority naming the
+  /// account binding it is establishing.
   bool get allowsNodeStart =>
-      phase != IdentityPhase.transitioning &&
-      phase != IdentityPhase.reconciling;
+      phase == IdentityPhase.guest ||
+      ((phase == IdentityPhase.unauthenticated ||
+              phase == IdentityPhase.ready) &&
+          accountId != null &&
+          accountId!.isNotEmpty &&
+          address != null &&
+          address!.isNotEmpty);
 
   /// Signing (dApp bridge, Send flow) requires an identity that OWNS an
   /// account: a confirmed authenticated identity, or the local-only
@@ -114,8 +117,12 @@ class Identity {
   /// belong to a previously signed-in user, and a guest session must never
   /// operate it. When this is true, [address] is always non-null.
   bool get allowsSigning =>
-      phase == IdentityPhase.ready ||
-      (phase == IdentityPhase.unauthenticated && address != null);
+      (phase == IdentityPhase.ready ||
+          phase == IdentityPhase.unauthenticated) &&
+      accountId != null &&
+      accountId!.isNotEmpty &&
+      address != null &&
+      address!.isNotEmpty;
 
   /// Exact equality for async work that must not cross identity publication.
   bool sameScopeAs(Identity other) =>
@@ -184,8 +191,8 @@ class StaleAuthCredentialException implements Exception {
 /// handlers).
 ///
 /// Single writer: only `SessionController` publishes here (enforced by
-/// ds_lints). Everything else captures `IdentitySnapshots.current` once at
-/// the start of an operation and compares epochs before applying results.
+/// ds_lints). Callers capture an explicit stable scope or ephemeral lease from
+/// this mirror rather than consulting it repeatedly during an operation.
 class IdentitySnapshots {
   IdentitySnapshots._();
 

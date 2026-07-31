@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/identity/wallet_identity_lease.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
+    show identityProvider;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -120,19 +122,16 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   }
 
   Future<void> _processPayload(_QrTxPayload payload) async {
-    // FIXME(follow-up): Capture an allowsSigning identity/address lease here
-    // and revalidate it after confirmation, immediately before txSendResult.
-    final accountsRepo = await AccountsRepository.create();
-    final userAccount = await accountsRepo.getActive();
-    final address = userAccount?.address;
+    final authority = WalletIdentityLease.capture(ref.read(identityProvider));
 
     if (!mounted) return;
 
-    if (address == null || address.isEmpty) {
+    if (authority == null) {
       _showError(AppLocalizations.of(context).walletNoActiveAccount);
       Navigator.pop(context);
       return;
     }
+    final address = authority.address;
 
     final confirmed = await requestTransactionConfirmation(
       context,
@@ -152,30 +151,36 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       return;
     }
 
-    await _submitTransaction(address, payload);
+    if (!authority.isCurrent) {
+      _showError('The signed-in account changed. Please scan again.');
+      if (mounted) {
+        setState(() => _processing = false);
+        await _scannerController.start();
+      }
+      return;
+    }
+
+    await _submitTransaction(authority, payload);
   }
 
-  Future<void> _submitTransaction(String from, _QrTxPayload payload) async {
+  Future<void> _submitTransaction(
+    WalletIdentityLease authority,
+    _QrTxPayload payload,
+  ) async {
     if (!mounted) return;
 
     try {
-      final rpc = RustBackendService.instance.rpc;
-      if (rpc == null) {
-        throw Exception('Node RPC unavailable');
-      }
-
-      final fromPkHash = frb_types.publicKeyHashFromString(s: from);
       final toPkHash = frb_types.publicKeyHashFromString(s: payload.to);
       final memo = frb_types.Memo.fromUtf8Str(s: payload.memo);
 
-      final resp = await rpc.wallet().txSendResult(
-            fromPkHash: fromPkHash,
-            amount: payload.amount,
-            toPkHash: toPkHash,
-            memo: memo,
-          );
+      final resp = await RustBackendService.instance.sendTransaction(
+        authority: authority,
+        amount: payload.amount,
+        toPkHash: toPkHash,
+        memo: memo,
+      );
 
-      if (!mounted) return;
+      if (!mounted || !authority.isCurrent) return;
 
       final rpcError = resp?.error;
       final isQueued = resp?.queued ?? false;
@@ -192,7 +197,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
         });
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !authority.isCurrent) return;
       context.go(AppRoutes.walletSendFailed, extra: {
         'errorMessage': e.toString(),
       });

@@ -12,17 +12,21 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
+import 'package:crypto_mobile_app/core/identity/wallet_identity_lease.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
-import 'package:crypto_mobile_app/src/rust/frb_types.dart' show Memo;
+import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' show enableLogging;
 import 'package:crypto_mobile_app/src/rust/tracing.dart' show TracingLevel;
-import 'package:crypto_mobile_app/src/rust/node.dart';
+import 'package:crypto_mobile_app/src/rust/node.dart' show NodeControl;
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
+import 'package:crypto_mobile_app/src/rust/node/mobile.dart';
+import 'package:crypto_mobile_app/src/rust/node/runtime.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
@@ -35,6 +39,23 @@ import 'package:http/http.dart' as http;
 final _log = LoggingService.instance.withTag('usernode/NodeService');
 const _viewOnlyTransactionError =
     'Transactions are disabled in view-only mode.';
+
+class _NodeStartRequest {
+  const _NodeStartRequest({
+    required this.authority,
+    required this.httpPort,
+    required this.freshRuntime,
+  });
+
+  final NodeStartAuthority authority;
+  final int? httpPort;
+  final bool freshRuntime;
+
+  bool equivalentTo(_NodeStartRequest other) =>
+      httpPort == other.httpPort &&
+      freshRuntime == other.freshRuntime &&
+      authority.sameRequestAuthorityAs(other.authority);
+}
 
 /// Parse log level string to TracingLevel enum
 TracingLevel _parseTracingLevel(String level) {
@@ -75,9 +96,14 @@ class RustBackendService {
   Completer<void>?
       _initCompleter; // Prevents race condition on concurrent init() calls
   Completer<bool>? _startNodeCompleter;
+  _NodeStartRequest? _startNodeRequest;
+  Future<void>? _stopNodeInFlight;
+  int _startIntentGeneration = 0;
   bool _nodeRunning = false;
   bool _nodePaused = false;
-  bool? _runtimeViewOnly;
+  bool _pauseRequested = false;
+  NodeRuntimeAuthority? _runtimeAuthority;
+  int _runtimeGeneration = 0;
   String? _instanceId;
   String? _cachedPeerId;
   int? _cachedGenesisTimestamp;
@@ -87,8 +113,12 @@ class RustBackendService {
 
   NodeControl? _control;
   NodeRpcClient? _rpc;
+  NodeHandle? _nodeHandle;
+  NodeHandle? _shutdownInFlightHandle;
+  int? _shutdownInFlightGeneration;
   bool get isRunning => _nodeRunning;
   bool get isRuntimeActive => _nodeRunning && !_nodePaused;
+  int get runtimeGeneration => _runtimeGeneration;
   String? get instanceId => _instanceId;
   int? get nodeClockDriftMs => _nodeClockDriftMs;
   int? get lastNodeTimeMs => _lastNodeTimeMs;
@@ -179,6 +209,7 @@ class RustBackendService {
     try {
       final requestStartedAtMs = DateTime.now().millisecondsSinceEpoch;
       final status = await rpc.status(includeVrfDetails: false);
+      if (!identical(_rpc, rpc)) return;
       final responseReceivedAtMs = DateTime.now().millisecondsSinceEpoch;
       _updateNodeClockDriftFromStatus(
         status,
@@ -191,7 +222,9 @@ class RustBackendService {
           '_cachePeerIdFromRpc: Failed to cache peer ID from RPC status()',
           error: e,
           stackTrace: st);
-      _cachedPeerId = null;
+      if (identical(_rpc, rpc)) {
+        _cachedPeerId = null;
+      }
     }
   }
 
@@ -271,55 +304,102 @@ class RustBackendService {
   /// the node while account ownership is unsettled" is enforced. While the
   /// identity is reconciling (a sign-in or season rollover whose account
   /// reconcile has not completed), the active account may still belong to a
-  /// previous user — refuse to start. The [NodeAccountReconciler] is the ONE
-  /// caller allowed through (via [identityOverride]) because it starts the
-  /// node under the account it just confirmed.
+  /// previous user — refuse to start. The [NodeAccountReconciler] is the one
+  /// caller that supplies a reconciliation [authority], which names the exact
+  /// identity, network, account, and address it just confirmed.
   ///
   /// The gate is checked at entry AND re-checked after the (long) internal
   /// start: a login can close the gate while a start is in flight, and the
   /// runtime it built holds the pre-login account's key — tear it down
   /// instead of returning it as a success.
   ///
-  /// [freshRuntime] (reconciler only): never adopt an already-running global
-  /// node — its block-producer key was fixed at build time for whichever
-  /// account was active then and cannot be swapped. The existing runtime is
-  /// shut down and a new one is built under the now-active account.
+  /// Reconciliation authorities always imply [freshRuntime]: a block-producer
+  /// key is fixed when its runtime is built and cannot be swapped by changing
+  /// only the wallet signer.
   Future<bool> startNode({
     int? httpPort,
-    bool identityOverride = false,
     bool freshRuntime = false,
+    NodeStartAuthority? authority,
   }) async {
-    if (!identityOverride && !IdentitySnapshots.current.allowsNodeStart) {
+    final resolvedAuthority =
+        authority ?? NodeStartAuthority.capture(IdentitySnapshots.current);
+    if (resolvedAuthority == null || !resolvedAuthority.isCurrent) {
+      final phase = IdentitySnapshots.current.phase;
       _log.warn('startNode refused: identity is '
-          '${IdentitySnapshots.current.phase.name} (account ownership '
-          'unsettled until the reconcile completes)');
+          '${phase.name} or its start authority is stale');
       return false;
     }
-    if (_startNodeCompleter != null) {
-      _log.debug('startNode already in progress; waiting for existing start');
-      return _startNodeCompleter!.future;
+    final startIntentGeneration = _startIntentGeneration;
+    final stopInFlight = _stopNodeInFlight;
+    if (stopInFlight != null) {
+      _log.debug('Waiting for node shutdown before starting');
+      try {
+        await stopInFlight;
+      } catch (_) {
+        // Shutdown retained its exact handle fail-closed. A later explicit
+        // start can retry cleanup; this request must not overlap it.
+        return false;
+      }
+      if (!resolvedAuthority.isCurrent ||
+          startIntentGeneration != _startIntentGeneration) {
+        return false;
+      }
+      return startNode(
+        httpPort: httpPort,
+        freshRuntime: freshRuntime,
+        authority: resolvedAuthority,
+      );
+    }
+    final request = _NodeStartRequest(
+      authority: resolvedAuthority,
+      httpPort: httpPort,
+      freshRuntime: freshRuntime || resolvedAuthority.isReconciliation,
+    );
+    final inFlight = _startNodeCompleter;
+    final inFlightRequest = _startNodeRequest;
+    if (inFlight != null) {
+      if (inFlightRequest != null && inFlightRequest.equivalentTo(request)) {
+        _log.debug('Joining equivalent node start already in progress');
+        return inFlight.future;
+      }
+      _log.debug('Waiting for a different node start before retrying');
+      try {
+        await inFlight.future;
+      } catch (_) {
+        // The original caller owns that error. This request revalidates its
+        // own authority and then gets an independent attempt.
+      }
+      if (!resolvedAuthority.isCurrent ||
+          startIntentGeneration != _startIntentGeneration) {
+        return false;
+      }
+      return startNode(
+        httpPort: httpPort,
+        freshRuntime: request.freshRuntime,
+        authority: resolvedAuthority,
+      );
     }
 
     final completer = Completer<bool>();
     _startNodeCompleter = completer;
+    _startNodeRequest = request;
     try {
       final started = await _startNodeInternal(
+        authority: resolvedAuthority,
+        startIntentGeneration: startIntentGeneration,
         httpPort: httpPort,
-        freshRuntime: freshRuntime,
+        freshRuntime: request.freshRuntime,
       );
       if (started &&
-          !identityOverride &&
-          !IdentitySnapshots.current.allowsNodeStart) {
-        // The identity became unsettled while the start was in flight; the
-        // runtime captured the pre-transition account's key. Settle waiters
-        // first (stopNode waits on this completer), then tear down.
-        _log.warn('startNode: identity became unsettled mid-start; '
-            'stopping the just-started node');
-        if (identical(_startNodeCompleter, completer)) {
-          _startNodeCompleter = null;
-        }
+          (!resolvedAuthority.isCurrent ||
+              startIntentGeneration != _startIntentGeneration)) {
+        // Keep waiters blocked while tearing down the exact runtime produced
+        // by this start. Waking a queued successor first would let a generic
+        // stop race forward and shut that successor down instead.
+        _log.warn('startNode: authority or lifecycle intent changed '
+            'mid-start; stopping the just-started node');
+        await _shutdownTrackedRuntime();
         completer.complete(false);
-        await stopNode();
         return false;
       }
       completer.complete(started);
@@ -332,6 +412,7 @@ class RustBackendService {
     } finally {
       if (identical(_startNodeCompleter, completer)) {
         _startNodeCompleter = null;
+        _startNodeRequest = null;
       }
     }
   }
@@ -354,44 +435,38 @@ class RustBackendService {
   }
 
   Future<bool> _startNodeInternal({
+    required NodeStartAuthority authority,
+    required int startIntentGeneration,
     int? httpPort,
     bool freshRuntime = false,
   }) async {
     if (!_initialized) {
       await init();
     }
+    if (!authority.isCurrent ||
+        startIntentGeneration != _startIntentGeneration) {
+      return false;
+    }
 
     // Resolve keyless authority before consulting local/global runtime state
     // or loading an account secret. SharedPreferences is cached per engine,
     // so refresh the durable guest flag at this security boundary.
     final guestSession =
-        IdentitySnapshots.current.phase == IdentityPhase.guest ||
+        authority.identityLease.identity.phase == IdentityPhase.guest ||
             await AuthGuestFlag().isGuest(reload: true);
+    if (!authority.isCurrent) return false;
     final viewOnly = AppConfig.viewOnly || guestSession;
 
-    if (_nodeRunning) {
-      if (viewOnly) {
-        if (_runtimeViewOnly == true) {
-          _log.trace('Keyless view-only node already running');
-          return true;
-        }
-        _log.warn('View-only start found a locally tracked runtime; '
-            'shutting it down before rebuilding without account keys');
-        _control?.shutdown();
-        final wentDown = await _waitForGlobalNodeDown();
-        if (!wentDown) {
-          _log.error('Tracked node did not shut down; refusing to accept '
-              'unknown producer authority in view-only mode');
-          return false;
-        }
-        _nodeRunning = false;
-        _nodePaused = false;
-        _runtimeViewOnly = null;
-        _rpc = null;
-        _control = null;
-        _cachedPeerId = null;
-        _clearNodeClockDrift();
-      } else {
+    if (_nodeRunning && _nodeHandle != null) {
+      final reusable = !freshRuntime &&
+          _nodeHandle!.isActive() &&
+          _runtimeAuthority?.matchesStart(
+                authority,
+                keyless: viewOnly,
+                currentGeneration: _runtimeGeneration,
+              ) ==
+              true;
+      if (reusable) {
         _log.trace('Node already running');
         unawaited(
           ObservabilityReportingService.instance.reportNodeInitialized(
@@ -400,6 +475,23 @@ class RustBackendService {
         );
         return true;
       }
+
+      _log.warn('Node start found a locally tracked runtime with a different '
+          'authority; shutting it down before rebuilding');
+      await _shutdownTrackedRuntime();
+      if (!authority.isCurrent) return false;
+    } else if (_nodeHandle != null) {
+      // A previous RPC failure may have marked the local facade unavailable
+      // while retaining the exact native owner. Reap that handle before
+      // attempting another start.
+      await _shutdownTrackedRuntime();
+      if (!authority.isCurrent) return false;
+    } else if (_nodeRunning) {
+      // This can only happen across a hot-reload/schema transition. There is
+      // no exact handle that this engine is allowed to stop.
+      _log.warn('Dropping inconsistent local node state without touching the '
+          'process-wide mobile slot');
+      _clearLocalRuntimeState();
     }
 
     String? accountId;
@@ -408,7 +500,12 @@ class RustBackendService {
       // Only producer-capable starts may resolve and materialize an account
       // secret. Guest/view-only starts stay keyless even when an old account
       // remains in the registry.
-      final repo = await AccountsRepository.create();
+      final expectedAccount = authority.accountScope;
+      if (expectedAccount == null) {
+        _log.error('Producer start has no explicit account authority');
+        return false;
+      }
+      final repo = await AccountsRepository.create(network: authority.network);
       _log.trace('Checking if any accounts exist...');
       final hasAny = await repo.hasAny();
       _log.trace('Account check result: hasAny = $hasAny');
@@ -421,6 +518,11 @@ class RustBackendService {
       final account = await repo.getActive();
       if (account == null) {
         _log.error('Failed to retrieve active account');
+        return false;
+      }
+      if (account.id != expectedAccount.accountId ||
+          account.address != expectedAccount.address) {
+        _log.error('Active account does not match node start authority');
         return false;
       }
       accountId = account.id;
@@ -437,157 +539,107 @@ class RustBackendService {
       // SECURITY: Only log key length, not value.
       _log.trace('Secret key retrieved (length: ${secretKey.length})');
     }
-
-    // First try to reuse an already-running *global* node (shared across Dart
-    // isolates / FlutterEngines in the same process) by grabbing its RPC client.
-    // This avoids spinning up a second node when another engine already started it.
-    final existing = Node.getGlobal();
-    if (existing case (final rpc, final control)) {
-      if (viewOnly) {
-        // Producer status is nullable, so probing cannot positively establish
-        // that an inherited runtime is keyless. Rebuild it instead. This also
-        // removes any wallet signer retained by the previous identity.
-        _log.warn('View-only start found an existing global node; '
-            'shutting it down before rebuilding without account keys');
-        control.shutdown();
-        final wentDown = await _waitForGlobalNodeDown();
-        if (!wentDown) {
-          _log.error('Existing global node did not shut down; refusing to '
-              'enter view-only mode with unknown producer authority');
-          return false;
-        }
-      } else if (freshRuntime) {
-        // A reconciler start must bind BOTH runtime identities (block
-        // producer + wallet signer) to the reconciled account. The producer
-        // key of an existing runtime was fixed at build time and cannot be
-        // swapped, so the existing node is torn down and rebuilt. Waiting
-        // for it to actually go down avoids two producers racing.
-        _log.warn('Fresh-runtime start found an existing global node; '
-            'shutting it down before rebuilding');
-        control.shutdown();
-        final wentDown = await _waitForGlobalNodeDown();
-        if (!wentDown) {
-          _log.error('Existing global node did not shut down; refusing to '
-              'bind the reconciled account to a runtime with unknown keys');
-          return false;
-        }
-      } else {
-        _rpc = rpc;
-        _control = control;
-        _nodeRunning = true;
-        _nodePaused = false;
-        _runtimeViewOnly = false;
-        control.resume();
-        await _cachePeerIdFromRpc(rpc);
-
-        final signerOk = await _configureWalletSigner(secretKey!, accountId!);
-        if (!signerOk) {
-          // The reused runtime still holds whichever signer it was left
-          // with — possibly a previous account's. Running like that lets
-          // wallet RPC sends sign as the wrong account; tear down instead.
-          _teardownRuntimeAfterFailedBind();
-          return false;
-        }
-        _log.info('Reused previously started node');
-        unawaited(
-          ObservabilityReportingService.instance.reportNodeInitialized(
-            resetStaticContext: true,
-          ),
-        );
-        return true;
-      }
-    }
+    NodeHandle? startedHandle;
 
     // Start node
     try {
       _log.trace('Starting node${httpPort != null ? ' on $httpPort' : ''}');
 
-      // No global node exists yet, so build/configure a new one.
-      final builder = NodeBuilder();
-      if (httpPort != null) {
-        builder.httpServer(port: httpPort);
-      }
-
-      // Load network configuration from URLs (with retry)
-      await _configureNetworkFromUrls(builder);
-
-      // A guest session is treated as view-only: the node still runs and syncs,
-      // but never produces blocks — a returning operator's leftover keys must
-      // not operate while browsing as a guest.
-      if (viewOnly) {
-        _log.info(guestSession
-            ? 'Guest session; node runs non-producing (no block producer)'
-            : 'VIEW_ONLY enabled; skipping block producer configuration');
-      } else {
-        _log.trace(
-          'Configuring block producer with user secret key (length: ${secretKey!.length})',
+      const maxSlotAttempts = 3;
+      for (var attempt = 1; attempt <= maxSlotAttempts; attempt++) {
+        // NodeBuilder is moved into every native lifecycle call. A lost CAS
+        // must therefore rebuild all configuration rather than retrying with
+        // the consumed bridge object.
+        final builder = await _createNodeBuilder(
+          authority: authority,
+          httpPort: httpPort,
+          viewOnly: viewOnly,
+          guestSession: guestSession,
+          secretKey: secretKey,
         );
-        builder.blockProducerSecretKey(secretKey: secretKey);
-      }
-      if (!viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
-        _log.info(
-          'Enabling observability hub HTTP intake',
-          context: {'base_url': AppConfig.observabilityHubBaseUrl},
+        // Builder preparation is inert. This is the one exact authority check
+        // at the irreversible process-wide lifecycle boundary for each try.
+        if (!authority.isCurrent ||
+            startIntentGeneration != _startIntentGeneration) {
+          return false;
+        }
+
+        // An ambient handle has no Dart-side identity authority. It is only a
+        // CAS target and is never adopted as this service's runtime.
+        final current = MobileNode.current();
+        if (current == null) {
+          // FIXME(native-node-authority): getOrStart cannot distinguish
+          // "started from the observed empty slot" from "reused a runtime
+          // installed by another engine in the empty-slot race". Add native
+          // empty-slot CAS or authority metadata so this proof is explicit.
+          startedHandle = await MobileNode.getOrStart(builder: builder);
+        } else {
+          startedHandle = await MobileNode.replaceIfCurrent(
+            current: current,
+            builder: builder,
+          );
+        }
+
+        if (startedHandle != null) break;
+        _log.warn(
+          'Node replacement lost the process-wide handle race '
+          '(attempt $attempt/$maxSlotAttempts)',
         );
-        builder.enableObservabilityHubHttp(
-          baseUrl: AppConfig.observabilityHubBaseUrl,
-        );
-      } else if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
-        _log.info('Skipping observability hub HTTP intake in view-only mode');
       }
-      if (AppConfig.enableRealProver) {
-        _log.info('Forcing real prover mode');
-        builder.enableRealProver();
+
+      final handle = startedHandle;
+      if (handle == null) {
+        _log.error('Node start could not acquire the process-wide mobile slot');
+        return false;
       }
-      if (!viewOnly) {
-        builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
-      }
-      // Configure persistent node storage path so wallet cache state survives restarts.
-      // Use network-specific paths to avoid conflicts when switching networks.
-      final appSupportDir = await getApplicationSupportDirectory();
-      final networkType = await _getSelectedNetwork();
-      // TODO this should include the hash of the genesis block
-      final nodeStoragePath =
-          '${appSupportDir.path}/${networkType.name}_usernode_node_storage.sqlite';
-      _log.trace('Using node storage path: $nodeStoragePath');
-      builder.nodeStoragePath(path: nodeStoragePath);
 
-      // Keep persistent VRF storage separate until it is folded into general node storage.
-      final vrfPath =
-          '${appSupportDir.path}/${networkType.name}_usernode_vrf_storage.sqlite';
-      _log.trace('Using VRF storage path: $vrfPath');
-      builder.vrfStoragePath(path: vrfPath);
-
-      final node = builder.build();
-      _rpc = node.rpc();
-
-      // Run the node in a background thread.
-      _control = node.runForeverInNewThread();
-      _nodeRunning = true;
-      _nodePaused = false;
-      _runtimeViewOnly = viewOnly;
-
-      // Cache peer ID once on startup.
-      // Prefer RPC status so callers don't depend on holding a Node handle.
-      // Wait a bit for the node to be ready before trying to cache peer ID
-      await Future.delayed(const Duration(milliseconds: 500));
-      try {
-        await _cachePeerIdFromRpc(_rpc!);
-      } catch (e) {
-        _log.warn('Failed to cache peer ID (node may still be starting): $e');
+      final rpc = handle.rpc();
+      final control = handle.control();
+      if (!authority.isCurrent ||
+          startIntentGeneration != _startIntentGeneration ||
+          !handle.isActive()) {
+        await _shutdownUntrackedStart(handle);
+        return false;
       }
 
       if (!viewOnly) {
-        final signerOk = await _configureWalletSigner(secretKey!, accountId!);
-        if (!signerOk) {
+        final signerOk = await _configureWalletSigner(
+          rpc,
+          secretKey!,
+          accountId!,
+          authority,
+          startIntentGeneration,
+        );
+        if (!signerOk ||
+            !authority.isCurrent ||
+            startIntentGeneration != _startIntentGeneration) {
           // The producer key is correct (set at build), but wallet RPC sends
           // would fail or — worse, after a future reuse — sign under a stale
           // signer. A start that cannot bind the signer is a failed start;
           // the reconciler must not commit `ready` on top of it.
-          _teardownRuntimeAfterFailedBind();
+          await _shutdownUntrackedStart(handle);
           return false;
         }
       }
+
+      if (!authority.isCurrent ||
+          startIntentGeneration != _startIntentGeneration ||
+          !handle.isActive()) {
+        await _shutdownUntrackedStart(handle);
+        return false;
+      }
+
+      _bindRuntimeAuthority(
+        authority,
+        keyless: viewOnly,
+        handle: handle,
+        rpc: rpc,
+        control: control,
+      );
+      // Peer ID and clock drift are useful cached metadata, not startup
+      // authority. Keep this read off the critical publication path and only
+      // let it update the cache while [rpc] is still the bound facade.
+      unawaited(_cachePeerIdFromRpc(rpc));
 
       _log.info(viewOnly
           ? 'Node started in keyless view-only mode'
@@ -604,25 +656,103 @@ class RustBackendService {
           error: e,
           stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'startNode');
+      final handle = startedHandle;
+      if (handle != null) {
+        await _shutdownUntrackedStart(handle);
+      }
       return false;
     }
+  }
+
+  Future<NodeBuilder> _createNodeBuilder({
+    required NodeStartAuthority authority,
+    required int? httpPort,
+    required bool viewOnly,
+    required bool guestSession,
+    required String? secretKey,
+  }) async {
+    final builder = NodeBuilder();
+    if (httpPort != null) {
+      builder.httpServer(port: httpPort);
+    }
+
+    await _configureNetworkFromUrls(builder, authority.network);
+
+    // A guest session is treated as view-only: the node still runs and syncs,
+    // but never produces blocks — a returning operator's leftover keys must
+    // not operate while browsing as a guest.
+    if (viewOnly) {
+      _log.info(guestSession
+          ? 'Guest session; node runs non-producing (no block producer)'
+          : 'VIEW_ONLY enabled; skipping block producer configuration');
+    } else {
+      _log.trace(
+        'Configuring block producer with user secret key '
+        '(length: ${secretKey!.length})',
+      );
+      builder.blockProducerSecretKey(secretKey: secretKey);
+    }
+    if (!viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+      _log.info(
+        'Enabling observability hub HTTP intake',
+        context: {'base_url': AppConfig.observabilityHubBaseUrl},
+      );
+      builder.enableObservabilityHubHttp(
+        baseUrl: AppConfig.observabilityHubBaseUrl,
+      );
+    } else if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+      _log.info('Skipping observability hub HTTP intake in view-only mode');
+    }
+    if (AppConfig.enableRealProver) {
+      _log.info('Forcing real prover mode');
+      builder.enableRealProver();
+    }
+    if (!viewOnly) {
+      builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+    }
+
+    final appSupportDir = await getApplicationSupportDirectory();
+    // TODO this should include the hash of the genesis block
+    final nodeStoragePath =
+        '${appSupportDir.path}/${authority.network}_usernode_node_storage.sqlite';
+    _log.trace('Using node storage path: $nodeStoragePath');
+    builder.nodeStoragePath(path: nodeStoragePath);
+
+    // Keep persistent VRF storage separate until it is folded into general
+    // node storage.
+    final vrfPath =
+        '${appSupportDir.path}/${authority.network}_usernode_vrf_storage.sqlite';
+    _log.trace('Using VRF storage path: $vrfPath');
+    builder.vrfStoragePath(path: vrfPath);
+    return builder;
   }
 
   /// Returns true when the signer was bound. A false return means the
   /// runtime is left with whatever signer it previously held — callers must
   /// treat the start as failed (see call sites).
   Future<bool> _configureWalletSigner(
-      String secretKey, String accountId) async {
+    NodeRpcClient rpc,
+    String secretKey,
+    String accountId,
+    NodeStartAuthority authority,
+    int startIntentGeneration,
+  ) async {
     const maxAttempts = 5;
     const retryDelay = Duration(milliseconds: 500);
 
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Applying a signing key is the effect boundary. Revalidate immediately
+      // before every retry rather than guarding unrelated waits and reads.
+      if (!authority.isCurrent ||
+          startIntentGeneration != _startIntentGeneration) {
+        return false;
+      }
       try {
         _log.debug(
           'Configuring wallet signer for account $accountId '
           '(attempt $attempt/$maxAttempts)...',
         );
-        final resp = await _rpc!.walletSetSignerFromSecret(
+        final resp = await rpc.walletSetSignerFromSecret(
           secretKey: secretKey,
         );
 
@@ -649,54 +779,247 @@ class RustBackendService {
     return false;
   }
 
-  /// Shuts down a runtime whose identity binding failed mid-start. Direct
-  /// shutdown (not [stopNode]) because this runs INSIDE the start that
-  /// [stopNode] would wait on.
-  void _teardownRuntimeAfterFailedBind() {
-    _control?.shutdown();
-    _clearLocalRuntimeState();
+  Future<NodeExit?> _shutdownExactHandle(NodeHandle handle) =>
+      MobileNode.shutdown(handle: handle);
+
+  void _requestExactHandleStopBestEffort(NodeHandle handle) {
+    try {
+      try {
+        handle.control().shutdown();
+      } catch (shutdownError) {
+        // If the graceful shutdown bridge failed before applying its signal,
+        // pausing the same exact runtime is the remaining fail-closed action.
+        try {
+          handle.control().pause();
+        } catch (pauseError) {
+          _log.error(
+            'Exact node shutdown and pause fallbacks both failed',
+            error: '$shutdownError; $pauseError',
+          );
+        }
+      }
+    } catch (error, stackTrace) {
+      _log.error(
+        'Could not acquire exact node control for shutdown fallback',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _shutdownTrackedRuntime() async {
+    final handle = _nodeHandle;
+    if (handle == null) {
+      _clearLocalRuntimeState();
+      return;
+    }
+    final generation = _runtimeGeneration;
+    if (_isCurrentRuntime(handle, generation)) {
+      _nodePaused = true;
+      _shutdownInFlightHandle = handle;
+      _shutdownInFlightGeneration = generation;
+    }
+
+    try {
+      final exit = await _shutdownExactHandle(handle);
+      if (exit == null) {
+        _log.warn('Tracked node handle was already replaced; local ownership '
+            'will be detached without touching the replacement');
+      }
+      _clearLocalRuntimeStateIfCurrent(handle, generation);
+    } catch (_) {
+      _requestExactHandleStopBestEffort(handle);
+      if (_isCurrentRuntime(handle, generation)) {
+        // Retain the exact handle and authority fail-closed. A later stop or
+        // replacement can retry without ever falling back to ambient state.
+        _nodePaused = true;
+      }
+      rethrow;
+    } finally {
+      if (identical(_shutdownInFlightHandle, handle) &&
+          _shutdownInFlightGeneration == generation) {
+        _shutdownInFlightHandle = null;
+        _shutdownInFlightGeneration = null;
+      }
+    }
+  }
+
+  void _bindRuntimeAuthority(
+    NodeStartAuthority start, {
+    required bool keyless,
+    required NodeHandle handle,
+    required NodeRpcClient rpc,
+    required NodeControl control,
+  }) {
+    if (_pauseRequested) {
+      // Apply the native lifecycle intent before publishing any Dart facade.
+      // If this throws, the caller still owns an untracked handle and can
+      // tear it down without leaving partially-bound service state.
+      control.pause();
+    }
+    _runtimeGeneration++;
+    final generation = _runtimeGeneration;
+    _nodeHandle = handle;
+    _rpc = rpc;
+    _control = control;
+    _nodeRunning = true;
+    _nodePaused = _pauseRequested;
+    _runtimeAuthority = NodeRuntimeAuthority(
+      network: start.network,
+      accountScope: keyless ? null : start.accountScope,
+      generation: generation,
+    );
+    _monitorNodeExit(handle, generation);
+  }
+
+  bool _isCurrentRuntime(NodeHandle handle, int generation) =>
+      identical(_nodeHandle, handle) && _runtimeGeneration == generation;
+
+  void _clearLocalRuntimeStateIfCurrent(
+    NodeHandle handle,
+    int generation,
+  ) {
+    if (_isCurrentRuntime(handle, generation)) {
+      _clearLocalRuntimeState();
+    }
   }
 
   void _clearLocalRuntimeState() {
+    final invalidated = _nodeRunning ||
+        _rpc != null ||
+        _control != null ||
+        _nodeHandle != null ||
+        _runtimeAuthority != null;
     _nodeRunning = false;
     _nodePaused = false;
-    _runtimeViewOnly = null;
+    _runtimeAuthority = null;
     _rpc = null;
     _control = null;
+    _nodeHandle = null;
+    _shutdownInFlightHandle = null;
+    _shutdownInFlightGeneration = null;
+    _cachedPeerId = null;
+    _clearNodeClockDrift();
+    if (invalidated) _runtimeGeneration++;
+  }
+
+  void _monitorNodeExit(NodeHandle handle, int generation) {
+    unawaited(() async {
+      NodeExit exit;
+      try {
+        exit = await handle.wait();
+      } catch (error, stackTrace) {
+        if (!_isCurrentRuntime(handle, generation)) return;
+        _log.error(
+          'Failed while monitoring the node driver',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        _clearLocalRuntimeStateIfCurrent(handle, generation);
+        return;
+      }
+
+      if (!_isCurrentRuntime(handle, generation)) return;
+      final expected = identical(_shutdownInFlightHandle, handle) &&
+          _shutdownInFlightGeneration == generation;
+      if (!expected) {
+        _log.error(
+          'Node driver exited unexpectedly',
+          context: {'exit': exit.toString(), 'generation': generation},
+        );
+      }
+      _clearLocalRuntimeStateIfCurrent(handle, generation);
+    }());
+  }
+
+  void _markRuntimeUnavailableForRpc(NodeRpcClient rpc) {
+    if (!identical(_rpc, rpc)) return;
+    // Keep the exact handle, control, and generation so pause/stop/restart can
+    // still target this runtime. Fail closed natively before withdrawing the
+    // unusable RPC facade; a Dart-only `_nodePaused` flag is not sufficient.
+    try {
+      _control?.pause();
+    } catch (error, stackTrace) {
+      _log.error(
+        'Failed to pause exact runtime after RPC panic',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      final handle = _nodeHandle;
+      if (handle != null) {
+        _requestExactHandleStopBestEffort(handle);
+      }
+    }
+    _nodeRunning = false;
+    _nodePaused = true;
+    _rpc = null;
     _cachedPeerId = null;
     _clearNodeClockDrift();
   }
 
-  /// Polls until [Node.getGlobal] reports the process-wide node as down
-  /// (shutdown is signal-based and completes asynchronously). Returns false
-  /// on timeout.
-  Future<bool> _waitForGlobalNodeDown() async {
-    const timeout = Duration(seconds: 10);
-    const pollInterval = Duration(milliseconds: 100);
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      if (Node.getGlobal() == null) return true;
-      await Future.delayed(pollInterval);
+  Future<void> _shutdownUntrackedStart(NodeHandle handle) async {
+    try {
+      await _shutdownExactHandle(handle);
+      if (_nodeHandle == null) {
+        _cachedPeerId = null;
+        _clearNodeClockDrift();
+      }
+    } catch (error, stackTrace) {
+      _log.error(
+        'Failed to shut down an unbound node start',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _requestExactHandleStopBestEffort(handle);
+      _retainUnboundHandle(handle);
     }
-    return Node.getGlobal() == null;
+  }
+
+  void _retainUnboundHandle(NodeHandle handle) {
+    final current = _nodeHandle;
+    if (current != null && !identical(current, handle)) {
+      _log.error('Cannot retain failed start handle over a newer local owner');
+      return;
+    }
+    if (identical(current, handle)) return;
+
+    _runtimeGeneration++;
+    final generation = _runtimeGeneration;
+    _nodeHandle = handle;
+    _nodeRunning = false;
+    _nodePaused = true;
+    _runtimeAuthority = null;
+    _rpc = null;
+    _control = null;
+    _monitorNodeExit(handle, generation);
   }
 
   Future<void> resumeNode() async {
-    // Same gate as startNode: resume is a secondary "make the runtime
-    // operate" path (ZK pipeline, lifecycle foreground) and must not wake a
-    // suspended runtime while account ownership is unsettled.
-    if (!IdentitySnapshots.current.allowsNodeStart) {
+    // This is the desired app lifecycle state, independent of whether a
+    // runtime has finished binding yet. An in-flight start will observe it.
+    _pauseRequested = false;
+    final authority = NodeStartAuthority.capture(IdentitySnapshots.current);
+    final keyless = AppConfig.viewOnly ||
+        IdentitySnapshots.current.phase == IdentityPhase.guest;
+    final runtime = _runtimeAuthority;
+    if (authority == null ||
+        !authority.isCurrent ||
+        !_nodeRunning ||
+        _nodeHandle?.isActive() != true ||
+        runtime == null ||
+        !runtime.matchesStart(
+          authority,
+          keyless: keyless,
+          currentGeneration: _runtimeGeneration,
+        )) {
       _log.warn('resumeNode refused: identity is '
-          '${IdentitySnapshots.current.phase.name}');
-      return;
-    }
-    if (IdentitySnapshots.current.phase == IdentityPhase.guest &&
-        _runtimeViewOnly != true) {
-      _log.warn('resumeNode refused: guest runtime is not confirmed keyless');
+          '${IdentitySnapshots.current.phase.name} or runtime authority does '
+          'not match');
       return;
     }
     _log.info('Resuming node');
     final wasPaused = _nodePaused;
+    // No await between the complete authority comparison and the effect.
     _nodePaused = false;
     _control?.resume();
     if (wasPaused && _nodeRunning) {
@@ -708,6 +1031,9 @@ class RustBackendService {
   Future<void> pauseNode() async {
     _log.info('Pausing node');
     final wasRuntimeActive = isRuntimeActive;
+    // Publish the lifecycle intent synchronously. A start that binds after
+    // this call will pause its control before exposing the runtime as active.
+    _pauseRequested = true;
     _nodePaused = true;
     _control?.pause();
     if (wasRuntimeActive) {
@@ -716,7 +1042,24 @@ class RustBackendService {
     }
   }
 
-  Future<void> stopNode() async {
+  Future<void> stopNode() {
+    // Every stop invocation revokes starts requested before it, even when the
+    // native shutdown itself is already coalesced with an earlier stop.
+    _startIntentGeneration++;
+    final inFlight = _stopNodeInFlight;
+    if (inFlight != null) return inFlight;
+
+    late Future<void> stop;
+    stop = _stopNodeInternal().whenComplete(() {
+      if (identical(_stopNodeInFlight, stop)) {
+        _stopNodeInFlight = null;
+      }
+    });
+    _stopNodeInFlight = stop;
+    return stop;
+  }
+
+  Future<void> _stopNodeInternal() async {
     // A start in flight has already captured an account key while
     // `_nodeRunning` is still false — a stop that returned now would leave
     // that node running AFTER the caller believes everything is down (the
@@ -724,49 +1067,22 @@ class RustBackendService {
     // out, then stop whatever it produced.
     await waitForStartCompletion();
 
-    // `Node.getGlobal()` crosses the FRB boundary. During early auth/session
-    // restore (and in no-load tests), suspension can run before this service
-    // has initialized FRB. With no locally tracked runtime, keep that path a
-    // no-op instead of calling through an uninitialized bridge.
-    if (!_initialized && !_nodeRunning) return;
-
-    final global = Node.getGlobal();
-    if (!_nodeRunning && global == null) return;
-    // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
-    _log.warn(
-      'Stopping node (dropping references; FRB stays initialized)',
-    );
-    Object? shutdownError;
-    StackTrace? shutdownStack;
-    try {
-      if (global case (_, final globalControl)) {
-        try {
-          globalControl.shutdown();
-          final wentDown = await _waitForGlobalNodeDown();
-          if (!wentDown) {
-            throw StateError('process-global node did not shut down');
-          }
-        } catch (error, stackTrace) {
-          shutdownError = error;
-          shutdownStack = stackTrace;
-        }
-      } else {
-        try {
-          _control?.shutdown();
-        } catch (error, stackTrace) {
-          shutdownError = error;
-          shutdownStack = stackTrace;
-        }
+    final handle = _nodeHandle;
+    if (handle == null) {
+      // Never recapture and stop MobileNode.current(): it may be a newer
+      // runtime owned by another engine/generation.
+      if (_nodeRunning ||
+          _rpc != null ||
+          _control != null ||
+          _runtimeAuthority != null) {
+        _log.warn('Dropping local node facade with no exact shutdown handle');
+        _clearLocalRuntimeState();
       }
-    } finally {
-      // Never retain a locally "running" façade after shutdown was requested.
-      // The error is still rethrown below so identity transitions remain
-      // fail-closed until a later retry confirms the process-global node down.
-      _clearLocalRuntimeState();
+      return;
     }
-    if (shutdownError != null) {
-      Error.throwWithStackTrace(shutdownError, shutdownStack!);
-    }
+
+    _log.warn('Stopping the exactly tracked mobile node');
+    await _shutdownTrackedRuntime();
   }
 
   /// Get the currently selected network type from storage.
@@ -791,9 +1107,16 @@ class RustBackendService {
   Future<NetworkType> getSelectedNetwork() => _getSelectedNetwork();
 
   /// Configure network settings from URLs (seedlist, genesis).
-  Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {
+  Future<void> _configureNetworkFromUrls(
+    NodeBuilder builder,
+    String network,
+  ) async {
     final retries = BigInt.from(AppConfig.loadGenesisNbRetries);
-    final networkType = await _getSelectedNetwork();
+    final networkType = switch (network) {
+      'internal' => NetworkType.internal,
+      'custom' => NetworkType.custom,
+      _ => NetworkType.testnet,
+    };
 
     // Get URLs based on selected network
     final String seedlistUrl;
@@ -839,12 +1162,10 @@ class RustBackendService {
     _initialized = false;
     _initCompleter = null;
     _startNodeCompleter = null;
-    _nodeRunning = false;
-    _nodePaused = false;
+    _startNodeRequest = null;
+    _pauseRequested = false;
     _instanceId = null;
-    _cachedPeerId = null;
     _cachedGenesisTimestamp = null;
-    _clearNodeClockDrift();
   }
 
   /// Obtain the RPC client for ad-hoc calls.
@@ -875,14 +1196,18 @@ class RustBackendService {
       final requestStartedAtMs = DateTime.now().millisecondsSinceEpoch;
       final status = await r.status(includeVrfDetails: false);
       final responseReceivedAtMs = DateTime.now().millisecondsSinceEpoch;
-      _updateNodeClockDriftFromStatus(
-        status,
-        requestStartedAtMs: requestStartedAtMs,
-        responseReceivedAtMs: responseReceivedAtMs,
-      );
+      if (identical(_rpc, r)) {
+        _updateNodeClockDriftFromStatus(
+          status,
+          requestStartedAtMs: requestStartedAtMs,
+          responseReceivedAtMs: responseReceivedAtMs,
+        );
+      }
       return status?.node;
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getStatusNode', error: e, stackTrace: st);
+      _markRuntimeUnavailableForRpc(r);
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_getStatusNode');
       return null;
     } catch (e, st) {
       _log.warn('RPC getStatusNode failed: $e $st');
@@ -914,7 +1239,7 @@ class RustBackendService {
         includeVrfDetails: includeVrfDetails,
       );
       final responseReceivedAtMs = DateTime.now().millisecondsSinceEpoch;
-      if (!includeVrfDetails) {
+      if (!includeVrfDetails && identical(_rpc, r)) {
         _updateNodeClockDriftFromStatus(
           status,
           requestStartedAtMs: requestStartedAtMs,
@@ -932,9 +1257,7 @@ class RustBackendService {
           error: e,
           stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getStatus');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1104,9 +1427,7 @@ class RustBackendService {
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getBlockProducerStatus',
           error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getBlockProducerStatus');
       return null;
@@ -1157,9 +1478,7 @@ class RustBackendService {
           error: e,
           stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_listBlockchain');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1266,9 +1585,7 @@ class RustBackendService {
           error: e,
           stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
@@ -1348,9 +1665,7 @@ class RustBackendService {
       // FRB surfaced a Rust-side panic.
       _log.error('FRB panic during epochRewards', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_epochRewards');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1440,9 +1755,7 @@ class RustBackendService {
       // FRB surfaced a Rust-side panic.
       _log.error('FRB panic during listUtxosByOwner', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_listUtxosByOwner');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1491,9 +1804,7 @@ class RustBackendService {
       balance = await r.wallet().balance(owner: owner);
     } on PanicException catch (e, st) {
       _log.error('FRB panic during walletBalance', error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_walletBalance');
       return null;
     } catch (e, st) {
@@ -1524,7 +1835,7 @@ class RustBackendService {
 
   /// Convenience helper to transfer funds via RPC.
   Future<RpcWalletTxSendResp?> transferFunds({
-    required PublicKeyHash fromPkHash,
+    required WalletIdentityLease authority,
     required BigInt amount,
     required PublicKeyHash toPkHash,
   }) async {
@@ -1537,11 +1848,12 @@ class RustBackendService {
       );
     }
 
-    _log.trace(
-      'transferFunds called with params: fromPkHash=[PublicKeyHash], amount=$amount, toPkHash=[PublicKeyHash]',
-    );
+    _log.trace('transferFunds called with params: '
+        'fromPkHash=[leased identity], amount=$amount, '
+        'toPkHash=[PublicKeyHash]');
     final r = _rpc;
-    if (r == null) return null;
+    if (r == null || !_walletEffectIsAuthorized(authority)) return null;
+    final fromPkHash = frb_types.publicKeyHashFromString(s: authority.address);
 
     // Call into FRB with defensive handling for panics / transport errors.
     RpcWalletTxSendResp? response;
@@ -1556,9 +1868,7 @@ class RustBackendService {
       // FRB surfaced a Rust-side panic.
       _log.error('FRB panic during transferFunds', error: e, stackTrace: st);
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_transferFunds');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1596,7 +1906,7 @@ class RustBackendService {
 
   /// Transfer funds and surface ordered wallet-send progress events.
   Stream<WalletTxSendEvent> transferFundsEvents({
-    required PublicKeyHash fromPkHash,
+    required WalletIdentityLease authority,
     required BigInt amount,
     required PublicKeyHash toPkHash,
   }) async* {
@@ -1609,17 +1919,18 @@ class RustBackendService {
       return;
     }
 
-    _log.trace(
-      'transferFundsEvents called with params: fromPkHash=[PublicKeyHash], amount=$amount, toPkHash=[PublicKeyHash]',
-    );
+    _log.trace('transferFundsEvents called with params: '
+        'fromPkHash=[leased identity], amount=$amount, '
+        'toPkHash=[PublicKeyHash]');
     final r = _rpc;
-    if (r == null) {
+    if (r == null || !_walletEffectIsAuthorized(authority)) {
       yield const WalletTxSendEvent.rejected(
-        error: 'Node RPC unavailable',
+        error: 'Wallet authority changed; please retry.',
         state: RpcWalletTxSendState.ready,
       );
       return;
     }
+    final fromPkHash = frb_types.publicKeyHashFromString(s: authority.address);
 
     var emitted = false;
     var terminalEmitted = false;
@@ -1628,7 +1939,7 @@ class RustBackendService {
             fromPkHash: fromPkHash,
             amount: amount,
             toPkHash: toPkHash,
-            memo: Memo.fromUtf8Str(s: ''),
+            memo: frb_types.Memo.fromUtf8Str(s: ''),
           );
       await for (final event in events) {
         emitted = true;
@@ -1646,9 +1957,7 @@ class RustBackendService {
     } on PanicException catch (e, st) {
       _log.error('FRB panic during transferFundsEvents',
           error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_transferFundsEvents');
       yield const WalletTxSendEvent.rejected(
@@ -1677,6 +1986,97 @@ class RustBackendService {
         state: RpcWalletTxSendState.syncing,
       );
     }
+  }
+
+  /// Sends a wallet transaction through the one identity-aware effect gate.
+  ///
+  /// Callers may prepare or confirm a transaction for an arbitrary amount of
+  /// time. The exact authority is revalidated here, immediately before the
+  /// Rust RPC transport starts, and the sender is derived from that authority
+  /// rather than accepted as caller input.
+  Future<RpcWalletTxSendResp?> sendTransaction({
+    required WalletIdentityLease authority,
+    required BigInt amount,
+    required PublicKeyHash toPkHash,
+    required frb_types.Memo memo,
+  }) async {
+    if (AppConfig.viewOnly) {
+      return const RpcWalletTxSendResp(
+        state: RpcWalletTxSendState.ready,
+        queued: false,
+        error: _viewOnlyTransactionError,
+      );
+    }
+
+    final r = _rpc;
+    if (r == null || !_walletEffectIsAuthorized(authority)) {
+      return const RpcWalletTxSendResp(
+        state: RpcWalletTxSendState.ready,
+        queued: false,
+        error: 'Wallet authority changed; please retry.',
+      );
+    }
+
+    final fromPkHash = frb_types.publicKeyHashFromString(s: authority.address);
+    try {
+      return await r.wallet().txSendResult(
+            fromPkHash: fromPkHash,
+            amount: amount,
+            toPkHash: toPkHash,
+            memo: memo,
+          );
+    } on PanicException catch (e, st) {
+      _log.error('FRB panic during sendTransaction', error: e, stackTrace: st);
+      _markRuntimeUnavailableForRpc(r);
+      await SentryUtil.captureError(e, st, tag: 'frb_panic_sendTransaction');
+      return const RpcWalletTxSendResp(
+        state: RpcWalletTxSendState.ready,
+        queued: false,
+        error: 'Node RPC unavailable',
+      );
+    }
+  }
+
+  bool _walletEffectIsAuthorized(WalletIdentityLease authority) =>
+      authority.isCurrent &&
+      _nodeRunning &&
+      !_nodePaused &&
+      _nodeHandle?.isActive() == true &&
+      _runtimeAuthority?.generation == _runtimeGeneration &&
+      _runtimeAuthority?.accountScope == authority.accountScope;
+
+  /// Captures exact authority for node-local reads from the currently-bound
+  /// wallet runtime. Stable explorer data needs only [WalletDataScope].
+  WalletRuntimeLease? captureWalletRuntimeLease({
+    required WalletIdentityLease authority,
+    required WalletDataScope dataScope,
+  }) {
+    final runtime = _runtimeAuthority;
+    if (!authority.isCurrent ||
+        !_nodeRunning ||
+        _nodeHandle?.isActive() != true ||
+        dataScope.accountScope != authority.accountScope ||
+        runtime == null ||
+        runtime.generation != _runtimeGeneration ||
+        runtime.accountScope != authority.accountScope) {
+      return null;
+    }
+    return WalletRuntimeLease(
+      dataScope: dataScope,
+      runtimeGeneration: runtime.generation,
+    );
+  }
+
+  bool isWalletRuntimeLeaseCurrent(WalletRuntimeLease lease) {
+    final currentWallet =
+        WalletIdentityLease.capture(IdentitySnapshots.current);
+    final runtime = _runtimeAuthority;
+    return currentWallet?.accountScope == lease.accountScope &&
+        runtime?.accountScope == lease.accountScope &&
+        runtime?.generation == lease.runtimeGeneration &&
+        _runtimeGeneration == lease.runtimeGeneration &&
+        _nodeRunning &&
+        _nodeHandle?.isActive() == true;
   }
 
   /// Query backend for epoch information with VRF status awareness
@@ -1748,9 +2148,7 @@ class RustBackendService {
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getEpochsWithData',
           error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getEpochsWithData');
       return null;
     } catch (e, st) {
@@ -1789,9 +2187,7 @@ class RustBackendService {
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getEpochSlotResults',
           error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getEpochSlotResults');
       return null;
@@ -1838,9 +2234,7 @@ class RustBackendService {
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getEpochSlotDetails',
           error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getEpochSlotDetails');
       return null;
@@ -1878,9 +2272,7 @@ class RustBackendService {
       response = await r.slotTime(epoch: epoch, slot: slot);
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getSlotTime', error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getSlotTime');
       return null;
     } catch (e, st) {
@@ -1926,9 +2318,7 @@ class RustBackendService {
     } on PanicException catch (e, st) {
       _log.error('FRB panic during getProducedBlockMetadata',
           error: e, stackTrace: st);
-      _nodeRunning = false;
-      _rpc = null;
-      _control = null;
+      _markRuntimeUnavailableForRpc(r);
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getProducedBlockMetadata');
       return null;
@@ -2015,11 +2405,8 @@ class RustBackendService {
   void dispose() {
     _log.info('Service disposed');
     if (!AndroidForegroundTaskController.instance.isWakelockHeldSync()) {
-      RustBackendService.instance.pauseNode();
+      unawaited(pauseNode());
     }
-    _nodeRunning = false;
-    _rpc = null;
-    _control = null;
     _cachedGenesisTimestamp = null;
   }
 }

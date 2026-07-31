@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -9,9 +10,32 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/NodeAccountProvisioning');
+
+typedef ProvisionedAccountMaterial = ({String address, String publicKey});
+typedef ProvisionedAccountDeriver = ProvisionedAccountMaterial Function(
+  String secretKey,
+);
+typedef NodeIdentityBinder = Future<void> Function(
+  NodeStartAuthority authority,
+);
+
+class ProvisionedWalletIntegrityException implements Exception {
+  const ProvisionedWalletIntegrityException(this.reason);
+
+  final String reason;
+
+  @override
+  String toString() => 'ProvisionedWalletIntegrityException($reason)';
+}
+
+ProvisionedAccountMaterial _deriveProvisionedAccount(String secretKey) {
+  final account = accountFromPrivateKey(secretKey: secretKey.trim());
+  return (address: account.address, publicKey: account.publicKey);
+}
 
 /// Reconciles the local account registry with the signed-in user's
 /// platform-allocated on-chain account.
@@ -44,19 +68,22 @@ final nodeAccountReconcilerProvider = Provider<NodeAccountReconciler>(
 class NodeAccountReconciler {
   NodeAccountReconciler(
     this._ref, {
-    Future<void> Function()? ensureNodeIdentity,
+    NodeIdentityBinder? ensureNodeIdentity,
     Identity Function()? currentIdentity,
+    ProvisionedAccountDeriver? deriveProvisionedAccount,
   })  : _ensureNodeIdentity = ensureNodeIdentity ?? _defaultEnsureNodeIdentity,
-        _currentIdentity = currentIdentity ?? (() => IdentitySnapshots.current);
+        _currentIdentity = currentIdentity ?? (() => IdentitySnapshots.current),
+        _deriveAccount = deriveProvisionedAccount ?? _deriveProvisionedAccount;
 
   final Ref _ref;
 
   /// Brings the node runtime in line with the (just reconciled) active
   /// account. Injectable for tests (the default touches the Rust backend).
-  final Future<void> Function() _ensureNodeIdentity;
+  final NodeIdentityBinder _ensureNodeIdentity;
 
   /// Source of the current identity snapshot; injectable for tests.
   final Identity Function() _currentIdentity;
+  final ProvisionedAccountDeriver _deriveAccount;
 
   Future<bool>? _inFlight;
   int? _inFlightEpoch;
@@ -70,25 +97,23 @@ class NodeAccountReconciler {
   /// - a running node is stopped (login/rollover already suspended the node,
   ///   but wake/alarm paths may have raced the suspension) and started again
   ///   under the now-active account's key;
-  /// - the start passes `identityOverride` because the identity phase is
-  ///   still `reconciling` at this point — the general [startNode] gate
-  ///   refuses to start under an unsettled identity;
-  /// - the start passes `freshRuntime` because adopting an already-running
-  ///   global runtime would keep its build-time block-producer key (there
-  ///   is no swap API); the runtime must be rebuilt so BOTH the producer
-  ///   key and the wallet signer belong to the reconciled account;
+  /// - the start receives a [NodeStartAuthority] naming this exact reconcile,
+  ///   network, account and address. Reconciliation authority automatically
+  ///   forces a fresh runtime because the build-time producer key cannot be
+  ///   swapped on a live runtime;
   /// - `startNode() == false` is a failure (including a failed wallet-signer
   ///   bind, which startNode treats as a failed start): the caller must not
   ///   commit the reconcile with an unconfirmed node identity.
-  static Future<void> _defaultEnsureNodeIdentity() async {
+  static Future<void> _defaultEnsureNodeIdentity(
+    NodeStartAuthority authority,
+  ) async {
     final svc = RustBackendService.instance;
     await svc.waitForStartCompletion();
     if (svc.isRunning) {
       await svc.stopNode();
     }
     final started = await svc.startNode(
-      identityOverride: true,
-      freshRuntime: true,
+      authority: authority,
     );
     if (!started) {
       throw StateError('Node failed to start under the reconciled account');
@@ -187,17 +212,36 @@ class NodeAccountReconciler {
     if (!_stillCurrent(epoch)) return false;
 
     final identity = _currentIdentity();
+    // Provisioning repairs interrupted legacy reconciles whose participant ID
+    // is not available locally yet, so it needs exact request authority—not a
+    // participant-owned data scope. `/me` recovers that stable owner below.
+    final identityLease = IdentityLease.capture(identity);
+    bool workIsCurrent() => _stillCurrent(epoch) && identityLease.isCurrent;
     final api = _ref.read(leaderboardApiServiceProvider);
-    final provisioned = await api.provisionWallet();
+    final provisioned = await api.provisionWallet(authority: identityLease);
     // The provision round-trip is the long pole: if the identity changed
     // while it was in flight, this response belongs to a user who is no
     // longer signed in. Mutating local state with it would hand their
     // wallet to the current session (or to nobody). Abort before ANY
     // mutation; the reconciling identity persists (marker) so the new
     // identity's own reconcile repairs state.
-    if (!_stillCurrent(epoch)) {
+    if (!workIsCurrent()) {
       _log.warn('Discarding stale provision response (identity changed)');
       return false;
+    }
+    final ProvisionedAccountMaterial derived;
+    try {
+      derived = _deriveAccount(provisioned.secretKey);
+    } catch (_) {
+      throw const ProvisionedWalletIntegrityException(
+        'secret key could not be decoded',
+      );
+    }
+    if (derived.address != provisioned.address ||
+        derived.publicKey != provisioned.publicKey) {
+      throw const ProvisionedWalletIntegrityException(
+        'derived account does not match the provision response',
+      );
     }
     // NEVER log provisioned.secretKey — address only.
     _log.info('Wallet provisioned', context: {
@@ -208,7 +252,9 @@ class NodeAccountReconciler {
 
     final participantId = await _resolveParticipantId(identity);
 
-    final repo = await AccountsRepository.create();
+    final repo = await AccountsRepository.create(
+      network: identityLease.network,
+    );
     final accounts = await repo.list();
     final existing =
         accounts.where((a) => a.address == provisioned.address).firstOrNull;
@@ -216,7 +262,7 @@ class NodeAccountReconciler {
     // Re-validate before every shared-state mutation: each `await` above is
     // a suspension point where a newer identity can appear, and the final
     // epoch check inside reconcileSucceeded cannot undo registry writes.
-    if (!_stillCurrent(epoch)) return false;
+    if (!workIsCurrent()) return false;
 
     var changed = false;
     String accountId;
@@ -230,9 +276,6 @@ class NodeAccountReconciler {
         _log.trace('Provisioned account already active - nothing to do');
       }
     } else {
-      // FIXME(follow-up): Derive the address/public key from secretKey and
-      // reject any provision-response mismatch before importing or mutating
-      // the registry.
       final imported = await repo.importFromSecretKey(
         name: 'Node Account',
         secretKey: provisioned.secretKey,
@@ -250,6 +293,7 @@ class NodeAccountReconciler {
     await installParticipantIdInBucket(
       participantId: participantId,
       bucket: NetworkPrefs.bucketForAddress(provisioned.address),
+      network: identityLease.network,
     );
 
     // Bind the node runtime to the reconciled account BEFORE committing:
@@ -257,8 +301,20 @@ class NodeAccountReconciler {
     // and node starts) while the runtime may still hold another account's
     // key. Throws on failure — the identity stays reconciling and the next
     // boot restore or sign-in retries.
-    if (!_stillCurrent(epoch)) return false;
-    await _ensureNodeIdentity();
+    if (!workIsCurrent()) return false;
+    final accountScope = AccountStorageScope(
+      network: identityLease.network,
+      bucket: NetworkPrefs.bucketForAddress(provisioned.address),
+      accountId: accountId,
+      address: provisioned.address,
+    );
+    final nodeAuthority = NodeStartAuthority.forReconciliation(
+      identityLease: identityLease,
+      accountScope: accountScope,
+    );
+    if (nodeAuthority == null || !nodeAuthority.isCurrent) return false;
+    await _ensureNodeIdentity(nodeAuthority);
+    if (!workIsCurrent()) return false;
 
     // Commit: SessionController re-validates the epoch inside its serialized
     // transition queue, so a commit racing a login/logout loses cleanly.

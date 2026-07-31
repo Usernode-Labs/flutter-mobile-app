@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/providers/log_share_provider.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
@@ -19,10 +20,17 @@ Identity _identity({required int epoch, required int participantId}) =>
       address: 'address-$participantId',
     );
 
-HttpLogEntry _entry(String suffix) => HttpLogEntry(
+HttpLogEntry _entry(
+  String suffix, {
+  required int? participantId,
+}) =>
+    HttpLogEntry(
       timestamp: DateTime.utc(2026, 1, 1),
       method: 'GET',
       url: 'https://example.test/$suffix',
+      owner: participantId == null
+          ? null
+          : AuthenticatedUserScope(participantId: participantId),
       statusCode: 200,
     );
 
@@ -42,8 +50,8 @@ void main() {
 
   final store = HttpDebugLogStore.instance;
 
-  setUp(store.clear);
-  tearDown(store.clear);
+  setUp(store.clearForTesting);
+  tearDown(store.clearForTesting);
 
   test('identity replacement stops sharing without advancing the old cursor',
       () async {
@@ -69,7 +77,7 @@ void main() {
       store: store,
     );
     addTearDown(controller.dispose);
-    store.add(_entry('identity-a'));
+    store.add(_entry('identity-a', participantId: 1));
 
     final sharingA = controller.start(1);
     await _waitForRequestCount(requests, 1);
@@ -89,13 +97,17 @@ void main() {
     expect(controller.state.isSharing, isFalse);
     expect(requests, hasLength(1));
 
-    // Starting the replacement identity must resend the buffered entry. If
-    // the stale completion advanced the cursor, this request would not occur.
-    store.add(_entry('identity-b'));
+    // Starting the replacement identity must send B's buffered entry without
+    // attributing A's buffered exchange to B. The stale A completion must not
+    // advance B's cursor or block its initial flush.
+    store.add(_entry('identity-b', participantId: 2));
     final sharingB = controller.start(2);
     await _waitForRequestCount(requests, 2);
     expect(requests.last.headers['authorization'], 'Bearer token-b');
-    expect(jsonDecode(requests.last.body)['events'], hasLength(2));
+    final events = jsonDecode(requests.last.body)['events'] as List<dynamic>;
+    expect(events, hasLength(1));
+    expect((events.single as Map<String, dynamic>)['url'],
+        endsWith('/identity-b'));
     responses.last.complete(http.Response(
       jsonEncode({'continue': false}),
       200,
@@ -128,7 +140,7 @@ void main() {
       store: store,
     );
     addTearDown(controller.dispose);
-    store.add(_entry('identity-a'));
+    store.add(_entry('identity-a', participantId: 1));
 
     final sharingA = controller.start(1);
     await _waitForRequestCount(requests, 1);
@@ -136,7 +148,7 @@ void main() {
     identity = _identity(epoch: 2, participantId: 2);
     token = 'token-b';
     controller.identityChanged(identity);
-    store.add(_entry('identity-b'));
+    store.add(_entry('identity-b', participantId: 2));
 
     // Do not complete A. B must own an independent in-flight slot and send its
     // initial batch immediately instead of waiting for A plus the 30s timer.
@@ -159,5 +171,48 @@ void main() {
     ));
     await sharingA;
     expect(controller.state.stoppedByServer, isTrue);
+  });
+
+  test('sharing advances past foreign and anonymous rows before later own data',
+      () async {
+    final requests = <http.Request>[];
+    final service = LogShareService(
+      baseUrl: 'https://test.example/api/v3/mobile',
+      retryBackoff: Duration.zero,
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        return http.Response(
+          jsonEncode({'continue': false}),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    final controller = LogShareController(
+      currentIdentity: () => _identity(epoch: 2, participantId: 2),
+      tokenProvider: () async => 'token-b',
+      filterProvider: () => '',
+      service: service,
+      store: store,
+    );
+    addTearDown(controller.dispose);
+    store
+      ..add(_entry('identity-a', participantId: 1))
+      ..add(_entry('anonymous', participantId: null));
+    final skippedCursor = store.totalAdded;
+
+    await controller.start(2);
+
+    expect(requests, isEmpty);
+    expect(controller.debugCursor, skippedCursor);
+
+    store.add(_entry('identity-b', participantId: 2));
+    await controller.debugFlush();
+
+    expect(requests, hasLength(1));
+    final events = jsonDecode(requests.single.body)['events'] as List<dynamic>;
+    expect(events, hasLength(1));
+    expect((events.single as Map<String, dynamic>)['url'],
+        endsWith('/identity-b'));
   });
 }

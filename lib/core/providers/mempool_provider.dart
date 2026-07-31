@@ -1,48 +1,36 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:crypto_mobile_app/core/identity/wallet_identity_lease.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/list_mempool.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as rust_types;
 
 final _log = LoggingService.instance.withTag('usernode/MempoolProvider');
 
 /// Controller that fetches pending transactions from mempool
-class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
+class WalletMempoolController extends AutoDisposeFamilyAsyncNotifier<
+    List<MempoolTxSummary>, WalletRuntimeLease> {
   @override
-  Future<List<MempoolTxSummary>> build() async {
-    return _fetch();
-  }
+  Future<List<MempoolTxSummary>> build(WalletRuntimeLease scope) =>
+      _fetch(scope);
 
   Future<void> refresh() async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(_fetch);
+    state = await AsyncValue.guard(() => _fetch(arg));
   }
 
-  Future<List<MempoolTxSummary>> _fetch() async {
+  Future<List<MempoolTxSummary>> _fetch(WalletRuntimeLease scope) async {
     try {
-      // Get active account address
-      String? ownerStr;
-      try {
-        final repo = await AccountsRepository.create();
-        final acc = await repo.getActive();
-        if (acc != null &&
-            acc.address.isNotEmpty &&
-            acc.address.startsWith('ut')) {
-          ownerStr = acc.address;
-        }
-      } catch (e, st) {
-        _log.error('Failed to get active account', error: e, stackTrace: st);
-      }
-
-      if (ownerStr == null) {
-        _log.warn('No active account, skipping mempool fetch');
+      if (!RustBackendService.instance.isWalletRuntimeLeaseCurrent(scope)) {
+        _log.debug('Wallet scope is no longer current; skipping mempool fetch');
         return const [];
       }
 
-      final owner = rust_types.publicKeyHashFromString(s: ownerStr);
+      final owner = rust_types.publicKeyHashFromString(
+        s: scope.accountScope.address,
+      );
 
       final resp = await RustBackendService.instance.listMempool(
         owner: owner,
@@ -60,7 +48,7 @@ class WalletMempoolController extends AsyncNotifier<List<MempoolTxSummary>> {
   }
 }
 
-final walletMempoolProvider =
-    AsyncNotifierProvider<WalletMempoolController, List<MempoolTxSummary>>(
+final walletMempoolProvider = AsyncNotifierProvider.autoDispose.family<
+    WalletMempoolController, List<MempoolTxSummary>, WalletRuntimeLease>(
   WalletMempoolController.new,
 );

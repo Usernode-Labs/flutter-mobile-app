@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
@@ -13,31 +14,68 @@ import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpasspo
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() async {
+    SharedPreferences.setMockInitialValues(
+        {NetworkPrefs.networkKey: 'testnet'});
+    await NetworkPrefs.getNetwork();
+  });
 
   group('ZkPassportSettingsRepository', () {
     final repo = ZkPassportSettingsRepository();
+    const scope = AccountStorageScope(
+      network: 'testnet',
+      bucket: 'bucket-settings',
+      accountId: 'account-settings',
+      address: 'ut1-settings',
+    );
 
     test('load returns defaults when nothing stored', () async {
-      final s = await repo.load();
+      final s = await repo.load(scope: scope);
       expect(s.facematchStrict, ZkPassportSettings.defaults.facematchStrict);
     });
 
     test('save then load round-trips', () async {
-      await repo.save(const ZkPassportSettings(facematchStrict: false));
-      expect((await repo.load()).facematchStrict, isFalse);
+      await repo.save(
+        scope: scope,
+        settings: const ZkPassportSettings(facematchStrict: false),
+      );
+      expect((await repo.load(scope: scope)).facematchStrict, isFalse);
     });
 
     test('setFacematchStrict updates the stored value', () async {
-      await repo.setFacematchStrict(false);
-      expect((await repo.load()).facematchStrict, isFalse);
-      await repo.setFacematchStrict(true);
-      expect((await repo.load()).facematchStrict, isTrue);
+      await repo.setFacematchStrict(scope: scope, value: false);
+      expect((await repo.load(scope: scope)).facematchStrict, isFalse);
+      await repo.setFacematchStrict(scope: scope, value: true);
+      expect((await repo.load(scope: scope)).facematchStrict, isTrue);
+    });
+
+    test('explicit settings scope ignores ambient network and bucket changes',
+        () async {
+      await repo.save(
+        scope: scope,
+        settings: const ZkPassportSettings(facematchStrict: false),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(NetworkPrefs.networkKey, 'internal');
+      await NetworkPrefs.getNetwork();
+      NetworkPrefs.setActiveBucket('ut1-other', guest: false);
+
+      expect((await repo.load(scope: scope)).facematchStrict, isFalse);
+      await repo.setFacematchStrict(scope: scope, value: true);
+      expect((await repo.load(scope: scope)).facematchStrict, isTrue);
     });
   });
 
   group('ZkPassportRuntimeSessionRepository', () {
     final repo = ZkPassportRuntimeSessionRepository();
+    const scope = ZkIdentityScope(
+      network: 'testnet',
+      bucket: 'bucket-a',
+      participantId: 7,
+      accountId: 'account-a',
+      address: 'ut1-account-a',
+      challengeId: 42,
+    );
 
     ZkPassportRuntimeSession session() => const ZkPassportRuntimeSession(
           requestId: 'req',
@@ -47,21 +85,22 @@ void main() {
           lastProgressAtMs: 2,
           resumeAttemptCount: 0,
           requestNonce: 'nonce-a',
+          launchScope: scope,
         );
 
     test('load null when empty', () async {
-      expect(await repo.load(), isNull);
+      expect(await repo.load(scope: scope), isNull);
     });
 
     test('save/load round-trip and clear', () async {
       await repo.save(session());
-      final loaded = await repo.load();
+      final loaded = await repo.load(scope: scope);
       expect(loaded, isNotNull);
       expect(loaded!.requestId, 'req');
       expect(loaded.requestVersion, session().requestVersion);
 
-      await repo.clear();
-      expect(await repo.load(), isNull);
+      await repo.clear(scope: scope);
+      expect(await repo.load(scope: scope), isNull);
     });
 
     test('corrupt json resolves to null (and is cleared)', () async {
@@ -72,7 +111,92 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       // Any key: load() reads a specific prefixed key which is now absent.
       expect(prefs.getKeys().isEmpty, isTrue);
-      expect(await repo2.load(), isNull);
+      expect(await repo2.load(scope: scope), isNull);
+    });
+
+    test('explicit scope ignores ambient network and bucket changes', () async {
+      await repo.save(session());
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(NetworkPrefs.networkKey, 'internal');
+      await NetworkPrefs.getNetwork();
+      NetworkPrefs.setActiveBucket('ut1-other', guest: false);
+
+      expect((await repo.load(scope: scope))?.requestId, 'req');
+      await repo.clear(scope: scope);
+      expect(await repo.load(scope: scope), isNull);
+    });
+
+    test('a different challenge can inspect and retire the account runtime',
+        () async {
+      const otherChallenge = ZkIdentityScope(
+        network: 'testnet',
+        bucket: 'bucket-a',
+        participantId: 7,
+        accountId: 'account-a',
+        address: 'ut1-account-a',
+        challengeId: 43,
+      );
+      await repo.save(session());
+
+      final loaded = await repo.load(scope: otherChallenge);
+      expect(loaded?.launchScope, scope);
+      expect(
+        await repo.clearIfCurrent(
+          scope: scope,
+          requestKey: session().requestVersion!.key,
+        ),
+        isTrue,
+      );
+      expect(await repo.load(scope: scope), isNull);
+    });
+
+    test('compare-and-clear preserves a replacement request', () async {
+      await repo.save(session());
+      const replacement = ZkPassportRuntimeSession(
+        requestId: 'req',
+        facematchStrict: true,
+        phase: ZkPassportPipelinePhase.waiting,
+        createdAtMs: 3,
+        lastProgressAtMs: 4,
+        resumeAttemptCount: 0,
+        requestNonce: 'nonce-b',
+        launchScope: scope,
+      );
+      await repo.save(replacement);
+
+      expect(
+        await repo.clearIfCurrent(
+          scope: scope,
+          requestKey: session().requestVersion!.key,
+        ),
+        isFalse,
+      );
+      expect(
+        (await repo.load(scope: scope))?.requestVersion,
+        replacement.requestVersion,
+      );
+    });
+
+    test('failed runtime removals are surfaced and preserve recovery state',
+        () async {
+      final failingRepo = ZkPassportRuntimeSessionRepository(
+        keyRemover: (_, __) async => false,
+      );
+      await failingRepo.save(session());
+
+      expect(
+        await failingRepo.clearIfCurrent(
+          scope: scope,
+          requestKey: session().requestVersion!.key,
+        ),
+        isFalse,
+      );
+      expect(await failingRepo.load(scope: scope), isNotNull);
+      await expectLater(
+        failingRepo.clear(scope: scope),
+        throwsStateError,
+      );
+      expect(await failingRepo.load(scope: scope), isNotNull);
     });
   });
 
@@ -81,6 +205,22 @@ void main() {
     const address = 'ut1-test-address';
     late String bucket;
     late ZkPassportRegistrationRepository repo;
+
+    ZkIdentityScope scope({int challengeId = 42}) => ZkIdentityScope(
+          network: 'testnet',
+          bucket: bucket,
+          participantId: 7,
+          accountId: accountId,
+          address: address,
+          challengeId: challengeId,
+        );
+
+    AccountStorageScope accountScope() => AccountStorageScope(
+          network: 'testnet',
+          bucket: bucket,
+          accountId: accountId,
+          address: address,
+        );
 
     ZkPassportRequestVersion version(String nonce) => ZkPassportRequestVersion(
           requestId: 'reused-session-id',
@@ -120,14 +260,10 @@ void main() {
       ZkPassportRequestVersion requestVersion,
     ) async {
       await repo.storePendingCompletion(
-        participantId: 7,
-        challengeId: 42,
-        walletAddress: address,
+        scope: scope(),
         sessionId: requestVersion.requestId,
         nullifierHex: 'nullifier-${requestVersion.nonce}',
         requestVersion: requestVersion,
-        accountId: accountId,
-        bucket: bucket,
       );
       await repo.storeActiveRegistration(
         registered: true,
@@ -144,10 +280,10 @@ void main() {
       await repo.recordRequestOutcome(
         version: rejected,
         outcome: ZkPassportRequestOutcome.rejected,
-        bucket: bucket,
+        scope: scope(),
       );
 
-      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect(await repo.getPendingCompletion(scope: scope()), isNull);
       expect((await repo.getActiveRegistration()).registered, isFalse);
 
       // The source rows deliberately remain. The outcome is the only durable
@@ -173,7 +309,7 @@ void main() {
       await repo.recordRequestOutcome(
         version: oldVersion,
         outcome: ZkPassportRequestOutcome.rejected,
-        bucket: bucket,
+        scope: scope(),
       );
 
       final newVersion = version('nonce-new');
@@ -181,7 +317,7 @@ void main() {
 
       expect(
         ZkPassportRequestVersion.fromJson(
-          await repo.getPendingCompletion(bucket: bucket),
+          await repo.getPendingCompletion(scope: scope()),
         ),
         newVersion,
       );
@@ -192,6 +328,34 @@ void main() {
       );
     });
 
+    test('an unresolved outbox cannot be overwritten by another generation',
+        () async {
+      final first = version('nonce-first');
+      final replacement = version('nonce-replacement');
+      await repo.storePendingCompletion(
+        scope: scope(),
+        sessionId: first.requestId,
+        nullifierHex: 'first-nullifier',
+        requestVersion: first,
+      );
+
+      await expectLater(
+        repo.storePendingCompletion(
+          scope: scope(),
+          sessionId: replacement.requestId,
+          nullifierHex: 'replacement-nullifier',
+          requestVersion: replacement,
+        ),
+        throwsStateError,
+      );
+      expect(
+        ZkPassportRequestVersion.fromJson(
+          await repo.getPendingCompletion(scope: scope()),
+        ),
+        first,
+      );
+    });
+
     test('delivered outcome retires outbox but preserves registration',
         () async {
       final delivered = version('nonce-delivered');
@@ -199,15 +363,15 @@ void main() {
       await repo.recordRequestOutcome(
         version: delivered,
         outcome: ZkPassportRequestOutcome.delivered,
-        bucket: bucket,
+        scope: scope(),
       );
 
-      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect(await repo.getPendingCompletion(scope: scope()), isNull);
       expect((await repo.getActiveRegistration()).registered, isTrue);
       await repo.recordRequestOutcome(
         version: delivered,
         outcome: ZkPassportRequestOutcome.rejected,
-        bucket: bucket,
+        scope: scope(),
       );
       expect((await repo.getActiveRegistration()).registered, isTrue);
     });
@@ -239,16 +403,16 @@ void main() {
         first.recordRequestOutcome(
           version: requestVersion,
           outcome: ZkPassportRequestOutcome.rejected,
-          bucket: bucket,
+          scope: scope(),
         ),
         second.recordRequestOutcome(
           version: requestVersion,
           outcome: ZkPassportRequestOutcome.delivered,
-          bucket: bucket,
+          scope: scope(),
         ),
       ]);
 
-      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect(await repo.getPendingCompletion(scope: scope()), isNull);
       expect((await repo.getActiveRegistration()).registered, isTrue);
       final prefs = await SharedPreferences.getInstance();
       expect(
@@ -261,45 +425,50 @@ void main() {
         () async {
       final requestVersion = version('nonce-repair');
       await repo.storePendingCompletion(
-        participantId: 7,
-        challengeId: 42,
-        walletAddress: address,
+        scope: scope(),
         sessionId: requestVersion.requestId,
         nullifierHex: 'nullifier',
         requestVersion: requestVersion,
-        accountId: accountId,
         facematchVerified: true,
         verifyOuterMs: 11,
         wrapOuterMs: 12,
         verifyWrappedMs: 13,
-        bucket: bucket,
       );
 
-      final pending = await repo.getPendingCompletion(bucket: bucket);
+      final pending = await repo.getPendingCompletion(scope: scope());
       expect(pending, isNotNull);
-      expect(pending!['account_id'], accountId);
+      expect(ZkIdentityScope.fromJson(pending!['scope']), scope());
+      expect(pending, isNot(contains('account_id')));
       expect(pending['facematch_verified'], isTrue);
       expect(pending['verify_outer_ms'], 11);
       expect(pending['wrap_outer_ms'], 12);
       expect(pending['verify_wrapped_ms'], 13);
+      expect(
+        ZkIdentityScope.fromJson((await repo.getPendingCompletion(
+          scope: scope(challengeId: 43),
+        ))!['scope'])
+            ?.challengeId,
+        42,
+      );
     });
 
-    test('explicit registration writes ignore a changed ambient bucket',
+    test('explicit registration writes ignore changed ambient storage',
         () async {
       final requestVersion = version('nonce-explicit-scope');
       NetworkPrefs.setActiveBucket('ut1-other-address', guest: false);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(NetworkPrefs.networkKey, 'internal');
+      await NetworkPrefs.getNetwork();
 
       await repo.storeRegistrationForAccount(
-        accountId: accountId,
-        bucket: bucket,
+        scope: accountScope(),
         registered: true,
         nullifierHex: 'nullifier',
         requestVersion: requestVersion,
       );
 
       final stored = await repo.getRegistrationForAccount(
-        accountId: accountId,
-        bucket: bucket,
+        scope: accountScope(),
       );
       expect(stored.registered, isTrue);
       expect(stored.requestVersion, requestVersion);
@@ -313,14 +482,10 @@ void main() {
 
       await expectLater(
         failingRepo.storePendingCompletion(
-          participantId: 7,
-          challengeId: 42,
-          walletAddress: address,
+          scope: scope(),
           sessionId: requestVersion.requestId,
           nullifierHex: 'nullifier',
           requestVersion: requestVersion,
-          accountId: accountId,
-          bucket: bucket,
         ),
         throwsStateError,
       );
@@ -328,9 +493,35 @@ void main() {
         failingRepo.recordRequestOutcome(
           version: requestVersion,
           outcome: ZkPassportRequestOutcome.rejected,
-          bucket: bucket,
+          scope: scope(),
         ),
         throwsStateError,
+      );
+    });
+
+    test('failed exact outbox removal is reported and preserves the row',
+        () async {
+      final failingRepo = ZkPassportRegistrationRepository(
+        keyRemover: (_, __) async => false,
+      );
+      final requestVersion = version('nonce-remove-failure');
+      await failingRepo.storePendingCompletion(
+        scope: scope(),
+        sessionId: requestVersion.requestId,
+        nullifierHex: 'nullifier',
+        requestVersion: requestVersion,
+      );
+
+      expect(
+        await failingRepo.clearPendingCompletionIfCurrent(
+          scope: scope(),
+          sessionId: requestVersion.requestId,
+        ),
+        isFalse,
+      );
+      expect(
+        await failingRepo.getPendingCompletion(scope: scope()),
+        isNotNull,
       );
     });
   });

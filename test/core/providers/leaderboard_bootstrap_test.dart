@@ -234,6 +234,41 @@ void main() {
     });
   });
 
+  group('resolvePreferredSeason', () {
+    const newest = SeasonDto(id: 3, name: 'Season 3', isActive: false);
+    const active = SeasonDto(id: 2, name: 'Season 2', isActive: true);
+    const oldest = SeasonDto(id: 1, name: 'Season 1', isActive: false);
+    const seasons = [newest, active, oldest];
+
+    test('keeps the persisted season when it is still available', () {
+      expect(
+        resolvePreferredSeason(seasons, preferredSeasonId: oldest.id),
+        same(oldest),
+      );
+    });
+
+    test('falls back to the active season when the persisted one is gone', () {
+      expect(
+        resolvePreferredSeason(seasons, preferredSeasonId: 99),
+        same(active),
+      );
+    });
+
+    test('falls back to the newest season when none is active', () {
+      expect(
+        resolvePreferredSeason(const [newest, oldest]),
+        same(newest),
+      );
+    });
+
+    test('rejects an empty response instead of inventing a selection', () {
+      expect(
+        () => resolvePreferredSeason(const []),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('leaderboardBootstrapProvider identity lease', () {
     test('does not fetch until the authenticated identity is ready', () async {
       final controller = SessionController(

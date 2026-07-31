@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
+
 /// Header names whose values are masked before an entry is stored or shared.
 /// Lower-cased; matching is case-insensitive.
 const _sensitiveHeaders = <String>{
@@ -89,6 +91,7 @@ class HttpLogEntry {
     required this.timestamp,
     required this.method,
     required this.url,
+    this.owner,
     this.statusCode,
     this.durationMs,
     Map<String, String> requestHeaders = const {},
@@ -107,6 +110,14 @@ class HttpLogEntry {
   final DateTime timestamp;
   final String method;
   final String url;
+
+  /// Authenticated participant that owned the request when it began.
+  ///
+  /// Null means the exchange began outside an authenticated identity. The
+  /// owner is kept out of [toJsonEvent]: the log-share endpoint resolves the
+  /// participant from its Bearer token, and callers must filter entries to
+  /// that credential's owner before serialization.
+  final AuthenticatedUserScope? owner;
 
   /// Null while the request is in flight or when it threw before a response.
   final int? statusCode;
@@ -202,7 +213,7 @@ class HttpDebugLogStore extends ChangeNotifier {
   /// 1 MB byte budget (matches the product requirement).
   static const int maxBytes = 1024 * 1024;
 
-  final List<HttpLogEntry> _entries = [];
+  final List<({int sequence, HttpLogEntry entry})> _entries = [];
   int _totalBytes = 0;
 
   /// Monotonic count of every entry ever [add]ed, unaffected by eviction.
@@ -210,8 +221,23 @@ class HttpDebugLogStore extends ChangeNotifier {
   /// value of [totalAdded] and later ask for [entriesAdded] since it.
   int _totalAdded = 0;
 
-  /// Newest-first snapshot for display.
-  List<HttpLogEntry> get entries => _entries.reversed.toList(growable: false);
+  /// Unscoped newest-first snapshot for store/client unit tests only.
+  @visibleForTesting
+  List<HttpLogEntry> get debugEntries =>
+      _entries.reversed.map((stored) => stored.entry).toList(growable: false);
+
+  /// Newest-first snapshot owned by exactly [owner].
+  List<HttpLogEntry> entriesForOwner(AuthenticatedUserScope owner) =>
+      _entries.reversed
+          .map((stored) => stored.entry)
+          .where((entry) => entry.owner == owner)
+          .toList(growable: false);
+
+  /// Entries this authenticated viewer may inspect. Anonymous viewers never
+  /// inherit a shared pre-auth/guest bucket: those exchanges can contain a
+  /// previous person's login identifiers even after credential redaction.
+  List<HttpLogEntry> entriesVisibleTo(AuthenticatedUserScope? viewer) =>
+      viewer == null ? const [] : entriesForOwner(viewer);
 
   int get totalBytes => _totalBytes;
 
@@ -223,32 +249,62 @@ class HttpDebugLogStore extends ChangeNotifier {
   /// Entries evicted from the buffer since [cursor] are silently skipped — the
   /// caller gets whatever is still retained, never duplicates. Returns an empty
   /// list when nothing new (or everything new) has been evicted.
-  List<HttpLogEntry> entriesAdded(int cursor) {
-    final firstRetained = _totalAdded - _entries.length;
-    final from = (cursor - firstRetained).clamp(0, _entries.length);
-    if (from >= _entries.length) return const [];
-    return _entries.sublist(from);
+  List<HttpLogEntry> _entriesAdded(int cursor) {
+    return _entries
+        .where((stored) => stored.sequence > cursor)
+        .map((stored) => stored.entry)
+        .toList(growable: false);
   }
 
+  /// Entries added since [cursor] that belong to exactly [owner], oldest-first.
+  ///
+  /// The cursor remains the global [totalAdded] position. This lets a sharing
+  /// session advance past foreign or anonymous entries without inventing a
+  /// second cursor whose offsets would diverge as the ring buffer evicts data.
+  List<HttpLogEntry> entriesAddedForOwner(
+    int cursor,
+    AuthenticatedUserScope owner,
+  ) =>
+      _entriesAdded(cursor)
+          .where((entry) => entry.owner == owner)
+          .toList(growable: false);
+
   void add(HttpLogEntry entry) {
-    _entries.add(entry);
     _totalAdded++;
+    _entries.add((sequence: _totalAdded, entry: entry));
     _totalBytes += entry.approxBytes;
     // Evict oldest until within budget, but always keep the just-added entry.
     while (_totalBytes > maxBytes && _entries.length > 1) {
       final removed = _entries.removeAt(0);
-      _totalBytes -= removed.approxBytes;
+      _totalBytes -= removed.entry.approxBytes;
     }
     notifyListeners();
   }
 
-  void clear() {
+  @visibleForTesting
+  void clearForTesting() {
     if (_entries.isEmpty) return;
     _entries.clear();
     _totalBytes = 0;
     notifyListeners();
   }
 
-  /// Whole buffer rendered as text, newest first, for copy/share.
-  String toExportText() => entries.map((e) => e.toLogText()).join('\n');
+  /// Clears only entries visible to [owner], preserving other participants'
+  /// and anonymous diagnostics. Per-entry sequence numbers keep incremental
+  /// sharing cursors correct even when this removes rows from the middle.
+  void clearForOwner(AuthenticatedUserScope owner) {
+    var removedBytes = 0;
+    _entries.removeWhere((stored) {
+      if (stored.entry.owner != owner) return false;
+      removedBytes += stored.entry.approxBytes;
+      return true;
+    });
+    if (removedBytes == 0) return;
+    _totalBytes -= removedBytes;
+    notifyListeners();
+  }
+
+  /// The authenticated [owner]'s buffer rendered as text, newest first.
+  String toExportTextForOwner(AuthenticatedUserScope owner) =>
+      entriesForOwner(owner).map((e) => e.toLogText()).join('\n');
 }

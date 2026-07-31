@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/features/wallet/models/pending_transaction.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 /// Service to manage locally stored pending transactions
@@ -10,7 +12,8 @@ class PendingTransactionService {
   static const int _maxEntries = 100; // Limit stored pending transactions
   static const Duration _defaultMaxAge = Duration(hours: 24);
 
-  static String get _key => NetworkPrefs.prefixAccountKey(_keyBase);
+  static String _key(AccountStorageScope scope) =>
+      scope.preferenceKey(_keyBase);
 
   static final _log =
       LoggingService.instance.withTag('usernode/PendingTransactionService');
@@ -27,50 +30,55 @@ class PendingTransactionService {
 
   late SharedPreferences _prefs;
   bool _initialized = false;
+  final Map<AccountStorageScope, Future<void>> _scopeTails = {};
 
   Future<void> _initialize() async {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
     _initialized = true;
-
-    // Clean up old entries on initialization
-    await _cleanupExpiredTransactions();
   }
 
   /// Store a pending transaction locally
-  Future<void> storePendingTransaction(PendingTransaction transaction) async {
+  Future<void> storePendingTransaction(
+    AccountStorageScope scope,
+    PendingTransaction transaction,
+  ) async {
     await _ensureInitialized();
+    await _withScopeLock(scope, () async {
+      try {
+        final existingTransactions = await _getAllTransactions(scope);
+        final newTransactions = <PendingTransaction>[
+          transaction,
+          ...existingTransactions
+              .where((tx) => tx.storageKey != transaction.storageKey),
+        ];
 
-    try {
-      final existingTransactions = await _getAllTransactions();
-      final newTransactions = <PendingTransaction>[
-        transaction,
-        ...existingTransactions
-            .where((tx) => tx.storageKey != transaction.storageKey),
-      ];
+        // Limit the number of stored transactions
+        final limitedTransactions = newTransactions.length > _maxEntries
+            ? newTransactions.sublist(0, _maxEntries)
+            : newTransactions;
 
-      // Limit the number of stored transactions
-      final limitedTransactions = newTransactions.length > _maxEntries
-          ? newTransactions.sublist(0, _maxEntries)
-          : newTransactions;
+        await _saveAllTransactions(scope, limitedTransactions);
 
-      await _saveAllTransactions(limitedTransactions);
-
-      _log.info(
-          'Stored pending transaction: ${transaction.amount} to ${transaction.toAddress}');
-    } catch (e) {
-      _log.error('Failed to store pending transaction: $e');
-    }
+        _log.info(
+            'Stored pending transaction: ${transaction.amount} to ${transaction.toAddress}');
+      } catch (e) {
+        _log.error('Failed to store pending transaction: $e');
+      }
+    });
   }
 
   /// Get all stored pending transactions
-  Future<List<PendingTransaction>> getAllPendingTransactions() async {
+  Future<List<PendingTransaction>> getAllPendingTransactions(
+    AccountStorageScope scope,
+  ) async {
     await _ensureInitialized();
-    return await _getAllTransactions();
+    return _withScopeLock(scope, () => _getAllTransactions(scope));
   }
 
   /// Find pending transactions that match the given criteria
   Future<List<PendingTransaction>> findMatchingTransactions({
+    required AccountStorageScope scope,
     required String? fromAddress,
     required String? toAddress,
     required DateTime timestamp,
@@ -78,51 +86,64 @@ class PendingTransactionService {
   }) async {
     await _ensureInitialized();
 
-    final allTransactions = await _getAllTransactions();
-    return allTransactions
-        .where((tx) => tx.matches(
-              txFromAddress: fromAddress,
-              txToAddress: toAddress,
-              txTimestamp: timestamp,
-              timestampTolerance: timestampTolerance,
-            ))
-        .toList();
+    return _withScopeLock(scope, () async {
+      final allTransactions = await _getAllTransactions(scope);
+      return allTransactions
+          .where((tx) => tx.matches(
+                txFromAddress: fromAddress,
+                txToAddress: toAddress,
+                txTimestamp: timestamp,
+                timestampTolerance: timestampTolerance,
+              ))
+          .toList();
+    });
   }
 
   /// Remove a specific pending transaction
-  Future<void> removePendingTransaction(PendingTransaction transaction) async {
+  Future<void> removePendingTransaction(
+    AccountStorageScope scope,
+    PendingTransaction transaction,
+  ) async {
     await _ensureInitialized();
 
-    try {
-      final allTransactions = await _getAllTransactions();
-      final filteredTransactions = allTransactions
-          .where((tx) => tx.storageKey != transaction.storageKey)
-          .toList();
+    await _withScopeLock(scope, () async {
+      try {
+        final allTransactions = await _getAllTransactions(scope);
+        final filteredTransactions = allTransactions
+            .where((tx) => tx.storageKey != transaction.storageKey)
+            .toList();
 
-      await _saveAllTransactions(filteredTransactions);
+        await _saveAllTransactions(scope, filteredTransactions);
 
-      _log.debug('Removed pending transaction: ${transaction.storageKey}');
-    } catch (e) {
-      _log.error('Failed to remove pending transaction: $e');
-    }
+        _log.debug('Removed pending transaction: ${transaction.storageKey}');
+      } catch (e) {
+        _log.error('Failed to remove pending transaction: $e');
+      }
+    });
   }
 
   /// Remove transactions that have been confirmed or are too old
   Future<void> cleanupTransactions({
+    required AccountStorageScope scope,
     List<String>? confirmedTransactionHashes,
     Duration maxAge = _defaultMaxAge,
   }) async {
     await _ensureInitialized();
-    await _cleanupExpiredTransactions(maxAge: maxAge);
+    await _withScopeLock(
+      scope,
+      () => _cleanupExpiredTransactions(scope, maxAge: maxAge),
+    );
   }
 
   /// Get the amount for a transaction if it matches a pending transaction
   Future<double?> getAmountForTransaction({
+    required AccountStorageScope scope,
     required String? fromAddress,
     required String? toAddress,
     required DateTime timestamp,
   }) async {
     final matches = await findMatchingTransactions(
+      scope: scope,
       fromAddress: fromAddress,
       toAddress: toAddress,
       timestamp: timestamp,
@@ -145,11 +166,40 @@ class PendingTransactionService {
     }
   }
 
-  /// Internal: Get all transactions from storage
-  Future<List<PendingTransaction>> _getAllTransactions() async {
+  /// Serializes read-modify-write operations per stable account scope while
+  /// allowing unrelated accounts to proceed independently.
+  Future<T> _withScopeLock<T>(
+    AccountStorageScope scope,
+    Future<T> Function() operation,
+  ) async {
+    final previous = _scopeTails[scope];
+    final release = Completer<void>();
+    _scopeTails[scope] = release.future;
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {
+        // A failed predecessor must not poison this scope's queue.
+      }
+    }
     try {
-      final jsonStringList = _prefs.getStringList(_key) ?? <String>[];
-      return jsonStringList
+      return await operation();
+    } finally {
+      release.complete();
+      if (identical(_scopeTails[scope], release.future)) {
+        _scopeTails.remove(scope);
+      }
+    }
+  }
+
+  /// Internal: Get all transactions from storage
+  Future<List<PendingTransaction>> _getAllTransactions(
+    AccountStorageScope scope, {
+    Duration maxAge = _defaultMaxAge,
+  }) async {
+    try {
+      final jsonStringList = _prefs.getStringList(_key(scope)) ?? <String>[];
+      final parsed = jsonStringList
           .map((jsonString) {
             try {
               return PendingTransaction.fromJsonString(jsonString);
@@ -161,6 +211,17 @@ class PendingTransactionService {
           .where((tx) => tx != null)
           .cast<PendingTransaction>()
           .toList();
+      final valid = parsed
+          .where((transaction) => !transaction.isExpired(maxAge: maxAge))
+          .toList(growable: false);
+      if (valid.length != parsed.length) {
+        await _saveAllTransactions(scope, valid);
+        _log.info(
+          'Cleaned up ${parsed.length - valid.length} expired pending '
+          'transactions',
+        );
+      }
+      return valid;
     } catch (e) {
       _log.error('Failed to load pending transactions: $e');
       return <PendingTransaction>[];
@@ -169,12 +230,14 @@ class PendingTransactionService {
 
   /// Internal: Save all transactions to storage
   Future<void> _saveAllTransactions(
-      List<PendingTransaction> transactions) async {
+    AccountStorageScope scope,
+    List<PendingTransaction> transactions,
+  ) async {
     try {
       final jsonStringList =
           transactions.map((tx) => tx.toJsonString()).toList();
 
-      await _prefs.setStringList(_key, jsonStringList);
+      await _prefs.setStringList(_key(scope), jsonStringList);
     } catch (e) {
       _log.error('Failed to save pending transactions: $e');
     }
@@ -182,32 +245,28 @@ class PendingTransactionService {
 
   /// Internal: Remove expired transactions
   Future<void> _cleanupExpiredTransactions(
-      {Duration maxAge = _defaultMaxAge}) async {
-    try {
-      final allTransactions = await _getAllTransactions();
-      final validTransactions =
-          allTransactions.where((tx) => !tx.isExpired(maxAge: maxAge)).toList();
-
-      if (validTransactions.length != allTransactions.length) {
-        await _saveAllTransactions(validTransactions);
-        _log.info(
-            'Cleaned up ${allTransactions.length - validTransactions.length} expired pending transactions');
-      }
-    } catch (e) {
-      _log.error('Failed to cleanup expired transactions: $e');
-    }
+    AccountStorageScope scope, {
+    Duration maxAge = _defaultMaxAge,
+  }) async {
+    await _getAllTransactions(scope, maxAge: maxAge);
   }
 
-  /// Clear all pending transactions (for testing/debugging)
+  /// Clear pending transactions for every account scope (app reset/debugging).
   Future<void> clearAllPendingTransactions() async {
     await _ensureInitialized();
-    await _prefs.remove(_key);
+    final keys = _prefs
+        .getKeys()
+        .where((key) => key.endsWith(':$_keyBase'))
+        .toList(growable: false);
+    for (final key in keys) {
+      await _prefs.remove(key);
+    }
     _log.info('Cleared all pending transactions');
   }
 
   /// Get count of stored pending transactions
-  Future<int> getPendingTransactionCount() async {
-    final transactions = await getAllPendingTransactions();
+  Future<int> getPendingTransactionCount(AccountStorageScope scope) async {
+    final transactions = await getAllPendingTransactions(scope);
     return transactions.length;
   }
 }

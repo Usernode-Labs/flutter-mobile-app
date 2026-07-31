@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -5,6 +6,7 @@ HttpLogEntry _entry({
   String method = 'GET',
   String url = 'https://example.com/api',
   int? statusCode = 200,
+  AuthenticatedUserScope? owner,
   Map<String, String> requestHeaders = const {},
   String? responseBody,
 }) {
@@ -12,6 +14,7 @@ HttpLogEntry _entry({
     timestamp: DateTime(2026, 1, 1),
     method: method,
     url: url,
+    owner: owner,
     statusCode: statusCode,
     requestHeaders: requestHeaders,
     responseBody: responseBody,
@@ -169,27 +172,118 @@ void main() {
   group('HttpDebugLogStore', () {
     final store = HttpDebugLogStore.instance;
 
-    setUp(store.clear);
-    tearDown(store.clear);
+    setUp(store.clearForTesting);
+    tearDown(store.clearForTesting);
 
     test('returns entries newest-first', () {
       store
         ..add(_entry(url: 'https://example.com/first'))
         ..add(_entry(url: 'https://example.com/second'));
 
-      final entries = store.entries;
+      final entries = store.debugEntries;
       expect(entries.first.url, 'https://example.com/second');
       expect(entries.last.url, 'https://example.com/first');
     });
 
+    test('owner views exclude foreign and anonymous entries', () {
+      const ownerA = AuthenticatedUserScope(participantId: 1);
+      const ownerB = AuthenticatedUserScope(participantId: 2);
+      store
+        ..add(_entry(url: 'https://example.com/a-1', owner: ownerA))
+        ..add(_entry(url: 'https://example.com/anonymous'))
+        ..add(_entry(url: 'https://example.com/b-1', owner: ownerB))
+        ..add(_entry(url: 'https://example.com/a-2', owner: ownerA));
+
+      expect(
+        store.entriesForOwner(ownerA).map((entry) => entry.url),
+        ['https://example.com/a-2', 'https://example.com/a-1'],
+      );
+      expect(store.toExportTextForOwner(ownerA), contains('/a-1'));
+      expect(store.toExportTextForOwner(ownerA), contains('/a-2'));
+      expect(store.toExportTextForOwner(ownerA), isNot(contains('/b-1')));
+      expect(
+        store.toExportTextForOwner(ownerA),
+        isNot(contains('/anonymous')),
+      );
+      expect(store.entriesVisibleTo(null), isEmpty);
+      expect(
+        store.entriesVisibleTo(ownerA).map((entry) => entry.url),
+        ['https://example.com/a-2', 'https://example.com/a-1'],
+      );
+    });
+
+    test('scoped reads retain the global cursor across skipped owners', () {
+      const ownerA = AuthenticatedUserScope(participantId: 1);
+      const ownerB = AuthenticatedUserScope(participantId: 2);
+      final cursor = store.totalAdded;
+      store
+        ..add(_entry(url: 'https://example.com/a-1', owner: ownerA))
+        ..add(_entry(url: 'https://example.com/anonymous'))
+        ..add(_entry(url: 'https://example.com/b-1', owner: ownerB))
+        ..add(_entry(url: 'https://example.com/a-2', owner: ownerA));
+
+      expect(
+        store.entriesAddedForOwner(cursor, ownerA).map((entry) => entry.url),
+        ['https://example.com/a-1', 'https://example.com/a-2'],
+      );
+      final nextCursor = store.totalAdded;
+      store.add(_entry(url: 'https://example.com/b-2', owner: ownerB));
+
+      expect(store.entriesAddedForOwner(nextCursor, ownerA), isEmpty);
+      expect(
+        store
+            .entriesAddedForOwner(nextCursor, ownerB)
+            .map((entry) => entry.url),
+        ['https://example.com/b-2'],
+      );
+    });
+
     test('clear empties the buffer and resets the byte total', () {
       store.add(_entry(responseBody: 'some body'));
-      expect(store.entries, isNotEmpty);
+      expect(store.debugEntries, isNotEmpty);
       expect(store.totalBytes, greaterThan(0));
 
-      store.clear();
-      expect(store.entries, isEmpty);
+      store.clearForTesting();
+      expect(store.debugEntries, isEmpty);
       expect(store.totalBytes, 0);
+    });
+
+    test('owner-scoped clear preserves foreign and anonymous rows', () {
+      const ownerA = AuthenticatedUserScope(participantId: 1);
+      const ownerB = AuthenticatedUserScope(participantId: 2);
+      final anonymous = _entry(url: 'https://example.com/anonymous');
+      final b = _entry(url: 'https://example.com/b', owner: ownerB);
+      store
+        ..add(_entry(url: 'https://example.com/a-1', owner: ownerA))
+        ..add(anonymous)
+        ..add(b)
+        ..add(_entry(url: 'https://example.com/a-2', owner: ownerA));
+      final totalAdded = store.totalAdded;
+
+      store.clearForOwner(ownerA);
+
+      expect(store.entriesForOwner(ownerA), isEmpty);
+      expect(store.entriesForOwner(ownerB), [b]);
+      expect(store.debugEntries, contains(anonymous));
+      expect(store.totalAdded, totalAdded);
+      expect(store.totalBytes, anonymous.approxBytes + b.approxBytes);
+    });
+
+    test('owner-scoped clear does not corrupt incremental cursors', () {
+      const ownerA = AuthenticatedUserScope(participantId: 1);
+      const ownerB = AuthenticatedUserScope(participantId: 2);
+      store
+        ..add(_entry(url: 'https://example.com/a-old', owner: ownerA))
+        ..add(_entry(url: 'https://example.com/b-old', owner: ownerB));
+      final cursor = store.totalAdded;
+      store.add(_entry(url: 'https://example.com/a-new', owner: ownerA));
+      store.clearForOwner(ownerA);
+      store.add(_entry(url: 'https://example.com/b-new', owner: ownerB));
+
+      expect(
+        store.entriesAddedForOwner(cursor, ownerB).map((entry) => entry.url),
+        ['https://example.com/b-new'],
+      );
     });
 
     test('evicts oldest entries to stay within the byte cap', () {
@@ -201,7 +295,7 @@ void main() {
 
       expect(store.totalBytes, lessThanOrEqualTo(HttpDebugLogStore.maxBytes));
       // The oldest entry must have been evicted; the newest must survive.
-      final urls = store.entries.map((e) => e.url).toList();
+      final urls = store.debugEntries.map((e) => e.url).toList();
       expect(urls, contains('https://example.com/11'));
       expect(urls, isNot(contains('https://example.com/0')));
     });
@@ -217,8 +311,8 @@ void main() {
       );
       store.add(huge);
 
-      expect(store.entries.length, 1);
-      expect(store.entries.first.url, 'https://example.com/huge');
+      expect(store.debugEntries.length, 1);
+      expect(store.debugEntries.first.url, 'https://example.com/huge');
     });
   });
 

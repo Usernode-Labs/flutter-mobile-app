@@ -4,9 +4,11 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/identity/wallet_identity_lease.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/recipient_history_provider.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
+    show identityProvider;
 
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -41,11 +43,17 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   Future<void> _onSend() async {
-    // FIXME(follow-up): Require an allowsSigning identity/address lease and
-    // revalidate that exact scope immediately before submission; route gating
-    // cannot protect mid-await account swaps.
     if (!_formKey.currentState!.validate()) return;
     if (_isSending) return; // Prevent double submission
+
+    final authority = WalletIdentityLease.capture(ref.read(identityProvider));
+    if (authority == null) {
+      context.push(AppRoutes.walletSendFailed, extra: const {
+        'errorMessage':
+            'The wallet is not ready for this account. Please try again.',
+      });
+      return;
+    }
 
     setState(() {
       _isSending = true;
@@ -53,18 +61,6 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     });
 
     try {
-      // Get the current user's account
-      final accountsRepo = await AccountsRepository.create();
-      final userAccount = await accountsRepo.getActive();
-
-      if (userAccount == null) {
-        throw Exception('No active account found');
-      }
-
-      // Convert user's address to PublicKeyHash
-      final fromPkHash =
-          frb_types.publicKeyHashFromString(s: userAccount.address);
-
       // Convert recipient address to PublicKeyHash
       final recipientAddress = _addressController.text.trim();
       final toPkHash = frb_types.publicKeyHashFromString(s: recipientAddress);
@@ -76,7 +72,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
       bool? queued;
       String? errorMessage;
       final events = RustBackendService.instance.transferFundsEvents(
-        fromPkHash: fromPkHash,
+        authority: authority,
         amount: amount,
         toPkHash: toPkHash,
       );
@@ -103,13 +99,18 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         if (isTerminal) break;
       }
 
-      if (mounted) {
+      // The transaction effect itself was authorized at the RPC boundary.
+      // Results from that old wallet must not update a replacement identity's
+      // recipient cache or navigation state.
+      if (mounted && authority.isCurrent) {
         if (queued == true) {
           await ref
-              .read(recipientHistoryProvider.notifier)
+              .read(
+                recipientHistoryProvider(authority.accountScope).notifier,
+              )
               .addRecipient(recipientAddress);
           // Transaction successful
-          if (!mounted) return;
+          if (!mounted || !authority.isCurrent) return;
           context.push(AppRoutes.walletSendSuccess, extra: {
             'amount': amountStr,
             'tokenSymbol': '\$TOKEN', // TODO: Get actual token symbol
@@ -123,7 +124,7 @@ class _SendScreenState extends ConsumerState<SendScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && authority.isCurrent) {
         // Handle any errors (invalid address, parsing errors, etc.)
         context.push(AppRoutes.walletSendFailed, extra: {
           'errorMessage': e.toString(),
@@ -144,7 +145,11 @@ class _SendScreenState extends ConsumerState<SendScreen> {
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
-    final recipientHistory = ref.watch(recipientHistoryProvider);
+    final recipientScope =
+        WalletIdentityLease.capture(ref.watch(identityProvider))?.accountScope;
+    final recipientHistory = recipientScope == null
+        ? const AsyncValue<List<String>>.data(<String>[])
+        : ref.watch(recipientHistoryProvider(recipientScope));
 
     return Scaffold(
       appBar: AppBar(

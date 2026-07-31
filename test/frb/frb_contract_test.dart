@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 // Our façade over FRB
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/core/identity/wallet_identity_lease.dart';
 
 // FRB-generated types used by the façade and UI
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
@@ -38,13 +39,18 @@ typedef ListUtxosByOwnerFn = Future<RpcListUtxosByOwnerResp?> Function(
 typedef WalletBalanceFn = Future<RpcWalletBalanceResp?> Function(
     {required PublicKeyHash owner});
 typedef TransferFundsFn = Future<RpcWalletTxSendResp?> Function(
-    {required PublicKeyHash fromPkHash,
+    {required WalletIdentityLease authority,
     required BigInt amount,
     required PublicKeyHash toPkHash});
 typedef TransferFundsEventsFn = Stream<WalletTxSendEvent> Function(
-    {required PublicKeyHash fromPkHash,
+    {required WalletIdentityLease authority,
     required BigInt amount,
     required PublicKeyHash toPkHash});
+typedef SendTransactionFn = Future<RpcWalletTxSendResp?> Function(
+    {required WalletIdentityLease authority,
+    required BigInt amount,
+    required PublicKeyHash toPkHash,
+    required Memo memo});
 typedef WalletTxSendFn = Stream<WalletTxSendEvent> Function(
     {required PublicKeyHash fromPkHash,
     required BigInt amount,
@@ -92,18 +98,19 @@ void main() {
       expect(f, isNotNull);
     });
 
-    test(
-        'transferFunds({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash})',
-        () {
+    test('transferFunds requires wallet authority', () {
       final TransferFundsFn f = RustBackendService.instance.transferFunds;
       expect(f, isNotNull);
     });
 
-    test(
-        'transferFundsEvents({required PublicKeyHash fromPkHash, required BigInt amount, required PublicKeyHash toPkHash})',
-        () {
+    test('transferFundsEvents requires wallet authority', () {
       final TransferFundsEventsFn f =
           RustBackendService.instance.transferFundsEvents;
+      expect(f, isNotNull);
+    });
+
+    test('sendTransaction requires wallet authority', () {
+      final SendTransactionFn f = RustBackendService.instance.sendTransaction;
       expect(f, isNotNull);
     });
 

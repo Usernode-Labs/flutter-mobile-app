@@ -48,7 +48,15 @@ final zkIdentityRegistrationProvider =
 
 final zkIdentityStepControllerProvider =
     StateNotifierProvider<ZkIdentityStepController, ZkIdentityFlowState>((ref) {
-  return ZkIdentityStepController(ref);
+  final controller = ZkIdentityStepController(ref);
+  ref.listen(
+    zkPassportCurrentIdentityProvider,
+    (previous, next) {
+      if (previous == null || previous.sameScopeAs(next)) return;
+      controller.reset();
+    },
+  );
+  return controller;
 });
 
 class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
@@ -56,11 +64,14 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
 
   final Ref _ref;
   ProviderSubscription<ZkPassportPipelineState>? _pipelineSubscription;
+  int _generation = 0;
 
   Future<bool> checkAppInstalled() async {
+    final generation = _generation;
     try {
       final installed =
           await _ref.read(zkPassportLaunchServiceProvider).isInstalled();
+      if (generation != _generation) return false;
       if (installed) {
         state = state.advanceTo(ZkIdentityStep.confirmScanned.index);
         return true;
@@ -85,11 +96,13 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
 
   Future<void> triggerVerification() async {
     if (state.currentStep != ZkIdentityStep.verification) return;
+    final generation = _generation;
 
     _ref.read(zkIdentityChallengeActiveProvider.notifier).state = true;
 
     final flowController = _ref.read(zkPassportFlowControllerProvider);
     final result = await flowController.startRegistrationNonceZero();
+    if (generation != _generation) return;
 
     if (!result.started) {
       _failVerification(result.message);
@@ -101,6 +114,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
     _pipelineSubscription = _ref.listen<ZkPassportPipelineState>(
       zkPassportPipelineProvider,
       (previous, next) {
+        if (generation != _generation) return;
         if (next.status == ZkPassportPipelineStatus.success) {
           _onVerificationComplete(true, next.message);
         } else if (next.status == ZkPassportPipelineStatus.failure) {
@@ -150,6 +164,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   }
 
   void reset() {
+    _generation++;
     _pipelineSubscription?.close();
     _pipelineSubscription = null;
     _ref.read(zkIdentityChallengeActiveProvider.notifier).state = false;
@@ -157,9 +172,11 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   }
 
   Future<bool> cancelVerification() async {
+    final generation = _generation;
     final discarded = await _ref
         .read(zkPassportPipelineProvider.notifier)
         .discardPendingSession(reason: 'Cancelled');
+    if (generation != _generation) return false;
     if (!discarded) return false;
 
     reset();
@@ -168,6 +185,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
 
   @override
   void dispose() {
+    _generation++;
     _pipelineSubscription?.close();
     super.dispose();
   }

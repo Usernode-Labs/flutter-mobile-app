@@ -735,6 +735,32 @@ void main() {
       expect(suspendCount, 2);
     });
 
+    test('a null reconcile result clears the previous season everywhere',
+        () async {
+      await settleReady(provisionedSeasonId: 7);
+      final bucket = controller.state.bucket;
+      final key = NetworkPrefs.prefixAccountKeyFor(
+        'identity:provisioned_season',
+        bucket,
+      );
+      var prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt(key), 7);
+
+      await controller.beginSeasonRollover(activeSeasonId: 8);
+      final committed = await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'acc-1',
+        address: 'addr-1',
+        participantId: 1,
+        provisionedSeasonId: null,
+      );
+
+      expect(committed, isTrue);
+      expect(controller.state.provisionedSeasonId, isNull);
+      prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey(key), isFalse);
+    });
+
     test(
         'a ready identity with no provisioned-season baseline reconciles '
         'once (pre-baseline install migration), and only once', () async {

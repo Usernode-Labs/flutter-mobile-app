@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 
@@ -309,6 +310,326 @@ void main() {
     });
   });
 
+  group('getEventPoints pagination', () {
+    Map<String, dynamic> pageEnvelope({
+      required int page,
+      required int totalPages,
+      required List<Map<String, dynamic>> points,
+      int totalParticipants = 3,
+    }) =>
+        {
+          'success': true,
+          'data': {
+            'season_event_id': 5,
+            'event_name': 'Event 5',
+            'event_total_points': 1200,
+            'user_total_points': 700,
+            'total_points_per_user': points,
+            'total_participants': totalParticipants,
+          },
+          'meta': {
+            'current_page': page,
+            'per_page': 100,
+            'total': totalParticipants,
+            'total_pages': totalPages,
+          },
+        };
+
+    setUp(_publishAuthenticatedIdentity);
+
+    test('fetches every page under one credential and merges participants',
+        () async {
+      final requestedPages = <String?>[];
+      final client = MockClient((request) async {
+        requestedPages.add(request.url.queryParameters['page']);
+        expect(request.url.queryParameters['per_page'], '100');
+        expect(request.headers['authorization'], 'Bearer token-1');
+        final page = int.parse(request.url.queryParameters['page']!);
+        return http.Response(
+          jsonEncode(pageEnvelope(
+            page: page,
+            totalPages: 2,
+            points: page == 1
+                ? [
+                    {'user_id': 1, 'total_points': 700},
+                    {'user_id': 2, 'total_points': 300},
+                  ]
+                : [
+                    {'user_id': 3, 'total_points': 200},
+                  ],
+          )),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-1',
+      );
+
+      final result = await service.getEventPoints(eventId: 5);
+
+      expect(requestedPages, ['1', '2']);
+      expect(
+        result.totalPointsPerUser.map((points) => points.participantId),
+        [1, 2, 3],
+      );
+    });
+
+    test('accepts an empty result with zero total pages', () async {
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        tokenProvider: () async => 'token-1',
+        httpClient: _mockClient(
+          200,
+          pageEnvelope(
+            page: 1,
+            totalPages: 0,
+            points: const [],
+            totalParticipants: 0,
+          ),
+        ),
+      );
+
+      final result = await service.getEventPoints(eventId: 5);
+
+      expect(result.totalPointsPerUser, isEmpty);
+    });
+
+    test('fails the logical read when a later page fails', () async {
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        if (requests == 1) {
+          return http.Response(
+            jsonEncode(pageEnvelope(
+              page: 1,
+              totalPages: 2,
+              points: const [],
+            )),
+            200,
+          );
+        }
+        return http.Response(jsonEncode({'error': 'failed'}), 500);
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-1',
+        maxGetRetries: 0,
+      );
+
+      await expectLater(
+        service.getEventPoints(eventId: 5),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+      expect(requests, 2);
+    });
+
+    test('rejects malformed pagination metadata', () async {
+      final envelope = pageEnvelope(page: 1, totalPages: 1, points: const []);
+      envelope['meta'] = {'current_page': 2, 'total_pages': 'invalid'};
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        tokenProvider: () async => 'token-1',
+        httpClient: _mockClient(200, envelope),
+      );
+
+      await expectLater(
+        service.getEventPoints(eventId: 5),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+    });
+
+    test('rejects pagination metadata without the requested page size',
+        () async {
+      final envelope = pageEnvelope(page: 1, totalPages: 1, points: const []);
+      (envelope['meta'] as Map<String, dynamic>).remove('per_page');
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        tokenProvider: () async => 'token-1',
+        httpClient: _mockClient(200, envelope),
+      );
+
+      await expectLater(
+        service.getEventPoints(eventId: 5),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+    });
+
+    test('restarts the whole read once when pagination drifts', () async {
+      var requests = 0;
+      final requestedPages = <String?>[];
+      final client = MockClient((request) async {
+        requests++;
+        requestedPages.add(request.url.queryParameters['page']);
+        final page = int.parse(request.url.queryParameters['page']!);
+        final firstAttempt = requests <= 2;
+        return http.Response(
+          jsonEncode(pageEnvelope(
+            page: page,
+            totalPages: firstAttempt && page == 2 ? 3 : 2,
+            totalParticipants: 2,
+            points: [
+              {'user_id': page, 'total_points': 10},
+            ],
+          )),
+          200,
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        tokenProvider: () async => 'token-1',
+        httpClient: client,
+        maxGetRetries: 0,
+      );
+
+      final result = await service.getEventPoints(eventId: 5);
+
+      expect(requestedPages, ['1', '2', '1', '2']);
+      expect(
+        result.totalPointsPerUser.map((points) => points.participantId),
+        [1, 2],
+      );
+    });
+
+    test('retries when rank movement duplicates a page-boundary participant',
+        () async {
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        final page = int.parse(request.url.queryParameters['page']!);
+        final firstAttempt = requests <= 2;
+        final ids = switch ((firstAttempt, page)) {
+          (true, 1) => [for (var id = 1; id <= 100; id++) id],
+          (true, 2) => [100],
+          (false, 1) => [101, for (var id = 1; id < 100; id++) id],
+          _ => [100],
+        };
+        return http.Response(
+          jsonEncode(pageEnvelope(
+            page: page,
+            totalPages: 2,
+            totalParticipants: 101,
+            points: [
+              for (final id in ids) {'user_id': id, 'total_points': 1000 - id},
+            ],
+          )),
+          200,
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        tokenProvider: () async => 'token-1',
+        httpClient: client,
+        maxGetRetries: 0,
+      );
+
+      final result = await service.getEventPoints(eventId: 5);
+
+      expect(requests, 4);
+      expect(result.totalPointsPerUser, hasLength(101));
+      expect(
+        result.totalPointsPerUser.map((points) => points.participantId),
+        containsAll([100, 101]),
+      );
+    });
+
+    test('bounds retries when page-boundary drift does not settle', () async {
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        final page = int.parse(request.url.queryParameters['page']!);
+        final ids = page == 1 ? [for (var id = 1; id <= 100; id++) id] : [100];
+        return http.Response(
+          jsonEncode(pageEnvelope(
+            page: page,
+            totalPages: 2,
+            totalParticipants: 101,
+            points: [
+              for (final id in ids) {'user_id': id, 'total_points': 1000 - id},
+            ],
+          )),
+          200,
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        tokenProvider: () async => 'token-1',
+        httpClient: client,
+        maxGetRetries: 0,
+      );
+
+      await expectLater(
+        service.getEventPoints(eventId: 5),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+      expect(requests, 4);
+    });
+
+    test('does not request page two after identity replacement', () async {
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        IdentitySnapshots.publish(const Identity(
+          epoch: 8,
+          phase: IdentityPhase.ready,
+          participantId: 2,
+          accountId: 'account-2',
+          address: 'address-2',
+        ));
+        return http.Response(
+          jsonEncode(pageEnvelope(
+            page: 1,
+            totalPages: 2,
+            points: const [],
+          )),
+          200,
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-1',
+      );
+
+      await expectLater(
+        service.getEventPoints(eventId: 5),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+      expect(requests, 1);
+    });
+
+    test('does not request page two with a replacement token', () async {
+      var token = 'token-1';
+      var requests = 0;
+      final client = MockClient((request) async {
+        requests++;
+        token = 'token-2';
+        return http.Response(
+          jsonEncode(pageEnvelope(
+            page: 1,
+            totalPages: 2,
+            points: const [],
+          )),
+          200,
+        );
+      });
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => token,
+      );
+
+      await expectLater(
+        service.getEventPoints(eventId: 5),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+      expect(requests, 1);
+    });
+  });
+
   // -------------------------------------------------------------------------
   // getBreakdown
   // -------------------------------------------------------------------------
@@ -382,6 +703,8 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('provisionWallet', () {
+    setUp(_publishAuthenticatedIdentity);
+
     test('returns WalletProvisionResult on 200', () async {
       http.Request? captured;
       final client = _mockClient(
@@ -396,10 +719,15 @@ void main() {
         }),
         onRequest: (r) => captured = r,
       );
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-1',
+      );
 
-      final result = await service.provisionWallet();
+      final result = await service.provisionWallet(
+        authority: IdentityLease.capture(IdentitySnapshots.current),
+      );
 
       expect(captured!.url.path, endsWith('/wallet/provision'));
       expect(result.address, 'ut1pool0');
@@ -415,14 +743,51 @@ void main() {
         'success': false,
         'error': 'No on-chain accounts are available for the current season.',
       });
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-1',
+      );
 
       expect(
-        () => service.provisionWallet(),
+        () => service.provisionWallet(
+          authority: IdentityLease.capture(IdentitySnapshots.current),
+        ),
         throwsA(isA<LeaderboardApiException>()
             .having((e) => e.statusCode, 'statusCode', 409)),
       );
+    });
+
+    test('does not provision with a replacement identity credential', () async {
+      final token = Completer<String?>();
+      var requests = 0;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        writesEnabled: true,
+        tokenProvider: () => token.future,
+        httpClient: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+      final authority = IdentityLease.capture(IdentitySnapshots.current);
+
+      final provision = service.provisionWallet(authority: authority);
+      await pumpEventQueue();
+      IdentitySnapshots.publish(const Identity(
+        epoch: 8,
+        phase: IdentityPhase.ready,
+        participantId: 2,
+        accountId: 'account-2',
+        address: 'address-2',
+      ));
+      token.complete('replacement-token');
+
+      await expectLater(
+        provision,
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+      expect(requests, 0);
     });
   });
 
@@ -431,14 +796,22 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('completeZkPassport', () {
+    setUp(_publishAuthenticatedIdentity);
+
     test('returns true on 200', () async {
       final client = _mockClient(200, _envelope({'status': 'completed'}));
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-1',
+      );
 
       final ok = await service.completeZkPassport(
+        authority: AuthenticatedUserLease.capture(
+          IdentitySnapshots.current,
+        )!,
         challengeId: 7,
-        walletAddress: 'ut1abc',
+        walletAddress: 'address-1',
         sessionId: 'sess-1',
         nullifierHex: '0xdead',
       );
@@ -451,19 +824,85 @@ void main() {
         'success': false,
         'error': 'Challenge is not accepting completions.',
       });
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-1',
+      );
 
       expect(
         () => service.completeZkPassport(
+          authority: AuthenticatedUserLease.capture(
+            IdentitySnapshots.current,
+          )!,
           challengeId: 7,
-          walletAddress: 'ut1abc',
+          walletAddress: 'address-1',
           sessionId: 'sess-1',
           nullifierHex: '0xdead',
         ),
         throwsA(isA<LeaderboardApiException>()
             .having((e) => e.statusCode, 'statusCode', 409)),
       );
+    });
+
+    test('does not POST with a superseded authenticated authority', () async {
+      var requests = 0;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        tokenProvider: () async => 'replacement-token',
+        httpClient: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+      final authority = AuthenticatedUserLease.capture(
+        IdentitySnapshots.current,
+      )!;
+      IdentitySnapshots.publish(const Identity(
+        epoch: 8,
+        phase: IdentityPhase.ready,
+        participantId: 2,
+        accountId: 'account-2',
+        address: 'address-2',
+      ));
+
+      await expectLater(
+        service.completeZkPassport(
+          authority: authority,
+          challengeId: 7,
+          walletAddress: 'address-1',
+          sessionId: 'sess-1',
+          nullifierHex: '0xdead',
+        ),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+      expect(requests, 0);
+    });
+
+    test('does not POST a wallet outside the authenticated account scope',
+        () async {
+      var requests = 0;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: MockClient((_) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+      );
+
+      await expectLater(
+        service.completeZkPassport(
+          authority: AuthenticatedUserLease.capture(
+            IdentitySnapshots.current,
+          )!,
+          challengeId: 7,
+          walletAddress: 'address-from-another-account',
+          sessionId: 'sess-1',
+          nullifierHex: '0xdead',
+        ),
+        throwsArgumentError,
+      );
+      expect(requests, 0);
     });
   });
 
@@ -639,6 +1078,10 @@ void main() {
     });
 
     test('does NOT retry a POST (write) on a transient 503', () async {
+      _publishAuthenticatedIdentity();
+      final authority = AuthenticatedUserLease.capture(
+        IdentitySnapshots.current,
+      )!;
       var attempts = 0;
       final client = MockClient((request) async {
         attempts++;
@@ -653,10 +1096,15 @@ void main() {
         httpClient: client,
         writesEnabled: true,
         retryBaseDelay: Duration.zero,
+        tokenProvider: () async => 'token-1',
       );
 
       await expectLater(
-        () => service.postTermsConsent(termsVersionId: 1, appVersion: '1.0.0'),
+        () => service.postTermsConsent(
+          termsVersionId: 1,
+          appVersion: '1.0.0',
+          authority: authority,
+        ),
         throwsA(isA<LeaderboardApiException>()),
       );
       expect(attempts, 1);

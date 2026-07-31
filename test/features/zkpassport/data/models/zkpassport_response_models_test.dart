@@ -46,14 +46,72 @@ void main() {
       expect(r.updatedAtMs, 0);
     });
 
-    test('isTerminal for result_ok / result_error / expired only', () {
-      ZkPassportSessionStatusResponse s(String status) =>
-          ZkPassportSessionStatusResponse.fromJson({'status': status});
-      expect(s('result_ok').isTerminal, isTrue);
-      expect(s('result_error').isTerminal, isTrue);
-      expect(s('expired').isTerminal, isTrue);
-      expect(s('pending').isTerminal, isFalse);
-    });
+    final dispositionCases = <({
+      String status,
+      bool finalAvailable,
+      ZkPassportSessionDisposition expected,
+    })>[
+      (
+        status: 'pending',
+        finalAvailable: false,
+        expected: ZkPassportSessionDisposition.pending,
+      ),
+      (
+        status: 'pending',
+        finalAvailable: true,
+        expected: ZkPassportSessionDisposition.proofReady,
+      ),
+      (
+        status: 'result_ok',
+        finalAvailable: false,
+        expected: ZkPassportSessionDisposition.proofReady,
+      ),
+      (
+        status: ' RESULT_OK ',
+        finalAvailable: false,
+        expected: ZkPassportSessionDisposition.proofReady,
+      ),
+      (
+        status: 'result_error',
+        finalAvailable: false,
+        expected: ZkPassportSessionDisposition.failed,
+      ),
+      (
+        status: 'result_error',
+        finalAvailable: true,
+        expected: ZkPassportSessionDisposition.failed,
+      ),
+      (
+        status: 'expired',
+        finalAvailable: false,
+        expected: ZkPassportSessionDisposition.expired,
+      ),
+      (
+        status: 'expired',
+        finalAvailable: true,
+        expected: ZkPassportSessionDisposition.expired,
+      ),
+      (
+        status: 'unknown',
+        finalAvailable: true,
+        expected: ZkPassportSessionDisposition.proofReady,
+      ),
+    ];
+
+    for (final testCase in dispositionCases) {
+      test(
+        '${testCase.status}/${testCase.finalAvailable} maps to '
+        '${testCase.expected.name}',
+        () {
+          final response = ZkPassportSessionStatusResponse.fromJson({
+            'status': testCase.status,
+            'final_available': testCase.finalAvailable,
+          });
+
+          expect(response.disposition, testCase.expected);
+        },
+      );
+    }
   });
 
   group('ZkPassportSessionResultResponse.fromJson', () {

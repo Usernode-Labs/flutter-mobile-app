@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
@@ -18,6 +19,7 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
 
   @override
   Future<bool> completeZkPassport({
+    required AuthenticatedUserLease authority,
     required int challengeId,
     required String walletAddress,
     required String sessionId,
@@ -26,6 +28,22 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
   }) async {
     completionCalls++;
     return true;
+  }
+}
+
+class _ScopedRegistrationRepository extends ZkPassportRegistrationRepository {
+  final requestedScopes = <AccountStorageScope>[];
+
+  @override
+  Future<ZkPassportLocalRegistration> getRegistrationForAccount({
+    required AccountStorageScope scope,
+  }) async {
+    requestedScopes.add(scope);
+    return ZkPassportLocalRegistration(
+      registered: scope.accountId == 'account-a',
+      nullifierHex: scope.accountId == 'account-a' ? 'nullifier-a' : null,
+      registeredAtMs: scope.accountId == 'account-a' ? 100 : null,
+    );
   }
 }
 
@@ -58,6 +76,14 @@ void main() {
       nonce: 'nonce-a',
     );
     final bucket = NetworkPrefs.bucketForAddress(address);
+    final scope = ZkIdentityScope(
+      network: NetworkPrefs.currentNetwork,
+      bucket: bucket,
+      participantId: participantId,
+      accountId: accountId,
+      address: address,
+      challengeId: challengeId,
+    );
     NetworkPrefs.setActiveBucket(address, guest: false);
     IdentitySnapshots.publish(const Identity(
       epoch: 3,
@@ -69,19 +95,18 @@ void main() {
 
     final registrationRepo = ZkPassportRegistrationRepository();
     await registrationRepo.storePendingCompletion(
-      participantId: participantId,
-      challengeId: challengeId,
-      walletAddress: address,
+      scope: scope,
       sessionId: version.requestId,
       nullifierHex: 'nullifier-a',
       requestVersion: version,
-      accountId: accountId,
-      bucket: bucket,
     );
 
     final activeChallengeId = StateProvider<int?>((_) => null);
     final api = _RecordingLeaderboardApiService();
     final container = ProviderContainer(overrides: [
+      zkPassportCurrentIdentityProvider.overrideWithValue(
+        IdentitySnapshots.current,
+      ),
       zkIdentityChallengeIdProvider.overrideWith(
         (ref) => ref.watch(activeChallengeId),
       ),
@@ -96,7 +121,7 @@ void main() {
     await _pumpUntil(() => api.completionCalls != 0);
     expect(api.completionCalls, 0);
     expect(
-      await registrationRepo.getPendingCompletion(bucket: bucket),
+      await registrationRepo.getPendingCompletion(scope: scope),
       isNotNull,
     );
 
@@ -105,8 +130,57 @@ void main() {
 
     expect(api.completionCalls, 1);
     expect(
-      await registrationRepo.getPendingCompletion(bucket: bucket),
+      await registrationRepo.getPendingCompletion(scope: scope),
       isNull,
     );
+  });
+
+  test('registration providers follow the current explicit account scope',
+      () async {
+    const identityA = Identity(
+      epoch: 3,
+      phase: IdentityPhase.ready,
+      participantId: 7,
+      accountId: 'account-a',
+      address: 'ut1-account-a',
+    );
+    const identityB = Identity(
+      epoch: 4,
+      phase: IdentityPhase.ready,
+      participantId: 8,
+      accountId: 'account-b',
+      address: 'ut1-account-b',
+    );
+    final currentIdentity = StateProvider<Identity>((_) => identityA);
+    final repo = _ScopedRegistrationRepository();
+    final container = ProviderContainer(overrides: [
+      zkPassportCurrentIdentityProvider.overrideWith(
+        (ref) => ref.watch(currentIdentity),
+      ),
+      zkPassportRegistrationRepositoryProvider.overrideWithValue(repo),
+    ]);
+    addTearDown(container.dispose);
+
+    expect(await container.read(zkPassportIsRegisteredProvider.future), isTrue);
+    expect(
+      (await container.read(zkPassportRegistrationProvider.future))
+          .nullifierHex,
+      'nullifier-a',
+    );
+
+    container.read(currentIdentity.notifier).state = identityB;
+
+    expect(
+      await container.read(zkPassportIsRegisteredProvider.future),
+      isFalse,
+    );
+    expect(
+      (await container.read(zkPassportRegistrationProvider.future)).registered,
+      isFalse,
+    );
+    expect(repo.requestedScopes.map((scope) => scope.accountId), [
+      'account-a',
+      'account-b',
+    ]);
   });
 }

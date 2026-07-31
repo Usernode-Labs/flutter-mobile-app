@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/design_system/src/zk_identity_flow_page.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:crypto_mobile_app/features/zkpassport/services/zkpassport_services.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -13,6 +17,7 @@ import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_
 
 class _FakeFlowController implements ZkPassportFlowController {
   bool startCalled = false;
+  Completer<ZkPassportLaunchResult>? pendingResult;
   ZkPassportLaunchResult nextResult = const ZkPassportLaunchResult(
     started: true,
     requestId: 'req-1',
@@ -20,13 +25,20 @@ class _FakeFlowController implements ZkPassportFlowController {
   );
 
   @override
-  Future<ZkPassportLaunchResult> startRegistrationNonceZero() async {
+  Future<ZkPassportLaunchResult> startRegistrationNonceZero() {
     startCalled = true;
-    return nextResult;
+    return pendingResult?.future ?? Future.value(nextResult);
   }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _BlockingLaunchService extends ZkPassportLaunchService {
+  final installed = Completer<bool>();
+
+  @override
+  Future<bool> isInstalled() => installed.future;
 }
 
 class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
@@ -38,6 +50,7 @@ class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
 
   @override
   Future<bool> discardPendingSession({
+    ZkRequestKey? requestKey,
     String? requestId,
     String? reason,
   }) async {
@@ -342,6 +355,138 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(s.container.read(zkIdentityChallengeActiveProvider), false);
+    });
+
+    test('identity replacement resets flow and challenge-active state',
+        () async {
+      const identityA = Identity(
+        epoch: 3,
+        phase: IdentityPhase.ready,
+        participantId: 7,
+        accountId: 'account-a',
+        address: 'ut1-account-a',
+      );
+      const identityB = Identity(
+        epoch: 4,
+        phase: IdentityPhase.ready,
+        participantId: 8,
+        accountId: 'account-b',
+        address: 'ut1-account-b',
+      );
+      final currentIdentity = StateProvider<Identity>((_) => identityA);
+      final fakeFlow = _FakeFlowController();
+      final fakePipeline = _FakePipelineController();
+      final container = ProviderContainer(overrides: [
+        zkPassportCurrentIdentityProvider.overrideWith(
+          (ref) => ref.watch(currentIdentity),
+        ),
+        zkPassportFlowControllerProvider.overrideWithValue(fakeFlow),
+        zkPassportPipelineProvider.overrideWith((_) => fakePipeline),
+      ]);
+      addTearDown(container.dispose);
+      final controller =
+          container.read(zkIdentityStepControllerProvider.notifier);
+      controller.state = ZkIdentityFlowState.initial()
+          .advanceTo(ZkIdentityStep.verification.index);
+      container.read(zkIdentityChallengeActiveProvider.notifier).state = true;
+
+      container.read(currentIdentity.notifier).state = identityB;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        container.read(zkIdentityStepControllerProvider).currentStep,
+        ZkIdentityStep.checkApp,
+      );
+      expect(container.read(zkIdentityChallengeActiveProvider), isFalse);
+    });
+
+    test('late launch result cannot overwrite a replacement identity flow',
+        () async {
+      const identityA = Identity(
+        epoch: 3,
+        phase: IdentityPhase.ready,
+        participantId: 7,
+        accountId: 'account-a',
+        address: 'ut1-account-a',
+      );
+      const identityB = Identity(
+        epoch: 4,
+        phase: IdentityPhase.ready,
+        participantId: 8,
+        accountId: 'account-b',
+        address: 'ut1-account-b',
+      );
+      final currentIdentity = StateProvider<Identity>((_) => identityA);
+      final fakeFlow = _FakeFlowController()
+        ..pendingResult = Completer<ZkPassportLaunchResult>();
+      final fakePipeline = _FakePipelineController();
+      final container = ProviderContainer(overrides: [
+        zkPassportCurrentIdentityProvider.overrideWith(
+          (ref) => ref.watch(currentIdentity),
+        ),
+        zkPassportFlowControllerProvider.overrideWithValue(fakeFlow),
+        zkPassportPipelineProvider.overrideWith((_) => fakePipeline),
+      ]);
+      addTearDown(container.dispose);
+      final controller =
+          container.read(zkIdentityStepControllerProvider.notifier);
+      controller.state = ZkIdentityFlowState.initial()
+          .advanceTo(ZkIdentityStep.verification.index);
+
+      final launch = controller.triggerVerification();
+      container.read(currentIdentity.notifier).state = identityB;
+      await Future<void>.delayed(Duration.zero);
+      fakeFlow.pendingResult!.complete(const ZkPassportLaunchResult(
+        started: false,
+        requestId: null,
+        message: 'A launch failed late',
+      ));
+      await launch;
+
+      final state = container.read(zkIdentityStepControllerProvider);
+      expect(state.currentStep, ZkIdentityStep.checkApp);
+      expect(state.resultMessage, isNull);
+      expect(container.read(zkIdentityChallengeActiveProvider), isFalse);
+    });
+
+    test('late app-install result cannot advance a replacement identity flow',
+        () async {
+      const identityA = Identity(
+        epoch: 3,
+        phase: IdentityPhase.ready,
+        participantId: 7,
+        accountId: 'account-a',
+        address: 'ut1-account-a',
+      );
+      const identityB = Identity(
+        epoch: 4,
+        phase: IdentityPhase.ready,
+        participantId: 8,
+        accountId: 'account-b',
+        address: 'ut1-account-b',
+      );
+      final currentIdentity = StateProvider<Identity>((_) => identityA);
+      final launchService = _BlockingLaunchService();
+      final container = ProviderContainer(overrides: [
+        zkPassportCurrentIdentityProvider.overrideWith(
+          (ref) => ref.watch(currentIdentity),
+        ),
+        zkPassportLaunchServiceProvider.overrideWithValue(launchService),
+      ]);
+      addTearDown(container.dispose);
+      final controller =
+          container.read(zkIdentityStepControllerProvider.notifier);
+
+      final check = controller.checkAppInstalled();
+      container.read(currentIdentity.notifier).state = identityB;
+      await Future<void>.delayed(Duration.zero);
+      launchService.installed.complete(true);
+
+      expect(await check, isFalse);
+      expect(
+        container.read(zkIdentityStepControllerProvider).currentStep,
+        ZkIdentityStep.checkApp,
+      );
     });
   });
 }

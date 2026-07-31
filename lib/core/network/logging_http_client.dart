@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 
 /// An [http.Client] that records each exchange into [HttpDebugLogStore] when
@@ -27,6 +29,11 @@ class LoggingHttpClient extends http.BaseClient {
       return _inner.send(request);
     }
 
+    // Capture ownership before the transport begins. The response may finish
+    // after logout or another participant signs in; resolving ownership at
+    // completion would then attribute the old exchange to the new session.
+    final owner = _captureAuthenticatedOwner();
+
     // Only plain (non-streamed/non-multipart) requests expose a readable body.
     final requestBody = request is http.Request ? request.body : null;
     final sw = Stopwatch()..start();
@@ -42,6 +49,7 @@ class LoggingHttpClient extends http.BaseClient {
           timestamp: DateTime.now(),
           method: request.method,
           url: request.url.toString(),
+          owner: owner,
           statusCode: response.statusCode,
           durationMs: sw.elapsedMilliseconds,
           requestHeaders: request.headers,
@@ -72,6 +80,7 @@ class LoggingHttpClient extends http.BaseClient {
           timestamp: DateTime.now(),
           method: request.method,
           url: request.url.toString(),
+          owner: owner,
           durationMs: sw.elapsedMilliseconds,
           requestHeaders: request.headers,
           requestBody: truncateBody(redactSensitiveBodyFields(requestBody)),
@@ -95,6 +104,13 @@ class LoggingHttpClient extends http.BaseClient {
 
   @override
   void close() => _inner.close();
+}
+
+AuthenticatedUserScope? _captureAuthenticatedOwner() {
+  final identity = IdentitySnapshots.current;
+  final participantId = identity.participantId;
+  if (!identity.isAuthenticated || participantId == null) return null;
+  return AuthenticatedUserScope(participantId: participantId);
 }
 
 /// Build the app's standard HTTP client.

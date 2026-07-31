@@ -163,22 +163,28 @@ bool shouldDeferRouterRedirect(AuthStatus status) =>
 /// splash/onboarding send them to the Dapps tab; elsewhere return null so they
 /// can roam the app shell. Pure for unit testing.
 String? guestRedirect(String location) {
-  // FIXME(follow-up): Redirect guests away from wallet send/scan; those routes
-  // must never expose or use a previous user's active registry account.
-  if (location == AppRoutes.splash || location.startsWith('/onboarding/')) {
+  if (location == AppRoutes.splash ||
+      location.startsWith('/onboarding/') ||
+      identityGatedRoutes.contains(location)) {
     return AppRoutes.dapps;
   }
   return null;
 }
 
-/// Routes that read the active local account directly (Send builds
-/// transactions against `AccountsRepository.getActive()`). While a sign-in's
-/// account reconciliation is still pending, that account may belong to a
-/// PREVIOUS user — block these routes until ownership is confirmed.
+/// Routes that initiate account-sensitive wallet effects. While a sign-in's
+/// account reconciliation is still pending, the active local account may
+/// belong to a previous user, so block entry until ownership is confirmed.
 const identityGatedRoutes = <String>[
   AppRoutes.walletSend,
   AppRoutes.walletScan,
+  AppRoutes.walletSendSuccess,
+  AppRoutes.walletSendFailed,
 ];
+
+bool _hasStringRouteFields(Object? extra, Set<String> fields) {
+  if (extra is! Map) return false;
+  return fields.every((field) => extra[field] is String);
+}
 
 /// Identity gate: sessions whose identity is changing or whose account
 /// reconciliation is pending are bounced off wallet routes. Pure for unit
@@ -405,6 +411,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.walletSendSuccess,
+        redirect: (context, state) => _hasStringRouteFields(
+          state.extra,
+          const {'amount', 'tokenSymbol', 'recipientAddress'},
+        )
+            ? null
+            : AppRoutes.home,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>;
           return TransactionSuccessScreen(
@@ -416,6 +428,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.walletSendFailed,
+        redirect: (context, state) => _hasStringRouteFields(
+          state.extra,
+          const {'errorMessage'},
+        )
+            ? null
+            : AppRoutes.home,
         builder: (context, state) {
           final extra = state.extra as Map<String, dynamic>;
           return TransactionFailedScreen(

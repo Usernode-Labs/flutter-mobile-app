@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
@@ -20,7 +22,9 @@ class _FakeService extends LeaderboardApiService {
   int fetches = 0;
 
   @override
-  Future<CurrentTerms?> getCurrentTerms() async {
+  Future<CurrentTerms?> getCurrentTerms({
+    required AuthenticatedUserLease authority,
+  }) async {
     fetches++;
     return terms;
   }
@@ -29,12 +33,25 @@ class _FakeService extends LeaderboardApiService {
   Future<void> postTermsConsent({
     required int termsVersionId,
     required String appVersion,
+    required AuthenticatedUserLease authority,
   }) async {
     posted.add(TermsConsentStatus.accepted);
   }
 
   @override
   void dispose() {}
+}
+
+AuthenticatedUserLease _owner() {
+  const identity = Identity(
+    epoch: 7,
+    phase: IdentityPhase.ready,
+    participantId: 1,
+    accountId: 'account-1',
+    address: 'address-1',
+  );
+  IdentitySnapshots.publish(identity);
+  return AuthenticatedUserLease.capture(identity)!;
 }
 
 CurrentTerms _terms({required bool accepted}) => CurrentTerms(
@@ -51,6 +68,7 @@ CurrentTerms _terms({required bool accepted}) => CurrentTerms(
 ProviderContainer _container(_FakeService service) => ProviderContainer(
       overrides: [
         isAuthenticatedProvider.overrideWithValue(true),
+        authenticatedUserLeaseProvider.overrideWithValue(_owner()),
         showSignInGateProvider.overrideWithValue(false),
         leaderboardApiServiceProvider.overrideWithValue(service),
       ],
@@ -59,6 +77,9 @@ ProviderContainer _container(_FakeService service) => ProviderContainer(
 Widget _app(_FakeService service, {bool signedIn = true}) => ProviderScope(
       overrides: [
         isAuthenticatedProvider.overrideWithValue(signedIn),
+        authenticatedUserLeaseProvider.overrideWithValue(
+          signedIn ? _owner() : null,
+        ),
         showSignInGateProvider.overrideWithValue(!signedIn),
         leaderboardApiServiceProvider.overrideWithValue(service),
       ],

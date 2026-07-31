@@ -62,6 +62,17 @@ void main() {
       expect(guestRedirect(AppRoutes.profile), isNull);
     });
 
+    test('blocks every guest transaction route', () {
+      for (final route in [
+        AppRoutes.walletSend,
+        AppRoutes.walletScan,
+        AppRoutes.walletSendSuccess,
+        AppRoutes.walletSendFailed,
+      ]) {
+        expect(guestRedirect(route), AppRoutes.dapps, reason: route);
+      }
+    });
+
     // Second half of the upgrade path: authRedirect lets a guest onto an auth
     // route, so guestRedirect must not pull them back off it.
     test('auth routes -> allow (null), so the guest can log in', () {
@@ -73,11 +84,17 @@ void main() {
 
   group('identityGateRedirect', () {
     test('transitioning and reconciling identities block wallet routes', () {
+      const walletSensitiveRoutes = [
+        AppRoutes.walletSend,
+        AppRoutes.walletScan,
+        AppRoutes.walletSendSuccess,
+        AppRoutes.walletSendFailed,
+      ];
       for (final phase in [
         IdentityPhase.transitioning,
         IdentityPhase.reconciling,
       ]) {
-        for (final route in identityGatedRoutes) {
+        for (final route in walletSensitiveRoutes) {
           expect(
             identityGateRedirect(phase: phase, location: route),
             AppRoutes.home,
@@ -101,13 +118,21 @@ void main() {
     });
 
     test('wallet routes open once the identity settles to ready', () {
-      expect(
-        identityGateRedirect(
-          phase: IdentityPhase.ready,
-          location: AppRoutes.walletSend,
-        ),
-        isNull,
-      );
+      for (final route in [
+        AppRoutes.walletSend,
+        AppRoutes.walletScan,
+        AppRoutes.walletSendSuccess,
+        AppRoutes.walletSendFailed,
+      ]) {
+        expect(
+          identityGateRedirect(
+            phase: IdentityPhase.ready,
+            location: route,
+          ),
+          isNull,
+          reason: route,
+        );
+      }
     });
 
     test('settled non-authenticated phases are never gated', () {

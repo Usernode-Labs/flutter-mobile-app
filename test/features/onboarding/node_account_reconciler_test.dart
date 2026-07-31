@@ -9,6 +9,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
@@ -93,12 +94,18 @@ Future<void> _login(ProviderContainer c, {String token = 'sess-1'}) async {
 /// Overrides the reconciler with a no-op node binding (the default touches
 /// the Rust backend).
 Override _reconcilerOverride({
-  Future<void> Function()? ensureNodeIdentity,
+  NodeIdentityBinder? ensureNodeIdentity,
+  ProvisionedAccountDeriver? deriveProvisionedAccount,
 }) =>
     nodeAccountReconcilerProvider.overrideWith(
       (ref) => NodeAccountReconciler(
         ref,
-        ensureNodeIdentity: ensureNodeIdentity ?? () async {},
+        ensureNodeIdentity: ensureNodeIdentity ?? (_) async {},
+        deriveProvisionedAccount: deriveProvisionedAccount ??
+            (_) => (
+                  address: _addressB,
+                  publicKey: 'utpk1$_addressB',
+                ),
       ),
     );
 
@@ -158,10 +165,14 @@ void main() {
 
     final provisionCalls = <int>[];
     var nodeBinds = 0;
+    NodeStartAuthority? boundAuthority;
     final container = ProviderContainer(overrides: [
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
-      _reconcilerOverride(ensureNodeIdentity: () async => nodeBinds++),
+      _reconcilerOverride(ensureNodeIdentity: (authority) async {
+        nodeBinds++;
+        boundAuthority = authority;
+      }),
     ]);
     addTearDown(container.dispose);
 
@@ -176,6 +187,10 @@ void main() {
 
     // The node runtime was re-bound to the reconciled account before commit.
     expect(nodeBinds, 1);
+    expect(boundAuthority?.isReconciliation, isTrue);
+    expect(boundAuthority?.network, 'testnet');
+    expect(boundAuthority?.accountScope?.accountId, 'acc_1_b');
+    expect(boundAuthority?.accountScope?.address, _addressB);
 
     // The identity settled to ready under B's account and season.
     final identity = container.read(identityProvider);
@@ -363,7 +378,7 @@ void main() {
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       accountApiServiceProvider.overrideWithValue(accountService),
-      _reconcilerOverride(ensureNodeIdentity: () async => nodeBinds++),
+      _reconcilerOverride(ensureNodeIdentity: (_) async => nodeBinds++),
     ]);
     addTearDown(() {
       container.dispose();
@@ -545,7 +560,7 @@ void main() {
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(
-        ensureNodeIdentity: () async =>
+        ensureNodeIdentity: (_) async =>
             throw StateError('node failed to start'),
       ),
     ]);
@@ -594,6 +609,39 @@ void main() {
           .having((e) => e.statusCode, 'statusCode', 409)),
     );
     // The identity stays reconciling for the retry path.
+    expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
+  });
+
+  test('rejects mismatched provisioned key material before any mutation',
+      () async {
+    var nodeBindCalls = 0;
+    final provisionCalls = <int>[];
+    final service = _provisionService(_addressB, provisionCalls);
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(service),
+      _reconcilerOverride(
+        ensureNodeIdentity: (_) async => nodeBindCalls++,
+        deriveProvisionedAccount: (_) => (
+          address: _addressA,
+          publicKey: 'utpk1$_addressA',
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    addTearDown(service.dispose);
+
+    await _login(container);
+
+    await expectLater(
+      container.read(nodeAccountReconcilerProvider).reconcile(),
+      throwsA(isA<ProvisionedWalletIntegrityException>()),
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('testnet:accounts:index'), isNull);
+    expect(prefs.getString('testnet:accounts:activeId'), isNull);
+    expect(prefs.getBool(markerKey), isTrue);
+    expect(nodeBindCalls, 0);
     expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
   });
 }

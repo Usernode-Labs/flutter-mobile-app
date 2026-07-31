@@ -211,24 +211,12 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
     return;
   }
 
-  // Resolve season: prefer persisted seasonId, then active, then last.
-  // FIXME(follow-up): The seasons API is newest-first; both no-match fallbacks
-  // must use seasons.first rather than the oldest seasons.last.
-  final season = persisted?.seasonId != null
-      ? (seasons.cast<SeasonDto?>().firstWhere(
-                (s) => s!.id == persisted!.seasonId,
-                orElse: () => null,
-              ) ??
-          seasons.cast<SeasonDto?>().firstWhere(
-                (s) => s!.isActive,
-                orElse: () => null,
-              ) ??
-          seasons.last)
-      : (seasons.cast<SeasonDto?>().firstWhere(
-                (s) => s!.isActive,
-                orElse: () => null,
-              ) ??
-          seasons.last);
+  // `/seasons` is newest-first. Preserve an existing selection when it is
+  // still present, otherwise use the active season and finally the newest.
+  final season = resolvePreferredSeason(
+    seasons,
+    preferredSeasonId: persisted?.seasonId,
+  );
 
   // Resolve event: preserve persisted eventId if it still exists in the
   // season, otherwise default to "All Events" (null eventId).
@@ -343,4 +331,25 @@ Future<void> _validateRegistrationFreshness(
     if (!identityStillCurrent()) return;
     _log.warn('Failed to verify registration freshness: $e');
   }
+}
+
+/// Resolves the shared season-selection policy used by bootstrap and UI.
+///
+/// The backend returns newest-first, so [SeasonDto] list order is meaningful.
+SeasonDto resolvePreferredSeason(
+  List<SeasonDto> seasons, {
+  int? preferredSeasonId,
+}) {
+  if (seasons.isEmpty) {
+    throw ArgumentError.value(seasons, 'seasons', 'must not be empty');
+  }
+  if (preferredSeasonId != null) {
+    for (final season in seasons) {
+      if (season.id == preferredSeasonId) return season;
+    }
+  }
+  for (final season in seasons) {
+    if (season.isActive) return season;
+  }
+  return seasons.first;
 }

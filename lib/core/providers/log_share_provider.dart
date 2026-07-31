@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
@@ -31,10 +33,11 @@ class LogShareState {
 
 /// Drives periodic, incremental sharing of the HTTP debug log buffer.
 ///
-/// On [start] the whole currently-buffered set is sent immediately, then only
-/// newly-captured entries are flushed every [flushInterval]. Sending is
-/// fire-and-forget: failures keep the cursor put so nothing is lost, and the
-/// loop never throws into the UI.
+/// On [start] the current participant's whole buffered set is sent immediately,
+/// then only their newly-captured entries are flushed every [flushInterval].
+/// Foreign and anonymous exchanges are skipped permanently by this session's
+/// global cursor. Sending is fire-and-forget: failures keep the cursor put so
+/// nothing is lost, and the loop never throws into the UI.
 class LogShareController extends StateNotifier<LogShareState> {
   LogShareController({
     required Identity Function() currentIdentity,
@@ -117,14 +120,25 @@ class LogShareController extends StateNotifier<LogShareState> {
     // still completing; each finalizer removes only its own lease.
     if (_flushingLeases.contains(lease)) return;
 
-    final batch = _store.entriesAdded(_cursor);
-    if (batch.isEmpty) return;
     final nextCursor = _store.totalAdded;
+    if (nextCursor == _cursor) return;
+    final batch = _store.entriesAddedForOwner(_cursor, lease.owner);
+    if (batch.isEmpty) {
+      // Foreign and anonymous rows still occupy positions in the global
+      // cursor. Advance past them only while this exact credential remains
+      // current; a stale session must not mutate its replacement's cursor.
+      if (await _activeCredentialIsCurrent(lease)) {
+        _cursor = nextCursor;
+      } else {
+        _stopStaleLease(lease);
+      }
+      return;
+    }
 
-    // Honour the viewer's active URL filter so sharing sends exactly what the
-    // user sees. Non-matching entries in this range are skipped permanently —
-    // the cursor still advances past them so the single-cursor model stays
-    // valid (broadening the filter later won't back-fill older entries).
+    // Honour the viewer's active URL filter within this owner's rows.
+    // Non-matching entries in this range are skipped permanently — the cursor
+    // still advances past them so the single-cursor model stays valid
+    // (broadening the filter later won't back-fill older entries).
     final query = _filterProvider().trim().toLowerCase();
     final toSend = query.isEmpty
         ? batch
@@ -187,6 +201,7 @@ class LogShareController extends StateNotifier<LogShareState> {
     }
     return _LogShareSessionLease(
       identity: identity,
+      owner: AuthenticatedUserScope(participantId: participantId),
       credential: AuthCredentialLease(epoch: identity.epoch, token: token),
     );
   }
@@ -266,6 +281,12 @@ class LogShareController extends StateNotifier<LogShareState> {
     _timer = null;
   }
 
+  @visibleForTesting
+  int get debugCursor => _cursor;
+
+  @visibleForTesting
+  Future<void> debugFlush() => _flush();
+
   @override
   void dispose() {
     _stopTimer();
@@ -293,10 +314,12 @@ final logShareControllerProvider =
 class _LogShareSessionLease {
   const _LogShareSessionLease({
     required this.identity,
+    required this.owner,
     required this.credential,
   });
 
   final Identity identity;
+  final AuthenticatedUserScope owner;
   final AuthCredentialLease credential;
 }
 

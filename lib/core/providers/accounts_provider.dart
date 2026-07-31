@@ -47,11 +47,11 @@ class AccountsRepository {
 
   AccountsRepository._(this._secure, this._prefs, this._network);
 
-  static Future<AccountsRepository> create() async {
+  static Future<AccountsRepository> create({String? network}) async {
     final prefs = await SharedPreferences.getInstance();
     const secure = FlutterSecureStorage();
-    final network = await NetworkPrefs.getNetwork();
-    return AccountsRepository._(secure, prefs, network);
+    final resolvedNetwork = network ?? await NetworkPrefs.getNetwork();
+    return AccountsRepository._(secure, prefs, resolvedNetwork);
   }
 
   Future<bool> hasAny() async {

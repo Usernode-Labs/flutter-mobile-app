@@ -58,16 +58,20 @@ Future<void> clearGuestParticipantId() async {
 Future<void> installParticipantIdInBucket({
   required int participantId,
   required String bucket,
+  String? network,
 }) async {
   final prefs = await SharedPreferences.getInstance();
+  String keyFor(String targetBucket) => network == null
+      ? NetworkPrefs.prefixAccountKeyFor(_participantIdKey, targetBucket)
+      : NetworkPrefs.prefixKeyWith(
+          'acct:$targetBucket:$_participantIdKey',
+          network,
+        );
   await prefs.setInt(
-    NetworkPrefs.prefixAccountKeyFor(_participantIdKey, bucket),
+    keyFor(bucket),
     participantId,
   );
-  final guestKey = NetworkPrefs.prefixAccountKeyFor(
-    _participantIdKey,
-    NetworkPrefs.guestBucket,
-  );
+  final guestKey = keyFor(NetworkPrefs.guestBucket);
   if (bucket != NetworkPrefs.guestBucket &&
       prefs.getInt(guestKey) == participantId) {
     await prefs.remove(guestKey);

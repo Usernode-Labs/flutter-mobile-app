@@ -19,13 +19,7 @@ String seasonLabel(BuildContext context, WidgetRef ref) {
     return AppLocalizations.of(context).allSeasons;
   }
 
-  final activeSeason = seasons.cast<SeasonDto?>().firstWhere(
-        (s) => s!.isActive,
-        orElse: () => null,
-      );
-  // FIXME(follow-up): The seasons API is newest-first; when none is active,
-  // label seasons.first rather than the oldest last entry.
-  return activeSeason?.name ?? seasons.last.name;
+  return resolvePreferredSeason(seasons).name;
 }
 
 /// Returns the display label for the current event selection.

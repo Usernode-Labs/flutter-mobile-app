@@ -27,6 +27,106 @@ enum ZkPassportRequestOutcome {
   discarded,
 }
 
+/// Durable account and challenge ownership for a zkPassport request.
+///
+/// Async work must carry this value instead of resolving the ambient network,
+/// account, or challenge after an `await`.
+class ZkIdentityScope {
+  const ZkIdentityScope({
+    required this.network,
+    required this.bucket,
+    required this.participantId,
+    required this.accountId,
+    required this.address,
+    required this.challengeId,
+  });
+
+  final String network;
+  final String bucket;
+  final int participantId;
+  final String accountId;
+  final String address;
+  final int challengeId;
+
+  Map<String, dynamic> toJson() => {
+        'network': network,
+        'bucket': bucket,
+        'participant_id': participantId,
+        'account_id': accountId,
+        'address': address,
+        'challenge_id': challengeId,
+      };
+
+  static ZkIdentityScope? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final json = Map<String, dynamic>.from(raw);
+    final network = _optionalString(json['network']);
+    final bucket = _optionalString(json['bucket']);
+    final participantId = _optionalInt(json['participant_id']);
+    final accountId = _optionalString(json['account_id']);
+    final address = _optionalString(json['address']);
+    final challengeId = _optionalInt(json['challenge_id']);
+    if (network == null ||
+        bucket == null ||
+        participantId == null ||
+        accountId == null ||
+        address == null ||
+        challengeId == null) {
+      return null;
+    }
+    return ZkIdentityScope(
+      network: network,
+      bucket: bucket,
+      participantId: participantId,
+      accountId: accountId,
+      address: address,
+      challengeId: challengeId,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ZkIdentityScope &&
+        network == other.network &&
+        bucket == other.bucket &&
+        participantId == other.participantId &&
+        accountId == other.accountId &&
+        address == other.address &&
+        challengeId == other.challengeId;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        network,
+        bucket,
+        participantId,
+        accountId,
+        address,
+        challengeId,
+      );
+}
+
+/// Exact identity of one launch, even when the server reuses a session ID.
+class ZkRequestKey {
+  const ZkRequestKey({
+    required this.sessionId,
+    required this.nonce,
+  });
+
+  final String sessionId;
+  final String nonce;
+
+  @override
+  bool operator ==(Object other) {
+    return other is ZkRequestKey &&
+        sessionId == other.sessionId &&
+        nonce == other.nonce;
+  }
+
+  @override
+  int get hashCode => Object.hash(sessionId, nonce);
+}
+
 /// Identifies one launch even if the bridge reuses a request ID.
 ///
 /// [createdAtMs] remains the wall-clock value used for expiry. [nonce] is a
@@ -41,6 +141,11 @@ class ZkPassportRequestVersion {
   final String requestId;
   final int createdAtMs;
   final String nonce;
+
+  ZkRequestKey get key => ZkRequestKey(
+        sessionId: requestId,
+        nonce: nonce,
+      );
 
   Map<String, dynamic> toJson() => {
         'request_id': requestId,
@@ -141,6 +246,58 @@ class ZkPassportPipelineState {
   }
 }
 
+/// Durable copy of the session server's consumptive `/result` response.
+///
+/// The bridge may return HTTP 410 on the next read, so this payload must be
+/// persisted against the exact request generation before ambient identity is
+/// consulted again. It is intentionally owned by [ZkIdentityScope], not by a
+/// process-local identity epoch.
+class ZkPassportConsumedResult {
+  const ZkPassportConsumedResult({
+    required this.success,
+    required this.fetchOuterProofMs,
+    this.outerProofB64Url,
+    this.nullifierHex,
+    this.error,
+  });
+
+  final bool success;
+  final String? outerProofB64Url;
+  final String? nullifierHex;
+  final String? error;
+  final int fetchOuterProofMs;
+
+  bool get hasUsableProof =>
+      success && outerProofB64Url != null && outerProofB64Url!.isNotEmpty;
+
+  Map<String, dynamic> toJson() => {
+        'success': success,
+        'fetchOuterProofMs': fetchOuterProofMs,
+        if (outerProofB64Url != null) 'outerProofB64Url': outerProofB64Url,
+        if (nullifierHex != null) 'nullifierHex': nullifierHex,
+        if (error != null) 'error': error,
+      };
+
+  static ZkPassportConsumedResult? fromJson(Object? value) {
+    if (value is! Map) return null;
+    final json = Map<String, dynamic>.from(value);
+    final success = json['success'];
+    final fetchOuterProofMs = _optionalInt(json['fetchOuterProofMs']);
+    if (success is! bool ||
+        fetchOuterProofMs == null ||
+        fetchOuterProofMs < 0) {
+      return null;
+    }
+    return ZkPassportConsumedResult(
+      success: success,
+      fetchOuterProofMs: fetchOuterProofMs,
+      outerProofB64Url: _optionalString(json['outerProofB64Url']),
+      nullifierHex: _optionalString(json['nullifierHex']),
+      error: _optionalString(json['error']),
+    );
+  }
+}
+
 class ZkPassportRuntimeSession {
   const ZkPassportRuntimeSession({
     required this.requestId,
@@ -151,9 +308,8 @@ class ZkPassportRuntimeSession {
     required this.resumeAttemptCount,
     this.requestNonce,
     this.userPublicKey,
-    this.launchEpoch,
-    this.launchBucket,
-    this.launchParticipantId,
+    this.launchScope,
+    this.consumedResult,
   });
 
   final String requestId;
@@ -165,16 +321,15 @@ class ZkPassportRuntimeSession {
   final String? requestNonce;
   final String? userPublicKey;
 
-  /// Identity that launched this session, captured at launch time and
-  /// persisted with it. Resume/polling/finalization validate the CURRENT
-  /// identity against these before acting: [launchBucket] +
-  /// [launchParticipantId] identify the launching user durably (they
-  /// survive process restarts, unlike [launchEpoch], which is only
-  /// meaningful within the process that wrote it). Null on sessions
-  /// persisted by older app versions — validation fails open for those.
-  final int? launchEpoch;
-  final String? launchBucket;
-  final int? launchParticipantId;
+  /// Stable identity that launched this session. Ephemeral epoch authority is
+  /// checked before launch effects; only the restart-safe scope is persisted.
+  /// Older sessions without a complete scope fail closed and must restart.
+  final ZkIdentityScope? launchScope;
+
+  /// Once present, polling must never call the consumptive result endpoint
+  /// again. Proof processing may resume from this payload after a restart or
+  /// after the owning identity becomes current again.
+  final ZkPassportConsumedResult? consumedResult;
 
   ZkPassportRequestVersion? get requestVersion {
     final nonce = requestNonce;
@@ -202,11 +357,8 @@ class ZkPassportRuntimeSession {
       if (requestNonce != null) 'requestNonce': requestNonce,
       if (userPublicKey != null && userPublicKey!.trim().isNotEmpty)
         'userPublicKey': userPublicKey,
-      if (launchEpoch != null) 'launchEpoch': launchEpoch,
-      if (launchBucket != null && launchBucket!.trim().isNotEmpty)
-        'launchBucket': launchBucket,
-      if (launchParticipantId != null)
-        'launchParticipantId': launchParticipantId,
+      if (launchScope != null) 'launchScope': launchScope!.toJson(),
+      if (consumedResult != null) 'consumedResult': consumedResult!.toJson(),
     };
   }
 
@@ -257,9 +409,8 @@ class ZkPassportRuntimeSession {
       resumeAttemptCount: resumeAttemptCount < 0 ? 0 : resumeAttemptCount,
       requestNonce: _optionalString(json['requestNonce']),
       userPublicKey: _optionalString(json['userPublicKey']),
-      launchEpoch: _optionalInt(json['launchEpoch']),
-      launchBucket: _optionalString(json['launchBucket']),
-      launchParticipantId: _optionalInt(json['launchParticipantId']),
+      launchScope: ZkIdentityScope.fromJson(json['launchScope']),
+      consumedResult: ZkPassportConsumedResult.fromJson(json['consumedResult']),
     );
   }
 
@@ -272,9 +423,8 @@ class ZkPassportRuntimeSession {
     int? resumeAttemptCount,
     String? requestNonce,
     String? userPublicKey,
-    int? launchEpoch,
-    String? launchBucket,
-    int? launchParticipantId,
+    ZkIdentityScope? launchScope,
+    ZkPassportConsumedResult? consumedResult,
   }) {
     return ZkPassportRuntimeSession(
       requestId: requestId ?? this.requestId,
@@ -285,9 +435,8 @@ class ZkPassportRuntimeSession {
       resumeAttemptCount: resumeAttemptCount ?? this.resumeAttemptCount,
       requestNonce: requestNonce ?? this.requestNonce,
       userPublicKey: userPublicKey ?? this.userPublicKey,
-      launchEpoch: launchEpoch ?? this.launchEpoch,
-      launchBucket: launchBucket ?? this.launchBucket,
-      launchParticipantId: launchParticipantId ?? this.launchParticipantId,
+      launchScope: launchScope ?? this.launchScope,
+      consumedResult: consumedResult ?? this.consumedResult,
     );
   }
 }
@@ -459,8 +608,25 @@ class ZkPassportSessionStatusResponse {
   final bool finalAvailable;
   final int updatedAtMs;
 
-  bool get isTerminal =>
-      status == 'result_ok' || status == 'result_error' || status == 'expired';
+  /// Semantic server state used by polling.
+  ///
+  /// A ready proof is not a failure merely because its status is terminal.
+  /// Explicit failure/expiry statuses take precedence over an inconsistent
+  /// `final_available` flag.
+  ZkPassportSessionDisposition get disposition {
+    switch (status.trim().toLowerCase()) {
+      case 'result_error':
+        return ZkPassportSessionDisposition.failed;
+      case 'expired':
+        return ZkPassportSessionDisposition.expired;
+      case 'result_ok':
+        return ZkPassportSessionDisposition.proofReady;
+      default:
+        return finalAvailable
+            ? ZkPassportSessionDisposition.proofReady
+            : ZkPassportSessionDisposition.pending;
+    }
+  }
 
   factory ZkPassportSessionStatusResponse.fromJson(Map<String, dynamic> json) {
     return ZkPassportSessionStatusResponse(
@@ -470,6 +636,13 @@ class ZkPassportSessionStatusResponse {
       updatedAtMs: (json['updated_at_ms'] as num?)?.toInt() ?? 0,
     );
   }
+}
+
+enum ZkPassportSessionDisposition {
+  pending,
+  proofReady,
+  failed,
+  expired,
 }
 
 class ZkPassportSessionResultResponse {

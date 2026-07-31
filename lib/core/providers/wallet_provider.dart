@@ -6,9 +6,11 @@ import 'package:crypto_mobile_app/features/wallet/models/transaction_model.dart'
 import 'package:crypto_mobile_app/features/wallet/models/transaction_item.dart'
     as transaction_item;
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/wallet_identity_lease.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/mempool_provider.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
@@ -18,9 +20,20 @@ final _log = LoggingService.instance.withTag('usernode/WalletProvider');
 class WalletState {
   final WalletBalance balance;
   final List<TransactionModel> recent;
+  final WalletDataScope? scope;
 
-  const WalletState({required this.balance, required this.recent});
+  const WalletState({
+    required this.balance,
+    required this.recent,
+    required this.scope,
+  });
 }
+
+typedef _WalletLoadScope = ({
+  WalletDataScope data,
+  WalletRuntimeLease? runtime,
+  bool chainObserved,
+});
 
 class WalletController extends AsyncNotifier<WalletState> {
   @override
@@ -30,15 +43,35 @@ class WalletController extends AsyncNotifier<WalletState> {
     // switch, season rollover) so user B never sees — or serves to dApps via
     // getWalletState — user A's cached balance and transactions.
     final identity = ref.watch(identityProvider);
-    final address = _walletAddressFor(identity);
-    if (address == null) {
+    final runtimeStamp = ref.watch(
+      nodeStatusProvider.select(
+        (status) => (
+          chainId: _normalizeChainId(status.valueOrNull?.chainId),
+          generation: RustBackendService.instance.runtimeGeneration,
+        ),
+      ),
+    );
+    final authority = WalletIdentityLease.capture(identity);
+    if (authority == null) {
       // No identity owns a wallet right now (guest, mid-reconcile, boot):
       // an empty wallet, never the registry's active account (it may belong
       // to a previous user).
-      return WalletState(balance: _emptyBalance(), recent: const []);
+      return _emptyWalletState();
     }
-    var balance = await _calculateBalance(address);
-    var allTransactions = await _getAllTransactions(address);
+    var scope = await _walletScopeFor(authority, runtimeStamp.chainId);
+
+    // Preserve the startup fallback without making stable explorer caches
+    // depend on a running node. A cached chain resolves immediately; only a
+    // first-ever offline load waits once for node status to identify a chain.
+    if (scope == null && !RustBackendService.instance.isRunning) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!authority.isCurrent) return _emptyWalletState();
+      scope = await _walletScopeFor(authority, _currentChainId());
+    }
+    if (scope == null) return _emptyWalletState();
+
+    var balance = await _calculateBalance(scope);
+    var allTransactions = await _getAllTransactions(scope);
 
     // Startup race guard: wallet can initialize before node/RPC is running.
     // Retry once so initial UI does not get stuck on transient 0 balance.
@@ -48,24 +81,76 @@ class WalletController extends AsyncNotifier<WalletState> {
       _log.debug(
           'Initial wallet load happened before node start; retrying once');
       await Future.delayed(const Duration(seconds: 2));
-      balance = await _calculateBalance(address);
-      allTransactions = await _getAllTransactions(address);
+      if (!authority.isCurrent) return _emptyWalletState();
+      final retryScope =
+          await _walletScopeFor(authority, _currentChainId()) ?? scope;
+      scope = retryScope;
+      balance = await _calculateBalance(retryScope);
+      allTransactions = await _getAllTransactions(retryScope);
     }
+
+    if (!_walletScopeIsCurrent(scope.data)) return _emptyWalletState();
 
     return WalletState(
       balance: balance,
       recent: allTransactions,
+      scope: scope.data,
     );
   }
 
-  /// The address whose wallet this provider may expose, or null when the
-  /// current identity does not own one. Same policy as the dApp bridge:
+  /// The account scope whose wallet this provider may expose, or null when
+  /// the current identity does not own one. Same policy as the dApp bridge:
   /// [Identity.allowsSigning] — ready, or local-only unauthenticated with
   /// an active account; when it holds, [Identity.address] is non-null.
-  String? _walletAddressFor(Identity identity) {
-    if (!identity.allowsSigning) return null;
-    return identity.address;
+  Future<_WalletLoadScope?> _walletScopeFor(
+    WalletIdentityLease authority,
+    String? observedChainId,
+  ) async {
+    final explorerService = ExplorerService();
+    final chainId = await explorerService.resolveChainId(
+      scope: authority.accountScope,
+      observedChainId: observedChainId,
+    );
+    explorerService.dispose();
+    if (chainId == null) return null;
+    final data = WalletDataScope(
+      accountScope: authority.accountScope,
+      chainId: chainId,
+    );
+    final runtime = observedChainId == chainId
+        ? RustBackendService.instance.captureWalletRuntimeLease(
+            authority: authority,
+            dataScope: data,
+          )
+        : null;
+    return (
+      data: data,
+      runtime: runtime,
+      chainObserved: observedChainId == chainId,
+    );
   }
+
+  static String? _normalizeChainId(String? chainId) {
+    final normalized = chainId?.trim();
+    return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  String? _currentChainId() =>
+      _normalizeChainId(ref.read(nodeStatusProvider).valueOrNull?.chainId);
+
+  bool _walletScopeIsCurrent(WalletDataScope scope) {
+    final currentChainId = _currentChainId();
+    return WalletIdentityLease.capture(ref.read(identityProvider))
+                ?.accountScope ==
+            scope.accountScope &&
+        (currentChainId == null || currentChainId == scope.chainId);
+  }
+
+  WalletState _emptyWalletState() => WalletState(
+        balance: _emptyBalance(),
+        recent: const [],
+        scope: null,
+      );
 
   WalletBalance _emptyBalance() => WalletBalance(
         tokenAmount: 0.0,
@@ -76,19 +161,26 @@ class WalletController extends AsyncNotifier<WalletState> {
       );
 
   /// Calculate wallet balance using explorer APIs with fallback to UTXOs
-  Future<WalletBalance> _calculateBalance(String userAddress) async {
+  Future<WalletBalance> _calculateBalance(_WalletLoadScope scope) async {
+    final userAddress = scope.data.accountScope.address;
     try {
       _log.debug('Calculating balance for address: $userAddress');
 
       // Try explorer APIs first (primary -> secondary -> cached)
-      final explorerBalance = await _tryExplorerBalance(userAddress);
+      final explorerBalance = await _tryExplorerBalance(
+        scope.data,
+        preferCache: !scope.chainObserved,
+      );
       if (explorerBalance != null) {
         return explorerBalance;
       }
 
       // Fallback to node-local wallet data.
       _log.debug('Falling back to local wallet balance calculation');
-      return await _calculateBalanceFromLocalWallet(userAddress);
+      final runtime = scope.runtime;
+      if (runtime == null) return _emptyBalance();
+      return await _calculateBalanceFromLocalWallet(userAddress, runtime) ??
+          _emptyBalance();
     } catch (e, st) {
       _log.error('Failed to calculate wallet balance',
           error: e, stackTrace: st);
@@ -104,36 +196,68 @@ class WalletController extends AsyncNotifier<WalletState> {
   }
 
   /// Try to get balance from explorer APIs (primary -> secondary -> cached)
-  Future<WalletBalance?> _tryExplorerBalance(String userAddress) async {
-    final explorerService = ExplorerService(ref);
+  Future<WalletBalance?> _tryExplorerBalance(
+    WalletDataScope scope, {
+    required bool preferCache,
+  }) async {
+    final explorerService = ExplorerService();
+    try {
+      if (preferCache) {
+        final cachedResponse = await explorerService.getCachedBalance(
+          scope: scope.accountScope,
+          chainId: scope.chainId,
+        );
+        if (cachedResponse != null) {
+          _log.debug('Using cached explorer balance while node is offline');
+          return WalletBalance.fromExplorerBalance(cachedResponse);
+        }
+      }
 
-    // Try live explorer APIs
-    final explorerResponse =
-        await explorerService.getAccountBalance(userAddress);
-    if (explorerResponse != null) {
-      _log.debug(
-          'Got balance from explorer API: ${explorerResponse.dataSource}');
-      return WalletBalance.fromExplorerBalance(explorerResponse);
+      // Try live explorer APIs
+      final explorerResponse = await explorerService.getAccountBalance(
+        scope: scope.accountScope,
+        chainId: scope.chainId,
+      );
+      if (explorerResponse != null) {
+        _log.debug(
+            'Got balance from explorer API: ${explorerResponse.dataSource}');
+        return WalletBalance.fromExplorerBalance(explorerResponse);
+      }
+
+      // Try cached data
+      if (!preferCache) {
+        final cachedResponse = await explorerService.getCachedBalance(
+          scope: scope.accountScope,
+          chainId: scope.chainId,
+        );
+        if (cachedResponse != null) {
+          _log.debug('Using cached explorer balance');
+          return WalletBalance.fromExplorerBalance(cachedResponse);
+        }
+      }
+
+      _log.debug('No explorer balance data available');
+      return null;
+    } finally {
+      explorerService.dispose();
     }
-
-    // Try cached data
-    final cachedResponse = await explorerService.getCachedBalance(userAddress);
-    if (cachedResponse != null) {
-      _log.debug('Using cached explorer balance');
-      return WalletBalance.fromExplorerBalance(cachedResponse);
-    }
-
-    _log.debug('No explorer balance data available');
-    return null;
   }
 
   /// Calculate balance from local node wallet data.
-  Future<WalletBalance> _calculateBalanceFromLocalWallet(
-      String userAddress) async {
+  Future<WalletBalance?> _calculateBalanceFromLocalWallet(
+    String userAddress,
+    WalletRuntimeLease runtime,
+  ) async {
+    if (!RustBackendService.instance.isWalletRuntimeLeaseCurrent(runtime)) {
+      return null;
+    }
     final owner = frb_types.publicKeyHashFromString(s: userAddress);
 
     final balanceResp =
         await RustBackendService.instance.walletBalance(owner: owner);
+    if (!RustBackendService.instance.isWalletRuntimeLeaseCurrent(runtime)) {
+      return null;
+    }
 
     _log.debug('Got wallet balance response=${balanceResp != null}');
 
@@ -153,15 +277,18 @@ class WalletController extends AsyncNotifier<WalletState> {
   }
 
   /// Get all transactions (confirmed from explorer + pending from mempool) sorted by timestamp
-  Future<List<TransactionModel>> _getAllTransactions(String userAddress) async {
+  Future<List<TransactionModel>> _getAllTransactions(
+      _WalletLoadScope scope) async {
     try {
       // Get confirmed transactions from explorer APIs or UTXO fallback
-      final confirmedTransactions =
-          await _getConfirmedTransactions(userAddress);
+      final confirmedTransactions = await _getConfirmedTransactions(
+        scope.data,
+        preferCache: !scope.chainObserved,
+      );
 
       // Get pending transactions from mempool (always from local)
       final pendingTransactionModels =
-          await _getPendingTransactionModels(userAddress);
+          await _getPendingTransactionModels(scope.runtime);
 
       // Combine and deduplicate transactions
       final allTransactions = <TransactionModel>[];
@@ -202,44 +329,79 @@ class WalletController extends AsyncNotifier<WalletState> {
 
   /// Get confirmed transactions from explorer APIs with UTXO fallback
   Future<List<TransactionModel>> _getConfirmedTransactions(
-      String userAddress) async {
-    final explorerService = ExplorerService(ref);
+    WalletDataScope scope, {
+    required bool preferCache,
+  }) async {
+    final explorerService = ExplorerService();
+    try {
+      if (preferCache) {
+        final cachedResponse = await explorerService.getCachedTransactions(
+          scope: scope.accountScope,
+          chainId: scope.chainId,
+        );
+        if (cachedResponse != null) {
+          _log.debug(
+            'Using ${cachedResponse.transactions.length} cached explorer '
+            'transactions while node is offline',
+          );
+          return cachedResponse.transactions
+              .map((explorerTx) => TransactionModel.fromExplorerTransaction(
+                  explorerTx,
+                  cachedResponse.dataSource,
+                  scope.accountScope.address))
+              .toList();
+        }
+      }
 
-    // Try explorer APIs first
-    final explorerResponse =
-        await explorerService.getAccountTransactions(userAddress);
-    if (explorerResponse != null) {
-      _log.debug(
-          'Got ${explorerResponse.transactions.length} transactions from explorer API: ${explorerResponse.dataSource}');
-      return explorerResponse.transactions
-          .map((explorerTx) => TransactionModel.fromExplorerTransaction(
-              explorerTx, explorerResponse.dataSource, userAddress))
-          .toList();
+      // Try explorer APIs first
+      final explorerResponse = await explorerService.getAccountTransactions(
+        scope: scope.accountScope,
+        chainId: scope.chainId,
+      );
+      if (explorerResponse != null) {
+        _log.debug(
+            'Got ${explorerResponse.transactions.length} transactions from explorer API: ${explorerResponse.dataSource}');
+        return explorerResponse.transactions
+            .map((explorerTx) => TransactionModel.fromExplorerTransaction(
+                explorerTx,
+                explorerResponse.dataSource,
+                scope.accountScope.address))
+            .toList();
+      }
+
+      // Try cached explorer data
+      if (!preferCache) {
+        final cachedResponse = await explorerService.getCachedTransactions(
+          scope: scope.accountScope,
+          chainId: scope.chainId,
+        );
+        if (cachedResponse != null) {
+          _log.debug(
+              'Using ${cachedResponse.transactions.length} cached explorer transactions');
+          return cachedResponse.transactions
+              .map((explorerTx) => TransactionModel.fromExplorerTransaction(
+                  explorerTx,
+                  cachedResponse.dataSource,
+                  scope.accountScope.address))
+              .toList();
+        }
+      }
+
+      // No explorer data available - return empty list
+      _log.debug('No explorer transaction data available');
+      return [];
+    } finally {
+      explorerService.dispose();
     }
-
-    // Try cached explorer data
-    final cachedResponse =
-        await explorerService.getCachedTransactions(userAddress);
-    if (cachedResponse != null) {
-      _log.debug(
-          'Using ${cachedResponse.transactions.length} cached explorer transactions');
-      return cachedResponse.transactions
-          .map((explorerTx) => TransactionModel.fromExplorerTransaction(
-              explorerTx, cachedResponse.dataSource, userAddress))
-          .toList();
-    }
-
-    // No explorer data available - return empty list
-    _log.debug('No explorer transaction data available');
-    return [];
   }
 
   /// Get pending transaction models from mempool
   Future<List<TransactionModel>> _getPendingTransactionModels(
-      String userAddress) async {
+      WalletRuntimeLease? scope) async {
+    if (scope == null) return const [];
     try {
       // Get pending transactions from mempool
-      final mempoolTransactions = await _getPendingTransactions(userAddress);
+      final mempoolTransactions = await _getPendingTransactions(scope);
 
       // Convert mempool transactions to TransactionModel format
       final transactionModels = <TransactionModel>[];
@@ -257,15 +419,18 @@ class WalletController extends AsyncNotifier<WalletState> {
 
   /// Get pending transactions from mempool for current user
   Future<List<transaction_item.TransactionItem>> _getPendingTransactions(
-      String ownerAddress) async {
+      WalletRuntimeLease scope) async {
     try {
-      final mempoolProvider = ref.read(walletMempoolProvider);
-      final mempoolSummaries = mempoolProvider.valueOrNull ?? [];
+      final mempoolSummaries =
+          await ref.read(walletMempoolProvider(scope).future);
+      if (!RustBackendService.instance.isWalletRuntimeLeaseCurrent(scope)) {
+        return const [];
+      }
 
       return mempoolSummaries
           .map((tx) => transaction_item.TransactionItem.fromMempoolTx(
                 tx: tx,
-                ownerAddress: ownerAddress,
+                ownerAddress: scope.accountScope.address,
               ))
           .toList();
     } catch (e, st) {
@@ -361,44 +526,67 @@ class WalletController extends AsyncNotifier<WalletState> {
     // Manual refreshes bypass build(); apply the same identity gate so a
     // refresh racing a transition can't repopulate the wallet from the
     // registry's (possibly switched) active account.
-    final address = _walletAddressFor(ref.read(identityProvider));
-    if (address == null) {
-      state = AsyncValue.data(
-          WalletState(balance: _emptyBalance(), recent: const []));
+    final authority = WalletIdentityLease.capture(ref.read(identityProvider));
+    if (authority == null) {
+      state = AsyncValue.data(_emptyWalletState());
       return;
     }
     state = const AsyncLoading();
+    final scope = await _walletScopeFor(authority, _currentChainId());
+    if (scope == null) {
+      state = AsyncValue.data(_emptyWalletState());
+      return;
+    }
 
     try {
       // Also refresh the mempool data
-      await ref.read(walletMempoolProvider.notifier).refresh();
+      final runtime = scope.runtime;
+      if (runtime != null) {
+        await ref.read(walletMempoolProvider(runtime).notifier).refresh();
+      }
 
-      final balance = await _calculateBalance(address);
-      final allTransactions = await _getAllTransactions(address);
+      final balance = await _calculateBalance(scope);
+      final allTransactions = await _getAllTransactions(scope);
+      if (!_walletScopeIsCurrent(scope.data)) {
+        ref.invalidateSelf();
+        return;
+      }
       state = AsyncValue.data(WalletState(
         balance: balance,
         recent: allTransactions,
+        scope: scope.data,
       ));
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (_walletScopeIsCurrent(scope.data)) {
+        state = AsyncValue.error(e, st);
+      } else {
+        ref.invalidateSelf();
+      }
     }
   }
 
   /// Silent refresh - updates data without showing loading spinner
   Future<void> silentRefresh() async {
-    final address = _walletAddressFor(ref.read(identityProvider));
-    if (address == null) {
+    final authority = WalletIdentityLease.capture(ref.read(identityProvider));
+    if (authority == null) return;
+    final scope = await _walletScopeFor(authority, _currentChainId());
+    if (scope == null) {
       return;
     }
     try {
       // Silently refresh mempool data too
-      await ref.read(walletMempoolProvider.notifier).refresh();
+      final runtime = scope.runtime;
+      if (runtime != null) {
+        await ref.read(walletMempoolProvider(runtime).notifier).refresh();
+      }
 
-      final balance = await _calculateBalance(address);
-      final allTransactions = await _getAllTransactions(address);
+      final balance = await _calculateBalance(scope);
+      final allTransactions = await _getAllTransactions(scope);
+      if (!_walletScopeIsCurrent(scope.data)) return;
       state = AsyncValue.data(WalletState(
         balance: balance,
         recent: allTransactions,
+        scope: scope.data,
       ));
     } catch (e) {
       // Keep existing state on error during silent refresh

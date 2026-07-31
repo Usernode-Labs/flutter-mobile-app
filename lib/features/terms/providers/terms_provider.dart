@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_notifier.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
@@ -17,10 +18,11 @@ final _log = LoggingService.instance.withTag('usernode/Terms');
 /// "nothing published", and "loaded" indistinguishable at the call site. This
 /// wrapper keeps those apart.
 class TermsSnapshot {
-  const TermsSnapshot(this.terms);
+  const TermsSnapshot({required this.terms, required this.owner});
 
   /// Null when the backend has nothing published (HTTP 404).
   final CurrentTerms? terms;
+  final AuthenticatedUserLease owner;
 
   bool get isPublished => terms != null;
 }
@@ -34,33 +36,43 @@ class TermsSnapshot {
 /// Depends on nothing but the participant id.
 class CurrentTermsController extends LeaderboardNotifier<TermsSnapshot> {
   @override
-  bool watchDeps() => ref.watch(isAuthenticatedProvider);
+  bool watchDeps() => ref.watch(authenticatedUserLeaseProvider) != null;
 
   @override
   Future<TermsSnapshot> fetch() async {
+    final owner = ref.read(authenticatedUserLeaseProvider);
+    if (owner == null) {
+      throw StateError('Cannot load terms without an authenticated user.');
+    }
     final service = ref.read(leaderboardApiServiceProvider);
-    return TermsSnapshot(await service.getCurrentTerms());
+    return TermsSnapshot(
+      terms: await service.getCurrentTerms(authority: owner),
+      owner: owner,
+    );
   }
 
   /// Accepts the current version, then refreshes the data that depends on it.
   /// Acceptance is final in the app: no withdrawal action is exposed.
   Future<void> acceptCurrentTerms() async {
-    final terms = state.valueOrNull?.terms;
+    final snapshot = state.valueOrNull;
+    final terms = snapshot?.terms;
     if (terms == null) {
       throw StateError('Cannot submit consent before terms are loaded.');
     }
-    if (!ref.read(isAuthenticatedProvider)) {
-      throw StateError('Cannot submit consent without a session.');
+    final owner = snapshot!.owner;
+    if (!owner.isCurrent) {
+      throw const StaleIdentityLeaseException();
     }
 
-    // FIXME(follow-up): Lease the exact identity here and revalidate it
-    // immediately before the POST so a session swap cannot submit one user's
-    // loaded terms with another user's token.
+    final appVersion = await ref.read(termsAppVersionProvider.future);
     final service = ref.read(leaderboardApiServiceProvider);
     await service.postTermsConsent(
       termsVersionId: terms.id,
-      appVersion: await _resolveAppVersion(),
+      appVersion: appVersion,
+      authority: owner,
     );
+
+    if (!owner.isCurrent) return;
 
     // Invalidate rather than silentRefresh: the latter swallows errors and
     // preserves the last-good value, which here is the pre-consent state — the
@@ -71,6 +83,15 @@ class CurrentTermsController extends LeaderboardNotifier<TermsSnapshot> {
     ref.invalidate(rankingProvider);
   }
 }
+
+final authenticatedUserLeaseProvider = Provider<AuthenticatedUserLease?>((ref) {
+  final identity = ref.watch(identityProvider);
+  return AuthenticatedUserLease.capture(identity);
+});
+
+final termsAppVersionProvider = FutureProvider<String>((ref) {
+  return _resolveAppVersion();
+});
 
 final currentTermsProvider =
     AsyncNotifierProvider<CurrentTermsController, TermsSnapshot?>(

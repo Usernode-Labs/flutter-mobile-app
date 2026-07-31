@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
+    show identityProvider;
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/log_share_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
@@ -53,6 +56,8 @@ class _HttpDebugLogsScreenState extends ConsumerState<HttpDebugLogsScreen> {
   Widget build(BuildContext context) {
     final store = ref.watch(httpDebugLogStoreProvider);
     final query = ref.watch(httpLogFilterProvider);
+    final identity = ref.watch(identityProvider);
+    final owner = AuthenticatedUserLease.capture(identity)?.scope;
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
@@ -77,7 +82,10 @@ class _HttpDebugLogsScreenState extends ConsumerState<HttpDebugLogsScreen> {
             tooltip: l10n.httpLogsCopy,
             onPressed: () async {
               // Copy the currently-visible (filtered) entries.
-              final visible = _applyFilter(store.entries, query);
+              final visible = _applyFilter(
+                identity.isSettled ? store.entriesVisibleTo(owner) : const [],
+                query,
+              );
               if (visible.isEmpty) return;
               final text = visible.map((e) => e.toLogText()).join('\n');
               await Clipboard.setData(ClipboardData(text: text));
@@ -90,7 +98,7 @@ class _HttpDebugLogsScreenState extends ConsumerState<HttpDebugLogsScreen> {
           IconButton(
             icon: const Icon(Symbols.delete_sharp),
             tooltip: l10n.httpLogsClear,
-            onPressed: store.clear,
+            onPressed: owner == null ? null : () => store.clearForOwner(owner),
           ),
         ],
         bottom: PreferredSize(
@@ -132,7 +140,12 @@ class _HttpDebugLogsScreenState extends ConsumerState<HttpDebugLogsScreen> {
         child: ListenableBuilder(
           listenable: store,
           builder: (context, _) {
-            final all = store.entries;
+            // The buffer is process-global, but its viewer is not: a user who
+            // signs in after somebody else must not see or copy their captured
+            // responses. During an unsettled transition show nothing.
+            final all = identity.isSettled
+                ? store.entriesVisibleTo(owner)
+                : const <HttpLogEntry>[];
             final entries = _applyFilter(all, query);
             if (entries.isEmpty) {
               return _EmptyState(

@@ -230,6 +230,9 @@ class NodeAccountReconciler {
         _log.trace('Provisioned account already active - nothing to do');
       }
     } else {
+      // FIXME(follow-up): Derive the address/public key from secretKey and
+      // reject any provision-response mismatch before importing or mutating
+      // the registry.
       final imported = await repo.importFromSecretKey(
         name: 'Node Account',
         secretKey: provisioned.secretKey,

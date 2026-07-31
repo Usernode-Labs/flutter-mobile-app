@@ -145,6 +145,9 @@ class LeaderboardApiService {
     return BreakdownResult.fromJson(data as Map<String, dynamic>);
   }
 
+  // FIXME(follow-up): /event/points paginates total_points_per_user; fetch and
+  // merge every page (or expose pagination) instead of returning only the
+  // default first page.
   Future<EventPointsResult> getEventPoints({required int eventId}) async {
     final params = <String, String>{};
     _addEventScope(params, eventId);

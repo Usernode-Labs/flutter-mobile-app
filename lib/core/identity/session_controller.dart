@@ -520,6 +520,9 @@ class SessionController extends StateNotifier<Identity> {
         // exist.
         await _writeLifecycleOwnershipConfirmed(bucket);
         await _clearReconcileMarker();
+        // FIXME(follow-up): Pass clearProvisionedSeasonId when the response is
+        // null; copyWith otherwise retains the old baseline and repeats the
+        // rollover reconcile.
         _publish(state.copyWith(
           phase: IdentityPhase.ready,
           accountId: accountId,

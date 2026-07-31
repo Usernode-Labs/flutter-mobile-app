@@ -120,6 +120,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   }
 
   Future<void> _processPayload(_QrTxPayload payload) async {
+    // FIXME(follow-up): Capture an allowsSigning identity/address lease here
+    // and revalidate it after confirmation, immediately before txSendResult.
     final accountsRepo = await AccountsRepository.create();
     final userAccount = await accountsRepo.getActive();
     final address = userAccount?.address;

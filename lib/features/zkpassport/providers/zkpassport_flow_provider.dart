@@ -1106,6 +1106,8 @@ class ZkPassportPipelineController
               return;
             }
 
+            // FIXME(follow-up): Treat result_ok/finalAvailable as proof-ready
+            // and refetch /result; only result_error and expired should fail.
             if (status.isTerminal) {
               final normalized = status.status.trim().toLowerCase();
               final phase = normalized == 'expired'

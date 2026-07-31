@@ -163,6 +163,8 @@ bool shouldDeferRouterRedirect(AuthStatus status) =>
 /// splash/onboarding send them to the Dapps tab; elsewhere return null so they
 /// can roam the app shell. Pure for unit testing.
 String? guestRedirect(String location) {
+  // FIXME(follow-up): Redirect guests away from wallet send/scan; those routes
+  // must never expose or use a previous user's active registry account.
   if (location == AppRoutes.splash || location.startsWith('/onboarding/')) {
     return AppRoutes.dapps;
   }

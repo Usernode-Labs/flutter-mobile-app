@@ -101,6 +101,8 @@ class Identity {
   /// would capture the active account's key, which may belong to a previous
   /// user. Only the reconciler (which is establishing that binding) may
   /// override.
+  // FIXME(follow-up): Explicitly reject IdentityPhase.unknown; queued recovery
+  // can otherwise start the previous account before restore settles.
   bool get allowsNodeStart =>
       phase != IdentityPhase.transitioning &&
       phase != IdentityPhase.reconciling;

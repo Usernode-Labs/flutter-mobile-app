@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,11 +38,19 @@ Map<String, dynamic> _accountJson(String id, String address) => {
 /// counts round-trips so tests can assert coalescing.
 LeaderboardApiService _provisionService(
   String address,
-  List<int> provisionCalls,
-) {
+  List<int> provisionCalls, {
+  Completer<void>? firstCallStarted,
+  Future<void>? releaseFirstCall,
+}) {
   final client = MockClient((request) async {
     expect(request.url.path, endsWith('/wallet/provision'));
     provisionCalls.add(1);
+    if (provisionCalls.length == 1) {
+      if (firstCallStarted != null && !firstCallStarted.isCompleted) {
+        firstCallStarted.complete();
+      }
+      if (releaseFirstCall != null) await releaseFirstCall;
+    }
     return http.Response(
       jsonEncode({
         'success': true,
@@ -481,9 +490,20 @@ void main() {
     await NetworkPrefs.init();
 
     final provisionCalls = <int>[];
+    final firstCallStarted = Completer<void>();
+    final releaseFirstCall = Completer<void>();
+    addTearDown(() {
+      if (!releaseFirstCall.isCompleted) releaseFirstCall.complete();
+    });
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
-          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      leaderboardApiServiceProvider.overrideWithValue(
+        _provisionService(
+          _addressB,
+          provisionCalls,
+          firstCallStarted: firstCallStarted,
+          releaseFirstCall: releaseFirstCall.future,
+        ),
+      ),
       _reconcilerOverride(),
     ]);
     addTearDown(container.dispose);
@@ -492,6 +512,7 @@ void main() {
 
     final reconciler = container.read(nodeAccountReconcilerProvider);
     final first = reconciler.reconcile();
+    await firstCallStarted.future;
     // A new sign-in bumps the epoch while the first run is in flight: the
     // next caller must get its own provision round-trip, not the stale
     // run's result.
@@ -499,6 +520,7 @@ void main() {
         .read(identityProvider.notifier)
         .completeLogin(_session('sess-2'));
     final second = reconciler.reconcile();
+    releaseFirstCall.complete();
     final results = await Future.wait([first, second]);
 
     expect(provisionCalls.length, 2);

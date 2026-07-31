@@ -212,6 +212,8 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   }
 
   // Resolve season: prefer persisted seasonId, then active, then last.
+  // FIXME(follow-up): The seasons API is newest-first; both no-match fallbacks
+  // must use seasons.first rather than the oldest seasons.last.
   final season = persisted?.seasonId != null
       ? (seasons.cast<SeasonDto?>().firstWhere(
                 (s) => s!.id == persisted!.seasonId,

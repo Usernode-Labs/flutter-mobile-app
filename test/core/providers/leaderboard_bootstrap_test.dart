@@ -285,13 +285,26 @@ void main() {
       ]);
       addTearDown(container.dispose);
       addTearDown(service.dispose);
+      addTearDown(() {
+        if (!service.release.isCompleted) {
+          service.release.complete(const <SeasonDto>[]);
+        }
+      });
 
       container.read(registrationFreshnessProvider.notifier).state =
           RegistrationFreshness.stale;
-      final bootstrap = container.read(leaderboardBootstrapProvider.future);
+      final bootstrapSubscription = container.listen<AsyncValue<void>>(
+        leaderboardBootstrapProvider,
+        (_, __) {},
+        fireImmediately: true,
+      );
+      addTearDown(bootstrapSubscription.close);
       await service.started.future;
 
       await controller.continueAsGuest();
+      await container.pump();
+      final currentBootstrap =
+          container.read(leaderboardBootstrapProvider.future);
       service.release.complete([
         const SeasonDto(
           id: 2,
@@ -299,7 +312,11 @@ void main() {
           isActive: true,
         ),
       ]);
-      await bootstrap;
+      // The identity change invalidates the original provider generation.
+      // Await the replacement generation instead of its abandoned `.future`,
+      // then flush the released stale continuation before asserting.
+      await currentBootstrap;
+      await pumpEventQueue();
 
       expect(container.read(seasonEventContextProvider).seasonId, isNull);
       expect(

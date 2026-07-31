@@ -31,20 +31,6 @@ final activeAccountProvider = FutureProvider<AccountMeta?>((ref) async {
   return repo.getActive();
 });
 
-/// Recomputes the active per-identity storage bucket ([NetworkPrefs]). A guest
-/// session always resolves to the guest bucket (no on-chain identity loaded);
-/// otherwise the bucket follows the active on-chain account's address. Call on
-/// every identity transition (boot, login, logout, guest, account activation).
-Future<void> refreshActiveAccountBucket({required bool guest}) async {
-  if (guest) {
-    NetworkPrefs.setActiveBucket(null, guest: true);
-    return;
-  }
-  final repo = await AccountsRepository.create();
-  final active = await repo.getActive();
-  NetworkPrefs.setActiveBucket(active?.address, guest: false);
-}
-
 class AccountsRepository {
   static const _kIndexKeyBase = 'accounts:index';
   static const _kActiveIdKeyBase = 'accounts:activeId';

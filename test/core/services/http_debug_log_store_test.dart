@@ -51,6 +51,106 @@ void main() {
     });
   });
 
+  group('redactSensitiveBodyFields', () {
+    test('masks secret_key in a wallet-provision-style response', () {
+      const body = '{"address":"ut1abc","public_key":"utpk1xyz",'
+          '"secret_key":"utsk1verysecret","newly_allocated":true}';
+      final redacted = redactSensitiveBodyFields(body)!;
+
+      expect(redacted, isNot(contains('utsk1verysecret')));
+      expect(redacted, contains('"secret_key":"***"'));
+      // Non-sensitive fields pass through untouched.
+      expect(redacted, contains('"address":"ut1abc"'));
+      expect(redacted, contains('"public_key":"utpk1xyz"'));
+    });
+
+    test('masks credentials in auth request/response bodies', () {
+      const login = '{"email":"a@b.c","password":"hunter2"}';
+      const otp = '{"email":"a@b.c","code":"123456"}';
+      const session = '{"token":"sess-token-1","user":{"id":7}}';
+
+      expect(redactSensitiveBodyFields(login), isNot(contains('hunter2')));
+      expect(redactSensitiveBodyFields(otp), isNot(contains('123456')));
+      final redactedSession = redactSensitiveBodyFields(session)!;
+      expect(redactedSession, isNot(contains('sess-token-1')));
+      expect(redactedSession, contains('"user":{"id":7}'));
+    });
+
+    test('does not mask keys that merely contain a sensitive key name', () {
+      const body = '{"token_type":"bearer","passcode_hint":"none"}';
+      expect(redactSensitiveBodyFields(body), body);
+    });
+
+    test('entry construction redacts the full setPassword request body', () {
+      // AuthRepository.setPassword sends the plaintext credential under BOTH
+      // `password` and `password_confirmation` — the alias must be masked
+      // too or the complete password still lands in the log store.
+      final entry = HttpLogEntry(
+        timestamp: DateTime(2026, 1, 1),
+        method: 'POST',
+        url: 'https://example.com/api/v4/mobile/auth/set-password',
+        requestBody: '{"password":"hunter2",'
+            '"password_confirmation":"hunter2","device_name":"Pixel"}',
+      );
+
+      expect(entry.requestBody, isNot(contains('hunter2')));
+      expect(entry.requestBody, contains('"password":"***"'));
+      expect(entry.requestBody, contains('"password_confirmation":"***"'));
+      expect(entry.requestBody, contains('"device_name":"Pixel"'));
+      expect(entry.toLogText(), isNot(contains('hunter2')));
+      expect(entry.toJsonEvent()['request_body'], isNot(contains('hunter2')));
+    });
+
+    test('masks common password aliases', () {
+      const body = '{"new_password":"val-n3w","current_password":"val-cur",'
+          '"old_password":"val-old","passphrase":"corr3ct horse"}';
+      final redacted = redactSensitiveBodyFields(body)!;
+      expect(redacted, isNot(contains('val-n3w')));
+      expect(redacted, isNot(contains('val-cur')));
+      expect(redacted, isNot(contains('val-old')));
+      expect(redacted, isNot(contains('corr3ct horse')));
+    });
+
+    test('masks values with escaped quotes and truncated strings', () {
+      const escaped = r'{"secret_key":"with\"escaped\"quotes"}';
+      expect(redactSensitiveBodyFields(escaped), isNot(contains('escaped')));
+
+      // A body cut off mid-secret (e.g. by truncation) still gets masked.
+      const cutOff = '{"secret_key":"utsk1verysec';
+      expect(
+        redactSensitiveBodyFields(cutOff),
+        isNot(contains('utsk1verysec')),
+      );
+    });
+
+    test('is idempotent and passes non-JSON bodies through', () {
+      const body = '{"secret_key":"s3cret"}';
+      final once = redactSensitiveBodyFields(body);
+      expect(redactSensitiveBodyFields(once), once);
+
+      expect(redactSensitiveBodyFields('plain text body'), 'plain text body');
+      expect(redactSensitiveBodyFields(null), isNull);
+      expect(redactSensitiveBodyFields(''), '');
+    });
+
+    test('entry construction redacts request and response bodies', () {
+      final entry = HttpLogEntry(
+        timestamp: DateTime(2026, 1, 1),
+        method: 'POST',
+        url: 'https://example.com/wallet/provision',
+        requestBody: '{"password":"hunter2"}',
+        responseBody: '{"secret_key":"utsk1verysecret"}',
+      );
+
+      expect(entry.requestBody, isNot(contains('hunter2')));
+      expect(entry.responseBody, isNot(contains('utsk1verysecret')));
+      expect(entry.toLogText(), isNot(contains('utsk1verysecret')));
+      final json = entry.toJsonEvent();
+      expect(json['request_body'], isNot(contains('hunter2')));
+      expect(json['response_body'], isNot(contains('utsk1verysecret')));
+    });
+  });
+
   group('truncateBody', () {
     test('passes through null and short bodies', () {
       expect(truncateBody(null), isNull);

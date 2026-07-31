@@ -41,6 +41,9 @@ class _SendScreenState extends ConsumerState<SendScreen> {
   }
 
   Future<void> _onSend() async {
+    // FIXME(follow-up): Require an allowsSigning identity/address lease and
+    // revalidate that exact scope immediately before submission; route gating
+    // cannot protect mid-await account swaps.
     if (!_formKey.currentState!.validate()) return;
     if (_isSending) return; // Prevent double submission
 

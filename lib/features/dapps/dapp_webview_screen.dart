@@ -6,8 +6,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart'
-    show participantIdProvider;
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart'
     show buildEnvProvider, debugModeProvider;
@@ -24,8 +22,9 @@ import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
-    show authStatusProvider;
+    show authStatusProvider, identityProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
@@ -542,7 +541,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
             // bridge caller always settles instead of hanging.
             try {
               if (method == 'getNodeAddress') {
-                final address = await _getActiveNodeAddress();
+                final address = _bridgeWalletIdentity()?.address;
                 if (address == null || address.isEmpty) {
                   await _resolveJsPromise(
                     id: id,
@@ -879,7 +878,25 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<void> _handleGetWalletState(String id) async {
-    final address = await _getActiveNodeAddress();
+    // Unavailable-shaped response (all nulls) unless the identity owns a
+    // wallet: mid-reconcile and guest sessions must not be served the
+    // registry's active account or its cached balance.
+    final identity = _bridgeWalletIdentity();
+    if (identity == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: {
+          'address': null,
+          'balance': null,
+          'tokenAmount': null,
+          'tokenSymbol': null,
+          'lastUpdatedMs': null,
+        },
+        error: null,
+      );
+      return;
+    }
+    final address = identity.address;
     // First read lazily initializes the provider; wait briefly for the
     // initial load so a fresh page doesn't always see nulls, but never
     // hang the page's promise on a slow node.
@@ -974,22 +991,33 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     return false;
   }
 
+  bool _identityScopeIsCurrent(Identity identity) =>
+      mounted && identity.sameScopeAs(ref.read(identityProvider));
+
+  Future<void> _rejectStaleIdentityScope(String id, String method) async {
+    if (!mounted) return;
+    await _resolveJsPromise(
+      id: id,
+      value: null,
+      error: '$method was cancelled because the active identity changed',
+    );
+  }
+
   /// `getProfileInfo`: the leaderboard participant id SV's #profile screen
   /// needs to query /me/ranking and /me/breakdown. Null when this install
   /// hasn't registered with the leaderboard yet.
   Future<void> _handleGetProfileInfo(String id) async {
+    final identity = ref.read(identityProvider);
     if (!await _requireTrustedChromeOrigin(id, 'getProfileInfo')) return;
-    int? participantId;
-    try {
-      participantId = await ref
-          .read(participantIdProvider.future)
-          .timeout(const Duration(seconds: 5));
-    } catch (_) {
-      participantId = ref.read(participantIdProvider).valueOrNull;
+    if (!_identityScopeIsCurrent(identity)) {
+      await _rejectStaleIdentityScope(id, 'getProfileInfo');
+      return;
     }
     await _resolveJsPromise(
       id: id,
-      value: {'participantId': participantId},
+      // Use only the captured identity. The participant-id provider may still
+      // hold the previous bucket's value while an identity transition settles.
+      value: {'participantId': identity.participantId},
       error: null,
     );
   }
@@ -1146,7 +1174,16 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   Future<void> _handleResetZkChallenge(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'resetZkChallenge')) return;
     if (!mounted) return;
-    await resetChallengeState(ref, context);
+    final reset = await resetChallengeState(ref, context);
+    if (!reset) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error:
+            'A zkPassport proof is still being processed. Try again shortly.',
+      );
+      return;
+    }
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 
@@ -1188,8 +1225,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// takes over from here (post-logout flow stays native chrome, same
   /// category as onboarding).
   Future<void> _handleLogout(String id) async {
+    final identity = ref.read(identityProvider);
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
-    await ref.read(authStatusProvider.notifier).logout();
+    if (!_identityScopeIsCurrent(identity)) {
+      await _rejectStaleIdentityScope(id, 'logout');
+      return;
+    }
+    final loggedOut = await ref
+        .read(identityProvider.notifier)
+        .logout(expectedIdentity: identity);
+    if (!loggedOut) {
+      await _rejectStaleIdentityScope(id, 'logout');
+      return;
+    }
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 
@@ -1300,10 +1348,17 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     await _controller.loadRequest(uri);
   }
 
-  Future<String?> _getActiveNodeAddress() async {
-    final repo = await _providers.read(accountsProvider.future);
-    final active = await repo.getActive();
-    return active?.address;
+  /// The identity whose wallet this bridge may expose, or null when there is
+  /// none: reconciling/unknown (account ownership unsettled) and guest
+  /// sessions (the active registry account may belong to a previously
+  /// signed-in user) get nothing. When non-null, [Identity.address] is the
+  /// confirmed wallet address — handlers use it instead of reading the
+  /// registry's active account, so a mid-transition registry state can never
+  /// leak another identity's address.
+  Identity? _bridgeWalletIdentity() {
+    final identity = IdentitySnapshots.current;
+    if (!identity.allowsSigning) return null;
+    return identity;
   }
 
   Future<void> _resolveJsPromise({
@@ -1322,6 +1377,22 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   Future<void> _handleSendTransaction(
       String id, Map<String, dynamic> payload) async {
+    // Route-level gating cannot cover this bridge (every dApp webview can
+    // request a send) — enforce identity readiness at the signing chokepoint
+    // itself. While a reconcile is pending the active account may still
+    // belong to a previous user; guests never sign. The snapshot is CAPTURED
+    // here and revalidated right before the RPC send: this handler spans a
+    // user-paced confirmation dialog, during which a login/logout/rollover
+    // can replace the identity out from under the entry check.
+    final signingIdentity = _bridgeWalletIdentity();
+    if (signingIdentity == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Account is being set up; please retry in a moment.',
+      );
+      return;
+    }
     final args = payload['args'];
     if (args is! Map<String, dynamic>) {
       await _resolveJsPromise(id: id, value: null, error: 'Missing args');
@@ -1359,7 +1430,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     }
     final memo = frb_types.Memo.fromUtf8Str(s: memoString);
 
-    final fromAddress = await _getActiveNodeAddress();
+    // The sender is the CAPTURED identity's confirmed address — never the
+    // registry's active account, which a mid-transition reconcile may have
+    // already switched to another user's.
+    final fromAddress = signingIdentity.address;
     if (fromAddress == null || fromAddress.isEmpty) {
       await _resolveJsPromise(
         id: id,
@@ -1416,6 +1490,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
+    // Effect-point revalidation: the confirmation dialog above is unbounded
+    // user time. If the identity transitioned since capture, the runtime's
+    // wallet signer no longer (or may no longer) belong to the identity the
+    // user confirmed for — refuse instead of signing as someone else.
+    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed; please retry the transaction.',
+      );
+      return;
+    }
+
     final fromPkHash = frb_types.publicKeyHashFromString(s: fromAddress);
     final toPkHash = frb_types.publicKeyHashFromString(s: destinationPubkey);
 
@@ -1467,6 +1554,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   Future<void> _handleSignMessage(
       String id, Map<String, dynamic> payload) async {
+    // Same identity gate as _handleSendTransaction: this handler loads the
+    // active account's private key, which must never happen while account
+    // ownership is unsettled or for a guest. Captured once, revalidated at
+    // the key-load effect point below.
+    final signingIdentity = _bridgeWalletIdentity();
+    if (signingIdentity == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Account is being set up; please retry in a moment.',
+      );
+      return;
+    }
     final args = payload['args'];
     if (args is! Map<String, dynamic>) {
       await _resolveJsPromise(id: id, value: null, error: 'Missing args');
@@ -1485,7 +1585,9 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
     final repo = await _providers.read(accountsProvider.future);
     final active = await repo.getActive();
-    if (active == null) {
+    if (active == null || active.address != signingIdentity.address) {
+      // The registry's active account must be the captured identity's — a
+      // mismatch means a transition is mutating the registry mid-request.
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -1504,12 +1606,32 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
+    // Effect-point revalidation after the user-paced confirmation dialog —
+    // the private key is loaded on the next line.
+    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed; please retry the request.',
+      );
+      return;
+    }
+
     final secretKey = await repo.getSecretKey(active.id);
     if (secretKey == null || secretKey.isEmpty) {
       await _resolveJsPromise(
         id: id,
         value: null,
         error: 'Secret key unavailable',
+      );
+      return;
+    }
+
+    if (!signingIdentity.sameScopeAs(IdentitySnapshots.current)) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed; please retry the request.',
       );
       return;
     }
@@ -2103,7 +2225,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       return;
     }
 
-    final address = await _getActiveNodeAddress();
+    final address = _bridgeWalletIdentity()?.address;
     if (address == null || address.isEmpty) return;
 
     final dappUri = parseDappUrl(widget.url);
@@ -2218,7 +2340,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   }
 
   Future<void> _openTxDebugPanel() async {
-    final userAddress = await _getActiveNodeAddress();
+    final userAddress = _bridgeWalletIdentity()?.address;
     final dappUri = parseDappUrl(widget.url);
     final explorerOrigin = Uri(
       scheme: dappUri.scheme,

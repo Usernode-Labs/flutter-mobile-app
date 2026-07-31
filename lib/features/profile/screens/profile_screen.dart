@@ -17,6 +17,8 @@ import 'package:crypto_mobile_app/core/providers/profile_completed_challenges_pr
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/auth/widgets/sign_in_to_view_card.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_presentation_l10n.dart';
@@ -82,6 +84,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   /// so the tight cadence costs a single request, not the full profile fan-out.
   void _poll() {
     if (!_screenIsActive) return;
+    if (!ref.read(isReadyAuthenticatedProvider)) return;
     unawaited(ref.read(rankingProvider.notifier).silentRefresh());
   }
 
@@ -106,6 +109,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (ref.watch(showSignInGateProvider)) {
+      return const Scaffold(body: SafeArea(child: SignInToViewCard()));
+    }
     ref.watch(leaderboardBootstrapProvider);
 
     final colors = Theme.of(context).colorScheme;
@@ -119,7 +125,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ) ??
         ranking?.totalPoints;
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
-    final rankLabel = ranking != null ? l10n.challengeRank(ranking.rank) : null;
+    final rank = ranking?.rank;
+    final rankLabel = rank != null ? l10n.challengeRank(rank) : null;
     final allocation = ref.watch(tokenAllocationProvider);
 
     final completedHistory = ref.watch(

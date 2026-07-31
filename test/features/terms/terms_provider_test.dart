@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart';
 
 class _FakeService extends LeaderboardApiService {
@@ -13,17 +13,14 @@ class _FakeService extends LeaderboardApiService {
   final List<Map<String, dynamic>> posted = [];
 
   @override
-  Future<CurrentTerms?> getCurrentTerms({required int participantId}) async =>
-      terms;
+  Future<CurrentTerms?> getCurrentTerms() async => terms;
 
   @override
   Future<void> postTermsConsent({
-    required int participantId,
     required int termsVersionId,
     required String appVersion,
   }) async {
     posted.add({
-      'participant_id': participantId,
       'terms_version_id': termsVersionId,
       'status': TermsConsentStatus.accepted,
     });
@@ -47,7 +44,7 @@ CurrentTerms _terms({bool accepted = false, int id = 3}) => CurrentTerms(
 ProviderContainer _container(_FakeService service) {
   final container = ProviderContainer(
     overrides: [
-      participantIdProvider.overrideWith((ref) => 19),
+      isAuthenticatedProvider.overrideWithValue(true),
       leaderboardApiServiceProvider.overrideWithValue(service),
     ],
   );
@@ -73,7 +70,7 @@ void main() {
     await container.read(currentTermsProvider.notifier).acceptCurrentTerms();
 
     expect(service.posted, [
-      {'participant_id': 19, 'terms_version_id': 7, 'status': 'accepted'},
+      {'terms_version_id': 7, 'status': 'accepted'},
     ]);
   });
 

@@ -9,6 +9,8 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 
@@ -23,15 +25,29 @@ class LeaderboardApiService {
     bool? writesEnabled,
     int? maxGetRetries,
     Duration? retryBaseDelay,
-  })  : _baseUrl = baseUrl ?? AppConfig.leaderboardApiBaseUrl,
+    Future<String?> Function()? tokenProvider,
+    Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
+    Future<void> Function(int epoch)? onCredentialMissing,
+  })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
         _http = httpClient ?? createAppHttpClient(),
         _writesEnabled = writesEnabled ?? !AppConfig.viewOnly,
         _maxGetRetries = maxGetRetries ?? 2,
-        _retryBaseDelay = retryBaseDelay ?? const Duration(milliseconds: 300);
+        _retryBaseDelay = retryBaseDelay ?? const Duration(milliseconds: 300),
+        _tokenProvider = tokenProvider,
+        _onUnauthorized = onUnauthorized,
+        _onCredentialMissing = onCredentialMissing;
 
   final String _baseUrl;
   final http.Client _http;
   final bool _writesEnabled;
+
+  /// Resolves the current session token for the `Authorization` header, and the
+  /// callback to run on a 401 (clear token, bounce to auth). Both optional so
+  /// tests can construct the service without auth wiring. The callback
+  /// receives the exact credential the failing request carried.
+  final Future<String?> Function()? _tokenProvider;
+  final Future<void> Function(AuthCredentialLease credential)? _onUnauthorized;
+  final Future<void> Function(int epoch)? _onCredentialMissing;
 
   /// Number of additional attempts for idempotent GETs after the first one.
   /// Writes (POST) are never retried to avoid duplicate side effects.
@@ -53,28 +69,18 @@ class LeaderboardApiService {
   // Public API
   // ---------------------------------------------------------------------------
 
-  Future<RegistrationV2Result> register({
-    required String registrationCode,
-    required String identifier,
-  }) async {
-    _ensureWritesEnabled();
-    final data = await _post('/register', body: {
-      'registration_code': registrationCode,
-      'identifier': identifier,
-    });
-    return RegistrationV2Result.fromJson(data as Map<String, dynamic>);
+  /// Event scope is sent as both `season_event_id` (SV v4's name) and the
+  /// legacy `event_id` (topochain v3's name); each backend reads its own key
+  /// and ignores the other, so one binary works against either base URL.
+  static void _addEventScope(Map<String, String> params, int eventId) {
+    params['season_event_id'] = eventId.toString();
+    params['event_id'] = eventId.toString();
   }
 
-  Future<RankingResult> getRanking({
-    required int participantId,
-    int? seasonId,
-    int? eventId,
-  }) async {
-    final params = <String, String>{
-      'participant_id': participantId.toString(),
-    };
+  Future<RankingResult> getRanking({int? seasonId, int? eventId}) async {
+    final params = <String, String>{};
     if (eventId != null) {
-      params['event_id'] = eventId.toString();
+      _addEventScope(params, eventId);
     } else if (seasonId != null) {
       params['season_id'] = seasonId.toString();
     }
@@ -86,21 +92,17 @@ class LeaderboardApiService {
   Future<List<ChallengeDto>> getChallenges({
     int? seasonId,
     int? eventId,
-    int? participantId,
     bool? activeOnly,
     bool? onlyScheduled,
   }) async {
     final params = <String, String>{};
     if (eventId != null) {
-      params['event_id'] = eventId.toString();
+      _addEventScope(params, eventId);
     } else if (seasonId != null) {
       params['season_id'] = seasonId.toString();
     }
-    // When provided, the server embeds the participant's per-challenge
-    // `activities` + `activities_total` in each ChallengeDto.
-    if (participantId != null) {
-      params['participant_id'] = participantId.toString();
-    }
+    // The authed participant's per-challenge `activities` + `activities_total`
+    // are embedded server-side, resolved from the session token.
     if (activeOnly != null) {
       params['active_only'] = activeOnly ? '1' : '0';
     }
@@ -125,23 +127,16 @@ class LeaderboardApiService {
       'page': page.toString(),
       'per_page': perPage.toString(),
     };
-    if (eventId != null) params['event_id'] = eventId.toString();
+    if (eventId != null) _addEventScope(params, eventId);
 
     final data = await _get('/leaderboard', queryParams: params);
     return LeaderboardResult.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<BreakdownResult> getBreakdown({
-    required int participantId,
-    int? seasonId,
-    int? eventId,
-  }) async {
-    final params = <String, String>{
-      'participant_id': participantId.toString(),
-      'include_activity': '1',
-    };
+  Future<BreakdownResult> getBreakdown({int? seasonId, int? eventId}) async {
+    final params = <String, String>{'include_activity': '1'};
     if (eventId != null) {
-      params['event_id'] = eventId.toString();
+      _addEventScope(params, eventId);
     } else if (seasonId != null) {
       params['season_id'] = seasonId.toString();
     }
@@ -150,15 +145,12 @@ class LeaderboardApiService {
     return BreakdownResult.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<EventPointsResult> getEventPoints({
-    required int eventId,
-    required int participantId,
-  }) async {
-    final params = <String, String>{
-      'event_id': eventId.toString(),
-      'participant_id': participantId.toString(),
-    };
-
+  // FIXME(follow-up): /event/points paginates total_points_per_user; fetch and
+  // merge every page (or expose pagination) instead of returning only the
+  // default first page.
+  Future<EventPointsResult> getEventPoints({required int eventId}) async {
+    final params = <String, String>{};
+    _addEventScope(params, eventId);
     final data = await _get('/event/points', queryParams: params);
     return EventPointsResult.fromJson(data as Map<String, dynamic>);
   }
@@ -195,29 +187,40 @@ class LeaderboardApiService {
 
   /// Notifies the backend that a ZK Passport verification completed.
   ///
-  /// Returns `true` on success. Treats HTTP 409 (duplicate) as success since
-  /// the backend prevents duplicate claims.
+  /// Returns `true` on success. A v4 409 is a REAL rejection (challenge no
+  /// longer accepting completions, session already used by another claim,
+  /// or proof already claimed) — true idempotency (same user re-posting the
+  /// same completion) returns 200, so 409 must propagate as a failure. The
+  /// old backend's "409 = duplicate = success" mapping would clear the
+  /// pending completion and permanently discard a rejected claim.
   Future<bool> completeZkPassport({
-    required int participantId,
     required int challengeId,
     required String walletAddress,
     required String sessionId,
     required String nullifierHex,
+    String? completedAt,
   }) async {
     _ensureWritesEnabled();
-    try {
-      await _post('/zkpassport/complete', body: {
-        'participant_id': participantId,
-        'challenge_id': challengeId,
-        'wallet_address': walletAddress,
-        'session_id': sessionId,
-        'nullifier_hex': nullifierHex,
-      });
-      return true;
-    } on LeaderboardApiException catch (e) {
-      if (e.statusCode == 409) return true; // duplicate — already claimed
-      rethrow;
-    }
+    await _post('/zkpassport/complete', body: {
+      'challenge_id': challengeId,
+      'wallet_address': walletAddress,
+      'session_id': sessionId,
+      'nullifier_hex': nullifierHex,
+      if (completedAt != null) 'completed_at': completedAt,
+    });
+    return true;
+  }
+
+  /// Fetches (or allocates) this user's platform-assigned on-chain account
+  /// for the current season.
+  ///
+  /// Idempotent server-side: migrated users and reinstalls on a new device
+  /// get the SAME account back. 409 means the season's account pool is
+  /// exhausted; 422 means no active season exists.
+  Future<WalletProvisionResult> provisionWallet() async {
+    _ensureWritesEnabled();
+    final data = await _post('/wallet/provision', body: const {});
+    return WalletProvisionResult.fromJson(data as Map<String, dynamic>);
   }
 
   /// Fetches the currently published terms, including this participant's
@@ -227,11 +230,10 @@ class LeaderboardApiService {
   /// normal state and not an error — callers skip the terms flow entirely.
   /// Note a 404 also covers "participant not found"; both collapse to "no terms
   /// to show", which is the safe reading either way.
-  Future<CurrentTerms?> getCurrentTerms({required int participantId}) async {
+  Future<CurrentTerms?> getCurrentTerms() async {
     try {
       final data = await _get(
         '/terms/current',
-        queryParams: {'participant_id': participantId.toString()},
         expectedStatuses: const {404},
       );
       return CurrentTerms.fromJson(data as Map<String, dynamic>);
@@ -246,7 +248,6 @@ class LeaderboardApiService {
   /// [termsVersionId] must be the `id` from [getCurrentTerms] — the backend
   /// rejects a stale or unpublished version with HTTP 422.
   Future<void> postTermsConsent({
-    required int participantId,
     required int termsVersionId,
     required String appVersion,
   }) async {
@@ -254,7 +255,6 @@ class LeaderboardApiService {
     await _post(
       '/terms/consent',
       body: {
-        'participant_id': participantId,
         'terms_version_id': termsVersionId,
         'status': TermsConsentStatus.accepted,
         'app_version': appVersion,
@@ -269,6 +269,58 @@ class LeaderboardApiService {
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  /// Adds the `Authorization: Bearer <token>` header when a session token is
+  /// available, leaving [base] untouched otherwise (e.g. in tests without auth).
+  Future<
+      ({
+        Map<String, String> headers,
+        AuthCredentialLease? credential,
+      })> _authHeaders(Map<String, String> base) async {
+    final identity = IdentitySnapshots.current;
+    final token = await _tokenProvider?.call();
+    if (!identity.sameScopeAs(IdentitySnapshots.current)) {
+      throw const StaleAuthCredentialException();
+    }
+    if (token == null || token.isEmpty) {
+      if (identity.isAuthenticated) {
+        await _onCredentialMissing?.call(identity.epoch);
+        throw const StaleAuthCredentialException();
+      }
+      return (headers: base, credential: null);
+    }
+    if (!identity.isAuthenticated) {
+      throw const StaleAuthCredentialException();
+    }
+    final credential = AuthCredentialLease(
+      epoch: identity.epoch,
+      token: token,
+    );
+    return (
+      headers: {...base, 'Authorization': 'Bearer $token'},
+      credential: credential,
+    );
+  }
+
+  Future<T> _sendWithCurrentCredential<T>(
+    AuthCredentialLease? credential,
+    Future<T> Function() send,
+  ) async {
+    if (credential == null) return send();
+    final current = IdentitySnapshots.current;
+    if (current.epoch != credential.epoch || !current.isAuthenticated) {
+      throw const StaleAuthCredentialException();
+    }
+    final token = await _tokenProvider?.call();
+    final afterRead = IdentitySnapshots.current;
+    if (afterRead.epoch != credential.epoch ||
+        !afterRead.isAuthenticated ||
+        token != credential.token) {
+      throw const StaleAuthCredentialException();
+    }
+    // No await between the final authority check and starting the transport.
+    return send();
+  }
+
   Future<dynamic> _get(
     String path, {
     Map<String, String>? queryParams,
@@ -280,23 +332,46 @@ class LeaderboardApiService {
         : uri;
     _log.trace('GET $url');
 
-    final resp =
-        await _sendWithRetry(() => _http.get(url, headers: _acceptJson));
-    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
+    final auth = await _authHeaders(_acceptJson);
+    final resp = await _sendWithRetry(
+      () => _sendWithCurrentCredential(
+        auth.credential,
+        () => _http.get(url, headers: auth.headers),
+      ),
+    );
+    return _parseEnvelope(resp, url,
+        expectedStatuses: expectedStatuses, credential: auth.credential);
   }
 
   Future<dynamic> _post(
     String path, {
     required Map<String, dynamic> body,
     Set<int> expectedStatuses = const {},
+  }) =>
+      _postAbsolute('$_baseUrl$path',
+          body: body, expectedStatuses: expectedStatuses);
+
+  Future<dynamic> _postAbsolute(
+    String absoluteUrl, {
+    required Map<String, dynamic> body,
+    Set<int> expectedStatuses = const {},
   }) async {
-    final url = Uri.parse('$_baseUrl$path');
+    final url = Uri.parse(absoluteUrl);
     _log.trace('POST $url');
 
+    final auth = await _authHeaders(_jsonHeaders);
     final resp = await _send(
-      () => _http.post(url, headers: _jsonHeaders, body: jsonEncode(body)),
+      () => _sendWithCurrentCredential(
+        auth.credential,
+        () => _http.post(
+          url,
+          headers: auth.headers,
+          body: jsonEncode(body),
+        ),
+      ),
     );
-    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
+    return _parseEnvelope(resp, url,
+        expectedStatuses: expectedStatuses, credential: auth.credential);
   }
 
   void _ensureWritesEnabled() {
@@ -316,6 +391,8 @@ class LeaderboardApiService {
   }) async {
     try {
       return await fn().timeout(AppConfig.leaderboardApiTimeout);
+    } on StaleAuthCredentialException {
+      rethrow;
     } catch (e, stackTrace) {
       _log.warn('Request failed: $e');
       // Only report to Sentry when the failure is terminal — transient errors
@@ -388,6 +465,7 @@ class LeaderboardApiService {
     http.Response resp,
     Uri url, {
     Set<int> expectedStatuses = const {},
+    AuthCredentialLease? credential,
   }) async {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final decoded = jsonDecode(resp.body);
@@ -419,6 +497,14 @@ class LeaderboardApiService {
         },
         level: SentryLevel.error,
       );
+    }
+
+    // An expired/invalid session token: clear it and let the app bounce back
+    // to the auth landing. Still throws so the caller's normal error path
+    // runs. Only the exact credential attached to this request may be
+    // invalidated; an anonymous request has no session to clear.
+    if (resp.statusCode == 401 && credential != null) {
+      await _onUnauthorized?.call(credential);
     }
 
     throw LeaderboardApiException(resp.statusCode, message, body: resp.body);
@@ -463,7 +549,14 @@ class LeaderboardApiService {
 // ---------------------------------------------------------------------------
 
 final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
-  final service = LeaderboardApiService();
+  final service = LeaderboardApiService(
+    tokenProvider: () => ref.read(authTokenStoreProvider).read(),
+    onUnauthorized: (credential) => ref
+        .read(identityProvider.notifier)
+        .onUnauthorized(credential: credential),
+    onCredentialMissing: (epoch) =>
+        ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
+  );
   ref.onDispose(service.dispose);
   return service;
 });

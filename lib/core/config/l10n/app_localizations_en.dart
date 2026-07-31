@@ -604,36 +604,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get importApiAccountTitle => 'Import Pre-configured Account';
-
-  @override
-  String get importApiAccountDesc =>
-      'Import a pre-configured account from the API';
-
-  @override
-  String get importApiAccountContactLabel => 'Discord, Email, or Telegram';
-
-  @override
-  String get importApiAccountContactHint => '@username or name@example.com';
-
-  @override
-  String get importApiAccountCodeLabel => 'Activation Code';
-
-  @override
-  String get importApiAccountCodeHint => 'Enter your code';
-
-  @override
-  String get importApiAccountSubmit => 'Verify Code';
-
-  @override
-  String get importApiAccountFailed => 'Failed to import account from API';
-
-  @override
-  String importApiAccountRegistrationFailed(String error) {
-    return 'Registration failed: $error';
-  }
-
-  @override
   String get walletNoActiveAccount =>
       'No active account found. Please create or select an account.';
 
@@ -938,6 +908,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingWelcomeSetupStartButton => 'Start Setup';
+
+  @override
+  String get onboardingAccountSetupError =>
+      'Couldn\'t set up your node account. Please try again.';
 
   @override
   String get permExactAlarmsTitle => 'Exact Alarms';
@@ -2126,36 +2100,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get producedBlocksNoData => 'No produced blocks available';
 
   @override
-  String get importApiAccountKeyDerivationFailed =>
-      'Account setup failed. Please try again or contact support.';
-
-  @override
-  String get importApiAccountStorageFailed =>
-      'Could not save account securely. Please check device storage and try again.';
-
-  @override
-  String get importApiAccountBackendStartFailed =>
-      'Account created, but node startup failed. The app will retry automatically.';
-
-  @override
-  String get registrationUsernameEmpty => 'Please enter your username.';
-
-  @override
-  String get registrationCodeEmpty => 'Please enter your activation code.';
-
-  @override
-  String get registrationTimeoutError =>
-      'Connection timed out. Please check your internet and try again.';
-
-  @override
-  String get registrationNetworkError =>
-      'Could not reach the server. Please check your internet and try again.';
-
-  @override
-  String get registrationUnexpectedError =>
-      'An unexpected error occurred. Please try again or contact support.';
-
-  @override
   String get registrationStaleTitle => 'Registration Expired';
 
   @override
@@ -2382,4 +2326,10 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get svShellOfflineMessage =>
       'Can\'t reach Usernode. Check your connection and try again.';
+
+  @override
+  String get authSignInToView => 'Sign in to view your progress';
+
+  @override
+  String get authSignInToViewCta => 'Sign in';
 }

@@ -2,10 +2,13 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 enum LogShareStatus { idle, sharing }
 
@@ -34,53 +37,85 @@ class LogShareState {
 /// loop never throws into the UI.
 class LogShareController extends StateNotifier<LogShareState> {
   LogShareController({
-    required this.ref,
+    required Identity Function() currentIdentity,
+    required Future<String?> Function() tokenProvider,
+    required String Function() filterProvider,
     LogShareService? service,
     HttpDebugLogStore? store,
-  })  : _service = service ?? LogShareService(),
+  })  : _currentIdentity = currentIdentity,
+        _tokenProvider = tokenProvider,
+        _filterProvider = filterProvider,
+        _service = service ?? LogShareService(),
         _store = store ?? HttpDebugLogStore.instance,
         super(const LogShareState());
 
-  final Ref ref;
+  final Identity Function() _currentIdentity;
+  final Future<String?> Function() _tokenProvider;
+  final String Function() _filterProvider;
   final LogShareService _service;
   final HttpDebugLogStore _store;
 
   static const flushInterval = Duration(seconds: 30);
 
   Timer? _timer;
-  bool _flushing = false;
+  final Set<_LogShareSessionLease> _flushingLeases = {};
+  int _generation = 0;
 
   /// Cursor into [HttpDebugLogStore.totalAdded]: entries before it were sent.
   int _cursor = 0;
-  int? _participantId;
+  _LogShareSessionLease? _lease;
   String _appVersion = 'unknown';
   late final String _platform = _resolvePlatform();
 
   /// Begin a sharing session for [participantId]. No-op if already sharing.
   Future<void> start(int participantId) async {
     if (state.isSharing) return;
-    _participantId = participantId;
+    final generation = ++_generation;
+    final lease = await _captureLease(participantId);
+    if (!mounted || generation != _generation || lease == null) return;
+    final appVersion = await _resolveAppVersion();
+    if (!mounted ||
+        generation != _generation ||
+        !await _credentialIsCurrent(lease)) {
+      return;
+    }
+
+    _lease = lease;
     _cursor = 0; // send everything currently buffered on the first flush
-    _appVersion = await _resolveAppVersion();
+    _appVersion = appVersion;
     state = const LogShareState(status: LogShareStatus.sharing);
 
     await _flush();
     // The first flush may have been told to stop; only arm the timer if not.
-    if (mounted && state.isSharing) {
+    if (mounted &&
+        generation == _generation &&
+        identical(_lease, lease) &&
+        state.isSharing) {
+      _stopTimer();
       _timer = Timer.periodic(flushInterval, (_) => _flush());
     }
   }
 
   /// User-initiated stop. Returns to idle without the [stoppedByServer] flag.
   void stop() {
+    _generation++;
+    _lease = null;
     _stopTimer();
-    state = const LogShareState();
+    if (mounted) state = const LogShareState();
+  }
+
+  void identityChanged(Identity identity) {
+    final lease = _lease;
+    if (lease != null && !lease.identity.sameScopeAs(identity)) stop();
   }
 
   Future<void> _flush() async {
-    if (_flushing) return; // a slow POST is still in flight; skip this tick
-    final participantId = _participantId;
-    if (participantId == null) return;
+    final lease = _lease;
+    if (lease == null || !_activeIdentityIsCurrent(lease)) return;
+    // Coalesce ticks only within one sharing lease. A replacement identity is
+    // allowed to flush immediately while the superseded lease's transport is
+    // still completing; each finalizer removes only its own lease.
+    if (_flushingLeases.contains(lease)) return;
 
     final batch = _store.entriesAdded(_cursor);
     if (batch.isEmpty) return;
@@ -90,24 +125,33 @@ class LogShareController extends StateNotifier<LogShareState> {
     // user sees. Non-matching entries in this range are skipped permanently —
     // the cursor still advances past them so the single-cursor model stays
     // valid (broadening the filter later won't back-fill older entries).
-    final query = ref.read(httpLogFilterProvider).trim().toLowerCase();
+    final query = _filterProvider().trim().toLowerCase();
     final toSend = query.isEmpty
         ? batch
         : batch
             .where((e) => e.url.toLowerCase().contains(query))
             .toList(growable: false);
     if (toSend.isEmpty) {
-      _cursor = nextCursor;
+      if (await _activeCredentialIsCurrent(lease)) {
+        _cursor = nextCursor;
+      } else {
+        _stopStaleLease(lease);
+      }
       return;
     }
 
-    _flushing = true;
+    _flushingLeases.add(lease);
     try {
       final outcome = await _service.postLogs(
-        participantId: participantId,
         body: _buildBody(toSend),
+        credential: lease.credential,
+        sendIfCredentialCurrent: (_, send) =>
+            _sendIfActiveCredentialCurrent(lease, send),
       );
-      if (!mounted) return;
+      if (!mounted || !await _activeCredentialIsCurrent(lease)) {
+        _stopStaleLease(lease);
+        return;
+      }
       switch (outcome) {
         case LogShareOutcome.keepGoing:
           _cursor = nextCursor;
@@ -117,10 +161,79 @@ class LogShareController extends StateNotifier<LogShareState> {
           state = const LogShareState(stoppedByServer: true);
         case LogShareOutcome.failed:
           break; // keep cursor; the same batch retries on the next flush
+        case LogShareOutcome.stale:
+          _stopStaleLease(lease);
       }
     } finally {
-      _flushing = false;
+      _flushingLeases.remove(lease);
     }
+  }
+
+  Future<_LogShareSessionLease?> _captureLease(int participantId) async {
+    final identity = _currentIdentity();
+    if (!identity.isAuthenticated || identity.participantId != participantId) {
+      return null;
+    }
+    String? token;
+    try {
+      token = await _tokenProvider();
+    } catch (_) {
+      return null;
+    }
+    if (token == null ||
+        token.isEmpty ||
+        !identity.sameScopeAs(_currentIdentity())) {
+      return null;
+    }
+    return _LogShareSessionLease(
+      identity: identity,
+      credential: AuthCredentialLease(epoch: identity.epoch, token: token),
+    );
+  }
+
+  bool _activeIdentityIsCurrent(_LogShareSessionLease lease) =>
+      identical(_lease, lease) &&
+      lease.identity.sameScopeAs(_currentIdentity());
+
+  Future<bool> _credentialIsCurrent(_LogShareSessionLease lease) async {
+    if (!lease.identity.sameScopeAs(_currentIdentity())) return false;
+    try {
+      final token = await _tokenProvider();
+      return lease.identity.sameScopeAs(_currentIdentity()) &&
+          token == lease.credential.token;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _activeCredentialIsCurrent(
+    _LogShareSessionLease lease,
+  ) async {
+    if (!_activeIdentityIsCurrent(lease)) return false;
+    final current = await _credentialIsCurrent(lease);
+    return current && _activeIdentityIsCurrent(lease);
+  }
+
+  Future<http.Response?> _sendIfActiveCredentialCurrent(
+    _LogShareSessionLease lease,
+    Future<http.Response> Function() send,
+  ) async {
+    if (!_activeIdentityIsCurrent(lease)) return null;
+    String? token;
+    try {
+      token = await _tokenProvider();
+    } catch (_) {
+      return null;
+    }
+    if (!_activeIdentityIsCurrent(lease) || token != lease.credential.token) {
+      return null;
+    }
+    // Start the request in the same continuation as the final lease check.
+    return send();
+  }
+
+  void _stopStaleLease(_LogShareSessionLease lease) {
+    if (identical(_lease, lease)) stop();
   }
 
   Map<String, dynamic> _buildBody(List<HttpLogEntry> batch) => {
@@ -163,8 +276,29 @@ class LogShareController extends StateNotifier<LogShareState> {
 
 final logShareControllerProvider =
     StateNotifierProvider<LogShareController, LogShareState>(
-  (ref) => LogShareController(ref: ref),
+  (ref) {
+    final controller = LogShareController(
+      currentIdentity: () => ref.read(identityProvider),
+      tokenProvider: () => ref.read(authTokenStoreProvider).read(),
+      filterProvider: () => ref.read(httpLogFilterProvider),
+    );
+    ref.listen<Identity>(
+      identityProvider,
+      (_, next) => controller.identityChanged(next),
+    );
+    return controller;
+  },
 );
+
+class _LogShareSessionLease {
+  const _LogShareSessionLease({
+    required this.identity,
+    required this.credential,
+  });
+
+  final Identity identity;
+  final AuthCredentialLease credential;
+}
 
 /// Case-insensitive URL substring that filters the HTTP debug log viewer.
 ///

@@ -5,8 +5,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart';
 import 'package:crypto_mobile_app/features/terms/screens/terms_screen.dart';
 
@@ -20,14 +20,13 @@ class _FakeService extends LeaderboardApiService {
   int fetches = 0;
 
   @override
-  Future<CurrentTerms?> getCurrentTerms({required int participantId}) async {
+  Future<CurrentTerms?> getCurrentTerms() async {
     fetches++;
     return terms;
   }
 
   @override
   Future<void> postTermsConsent({
-    required int participantId,
     required int termsVersionId,
     required String appVersion,
   }) async {
@@ -51,14 +50,16 @@ CurrentTerms _terms({required bool accepted}) => CurrentTerms(
 
 ProviderContainer _container(_FakeService service) => ProviderContainer(
       overrides: [
-        participantIdProvider.overrideWith((ref) => 19),
+        isAuthenticatedProvider.overrideWithValue(true),
+        showSignInGateProvider.overrideWithValue(false),
         leaderboardApiServiceProvider.overrideWithValue(service),
       ],
     );
 
-Widget _app(_FakeService service) => ProviderScope(
+Widget _app(_FakeService service, {bool signedIn = true}) => ProviderScope(
       overrides: [
-        participantIdProvider.overrideWith((ref) => 19),
+        isAuthenticatedProvider.overrideWithValue(signedIn),
+        showSignInGateProvider.overrideWithValue(!signedIn),
         leaderboardApiServiceProvider.overrideWithValue(service),
       ],
       child: MaterialApp(
@@ -96,6 +97,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(service.posted, [TermsConsentStatus.accepted]);
+  });
+
+  // Regression: the provider deliberately returns null for guests (its
+  // watchDeps gate), which used to render as "no terms published" — a
+  // misleading empty state. Guests must get the standard sign-in gate.
+  testWidgets('guest sees the sign-in gate, not "no terms published"',
+      (tester) async {
+    await tester.pumpWidget(
+        _app(_FakeService(_terms(accepted: false)), signedIn: false));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('There are no terms to review right now.'), findsNothing);
+    expect(find.text('Accept'), findsNothing);
   });
 
   testWidgets('accepted user sees final status without an action',

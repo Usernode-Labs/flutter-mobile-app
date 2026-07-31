@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
@@ -23,7 +24,6 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
@@ -124,10 +124,12 @@ class AppBootstrap {
       container: container,
       repo: repo,
     );
-    // Resolve the active per-identity storage bucket before any account-scoped
-    // pref is read: a guest session gets the guest bucket, otherwise the active
-    // on-chain account's bucket.
-    await refreshActiveAccountBucket(guest: await AuthGuestFlag().isGuest());
+    // Restore the identity (and with it the active per-identity storage
+    // bucket) before any account-scoped pref is read. This publishes the
+    // boot identity: unauthenticated, guest, ready, or reconciling when a
+    // sign-in's account reconcile was interrupted — in which case the node
+    // start below is refused until the reconcile completes.
+    await container.read(identityProvider.notifier).restore();
     final hasAnyAccounts = await repo.hasAny();
     final activeId = repo.getActiveId();
 

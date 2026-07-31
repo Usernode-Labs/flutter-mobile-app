@@ -17,101 +17,6 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // RegistrationEventInfo
-  // -------------------------------------------------------------------------
-
-  group('RegistrationEventInfo', () {
-    test('fromJson parses all fields with event_id key', () {
-      final info = RegistrationEventInfo.fromJson({
-        'event_id': 3,
-        'name': 'Event 3',
-        'ends_at': '2025-03-01T00:00:00Z',
-      });
-      expect(info.id, 3);
-      expect(info.name, 'Event 3');
-      expect(info.endsAt, '2025-03-01T00:00:00Z');
-    });
-
-    test('fromJson falls back to id key (cache compat)', () {
-      final info = RegistrationEventInfo.fromJson({
-        'id': 3,
-        'name': 'Event 3',
-      });
-      expect(info.id, 3);
-    });
-
-    test('fromJson handles null endsAt', () {
-      final info =
-          RegistrationEventInfo.fromJson({'event_id': 1, 'name': 'E1'});
-      expect(info.endsAt, isNull);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // RegistrationV2Result
-  // -------------------------------------------------------------------------
-
-  group('RegistrationV2Result', () {
-    test('fromJson parses re-registration response (with season)', () {
-      final result = RegistrationV2Result.fromJson({
-        'participant_id': 42,
-        'identity_uid': 'uid-abc',
-        'public_key': 'pk-123',
-        'secret_key': 'sk-456',
-        'address': 'addr-789',
-        'tier': 'gold',
-        'season_id': 1,
-        'season_name': 'Season 1',
-        'event': {
-          'event_id': 2,
-          'name': 'Event 2',
-          'ends_at': '2025-06-01',
-        },
-      });
-      expect(result.participantId, 42);
-      expect(result.identityUid, 'uid-abc');
-      expect(result.publicKey, 'pk-123');
-      expect(result.secretKey, 'sk-456');
-      expect(result.address, 'addr-789');
-      expect(result.tier, 'gold');
-      expect(result.seasonId, 1);
-      expect(result.seasonName, 'Season 1');
-      expect(result.event, isNotNull);
-      expect(result.event!.id, 2);
-    });
-
-    test('fromJson parses first registration (no season/event)', () {
-      final result = RegistrationV2Result.fromJson({
-        'participant_id': 1,
-        'identity_uid': 'uid',
-        'public_key': 'pk',
-        'secret_key': 'sk',
-        'address': 'addr',
-        'tier': 'silver',
-      });
-      expect(result.seasonId, isNull);
-      expect(result.seasonName, isNull);
-      expect(result.event, isNull);
-    });
-
-    test('fromJson falls back to phase key (cache compat)', () {
-      final result = RegistrationV2Result.fromJson({
-        'participant_id': 1,
-        'identity_uid': 'uid',
-        'public_key': 'pk',
-        'secret_key': 'sk',
-        'address': 'addr',
-        'tier': 'silver',
-        'season_id': 1,
-        'season_name': 'S1',
-        'phase': {'id': 2, 'name': 'Phase 2'},
-      });
-      expect(result.event, isNotNull);
-      expect(result.event!.id, 2);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // RankingResult
   // -------------------------------------------------------------------------
 
@@ -184,6 +89,21 @@ void main() {
       expect(r.eventsParticipated, isNull);
       expect(r.totalTokens, 0);
     });
+
+    test('preserves an unranked null and rounds fractional point totals', () {
+      final r = RankingResult.fromJson({
+        'scope': 'season',
+        'rank': null,
+        'total_points': 941.5,
+        'extra_points': '40.5',
+        'total_participants': 10,
+      });
+
+      expect(r.rank, isNull);
+      expect(r.toJson()['rank'], isNull);
+      expect(r.totalPoints, 942);
+      expect(r.offchainPoints, 41);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -191,6 +111,44 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('ChallengeDto', () {
+    test('fromJson reads the v4 kind key into subCategory', () {
+      final c = ChallengeDto.fromJson({
+        'id': 7,
+        'season_event_id': 2,
+        'category': 'block_production',
+        'kind': 'ZK_IDENTITY_VERIFICATION',
+        'goal': 'Verify',
+        'task': 'ZK',
+        'reward': 100,
+      });
+      expect(c.eventId, 2);
+      expect(c.subCategory, 'ZK_IDENTITY_VERIFICATION');
+    });
+
+    test('v4 kind wins over a stale sub_category key', () {
+      final c = ChallengeDto.fromJson({
+        'id': 7,
+        'category': 'x',
+        'kind': 'NEW',
+        'sub_category': 'OLD',
+        'goal': '',
+        'task': '',
+        'reward': 0,
+      });
+      expect(c.subCategory, 'NEW');
+    });
+
+    test('fromJson falls back to challenge_id (v4 compact season shape)', () {
+      final c = ChallengeDto.fromJson({
+        'challenge_id': 42,
+        'category': 'technical',
+        'goal': 'Do the thing',
+        'task': 'Task',
+        'reward': 50,
+      });
+      expect(c.id, 42);
+    });
+
     test('fromJson parses all fields', () {
       final c = ChallengeDto.fromJson({
         'id': 7,
@@ -829,6 +787,25 @@ void main() {
       expect(e.eventsParticipated, 3);
     });
 
+    test('fromJson parses the v4 row shape (user_id, extra_points)', () {
+      // Mirrors SV's formatMobileLeaderboardRow (season scope).
+      final e = LeaderboardEntry.fromJson({
+        'rank': 1,
+        'total_points': 9999,
+        'extra_points': 500,
+        'events_participated': 3,
+        'total_produced_blocks': 100,
+        'vrf_total_won_slots': 50,
+        'success_rate': 0.95,
+        'user_id': 42,
+        'is_non_podium': false,
+        'display_name': 'Alice',
+      });
+      expect(e.participantId, 42);
+      expect(e.offchainPoints, 500);
+      expect(e.displayName, 'Alice');
+    });
+
     test('fromJson falls back to phases_participated (cache compat)', () {
       final e = LeaderboardEntry.fromJson({
         'rank': 1,
@@ -855,6 +832,18 @@ void main() {
         'events_participated': 1,
       });
       expect(e.displayName, isNull);
+    });
+
+    test('fromJson rounds fractional point totals', () {
+      final e = LeaderboardEntry.fromJson({
+        'rank': 2,
+        'participant_id': 99,
+        'total_points': 100.5,
+        'offchain_points': '9.5',
+      });
+
+      expect(e.totalPoints, 101);
+      expect(e.offchainPoints, 10);
     });
   });
 
@@ -961,6 +950,16 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('BreakdownActivity', () {
+    test('fromJson reads the v4 activity_kind key', () {
+      final a = BreakdownActivity.fromJson({
+        'activity_id': 1,
+        'activity_type': 'block_produced',
+        'points': 50,
+        'activity_kind': 'PRODUCE_BLOCKS_CHALLENGE',
+      });
+      expect(a.activitySubCategory, 'PRODUCE_BLOCKS_CHALLENGE');
+    });
+
     test('fromJson parses activity_id key', () {
       final a = BreakdownActivity.fromJson({
         'activity_id': 1,
@@ -1254,6 +1253,77 @@ void main() {
       expect(br.globalSeasons.single.events.single.challengeProgress,
           hasLength(1));
       expect(br.allScopedChallengeProgress.single.eventId, 3);
+    });
+
+    test('fromJson parses the v4 season scope (no top-level totals)', () {
+      // v4's season response is {display_name, scope, events} — no season
+      // identity and no top-level or per-season totals. Totals derive from
+      // the events.
+      final br = BreakdownResult.fromJson({
+        'display_name': 'Dana',
+        'scope': 'season',
+        'events': [
+          {
+            'event': {'id': 1, 'name': 'E1'},
+            'total_points': 2500,
+            'extra_points': 500,
+            'rank': 2,
+          },
+          {
+            'event': {'id': 2, 'name': 'E2'},
+            'total_points': 1500,
+            'extra_points': 250,
+            'rank': 9,
+          },
+        ],
+      });
+      expect(br.scope, 'season');
+      expect(br.totalPoints, 4000);
+      expect(br.offchainPoints, 750);
+      expect(br.seasonBreakdown!.totalPoints, 4000);
+      expect(br.seasonBreakdown!.events, hasLength(2));
+    });
+
+    test('fromJson parses the v4 global scope (seasons keyed by id/name)', () {
+      // v4's global response is {display_name, scope, seasons: [{id, name,
+      // events}]} — no totals anywhere above the event level.
+      final br = BreakdownResult.fromJson({
+        'display_name': 'Eve',
+        'scope': 'global',
+        'seasons': [
+          {
+            'id': 1,
+            'name': 'Season 1',
+            'events': [
+              {
+                'event': {'id': 3, 'name': 'Phase 1'},
+                'total_points': 800,
+                'extra_points': 100,
+                'rank': 5,
+              },
+            ],
+          },
+          {
+            'id': 2,
+            'name': 'Season 2',
+            'events': [
+              {
+                'event': {'id': 7, 'name': 'Phase 2'},
+                'total_points': 200,
+                'extra_points': 50,
+                'rank': 1,
+              },
+            ],
+          },
+        ],
+      });
+      expect(br.scope, 'global');
+      expect(br.globalSeasons, hasLength(2));
+      expect(br.globalSeasons.first.seasonId, 1);
+      expect(br.globalSeasons.first.seasonName, 'Season 1');
+      expect(br.globalSeasons.first.totalPoints, 800);
+      expect(br.totalPoints, 1000);
+      expect(br.offchainPoints, 150);
     });
 
     test('progressForChallenge resolves by event and rejects ambiguity', () {
@@ -1826,6 +1896,61 @@ void main() {
       expect(a, b);
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(c));
+    });
+  });
+
+  group('EventPointsResult', () {
+    test('fromJson parses the v4 response shape', () {
+      // Mirrors SV's GET /event/points data object.
+      final r = EventPointsResult.fromJson({
+        'season_event_id': 5,
+        'event_name': 'Event 5',
+        'event_total_points': 1200,
+        'user_total_points': 1200,
+        'total_points_per_user': [
+          {'user_id': 42, 'total_points': 700},
+          {'user_id': 7, 'total_points': 500},
+        ],
+        'total_participants': 2,
+      });
+      expect(r.eventId, 5);
+      expect(r.participantTotalPoints, 1200);
+      expect(r.totalPointsPerUser, hasLength(2));
+      expect(r.totalPointsPerUser.first.participantId, 42);
+      expect(r.totalPointsPerUser.first.totalPoints, 700);
+    });
+
+    test('fromJson still reads the legacy keys (cache compat)', () {
+      final r = EventPointsResult.fromJson({
+        'event_id': 5,
+        'event_name': 'Event 5',
+        'event_total_points': 100,
+        'participant_total_points': 100,
+        'total_points_per_user': [
+          {'participant_id': 42, 'total_points': 100},
+        ],
+        'total_participants': 1,
+      });
+      expect(r.eventId, 5);
+      expect(r.participantTotalPoints, 100);
+      expect(r.totalPointsPerUser.first.participantId, 42);
+    });
+
+    test('fromJson rounds fractional event and participant points', () {
+      final r = EventPointsResult.fromJson({
+        'season_event_id': 5,
+        'event_name': 'Event 5',
+        'event_total_points': 1200.5,
+        'user_total_points': '700.5',
+        'total_points_per_user': [
+          {'user_id': 42, 'total_points': 500.5},
+        ],
+        'total_participants': 1,
+      });
+
+      expect(r.eventTotalPoints, 1201);
+      expect(r.participantTotalPoints, 701);
+      expect(r.totalPointsPerUser.single.totalPoints, 501);
     });
   });
 }

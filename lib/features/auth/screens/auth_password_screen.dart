@@ -37,7 +37,7 @@ class _AuthPasswordScreenState extends ConsumerState<AuthPasswordScreen> {
       final session = await ref
           .read(authRepositoryProvider)
           .login(email: email, password: password);
-      await ref.read(authStatusProvider.notifier).completeLogin(session);
+      await ref.read(identityProvider.notifier).completeLogin(session);
       if (mounted) context.go(AppRoutes.splash);
     } on AuthException catch (e) {
       if (mounted) setState(() => _error = e.message);

@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -143,7 +144,8 @@ Future<void> _startHeadlessServices(
   TaggedLogger log,
 ) async {
   try {
-    log.info('Starting headless services (produced-blocks refresh, lifecycle, etc.)');
+    log.info(
+        'Starting headless services (produced-blocks refresh, lifecycle, etc.)');
 
     _startHeadlessProducedBlocksRefresh(container, log);
 
@@ -280,6 +282,16 @@ class CryptoMobileApp extends ConsumerWidget {
     // Initialize zkPassport pipeline state early so session-server polling
     // and foreground recovery are active before the registration UI opens.
     ref.watch(zkPassportPipelineProvider);
+
+    // Keep the identity driver alive for the whole app lifetime: it runs
+    // the account reconcile whenever the identity enters the reconciling
+    // phase and retries pending zk completions once it settles.
+    ref.watch(identityDriverProvider);
+
+    // Hand the authoritative active season to the SessionController — a
+    // rollover re-enters the reconciling phase (per-season wallets), and no
+    // sign-in transition fires for users who stay signed in across it.
+    ref.watch(seasonRolloverSyncProvider);
 
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,

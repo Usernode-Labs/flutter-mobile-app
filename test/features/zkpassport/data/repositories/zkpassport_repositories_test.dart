@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 
@@ -44,6 +46,7 @@ void main() {
           createdAtMs: 1,
           lastProgressAtMs: 2,
           resumeAttemptCount: 0,
+          requestNonce: 'nonce-a',
         );
 
     test('load null when empty', () async {
@@ -55,6 +58,7 @@ void main() {
       final loaded = await repo.load();
       expect(loaded, isNotNull);
       expect(loaded!.requestId, 'req');
+      expect(loaded.requestVersion, session().requestVersion);
 
       await repo.clear();
       expect(await repo.load(), isNull);
@@ -69,6 +73,265 @@ void main() {
       // Any key: load() reads a specific prefixed key which is now absent.
       expect(prefs.getKeys().isEmpty, isTrue);
       expect(await repo2.load(), isNull);
+    });
+  });
+
+  group('ZkPassportRegistrationRepository request outcomes', () {
+    const accountId = 'account-a';
+    const address = 'ut1-test-address';
+    late String bucket;
+    late ZkPassportRegistrationRepository repo;
+
+    ZkPassportRequestVersion version(String nonce) => ZkPassportRequestVersion(
+          requestId: 'reused-session-id',
+          createdAtMs: 100,
+          nonce: nonce,
+        );
+
+    Future<void> seedActiveAccount() async {
+      bucket = NetworkPrefs.bucketForAddress(address);
+      NetworkPrefs.setActiveBucket(address, guest: false);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'testnet:accounts:index',
+        jsonEncode([
+          {
+            'id': accountId,
+            'name': 'Test',
+            'createdAt': '2026-01-01T00:00:00.000Z',
+            'derivationPath': 'test',
+            'hdIndex': 0,
+            'address': address,
+            'publicKey': 'pk',
+            'backupConfirmed': true,
+            'isDemo': true,
+          },
+        ]),
+      );
+      await prefs.setString('testnet:accounts:activeId', accountId);
+    }
+
+    setUp(() async {
+      repo = ZkPassportRegistrationRepository();
+      await seedActiveAccount();
+    });
+
+    Future<void> storeOptimisticState(
+      ZkPassportRequestVersion requestVersion,
+    ) async {
+      await repo.storePendingCompletion(
+        participantId: 7,
+        challengeId: 42,
+        walletAddress: address,
+        sessionId: requestVersion.requestId,
+        nullifierHex: 'nullifier-${requestVersion.nonce}',
+        requestVersion: requestVersion,
+        accountId: accountId,
+        bucket: bucket,
+      );
+      await repo.storeActiveRegistration(
+        registered: true,
+        nullifierHex: 'nullifier-${requestVersion.nonce}',
+        requestVersion: requestVersion,
+      );
+    }
+
+    test('one rejected outcome atomically hides outbox and registration',
+        () async {
+      final rejected = version('nonce-a');
+      await storeOptimisticState(rejected);
+
+      await repo.recordRequestOutcome(
+        version: rejected,
+        outcome: ZkPassportRequestOutcome.rejected,
+        bucket: bucket,
+      );
+
+      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect((await repo.getActiveRegistration()).registered, isFalse);
+
+      // The source rows deliberately remain. The outcome is the only durable
+      // write needed for both views, so cleanup cannot be split by a crash.
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString(
+          'testnet:acct:$bucket:zkpassport:pending_completion',
+        ),
+        isNotNull,
+      );
+      expect(
+        prefs.getString(
+          'testnet:acct:$bucket:zkpassport:registration:$accountId',
+        ),
+        isNotNull,
+      );
+    });
+
+    test('old outcome cannot hide a reused request ID generation', () async {
+      final oldVersion = version('nonce-old');
+      await storeOptimisticState(oldVersion);
+      await repo.recordRequestOutcome(
+        version: oldVersion,
+        outcome: ZkPassportRequestOutcome.rejected,
+        bucket: bucket,
+      );
+
+      final newVersion = version('nonce-new');
+      await storeOptimisticState(newVersion);
+
+      expect(
+        ZkPassportRequestVersion.fromJson(
+          await repo.getPendingCompletion(bucket: bucket),
+        ),
+        newVersion,
+      );
+      expect((await repo.getActiveRegistration()).registered, isTrue);
+      expect(
+        (await repo.getActiveRegistration()).requestVersion,
+        newVersion,
+      );
+    });
+
+    test('delivered outcome retires outbox but preserves registration',
+        () async {
+      final delivered = version('nonce-delivered');
+      await storeOptimisticState(delivered);
+      await repo.recordRequestOutcome(
+        version: delivered,
+        outcome: ZkPassportRequestOutcome.delivered,
+        bucket: bucket,
+      );
+
+      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect((await repo.getActiveRegistration()).registered, isTrue);
+      await repo.recordRequestOutcome(
+        version: delivered,
+        outcome: ZkPassportRequestOutcome.rejected,
+        bucket: bucket,
+      );
+      expect((await repo.getActiveRegistration()).registered, isTrue);
+    });
+
+    test('concurrent conflicting outcomes are append-only; delivery wins',
+        () async {
+      final requestVersion = version('nonce-concurrent');
+      await storeOptimisticState(requestVersion);
+      final bothWritersReady = Completer<void>();
+      var writerCount = 0;
+      Future<bool> barrierWriter(
+        SharedPreferences preferences,
+        String key,
+        String value,
+      ) async {
+        writerCount++;
+        if (writerCount == 2) bothWritersReady.complete();
+        await bothWritersReady.future;
+        return preferences.setString(key, value);
+      }
+
+      final first = ZkPassportRegistrationRepository(
+        stringWriter: barrierWriter,
+      );
+      final second = ZkPassportRegistrationRepository(
+        stringWriter: barrierWriter,
+      );
+      await Future.wait([
+        first.recordRequestOutcome(
+          version: requestVersion,
+          outcome: ZkPassportRequestOutcome.rejected,
+          bucket: bucket,
+        ),
+        second.recordRequestOutcome(
+          version: requestVersion,
+          outcome: ZkPassportRequestOutcome.delivered,
+          bucket: bucket,
+        ),
+      ]);
+
+      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect((await repo.getActiveRegistration()).registered, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getKeys().where((key) => key.contains('request_outcome_v1')),
+        hasLength(2),
+      );
+    });
+
+    test('outbox retains the exact registration repair scope and metadata',
+        () async {
+      final requestVersion = version('nonce-repair');
+      await repo.storePendingCompletion(
+        participantId: 7,
+        challengeId: 42,
+        walletAddress: address,
+        sessionId: requestVersion.requestId,
+        nullifierHex: 'nullifier',
+        requestVersion: requestVersion,
+        accountId: accountId,
+        facematchVerified: true,
+        verifyOuterMs: 11,
+        wrapOuterMs: 12,
+        verifyWrappedMs: 13,
+        bucket: bucket,
+      );
+
+      final pending = await repo.getPendingCompletion(bucket: bucket);
+      expect(pending, isNotNull);
+      expect(pending!['account_id'], accountId);
+      expect(pending['facematch_verified'], isTrue);
+      expect(pending['verify_outer_ms'], 11);
+      expect(pending['wrap_outer_ms'], 12);
+      expect(pending['verify_wrapped_ms'], 13);
+    });
+
+    test('explicit registration writes ignore a changed ambient bucket',
+        () async {
+      final requestVersion = version('nonce-explicit-scope');
+      NetworkPrefs.setActiveBucket('ut1-other-address', guest: false);
+
+      await repo.storeRegistrationForAccount(
+        accountId: accountId,
+        bucket: bucket,
+        registered: true,
+        nullifierHex: 'nullifier',
+        requestVersion: requestVersion,
+      );
+
+      final stored = await repo.getRegistrationForAccount(
+        accountId: accountId,
+        bucket: bucket,
+      );
+      expect(stored.registered, isTrue);
+      expect(stored.requestVersion, requestVersion);
+    });
+
+    test('failed critical outbox and outcome writes are surfaced', () async {
+      final failingRepo = ZkPassportRegistrationRepository(
+        stringWriter: (_, __, ___) async => false,
+      );
+      final requestVersion = version('nonce-write-failure');
+
+      await expectLater(
+        failingRepo.storePendingCompletion(
+          participantId: 7,
+          challengeId: 42,
+          walletAddress: address,
+          sessionId: requestVersion.requestId,
+          nullifierHex: 'nullifier',
+          requestVersion: requestVersion,
+          accountId: accountId,
+          bucket: bucket,
+        ),
+        throwsStateError,
+      );
+      await expectLater(
+        failingRepo.recordRequestOutcome(
+          version: requestVersion,
+          outcome: ZkPassportRequestOutcome.rejected,
+          bucket: bucket,
+        ),
+        throwsStateError,
+      );
     });
   });
 

@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,6 +13,25 @@ const _androidMarketUrl = 'market://details?id=app.zkpassport.zkpassport';
 const _androidWebUrl =
     'https://play.google.com/store/apps/details?id=app.zkpassport.zkpassport';
 const _iosStoreUrl = 'https://apps.apple.com/us/app/zkpassport/id6477371975';
+
+/// True when a backend completion response can never succeed on retry.
+bool isTerminalZkCompletionRejection(Object? error) {
+  return error is LeaderboardApiException &&
+      error.statusCode >= 400 &&
+      error.statusCode < 500 &&
+      error.statusCode != 401 &&
+      error.statusCode != 408 &&
+      error.statusCode != 429;
+}
+
+/// Enforces outbox-before-registration ordering for optimistic completions.
+Future<void> persistZkCompletionInOrder({
+  required Future<void> Function() persistOutbox,
+  required Future<void> Function() persistRegistration,
+}) async {
+  await persistOutbox();
+  await persistRegistration();
+}
 
 class ZkPassportLaunchService {
   ZkPassportLaunchService();

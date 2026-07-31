@@ -9,10 +9,38 @@ import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_mod
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+typedef ZkPassportStringWriter = Future<bool> Function(
+  SharedPreferences preferences,
+  String key,
+  String value,
+);
+
+Future<void> _checkedSetString(
+  SharedPreferences preferences,
+  String key,
+  String value, {
+  required String operation,
+  ZkPassportStringWriter? writer,
+}) async {
+  final wrote = await (writer == null
+      ? preferences.setString(key, value)
+      : writer(preferences, key, value));
+  if (!wrote) {
+    throw StateError('Failed to $operation');
+  }
+}
+
 class ZkPassportRegistrationRepository {
+  ZkPassportRegistrationRepository({
+    ZkPassportStringWriter? stringWriter,
+  }) : _stringWriter = stringWriter;
+
   static const _kRegisteredKeyBase = 'zkpassport:registered';
   static const _kRegistrationKeyBase = 'zkpassport:registration';
   static const _kPendingCompletionKey = 'zkpassport:pending_completion';
+  static const _kRequestOutcomeKeyBase = 'zkpassport:request_outcome_v1';
+
+  final ZkPassportStringWriter? _stringWriter;
 
   Future<bool> isRegistered() async {
     final registration = await getActiveRegistration();
@@ -26,7 +54,10 @@ class ZkPassportRegistrationRepository {
       return ZkPassportLocalRegistration.unregistered();
     }
 
-    return _loadRegistrationForAccount(active.id);
+    return getRegistrationForAccount(
+      accountId: active.id,
+      bucket: NetworkPrefs.activeBucket,
+    );
   }
 
   Future<void> storeActiveRegistration({
@@ -36,6 +67,7 @@ class ZkPassportRegistrationRepository {
     int? verifyOuterMs,
     int? wrapOuterMs,
     int? verifyWrappedMs,
+    ZkPassportRequestVersion? requestVersion,
   }) async {
     final accounts = await AccountsRepository.create();
     final active = await accounts.getActive();
@@ -43,8 +75,39 @@ class ZkPassportRegistrationRepository {
       return;
     }
 
+    await storeRegistrationForAccount(
+      accountId: active.id,
+      bucket: NetworkPrefs.activeBucket,
+      registered: registered,
+      nullifierHex: nullifierHex,
+      facematchVerified: facematchVerified,
+      verifyOuterMs: verifyOuterMs,
+      wrapOuterMs: wrapOuterMs,
+      verifyWrappedMs: verifyWrappedMs,
+      requestVersion: requestVersion,
+    );
+  }
+
+  /// Stores registration state under an explicitly captured account scope.
+  /// Identity-sensitive flows use this instead of resolving the ambient
+  /// active account after an `await`.
+  Future<void> storeRegistrationForAccount({
+    required String accountId,
+    required String bucket,
+    required bool registered,
+    required String? nullifierHex,
+    bool? facematchVerified,
+    int? verifyOuterMs,
+    int? wrapOuterMs,
+    int? verifyWrappedMs,
+    ZkPassportRequestVersion? requestVersion,
+  }) async {
+    if (accountId.isEmpty || bucket.isEmpty) {
+      throw ArgumentError('accountId and bucket must not be empty');
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    final key = _registrationKeyForAccount(active.id);
+    final key = _registrationKeyForAccount(accountId, bucket: bucket);
     final payload = ZkPassportLocalRegistration(
       registered: registered,
       nullifierHex: nullifierHex,
@@ -53,8 +116,15 @@ class ZkPassportRegistrationRepository {
       verifyOuterMs: verifyOuterMs,
       wrapOuterMs: wrapOuterMs,
       verifyWrappedMs: verifyWrappedMs,
+      requestVersion: requestVersion,
     );
-    await prefs.setString(key, jsonEncode(payload.toJson()));
+    await _checkedSetString(
+      prefs,
+      key,
+      jsonEncode(payload.toJson()),
+      operation: 'store zkPassport registration',
+      writer: _stringWriter,
+    );
   }
 
   /// Stores a pending backend completion (the identity-keyed outbox row) for
@@ -66,19 +136,42 @@ class ZkPassportRegistrationRepository {
     required String walletAddress,
     required String sessionId,
     required String nullifierHex,
+    required ZkPassportRequestVersion requestVersion,
+    required String accountId,
+    bool? facematchVerified,
+    int? verifyOuterMs,
+    int? wrapOuterMs,
+    int? verifyWrappedMs,
     String? bucket,
   }) async {
+    if (sessionId != requestVersion.requestId) {
+      throw ArgumentError.value(
+        sessionId,
+        'sessionId',
+        'must match the request version',
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     final key = _pendingCompletionKey(bucket);
-    await prefs.setString(
-        key,
-        jsonEncode({
-          'participant_id': participantId,
-          'challenge_id': challengeId,
-          'wallet_address': walletAddress,
-          'session_id': sessionId,
-          'nullifier_hex': nullifierHex,
-        }));
+    await _checkedSetString(
+      prefs,
+      key,
+      jsonEncode({
+        'participant_id': participantId,
+        'challenge_id': challengeId,
+        'wallet_address': walletAddress,
+        'session_id': sessionId,
+        'nullifier_hex': nullifierHex,
+        'account_id': accountId,
+        'facematch_verified': facematchVerified,
+        'verify_outer_ms': verifyOuterMs,
+        'wrap_outer_ms': wrapOuterMs,
+        'verify_wrapped_ms': verifyWrappedMs,
+        ...requestVersion.toJson(),
+      }),
+      operation: 'store zkPassport pending completion',
+      writer: _stringWriter,
+    );
   }
 
   /// Returns a pending completion if one exists, or null.
@@ -89,12 +182,20 @@ class ZkPassportRegistrationRepository {
   /// reconcile) can't make the clear target a different identity's record.
   Future<Map<String, dynamic>?> getPendingCompletion({String? bucket}) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
     final key = _pendingCompletionKey(bucket);
     final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map<String, dynamic>) {
+        final version = ZkPassportRequestVersion.fromJson(decoded);
+        if (version != null &&
+            _requestOutcome(prefs, version, bucket: bucket) != null) {
+          return null;
+        }
+        return decoded;
+      }
     } catch (_) {
       // Corrupt data — clear it.
       await prefs.remove(key);
@@ -113,6 +214,80 @@ class ZkPassportRegistrationRepository {
       ? NetworkPrefs.prefixAccountKey(_kPendingCompletionKey)
       : NetworkPrefs.prefixAccountKeyFor(_kPendingCompletionKey, bucket);
 
+  /// Records a durable event consumed by both the outbox and optimistic
+  /// registration views. The outcome name is part of the key, so concurrent
+  /// writers never overwrite each other. If conflicting markers exist,
+  /// [_requestOutcome] resolves them deterministically with `delivered`
+  /// taking precedence over rejection/discard.
+  Future<void> recordRequestOutcome({
+    required ZkPassportRequestVersion version,
+    required ZkPassportRequestOutcome outcome,
+    String? bucket,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    final existing = _requestOutcome(prefs, version, bucket: bucket);
+    if (existing != null) {
+      if (existing == outcome ||
+          existing == ZkPassportRequestOutcome.delivered) {
+        return;
+      }
+      if (outcome != ZkPassportRequestOutcome.delivered) {
+        throw StateError(
+          'zkPassport request ${version.requestId} already has terminal '
+          'outcome ${existing.name}',
+        );
+      }
+    }
+    await _checkedSetString(
+      prefs,
+      _requestOutcomeKey(version, outcome, bucket: bucket),
+      jsonEncode({...version.toJson(), 'outcome': outcome.name}),
+      operation: 'record zkPassport request outcome',
+      writer: _stringWriter,
+    );
+  }
+
+  ZkPassportRequestOutcome? _requestOutcome(
+    SharedPreferences prefs,
+    ZkPassportRequestVersion version, {
+    String? bucket,
+  }) {
+    // Enum order is the conflict precedence: a confirmed delivery must not be
+    // rolled back by a duplicate request's late rejection.
+    for (final outcome in ZkPassportRequestOutcome.values) {
+      final raw = prefs.getString(
+        _requestOutcomeKey(version, outcome, bucket: bucket),
+      );
+      if (raw == null || raw.trim().isEmpty) continue;
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic> &&
+            ZkPassportRequestVersion.fromJson(decoded) == version &&
+            decoded['outcome'] == outcome.name) {
+          return outcome;
+        }
+      } catch (_) {
+        // Ignore a corrupt marker; another append-only marker may be valid.
+      }
+    }
+    return null;
+  }
+
+  String _requestOutcomeKey(
+    ZkPassportRequestVersion version,
+    ZkPassportRequestOutcome outcome, {
+    String? bucket,
+  }) {
+    final encodedRequestId =
+        base64Url.encode(utf8.encode(version.requestId)).replaceAll('=', '');
+    final key = '$_kRequestOutcomeKeyBase:$encodedRequestId:'
+        '${version.createdAtMs}:${version.nonce}:${outcome.name}';
+    return bucket == null
+        ? NetworkPrefs.prefixAccountKey(key)
+        : NetworkPrefs.prefixAccountKeyFor(key, bucket);
+  }
+
   Future<void> clearActiveRegistration() async {
     final accounts = await AccountsRepository.create();
     final active = await accounts.getActive();
@@ -124,21 +299,34 @@ class ZkPassportRegistrationRepository {
     await prefs.remove(_registrationKeyForAccount(active.id));
   }
 
-  String _registrationKeyForAccount(String accountId) {
-    return NetworkPrefs.prefixAccountKey('$_kRegistrationKeyBase:$accountId');
+  String _registrationKeyForAccount(String accountId, {String? bucket}) {
+    final key = '$_kRegistrationKeyBase:$accountId';
+    return bucket == null
+        ? NetworkPrefs.prefixAccountKey(key)
+        : NetworkPrefs.prefixAccountKeyFor(key, bucket);
   }
 
-  Future<ZkPassportLocalRegistration> _loadRegistrationForAccount(
-    String accountId,
-  ) async {
+  Future<ZkPassportLocalRegistration> getRegistrationForAccount({
+    required String accountId,
+    required String bucket,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = _registrationKeyForAccount(accountId);
+    await prefs.reload();
+    final key = _registrationKeyForAccount(accountId, bucket: bucket);
     final raw = prefs.getString(key);
     if (raw != null && raw.trim().isNotEmpty) {
       try {
         final decoded = jsonDecode(raw);
         final parsed = ZkPassportLocalRegistration.fromJson(decoded);
         if (parsed != null) {
+          final version = parsed.requestVersion;
+          final outcome = version == null
+              ? null
+              : _requestOutcome(prefs, version, bucket: bucket);
+          if (outcome == ZkPassportRequestOutcome.rejected ||
+              outcome == ZkPassportRequestOutcome.discarded) {
+            return ZkPassportLocalRegistration.unregistered();
+          }
           return parsed;
         }
       } catch (_) {
@@ -147,7 +335,8 @@ class ZkPassportRegistrationRepository {
     }
 
     // Migration: older versions stored a single boolean for the whole network.
-    final legacyKey = NetworkPrefs.prefixAccountKey(_kRegisteredKeyBase);
+    final legacyKey =
+        NetworkPrefs.prefixAccountKeyFor(_kRegisteredKeyBase, bucket);
     final legacyRegistered = prefs.getBool(legacyKey) ?? false;
     if (!legacyRegistered) {
       return ZkPassportLocalRegistration.unregistered();
@@ -158,7 +347,13 @@ class ZkPassportRegistrationRepository {
       nullifierHex: null,
       registeredAtMs: DateTime.now().millisecondsSinceEpoch,
     );
-    await prefs.setString(key, jsonEncode(migrated.toJson()));
+    await _checkedSetString(
+      prefs,
+      key,
+      jsonEncode(migrated.toJson()),
+      operation: 'migrate zkPassport registration',
+      writer: _stringWriter,
+    );
     return migrated;
   }
 }
@@ -226,7 +421,12 @@ class ZkPassportRuntimeSessionRepository {
   Future<void> save(ZkPassportRuntimeSession session) async {
     final prefs = await SharedPreferences.getInstance();
     final key = NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase);
-    await prefs.setString(key, jsonEncode(session.toJson()));
+    await _checkedSetString(
+      prefs,
+      key,
+      jsonEncode(session.toJson()),
+      operation: 'store zkPassport runtime session',
+    );
   }
 
   Future<void> clear() async {

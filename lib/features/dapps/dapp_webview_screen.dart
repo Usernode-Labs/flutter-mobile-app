@@ -1174,7 +1174,16 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   Future<void> _handleResetZkChallenge(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'resetZkChallenge')) return;
     if (!mounted) return;
-    await resetChallengeState(ref, context);
+    final reset = await resetChallengeState(ref, context);
+    if (!reset) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error:
+            'A zkPassport proof is still being processed. Try again shortly.',
+      );
+      return;
+    }
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 

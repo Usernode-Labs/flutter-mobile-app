@@ -40,19 +40,34 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
 
-Future<void> resetChallengeState(WidgetRef ref, BuildContext context) async {
-  ref.read(zkIdentityStepControllerProvider.notifier).reset();
-  await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
-  await ref
+Future<bool> resetChallengeState(WidgetRef ref, BuildContext context) async {
+  final discarded = await ref
       .read(zkPassportPipelineProvider.notifier)
       .discardPendingSession(reason: 'Reset');
+  if (!discarded) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A zkPassport proof is still being processed. Try again shortly.',
+          ),
+        ),
+      );
+    }
+    return false;
+  }
+
+  ref.read(zkIdentityStepControllerProvider.notifier).reset();
+  await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
   ref.invalidate(challengesProvider);
   ref.invalidate(breakdownProvider);
   ref.invalidate(categorizedChallengesProvider);
-  if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Challenge state reset')),
-  );
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Challenge state reset')),
+    );
+  }
+  return true;
 }
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -434,7 +449,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return sc;
   }
 
-  Future<void> _resetChallengeState() => resetChallengeState(ref, context);
+  Future<void> _resetChallengeState() async {
+    await resetChallengeState(ref, context);
+  }
 
   Future<void> _confirmAndLogout() async {
     final l10n = AppLocalizations.of(context);

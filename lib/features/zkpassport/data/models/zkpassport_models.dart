@@ -21,6 +21,60 @@ enum ZkPassportPipelinePhase {
   timedOut,
 }
 
+enum ZkPassportRequestOutcome {
+  delivered,
+  rejected,
+  discarded,
+}
+
+/// Identifies one launch even if the bridge reuses a request ID.
+///
+/// [createdAtMs] remains the wall-clock value used for expiry. [nonce] is a
+/// persisted random generation token used only for exact equality.
+class ZkPassportRequestVersion {
+  const ZkPassportRequestVersion({
+    required this.requestId,
+    required this.createdAtMs,
+    required this.nonce,
+  });
+
+  final String requestId;
+  final int createdAtMs;
+  final String nonce;
+
+  Map<String, dynamic> toJson() => {
+        'request_id': requestId,
+        'request_created_at_ms': createdAtMs,
+        'request_nonce': nonce,
+      };
+
+  static ZkPassportRequestVersion? fromJson(Map<String, dynamic>? json) {
+    if (json == null) return null;
+    final requestId = _optionalString(json['request_id']);
+    final createdAtMs = _optionalInt(json['request_created_at_ms']);
+    final nonce = _optionalString(json['request_nonce']);
+    if (requestId == null || createdAtMs == null || nonce == null) {
+      return null;
+    }
+    return ZkPassportRequestVersion(
+      requestId: requestId,
+      createdAtMs: createdAtMs,
+      nonce: nonce,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ZkPassportRequestVersion &&
+        requestId == other.requestId &&
+        createdAtMs == other.createdAtMs &&
+        nonce == other.nonce;
+  }
+
+  @override
+  int get hashCode => Object.hash(requestId, createdAtMs, nonce);
+}
+
 class ZkPassportPipelineState {
   const ZkPassportPipelineState({
     required this.status,
@@ -95,6 +149,7 @@ class ZkPassportRuntimeSession {
     required this.createdAtMs,
     required this.lastProgressAtMs,
     required this.resumeAttemptCount,
+    this.requestNonce,
     this.userPublicKey,
     this.launchEpoch,
     this.launchBucket,
@@ -107,6 +162,7 @@ class ZkPassportRuntimeSession {
   final int createdAtMs;
   final int lastProgressAtMs;
   final int resumeAttemptCount;
+  final String? requestNonce;
   final String? userPublicKey;
 
   /// Identity that launched this session, captured at launch time and
@@ -119,6 +175,16 @@ class ZkPassportRuntimeSession {
   final int? launchEpoch;
   final String? launchBucket;
   final int? launchParticipantId;
+
+  ZkPassportRequestVersion? get requestVersion {
+    final nonce = requestNonce;
+    if (nonce == null) return null;
+    return ZkPassportRequestVersion(
+      requestId: requestId,
+      createdAtMs: createdAtMs,
+      nonce: nonce,
+    );
+  }
 
   bool get isTerminal =>
       phase == ZkPassportPipelinePhase.success ||
@@ -133,6 +199,7 @@ class ZkPassportRuntimeSession {
       'createdAtMs': createdAtMs,
       'lastProgressAtMs': lastProgressAtMs,
       'resumeAttemptCount': resumeAttemptCount,
+      if (requestNonce != null) 'requestNonce': requestNonce,
       if (userPublicKey != null && userPublicKey!.trim().isNotEmpty)
         'userPublicKey': userPublicKey,
       if (launchEpoch != null) 'launchEpoch': launchEpoch,
@@ -188,6 +255,7 @@ class ZkPassportRuntimeSession {
       createdAtMs: createdAtMs,
       lastProgressAtMs: lastProgressAtMs,
       resumeAttemptCount: resumeAttemptCount < 0 ? 0 : resumeAttemptCount,
+      requestNonce: _optionalString(json['requestNonce']),
       userPublicKey: _optionalString(json['userPublicKey']),
       launchEpoch: _optionalInt(json['launchEpoch']),
       launchBucket: _optionalString(json['launchBucket']),
@@ -202,6 +270,7 @@ class ZkPassportRuntimeSession {
     int? createdAtMs,
     int? lastProgressAtMs,
     int? resumeAttemptCount,
+    String? requestNonce,
     String? userPublicKey,
     int? launchEpoch,
     String? launchBucket,
@@ -214,6 +283,7 @@ class ZkPassportRuntimeSession {
       createdAtMs: createdAtMs ?? this.createdAtMs,
       lastProgressAtMs: lastProgressAtMs ?? this.lastProgressAtMs,
       resumeAttemptCount: resumeAttemptCount ?? this.resumeAttemptCount,
+      requestNonce: requestNonce ?? this.requestNonce,
       userPublicKey: userPublicKey ?? this.userPublicKey,
       launchEpoch: launchEpoch ?? this.launchEpoch,
       launchBucket: launchBucket ?? this.launchBucket,
@@ -281,6 +351,7 @@ class ZkPassportLocalRegistration {
     this.verifyOuterMs,
     this.wrapOuterMs,
     this.verifyWrappedMs,
+    this.requestVersion,
   });
 
   final bool registered;
@@ -290,6 +361,7 @@ class ZkPassportLocalRegistration {
   final int? verifyOuterMs;
   final int? wrapOuterMs;
   final int? verifyWrappedMs;
+  final ZkPassportRequestVersion? requestVersion;
 
   static ZkPassportLocalRegistration unregistered() {
     return const ZkPassportLocalRegistration(
@@ -308,6 +380,7 @@ class ZkPassportLocalRegistration {
       if (verifyOuterMs != null) 'verify_outer_ms': verifyOuterMs,
       if (wrapOuterMs != null) 'wrap_outer_ms': wrapOuterMs,
       if (verifyWrappedMs != null) 'verify_wrapped_ms': verifyWrappedMs,
+      if (requestVersion != null) ...requestVersion!.toJson(),
     };
   }
 
@@ -342,6 +415,7 @@ class ZkPassportLocalRegistration {
       verifyOuterMs: verifyOuterMs,
       wrapOuterMs: wrapOuterMs,
       verifyWrappedMs: verifyWrappedMs,
+      requestVersion: ZkPassportRequestVersion.fromJson(json),
     );
   }
 

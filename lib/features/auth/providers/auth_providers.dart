@@ -24,6 +24,7 @@ enum AuthStatus { unknown, unauthenticated, guest, authenticated }
 final authStatusProvider = Provider<AuthStatus>((ref) {
   switch (ref.watch(identityProvider).phase) {
     case IdentityPhase.unknown:
+    case IdentityPhase.transitioning:
       return AuthStatus.unknown;
     case IdentityPhase.unauthenticated:
       return AuthStatus.unauthenticated;
@@ -80,8 +81,11 @@ class AuthFlowNotifier extends StateNotifier<AuthFlowState> {
 final accountApiServiceProvider = Provider<AccountApiService>((ref) {
   final service = AccountApiService(
     tokenProvider: () => ref.read(authTokenStoreProvider).read(),
-    onUnauthorized: (epoch) =>
-        ref.read(identityProvider.notifier).onUnauthorized(epoch: epoch),
+    onUnauthorized: (credential) => ref
+        .read(identityProvider.notifier)
+        .onUnauthorized(credential: credential),
+    onCredentialMissing: (epoch) =>
+        ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
   );
   ref.onDispose(service.dispose);
   return service;

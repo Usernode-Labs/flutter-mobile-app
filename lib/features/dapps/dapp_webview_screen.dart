@@ -6,8 +6,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart'
-    show participantIdProvider;
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart'
     show buildEnvProvider, debugModeProvider;
@@ -993,22 +991,33 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     return false;
   }
 
+  bool _identityScopeIsCurrent(Identity identity) =>
+      mounted && identity.sameScopeAs(ref.read(identityProvider));
+
+  Future<void> _rejectStaleIdentityScope(String id, String method) async {
+    if (!mounted) return;
+    await _resolveJsPromise(
+      id: id,
+      value: null,
+      error: '$method was cancelled because the active identity changed',
+    );
+  }
+
   /// `getProfileInfo`: the leaderboard participant id SV's #profile screen
   /// needs to query /me/ranking and /me/breakdown. Null when this install
   /// hasn't registered with the leaderboard yet.
   Future<void> _handleGetProfileInfo(String id) async {
+    final identity = ref.read(identityProvider);
     if (!await _requireTrustedChromeOrigin(id, 'getProfileInfo')) return;
-    int? participantId;
-    try {
-      participantId = await ref
-          .read(participantIdProvider.future)
-          .timeout(const Duration(seconds: 5));
-    } catch (_) {
-      participantId = ref.read(participantIdProvider).valueOrNull;
+    if (!_identityScopeIsCurrent(identity)) {
+      await _rejectStaleIdentityScope(id, 'getProfileInfo');
+      return;
     }
     await _resolveJsPromise(
       id: id,
-      value: {'participantId': participantId},
+      // Use only the captured identity. The participant-id provider may still
+      // hold the previous bucket's value while an identity transition settles.
+      value: {'participantId': identity.participantId},
       error: null,
     );
   }
@@ -1207,8 +1216,19 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// takes over from here (post-logout flow stays native chrome, same
   /// category as onboarding).
   Future<void> _handleLogout(String id) async {
+    final identity = ref.read(identityProvider);
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
-    await ref.read(identityProvider.notifier).logout();
+    if (!_identityScopeIsCurrent(identity)) {
+      await _rejectStaleIdentityScope(id, 'logout');
+      return;
+    }
+    final loggedOut = await ref
+        .read(identityProvider.notifier)
+        .logout(expectedIdentity: identity);
+    if (!loggedOut) {
+      await _rejectStaleIdentityScope(id, 'logout');
+      return;
+    }
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 
@@ -1594,6 +1614,15 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         id: id,
         value: null,
         error: 'Secret key unavailable',
+      );
+      return;
+    }
+
+    if (!signingIdentity.sameScopeAs(IdentitySnapshots.current)) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed; please retry the request.',
       );
       return;
     }

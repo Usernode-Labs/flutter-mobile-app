@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,6 +90,8 @@ class SessionController extends StateNotifier<Identity> {
 
   Future<void>? _restoreFuture;
   Future<void> _queueTail = Future.value();
+  final Queue<Future<void> Function()> _pendingTransitions = Queue();
+  bool _transitionActive = false;
 
   /// Completes when every transition queued so far has finished its
   /// persistence writes. Gate-closing transitions publish the new identity
@@ -99,11 +102,33 @@ class SessionController extends StateNotifier<Identity> {
   Future<void> get transitionsSettled => _queueTail;
 
   /// Runs [body] after every previously queued transition has finished, so
-  /// transitions never interleave.
+  /// transitions never interleave. When idle, [body] starts synchronously so
+  /// gate-closing publications happen before this method returns its Future.
   Future<T> _transition<T>(Future<T> Function() body) {
-    final run = _queueTail.then((_) => body());
-    _queueTail = run.then((_) {}, onError: (_) {});
-    return run;
+    final result = Completer<T>();
+
+    Future<void> run() async {
+      try {
+        result.complete(await body());
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      } finally {
+        if (_pendingTransitions.isEmpty) {
+          _transitionActive = false;
+        } else {
+          unawaited(_pendingTransitions.removeFirst()());
+        }
+      }
+    }
+
+    _queueTail = result.future.then<void>((_) {}, onError: (_) {});
+    if (_transitionActive) {
+      _pendingTransitions.add(run);
+    } else {
+      _transitionActive = true;
+      unawaited(run());
+    }
+    return result.future;
   }
 
   void _publish(Identity next) {
@@ -251,19 +276,19 @@ class SessionController extends StateNotifier<Identity> {
   /// owns — until then the node stays suspended, signing is refused, and the
   /// guest bucket is active so no other identity's data is read or written.
   Future<void> completeLogin(AuthSession session) => _transition(() async {
-        // Close the gate FIRST — before any await. From this instant every
-        // concurrent path (a node start racing this login, a dApp signing
-        // request mid-confirmation) sees the reconciling identity and
-        // refuses; publishing after the writes below would leave a window
-        // where such work passes an entry check under the old settled
-        // identity. Consumers that need the persisted side of this
-        // transition (the reconciler reading the session token) await
-        // [transitionsSettled].
+        final epoch = state.epoch + 1;
+        // Close every account-sensitive gate without yet advertising an
+        // authenticated session. Providers awakened by `reconciling` must
+        // never observe the previous user's token under the new identity.
         _publish(Identity(
-          epoch: state.epoch + 1,
-          phase: IdentityPhase.reconciling,
-          participantId: session.participant.id,
+          epoch: epoch,
+          phase: IdentityPhase.transitioning,
         ));
+        // Replace the boot-restorable credential independently of node
+        // shutdown. A shutdown timeout must leave the in-memory identity
+        // fail-closed in `transitioning`, but it must never resurrect the old
+        // session (or lose this new session) on the next process start.
+        await _tokenStore.clear();
         // Marker + staged id BEFORE the token write: they are the
         // crash-recovery payload. If the token became boot-restorable first
         // and the app died, the participant id would exist only in the lost
@@ -271,28 +296,75 @@ class SessionController extends StateNotifier<Identity> {
         // in-memory publish above — the next boot restores signed-out.)
         await _writeReconcileMarker();
         await stageParticipantIdInGuestBucket(session.participant.id);
-        await _tokenStore.write(session.token);
         await _guestFlag.clear();
-        // A running node keeps signing/producing under whichever account was
-        // active before this login. Ownership is now unknown — stop it (this
-        // also waits out any in-flight start that slipped past the gate).
-        // The reconciler restarts it under the confirmed account.
+        await _tokenStore.write(session.token);
         await _suspendNode();
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.reconciling,
+          participantId: session.participant.id,
+        ));
       });
 
   Future<void> continueAsGuest() => _transition(() async {
+        final epoch = state.epoch + 1;
+        // Close signing/node gates before waiting for the existing producer to
+        // stop. Publishing guest first would allow a new guest node start to
+        // race the shutdown of the previous account's runtime.
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.transitioning,
+        ));
+        // Persist the guest choice before the fallible shutdown. If shutdown
+        // fails, this isolate stays fail-closed in `transitioning`, while a
+        // restart still restores guest instead of the previous credential.
+        await _tokenStore.clear();
         await _guestFlag.setGuest();
         // A leftover staged id (interrupted earlier login) must not resolve
         // for an explicit guest session.
         await clearGuestParticipantId();
+        await _clearReconcileMarker();
+        await _suspendNode();
         _publish(Identity(
-          epoch: state.epoch + 1,
+          epoch: epoch,
           phase: IdentityPhase.guest,
         ));
       });
 
-  Future<void> logout() => _transition(() async {
+  Future<bool> logout({Identity? expectedIdentity}) => _transition(() async {
+        // Async bridge callbacks may have been authorized by a prior identity.
+        if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
+          return false;
+        }
+
+        final epoch = state.epoch + 1;
+        // Revoke every in-memory account-sensitive lease synchronously. The
+        // durable credential is cleared below before the fallible producer
+        // shutdown, and the settled identity is published only after it.
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.transitioning,
+        ));
         final token = await _tokenStore.read();
+        // Clear the boot-restorable credential before the best-effort network
+        // request. A crash or app restart while /logout is slow must restore
+        // signed out, not resurrect this session.
+        await _tokenStore.clear();
+        await _guestFlag.clear();
+        await clearGuestParticipantId();
+        await _clearReconcileMarker();
+        // Credential revocation above is durable even when process-global node
+        // shutdown fails. Do not publish a settled signed-out identity until
+        // the producer is confirmed down.
+        await _suspendNode();
+        final active = await (await AccountsRepository.create()).getActive();
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.unauthenticated,
+          accountId: active?.id,
+          address: active?.address,
+        ));
+
         if (token != null && token.isNotEmpty) {
           try {
             await _repository.logout(token);
@@ -300,41 +372,85 @@ class SessionController extends StateNotifier<Identity> {
             _log.warn('Server-side logout failed (token cleared anyway): $e');
           }
         }
-        await _tokenStore.clear();
-        await _guestFlag.clear();
-        await clearGuestParticipantId();
-        await _clearReconcileMarker();
-        final active = await (await AccountsRepository.create()).getActive();
-        _publish(Identity(
-          epoch: state.epoch + 1,
-          phase: IdentityPhase.unauthenticated,
-          accountId: active?.id,
-          address: active?.address,
-        ));
+        return true;
       });
 
-  /// A request authenticated under [epoch] came back 401. Ignored when the
-  /// identity has already transitioned since — a late 401 from a previous
-  /// session must not clear the newly written token.
-  Future<void> onUnauthorized({required int epoch}) => _transition(() async {
-        if (state.epoch != epoch) {
-          _log.warn('Ignoring 401 from a request issued under epoch $epoch '
+  /// A request carrying [credential] came back 401. It may invalidate only
+  /// that exact identity epoch and token.
+  Future<void> onUnauthorized({
+    required AuthCredentialLease credential,
+  }) =>
+      _transition(() async {
+        if (state.epoch != credential.epoch) {
+          _log.warn('Ignoring 401 from a request issued under epoch '
+              '${credential.epoch} '
               '(current: ${state.epoch})');
           return;
         }
+        final currentToken = await _tokenStore.read();
+        if (state.epoch != credential.epoch ||
+            currentToken != credential.token) {
+          _log.warn('Ignoring 401 for a credential that is no longer current');
+          return;
+        }
+        final epoch = state.epoch + 1;
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.transitioning,
+        ));
         await _tokenStore.clear();
+        await clearGuestParticipantId();
+        await _clearReconcileMarker();
         // A 401 invalidates the TOKEN, not the user's explicit guest choice.
         final guest = await _guestFlag.isGuest();
+        await _suspendNode();
         if (guest) {
           _publish(Identity(
-            epoch: state.epoch + 1,
+            epoch: epoch,
             phase: IdentityPhase.guest,
           ));
           return;
         }
         final active = await (await AccountsRepository.create()).getActive();
         _publish(Identity(
-          epoch: state.epoch + 1,
+          epoch: epoch,
+          phase: IdentityPhase.unauthenticated,
+          accountId: active?.id,
+          address: active?.address,
+        ));
+      });
+
+  /// Repairs an authenticated identity whose credential disappeared before a
+  /// request could be sent. A token written since the caller's read wins.
+  Future<void> onCredentialMissing({required int epoch}) =>
+      _transition(() async {
+        if (state.epoch != epoch || !state.isAuthenticated) return;
+        final currentToken = await _tokenStore.read();
+        if (state.epoch != epoch ||
+            !state.isAuthenticated ||
+            (currentToken != null && currentToken.isNotEmpty)) {
+          return;
+        }
+        final nextEpoch = state.epoch + 1;
+        _publish(Identity(
+          epoch: nextEpoch,
+          phase: IdentityPhase.transitioning,
+        ));
+        await _tokenStore.clear();
+        await clearGuestParticipantId();
+        await _clearReconcileMarker();
+        final guest = await _guestFlag.isGuest();
+        await _suspendNode();
+        if (guest) {
+          _publish(Identity(
+            epoch: nextEpoch,
+            phase: IdentityPhase.guest,
+          ));
+          return;
+        }
+        final active = await (await AccountsRepository.create()).getActive();
+        _publish(Identity(
+          epoch: nextEpoch,
           phase: IdentityPhase.unauthenticated,
           accountId: active?.id,
           address: active?.address,

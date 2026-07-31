@@ -19,6 +19,9 @@ enum IdentityPhase {
   /// Boot: nothing resolved yet.
   unknown,
 
+  /// An identity-changing transition is closing account-sensitive gates.
+  transitioning,
+
   /// No session and no explicit guest choice.
   unauthenticated,
 
@@ -90,13 +93,17 @@ class Identity {
 
   /// Whether account-scoped state can be trusted to belong to this identity.
   bool get isSettled =>
-      phase != IdentityPhase.reconciling && phase != IdentityPhase.unknown;
+      phase != IdentityPhase.transitioning &&
+      phase != IdentityPhase.reconciling &&
+      phase != IdentityPhase.unknown;
 
   /// Node starts are refused while the identity is unsettled: the runtime
   /// would capture the active account's key, which may belong to a previous
   /// user. Only the reconciler (which is establishing that binding) may
   /// override.
-  bool get allowsNodeStart => phase != IdentityPhase.reconciling;
+  bool get allowsNodeStart =>
+      phase != IdentityPhase.transitioning &&
+      phase != IdentityPhase.reconciling;
 
   /// Signing (dApp bridge, Send flow) requires an identity that OWNS an
   /// account: a confirmed authenticated identity, or the local-only
@@ -107,6 +114,15 @@ class Identity {
   bool get allowsSigning =>
       phase == IdentityPhase.ready ||
       (phase == IdentityPhase.unauthenticated && address != null);
+
+  /// Exact equality for async work that must not cross identity publication.
+  bool sameScopeAs(Identity other) =>
+      epoch == other.epoch &&
+      phase == other.phase &&
+      participantId == other.participantId &&
+      accountId == other.accountId &&
+      address == other.address &&
+      provisionedSeasonId == other.provisionedSeasonId;
 
   Identity copyWith({
     int? epoch,
@@ -136,6 +152,29 @@ class Identity {
   String toString() => 'Identity(epoch: $epoch, phase: ${phase.name}, '
       'participantId: $participantId, accountId: $accountId, '
       'seasonId: $provisionedSeasonId)';
+}
+
+/// The exact credential attached to one authenticated request.
+@immutable
+class AuthCredentialLease {
+  const AuthCredentialLease({
+    required this.epoch,
+    required this.token,
+  });
+
+  final int epoch;
+  final String token;
+
+  @override
+  String toString() => 'AuthCredentialLease(epoch: $epoch, token: <redacted>)';
+}
+
+/// The credential changed while an authenticated request was being prepared.
+class StaleAuthCredentialException implements Exception {
+  const StaleAuthCredentialException();
+
+  @override
+  String toString() => 'StaleAuthCredentialException()';
 }
 
 /// Ambient read-only mirror of the current [Identity] for code that has no

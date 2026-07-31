@@ -66,16 +66,18 @@ void main() {
   });
 
   group('identityGateRedirect', () {
-    test('a reconciling identity blocks wallet routes', () {
-      for (final route in identityGatedRoutes) {
-        expect(
-          identityGateRedirect(
-            phase: IdentityPhase.reconciling,
-            location: route,
-          ),
-          AppRoutes.home,
-          reason: route,
-        );
+    test('transitioning and reconciling identities block wallet routes', () {
+      for (final phase in [
+        IdentityPhase.transitioning,
+        IdentityPhase.reconciling,
+      ]) {
+        for (final route in identityGatedRoutes) {
+          expect(
+            identityGateRedirect(phase: phase, location: route),
+            AppRoutes.home,
+            reason: '${phase.name}: $route',
+          );
+        }
       }
     });
 

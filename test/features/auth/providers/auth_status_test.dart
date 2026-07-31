@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +20,7 @@ import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 /// with nothing to migrate and the participant id is lost.
 ///
 /// Also records the published identity phase at write time: the gate must
-/// close (reconciling published) BEFORE any of the transition's awaits, so
+/// close (`transitioning` published) BEFORE any persistence, so
 /// concurrent signing/node-start checks can't pass under the old identity.
 class _OrderProbeTokenStore extends AuthTokenStore {
   bool payloadPersistedBeforeTokenWrite = false;
@@ -36,6 +37,19 @@ class _OrderProbeTokenStore extends AuthTokenStore {
     payloadPersistedBeforeTokenWrite = stagedId != null && markerSet;
     phaseAtTokenWrite = IdentitySnapshots.current.phase;
     await super.write(token);
+  }
+}
+
+class _BlockingLogoutRepository extends AuthRepository {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  String? token;
+
+  @override
+  Future<void> logout(String sessionToken) async {
+    token = sessionToken;
+    started.complete();
+    await release.future;
   }
 }
 
@@ -161,6 +175,39 @@ void main() {
     expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
   });
 
+  test('completeLogin closes gates synchronously before replacing the token',
+      () async {
+    final stopStarted = Completer<void>();
+    final stopRelease = Completer<void>();
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: AuthRepository(),
+      suspendNode: () {
+        stopStarted.complete();
+        return stopRelease.future;
+      },
+    );
+    addTearDown(controller.dispose);
+
+    final login = controller.completeLogin(_session('sess-2'));
+    expect(controller.state.phase, IdentityPhase.transitioning);
+    expect(controller.state.isAuthenticated, isFalse);
+    expect(controller.state.allowsNodeStart, isFalse);
+    await stopStarted.future;
+    // The crash-recovery payload and replacement credential are durable even
+    // while shutdown is still pending; the identity remains fail-closed.
+    expect(await AuthTokenStore().read(), 'sess-2');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
+    expect(controller.state.phase, IdentityPhase.transitioning);
+
+    stopRelease.complete();
+    await login;
+    expect(controller.state.phase, IdentityPhase.reconciling);
+    expect(await AuthTokenStore().read(), 'sess-2');
+  });
+
   test('completeLogin stages the session user id in the guest bucket',
       () async {
     final c = ProviderContainer();
@@ -270,6 +317,118 @@ void main() {
     expect(c.read(authStatusProvider), AuthStatus.guest);
   });
 
+  test(
+      'continueAsGuest persists guest before shutdown and settles only after it',
+      () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    final stopStarted = Completer<void>();
+    final stopRelease = Completer<void>();
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: AuthRepository(),
+      suspendNode: () {
+        stopStarted.complete();
+        return stopRelease.future;
+      },
+    );
+    addTearDown(controller.dispose);
+
+    final transition = controller.continueAsGuest();
+    expect(controller.state.phase, IdentityPhase.transitioning);
+    expect(controller.state.allowsNodeStart, isFalse);
+    expect(controller.state.allowsSigning, isFalse);
+    await stopStarted.future;
+    expect(await AuthTokenStore().read(), isNull);
+    expect(await AuthGuestFlag().isGuest(), isTrue);
+    expect(controller.state.phase, IdentityPhase.transitioning);
+
+    stopRelease.complete();
+    await transition;
+    expect(controller.state.phase, IdentityPhase.guest);
+  });
+
+  test('failed guest shutdown keeps the gate closed but revokes durably',
+      () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: AuthRepository(),
+      suspendNode: () async => throw StateError('shutdown timeout'),
+    );
+    addTearDown(controller.dispose);
+
+    await expectLater(controller.continueAsGuest(), throwsStateError);
+
+    expect(controller.state.phase, IdentityPhase.transitioning);
+    expect(await AuthTokenStore().read(), isNull);
+    expect(await AuthGuestFlag().isGuest(), isTrue);
+  });
+
+  test('failed login shutdown preserves crash-safe replacement state',
+      () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-old'});
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: AuthRepository(),
+      suspendNode: () async => throw StateError('shutdown timeout'),
+    );
+    addTearDown(controller.dispose);
+
+    await expectLater(
+      controller.completeLogin(_session('sess-new')),
+      throwsStateError,
+    );
+
+    expect(controller.state.phase, IdentityPhase.transitioning);
+    expect(await AuthTokenStore().read(), 'sess-new');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
+    expect(
+      prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
+      1,
+    );
+  });
+
+  test('logout clears locally before waiting for the remote request', () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    final repository = _BlockingLogoutRepository();
+    final stopStarted = Completer<void>();
+    final stopRelease = Completer<void>();
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: repository,
+      suspendNode: () {
+        stopStarted.complete();
+        return stopRelease.future;
+      },
+    );
+    addTearDown(controller.dispose);
+
+    final logout = controller.logout();
+    expect(controller.state.phase, IdentityPhase.transitioning);
+    expect(controller.state.allowsSigning, isFalse);
+    await stopStarted.future;
+    expect(await AuthTokenStore().read(), isNull);
+    expect(controller.state.phase, IdentityPhase.transitioning);
+    stopRelease.complete();
+    await repository.started.future;
+
+    expect(await AuthTokenStore().read(), isNull);
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(repository.token, 'sess-1');
+
+    repository.release.complete();
+    expect(await logout, isTrue);
+  });
+
   test('onUnauthorized clears token and unauthenticates', () async {
     FlutterSecureStorage.setMockInitialValues(
         {'auth:v3:session_token': 'sess-1'});
@@ -277,7 +436,9 @@ void main() {
     addTearDown(c.dispose);
     await _settle(c);
     final epoch = c.read(identityProvider).epoch;
-    await c.read(identityProvider.notifier).onUnauthorized(epoch: epoch);
+    await c.read(identityProvider.notifier).onUnauthorized(
+          credential: AuthCredentialLease(epoch: epoch, token: 'sess-1'),
+        );
     expect(c.read(authStatusProvider), AuthStatus.unauthenticated);
     expect(await c.read(authTokenStoreProvider).read(), isNull);
   });
@@ -292,14 +453,118 @@ void main() {
     // A newer login writes a fresh token; the stale request's late 401 must
     // not clear it.
     await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
-    await c.read(identityProvider.notifier).onUnauthorized(epoch: staleEpoch);
+    await c.read(identityProvider.notifier).onUnauthorized(
+          credential: AuthCredentialLease(epoch: staleEpoch, token: 'sess-1'),
+        );
     expect(c.read(authStatusProvider), AuthStatus.authenticated);
     expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
   });
 
+  test('401 for a replaced token in the same epoch is ignored', () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    final epoch = c.read(identityProvider).epoch;
+    await c.read(authTokenStoreProvider).write('sess-2');
+
+    await c.read(identityProvider.notifier).onUnauthorized(
+          credential: AuthCredentialLease(epoch: epoch, token: 'sess-1'),
+        );
+
+    expect(c.read(authStatusProvider), AuthStatus.authenticated);
+    expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
+  });
+
+  test('missing-token callback cannot clear a token written since its read',
+      () async {
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    await _settle(c);
+    final epoch = c.read(identityProvider).epoch;
+    await c.read(authTokenStoreProvider).write('sess-2');
+
+    await c.read(identityProvider.notifier).onCredentialMissing(epoch: epoch);
+
+    expect(c.read(authStatusProvider), AuthStatus.authenticated);
+    expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
+  });
+
+  test('credential loss stops the existing node before settling signed-out',
+      () async {
+    var nodeStops = 0;
+    final tokenStore = AuthTokenStore();
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: AuthRepository(),
+      suspendNode: () async {
+        nodeStops++;
+      },
+    );
+    addTearDown(controller.dispose);
+    await controller.completeLogin(_session('sess-1'));
+    final epoch = controller.state.epoch;
+    await tokenStore.clear();
+
+    await controller.onCredentialMissing(epoch: epoch);
+
+    expect(nodeStops, 2); // login replacement + credential loss
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+  });
+
+  test('an exact 401 stops the existing node before settling signed-out',
+      () async {
+    var nodeStops = 0;
+    final tokenStore = AuthTokenStore();
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: AuthRepository(),
+      suspendNode: () async {
+        nodeStops++;
+      },
+    );
+    addTearDown(controller.dispose);
+    await controller.completeLogin(_session('sess-1'));
+    final epoch = controller.state.epoch;
+
+    await controller.onUnauthorized(
+      credential: AuthCredentialLease(epoch: epoch, token: 'sess-1'),
+    );
+
+    expect(nodeStops, 2); // login replacement + rejected credential
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(await tokenStore.read(), isNull);
+  });
+
+  test('stale bridge logout cannot log out a replacement identity', () async {
+    final tokenStore = AuthTokenStore();
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: AuthRepository(),
+      suspendNode: () async {},
+    );
+    addTearDown(controller.dispose);
+    await controller.completeLogin(_session('sess-1'));
+    final staleIdentity = controller.state;
+    await controller.completeLogin(_session('sess-2'));
+
+    expect(
+      await controller.logout(expectedIdentity: staleIdentity),
+      isFalse,
+    );
+    expect(controller.state.phase, IdentityPhase.reconciling);
+    expect(await tokenStore.read(), 'sess-2');
+  });
+
   test(
       'completeLogin closes the identity gate before its persistence writes '
-      '(concurrent signing/node checks see reconciling)', () async {
+      '(concurrent signing/node checks see transitioning)', () async {
     final probe = _OrderProbeTokenStore();
     final c = ProviderContainer(overrides: [
       authTokenStoreProvider.overrideWithValue(probe),
@@ -307,9 +572,9 @@ void main() {
     addTearDown(c.dispose);
     await _settle(c);
     await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
-    // By the time the token write ran (mid-transition), the reconciling
+    // By the time the token write ran (mid-transition), the transitioning
     // identity was already published — the gate was closed first.
-    expect(probe.phaseAtTokenWrite, IdentityPhase.reconciling);
+    expect(probe.phaseAtTokenWrite, IdentityPhase.transitioning);
   });
 
   test('guest sessions never allow signing or wallet exposure', () async {
@@ -417,7 +682,10 @@ void main() {
     addTearDown(c.dispose);
     await _settle(c);
     final epoch = c.read(identityProvider).epoch;
-    await c.read(identityProvider.notifier).onUnauthorized(epoch: epoch);
+    await c.read(authTokenStoreProvider).write('stray-token');
+    await c.read(identityProvider.notifier).onUnauthorized(
+          credential: AuthCredentialLease(epoch: epoch, token: 'stray-token'),
+        );
     expect(c.read(authStatusProvider), AuthStatus.guest);
   });
 }

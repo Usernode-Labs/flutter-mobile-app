@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 
@@ -32,7 +33,20 @@ Map<String, dynamic> _envelope(Object data) => {
       'data': data,
     };
 
+void _publishAuthenticatedIdentity() {
+  IdentitySnapshots.publish(const Identity(
+    epoch: 7,
+    phase: IdentityPhase.ready,
+    participantId: 1,
+    accountId: 'account-1',
+    address: 'address-1',
+  ));
+}
+
 void main() {
+  setUp(IdentitySnapshots.reset);
+  tearDown(IdentitySnapshots.reset);
+
   // -------------------------------------------------------------------------
   // register
   // -------------------------------------------------------------------------
@@ -678,6 +692,7 @@ void main() {
 
   group('auth', () {
     test('attaches Bearer token from tokenProvider on GET', () async {
+      _publishAuthenticatedIdentity();
       String? auth;
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
@@ -720,19 +735,45 @@ void main() {
     });
 
     test('401 invokes onUnauthorized then throws', () async {
-      var cleared = false;
+      _publishAuthenticatedIdentity();
+      AuthCredentialLease? rejectedCredential;
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
         httpClient: _mockClient(401, {'error': 'unauth'}),
         tokenProvider: () async => 'sess-xyz',
-        onUnauthorized: (epoch) async => cleared = true,
+        onUnauthorized: (credential) async {
+          rejectedCredential = credential;
+        },
         maxGetRetries: 0,
       );
       await expectLater(
         () => service.getRanking(seasonId: 1),
         throwsA(isA<LeaderboardApiException>()),
       );
-      expect(cleared, true);
+      expect(rejectedCredential?.token, 'sess-xyz');
+    });
+
+    test('token replacement during retry backoff cancels the retry', () async {
+      _publishAuthenticatedIdentity();
+      var token = 'sess-old';
+      var requests = 0;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: MockClient((request) async {
+          requests++;
+          token = 'sess-new';
+          return http.Response(jsonEncode({'error': 'retry'}), 500);
+        }),
+        tokenProvider: () async => token,
+        maxGetRetries: 1,
+        retryBaseDelay: Duration.zero,
+      );
+
+      await expectLater(
+        () => service.getRanking(seasonId: 1),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+      expect(requests, 1);
     });
   });
 }

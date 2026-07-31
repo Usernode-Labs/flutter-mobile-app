@@ -77,6 +77,7 @@ class RustBackendService {
   Completer<bool>? _startNodeCompleter;
   bool _nodeRunning = false;
   bool _nodePaused = false;
+  bool? _runtimeViewOnly;
   String? _instanceId;
   String? _cachedPeerId;
   int? _cachedGenesisTimestamp;
@@ -359,57 +360,103 @@ class RustBackendService {
     if (!_initialized) {
       await init();
     }
+
+    // Resolve keyless authority before consulting local/global runtime state
+    // or loading an account secret. SharedPreferences is cached per engine,
+    // so refresh the durable guest flag at this security boundary.
+    final guestSession =
+        IdentitySnapshots.current.phase == IdentityPhase.guest ||
+            await AuthGuestFlag().isGuest(reload: true);
+    final viewOnly = AppConfig.viewOnly || guestSession;
+
     if (_nodeRunning) {
-      _log.trace('Node already running');
-      unawaited(
-        ObservabilityReportingService.instance.reportNodeInitialized(
-          resetStaticContext: false,
-        ),
-      );
-      return true;
+      if (viewOnly) {
+        if (_runtimeViewOnly == true) {
+          _log.trace('Keyless view-only node already running');
+          return true;
+        }
+        _log.warn('View-only start found a locally tracked runtime; '
+            'shutting it down before rebuilding without account keys');
+        _control?.shutdown();
+        final wentDown = await _waitForGlobalNodeDown();
+        if (!wentDown) {
+          _log.error('Tracked node did not shut down; refusing to accept '
+              'unknown producer authority in view-only mode');
+          return false;
+        }
+        _nodeRunning = false;
+        _nodePaused = false;
+        _runtimeViewOnly = null;
+        _rpc = null;
+        _control = null;
+        _cachedPeerId = null;
+        _clearNodeClockDrift();
+      } else {
+        _log.trace('Node already running');
+        unawaited(
+          ObservabilityReportingService.instance.reportNodeInitialized(
+            resetStaticContext: false,
+          ),
+        );
+        return true;
+      }
     }
 
-    // Get active account
-    final repo = await AccountsRepository.create();
-    _log.trace('Checking if any accounts exist...');
-    final hasAny = await repo.hasAny();
-    _log.trace('Account check result: hasAny = $hasAny');
-    if (!hasAny) {
-      _log.trace('No accounts found - skipping node start');
-      return false;
+    String? accountId;
+    String? secretKey;
+    if (!viewOnly) {
+      // Only producer-capable starts may resolve and materialize an account
+      // secret. Guest/view-only starts stay keyless even when an old account
+      // remains in the registry.
+      final repo = await AccountsRepository.create();
+      _log.trace('Checking if any accounts exist...');
+      final hasAny = await repo.hasAny();
+      _log.trace('Account check result: hasAny = $hasAny');
+      if (!hasAny) {
+        _log.trace('No accounts found - skipping node start');
+        return false;
+      }
+
+      _log.debug('Retrieving active account...');
+      final account = await repo.getActive();
+      if (account == null) {
+        _log.error('Failed to retrieve active account');
+        return false;
+      }
+      accountId = account.id;
+      _log.debug('Active account: ${account.id} (${account.name})');
+
+      _log.trace('Retrieving secret key for account ${account.id}...');
+      secretKey = await repo.getSecretKey(account.id);
+      if (secretKey == null || secretKey.isEmpty) {
+        _log.error(
+          'Cannot start node: secret key unavailable for account ${account.id}',
+        );
+        return false;
+      }
+      // SECURITY: Only log key length, not value.
+      _log.trace('Secret key retrieved (length: ${secretKey.length})');
     }
-
-    // Retrieve active account
-    _log.debug('Retrieving active account...');
-    final account = await repo.getActive();
-
-    if (account == null) {
-      _log.error('Failed to retrieve active account');
-      return false;
-    }
-
-    _log.debug('Active account: ${account.id} (${account.name})');
-
-    // Get secret key for active account
-    _log.trace('Retrieving secret key for account ${account.id}...');
-    final secretKey = await repo.getSecretKey(account.id);
-
-    if (secretKey == null || secretKey.isEmpty) {
-      _log.error(
-        'Cannot start node: secret key unavailable for account ${account.id}',
-      );
-      return false;
-    }
-
-    // SECURITY: Only log key length, not value
-    _log.trace('Secret key retrieved (length: ${secretKey.length})');
 
     // First try to reuse an already-running *global* node (shared across Dart
     // isolates / FlutterEngines in the same process) by grabbing its RPC client.
     // This avoids spinning up a second node when another engine already started it.
     final existing = Node.getGlobal();
     if (existing case (final rpc, final control)) {
-      if (freshRuntime) {
+      if (viewOnly) {
+        // Producer status is nullable, so probing cannot positively establish
+        // that an inherited runtime is keyless. Rebuild it instead. This also
+        // removes any wallet signer retained by the previous identity.
+        _log.warn('View-only start found an existing global node; '
+            'shutting it down before rebuilding without account keys');
+        control.shutdown();
+        final wentDown = await _waitForGlobalNodeDown();
+        if (!wentDown) {
+          _log.error('Existing global node did not shut down; refusing to '
+              'enter view-only mode with unknown producer authority');
+          return false;
+        }
+      } else if (freshRuntime) {
         // A reconciler start must bind BOTH runtime identities (block
         // producer + wallet signer) to the reconciled account. The producer
         // key of an existing runtime was fixed at build time and cannot be
@@ -429,10 +476,11 @@ class RustBackendService {
         _control = control;
         _nodeRunning = true;
         _nodePaused = false;
+        _runtimeViewOnly = false;
         control.resume();
         await _cachePeerIdFromRpc(rpc);
 
-        final signerOk = await _configureWalletSigner(secretKey, account.id);
+        final signerOk = await _configureWalletSigner(secretKey!, accountId!);
         if (!signerOk) {
           // The reused runtime still holds whichever signer it was left
           // with — possibly a previous account's. Running like that lets
@@ -466,15 +514,13 @@ class RustBackendService {
       // A guest session is treated as view-only: the node still runs and syncs,
       // but never produces blocks — a returning operator's leftover keys must
       // not operate while browsing as a guest.
-      final guestSession = await AuthGuestFlag().isGuest();
-      final viewOnly = AppConfig.viewOnly || guestSession;
       if (viewOnly) {
         _log.info(guestSession
             ? 'Guest session; node runs non-producing (no block producer)'
             : 'VIEW_ONLY enabled; skipping block producer configuration');
       } else {
         _log.trace(
-          'Configuring block producer with user secret key (length: ${secretKey.length})',
+          'Configuring block producer with user secret key (length: ${secretKey!.length})',
         );
         builder.blockProducerSecretKey(secretKey: secretKey);
       }
@@ -519,6 +565,7 @@ class RustBackendService {
       _control = node.runForeverInNewThread();
       _nodeRunning = true;
       _nodePaused = false;
+      _runtimeViewOnly = viewOnly;
 
       // Cache peer ID once on startup.
       // Prefer RPC status so callers don't depend on holding a Node handle.
@@ -530,17 +577,21 @@ class RustBackendService {
         _log.warn('Failed to cache peer ID (node may still be starting): $e');
       }
 
-      final signerOk = await _configureWalletSigner(secretKey, account.id);
-      if (!signerOk) {
-        // The producer key is correct (set at build), but wallet RPC sends
-        // would fail or — worse, after a future reuse — sign under a stale
-        // signer. A start that cannot bind the signer is a failed start;
-        // the reconciler must not commit `ready` on top of it.
-        _teardownRuntimeAfterFailedBind();
-        return false;
+      if (!viewOnly) {
+        final signerOk = await _configureWalletSigner(secretKey!, accountId!);
+        if (!signerOk) {
+          // The producer key is correct (set at build), but wallet RPC sends
+          // would fail or — worse, after a future reuse — sign under a stale
+          // signer. A start that cannot bind the signer is a failed start;
+          // the reconciler must not commit `ready` on top of it.
+          _teardownRuntimeAfterFailedBind();
+          return false;
+        }
       }
 
-      _log.info('Node started with user account block producer');
+      _log.info(viewOnly
+          ? 'Node started in keyless view-only mode'
+          : 'Node started with user account block producer');
       unawaited(
         ObservabilityReportingService.instance.reportNodeInitialized(
           resetStaticContext: true,
@@ -548,8 +599,10 @@ class RustBackendService {
       );
       return true;
     } catch (e, st) {
-      _log.error('Failed to start node with account ${account.id}',
-          error: e, stackTrace: st);
+      _log.error(
+          'Failed to start node${accountId == null ? '' : ' with account $accountId'}',
+          error: e,
+          stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'startNode');
       return false;
     }
@@ -601,11 +654,17 @@ class RustBackendService {
   /// [stopNode] would wait on.
   void _teardownRuntimeAfterFailedBind() {
     _control?.shutdown();
+    _clearLocalRuntimeState();
+  }
+
+  void _clearLocalRuntimeState() {
     _nodeRunning = false;
     _nodePaused = false;
+    _runtimeViewOnly = null;
     _rpc = null;
     _control = null;
     _cachedPeerId = null;
+    _clearNodeClockDrift();
   }
 
   /// Polls until [Node.getGlobal] reports the process-wide node as down
@@ -629,6 +688,11 @@ class RustBackendService {
     if (!IdentitySnapshots.current.allowsNodeStart) {
       _log.warn('resumeNode refused: identity is '
           '${IdentitySnapshots.current.phase.name}');
+      return;
+    }
+    if (IdentitySnapshots.current.phase == IdentityPhase.guest &&
+        _runtimeViewOnly != true) {
+      _log.warn('resumeNode refused: guest runtime is not confirmed keyless');
       return;
     }
     _log.info('Resuming node');
@@ -659,18 +723,43 @@ class RustBackendService {
     // exact wrong-key window login suspension exists to close). Wait it
     // out, then stop whatever it produced.
     await waitForStartCompletion();
-    if (!_initialized && !_nodeRunning) return;
+    final global = Node.getGlobal();
+    if (!_initialized && !_nodeRunning && global == null) return;
     // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
     _log.warn(
       'Stopping node (dropping references; FRB stays initialized)',
     );
-    _control?.shutdown();
-    _nodeRunning = false;
-    _nodePaused = false;
-    _rpc = null;
-    _control = null;
-    _cachedPeerId = null;
-    _clearNodeClockDrift();
+    Object? shutdownError;
+    StackTrace? shutdownStack;
+    try {
+      if (global case (_, final globalControl)) {
+        try {
+          globalControl.shutdown();
+          final wentDown = await _waitForGlobalNodeDown();
+          if (!wentDown) {
+            throw StateError('process-global node did not shut down');
+          }
+        } catch (error, stackTrace) {
+          shutdownError = error;
+          shutdownStack = stackTrace;
+        }
+      } else {
+        try {
+          _control?.shutdown();
+        } catch (error, stackTrace) {
+          shutdownError = error;
+          shutdownStack = stackTrace;
+        }
+      }
+    } finally {
+      // Never retain a locally "running" façade after shutdown was requested.
+      // The error is still rethrown below so identity transitions remain
+      // fail-closed until a later retry confirms the process-global node down.
+      _clearLocalRuntimeState();
+    }
+    if (shutdownError != null) {
+      Error.throwWithStackTrace(shutdownError, shutdownStack!);
+    }
   }
 
   /// Get the currently selected network type from storage.

@@ -79,6 +79,27 @@ void main() {
       expect(calls, isEmpty);
     });
 
+    test('becoming guest starts keyless node syncing when wired', () async {
+      final calls = <String>[];
+      final guest = _identity(IdentityPhase.guest, epoch: 2);
+      final driver = IdentityDriver(
+        reconcileNodeAccount: () async => calls.add('reconcile'),
+        retryPendingZkCompletion: () async => calls.add('zk-retry'),
+        startGuestNode: (identity) async {
+          expect(identity, same(guest));
+          calls.add('guest-node');
+        },
+      );
+
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.transitioning, epoch: 2),
+        guest,
+      );
+      await driver.lastRun;
+
+      expect(calls, ['guest-node']);
+    });
+
     test('signed-out transitions run nothing', () async {
       final calls = <String>[];
       final driver = IdentityDriver(

@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
@@ -23,6 +24,9 @@ final _log = LoggingService.instance.withTag('usernode/IdentityDriver');
 ///   backend completion (the identity-keyed outbox row). Runs only once the
 ///   identity is settled so a proof is never submitted under an unsettled
 ///   bucket/token pairing.
+/// - transition into [IdentityPhase.guest] → start the process node through
+///   its keyless guest path so browsing retains node sync without producer or
+///   wallet-signer authority.
 ///
 /// Failures are logged and reported, never rethrown: this is opportunistic
 /// repair, and each unit has its own recovery path (onboarding retry, the
@@ -31,11 +35,14 @@ class IdentityDriver {
   IdentityDriver({
     required Future<void> Function() reconcileNodeAccount,
     required Future<void> Function() retryPendingZkCompletion,
+    Future<void> Function(Identity identity)? startGuestNode,
   })  : _reconcileNodeAccount = reconcileNodeAccount,
-        _retryPendingZkCompletion = retryPendingZkCompletion;
+        _retryPendingZkCompletion = retryPendingZkCompletion,
+        _startGuestNode = startGuestNode;
 
   final Future<void> Function() _reconcileNodeAccount;
   final Future<void> Function() _retryPendingZkCompletion;
+  final Future<void> Function(Identity identity)? _startGuestNode;
 
   /// The run started by the most recent identity change, for tests and
   /// callers that need to observe completion. Null until the first trigger.
@@ -54,6 +61,13 @@ class IdentityDriver {
         previous?.phase != IdentityPhase.ready;
     if (becameReady) {
       lastRun = _runZkRetry();
+      unawaited(lastRun);
+      return;
+    }
+    final becameGuest = next.phase == IdentityPhase.guest &&
+        previous?.phase != IdentityPhase.guest;
+    if (becameGuest && _startGuestNode != null) {
+      lastRun = _runGuestStart(next);
       unawaited(lastRun);
     }
   }
@@ -75,6 +89,15 @@ class IdentityDriver {
       await SentryUtil.captureError(e, st, tag: 'identity_zk_retry');
     }
   }
+
+  Future<void> _runGuestStart(Identity identity) async {
+    try {
+      await _startGuestNode!(identity);
+    } catch (e, st) {
+      _log.warn('Guest keyless node start failed: $e');
+      await SentryUtil.captureError(e, st, tag: 'identity_guest_node');
+    }
+  }
 }
 
 /// Always-alive listener wiring [IdentityDriver] to [identityProvider].
@@ -86,6 +109,22 @@ final identityDriverProvider = Provider<IdentityDriver>((ref) {
         ref.read(nodeAccountReconcilerProvider).reconcile(),
     retryPendingZkCompletion: () =>
         ref.read(zkPassportPipelineProvider.notifier).retryPendingCompletion(),
+    startGuestNode: (guestIdentity) async {
+      // The guest publication is the last write in continueAsGuest, but wait
+      // for the transition result so a queued replacement transition gets the
+      // first chance to close the node gate. Re-check the exact snapshot before
+      // invoking the start; startNode performs its own post-start gate check.
+      await ref.read(identityProvider.notifier).transitionsSettled;
+      final current = ref.read(identityProvider);
+      if (current.phase != IdentityPhase.guest ||
+          !current.sameScopeAs(guestIdentity)) {
+        return;
+      }
+      final started = await RustBackendService.instance.startNode();
+      if (!started) {
+        _log.warn('Guest identity settled but keyless node did not start');
+      }
+    },
   );
   ref.listen<Identity>(
     identityProvider,

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 final _log = LoggingService.instance.withTag('usernode/LogShareService');
@@ -20,7 +21,15 @@ enum LogShareOutcome {
   /// Transient failure (network error or 5xx after retries). The cursor is kept
   /// so the same batch is re-sent on the next flush.
   failed,
+
+  /// The sharing session's exact identity/token pair was replaced.
+  stale,
 }
+
+typedef LogShareCredentialSender = Future<http.Response?> Function(
+  AuthCredentialLease credential,
+  Future<http.Response> Function() send,
+);
 
 /// Fire-and-forget client for `POST /api/v3/mobile/logs`.
 ///
@@ -36,44 +45,48 @@ class LogShareService {
   LogShareService({
     String? baseUrl,
     http.Client? httpClient,
-    Future<String?> Function()? tokenProvider,
+    Duration retryBackoff = const Duration(seconds: 1),
   })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
         _http = httpClient ?? http.Client(),
-        _tokenProvider = tokenProvider;
+        _retryBackoff = retryBackoff;
 
   final String _baseUrl;
   final http.Client _http;
-  final Future<String?> Function()? _tokenProvider;
+  final Duration _retryBackoff;
 
   static const _maxAttempts = 3;
-  static const _baseBackoff = Duration(seconds: 1);
   static const _headers = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
 
   /// POST [body] as the authed participant. See [LogShareOutcome] for semantics.
-  /// Without a session token the request is skipped (the v3 endpoint requires
-  /// one), reported as [LogShareOutcome.stop].
+  /// The captured [credential] is revalidated at every send effect so retries
+  /// cannot silently move to a replacement session.
   Future<LogShareOutcome> postLogs({
     required Map<String, dynamic> body,
+    required AuthCredentialLease credential,
+    required LogShareCredentialSender sendIfCredentialCurrent,
   }) async {
-    final token = await _tokenProvider?.call();
-    if (token == null || token.isEmpty) {
-      _log.debug('No session token; skipping log share');
-      return LogShareOutcome.stop;
-    }
     final url = Uri.parse('$_baseUrl/logs');
-    final headers = {..._headers, 'Authorization': 'Bearer $token'};
+    final headers = {
+      ..._headers,
+      'Authorization': 'Bearer ${credential.token}',
+    };
     final payload = jsonEncode(body);
-    var backoff = _baseBackoff;
+    var backoff = _retryBackoff;
 
     for (var attempt = 1; attempt <= _maxAttempts; attempt++) {
       try {
-        final resp = await _http
-            .post(url, headers: headers, body: payload)
-            .timeout(AppConfig.leaderboardApiTimeout);
-
+        final resp = await sendIfCredentialCurrent(
+          credential,
+          () => _http
+              .post(url, headers: headers, body: payload)
+              .timeout(AppConfig.leaderboardApiTimeout),
+        );
+        if (resp == null) {
+          return LogShareOutcome.stale;
+        }
         if (resp.statusCode == 401 || resp.statusCode == 404) {
           _log.warn('Log share rejected (${resp.statusCode}); stopping');
           return LogShareOutcome.stop;

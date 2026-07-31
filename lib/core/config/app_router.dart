@@ -172,14 +172,17 @@ const identityGatedRoutes = <String>[
   AppRoutes.walletScan,
 ];
 
-/// Identity gate: sessions whose identity is not settled (account
-/// reconciliation in progress) are bounced off wallet routes. Pure for unit
+/// Identity gate: sessions whose identity is changing or whose account
+/// reconciliation is pending are bounced off wallet routes. Pure for unit
 /// testing.
 String? identityGateRedirect({
   required IdentityPhase phase,
   required String location,
 }) {
-  if (phase != IdentityPhase.reconciling) return null;
+  if (phase != IdentityPhase.transitioning &&
+      phase != IdentityPhase.reconciling) {
+    return null;
+  }
   return identityGatedRoutes.contains(location) ? AppRoutes.home : null;
 }
 

@@ -22,7 +22,12 @@ class AuthGuestFlag {
   Future<SharedPreferences> get _prefs async =>
       _injected ?? await SharedPreferences.getInstance();
 
-  Future<bool> isGuest() async => (await _prefs).getBool(_key) ?? false;
+  Future<bool> isGuest({bool reload = false}) async {
+    final prefs = await _prefs;
+    if (reload) await prefs.reload();
+    return prefs.getBool(_key) ?? false;
+  }
+
   Future<void> setGuest() async => (await _prefs).setBool(_key, true);
   Future<void> clear() async => (await _prefs).remove(_key);
 }

@@ -89,6 +89,21 @@ void main() {
       expect(r.eventsParticipated, isNull);
       expect(r.totalTokens, 0);
     });
+
+    test('preserves an unranked null and rounds fractional point totals', () {
+      final r = RankingResult.fromJson({
+        'scope': 'season',
+        'rank': null,
+        'total_points': 941.5,
+        'extra_points': '40.5',
+        'total_participants': 10,
+      });
+
+      expect(r.rank, isNull);
+      expect(r.toJson()['rank'], isNull);
+      expect(r.totalPoints, 942);
+      expect(r.offchainPoints, 41);
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -817,6 +832,18 @@ void main() {
         'events_participated': 1,
       });
       expect(e.displayName, isNull);
+    });
+
+    test('fromJson rounds fractional point totals', () {
+      final e = LeaderboardEntry.fromJson({
+        'rank': 2,
+        'participant_id': 99,
+        'total_points': 100.5,
+        'offchain_points': '9.5',
+      });
+
+      expect(e.totalPoints, 101);
+      expect(e.offchainPoints, 10);
     });
   });
 
@@ -1907,6 +1934,23 @@ void main() {
       expect(r.eventId, 5);
       expect(r.participantTotalPoints, 100);
       expect(r.totalPointsPerUser.first.participantId, 42);
+    });
+
+    test('fromJson rounds fractional event and participant points', () {
+      final r = EventPointsResult.fromJson({
+        'season_event_id': 5,
+        'event_name': 'Event 5',
+        'event_total_points': 1200.5,
+        'user_total_points': '700.5',
+        'total_points_per_user': [
+          {'user_id': 42, 'total_points': 500.5},
+        ],
+        'total_participants': 1,
+      });
+
+      expect(r.eventTotalPoints, 1201);
+      expect(r.participantTotalPoints, 701);
+      expect(r.totalPointsPerUser.single.totalPoints, 501);
     });
   });
 }

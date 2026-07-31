@@ -153,6 +153,12 @@ String? authRedirect(AuthStatus status, String location) {
   }
 }
 
+/// Whether the auth lifecycle is still resolving and all lower-priority route
+/// guards must be skipped. In particular, account/onboarding/freshness state
+/// may still belong to the identity that is being replaced.
+bool shouldDeferRouterRedirect(AuthStatus status) =>
+    status == AuthStatus.unknown;
+
 /// Where a guest should be routed. Guests never enter node onboarding: from
 /// splash/onboarding send them to the Dapps tab; elsewhere return null so they
 /// can roam the app shell. Pure for unit testing.
@@ -594,25 +600,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      // Fresh reads on every evaluation (see note at the top of this
-      // provider); GoRouterRefreshStream re-runs this guard when any of
-      // these change.
-      final hasAny = ref.read(hasAnyAccountProvider).maybeWhen(
-            data: (v) => v,
-            orElse: () => null,
-          );
-      final hasCompletedOnboarding =
-          ref.read(hasCompletedOnboardingProvider).maybeWhen(
-                data: (v) => v,
-                orElse: () => null,
-              );
-      final registrationFreshness = ref.read(registrationFreshnessProvider);
-
       final currentLocation = state.matchedLocation;
       final requestUri = state.uri;
-
-      _log.trace(
-          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
       // v3 auth gate runs first. It forces unauthenticated users (including
       // existing users upgrading) to the auth landing before any account or
@@ -620,6 +609,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authStatus = ref.read(authStatusProvider);
       final authGate = authRedirect(authStatus, currentLocation);
       if (authGate != null) return authGate;
+      if (shouldDeferRouterRedirect(authStatus)) return null;
       if (authStatus == AuthStatus.unauthenticated) {
         // On an auth route while unauthenticated: allow it, skip account logic.
         return null;
@@ -649,6 +639,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             'account reconcile completes');
         return identityGate;
       }
+
+      // Fresh reads on every evaluation (see note at the top of this
+      // provider); GoRouterRefreshStream re-runs this guard when any of these
+      // change. Keep them below the auth and identity gates: while an identity
+      // is transitioning, these values can still belong to the previous user.
+      final hasAny = ref.read(hasAnyAccountProvider).maybeWhen(
+            data: (v) => v,
+            orElse: () => null,
+          );
+      final hasCompletedOnboarding =
+          ref.read(hasCompletedOnboardingProvider).maybeWhen(
+                data: (v) => v,
+                orElse: () => null,
+              );
+      final registrationFreshness = ref.read(registrationFreshnessProvider);
+
+      _log.trace(
+          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
       // Still loading state
       if (hasAny == null || hasCompletedOnboarding == null) {

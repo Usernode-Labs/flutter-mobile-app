@@ -723,8 +723,15 @@ class RustBackendService {
     // exact wrong-key window login suspension exists to close). Wait it
     // out, then stop whatever it produced.
     await waitForStartCompletion();
+
+    // `Node.getGlobal()` crosses the FRB boundary. During early auth/session
+    // restore (and in no-load tests), suspension can run before this service
+    // has initialized FRB. With no locally tracked runtime, keep that path a
+    // no-op instead of calling through an uninitialized bridge.
+    if (!_initialized && !_nodeRunning) return;
+
     final global = Node.getGlobal();
-    if (!_initialized && !_nodeRunning && global == null) return;
+    if (!_nodeRunning && global == null) return;
     // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
     _log.warn(
       'Stopping node (dropping references; FRB stays initialized)',

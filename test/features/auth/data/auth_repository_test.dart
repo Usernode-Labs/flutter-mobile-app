@@ -133,6 +133,26 @@ void main() {
             .having((e) => e.kind, 'kind', AuthErrorKind.wrongToken)),
       );
     });
+    test('401 expired token -> wrongToken', () async {
+      expect(
+        () => _repo(_client(401, {
+          'success': false,
+          'error': 'Set-password token has expired or was already used.',
+        })).setPassword(
+            setPasswordToken: 'expired',
+            password: 'password1',
+            passwordConfirmation: 'password1'),
+        throwsA(
+          isA<AuthException>()
+              .having((e) => e.kind, 'kind', AuthErrorKind.wrongToken)
+              .having(
+                (e) => e.message,
+                'message',
+                'Set-password token has expired or was already used.',
+              ),
+        ),
+      );
+    });
   });
 
   group('logout', () {

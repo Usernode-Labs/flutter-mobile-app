@@ -9,8 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
@@ -57,6 +60,7 @@ LeaderboardApiService _provisionService(
   return LeaderboardApiService(
     baseUrl: 'https://test.example.com/api/v4/mobile',
     httpClient: client,
+    tokenProvider: AuthTokenStore().read,
   );
 }
 
@@ -187,6 +191,196 @@ void main() {
     expect(prefs.getBool(markerKey), isNull);
   });
 
+  test('legacy ownership migration provisions once, then restores ready',
+      () async {
+    final bucketA = NetworkPrefs.bucketForAddress(_addressA);
+    final bucketB = NetworkPrefs.bucketForAddress(_addressB);
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_0_a', _addressA),
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_0_a',
+      // Pre-lifecycle state: an active account has an owner id, but there is
+      // no reconcile marker or ownership proof tying it to the stored token.
+      'testnet:acct:$bucketA:leaderboard:participant_id': 7,
+      // Residue without a pending marker is not authenticated recovery state;
+      // `/me` below must win over it.
+      'testnet:acct:guest:leaderboard:participant_id': 123,
+    });
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-b'});
+    await NetworkPrefs.init();
+
+    final provisionCalls = <int>[];
+    final provisionService = _provisionService(_addressB, provisionCalls);
+    final accountService = AccountApiService(
+      baseUrl: 'https://test.example.com/api/v4/mobile',
+      tokenProvider: AuthTokenStore().read,
+      httpClient: MockClient((request) async {
+        expect(request.url.path, endsWith('/me'));
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'id': 99,
+              'email': 'b@example.com',
+              'email_confirmed': true,
+              'level': 'operator',
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(provisionService.dispose);
+    addTearDown(accountService.dispose);
+
+    List<Override> overrides() => [
+          leaderboardApiServiceProvider.overrideWithValue(provisionService),
+          accountApiServiceProvider.overrideWithValue(accountService),
+          _reconcilerOverride(),
+        ];
+
+    final firstBoot = ProviderContainer(overrides: overrides());
+    try {
+      await firstBoot.read(identityProvider.notifier).restore();
+      expect(
+        firstBoot.read(identityProvider).phase,
+        IdentityPhase.reconciling,
+      );
+
+      expect(
+        await firstBoot.read(nodeAccountReconcilerProvider).reconcile(),
+        isTrue,
+      );
+      expect(firstBoot.read(identityProvider).phase, IdentityPhase.ready);
+      expect(firstBoot.read(identityProvider).address, _addressB);
+      expect(provisionCalls, hasLength(1));
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('testnet:accounts:activeId'), 'acc_1_b');
+      expect(
+        prefs.getInt('testnet:acct:$bucketB:leaderboard:participant_id'),
+        99,
+      );
+      expect(
+        prefs.getBool(
+            'testnet:acct:$bucketB:identity:lifecycle_ownership_confirmed'),
+        isTrue,
+      );
+      expect(prefs.getBool(markerKey), isNull);
+    } finally {
+      firstBoot.dispose();
+    }
+
+    // Simulate a new process/controller with the same durable stores. The
+    // completed lifecycle proof must allow a network-free ready restore.
+    IdentitySnapshots.reset();
+    NetworkPrefs.setActiveBucket(null, guest: true);
+    final secondBoot = ProviderContainer(overrides: overrides());
+    addTearDown(secondBoot.dispose);
+
+    await secondBoot.read(identityProvider.notifier).restore();
+
+    expect(secondBoot.read(identityProvider).phase, IdentityPhase.ready);
+    expect(secondBoot.read(identityProvider).participantId, 99);
+    expect(
+      await secondBoot.read(nodeAccountReconcilerProvider).reconcile(),
+      isFalse,
+    );
+    expect(provisionCalls, hasLength(1));
+  });
+
+  test('same-account reconcile refreshes onboarding from the confirmed bucket',
+      () async {
+    final bucketB = NetworkPrefs.bucketForAddress(_addressB);
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+      'testnet:acct:$bucketB:onboarding:completed': true,
+    });
+    await NetworkPrefs.init();
+
+    final provisionCalls = <int>[];
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      _reconcilerOverride(),
+    ]);
+    addTearDown(container.dispose);
+
+    await _login(container);
+    // Reconciliation has not confirmed an account yet, so this first read is
+    // cached from the guest bucket.
+    expect(await container.read(hasCompletedOnboardingProvider.future), false);
+
+    final committed =
+        await container.read(nodeAccountReconcilerProvider).reconcile();
+
+    expect(committed, isTrue);
+    // The registry account did not change, but the active identity bucket did
+    // (guest -> B), so the provider must have been invalidated regardless.
+    expect(await container.read(hasCompletedOnboardingProvider.future), true);
+  });
+
+  test(
+      'missing participant id keeps reconcile pending when /me cannot recover '
+      'it', () async {
+    SharedPreferences.setMockInitialValues({
+      markerKey: true,
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_0_a', _addressA),
+      ]),
+      'testnet:accounts:activeId': 'acc_0_a',
+    });
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    await NetworkPrefs.init();
+
+    final provisionCalls = <int>[];
+    var nodeBinds = 0;
+    final accountService = AccountApiService(
+      baseUrl: 'https://test.example.com/api/v4/mobile',
+      tokenProvider: AuthTokenStore().read,
+      httpClient: MockClient(
+        (_) async => http.Response('{"success":false}', 503),
+      ),
+    );
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      accountApiServiceProvider.overrideWithValue(accountService),
+      _reconcilerOverride(ensureNodeIdentity: () async => nodeBinds++),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      accountService.dispose();
+    });
+
+    container.read(identityProvider);
+    await container.read(identityProvider.notifier).restore();
+    expect(container.read(identityProvider).participantId, isNull);
+
+    await expectLater(
+      container.read(nodeAccountReconcilerProvider).reconcile(),
+      throwsA(isA<AccountApiException>()),
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
+    expect(prefs.getBool(markerKey), isTrue);
+    expect(nodeBinds, 0);
+    expect(provisionCalls, hasLength(1));
+    expect(
+      jsonDecode(prefs.getString('testnet:accounts:index')!) as List,
+      hasLength(1),
+    );
+  });
+
   test('concurrent reconcile calls coalesce onto one provision round-trip',
       () async {
     SharedPreferences.setMockInitialValues({
@@ -254,6 +448,7 @@ void main() {
       leaderboardApiServiceProvider.overrideWithValue(LeaderboardApiService(
         baseUrl: 'https://test.example.com/api/v4/mobile',
         httpClient: client,
+        tokenProvider: AuthTokenStore().read,
       )),
       _reconcilerOverride(),
     ]);
@@ -362,6 +557,7 @@ void main() {
         LeaderboardApiService(
           baseUrl: 'https://test.example.com/api/v4/mobile',
           httpClient: client,
+          tokenProvider: AuthTokenStore().read,
         ),
       ),
       _reconcilerOverride(),

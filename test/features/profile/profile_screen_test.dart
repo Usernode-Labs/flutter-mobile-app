@@ -25,6 +25,18 @@ class _MockRankingController extends RankingController {
   Future<void> silentRefresh() async {}
 }
 
+class _TrackingRankingController extends RankingController {
+  int refreshCount = 0;
+
+  @override
+  Future<RankingResult?> build() async => null;
+
+  @override
+  Future<void> silentRefresh() async {
+    refreshCount += 1;
+  }
+}
+
 /// Serves [_initial] on build, then swaps to [_refreshed] on the next
 /// [silentRefresh] — models the backend catching up after terms acceptance.
 class _RefreshableRankingController extends RankingController {
@@ -180,7 +192,12 @@ const _completedProduceBlocksChallenge = ChallengeDto(
   scheduleEnd: '2026-12-01T00:00:00Z',
 );
 
-Widget _app({RankingController Function()? rankingController}) {
+Widget _app({
+  RankingController Function()? rankingController,
+  bool authenticated = true,
+  bool readyAuthenticated = true,
+  bool showSignInGate = false,
+}) {
   return ProviderScope(
     overrides: [
       rankingProvider.overrideWith(
@@ -276,8 +293,9 @@ Widget _app({RankingController Function()? rankingController}) {
         ),
       ),
       participantIdProvider.overrideWith((ref) async => 1),
-      isAuthenticatedProvider.overrideWithValue(true),
-      showSignInGateProvider.overrideWithValue(false),
+      isAuthenticatedProvider.overrideWithValue(authenticated),
+      isReadyAuthenticatedProvider.overrideWithValue(readyAuthenticated),
+      showSignInGateProvider.overrideWithValue(showSignInGate),
       leaderboardBootstrapProvider.overrideWith((ref) async {}),
       seasonEventContextProvider.overrideWith(
         (ref) => const SeasonEventContext(seasonId: 1, seasonName: 'Season 1'),
@@ -420,6 +438,69 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(ShimmerCardSkeleton), findsNothing);
     expect(find.text('Indicative token allocation'), findsOneWidget);
+  });
+
+  testWidgets('Guest profile does not poll the authenticated ranking endpoint',
+      (tester) async {
+    _usePortrait(tester);
+    final ranking = _TrackingRankingController();
+    await tester.pumpWidget(
+      _app(
+        rankingController: () => ranking,
+        authenticated: false,
+        readyAuthenticated: false,
+        showSignInGate: true,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Sign in to view your progress'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+
+    expect(ranking.refreshCount, 0);
+  });
+
+  testWidgets('Reconciling profile does not poll until the identity is ready',
+      (tester) async {
+    _usePortrait(tester);
+    final ranking = _TrackingRankingController();
+    await tester.pumpWidget(
+      _app(
+        rankingController: () => ranking,
+        authenticated: true,
+        readyAuthenticated: false,
+      ),
+    );
+    await tester.pump();
+
+    await tester.pump(const Duration(seconds: 4));
+
+    expect(ranking.refreshCount, 0);
+  });
+
+  testWidgets('Profile omits rank when the API has not ranked the participant',
+      (tester) async {
+    _usePortrait(tester);
+    await tester.pumpWidget(
+      _app(
+        rankingController: () => _MockRankingController(
+          const RankingResult(
+            scope: 'season',
+            rank: null,
+            totalPoints: 8000,
+            totalTokens: 1250,
+            offchainPoints: 8000,
+            totalParticipants: 100,
+            seasonId: 1,
+            seasonName: 'Season 1',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rank 0'), findsNothing);
   });
 
   testWidgets('Pull-to-refresh surfaces the allocation once terms are accepted',

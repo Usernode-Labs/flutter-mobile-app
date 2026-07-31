@@ -60,12 +60,9 @@ AuthSession _session(String token) => AuthSession(
     );
 
 Future<AuthStatus> _settle(ProviderContainer c) async {
-  // Reading instantiates the SessionController, which kicks off restore();
-  // then pump the event loop so the async boot resolves off `unknown`.
-  c.read(identityProvider);
-  for (var i = 0; i < 8; i++) {
-    await Future<void>.delayed(Duration.zero);
-  }
+  // The provider starts restore eagerly; awaiting the idempotent method joins
+  // that exact run and avoids timing the number of persistence microtasks.
+  await c.read(identityProvider.notifier).restore();
   return c.read(authStatusProvider);
 }
 
@@ -122,9 +119,11 @@ void main() {
       ]),
       'testnet:accounts:activeId': 'acc_1',
       // A past reconcile recorded participant 7 as this bucket's owner and
-      // cleared the marker — the boot can trust local state (network-free).
+      // cleared the marker. The lifecycle ownership proof distinguishes this
+      // from a legacy token/account pair that still needs one provision call.
       'testnet:acct:$bucket:leaderboard:participant_id': 7,
       'testnet:acct:$bucket:identity:provisioned_season': 4,
+      'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
     });
     final c = ProviderContainer();
     addTearDown(c.dispose);
@@ -135,6 +134,86 @@ void main() {
     expect(identity.address, address);
     expect(identity.provisionedSeasonId, 4);
     expect(NetworkPrefs.activeBucket, bucket);
+  });
+
+  test(
+      'legacy token and active account must reconcile before boot can trust '
+      'their ownership', () async {
+    const address = 'ut1legacyaccount';
+    final bucket = NetworkPrefs.bucketForAddress(address);
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-legacy'});
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        {
+          'id': 'acc_legacy',
+          'name': 'Node Account',
+          'createdAt': '2026-01-01T00:00:00.000',
+          'derivationPath': 'imported',
+          'hdIndex': 0,
+          'address': address,
+          'publicKey': 'utpk1$address',
+          'backupConfirmed': true,
+          'isDemo': false,
+        }
+      ]),
+      'testnet:accounts:activeId': 'acc_legacy',
+      // Legacy state has an owner id and no pending marker, but predates the
+      // lifecycle proof written by a confirmed provision/reconcile.
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+      'testnet:acct:guest:leaderboard:participant_id': 999,
+    });
+
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    expect(await _settle(c), AuthStatus.authenticated);
+
+    final identity = c.read(identityProvider);
+    expect(identity.phase, IdentityPhase.reconciling);
+    expect(identity.participantId, isNull);
+    expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
+    expect(
+      prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
+      isNull,
+    );
+  });
+
+  test('pending marker takes precedence over a persisted ownership proof',
+      () async {
+    const address = 'ut1crashafterproof';
+    final bucket = NetworkPrefs.bucketForAddress(address);
+    FlutterSecureStorage.setMockInitialValues(
+        {'auth:v3:session_token': 'sess-1'});
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        {
+          'id': 'acc_1',
+          'name': 'Node Account',
+          'createdAt': '2026-01-01T00:00:00.000',
+          'derivationPath': 'imported',
+          'hdIndex': 0,
+          'address': address,
+          'publicKey': 'utpk1$address',
+          'backupConfirmed': true,
+          'isDemo': false,
+        }
+      ]),
+      'testnet:accounts:activeId': 'acc_1',
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+      'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
+      // Crash state after the proof write but before marker removal.
+      'testnet:account:reconcile_pending': true,
+    });
+
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    expect(await _settle(c), AuthStatus.authenticated);
+
+    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
+    expect(c.read(identityProvider).participantId, isNull);
+    expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
   });
 
   test(
@@ -238,6 +317,7 @@ void main() {
     addTearDown(c.dispose);
     await _settle(c);
     await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    expect(c.read(isReadyAuthenticatedProvider), isFalse);
     final epoch = c.read(identityProvider).epoch;
     final committed =
         await c.read(identityProvider.notifier).reconcileSucceeded(
@@ -250,11 +330,19 @@ void main() {
     expect(committed, isTrue);
     final identity = c.read(identityProvider);
     expect(identity.phase, IdentityPhase.ready);
+    expect(c.read(isReadyAuthenticatedProvider), isTrue);
     expect(identity.epoch, epoch);
     expect(identity.address, 'addr-1');
     expect(identity.provisionedSeasonId, 7);
     expect(identity.allowsSigning, isTrue);
     expect(identity.allowsNodeStart, isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    final bucket = NetworkPrefs.bucketForAddress('addr-1');
+    expect(
+      prefs.getBool(
+          'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed'),
+      isTrue,
+    );
   });
 
   test('reconcileSucceeded from a superseded epoch is discarded', () async {

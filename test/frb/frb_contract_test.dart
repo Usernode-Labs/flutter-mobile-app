@@ -58,6 +58,10 @@ typedef WalletTxSendResultFn = Future<RpcWalletTxSendResp?> Function(
 
 void main() {
   group('RustBackendService API signatures (no-load)', () {
+    test('stopNode is a no-op before FRB initialization', () async {
+      await expectLater(RustBackendService.instance.stopNode(), completes);
+    });
+
     test('listBlockchain({int? limit, bool? fromTip})', () {
       final ListBlockchainFn f = RustBackendService.instance.listBlockchain;
       expect(f, isNotNull);

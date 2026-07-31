@@ -7,6 +7,12 @@ void main() {
   test('unknown -> allow (loading)', () {
     expect(authRedirect(AuthStatus.unknown, AppRoutes.home), isNull);
   });
+  test('unknown stops lower-priority redirect guards', () {
+    expect(shouldDeferRouterRedirect(AuthStatus.unknown), isTrue);
+    expect(shouldDeferRouterRedirect(AuthStatus.unauthenticated), isFalse);
+    expect(shouldDeferRouterRedirect(AuthStatus.guest), isFalse);
+    expect(shouldDeferRouterRedirect(AuthStatus.authenticated), isFalse);
+  });
   test('unauthenticated on private route -> landing', () {
     expect(authRedirect(AuthStatus.unauthenticated, AppRoutes.home),
         AppRoutes.authLanding);

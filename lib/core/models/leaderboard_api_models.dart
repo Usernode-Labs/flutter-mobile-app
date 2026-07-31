@@ -134,7 +134,7 @@ class WalletProvisionResult {
 
 class RankingResult {
   final String scope;
-  final int rank;
+  final int? rank;
   final int totalPoints;
   final int totalTokens;
   final int offchainPoints;
@@ -174,14 +174,14 @@ class RankingResult {
   factory RankingResult.fromJson(Map<String, dynamic> json) {
     return RankingResult(
       scope: json['scope'] as String? ?? 'event',
-      rank: _jsonIntN(json['rank']) ?? 0,
-      totalPoints: _jsonIntN(json['total_points']) ?? 0,
+      rank: _jsonIntN(json['rank']),
+      totalPoints: _jsonPointIntN(json['total_points']) ?? 0,
       totalTokens: _jsonIntN(json['total_tokens']) ?? 0,
       // SV v4 emits `extra_points`; topochain v2/v3 called the same value
       // `offchain_points`. Same fallback pattern for `season_event_id` vs
       // the legacy `event_id` throughout this file.
       offchainPoints:
-          _jsonIntN(json['extra_points'] ?? json['offchain_points']) ?? 0,
+          _jsonPointIntN(json['extra_points'] ?? json['offchain_points']) ?? 0,
       totalParticipants: _jsonIntN(json['total_participants']) ?? 0,
       eventId: _jsonIntN(json['season_event_id'] ?? json['event_id']),
       eventName: json['event_name'] as String?,
@@ -584,8 +584,9 @@ class LeaderboardEntry {
       rank: _jsonInt(json['rank']),
       participantId: _jsonInt(json['user_id'] ?? json['participant_id']),
       displayName: json['display_name'] as String?,
-      totalPoints: _jsonInt(json['total_points']),
-      offchainPoints: _jsonInt(json['extra_points'] ?? json['offchain_points']),
+      totalPoints: _jsonPointInt(json['total_points']),
+      offchainPoints:
+          _jsonPointInt(json['extra_points'] ?? json['offchain_points']),
       totalProducedBlocks: _jsonIntN(json['total_produced_blocks']) ?? 0,
       vrfTotalWonSlots: _jsonIntN(json['vrf_total_won_slots']) ?? 0,
       successRate: _jsonDoubleN(json['success_rate']) ?? 0.0,
@@ -1015,7 +1016,7 @@ class ParticipantPoints {
   factory ParticipantPoints.fromJson(Map<String, dynamic> json) {
     return ParticipantPoints(
       participantId: _jsonInt(json['user_id'] ?? json['participant_id']),
-      totalPoints: _jsonInt(json['total_points']),
+      totalPoints: _jsonPointInt(json['total_points']),
     );
   }
 
@@ -1046,8 +1047,8 @@ class EventPointsResult {
     return EventPointsResult(
       eventId: _jsonInt(json['season_event_id'] ?? json['event_id']),
       eventName: json['event_name'] as String? ?? '',
-      eventTotalPoints: _jsonInt(json['event_total_points']),
-      participantTotalPoints: _jsonInt(
+      eventTotalPoints: _jsonPointInt(json['event_total_points']),
+      participantTotalPoints: _jsonPointInt(
           json['user_total_points'] ?? json['participant_total_points']),
       totalPointsPerUser: (json['total_points_per_user'] as List?)
               ?.map(

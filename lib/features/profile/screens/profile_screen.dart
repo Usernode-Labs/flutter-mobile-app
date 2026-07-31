@@ -84,6 +84,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   /// so the tight cadence costs a single request, not the full profile fan-out.
   void _poll() {
     if (!_screenIsActive) return;
+    if (!ref.read(isReadyAuthenticatedProvider)) return;
     unawaited(ref.read(rankingProvider.notifier).silentRefresh());
   }
 
@@ -124,7 +125,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ) ??
         ranking?.totalPoints;
     final score = totalPoints != null ? formatPoints(totalPoints) : '--';
-    final rankLabel = ranking != null ? l10n.challengeRank(ranking.rank) : null;
+    final rank = ranking?.rank;
+    final rankLabel = rank != null ? l10n.challengeRank(rank) : null;
     final allocation = ref.watch(tokenAllocationProvider);
 
     final completedHistory = ref.watch(

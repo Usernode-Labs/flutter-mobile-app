@@ -161,8 +161,9 @@ class NodeAccountReconciler {
   /// at login / read from the guest bucket at boot restore); when absent
   /// (legacy interrupted state), it is recovered from the authenticated
   /// `/me` endpoint so a crash can never permanently lose the ID.
-  Future<int?> _resolveParticipantId(Identity identity) async {
-    if (identity.participantId != null) return identity.participantId;
+  Future<int> _resolveParticipantId(Identity identity) async {
+    final identityParticipantId = identity.participantId;
+    if (identityParticipantId != null) return identityParticipantId;
     final staged = await loadParticipantIdInBucket(NetworkPrefs.guestBucket);
     if (staged != null) return staged;
     try {
@@ -170,7 +171,10 @@ class NodeAccountReconciler {
       return me.id;
     } catch (e) {
       _log.warn('Could not recover participant id from /me: $e');
-      return null;
+      // A ready identity without a participant id cannot safely address all
+      // of its account-scoped state. Keep the reconcile marker and phase so a
+      // later retry can recover /me instead of committing a partial identity.
+      rethrow;
     }
   }
 
@@ -240,12 +244,10 @@ class NodeAccountReconciler {
     // Writing before the commit is safe even for a run that later turns out
     // stale: the value lands in the provisioned USER'S OWN bucket, never in
     // another identity's.
-    if (participantId != null) {
-      await installParticipantIdInBucket(
-        participantId: participantId,
-        bucket: NetworkPrefs.bucketForAddress(provisioned.address),
-      );
-    }
+    await installParticipantIdInBucket(
+      participantId: participantId,
+      bucket: NetworkPrefs.bucketForAddress(provisioned.address),
+    );
 
     // Bind the node runtime to the reconciled account BEFORE committing:
     // the identity must not become ready (unblocking wallet routes, signing
@@ -274,10 +276,11 @@ class NodeAccountReconciler {
       _ref.invalidate(hasAnyAccountProvider);
       _ref.invalidate(accountsProvider);
       _ref.invalidate(activeAccountProvider);
-      // Onboarding completion is bucket-scoped; after a switch the new
-      // identity's flag must drive routing now, not on the next cold start.
-      _ref.invalidate(hasCompletedOnboardingProvider);
     }
+    // Onboarding completion is bucket-scoped. Reconcile always moves the
+    // active bucket from guest to the confirmed account, even when that
+    // account was already active in the registry (`changed == false`).
+    _ref.invalidate(hasCompletedOnboardingProvider);
     _ref.invalidate(participantIdProvider);
 
     return true;

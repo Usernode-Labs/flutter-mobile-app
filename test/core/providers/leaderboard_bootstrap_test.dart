@@ -1,13 +1,78 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
+import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
+import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+
+class _RecordingSeasonsService extends LeaderboardApiService {
+  _RecordingSeasonsService({this.blocked = false})
+      : super(baseUrl: 'https://example.test/api/v4/mobile');
+
+  final bool blocked;
+  final started = Completer<void>();
+  final release = Completer<List<SeasonDto>>();
+  int calls = 0;
+
+  @override
+  Future<List<SeasonDto>> getSeasons({
+    int? seasonId,
+    bool? onlyActiveSeasons,
+    bool? onlyCurrentSeason,
+    bool? onlyActiveEvents,
+    bool? onlyCurrentEvents,
+  }) async {
+    calls++;
+    if (!started.isCompleted) started.complete();
+    if (blocked) return release.future;
+    return const <SeasonDto>[];
+  }
+}
+
+Future<SessionController> _readyIdentityController() async {
+  final controller = SessionController(
+    tokenStore: AuthTokenStore(),
+    guestFlag: AuthGuestFlag(),
+    repository: AuthRepository(),
+    suspendNode: () async {},
+  );
+  await controller.completeLogin(
+    const AuthSession(
+      token: 'token-a',
+      participant: Participant(
+        id: 7,
+        email: 'a@example.test',
+        emailConfirmed: true,
+      ),
+    ),
+  );
+  await controller.reconcileSucceeded(
+    epoch: IdentitySnapshots.current.epoch,
+    accountId: 'account-a',
+    address: 'address-a',
+    participantId: 7,
+    provisionedSeasonId: 1,
+  );
+  return controller;
+}
 
 void main() {
   setUp(() {
+    FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
+    IdentitySnapshots.reset();
+    NetworkPrefs.setActiveBucket(null, guest: true);
   });
 
   // ---------------------------------------------------------------------------
@@ -144,6 +209,103 @@ void main() {
       expect(RegistrationFreshness.current, isNotNull);
       expect(RegistrationFreshness.stale, isNotNull);
       expect(RegistrationFreshness.unknown, isNotNull);
+    });
+
+    test('resets to unknown as soon as the exact identity changes', () async {
+      final controller = await _readyIdentityController();
+      final container = ProviderContainer(overrides: [
+        identityProvider.overrideWith((ref) => controller),
+      ]);
+      addTearDown(container.dispose);
+
+      container.read(registrationFreshnessProvider.notifier).state =
+          RegistrationFreshness.current;
+      expect(
+        container.read(registrationFreshnessProvider),
+        RegistrationFreshness.current,
+      );
+
+      await controller.continueAsGuest();
+
+      expect(
+        container.read(registrationFreshnessProvider),
+        RegistrationFreshness.unknown,
+      );
+    });
+  });
+
+  group('leaderboardBootstrapProvider identity lease', () {
+    test('does not fetch until the authenticated identity is ready', () async {
+      final controller = SessionController(
+        tokenStore: AuthTokenStore(),
+        guestFlag: AuthGuestFlag(),
+        repository: AuthRepository(),
+        suspendNode: () async {},
+      );
+      await controller.completeLogin(
+        const AuthSession(
+          token: 'token-a',
+          participant: Participant(
+            id: 7,
+            email: 'a@example.test',
+            emailConfirmed: true,
+          ),
+        ),
+      );
+      final service = _RecordingSeasonsService();
+      final container = ProviderContainer(overrides: [
+        identityProvider.overrideWith((ref) => controller),
+        leaderboardApiServiceProvider.overrideWithValue(service),
+      ]);
+      addTearDown(container.dispose);
+      addTearDown(service.dispose);
+
+      await container.read(leaderboardBootstrapProvider.future);
+      expect(service.calls, 0);
+
+      await controller.reconcileSucceeded(
+        epoch: IdentitySnapshots.current.epoch,
+        accountId: 'account-a',
+        address: 'address-a',
+        participantId: 7,
+        provisionedSeasonId: 1,
+      );
+      await container.read(leaderboardBootstrapProvider.future);
+
+      expect(service.calls, 1);
+    });
+
+    test('drops a seasons response after its captured identity changes',
+        () async {
+      final controller = await _readyIdentityController();
+      final service = _RecordingSeasonsService(blocked: true);
+      final container = ProviderContainer(overrides: [
+        identityProvider.overrideWith((ref) => controller),
+        leaderboardApiServiceProvider.overrideWithValue(service),
+      ]);
+      addTearDown(container.dispose);
+      addTearDown(service.dispose);
+
+      container.read(registrationFreshnessProvider.notifier).state =
+          RegistrationFreshness.stale;
+      final bootstrap = container.read(leaderboardBootstrapProvider.future);
+      await service.started.future;
+
+      await controller.continueAsGuest();
+      service.release.complete([
+        const SeasonDto(
+          id: 2,
+          name: 'Season B',
+          isActive: true,
+        ),
+      ]);
+      await bootstrap;
+
+      expect(container.read(seasonEventContextProvider).seasonId, isNull);
+      expect(
+        container.read(registrationFreshnessProvider),
+        RegistrationFreshness.unknown,
+      );
     });
   });
 

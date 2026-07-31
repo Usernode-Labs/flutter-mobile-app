@@ -121,6 +121,17 @@ final sessionTokenProvider =
 final isAuthenticatedProvider = Provider<bool>(
     (ref) => ref.watch(authStatusProvider) == AuthStatus.authenticated);
 
+/// True only after the authenticated identity has finished reconciling its
+/// account-scoped state. Background work that can issue authenticated requests
+/// should use this finer gate instead of the coarse auth status.
+final isReadyAuthenticatedProvider = Provider<bool>(
+  (ref) => ref.watch(
+    identityProvider.select(
+      (identity) => identity.phase == IdentityPhase.ready,
+    ),
+  ),
+);
+
 /// Whether the data screens should show the "sign in to view" gate. True once
 /// the session has resolved to guest/unauthenticated; `unknown` (still loading
 /// at boot) returns false so the gate never flashes before the state settles.

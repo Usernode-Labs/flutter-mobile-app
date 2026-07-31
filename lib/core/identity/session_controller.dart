@@ -73,6 +73,8 @@ class SessionController extends StateNotifier<Identity> {
 
   static const _kReconcilePendingKeyBase = 'account:reconcile_pending';
   static const _kProvisionedSeasonKeyBase = 'identity:provisioned_season';
+  static const _kLifecycleOwnershipConfirmedKeyBase =
+      'identity:lifecycle_ownership_confirmed';
   static const _kSeasonBaselineMigratedKeyBase =
       'identity:season_baseline_migrated';
 
@@ -177,6 +179,27 @@ class SessionController extends StateNotifier<Identity> {
         NetworkPrefs.prefixAccountKeyFor(_kProvisionedSeasonKeyBase, bucket));
   }
 
+  /// Whether this account bucket completed a reconcile under the lifecycle
+  /// protocol owned by this controller. Legacy installs can have both a token
+  /// and an account-bucket participant id without any durable proof that the
+  /// token owns that account, so they must provision once before boot may
+  /// restore directly to [IdentityPhase.ready].
+  Future<bool> _readLifecycleOwnershipConfirmed(String bucket) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(NetworkPrefs.prefixAccountKeyFor(
+            _kLifecycleOwnershipConfirmedKeyBase, bucket)) ??
+        false;
+  }
+
+  Future<void> _writeLifecycleOwnershipConfirmed(String bucket) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(
+      NetworkPrefs.prefixAccountKeyFor(
+          _kLifecycleOwnershipConfirmedKeyBase, bucket),
+      true,
+    );
+  }
+
   /// One-shot flag for the null-baseline migration in [beginSeasonRollover]:
   /// set before the migration reconcile is published so the migration can
   /// never loop if the backend does not return a season id.
@@ -236,10 +259,12 @@ class SessionController extends StateNotifier<Identity> {
     if (!pendingMarker && active != null) {
       final bucket = NetworkPrefs.bucketForAddress(active.address);
       final ownerId = await loadParticipantIdInBucket(bucket);
-      if (ownerId != null) {
-        // The last reconcile completed under this token's user (every login
-        // sets the marker, and only a confirmed reconcile clears it and
-        // writes the bucket's owner id).
+      final lifecycleOwnershipConfirmed =
+          await _readLifecycleOwnershipConfirmed(bucket);
+      if (ownerId != null && lifecycleOwnershipConfirmed) {
+        // The last reconcile completed under this lifecycle protocol (every
+        // login sets the marker, and only a confirmed reconcile clears it and
+        // records lifecycle ownership for the bucket).
         _publish(Identity(
           epoch: state.epoch + 1,
           phase: IdentityPhase.ready,
@@ -254,15 +279,24 @@ class SessionController extends StateNotifier<Identity> {
 
     // Interrupted login, fresh install with a restored token, or an account
     // whose ownership was never confirmed: reconcile before trusting any
-    // account-scoped state. The marker must be persisted (it may be missing
-    // on the ownership-unknown path) so a crash here still repairs on the
-    // next boot.
-    await _writeReconcileMarker();
-    final staged = await loadParticipantIdInBucket(NetworkPrefs.guestBucket);
+    // account-scoped state. A guest-bucket participant id is authenticated
+    // recovery state only when it was persisted together with an existing
+    // pending marker. On the legacy/no-proof path it may be unrelated residue:
+    // remove it BEFORE creating the marker (a crash in the opposite order
+    // would make the residue look trusted on the next boot), then let the
+    // reconciler recover the current token's user from `/me`.
+    int? staged;
+    if (pendingMarker) {
+      staged = await loadParticipantIdInBucket(NetworkPrefs.guestBucket);
+    } else {
+      await clearGuestParticipantId();
+      await _writeReconcileMarker();
+    }
     _log.info('Boot restore requires account reconcile', context: {
       'hadMarker': pendingMarker,
       'hasActiveAccount': active != null,
       'hasStagedParticipantId': staged != null,
+      'legacyOwnershipMigration': !pendingMarker && active != null,
     });
     _publish(Identity(
       epoch: state.epoch + 1,
@@ -469,7 +503,7 @@ class SessionController extends StateNotifier<Identity> {
     required int epoch,
     required String accountId,
     required String address,
-    required int? participantId,
+    required int participantId,
     int? provisionedSeasonId,
   }) =>
       _transition(() async {
@@ -480,6 +514,11 @@ class SessionController extends StateNotifier<Identity> {
         }
         final bucket = NetworkPrefs.bucketForAddress(address);
         await _writeProvisionedSeason(bucket, provisionedSeasonId);
+        // Persist the one-time legacy ownership migration before clearing the
+        // recovery marker. A crash after the marker is cleared may restore
+        // directly to ready only when this proof and the bucket owner id both
+        // exist.
+        await _writeLifecycleOwnershipConfirmed(bucket);
         await _clearReconcileMarker();
         _publish(state.copyWith(
           phase: IdentityPhase.ready,

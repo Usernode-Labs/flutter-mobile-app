@@ -53,9 +53,8 @@ class Identity {
     this.provisionedSeasonId,
   });
 
-  const Identity.unknown()
-      : epoch = 0,
-        phase = IdentityPhase.unknown,
+  const Identity.unknown({this.epoch = 0})
+      : phase = IdentityPhase.unknown,
         participantId = null,
         accountId = null,
         address = null,

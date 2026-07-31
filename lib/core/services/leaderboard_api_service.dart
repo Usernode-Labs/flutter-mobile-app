@@ -84,7 +84,11 @@ class LeaderboardApiService {
     params['event_id'] = eventId.toString();
   }
 
-  Future<RankingResult> getRanking({int? seasonId, int? eventId}) async {
+  Future<RankingResult> getRanking({
+    int? seasonId,
+    int? eventId,
+    IdentityLease? authority,
+  }) async {
     final params = <String, String>{};
     if (eventId != null) {
       _addEventScope(params, eventId);
@@ -92,7 +96,11 @@ class LeaderboardApiService {
       params['season_id'] = seasonId.toString();
     }
 
-    final data = await _get('/me/ranking', queryParams: params);
+    final data = await _get(
+      '/me/ranking',
+      queryParams: params,
+      authority: authority,
+    );
     return RankingResult.fromJson(data as Map<String, dynamic>);
   }
 
@@ -101,6 +109,7 @@ class LeaderboardApiService {
     int? eventId,
     bool? activeOnly,
     bool? onlyScheduled,
+    IdentityLease? authority,
   }) async {
     final params = <String, String>{};
     if (eventId != null) {
@@ -117,7 +126,11 @@ class LeaderboardApiService {
       params['only_scheduled'] = '1'; // backend expects '1', not 'true'
     }
 
-    final data = await _get('/challenges', queryParams: params);
+    final data = await _get(
+      '/challenges',
+      queryParams: params,
+      authority: authority,
+    );
     return (data as List)
         .map((e) => ChallengeDto.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -128,6 +141,7 @@ class LeaderboardApiService {
     int? eventId,
     int page = 1,
     int perPage = 50,
+    IdentityLease? authority,
   }) async {
     final params = <String, String>{
       'season_id': seasonId.toString(),
@@ -136,11 +150,19 @@ class LeaderboardApiService {
     };
     if (eventId != null) _addEventScope(params, eventId);
 
-    final data = await _get('/leaderboard', queryParams: params);
+    final data = await _get(
+      '/leaderboard',
+      queryParams: params,
+      authority: authority,
+    );
     return LeaderboardResult.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<BreakdownResult> getBreakdown({int? seasonId, int? eventId}) async {
+  Future<BreakdownResult> getBreakdown({
+    int? seasonId,
+    int? eventId,
+    IdentityLease? authority,
+  }) async {
     final params = <String, String>{'include_activity': '1'};
     if (eventId != null) {
       _addEventScope(params, eventId);
@@ -148,12 +170,20 @@ class LeaderboardApiService {
       params['season_id'] = seasonId.toString();
     }
 
-    final data = await _get('/me/breakdown', queryParams: params);
+    final data = await _get(
+      '/me/breakdown',
+      queryParams: params,
+      authority: authority,
+    );
     return BreakdownResult.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<EventPointsResult> getEventPoints({required int eventId}) async {
-    final owner = AuthenticatedUserLease.capture(IdentitySnapshots.current);
+  Future<EventPointsResult> getEventPoints({
+    required int eventId,
+    AuthenticatedUserLease? authority,
+  }) async {
+    final owner =
+        authority ?? AuthenticatedUserLease.capture(IdentitySnapshots.current);
     if (owner == null) throw const StaleAuthCredentialException();
 
     // Capture one exact token for the whole logical read. Every page and retry
@@ -292,6 +322,7 @@ class LeaderboardApiService {
     bool? onlyCurrentSeason,
     bool? onlyActiveEvents,
     bool? onlyCurrentEvents,
+    IdentityLease? authority,
   }) async {
     final params = <String, String>{
       'include_challenges': '0', // workaround: backend toISOString bug
@@ -310,7 +341,11 @@ class LeaderboardApiService {
       params['only_current_events'] = onlyCurrentEvents.toString();
     }
 
-    final data = await _get('/seasons', queryParams: params);
+    final data = await _get(
+      '/seasons',
+      queryParams: params,
+      authority: authority,
+    );
     return (data as List)
         .map((e) => SeasonDto.fromJson(e as Map<String, dynamic>))
         .toList();

@@ -39,11 +39,7 @@ class CurrentTermsController extends LeaderboardNotifier<TermsSnapshot> {
   bool watchDeps() => ref.watch(authenticatedUserLeaseProvider) != null;
 
   @override
-  Future<TermsSnapshot> fetch() async {
-    final owner = ref.read(authenticatedUserLeaseProvider);
-    if (owner == null) {
-      throw StateError('Cannot load terms without an authenticated user.');
-    }
+  Future<TermsSnapshot> fetch(AuthenticatedUserLease owner) async {
     final service = ref.read(leaderboardApiServiceProvider);
     return TermsSnapshot(
       terms: await service.getCurrentTerms(authority: owner),
@@ -72,7 +68,7 @@ class CurrentTermsController extends LeaderboardNotifier<TermsSnapshot> {
       authority: owner,
     );
 
-    if (!owner.isCurrent) return;
+    if (!canPublish(owner)) return;
 
     // Invalidate rather than silentRefresh: the latter swallows errors and
     // preserves the last-good value, which here is the pre-consent state — the

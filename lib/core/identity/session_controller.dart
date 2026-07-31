@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/services/identity_runtime_restart_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -67,8 +68,9 @@ class SessionController extends StateNotifier<Identity> {
         _guestFlag = guestFlag,
         _repository = repository,
         _suspendNode = suspendNode ?? _defaultSuspendNode,
-        super(const Identity.unknown()) {
+        super(Identity.unknown(epoch: IdentitySnapshots.current.epoch)) {
     IdentitySnapshots.publish(state);
+    NetworkPrefs.setActiveBucket(null, guest: true);
   }
 
   static const _kReconcilePendingKeyBase = 'account:reconcile_pending';
@@ -90,10 +92,33 @@ class SessionController extends StateNotifier<Identity> {
   static Future<void> _defaultSuspendNode() =>
       RustBackendService.instance.stopNode();
 
+  bool _requestRuntimeRestart(String reason) {
+    if (_retiredForRuntimeCutover) {
+      // This transition was accepted before the host closed admission and is
+      // already covered by its final barrier. Its durable target will be
+      // restored by that cutover; enqueueing another restart would only tear
+      // down the fresh replacement container again.
+      _log.debug('Runtime already retiring; restart request is covered',
+          context: {'reason': reason});
+      return true;
+    }
+    return IdentityRuntimeRestartService.instance.request(reason: reason);
+  }
+
+  Future<void> _logoutBestEffort(String? token) async {
+    if (token == null || token.isEmpty) return;
+    try {
+      await _repository.logout(token);
+    } catch (e) {
+      _log.warn('Server-side logout failed (token cleared anyway): $e');
+    }
+  }
+
   Future<void>? _restoreFuture;
   Future<void> _queueTail = Future.value();
   final Queue<Future<void> Function()> _pendingTransitions = Queue();
   bool _transitionActive = false;
+  bool _retiredForRuntimeCutover = false;
 
   /// Completes when every transition queued so far has finished its
   /// persistence writes. Gate-closing transitions publish the new identity
@@ -103,10 +128,36 @@ class SessionController extends StateNotifier<Identity> {
   /// reading the just-written session token) awaits this first.
   Future<void> get transitionsSettled => _queueTail;
 
+  /// Atomically closes this controller to new transitions and returns the
+  /// final barrier for everything it had already accepted.
+  ///
+  /// The interactive runtime host calls this before unmounting the provider
+  /// graph. Dart cannot interleave another synchronous call between setting
+  /// the retirement flag and capturing [_queueTail], so a transition is
+  /// either included in this barrier or refused by [_transition].
+  Future<void> retireForRuntimeCutover() {
+    _retiredForRuntimeCutover = true;
+    return _queueTail;
+  }
+
   /// Runs [body] after every previously queued transition has finished, so
   /// transitions never interleave. When idle, [body] starts synchronously so
   /// gate-closing publications happen before this method returns its Future.
-  Future<T> _transition<T>(Future<T> Function() body) {
+  Future<void> _transition(Future<void> Function() body) =>
+      _enqueueTransition(body, whenRetired: () {});
+
+  Future<bool> _boolTransition(Future<bool> Function() body) =>
+      _enqueueTransition(body, whenRetired: () => false);
+
+  Future<T> _enqueueTransition<T>(
+    Future<T> Function() body, {
+    required T Function() whenRetired,
+  }) {
+    if (_retiredForRuntimeCutover) {
+      _log.debug('Ignoring identity transition after runtime retirement');
+      return Future<T>.sync(whenRetired);
+    }
+
     final result = Completer<T>();
 
     Future<void> run() async {
@@ -201,8 +252,9 @@ class SessionController extends StateNotifier<Identity> {
   }
 
   /// One-shot flag for the null-baseline migration in [beginSeasonRollover]:
-  /// set before the migration reconcile is published so the migration can
-  /// never loop if the backend does not return a season id.
+  /// set after its recovery marker is durable but before the migration
+  /// reconcile is published, so the migration cannot loop if the backend
+  /// returns no season id or be skipped after a crash between those writes.
   Future<bool> _readSeasonBaselineMigrated(String bucket) async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(NetworkPrefs.prefixAccountKeyFor(
@@ -333,6 +385,7 @@ class SessionController extends StateNotifier<Identity> {
         await _guestFlag.clear();
         await _tokenStore.write(session.token);
         await _suspendNode();
+        if (_requestRuntimeRestart('login_completed')) return;
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.reconciling,
@@ -359,13 +412,15 @@ class SessionController extends StateNotifier<Identity> {
         await clearGuestParticipantId();
         await _clearReconcileMarker();
         await _suspendNode();
+        if (_requestRuntimeRestart('guest_session_started')) return;
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.guest,
         ));
       });
 
-  Future<bool> logout({Identity? expectedIdentity}) => _transition(() async {
+  Future<bool> logout({Identity? expectedIdentity}) =>
+      _boolTransition(() async {
         // Async bridge callbacks may have been authorized by a prior identity.
         if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
           return false;
@@ -391,6 +446,10 @@ class SessionController extends StateNotifier<Identity> {
         // shutdown fails. Do not publish a settled signed-out identity until
         // the producer is confirmed down.
         await _suspendNode();
+        if (_requestRuntimeRestart('logout_completed')) {
+          unawaited(_logoutBestEffort(token));
+          return true;
+        }
         final active = await (await AccountsRepository.create()).getActive();
         _publish(Identity(
           epoch: epoch,
@@ -399,13 +458,7 @@ class SessionController extends StateNotifier<Identity> {
           address: active?.address,
         ));
 
-        if (token != null && token.isNotEmpty) {
-          try {
-            await _repository.logout(token);
-          } catch (e) {
-            _log.warn('Server-side logout failed (token cleared anyway): $e');
-          }
-        }
+        await _logoutBestEffort(token);
         return true;
       });
 
@@ -438,6 +491,7 @@ class SessionController extends StateNotifier<Identity> {
         // A 401 invalidates the TOKEN, not the user's explicit guest choice.
         final guest = await _guestFlag.isGuest();
         await _suspendNode();
+        if (_requestRuntimeRestart('credential_rejected')) return;
         if (guest) {
           _publish(Identity(
             epoch: epoch,
@@ -475,6 +529,7 @@ class SessionController extends StateNotifier<Identity> {
         await _clearReconcileMarker();
         final guest = await _guestFlag.isGuest();
         await _suspendNode();
+        if (_requestRuntimeRestart('credential_missing')) return;
         if (guest) {
           _publish(Identity(
             epoch: nextEpoch,
@@ -492,9 +547,9 @@ class SessionController extends StateNotifier<Identity> {
       });
 
   /// The account reconcile confirmed [accountId]/[address] belong to the
-  /// identity that was current at [epoch]. Publishes [IdentityPhase.ready]
-  /// (same epoch — this completes the identity, it doesn't replace it) and
-  /// clears the crash-recovery marker.
+  /// identity that was current at [epoch]. After persisting that proof and
+  /// clearing the crash-recovery marker, an interactive runtime is replaced;
+  /// a headless/test container publishes [IdentityPhase.ready] in place.
   ///
   /// Returns false without touching anything when the identity has
   /// transitioned since — the marker stays set so the CURRENT identity's own
@@ -506,7 +561,7 @@ class SessionController extends StateNotifier<Identity> {
     required int participantId,
     int? provisionedSeasonId,
   }) =>
-      _transition(() async {
+      _boolTransition(() async {
         if (state.epoch != epoch || state.phase != IdentityPhase.reconciling) {
           _log.warn('Discarding stale reconcile result '
               '(epoch $epoch vs ${state.epoch}, phase ${state.phase.name})');
@@ -520,14 +575,26 @@ class SessionController extends StateNotifier<Identity> {
         // exist.
         await _writeLifecycleOwnershipConfirmed(bucket);
         await _clearReconcileMarker();
-        _publish(state.copyWith(
+        final readyIdentity = state.copyWith(
           phase: IdentityPhase.ready,
           accountId: accountId,
           address: address,
           participantId: participantId,
           provisionedSeasonId: provisionedSeasonId,
           clearProvisionedSeasonId: provisionedSeasonId == null,
-        ));
+        );
+        // The request is delivered on the next event turn, so the gate still
+        // closes synchronously before the runtime host can dispose us. The
+        // replacement container restores the durable ready identity instead
+        // of allowing providers created while reconciling to survive it.
+        if (_requestRuntimeRestart('account_reconcile_completed')) {
+          _publish(Identity(
+            epoch: state.epoch + 1,
+            phase: IdentityPhase.transitioning,
+          ));
+          return true;
+        }
+        _publish(readyIdentity);
         return true;
       });
 
@@ -536,9 +603,9 @@ class SessionController extends StateNotifier<Identity> {
   /// epoch: in-flight work bound to the old season identity must not apply)
   /// so the reconcile driver provisions the current season's account.
   ///
-  /// The current account/bucket are kept — they still belong to the same
-  /// USER — but wallet routes, signing, and node starts are gated until the
-  /// reconcile settles the new season binding.
+  /// The participant id is staged as recovery state, but the old account
+  /// bucket is not kept ambient: wallet routes, signing, and node starts stay
+  /// gated until a replacement runtime reconciles the new season binding.
   /// A ready identity with a null baseline is an install upgraded from
   /// before season baselines were persisted — rollovers are undetectable
   /// for it. Route it through ONE reconcile (the `/wallet/provision`
@@ -549,24 +616,45 @@ class SessionController extends StateNotifier<Identity> {
         if (state.phase != IdentityPhase.ready) return;
         final provisioned = state.provisionedSeasonId;
         if (provisioned == activeSeasonId) return;
+        var consumeBaselineMigration = false;
         if (provisioned == null) {
           if (await _readSeasonBaselineMigrated(state.bucket)) return;
-          await _writeSeasonBaselineMigrated(state.bucket);
+          consumeBaselineMigration = true;
           _log.info('No provisioned-season baseline (pre-baseline install) - '
               'running one-time reconcile to establish it');
         } else {
           _log.info('Season rollover detected '
               '($provisioned -> $activeSeasonId) - reconciling account');
         }
-        // Close the gate before the awaits below — same ordering rationale
-        // as completeLogin.
-        _publish(state.copyWith(
-          epoch: state.epoch + 1,
-          phase: IdentityPhase.reconciling,
+        final previous = state;
+        final epoch = previous.epoch + 1;
+        // Close the gate before the durable cutover payload is written. The
+        // replacement runtime must restore through the guest bucket and may
+        // not inherit providers bound to the previous season.
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.transitioning,
         ));
+        final participantId = previous.participantId;
+        if (participantId != null) {
+          await stageParticipantIdInGuestBucket(participantId);
+        }
         await _writeReconcileMarker();
+        // The pending marker is the crash-recovery authority. Only mark this
+        // one-shot migration consumed after a restart is guaranteed to resume
+        // reconciliation; the opposite order can permanently skip baseline
+        // establishment if the process dies between the two writes.
+        if (consumeBaselineMigration) {
+          await _writeSeasonBaselineMigrated(previous.bucket);
+        }
         // The node is producing/signing under the previous season's account
         // binding; suspend it until the reconcile rebinds the runtime.
         await _suspendNode();
+        if (_requestRuntimeRestart('season_rollover')) return;
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.reconciling,
+          participantId: participantId,
+        ));
       });
 }

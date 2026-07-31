@@ -2,13 +2,18 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
+import 'package:crypto_mobile_app/core/services/identity_runtime_restart_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -71,7 +76,10 @@ Future<void> _runAppBody({required String logTag}) async {
 
   // Render UI immediately; perform heavy bootstrap asynchronously.
   log.info('Running app UI');
-  runApp(AppRuntimeRoot(initialContainer: boot.container));
+  runApp(AppRuntimeRoot(
+    initialContainer: boot.container,
+    initialBackendBootstrap: boot.backendBootstrap,
+  ));
 }
 
 /// Headless entrypoint for background Flutter engine
@@ -202,54 +210,248 @@ void _startHeadlessProducedBlocksRefresh(
 }
 
 class AppRuntimeRoot extends StatefulWidget {
-  const AppRuntimeRoot({super.key, required this.initialContainer});
+  const AppRuntimeRoot({
+    super.key,
+    required this.initialContainer,
+    this.initialBackendBootstrap,
+    this.replacementContainerFactory,
+    this.child = const CryptoMobileApp(),
+  });
 
   final ProviderContainer initialContainer;
+  final Future<void>? initialBackendBootstrap;
+  final Future<ProviderContainer> Function()? replacementContainerFactory;
+  final Widget child;
 
   @override
   State<AppRuntimeRoot> createState() => _AppRuntimeRootState();
 }
 
 class _AppRuntimeRootState extends State<AppRuntimeRoot> {
-  late ProviderContainer _container;
+  ProviderContainer? _container;
+  ProviderContainer? _retiringContainer;
+  Future<void>? _runtimeRestartFuture;
+  Object? _runtimeRestartError;
+  bool _retryBootstrapIdentity = false;
+  late Future<void> _backendBootstrapFuture;
+
+  final _log = LoggingService.instance.withTag('usernode/IdentityRuntimeHost');
 
   @override
   void initState() {
     super.initState();
     _container = widget.initialContainer;
+    _backendBootstrapFuture =
+        widget.initialBackendBootstrap ?? Future<void>.value();
     AppResetService.instance.registerInProcessRestartHandler(_restartInProcess);
+    IdentityRuntimeRestartService.instance.registerHandler(_restartRuntime);
   }
 
   @override
   void dispose() {
     AppResetService.instance.unregisterInProcessRestartHandler();
-    _container.dispose();
+    IdentityRuntimeRestartService.instance.unregisterHandler();
+    AppLifecycleLogger.onForegroundResume = null;
+    MetricsCollectorService.instance.reset();
+    final active = _container;
+    _container = null;
+    active?.dispose();
+    final retiring = _retiringContainer;
+    _retiringContainer = null;
+    retiring?.dispose();
     super.dispose();
   }
 
-  Future<void> _restartInProcess() async {
-    final boot = await AppBootstrap.initNonUi(
-      logTag: 'usernode/BootstrapRestart',
-      installErrorHandlers: false,
-    );
+  Future<void> _restartInProcess() => _restartRuntime('app_reset');
 
-    if (!mounted) {
-      boot.container.dispose();
-      return;
-    }
+  Future<void> _restartRuntime(String reason) {
+    final existing = _runtimeRestartFuture;
+    if (existing != null) return existing;
 
-    final oldContainer = _container;
-    setState(() {
-      _container = boot.container;
+    late final Future<void> restart;
+    restart = _performRuntimeRestart(reason).whenComplete(() {
+      if (identical(_runtimeRestartFuture, restart)) {
+        _runtimeRestartFuture = null;
+      }
     });
-    oldContainer.dispose();
+    _runtimeRestartFuture = restart;
+    return restart;
+  }
+
+  Future<void> _performRuntimeRestart(String reason) async {
+    final oldContainer = _container;
+    final applyBootstrapIdentity = reason == 'app_reset' ||
+        (reason == 'manual_retry' && _retryBootstrapIdentity);
+    _retryBootstrapIdentity = applyBootstrapIdentity;
+    _log.info('Starting isolated runtime cutover', context: {'reason': reason});
+
+    try {
+      if (oldContainer != null) {
+        // Capture the transition barrier before removing the provider tree.
+        // Identity-changing transitions persist their target before asking
+        // this host for a cutover.
+        final transitionsSettled = oldContainer
+            .read(identityProvider.notifier)
+            .retireForRuntimeCutover();
+
+        AppLifecycleLogger.onForegroundResume = null;
+        MetricsCollectorService.instance.reset();
+        if (!mounted) return;
+        setState(() {
+          _container = null;
+          _retiringContainer = oldContainer;
+          _runtimeRestartError = null;
+        });
+        if (SentryUtil.enabled) {
+          try {
+            await SentryUtil.clearUser();
+          } catch (error) {
+            _log.warn('Could not clear Sentry user during cutover: $error');
+          }
+        }
+
+        await transitionsSettled;
+        if (!mounted) return;
+        await _backendBootstrapFuture;
+        if (!mounted) return;
+        await _quiesceRetiringRuntime();
+        if (!mounted) return;
+        // Let Flutter unmount every Consumer of the old container before the
+        // provider graph itself is destroyed.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+
+        if (identical(_retiringContainer, oldContainer)) {
+          _retiringContainer = null;
+          oldContainer.dispose();
+        }
+      } else if (mounted) {
+        setState(() => _runtimeRestartError = null);
+      }
+
+      // There is deliberately no overlap: durable state is the only bridge
+      // from the retired identity runtime into this replacement container.
+      final replacement = await _createReplacementRuntime(
+        applyBootstrapIdentity: applyBootstrapIdentity,
+      );
+
+      if (!mounted) {
+        // initNonUi binds these process-global bridges before it returns. If
+        // this root disappeared while replacement bootstrap was in flight,
+        // revoke those bindings immediately; the backend future may take
+        // longer to drain.
+        AppLifecycleLogger.onForegroundResume = null;
+        MetricsCollectorService.instance.reset();
+        await replacement.backendBootstrap;
+        AppLifecycleLogger.onForegroundResume = null;
+        MetricsCollectorService.instance.reset();
+        replacement.container.dispose();
+        return;
+      }
+
+      _backendBootstrapFuture = replacement.backendBootstrap;
+      setState(() {
+        _container = replacement.container;
+        _runtimeRestartError = null;
+        _retryBootstrapIdentity = false;
+      });
+      _log.info('Isolated runtime cutover completed');
+    } catch (error, stackTrace) {
+      if (identical(_retiringContainer, oldContainer)) {
+        _retiringContainer = null;
+        oldContainer?.dispose();
+      }
+      _log.error(
+        'Isolated runtime cutover failed',
+        error: error,
+        stackTrace: stackTrace,
+        context: {'reason': reason},
+      );
+      await SentryUtil.captureError(
+        error,
+        stackTrace,
+        tag: 'identity_runtime_restart',
+      );
+      if (mounted) {
+        setState(() => _runtimeRestartError = error);
+      }
+    }
+  }
+
+  Future<void> _quiesceRetiringRuntime() async {
+    if (!Platform.isAndroid) return;
+    BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
+    try {
+      await AndroidForegroundTaskController.instance.stopMonitoring(
+        reason: 'identity_runtime_cutover',
+      );
+    } catch (error) {
+      _log.warn('Could not stop foreground monitoring at cutover: $error');
+    }
+    try {
+      await PlatformAlarmService.instance.cancelAllAlarms();
+      await PlatformAlarmService.instance.cancelAlarmWatchdog();
+    } catch (error) {
+      _log.warn('Could not cancel old runtime alarms at cutover: $error');
+    }
+  }
+
+  Future<
+      ({
+        ProviderContainer container,
+        Future<void> backendBootstrap,
+      })> _createReplacementRuntime({
+    required bool applyBootstrapIdentity,
+  }) async {
+    final factory = widget.replacementContainerFactory;
+    if (factory != null) {
+      return (
+        container: await factory(),
+        backendBootstrap: Future<void>.value(),
+      );
+    }
+    final boot = await AppBootstrap.initNonUi(
+      logTag: 'usernode/IdentityRuntimeRestart',
+      registerLifecycleObserver: false,
+      installErrorHandlers: false,
+      applyBootstrapIdentity: applyBootstrapIdentity,
+      startBackendBootstrap: applyBootstrapIdentity,
+      initializeInteractiveServices: applyBootstrapIdentity,
+    );
+    return (
+      container: boot.container,
+      backendBootstrap: boot.backendBootstrap,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final container = _container;
+    if (container == null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: _runtimeRestartError == null
+                ? const CircularProgressIndicator()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Could not restart the session.'),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: () => _restartRuntime('manual_retry'),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+          ),
+        ),
+      );
+    }
     return UncontrolledProviderScope(
-      container: _container,
-      child: const CryptoMobileApp(),
+      container: container,
+      child: widget.child,
     );
   }
 }

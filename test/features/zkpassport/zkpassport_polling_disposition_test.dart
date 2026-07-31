@@ -110,13 +110,33 @@ class _RejectedConsumptiveResultServer
 
 class _FailFirstConsumedResultSave extends ZkPassportRuntimeSessionRepository {
   int consumedSaveAttempts = 0;
+  ZkPassportRuntimeSession? lastConsumedPersistence;
 
   @override
   Future<bool> saveIfCurrent(ZkPassportRuntimeSession session) {
-    if (session.consumedResult != null && consumedSaveAttempts++ == 0) {
-      throw StateError('injected consumed-result write failure');
+    if (session.consumedResult != null &&
+        session.phase == ZkPassportPipelinePhase.resuming) {
+      lastConsumedPersistence = session;
+      if (consumedSaveAttempts++ == 0) {
+        throw StateError('injected consumed-result write failure');
+      }
     }
     return super.saveIfCurrent(session);
+  }
+}
+
+class _BlockingRuntimeClear extends ZkPassportRuntimeSessionRepository {
+  final clearStarted = Completer<void>();
+  final releaseClear = Completer<void>();
+
+  @override
+  Future<bool> clearIfCurrent({
+    required ZkIdentityScope scope,
+    required ZkRequestKey requestKey,
+  }) async {
+    if (!clearStarted.isCompleted) clearStarted.complete();
+    await releaseClear.future;
+    return super.clearIfCurrent(scope: scope, requestKey: requestKey);
   }
 }
 
@@ -126,6 +146,15 @@ ZkIdentityScope _scopeA() => ZkIdentityScope(
       participantId: 7,
       accountId: 'account-a',
       address: 'ut1-account-a',
+      challengeId: 42,
+    );
+
+ZkIdentityScope _scopeB() => ZkIdentityScope(
+      network: NetworkPrefs.currentNetwork,
+      bucket: NetworkPrefs.bucketForAddress('ut1-account-b'),
+      participantId: 8,
+      accountId: 'account-b',
+      address: 'ut1-account-b',
       challengeId: 42,
     );
 
@@ -279,7 +308,9 @@ void main() {
 
   test('consumed result write failure retries without refetching result',
       () async {
-    final server = _ConsumptiveResultServer();
+    // Use a rejected envelope so this persistence-boundary test never enters
+    // the native proof pipeline (and therefore never needs libusernode.so).
+    final server = _RejectedConsumptiveResultServer();
     final runtimeRepo = _FailFirstConsumedResultSave();
     final container = ProviderContainer(overrides: [
       zkPassportCurrentIdentityProvider.overrideWithValue(
@@ -312,10 +343,12 @@ void main() {
     server.releaseResult.complete();
     await pumpEventQueue();
 
-    final persisted = await runtimeRepo.load(scope: _scopeA());
     expect(runtimeRepo.consumedSaveAttempts, 2);
     expect(server.resultRequests, 1);
-    expect(persisted?.consumedResult?.outerProofB64Url, 'durable-proof');
+    expect(
+      runtimeRepo.lastConsumedPersistence?.consumedResult?.error,
+      'verification rejected',
+    );
   });
 
   test('a dormant consumed result resumes without refetching on foreground',
@@ -445,6 +478,7 @@ void main() {
 
     expect(
       await controller.discardPendingSession(
+        ownerAuthority: IdentityLease.capture(IdentitySnapshots.current),
         requestKey: staleKey,
         requestId: staleKey.sessionId,
         reason: 'stale callback',
@@ -455,6 +489,77 @@ void main() {
       (await ZkPassportRuntimeSessionRepository().load(scope: _scopeA()))
           ?.requestVersion,
       replacement.requestVersion,
+    );
+  });
+
+  test('discard completion preserves a runtime restored for replacement B',
+      () async {
+    final runtimeRepo = _BlockingRuntimeClear();
+    final server = _ProofReadySessionServer();
+    final currentIdentity = StateProvider<Identity>(
+      (_) => IdentitySnapshots.current,
+    );
+    final container = ProviderContainer(overrides: [
+      zkPassportCurrentIdentityProvider.overrideWith(
+        (ref) => ref.watch(currentIdentity),
+      ),
+      zkIdentityChallengeIdProvider.overrideWithValue(42),
+      zkPassportSessionServerRepositoryProvider.overrideWithValue(server),
+      zkPassportRuntimeSessionRepositoryProvider.overrideWithValue(runtimeRepo),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      server.dispose();
+    });
+
+    final controller = container.read(zkPassportPipelineProvider.notifier);
+    final authorityA = IdentityLease.capture(IdentitySnapshots.current);
+    final keyA = await controller.markLaunchStarted(
+      requestId: 'request-a-to-discard',
+      facematchStrict: true,
+      userPublicKey: 'public-key-a',
+      launchScope: _scopeA(),
+      launchAuthority: authorityA,
+    );
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final runtimeB = ZkPassportRuntimeSession(
+      requestId: 'request-b-restored',
+      facematchStrict: true,
+      phase: ZkPassportPipelinePhase.waiting,
+      createdAtMs: nowMs,
+      lastProgressAtMs: nowMs,
+      resumeAttemptCount: 0,
+      requestNonce: 'request-b-nonce',
+      userPublicKey: 'public-key-b',
+      launchScope: _scopeB(),
+    );
+    await runtimeRepo.save(runtimeB);
+
+    final discard = controller.discardPendingSession(
+      ownerAuthority: authorityA,
+      requestKey: keyA,
+      reason: 'A reset',
+    );
+    await runtimeRepo.clearStarted.future.timeout(const Duration(seconds: 2));
+
+    const identityB = Identity(
+      epoch: 4,
+      phase: IdentityPhase.ready,
+      participantId: 8,
+      accountId: 'account-b',
+      address: 'ut1-account-b',
+    );
+    IdentitySnapshots.publish(identityB);
+    container.read(currentIdentity.notifier).state = identityB;
+    await pumpEventQueue();
+
+    expect(controller.activeRequestKey, runtimeB.requestVersion?.key);
+    runtimeRepo.releaseClear.complete();
+    expect(await discard, isTrue);
+    expect(controller.activeRequestKey, runtimeB.requestVersion?.key);
+    expect(
+      container.read(zkPassportPipelineProvider).requestId,
+      runtimeB.requestId,
     );
   });
 }

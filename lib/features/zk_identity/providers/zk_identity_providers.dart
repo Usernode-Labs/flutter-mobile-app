@@ -174,8 +174,8 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   Future<bool> cancelVerification() async {
     final generation = _generation;
     final discarded = await _ref
-        .read(zkPassportPipelineProvider.notifier)
-        .discardPendingSession(reason: 'Cancelled');
+        .read(zkPassportFlowControllerProvider)
+        .cancelPendingSession();
     if (generation != _generation) return false;
     if (!discarded) return false;
 

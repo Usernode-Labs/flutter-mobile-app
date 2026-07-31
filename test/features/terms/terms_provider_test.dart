@@ -7,8 +7,23 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart';
+
+class _FixedSessionController extends SessionController {
+  _FixedSessionController(Identity identity)
+      : super(
+          tokenStore: AuthTokenStore(),
+          guestFlag: AuthGuestFlag(),
+          repository: AuthRepository(),
+          suspendNode: () async {},
+        ) {
+    state = identity;
+    IdentitySnapshots.publish(identity);
+  }
+}
 
 class _FakeService extends LeaderboardApiService {
   _FakeService({this.terms});
@@ -42,16 +57,18 @@ class _FakeService extends LeaderboardApiService {
 }
 
 AuthenticatedUserLease _publishOwner({int epoch = 7, int participantId = 1}) {
-  final identity = Identity(
-    epoch: epoch,
-    phase: IdentityPhase.ready,
-    participantId: participantId,
-    accountId: 'account-$participantId',
-    address: 'address-$participantId',
-  );
+  final identity = _identity(epoch: epoch, participantId: participantId);
   IdentitySnapshots.publish(identity);
   return AuthenticatedUserLease.capture(identity)!;
 }
+
+Identity _identity({int epoch = 7, int participantId = 1}) => Identity(
+      epoch: epoch,
+      phase: IdentityPhase.ready,
+      participantId: participantId,
+      accountId: 'account-$participantId',
+      address: 'address-$participantId',
+    );
 
 CurrentTerms _terms({bool accepted = false, int id = 3}) => CurrentTerms(
       id: id,
@@ -73,6 +90,9 @@ ProviderContainer _container(
     overrides: [
       isAuthenticatedProvider.overrideWithValue(true),
       authenticatedUserLeaseProvider.overrideWithValue(owner),
+      identityProvider.overrideWith(
+        (ref) => _FixedSessionController(owner.identityLease.identity),
+      ),
       leaderboardApiServiceProvider.overrideWithValue(service),
       if (appVersion != null)
         termsAppVersionProvider.overrideWith((ref) => appVersion),

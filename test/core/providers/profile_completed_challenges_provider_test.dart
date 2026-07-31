@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/profile_completed_challenges_provider.dart';
@@ -26,6 +27,7 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
     int? eventId,
     bool? activeOnly,
     bool? onlyScheduled,
+    IdentityLease? authority,
   }) async {
     final call = (
       seasonId: seasonId,
@@ -102,6 +104,7 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
   Future<BreakdownResult> getBreakdown({
     int? seasonId,
     int? eventId,
+    IdentityLease? authority,
   }) async {
     breakdownCall = (
       seasonId: seasonId,

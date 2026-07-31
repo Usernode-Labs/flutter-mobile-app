@@ -214,27 +214,88 @@ class ZkPassportFlowController {
 
   final Ref _ref;
   Future<ZkPassportLaunchResult>? _launchInFlight;
+  IdentityLease? _launchInFlightAuthority;
+  ZkIdentityScope? _launchInFlightScope;
 
   Future<ZkPassportLaunchResult> startRegistrationNonceZero() {
+    if (AppConfig.viewOnly) {
+      return Future.value(
+        const ZkPassportLaunchResult(
+          started: false,
+          requestId: null,
+          message: 'zkPassport session creation is disabled in view-only mode.',
+        ),
+      );
+    }
+
+    // Capture the complete launch authority before restoration or any other
+    // suspension. A tap made by A must never turn into a launch for B merely
+    // because startup restoration completed after the identity cutover.
+    final launchIdentity = IdentitySnapshots.current;
+    final launchScope = _captureCurrentZkIdentityScope(_ref);
+    if (launchScope == null) {
+      return Future.value(
+        const ZkPassportLaunchResult(
+          started: false,
+          requestId: null,
+          message: 'Your account or zkPassport challenge is still loading.',
+        ),
+      );
+    }
+    final launchAuthority = IdentityLease.capture(
+      launchIdentity,
+      network: launchScope.network,
+    );
+
     final inFlight = _launchInFlight;
-    if (inFlight != null) return inFlight;
+    if (inFlight != null) {
+      final existingAuthority = _launchInFlightAuthority;
+      final canJoin = existingAuthority != null &&
+          existingAuthority.identity.sameScopeAs(launchIdentity) &&
+          existingAuthority.network == launchAuthority.network &&
+          _launchInFlightScope == launchScope;
+      if (canJoin) return inFlight;
+      return Future.value(
+        const ZkPassportLaunchResult(
+          started: false,
+          requestId: null,
+          message: 'The active account changed. Please start again.',
+        ),
+      );
+    }
 
     late final Future<ZkPassportLaunchResult> launch;
-    launch = _startServerOwnedRegistration().whenComplete(() {
-      if (identical(_launchInFlight, launch)) _launchInFlight = null;
+    launch = _startServerOwnedRegistration(
+      launchScope: launchScope,
+      launchAuthority: launchAuthority,
+    ).whenComplete(() {
+      if (identical(_launchInFlight, launch)) {
+        _launchInFlight = null;
+        _launchInFlightAuthority = null;
+        _launchInFlightScope = null;
+      }
     });
     // Reserve the launch before its first suspension point. Two rapid taps
     // therefore share one server session instead of both observing `idle`.
     _launchInFlight = launch;
+    _launchInFlightAuthority = launchAuthority;
+    _launchInFlightScope = launchScope;
     return launch;
   }
 
-  Future<ZkPassportLaunchResult> _startServerOwnedRegistration() async {
-    if (AppConfig.viewOnly) {
+  Future<ZkPassportLaunchResult> _startServerOwnedRegistration({
+    required ZkIdentityScope launchScope,
+    required IdentityLease launchAuthority,
+  }) async {
+    bool launchAuthorityIsCurrent() =>
+        launchAuthority.isCurrent &&
+        _captureCurrentZkIdentityScope(_ref) == launchScope;
+
+    if (!launchAuthorityIsCurrent()) {
       return const ZkPassportLaunchResult(
         started: false,
         requestId: null,
-        message: 'zkPassport session creation is disabled in view-only mode.',
+        message: 'The active account changed. Please start again.',
       );
     }
 
@@ -243,6 +304,13 @@ class ZkPassportFlowController {
     // synchronously `idle`. Never inspect or replace that state until the
     // durable runtime row has been loaded.
     await pipelineController.prepareForLaunch();
+    if (!launchAuthorityIsCurrent()) {
+      return const ZkPassportLaunchResult(
+        started: false,
+        requestId: null,
+        message: 'The active account changed. Please start again.',
+      );
+    }
     final pipeline = _ref.read(zkPassportPipelineProvider);
     if (pipelineController.isProofProcessing) {
       return const ZkPassportLaunchResult(
@@ -263,6 +331,7 @@ class ZkPassportFlowController {
         },
       );
       final discarded = await pipelineController.discardPendingSession(
+        ownerAuthority: launchAuthority,
         requestKey: pipelineController.activeRequestKey,
         requestId: activeRequestId,
         reason:
@@ -277,23 +346,13 @@ class ZkPassportFlowController {
       }
     }
 
-    final launchIdentity = IdentitySnapshots.current;
-    final launchScope = _captureCurrentZkIdentityScope(_ref);
-    if (launchScope == null) {
+    if (!launchAuthorityIsCurrent()) {
       return const ZkPassportLaunchResult(
         started: false,
         requestId: null,
-        message: 'Your account or zkPassport challenge is still loading.',
+        message: 'The active account changed. Please start again.',
       );
     }
-    final launchAuthority = IdentityLease.capture(
-      launchIdentity,
-      network: launchScope.network,
-    );
-
-    bool launchAuthorityIsCurrent() =>
-        launchAuthority.isCurrent &&
-        _captureCurrentZkIdentityScope(_ref) == launchScope;
 
     final pendingCompletion = await _ref
         .read(zkPassportRegistrationRepositoryProvider)
@@ -534,37 +593,49 @@ class ZkPassportFlowController {
     _ref.invalidate(zkPassportRegistrationProvider);
   }
 
-  Future<void> clearActiveRegistration() async {
+  /// Cancels only the session generation owned by the identity that invoked
+  /// this method. A replacement identity never joins or inherits the cancel.
+  Future<bool> cancelPendingSession({String reason = 'Cancelled'}) async {
     final identity = IdentitySnapshots.current;
-    final scope = identity.allowsSigning
-        ? IdentityLease.capture(identity).accountScope
-        : null;
-    if (scope == null) return;
-    await _clearRegistration(scope);
-  }
-
-  Future<void> _clearRegistration(AccountStorageScope scope) async {
-    final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-    await repo.clearRegistrationForAccount(scope: scope);
-    _ref.invalidate(zkPassportIsRegisteredProvider);
-    _ref.invalidate(zkPassportRegistrationProvider);
+    final authority = IdentityLease.capture(identity);
+    final ownerScope = authority.accountScope;
+    if (ownerScope == null) return false;
+    final pipeline = _ref.read(zkPassportPipelineProvider.notifier);
+    final requestKey = pipeline.activeRequestKey;
+    final discarded = await pipeline.discardPendingSession(
+      ownerAuthority: authority,
+      requestKey: requestKey,
+      reason: reason,
+    );
+    return discarded && authority.isCurrent;
   }
 
   /// Resets all challenge-related state: ZK identity flow, pipeline session,
   /// registration, and cached challenge data. Called from settings.
   Future<bool> resetChallengeData() async {
     final identity = IdentitySnapshots.current;
-    final scope = identity.allowsSigning
-        ? IdentityLease.capture(identity).accountScope
-        : null;
+    final authority = IdentityLease.capture(identity);
+    final scope = identity.allowsSigning ? authority.accountScope : null;
     if (scope == null) return false;
-    final discarded = await _ref
-        .read(zkPassportPipelineProvider.notifier)
-        .discardPendingSession(reason: 'Reset');
-    if (!discarded) return false;
+    final pipeline = _ref.read(zkPassportPipelineProvider.notifier);
+    final requestKey = pipeline.activeRequestKey;
+    final discarded = await pipeline.discardPendingSession(
+      ownerAuthority: authority,
+      requestKey: requestKey,
+      reason: 'Reset',
+    );
+    if (!discarded || !authority.isCurrent) return false;
+
+    // The durable delete remains addressed to the captured account even if
+    // an identity cutover occurs while storage is suspended.
+    await _ref
+        .read(zkPassportRegistrationRepositoryProvider)
+        .clearRegistrationForAccount(scope: scope);
+    if (!authority.isCurrent) return false;
 
     _ref.read(zkIdentityStepControllerProvider.notifier).reset();
-    await _clearRegistration(scope);
+    _ref.invalidate(zkPassportIsRegisteredProvider);
+    _ref.invalidate(zkPassportRegistrationProvider);
     _ref.invalidate(challengesProvider);
     _ref.invalidate(breakdownProvider);
     _ref.invalidate(categorizedChallengesProvider);
@@ -992,17 +1063,36 @@ class ZkPassportPipelineController
   /// Returns false when proof verification has reached its non-cancellable
   /// in-flight section. Callers must leave their UI/state intact in that case.
   Future<bool> discardPendingSession({
+    required IdentityLease ownerAuthority,
     ZkRequestKey? requestKey,
     String? requestId,
     String? reason,
   }) async {
     await _startupResetFuture;
+    final ownerScope = ownerAuthority.accountScope;
+    if (ownerScope == null || !ownerAuthority.isCurrent) {
+      _log.warn(
+        'Refusing to discard a zkPassport session for a stale identity',
+      );
+      return false;
+    }
     if (_inFlight) {
       _log.warn('Refusing to discard a zkPassport session while its proof '
           'pipeline is still running');
       return false;
     }
     final runtime = _runtimeSession;
+    final runtimeScope = runtime?.launchScope;
+    if (runtimeScope != null && _accountScopeFor(runtimeScope) != ownerScope) {
+      _log.warn(
+        'Refusing to discard a zkPassport session owned by another account',
+        context: {
+          'expectedAccountId': ownerScope.accountId,
+          'activeAccountId': runtimeScope.accountId,
+        },
+      );
+      return false;
+    }
     if (requestKey != null && runtime?.requestVersion?.key != requestKey) {
       _log.warn(
         'Refusing to discard a replacement zkPassport request generation',
@@ -1027,11 +1117,11 @@ class ZkPassportPipelineController
       return false;
     }
     _stopServerPollingWorker();
-    final scope = runtime?.launchScope;
+    final scope = runtimeScope;
+    final runtimeKey = runtime?.requestVersion?.key;
     var clearedCurrentGeneration = true;
     if (scope != null &&
         _checkLaunchIdentity(runtime!) == _LaunchIdentityCheck.match) {
-      final runtimeKey = runtime.requestVersion?.key;
       if (runtimeKey == null) {
         await _runtimeRepo.clear(scope: scope);
       } else {
@@ -1041,14 +1131,33 @@ class ZkPassportPipelineController
         );
       }
     }
-    _runtimeSession = null;
-    _setState(
-      status: ZkPassportPipelineStatus.idle,
-      phase: ZkPassportPipelinePhase.idle,
-      message: reason ?? '',
-      requestKey: null,
-      resumeAttemptCount: 0,
-    );
+
+    // The clear above can suspend while an identity listener restores a
+    // replacement runtime. Retire in-memory state only if the same captured
+    // owner and request generation are still installed.
+    final active = _runtimeSession;
+    final sameCapturedGeneration = runtime == null
+        ? active == null
+        : active?.launchScope == scope &&
+            active?.requestVersion?.key == runtimeKey;
+    if (sameCapturedGeneration) {
+      _runtimeSession = null;
+      _setState(
+        status: ZkPassportPipelineStatus.idle,
+        phase: ZkPassportPipelinePhase.idle,
+        message: reason ?? '',
+        requestKey: null,
+        resumeAttemptCount: 0,
+      );
+    } else {
+      _log.info(
+        'Preserving replacement zkPassport runtime after stale discard',
+        context: {
+          'discardedRequestId': runtimeKey?.sessionId,
+          'activeRequestId': active?.requestId,
+        },
+      );
+    }
     return clearedCurrentGeneration;
   }
 

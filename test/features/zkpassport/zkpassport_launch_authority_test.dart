@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
@@ -94,6 +95,35 @@ class _BlockingRuntimeSave extends ZkPassportRuntimeSessionRepository {
   }
 }
 
+class _BlockingRuntimeLoad extends ZkPassportRuntimeSessionRepository {
+  final loadStarted = Completer<void>();
+  final releaseLoad = Completer<void>();
+
+  @override
+  Future<ZkPassportRuntimeSession?> load({
+    required ZkIdentityScope scope,
+  }) async {
+    if (!loadStarted.isCompleted) loadStarted.complete();
+    await releaseLoad.future;
+    return super.load(scope: scope);
+  }
+}
+
+class _BlockingRegistrationClear extends ZkPassportRegistrationRepository {
+  final clearStarted = Completer<void>();
+  final releaseClear = Completer<void>();
+  AccountStorageScope? clearedScope;
+
+  @override
+  Future<void> clearRegistrationForAccount({
+    required AccountStorageScope scope,
+  }) async {
+    clearedScope = scope;
+    if (!clearStarted.isCompleted) clearStarted.complete();
+    await releaseClear.future;
+  }
+}
+
 class _FailFirstRuntimeSave extends ZkPassportRuntimeSessionRepository {
   int attempts = 0;
 
@@ -139,6 +169,7 @@ void main() {
     required ZkPassportSessionServerRepository server,
     required ZkPassportLaunchService launchService,
     ZkPassportRuntimeSessionRepository? runtimeRepository,
+    ZkPassportRegistrationRepository? registrationRepository,
   }) {
     return ProviderContainer(overrides: [
       zkPassportCurrentIdentityProvider.overrideWithValue(_identityA),
@@ -148,6 +179,9 @@ void main() {
       if (runtimeRepository != null)
         zkPassportRuntimeSessionRepositoryProvider
             .overrideWithValue(runtimeRepository),
+      if (registrationRepository != null)
+        zkPassportRegistrationRepositoryProvider
+            .overrideWithValue(registrationRepository),
     ]);
   }
 
@@ -185,6 +219,39 @@ void main() {
     expect(result.started, isFalse);
     expect(result.message, contains('active account changed'));
     expect(server.calls, 1);
+    expect(launcher.calls, 0);
+  });
+
+  test('launch captures A before startup restore and B cannot join it',
+      () async {
+    final server = _StartSessionServer(firstSessionId: 'new-session');
+    final launcher = _RecordingLaunchService();
+    final runtimeRepository = _BlockingRuntimeLoad();
+    final container = buildContainer(
+      server: server,
+      launchService: launcher,
+      runtimeRepository: runtimeRepository,
+    );
+    addTearDown(() {
+      container.dispose();
+      server.dispose();
+    });
+
+    final flow = container.read(zkPassportFlowControllerProvider);
+    final launchA = flow.startRegistrationNonceZero();
+    await runtimeRepository.loadStarted.future
+        .timeout(const Duration(seconds: 2));
+
+    IdentitySnapshots.publish(_identityB);
+    final launchB = await flow.startRegistrationNonceZero();
+    expect(launchB.started, isFalse);
+    expect(launchB.message, contains('active account changed'));
+
+    runtimeRepository.releaseLoad.complete();
+    final resultA = await launchA;
+    expect(resultA.started, isFalse);
+    expect(resultA.message, contains('active account changed'));
+    expect(server.calls, 0);
     expect(launcher.calls, 0);
   });
 
@@ -246,5 +313,41 @@ void main() {
     expect(second.message, contains('Unable to open'));
     expect(runtimeRepository.attempts, 2);
     expect(launcher.calls, 1);
+  });
+
+  test('reset never clears or resets replacement B after an A clear suspends',
+      () async {
+    final server = _StartSessionServer(firstSessionId: 'unused-session');
+    final launcher = _RecordingLaunchService();
+    final registrationRepository = _BlockingRegistrationClear();
+    final container = buildContainer(
+      server: server,
+      launchService: launcher,
+      registrationRepository: registrationRepository,
+    );
+    addTearDown(() {
+      container.dispose();
+      server.dispose();
+    });
+
+    final steps = container.read(zkIdentityStepControllerProvider.notifier);
+    steps.state = steps.state.advanceTo(ZkIdentityStep.verification.index);
+
+    final reset =
+        container.read(zkPassportFlowControllerProvider).resetChallengeData();
+    await registrationRepository.clearStarted.future
+        .timeout(const Duration(seconds: 2));
+    IdentitySnapshots.publish(_identityB);
+    registrationRepository.releaseClear.complete();
+
+    expect(await reset, isFalse);
+    expect(
+      registrationRepository.clearedScope,
+      IdentityLease.capture(_identityA).accountScope,
+    );
+    expect(
+      container.read(zkIdentityStepControllerProvider).currentStep,
+      ZkIdentityStep.verification,
+    );
   });
 }

@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -32,6 +33,7 @@ class _RecordingSeasonsService extends LeaderboardApiService {
     bool? onlyCurrentSeason,
     bool? onlyActiveEvents,
     bool? onlyCurrentEvents,
+    IdentityLease? authority,
   }) async {
     calls++;
     if (!started.isCompleted) started.complete();

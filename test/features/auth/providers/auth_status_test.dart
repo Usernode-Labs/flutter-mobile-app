@@ -735,6 +735,54 @@ void main() {
       expect(suspendCount, 2);
     });
 
+    test(
+        'runtime retirement drains accepted transitions and refuses later ones',
+        () async {
+      controller.dispose();
+      final firstSuspendStarted = Completer<void>();
+      final releaseFirstSuspend = Completer<void>();
+      var localSuspendCount = 0;
+      controller = SessionController(
+        tokenStore: AuthTokenStore(),
+        guestFlag: AuthGuestFlag(),
+        repository: AuthRepository(),
+        suspendNode: () {
+          localSuspendCount += 1;
+          if (localSuspendCount == 1) {
+            firstSuspendStarted.complete();
+            return releaseFirstSuspend.future;
+          }
+          return Future<void>.value();
+        },
+      );
+      await controller.restore();
+
+      final login = controller.completeLogin(_session('sess-retiring'));
+      await firstSuspendStarted.future;
+      final acceptedGuestTransition = controller.continueAsGuest();
+      final finalBarrier = controller.retireForRuntimeCutover();
+      var finalBarrierCompleted = false;
+      unawaited(finalBarrier.whenComplete(() => finalBarrierCompleted = true));
+
+      // This call arrived after retirement. It must neither join the queue nor
+      // mutate the durable target the replacement runtime will restore.
+      expect(await controller.logout(), isFalse);
+      await pumpEventQueue();
+      expect(finalBarrierCompleted, isFalse);
+
+      releaseFirstSuspend.complete();
+      await finalBarrier;
+      await login;
+      await acceptedGuestTransition;
+
+      expect(localSuspendCount, 2);
+      // The old runtime stays closed. The replacement restores the durable
+      // guest target after the barrier instead of publishing it in place.
+      expect(controller.state.phase, IdentityPhase.transitioning);
+      expect(await AuthTokenStore().read(), isNull);
+      expect(await AuthGuestFlag().isGuest(), isTrue);
+    });
+
     test('a null reconcile result clears the previous season everywhere',
         () async {
       await settleReady(provisionedSeasonId: 7);

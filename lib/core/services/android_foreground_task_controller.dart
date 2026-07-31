@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:crypto_mobile_app/core/models/vrf_status.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -34,6 +35,7 @@ class AndroidForegroundTaskController {
   String? _alarmRecoveryInFlightKey;
   String? _lastHandledAlarmKey;
   DateTime? _lastHandledAlarmAt;
+  Future<void> _monitoringOperationTail = Future.value();
 
   Future<void> initialize() async {
     if (!Platform.isAndroid) return;
@@ -75,20 +77,37 @@ class AndroidForegroundTaskController {
     _log.info('AndroidForegroundTask initialized');
   }
 
-  Future<void> onNodeStarted() async {
+  Future<void> onNodeStarted({NodeStartAuthority? authority}) async {
     if (!Platform.isAndroid) return;
     if (AppSleepStateStore.isSleeping) {
       _log.info('Skipping Android monitoring start while app sleep is active');
       return;
     }
-    await startMonitoring(reason: 'node_started');
+    await startMonitoring(reason: 'node_started', authority: authority);
   }
 
   Future<bool> startMonitoring({
     String reason = 'manual',
     bool allowWhileSleeping = false,
+    NodeStartAuthority? authority,
+  }) =>
+      _serializeMonitoringOperation(
+        () => _startMonitoring(
+          reason: reason,
+          allowWhileSleeping: allowWhileSleeping,
+          authority: authority,
+        ),
+      );
+
+  Future<bool> _startMonitoring({
+    required String reason,
+    required bool allowWhileSleeping,
+    required NodeStartAuthority? authority,
   }) async {
+    bool authorityIsCurrent() => authority?.isCurrent ?? true;
+
     if (!Platform.isAndroid) return false;
+    if (!authorityIsCurrent()) return false;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Skipping Android monitoring start while app sleep is active',
@@ -97,9 +116,11 @@ class AndroidForegroundTaskController {
       return false;
     }
     await initialize();
+    if (!authorityIsCurrent()) return false;
 
     // Ensure the Rust node is running before polling VRF or scheduling alarms.
-    final nodeOk = await _ensureNodeRunning();
+    final nodeOk = await _ensureNodeRunning(authority: authority);
+    if (!authorityIsCurrent()) return false;
     if (!nodeOk) {
       _log.error('Cannot start monitoring: node failed to start');
       return false;
@@ -107,6 +128,11 @@ class AndroidForegroundTaskController {
 
     final wakelockWasHeld = _wakelockHeld;
     final wakelockAcquired = await _acquireWakelock();
+    if (!authorityIsCurrent()) {
+      return _rollbackMonitoringStart(
+        releaseWakelock: wakelockAcquired && !wakelockWasHeld,
+      );
+    }
     if (!wakelockAcquired) {
       _log.error('Cannot start monitoring: native wakelock was not acquired');
       return false;
@@ -114,12 +140,23 @@ class AndroidForegroundTaskController {
 
     final running =
         await PlatformAlarmService.instance.isForegroundServiceRunning();
+    if (!authorityIsCurrent()) {
+      return _rollbackMonitoringStart(
+        releaseWakelock: !wakelockWasHeld,
+      );
+    }
     if (!running) {
       final result = await PlatformAlarmService.instance.startForegroundService(
         title: 'Usernode',
         message: 'Evaluating VRF slots',
         globalSlot: 0,
       );
+      if (!authorityIsCurrent()) {
+        return _rollbackMonitoringStart(
+          stopForegroundService: result,
+          releaseWakelock: !wakelockWasHeld,
+        );
+      }
       _log.info('Foreground service start result: $result');
       if (!result) {
         if (!wakelockWasHeld) {
@@ -134,7 +171,27 @@ class AndroidForegroundTaskController {
     return true;
   }
 
-  Future<void> stopMonitoring({String reason = 'stopped'}) async {
+  Future<bool> _rollbackMonitoringStart({
+    bool stopForegroundService = false,
+    required bool releaseWakelock,
+  }) async {
+    _log.info('Rolling back monitoring start after authority changed');
+    try {
+      if (stopForegroundService) {
+        await PlatformAlarmService.instance.stopForegroundService();
+      }
+    } finally {
+      if (releaseWakelock) {
+        await _releaseWakelock();
+      }
+    }
+    return false;
+  }
+
+  Future<void> stopMonitoring({String reason = 'stopped'}) =>
+      _serializeMonitoringOperation(() => _stopMonitoring(reason: reason));
+
+  Future<void> _stopMonitoring({required String reason}) async {
     if (!Platform.isAndroid) return;
     _pollTimer?.cancel();
     _pollTimer = null;
@@ -149,6 +206,20 @@ class AndroidForegroundTaskController {
     }
     await _releaseWakelock();
     await PlatformAlarmService.instance.stopForegroundService();
+  }
+
+  Future<T> _serializeMonitoringOperation<T>(
+    Future<T> Function() operation,
+  ) {
+    final result = Completer<T>();
+    _monitoringOperationTail = _monitoringOperationTail.then((_) async {
+      try {
+        result.complete(await operation());
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
   }
 
   void _startPollTimer() {
@@ -224,10 +295,15 @@ class AndroidForegroundTaskController {
     _lastHandledAlarmAt = null;
   }
 
-  Future<bool> _ensureNodeRunning() async {
+  Future<bool> _ensureNodeRunning({NodeStartAuthority? authority}) async {
     try {
-      final started = await RustBackendService.instance.startNode();
+      if (authority != null && !authority.isCurrent) return false;
+      final started = await RustBackendService.instance.startNode(
+        authority: authority,
+      );
+      if (authority != null && !authority.isCurrent) return false;
       await RustBackendService.instance.resumeNode();
+      if (authority != null && !authority.isCurrent) return false;
       _log.info('Node start result: $started');
       return started;
     } catch (e, st) {

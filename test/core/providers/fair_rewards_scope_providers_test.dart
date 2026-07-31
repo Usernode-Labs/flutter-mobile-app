@@ -1,13 +1,37 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
-import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
+
+class _ReadyIdentityController extends SessionController {
+  _ReadyIdentityController()
+      : super(
+          tokenStore: AuthTokenStore(),
+          guestFlag: AuthGuestFlag(),
+          repository: AuthRepository(),
+          suspendNode: () async {},
+        ) {
+    const identity = Identity(
+      epoch: 1,
+      phase: IdentityPhase.ready,
+      participantId: 19,
+      accountId: 'account-19',
+      address: 'address-19',
+    );
+    IdentitySnapshots.publish(identity);
+    state = identity;
+  }
+}
 
 class _RecordingLeaderboardApiService extends LeaderboardApiService {
   ({int? seasonId, int? eventId, bool? activeOnly})? challengesCall;
@@ -20,6 +44,7 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
     int? eventId,
     bool? activeOnly,
     bool? onlyScheduled,
+    IdentityLease? authority,
   }) async {
     challengesCall = (
       seasonId: seasonId,
@@ -33,6 +58,7 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
   Future<BreakdownResult> getBreakdown({
     int? seasonId,
     int? eventId,
+    IdentityLease? authority,
   }) async {
     breakdownCall = (
       seasonId: seasonId,
@@ -66,6 +92,7 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
   Future<RankingResult> getRanking({
     int? seasonId,
     int? eventId,
+    IdentityLease? authority,
   }) async {
     rankingCall = (
       seasonId: seasonId,
@@ -93,7 +120,7 @@ ProviderContainer _container(
   final container = ProviderContainer(
     overrides: [
       leaderboardApiServiceProvider.overrideWithValue(service),
-      isAuthenticatedProvider.overrideWithValue(true),
+      identityProvider.overrideWith((ref) => _ReadyIdentityController()),
       seasonEventContextProvider.overrideWith((ref) => context),
     ],
   );

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
@@ -33,12 +35,14 @@ class AppBootstrapResult {
   final TaggedLogger log;
   final bool hasAnyAccounts;
   final String? activeAccountId;
+  final Future<void> backendBootstrap;
 
   const AppBootstrapResult({
     required this.container,
     required this.log,
     required this.hasAnyAccounts,
     required this.activeAccountId,
+    required this.backendBootstrap,
   });
 }
 
@@ -53,6 +57,9 @@ class AppBootstrap {
     required String logTag,
     bool registerLifecycleObserver = true,
     bool installErrorHandlers = true,
+    bool applyBootstrapIdentity = true,
+    bool startBackendBootstrap = true,
+    bool? initializeInteractiveServices,
   }) async {
     // Initialize network preferences early (before any SharedPreferences access)
     await NetworkPrefs.init();
@@ -116,69 +123,100 @@ class AppBootstrap {
 
     // Create provider container
     final container = ProviderContainer();
+    try {
+      // Accounts are needed to decide background behavior and set crash context
+      final repo = await AccountsRepository.create();
+      if (applyBootstrapIdentity) {
+        await _applyBootstrapIdentity(
+          log: log,
+          container: container,
+          repo: repo,
+        );
+      }
+      // Restore the identity (and with it the active per-identity storage
+      // bucket) before any account-scoped pref is read. This publishes the
+      // boot identity: unauthenticated, guest, ready, or reconciling when a
+      // sign-in's account reconcile was interrupted — in which case the node
+      // start below is refused until the reconcile completes.
+      await container.read(identityProvider.notifier).restore();
+      final hasAnyAccounts = await repo.hasAny();
+      final activeId = repo.getActiveId();
 
-    // Accounts are needed to decide background behavior and set crash context
-    final repo = await AccountsRepository.create();
-    await _applyBootstrapIdentity(
-      log: log,
-      container: container,
-      repo: repo,
-    );
-    // Restore the identity (and with it the active per-identity storage
-    // bucket) before any account-scoped pref is read. This publishes the
-    // boot identity: unauthenticated, guest, ready, or reconciling when a
-    // sign-in's account reconcile was interrupted — in which case the node
-    // start below is refused until the reconcile completes.
-    await container.read(identityProvider.notifier).restore();
-    final hasAnyAccounts = await repo.hasAny();
-    final activeId = repo.getActiveId();
+      if (SentryUtil.enabled) {
+        final identity = container.read(identityProvider);
+        final sentryAccountId = switch (identity.phase) {
+          IdentityPhase.ready ||
+          IdentityPhase.unauthenticated =>
+            identity.accountId,
+          _ => null,
+        };
+        if (sentryAccountId == null) {
+          await SentryUtil.clearUser();
+          log.debug('Cleared Sentry user context for unsettled identity');
+        } else {
+          await SentryUtil.setUser(id: sentryAccountId);
+          log.debug(
+            'Set Sentry user context for restored identity: $sentryAccountId',
+          );
+        }
+      }
 
-    if (activeId != null && SentryUtil.enabled) {
-      await SentryUtil.setUser(id: activeId);
-      log.debug('Set Sentry user context for existing account: $activeId');
-    }
+      // Metrics collector needs the container before any lifecycle/service starts
+      MetricsCollectorService.instance.initialize(container);
+      ObservabilityReportingService.instance.configureMobileContextCollector(
+        MetricsCollectorService.instance,
+      );
+      ObservabilityReportingService.instance.configureNodeRuntimeActiveGetter(
+        () => RustBackendService.instance.isRuntimeActive,
+      );
 
-    // Metrics collector needs the container before any lifecycle/service starts
-    MetricsCollectorService.instance.initialize(container);
-    ObservabilityReportingService.instance.configureMobileContextCollector(
-      MetricsCollectorService.instance,
-    );
-    ObservabilityReportingService.instance.configureNodeRuntimeActiveGetter(
-      () => RustBackendService.instance.isRuntimeActive,
-    );
+      if (initializeInteractiveServices ?? registerLifecycleObserver) {
+        await AppSleepService.instance.initializeForInteractiveApp();
+      }
 
-    if (registerLifecycleObserver) {
-      await AppSleepService.instance.initializeForInteractiveApp();
-    }
+      void recoverZkSession() {
+        container
+            .read(zkPassportPipelineProvider.notifier)
+            .recoverPendingSessionOnForeground();
+      }
 
-    void recoverZkSession() {
-      container
-          .read(zkPassportPipelineProvider.notifier)
-          .recoverPendingSessionOnForeground();
-    }
-
-    if (registerLifecycleObserver) {
-      AppLifecycleLogger.register();
+      if (registerLifecycleObserver) {
+        AppLifecycleLogger.register();
+      }
+      // The observer is process-global, but this callback captures a provider
+      // container. Rebind it on every interactive runtime bootstrap, including
+      // replacements which intentionally do not register another observer.
       AppLifecycleLogger.onForegroundResume = () {
         recoverZkSession();
         BlockProductionAlarmAuditService.instance.auditBestEffort(
           reason: 'foreground_resume',
         );
       };
+
+      var backendBootstrap = Future<void>.value();
+      if (startBackendBootstrap) {
+        final bootstrapIdentity = container.read(identityProvider);
+        backendBootstrap = _bootstrapBackendAsync(
+          log: log,
+          hasAnyAccounts: hasAnyAccounts,
+          authority: IdentityLease.capture(bootstrapIdentity),
+          nodeAuthority: NodeStartAuthority.capture(bootstrapIdentity),
+        );
+      }
+
+      return AppBootstrapResult(
+        container: container,
+        log: log,
+        hasAnyAccounts: hasAnyAccounts,
+        activeAccountId: activeId,
+        backendBootstrap: backendBootstrap,
+      );
+    } catch (_) {
+      AppLifecycleLogger.onForegroundResume = null;
+      MetricsCollectorService.instance.reset();
+      container.dispose();
+      rethrow;
     }
-
-    _bootstrapBackendAsync(
-      log: log,
-      container: container,
-      hasAnyAccounts: hasAnyAccounts,
-    );
-
-    return AppBootstrapResult(
-      container: container,
-      log: log,
-      hasAnyAccounts: hasAnyAccounts,
-      activeAccountId: activeId,
-    );
   }
 
   static void _dispatchNativeEvent({
@@ -313,8 +351,9 @@ class AppBootstrap {
 
   static Future<void> _bootstrapBackendAsync({
     required TaggedLogger log,
-    required ProviderContainer container,
     required bool hasAnyAccounts,
+    required IdentityLease authority,
+    required NodeStartAuthority? nodeAuthority,
   }) async {
     try {
       log.debug('Bootstrap begin');
@@ -337,14 +376,19 @@ class AppBootstrap {
 
       // Initialize FRB for native event delivery; only start the node when an
       // account exists.
+      if (!authority.isCurrent) return;
       final nodeWasRunning = RustBackendService.instance.isRunning;
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
+        if (!authority.isCurrent) return;
         await PlatformAlarmService.instance.markReadyForNativeEvents();
         if (hasAnyAccounts) {
           log.info('FRB initialized, starting node...');
-          final started = await RustBackendService.instance.startNode();
+          final started = await RustBackendService.instance.startNode(
+            authority: nodeAuthority,
+          );
+          if (!authority.isCurrent) return;
           log.info(
               'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
           log.info(started
@@ -354,6 +398,7 @@ class AppBootstrap {
             log.info(
                 'Node started successfully, waiting 1 second for node to be ready...');
             await Future.delayed(const Duration(seconds: 1));
+            if (!authority.isCurrent) return;
             log.info('Node should be ready now');
           }
         } else {
@@ -362,21 +407,28 @@ class AppBootstrap {
       } else {
         log.info('Backend already running, skipping start');
         await PlatformAlarmService.instance.markReadyForNativeEvents();
+        if (!authority.isCurrent) return;
         await ObservabilityReportingService.instance.reportNodeInitialized(
           resetStaticContext: false,
         );
+        if (!authority.isCurrent) return;
       }
 
       // Watchdog work is useful only while an account-backed producer is
       // actually running.
       if (Platform.isAndroid) {
-        final blockProductionActive =
-            hasAnyAccounts && RustBackendService.instance.isRunning;
+        if (!authority.isCurrent) return;
+        final blockProductionActive = hasAnyAccounts &&
+            nodeAuthority?.accountScope != null &&
+            RustBackendService.instance.isRunning;
         if (blockProductionActive) {
           BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
           log.info('Starting Android foreground VRF monitoring');
-          await AndroidForegroundTaskController.instance.onNodeStarted();
-          unawaited(_runStartupAlarmAudit(log));
+          await AndroidForegroundTaskController.instance.onNodeStarted(
+            authority: nodeAuthority,
+          );
+          if (!authority.isCurrent) return;
+          await _runStartupAlarmAudit(log, authority: authority);
         } else {
           BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
           log.info(
@@ -397,10 +449,15 @@ class AppBootstrap {
     }
   }
 
-  static Future<void> _runStartupAlarmAudit(TaggedLogger log) async {
+  static Future<void> _runStartupAlarmAudit(
+    TaggedLogger log, {
+    required IdentityLease authority,
+  }) async {
     try {
+      if (!authority.isCurrent) return;
       final forceStopRecovery = await BlockProductionAlarmAuditService.instance
           .auditForceStopRecoveryIfNeeded();
+      if (!authority.isCurrent) return;
       if (!forceStopRecovery && RustBackendService.instance.isRunning) {
         await BlockProductionAlarmAuditService.instance.audit(
           reason: 'cold_start',

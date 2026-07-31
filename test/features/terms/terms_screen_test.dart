@@ -8,11 +8,26 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart';
 import 'package:crypto_mobile_app/features/terms/screens/terms_screen.dart';
 
 import '../../design_system/helpers/ds_test_helpers.dart';
+
+class _FixedSessionController extends SessionController {
+  _FixedSessionController(Identity identity)
+      : super(
+          tokenStore: AuthTokenStore(),
+          guestFlag: AuthGuestFlag(),
+          repository: AuthRepository(),
+          suspendNode: () async {},
+        ) {
+    state = identity;
+    IdentitySnapshots.publish(identity);
+  }
+}
 
 class _FakeService extends LeaderboardApiService {
   _FakeService(this.terms);
@@ -43,16 +58,18 @@ class _FakeService extends LeaderboardApiService {
 }
 
 AuthenticatedUserLease _owner() {
-  const identity = Identity(
-    epoch: 7,
-    phase: IdentityPhase.ready,
-    participantId: 1,
-    accountId: 'account-1',
-    address: 'address-1',
-  );
+  final identity = _readyIdentity();
   IdentitySnapshots.publish(identity);
   return AuthenticatedUserLease.capture(identity)!;
 }
+
+Identity _readyIdentity() => const Identity(
+      epoch: 7,
+      phase: IdentityPhase.ready,
+      participantId: 1,
+      accountId: 'account-1',
+      address: 'address-1',
+    );
 
 CurrentTerms _terms({required bool accepted}) => CurrentTerms(
       id: 3,
@@ -69,6 +86,9 @@ ProviderContainer _container(_FakeService service) => ProviderContainer(
       overrides: [
         isAuthenticatedProvider.overrideWithValue(true),
         authenticatedUserLeaseProvider.overrideWithValue(_owner()),
+        identityProvider.overrideWith(
+          (ref) => _FixedSessionController(_readyIdentity()),
+        ),
         showSignInGateProvider.overrideWithValue(false),
         leaderboardApiServiceProvider.overrideWithValue(service),
       ],
@@ -79,6 +99,16 @@ Widget _app(_FakeService service, {bool signedIn = true}) => ProviderScope(
         isAuthenticatedProvider.overrideWithValue(signedIn),
         authenticatedUserLeaseProvider.overrideWithValue(
           signedIn ? _owner() : null,
+        ),
+        identityProvider.overrideWith(
+          (ref) => _FixedSessionController(
+            signedIn
+                ? _readyIdentity()
+                : const Identity(
+                    epoch: 7,
+                    phase: IdentityPhase.guest,
+                  ),
+          ),
         ),
         showSignInGateProvider.overrideWithValue(!signedIn),
         leaderboardApiServiceProvider.overrideWithValue(service),

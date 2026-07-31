@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -115,6 +116,7 @@ class _MockProfileHistoryService extends LeaderboardApiService {
     int? eventId,
     bool? activeOnly,
     bool? onlyScheduled,
+    IdentityLease? authority,
   }) async =>
       const [_completedChallenge, _completedProduceBlocksChallenge];
 
@@ -122,6 +124,7 @@ class _MockProfileHistoryService extends LeaderboardApiService {
   Future<BreakdownResult> getBreakdown({
     int? seasonId,
     int? eventId,
+    IdentityLease? authority,
   }) async =>
       const BreakdownResult(
         scope: 'global',

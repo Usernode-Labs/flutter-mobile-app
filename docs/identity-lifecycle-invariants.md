@@ -19,11 +19,14 @@ An `Identity` carries:
 
 - **`phase`** — `unknown / transitioning / unauthenticated / guest /
   reconciling / ready`. `transitioning` closes every account-sensitive gate
-  while credentials and the node runtime are being replaced. `reconciling`
-  means "a session exists but which on-chain account it owns has not been
-  confirmed"; both phases gate wallet routes, dApp signing, and node starts.
+  while the durable identity target and provider runtime are being replaced;
+  a node whose authority is revoked is stopped as part of that transition.
+  `reconciling` means "a session exists but which on-chain account it owns has
+  not been confirmed"; both phases gate wallet routes, dApp signing, and node
+  starts.
 - **`epoch`** — a monotonic counter bumped on every identity-changing
-  transition (login, logout, guest, 401, season rollover). It invalidates
+  transition and interactive runtime replacement (including login, logout,
+  guest, 401, reconcile completion, and season rollover). It invalidates
   ephemeral authority; it is deliberately not part of durable data ownership.
 - **`participantId` / `accountId` / `address` / `provisionedSeasonId`** —
   the confirmed bindings, populated as the phase settles.
@@ -31,9 +34,10 @@ An `Identity` carries:
 Async code carries one of two explicit capabilities:
 
 - `AuthenticatedUserScope`, `AccountStorageScope`, `WalletDataScope`, and
-  `ZkIdentityScope` are stable owners. Reads and writes already addressed to
-  one of these scopes may finish after logout; they must only publish if that
-  scope is still the current view.
+  `ZkIdentityScope` are stable owners. Durable or process-global work already
+  addressed to one of these scopes may finish after a cutover and persist only
+  into that same scope. The provider tree that launched it does not survive,
+  so it cannot publish into the replacement UI runtime.
 - `IdentityLease`, `AuthenticatedUserLease`, `WalletIdentityLease`,
   `WalletRuntimeLease`, and `NodeStartAuthority` are ephemeral authority. They
   are revalidated at the boundary of an authenticated transport, signature,
@@ -47,9 +51,35 @@ writer** of both identity snapshots and `NetworkPrefs.setActiveBucket` —
 enforced by the `single_identity_snapshot_writer` and
 `single_identity_bucket_writer` ds_lints.
 
+The interactive app treats an identity change as a hard runtime cutover, not
+as an in-place account switch. The controller first publishes
+`transitioning`, persists the complete target/recovery payload, and stops any
+node whose authority the target revokes. `IdentityRuntimeRestartService` then
+asks `AppRuntimeRoot` (`lib/main.dart`) to retire the old controller to new
+transitions, remove the old provider tree, wait for the retirement barrier and
+already-started process bootstrap to settle, quiesce identity-bound Android
+monitoring/alarms, wait for widget unmount, and dispose its exact
+`ProviderContainer`. Only after that disposal completes may
+`AppBootstrap`
+construct the replacement container. The two provider graphs never overlap;
+token/guest state, reconcile markers, participant staging, account ownership
+proof, and other explicit durable stores are the only source of the
+replacement identity target. `IdentitySnapshots` carries only the revocation
+epoch across the in-process gap. Process-global/native services may remain
+alive only when their explicit authority is still valid; they are rebound or
+revalidated, never used as replacement provider state.
+
+`IdentitySnapshots` seeds each replacement controller with the last in-process
+epoch, so the identity restored by the new container advances rather than
+reusing an epoch. A cold process may restart the counter because no work from
+the former process can still carry authority. Containers without an
+interactive runtime host (headless jobs and unit/provider tests) use the
+controller's in-container target publication as an explicit compatibility
+fallback; that fallback is not the production account-switch architecture.
+
 The `IdentityDriver` (`lib/features/auth/providers/post_sign_in_sync.dart`)
-makes the app converge on each published snapshot: a `reconciling` identity
-triggers the `NodeAccountReconciler`
+makes each replacement runtime converge on its restored snapshot: a
+`reconciling` identity triggers the `NodeAccountReconciler`
 (`lib/features/onboarding/data/node_account_provisioning.dart`); a
 transition into `ready` retries any pending ZK completion.
 
@@ -57,12 +87,13 @@ transition into `ready` retries any pending ZK completion.
 
 | State | Storage | Lifetime |
 |---|---|---|
-| Identity snapshot (`Identity`) | `identityProvider` / `IdentitySnapshots` (in-memory) | Republished on every transition |
+| Identity snapshot (`Identity`) | `identityProvider` / `IdentitySnapshots` (in-memory) | Old runtime closes at `transitioning`; replacement restores the durable target with a higher in-process epoch |
+| Interactive provider runtime | `ProviderContainer` owned by `AppRuntimeRoot` | Disposed on every identity target change; old and replacement containers never overlap |
 | Session token | Secure storage (`AuthTokenStore`) | Cleared on logout/401 |
 | Reconcile-pending marker | Network-prefixed pref, owned by `SessionController` | Login → reconcile commit |
 | Account registry (index + active id) | `AccountsRepository` (`lib/core/providers/accounts_provider.dart`), network-prefixed prefs + secure storage | **Persists across logout** |
 | Active storage bucket (`guest` or `sha256(address)[..16]`) | `NetworkPrefs.activeBucket` (`lib/core/utils/network_prefs.dart`), in-memory | Recomputed on every identity transition |
-| Participant id | Account-bucket-scoped pref (`lib/core/identity/participant_id_store.dart`) | Staged in guest bucket at login, installed on reconcile |
+| Participant id | Account-bucket-scoped pref (`lib/core/identity/participant_id_store.dart`) | Staged in guest bucket at login/rollover, installed on reconcile |
 | Provisioned season id | Account-bucket-scoped pref, owned by `SessionController` | Written at reconcile commit |
 | Pending ZK completion | Versioned registration-repository outbox, pinned to an explicit bucket | Hidden by an exact-version terminal outcome |
 | ZK request outcome | Append-only request-version/outcome-addressed pref | Permanent terminal decision for one launch |
@@ -153,11 +184,13 @@ its bucket explicitly (`NetworkPrefs.prefixAccountKeyFor`), not implicitly
 
 **I6 — Multi-step transitions are resumable.** Provision → import/activate
 → id install → node bind → commit can be interrupted at any point; because
-the reconcile re-runs whenever a `reconciling` identity is published and
-each step is idempotent, partial state self-heals. Login persists a
-reconcile-pending marker (cleared only by the `reconcileSucceeded` commit)
-so a boot restore routes an interrupted login back into `reconciling`. No
-step may assume a previous run completed.
+the reconcile re-runs whenever a replacement runtime restores a
+`reconciling` identity and each step is idempotent, partial state self-heals.
+Login persists a reconcile-pending marker (cleared only by the
+`reconcileSucceeded` commit) so a cutover or boot restore routes an
+interrupted login back into `reconciling`. The durable recovery payload, not
+the retired provider graph, carries progress across that boundary. No step
+may assume a previous run completed.
 *Enforced by:* the marker lifecycle inside `SessionController` (`restore`
 / `completeLogin` / `reconcileSucceeded`); regression tests in
 `test/features/onboarding/node_account_reconciler_test.dart` and
@@ -207,17 +240,25 @@ tests in
 (`lib/features/zkpassport/data/repositories/zkpassport_repositories.dart`),
 and the ready-transition trigger in the `IdentityDriver`.
 
-**I8 — Identity transitions recompute identity-derived state.** Every
-transition publishes a new `Identity` snapshot; providers holding
-identity-derived or bucket-scoped data watch `identityProvider` (e.g.
-`participantIdProvider`, `walletProvider`) or are keyed by a scope selected
-from that snapshot (e.g. `recipientHistoryProvider`). Other providers are
-invalidated by the reconciler (`hasAnyAccountProvider`,
-`activeAccountProvider`, `accountsProvider`,
-`hasCompletedOnboardingProvider`). An auth-status watch alone cannot see a
-mid-session bucket switch — watch the snapshot.
-*Enforced by:* `SessionController._publish` + `ref.watch(identityProvider)`
-in account-scoped providers + `NodeAccountReconciler` invalidations.
+**I8 — Identity transitions rebuild identity-derived state.** In the
+interactive app, the old runtime receives the gate-closing `transitioning`
+snapshot and is then destroyed; the replacement container restores the
+durable target and constructs every provider again. No identity-derived cache,
+subscription, notifier, or publication surface crosses that boundary. A Dart
+future that was already running may still complete after disposal, but it has
+no replacement-runtime `ref` or state; any allowed persistence must already be
+addressed to an explicit durable scope. Work targeting process-global runtime
+services is instead authority-checked and serialized; identity-bound startup
+and monitoring are drained or quiesced at cutover.
+Inside one stable runtime, providers holding identity-derived or bucket-scoped
+data still watch `identityProvider` (e.g. `participantIdProvider`,
+`walletProvider`) or are keyed by a scope selected from that snapshot (e.g.
+`recipientHistoryProvider`). Reconciler invalidations remain necessary for
+same-runtime changes and the headless/test fallback. An auth-status watch alone
+cannot represent an identity or bucket change — watch the snapshot.
+*Enforced by:* the runtime cutover in `AppRuntimeRoot`,
+`SessionController._publish` + `ref.watch(identityProvider)` in
+account-scoped providers, and `NodeAccountReconciler` invalidations.
 
 **I9 — All identity storage is network-prefixed.** Testnet/internal/custom
 data never mix. Account-scoped keys are additionally bucket-prefixed.
@@ -230,15 +271,18 @@ themselves are serialized on the controller queue. Work that can cause an
 external effect (authenticated transport, key access, signature, wallet send,
 node start) captures a lease and revalidates it immediately before that
 effect. Work that already has an explicit stable owner may finish reading or
-persisting into that old scope; only publication into the current UI is
-conditional on the scope still matching. This avoids both cross-user effects
-and the opposite bug where a valid response for A is lost merely because the
-user moved to B while it was in flight.
+persisting into that old scope. It cannot publish through the retired provider
+graph; a replacement runtime may observe the result only by loading it from
+that explicit durable scope. This avoids cross-user effects without throwing
+away valid durable facts merely because their owner stopped being the current
+UI identity.
 
 Coalescing is lease-aware: a newer caller does not join a stale identity's
 run. Commits (`reconcileSucceeded`, `onUnauthorized`) validate the exact
-epoch inside the serialized queue. Authenticated requests retain the exact
-credential they carried and may invalidate only that credential.
+epoch inside the serialized queue. Replacement controllers start from the
+ambient in-process epoch and advance it, so an A → B → A cutover cannot make
+an old lease current again through epoch reuse. Authenticated requests retain
+the exact credential they carried and may invalidate only that credential.
 
 *Enforced by:* the lease/scope types in
 `lib/core/identity/identity_scope.dart`, effect gates in
@@ -253,9 +297,11 @@ in `test/core/identity/identity_scope_test.dart`,
 first publishes `transitioning`, then clears the previous credential and
 persists the reconcile-pending marker and staged participant id BEFORE the
 replacement session token. Node shutdown is allowed to fail independently:
-the controller publishes `reconciling` only after both the token is durable
-and the previous runtime is confirmed down, otherwise it stays fail-closed in
-`transitioning`. A crash in this replacement sequence either leaves the device
+the interactive controller requests its cutover only after both the token is
+durable and the previous runtime is confirmed down, otherwise it stays
+fail-closed in `transitioning`. The replacement container then restores
+`reconciling`; only the headless/test fallback publishes it in the original
+container. A crash in this replacement sequence either leaves the device
 signed out (token missing — clean retry) or signed in with the full recovery
 payload present for the boot reconcile. When the payload is nevertheless
 missing (legacy state), the reconciler recovers the participant id from the
@@ -311,7 +357,10 @@ previous season's binding. Installs upgraded from before season tracking
 have a `ready` identity with *no* baseline: the first authoritative season
 report triggers a one-time migration reconcile (guarded by a persisted
 per-account flag so a backend that still reports no season id cannot loop
-it).
+it). The rollover publishes `transitioning`, stages its participant and marker
+as the replacement runtime's recovery payload, stops the old node, and then
+uses the same hard cutover as login/logout; the old season's provider graph is
+not reused for the reconcile.
 *Enforced by:* `seasonRolloverSyncProvider` / `activeSeasonIdOf`
 (`lib/features/auth/providers/post_sign_in_sync.dart`) and
 `SessionController.beginSeasonRollover` (rollover-suspend and
@@ -330,19 +379,42 @@ boundary; a stale callback cannot log out its successor.
 `LogShareController` / `LogShareService`, and
 `DappWebViewScreen._handleGetProfileInfo` / `_handleLogout`.
 
+**I15 — Interactive identity targets cross a non-overlapping runtime
+boundary.** An accepted target is durable before the old runtime can retire.
+The host first atomically retires the controller: transitions accepted before
+that call are included in one final persistence barrier, while later callbacks
+are refused and cannot extend the queue. A pre-retirement transition that
+finishes during this drain treats its restart request as covered by the active
+cutover, so it cannot immediately tear down the fresh replacement again. The
+host then detaches process-global
+callbacks that point into the old container and replaces its provider tree
+with a provider-free blocker. After the final barrier and tracked process
+bootstrap settle, it serially stops identity-bound monitoring, cancels old
+alarms, waits for Flutter's unmount frame, and disposes that exact container.
+It bootstraps the replacement only after disposal. A restart failure remains
+on the provider-free blocker and retries from durable state; it never revives
+the old graph. This ordering is what makes account switching rare and simple:
+providers need to be correct for one identity lifetime, not for overlapping A
+and B lifetimes.
+
+Headless and provider-test containers have no `AppRuntimeRoot`. Their
+in-container final publication exists so non-interactive code can drive the
+state machine deterministically; production code must not rely on provider
+state surviving an identity change.
+*Enforced by:* `IdentityRuntimeRestartService`, the transition persistence
+order in `SessionController`, the nullable-container cutover in
+`AppRuntimeRoot`, and current-container callback binding in `AppBootstrap`.
+
 ## Known residual risks (accepted for now)
 
-- **In-memory session state is not reset on user switch.** e.g.
-  `seasonEventContextProvider` keeps the previous user's season/event
-  selection until the auth-gated bootstrap rewrites it. Cosmetic: all
-  data fetches use the new session's token.
 - **Sign-in reconcile costs one `/wallet/provision` round-trip per
   login** (deliberate: it is the ownership check). Boot restore stays
   network-free unless the previous session never settled (I6).
 - **Reconcile failure on a switched device** (offline sign-in by user B
   on user A's device) leaves A's account in the registry until a
-  reconcile succeeds (the persisted `reconciling` phase re-runs on next
-  boot). The node stays down and signing stays refused in the meantime
+  reconcile succeeds (the persisted pending marker makes the replacement
+  runtime or next boot restore `reconciling`). The node stays down and signing
+  stays refused in the meantime
   (I2/I12), and B's session stays on the guest bucket (I5), so no
   cross-identity reads, writes, signatures, or block production occur.
 - **The native mobile-node slot has no identity authority metadata or vacant

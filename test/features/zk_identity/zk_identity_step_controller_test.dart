@@ -17,6 +17,8 @@ import 'package:crypto_mobile_app/features/zkpassport/services/zkpassport_servic
 
 class _FakeFlowController implements ZkPassportFlowController {
   bool startCalled = false;
+  bool cancelResult = true;
+  int cancelCalls = 0;
   Completer<ZkPassportLaunchResult>? pendingResult;
   ZkPassportLaunchResult nextResult = const ZkPassportLaunchResult(
     started: true,
@@ -28,6 +30,12 @@ class _FakeFlowController implements ZkPassportFlowController {
   Future<ZkPassportLaunchResult> startRegistrationNonceZero() {
     startCalled = true;
     return pendingResult?.future ?? Future.value(nextResult);
+  }
+
+  @override
+  Future<bool> cancelPendingSession({String reason = 'Cancelled'}) async {
+    cancelCalls++;
+    return cancelResult;
   }
 
   @override
@@ -44,19 +52,6 @@ class _BlockingLaunchService extends ZkPassportLaunchService {
 class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
     implements ZkPassportPipelineController {
   _FakePipelineController() : super(ZkPassportPipelineState.idle());
-
-  bool discardResult = true;
-  int discardCalls = 0;
-
-  @override
-  Future<bool> discardPendingSession({
-    ZkRequestKey? requestKey,
-    String? requestId,
-    String? reason,
-  }) async {
-    discardCalls++;
-    return discardResult;
-  }
 
   void emitSuccess() {
     state = ZkPassportPipelineState(
@@ -298,11 +293,11 @@ void main() {
       final initial = s.container.read(zkIdentityStepControllerProvider);
       s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
       s.container.read(zkIdentityChallengeActiveProvider.notifier).state = true;
-      s.pipelineController.discardResult = false;
+      s.flowController.cancelResult = false;
 
       expect(await s.controller.cancelVerification(), isFalse);
 
-      expect(s.pipelineController.discardCalls, 1);
+      expect(s.flowController.cancelCalls, 1);
       expect(
         s.container.read(zkIdentityStepControllerProvider).currentStep,
         ZkIdentityStep.verification,
@@ -319,7 +314,7 @@ void main() {
 
       expect(await s.controller.cancelVerification(), isTrue);
 
-      expect(s.pipelineController.discardCalls, 1);
+      expect(s.flowController.cancelCalls, 1);
       expect(
         s.container.read(zkIdentityStepControllerProvider).currentStep,
         ZkIdentityStep.checkApp,

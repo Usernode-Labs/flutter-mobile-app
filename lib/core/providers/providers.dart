@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity_scope.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
@@ -44,24 +46,49 @@ Future<void> markOnboardingComplete() async {
 
 // Backend lifecycle manager - automatically starts/stops based on account state
 final backendLifecycleProvider = Provider<void>((ref) {
+  var listenerGeneration = 0;
+  var mounted = true;
+  ref.onDispose(() {
+    mounted = false;
+    listenerGeneration += 1;
+  });
+
   // Watch for account state changes
   ref.listen<AsyncValue<bool>>(
     hasAnyAccountProvider,
     (previous, next) async {
+      final generation = ++listenerGeneration;
+      final identity = ref.read(identityProvider);
+      final identityLease = IdentityLease.capture(identity);
+      bool workIsCurrent() =>
+          mounted &&
+          generation == listenerGeneration &&
+          identityLease.isCurrent;
+
       final prevHasAccount = previous?.value ?? false;
       final nextHasAccount = next.value ?? false;
 
       // Account created/imported: false → true
       if (!prevHasAccount && nextHasAccount) {
+        final nodeAuthority = NodeStartAuthority.capture(identity);
+        if (nodeAuthority == null || !workIsCurrent()) return;
         _log.trace('Account created - starting backend');
-        final started = await RustBackendService.instance.startNode();
-        if (Platform.isAndroid && started) {
+        final started = await RustBackendService.instance.startNode(
+          authority: nodeAuthority,
+        );
+        if (!workIsCurrent()) return;
+        if (Platform.isAndroid &&
+            started &&
+            nodeAuthority.accountScope != null) {
           BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
           BlockProductionAlarmAuditService.instance.auditBestEffort(
             reason: 'account_available',
           );
-          await AndroidForegroundTaskController.instance.onNodeStarted();
+          await AndroidForegroundTaskController.instance.onNodeStarted(
+            authority: nodeAuthority,
+          );
         } else if (Platform.isAndroid) {
+          if (!workIsCurrent()) return;
           BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
           await PlatformAlarmService.instance.cancelAlarmWatchdog();
         }
@@ -69,14 +96,17 @@ final backendLifecycleProvider = Provider<void>((ref) {
 
       // Account deleted: true → false
       if (prevHasAccount && !nextHasAccount) {
+        if (!workIsCurrent()) return;
         _log.trace('Account deleted - stopping backend');
         if (Platform.isAndroid) {
           BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
           await AndroidForegroundTaskController.instance.stopMonitoring(
             reason: 'account_removed',
           );
+          if (!workIsCurrent()) return;
         }
         await RustBackendService.instance.stopNode();
+        if (!workIsCurrent()) return;
         if (Platform.isAndroid) {
           await PlatformAlarmService.instance.cancelAllAlarms();
           await PlatformAlarmService.instance.cancelAlarmWatchdog();

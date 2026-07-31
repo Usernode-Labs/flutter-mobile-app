@@ -328,6 +328,13 @@ class NodeAccountReconciler {
             );
     if (!committed) return false;
 
+    // An interactive commit closes this provider graph and restores the
+    // durable ready identity in a replacement container. Do not wake old-tree
+    // listeners just before disposal; the replacement graph recomputes these
+    // providers from storage. Headless/test fallback commits remain ready and
+    // still need the invalidations below.
+    if (_ref.read(identityProvider).phase != IdentityPhase.ready) return true;
+
     if (changed) {
       // Let the router and account-gated UI see the new state immediately.
       // backendLifecycleProvider watches hasAnyAccountProvider and starts

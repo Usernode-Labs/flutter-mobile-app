@@ -5,9 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
-import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
-import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
@@ -30,7 +27,6 @@ import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dar
 import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
 import 'package:crypto_mobile_app/features/terms/providers/terms_provider.dart';
 import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
-import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -41,15 +37,14 @@ final _log =
     LoggingService.instance.withTag('usernode/BackgroundProductionSettings');
 
 Future<bool> resetChallengeState(WidgetRef ref, BuildContext context) async {
-  final discarded = await ref
-      .read(zkPassportPipelineProvider.notifier)
-      .discardPendingSession(reason: 'Reset');
-  if (!discarded) {
+  final reset =
+      await ref.read(zkPassportFlowControllerProvider).resetChallengeData();
+  if (!reset) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'A zkPassport proof is still being processed. Try again shortly.',
+            'Challenge reset could not be completed. Try again shortly.',
           ),
         ),
       );
@@ -57,11 +52,6 @@ Future<bool> resetChallengeState(WidgetRef ref, BuildContext context) async {
     return false;
   }
 
-  ref.read(zkIdentityStepControllerProvider.notifier).reset();
-  await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
-  ref.invalidate(challengesProvider);
-  ref.invalidate(breakdownProvider);
-  ref.invalidate(categorizedChallengesProvider);
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Challenge state reset')),

@@ -335,30 +335,17 @@ class AppBootstrap {
         );
       }
 
-      // Initialize FRB for native event delivery; only start the node when an
-      // account exists.
+      // Initialize FRB for native event delivery. The node is NOT started
+      // here: node lifecycle is platform-controlled (SV chrome requests the
+      // start over bridge v4 once the shell boots and the identity settles).
+      // Android alarm/watchdog paths still start the node headless for block
+      // production independently of this bootstrap.
       final nodeWasRunning = RustBackendService.instance.isRunning;
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
         await PlatformAlarmService.instance.markReadyForNativeEvents();
-        if (hasAnyAccounts) {
-          log.info('FRB initialized, starting node...');
-          final started = await RustBackendService.instance.startNode();
-          log.info(
-              'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
-          log.info(started
-              ? 'backend startNode: started'
-              : 'backend startNode: skipped');
-          if (started) {
-            log.info(
-                'Node started successfully, waiting 1 second for node to be ready...');
-            await Future.delayed(const Duration(seconds: 1));
-            log.info('Node should be ready now');
-          }
-        } else {
-          log.info('FRB initialized without an account; node start skipped');
-        }
+        log.info('FRB initialized; node start deferred to the platform');
       } else {
         log.info('Backend already running, skipping start');
         await PlatformAlarmService.instance.markReadyForNativeEvents();

@@ -93,22 +93,6 @@ class LeaderboardBootstrap {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Registration freshness detection
-// ---------------------------------------------------------------------------
-
-enum RegistrationFreshness { current, stale, unknown }
-
-final registrationFreshnessProvider = StateProvider<RegistrationFreshness>(
-  (ref) {
-    // Freshness belongs to one exact identity. Destroy the previous value as
-    // soon as any identity field/phase changes; the ready identity's bootstrap
-    // will publish its own result after validation.
-    ref.watch(identityProvider);
-    return RegistrationFreshness.unknown;
-  },
-);
-
 /// Refresh all active leaderboard providers silently.
 /// Called from zkpassport flow completion and other non-screen contexts.
 /// Screen pull-to-refresh calls individual provider refreshes directly.
@@ -256,91 +240,6 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
     'event=${resolvedEvent?.id ?? "All Events"}',
   );
 
-  // Validate registration freshness at the season level.
-  // With season continuity, registration happens via the season phase
-  // and auto-enroll covers all events — so freshness is about whether
-  // the user is registered in the current active season.
-  await _validateRegistrationFreshness(
-    ref,
-    currentSeasonId: season.id,
-    persisted: persisted,
-    identity: identity,
-    identityStillCurrent: identityStillCurrent,
-  );
+  // Registration-freshness validation is retired: the stale-registration
+  // screen it fed was deleted with the platform-owned login migration.
 });
-
-/// Checks whether the persisted registration belongs to the current active
-/// season. Sets [registrationFreshnessProvider] accordingly.
-///
-/// With season continuity, users register once via the season phase and are
-/// auto-enrolled in all events. Staleness means the user's registration
-/// belongs to a different (older) season.
-Future<void> _validateRegistrationFreshness(
-  Ref ref, {
-  required int currentSeasonId,
-  required Identity identity,
-  required bool Function() identityStillCurrent,
-  SeasonEventContext? persisted,
-}) async {
-  if (!identityStillCurrent()) return;
-  final participantId = identity.participantId;
-
-  if (participantId == null) {
-    return;
-  }
-
-  // Case 1 — persisted seasonId matches current season → current
-  if (persisted?.seasonId != null && persisted!.seasonId == currentSeasonId) {
-    _log.info('Registration is current (seasonId=${persisted.seasonId})');
-    ref.read(registrationFreshnessProvider.notifier).state =
-        RegistrationFreshness.current;
-    return;
-  }
-
-  // Case 2 — persisted seasonId exists but doesn't match → stale
-  if (persisted?.seasonId != null && persisted!.seasonId != currentSeasonId) {
-    _log.warn(
-      'Registration is stale: persisted seasonId=${persisted.seasonId}, '
-      'current=$currentSeasonId',
-    );
-    ref.read(registrationFreshnessProvider.notifier).state =
-        RegistrationFreshness.stale;
-    return;
-  }
-
-  // Case 3 — no persisted seasonId (legacy registration)
-  // Verify via API whether participant has data in the current season
-  _log.info(
-    'No persisted seasonId — checking API for participant $participantId '
-    'in season $currentSeasonId',
-  );
-  try {
-    final service = ref.read(leaderboardApiServiceProvider);
-    await service.getRanking(seasonId: currentSeasonId);
-    if (!identityStillCurrent()) return;
-    _log.info('Participant is in current season — backfilling seasonId');
-    final updated = (persisted ?? const SeasonEventContext()).copyWith(
-      seasonId: currentSeasonId,
-    );
-    await LeaderboardBootstrap.persistSeasonEvent(
-      updated,
-      bucket: identity.bucket,
-    );
-    if (!identityStillCurrent()) return;
-    ref.read(registrationFreshnessProvider.notifier).state =
-        RegistrationFreshness.current;
-  } on LeaderboardApiException catch (e) {
-    if (!identityStillCurrent()) return;
-    if (e.statusCode == 404) {
-      _log.warn('Participant not in current season (404): $e');
-      ref.read(registrationFreshnessProvider.notifier).state =
-          RegistrationFreshness.stale;
-    } else {
-      _log.warn(
-          'Ranking API returned ${e.statusCode} — leaving freshness unknown');
-    }
-  } catch (e) {
-    if (!identityStillCurrent()) return;
-    _log.warn('Failed to verify registration freshness: $e');
-  }
-}

@@ -161,9 +161,9 @@ class _SvShellScreenState extends State<SvShellScreen> {
     );
   }
 
-  /// Dev-build escape hatch to the native settings screen (the production
-  /// path is SV's drawer calling `openNativeScreen`): long-press the
-  /// invisible hotspot in the bottom-left corner.
+  /// Dev-build escape hatch to the native diagnostics screen (the production
+  /// path is SV's settings calling `openNativeScreen('diagnostics')`):
+  /// long-press the invisible hotspot in the bottom-left corner.
   Widget _buildDebugEscapeHatch(BuildContext context) {
     return Positioned(
       left: 0,
@@ -172,7 +172,7 @@ class _SvShellScreenState extends State<SvShellScreen> {
       height: 48,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onLongPress: () => context.push(AppRoutes.profileSettings),
+        onLongPress: () => context.push(AppRoutes.diagnostics),
       ),
     );
   }

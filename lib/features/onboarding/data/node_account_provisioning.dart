@@ -61,37 +61,22 @@ class NodeAccountReconciler {
   Future<bool>? _inFlight;
   int? _inFlightEpoch;
 
-  /// Serializes an account switch with node startup and binds the runtime to
-  /// the reconciled active account:
+  /// Serializes an account switch with the node runtime WITHOUT starting it
+  /// (node lifecycle is platform-controlled — SV chrome requests the start
+  /// over bridge v4 once the identity is ready):
   ///
-  /// - waits for any in-flight [RustBackendService.startNode] — a cold-boot
+  /// - waits for any in-flight [RustBackendService.startNode] — a wake/alarm
   ///   start may already have captured the OLD account's key while
   ///   `isRunning` is still false, so deciding before it settles would race;
-  /// - a running node is stopped (login/rollover already suspended the node,
-  ///   but wake/alarm paths may have raced the suspension) and started again
-  ///   under the now-active account's key;
-  /// - the start passes `identityOverride` because the identity phase is
-  ///   still `reconciling` at this point — the general [startNode] gate
-  ///   refuses to start under an unsettled identity;
-  /// - the start passes `freshRuntime` because adopting an already-running
-  ///   global runtime would keep its build-time block-producer key (there
-  ///   is no swap API); the runtime must be rebuilt so BOTH the producer
-  ///   key and the wallet signer belong to the reconciled account;
-  /// - `startNode() == false` is a failure (including a failed wallet-signer
-  ///   bind, which startNode treats as a failed start): the caller must not
-  ///   commit the reconcile with an unconfirmed node identity.
+  /// - a running node is stopped so the runtime never outlives the account
+  ///   whose producer key and wallet signer it captured at build time (there
+  ///   is no swap API). The platform-requested start after `ready` builds a
+  ///   fresh runtime under the reconciled account's key.
   static Future<void> _defaultEnsureNodeIdentity() async {
     final svc = RustBackendService.instance;
     await svc.waitForStartCompletion();
     if (svc.isRunning) {
       await svc.stopNode();
-    }
-    final started = await svc.startNode(
-      identityOverride: true,
-      freshRuntime: true,
-    );
-    if (!started) {
-      throw StateError('Node failed to start under the reconciled account');
     }
   }
 
@@ -252,11 +237,13 @@ class NodeAccountReconciler {
       bucket: NetworkPrefs.bucketForAddress(provisioned.address),
     );
 
-    // Bind the node runtime to the reconciled account BEFORE committing:
-    // the identity must not become ready (unblocking wallet routes, signing
-    // and node starts) while the runtime may still hold another account's
-    // key. Throws on failure — the identity stays reconciling and the next
-    // boot restore or sign-in retries.
+    // Tear down any runtime still bound to a previous account BEFORE
+    // committing: the identity must not become ready (unblocking wallet
+    // routes, signing and node starts) while the runtime may still hold
+    // another account's key. The node is NOT restarted here — the platform
+    // requests the start once it observes the ready identity. Throws on
+    // failure — the identity stays reconciling and the next boot restore or
+    // sign-in retries.
     if (!_stillCurrent(epoch)) return false;
     await _ensureNodeIdentity();
 
@@ -273,9 +260,7 @@ class NodeAccountReconciler {
     if (!committed) return false;
 
     if (changed) {
-      // Let the router and account-gated UI see the new state immediately.
-      // backendLifecycleProvider watches hasAnyAccountProvider and starts
-      // the node when it flips false -> true (fresh-install import).
+      // Let account-gated UI see the new state immediately.
       _ref.invalidate(hasAnyAccountProvider);
       _ref.invalidate(accountsProvider);
       _ref.invalidate(activeAccountProvider);

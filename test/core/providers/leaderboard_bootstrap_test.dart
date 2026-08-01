@@ -199,41 +199,6 @@ void main() {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // RegistrationFreshness enum
-  // ---------------------------------------------------------------------------
-
-  group('RegistrationFreshness', () {
-    test('enum values exist', () {
-      expect(RegistrationFreshness.values, hasLength(3));
-      expect(RegistrationFreshness.current, isNotNull);
-      expect(RegistrationFreshness.stale, isNotNull);
-      expect(RegistrationFreshness.unknown, isNotNull);
-    });
-
-    test('resets to unknown as soon as the exact identity changes', () async {
-      final controller = await _readyIdentityController();
-      final container = ProviderContainer(overrides: [
-        identityProvider.overrideWith((ref) => controller),
-      ]);
-      addTearDown(container.dispose);
-
-      container.read(registrationFreshnessProvider.notifier).state =
-          RegistrationFreshness.current;
-      expect(
-        container.read(registrationFreshnessProvider),
-        RegistrationFreshness.current,
-      );
-
-      await controller.continueAsGuest();
-
-      expect(
-        container.read(registrationFreshnessProvider),
-        RegistrationFreshness.unknown,
-      );
-    });
-  });
-
   group('leaderboardBootstrapProvider identity lease', () {
     test('does not fetch until the authenticated identity is ready', () async {
       final controller = SessionController(
@@ -291,8 +256,6 @@ void main() {
         }
       });
 
-      container.read(registrationFreshnessProvider.notifier).state =
-          RegistrationFreshness.stale;
       final bootstrapSubscription = container.listen<AsyncValue<void>>(
         leaderboardBootstrapProvider,
         (_, __) {},
@@ -319,52 +282,6 @@ void main() {
       await pumpEventQueue();
 
       expect(container.read(seasonEventContextProvider).seasonId, isNull);
-      expect(
-        container.read(registrationFreshnessProvider),
-        RegistrationFreshness.unknown,
-      );
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Stale registration detection (unit-level, no Riverpod container)
-  // ---------------------------------------------------------------------------
-
-  group('Stale detection via persisted context', () {
-    test('matching eventId indicates current registration', () async {
-      await LeaderboardBootstrap.persistSeasonEvent(
-        const SeasonEventContext(
-            seasonId: 1, seasonName: 'S1', eventId: 10, eventName: 'E10'),
-      );
-
-      final ctx = await LeaderboardBootstrap.loadPersistedContext();
-      // eventId matches the "current active event" (10)
-      expect(ctx!.eventId, 10);
-      // In the real bootstrap, this would set RegistrationFreshness.current
-    });
-
-    test('mismatched eventId indicates stale registration', () async {
-      await LeaderboardBootstrap.persistSeasonEvent(
-        const SeasonEventContext(
-            seasonId: 1, seasonName: 'S1', eventId: 5, eventName: 'E5'),
-      );
-
-      final ctx = await LeaderboardBootstrap.loadPersistedContext();
-      // eventId (5) != current active event (10)
-      expect(ctx!.eventId, isNot(equals(10)));
-      // In the real bootstrap, this would set RegistrationFreshness.stale
-    });
-
-    test('no eventId with participant indicates legacy v1 registration',
-        () async {
-      // Only season persisted (legacy v1 path)
-      await LeaderboardBootstrap.persistSeasonEvent(
-        const SeasonEventContext(seasonId: 1, seasonName: 'S1'),
-      );
-
-      final ctx = await LeaderboardBootstrap.loadPersistedContext();
-      expect(ctx!.eventId, isNull);
-      // In the real bootstrap, this would trigger an API check
     });
   });
 }

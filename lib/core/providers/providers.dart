@@ -42,30 +42,16 @@ Future<void> markOnboardingComplete() async {
   await prefs.setBool(key, true);
 }
 
-// Backend lifecycle manager - automatically starts/stops based on account state
+// Backend lifecycle manager. Node STARTS are platform-controlled (SV chrome
+// requests them over bridge v4) — this provider only guarantees teardown:
+// when the last local account disappears, the node must not keep running
+// (and producing/signing) under a key that no longer belongs to anyone.
 final backendLifecycleProvider = Provider<void>((ref) {
-  // Watch for account state changes
   ref.listen<AsyncValue<bool>>(
     hasAnyAccountProvider,
     (previous, next) async {
       final prevHasAccount = previous?.value ?? false;
       final nextHasAccount = next.value ?? false;
-
-      // Account created/imported: false → true
-      if (!prevHasAccount && nextHasAccount) {
-        _log.trace('Account created - starting backend');
-        final started = await RustBackendService.instance.startNode();
-        if (Platform.isAndroid && started) {
-          BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
-          BlockProductionAlarmAuditService.instance.auditBestEffort(
-            reason: 'account_available',
-          );
-          await AndroidForegroundTaskController.instance.onNodeStarted();
-        } else if (Platform.isAndroid) {
-          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-          await PlatformAlarmService.instance.cancelAlarmWatchdog();
-        }
-      }
 
       // Account deleted: true → false
       if (prevHasAccount && !nextHasAccount) {

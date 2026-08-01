@@ -518,6 +518,12 @@ class RustBackendService {
         _log.info(guestSession
             ? 'Guest session; node runs non-producing (no block producer)'
             : 'VIEW_ONLY enabled; skipping block producer configuration');
+      } else if (Platform.isIOS) {
+        // Block production is disabled entirely on iOS: the platform cannot
+        // keep the app alive reliably enough to honor won slots (no alarms,
+        // no foreground service), so producing there only creates missed
+        // slots. The node still runs, syncs, and signs wallet transactions.
+        _log.info('iOS: block production disabled; node runs non-producing');
       } else {
         _log.trace(
           'Configuring block producer with user secret key (length: ${secretKey!.length})',

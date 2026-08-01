@@ -2,36 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
-import 'package:crypto_mobile_app/features/auth/screens/auth_landing_screen.dart';
-import 'package:crypto_mobile_app/features/auth/screens/auth_email_screen.dart';
-import 'package:crypto_mobile_app/features/auth/screens/auth_password_screen.dart';
-import 'package:crypto_mobile_app/features/auth/screens/auth_otp_screen.dart';
-import 'package:crypto_mobile_app/features/auth/screens/auth_set_password_screen.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/welcome_claim_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/stale_registration_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/exact_alarm_permission1_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/battery_permission2_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/notification_permission3_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/welcome_setup_screen.dart';
-import 'package:crypto_mobile_app/features/onboarding/screens/onboarding_battery_complete_screen.dart';
-import 'package:crypto_mobile_app/features/profile/screens/profile_screen.dart';
-import 'package:crypto_mobile_app/features/settings/screens/settings_screen.dart';
-import 'package:crypto_mobile_app/features/terms/screens/terms_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/node_peers_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
-import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
+import 'package:crypto_mobile_app/features/settings/screens/diagnostics_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
-import 'package:crypto_mobile_app/features/challenges/screens/challenge_detail_screen.dart';
-import 'package:crypto_mobile_app/features/challenges/screens/epoch_performance_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
@@ -42,197 +16,43 @@ import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benc
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_run_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/http_debug_logs_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/scan_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
-import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/status.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Router');
 
 class AppRoutes {
-  // Core routes
+  // Core routes. Login/onboarding is platform-owned (SV web) — the app has
+  // no native auth or onboarding routes; splash goes straight to home, which
+  // is the full-bleed SV shell. Everything else is native-only tooling
+  // (diagnostics, benchmark, zk-identity hardware flows) or the dapp browser.
   static const splash = '/splash';
-  static const onboarding = '/onboarding/welcome';
   static const home = '/home';
   static const homeSlash = '/';
-  static const main = '/main';
 
-  // Onboarding flow
-  static const onboardingWelcomeSetup = '/onboarding/welcome-setup';
-  static const onboardingExactAlarmPermission1 =
-      '/onboarding/exact-alarm-permission1';
-  static const onboardingBatteryPermission2 = '/onboarding/battery-permission2';
-  static const onboardingNotificationPermission3 =
-      '/onboarding/notification-permission3';
-  static const onboardingBatteryComplete = '/onboarding/battery-complete';
-  static const staleRegistration = '/stale-registration';
-
-  // v3 auth flow
-  static const authLanding = '/auth';
-  static const authEmail = '/auth/email';
-  static const authPassword = '/auth/password';
-  static const authOtp = '/auth/otp';
-  static const authSetPassword = '/auth/set-password';
-
-  // Standalone routes
-  static const slotAssignments = '/produced/slot-assignments';
-  static const producedBlockDetails = '/produced/block-details';
-
-  // Wallet routes
-  static const walletSend = '/wallet/send';
-  static const walletScan = '/wallet/scan';
-  static const walletSendSuccess = '/wallet/send/success';
-  static const walletSendFailed = '/wallet/send/failed';
-
-  // Challenge routes
-  static const challengeDetail = '/challenges/detail';
-  static const epochPerformance = '/challenges/epoch-performance';
+  // Challenge deep-link remap target (native leaderboard retired into SV).
   static const leaderboard = '/challenges/leaderboard';
 
-  // Profile (Fair Rewards shell): "what I earned" + Settings entry.
-  static const profile = '/profile';
-  static const profileSettings = '/profile/settings';
   static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
   static const dappPinned = '/dapps/pinned/:id';
+
+  // Native diagnostics tooling.
+  static const diagnostics = '/settings/diagnostics';
   static const deviceBenchmark = '/settings/device-benchmark';
   static const deviceBenchmarkRun = '/settings/device-benchmark/run';
   static const deviceBenchmarkResultDetail =
       '/settings/device-benchmark/result';
   static const httpDebugLogs = '/settings/http-debug-logs';
 
-  /// Terms page opened from Settings or the withheld-token notice.
-  static const terms = '/settings/terms';
-
   static String dappDetailFor(String slug) => '/dapps/$slug';
   static String dappPinnedFor(String id) => '/dapps/pinned/$id';
 
-  // ZK Identity
+  // ZK Identity (native: runs NFC/hardware flows)
   static const zkIdentityDetail = '/challenges/zk-identity';
   static const zkIdentityFlow = '/challenges/zk-identity/flow';
-
-  // Main shell routes
-  static const mainNode = '/main/node';
-  static const mainNodeWonSlots = '/main/node/won-slots';
-  static const mainNodeBlockDetails = '/main/node/block-details';
-  static const mainNodeMempool = '/main/node/mempool';
-  static const mainNodePeers = '/main/node/peers';
-}
-
-const _authRoutes = <String>[
-  AppRoutes.authLanding,
-  AppRoutes.authEmail,
-  AppRoutes.authPassword,
-  AppRoutes.authOtp,
-  AppRoutes.authSetPassword,
-];
-
-/// First-stage auth gate. Returns a redirect target, or null to defer to the
-/// existing account/onboarding logic. Pure for unit testing.
-String? authRedirect(AuthStatus status, String location) {
-  final isAuthRoute = _authRoutes.contains(location);
-  switch (status) {
-    case AuthStatus.unknown:
-      return null; // still loading; don't bounce
-    case AuthStatus.unauthenticated:
-      return isAuthRoute ? null : AppRoutes.authLanding;
-    case AuthStatus.guest:
-      // Guests may enter the auth flow — that is how they upgrade to a real
-      // account (Settings shows them a "Log in" tile). Bouncing them off auth
-      // routes the way we bounce authenticated users sent them landing ->
-      // splash -> guestRedirect -> dapps, making the tile a no-op.
-      return null;
-    case AuthStatus.authenticated:
-      return isAuthRoute ? AppRoutes.splash : null;
-  }
-}
-
-/// Whether the auth lifecycle is still resolving and all lower-priority route
-/// guards must be skipped. In particular, account/onboarding/freshness state
-/// may still belong to the identity that is being replaced.
-bool shouldDeferRouterRedirect(AuthStatus status) =>
-    status == AuthStatus.unknown;
-
-/// Where a guest should be routed. Guests never enter node onboarding: from
-/// splash/onboarding send them to the Dapps tab; elsewhere return null so they
-/// can roam the app shell. Pure for unit testing.
-String? guestRedirect(String location) {
-  // FIXME(follow-up): Redirect guests away from wallet send/scan; those routes
-  // must never expose or use a previous user's active registry account.
-  if (location == AppRoutes.splash || location.startsWith('/onboarding/')) {
-    return AppRoutes.dapps;
-  }
-  return null;
-}
-
-/// Routes that read the active local account directly (Send builds
-/// transactions against `AccountsRepository.getActive()`). While a sign-in's
-/// account reconciliation is still pending, that account may belong to a
-/// PREVIOUS user — block these routes until ownership is confirmed.
-const identityGatedRoutes = <String>[
-  AppRoutes.walletSend,
-  AppRoutes.walletScan,
-];
-
-/// Identity gate: sessions whose identity is changing or whose account
-/// reconciliation is pending are bounced off wallet routes. Pure for unit
-/// testing.
-String? identityGateRedirect({
-  required IdentityPhase phase,
-  required String location,
-}) {
-  if (phase != IdentityPhase.transitioning &&
-      phase != IdentityPhase.reconciling) {
-    return null;
-  }
-  return identityGatedRoutes.contains(location) ? AppRoutes.home : null;
-}
-
-/// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
-/// This bridges Riverpod's state management with GoRouter's refresh mechanism
-class GoRouterRefreshStream extends ChangeNotifier {
-  GoRouterRefreshStream(this._ref) {
-    // Every identity transition (login, logout, guest, reconcile completion,
-    // season rollover) publishes a new snapshot — re-run the redirect guard
-    // for each one. This subsumes the old auth-status listener: authStatus
-    // is derived from the same snapshot.
-    _ref.listen<Identity>(
-      identityProvider,
-      (previous, next) {
-        notifyListeners();
-      },
-    );
-    // Listen to hasAnyAccountProvider changes
-    _ref.listen<AsyncValue<bool>>(
-      hasAnyAccountProvider,
-      (previous, next) {
-        // Notify GoRouter to re-run its redirect logic when account state changes
-        notifyListeners();
-      },
-    );
-    // Listen to hasCompletedOnboardingProvider changes
-    _ref.listen<AsyncValue<bool>>(
-      hasCompletedOnboardingProvider,
-      (previous, next) {
-        notifyListeners();
-      },
-    );
-    // Listen to registration freshness changes (stale detection)
-    _ref.listen<RegistrationFreshness>(
-      registrationFreshnessProvider,
-      (previous, next) {
-        notifyListeners();
-      },
-    );
-  }
-
-  final Ref _ref;
 }
 
 // Create a stable navigator key outside the provider
@@ -246,70 +66,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // Do NOT ref.watch state providers here: a watch rebuilds this provider
   // when they change (e.g. loading -> data right after launch), which
   // creates a brand-new GoRouter and resets navigation to /splash — this
-  // stomped cold-start deep links from homescreen widgets. The redirect
-  // guard reads fresh values on every run instead, and
-  // GoRouterRefreshStream re-runs it whenever they change. The listen
-  // keeps the bootstrap chain (season/registration freshness) alive
-  // without triggering rebuilds.
+  // stomped cold-start deep links from homescreen widgets. The listen keeps
+  // the leaderboard bootstrap chain alive (it hydrates the season context
+  // the zk-identity challenge providers read) without triggering rebuilds.
   ref.listen(leaderboardBootstrapProvider, (_, __) {});
 
   return GoRouter(
     navigatorKey: _navigatorKey,
     observers: SentryUtil.navigatorObservers(),
     initialLocation: AppRoutes.splash,
-    refreshListenable: GoRouterRefreshStream(ref),
     routes: [
       GoRoute(
         path: AppRoutes.splash,
         builder: (context, state) => const SplashScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.authLanding,
-        builder: (context, state) => const AuthLandingScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.authEmail,
-        builder: (context, state) => const AuthEmailScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.authPassword,
-        builder: (context, state) => const AuthPasswordScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.authOtp,
-        builder: (context, state) => const AuthOtpScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.authSetPassword,
-        builder: (context, state) => const AuthSetPasswordScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onboarding,
-        builder: (context, state) => const WelcomeClaimScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onboardingWelcomeSetup,
-        builder: (context, state) => const WelcomeSetupScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onboardingExactAlarmPermission1,
-        builder: (context, state) => const ExactAlarmPermission1Screen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onboardingBatteryPermission2,
-        builder: (context, state) => const BatteryPermission2Screen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onboardingNotificationPermission3,
-        builder: (context, state) => const NotificationPermission3Screen(),
-      ),
-      GoRoute(
-        path: AppRoutes.onboardingBatteryComplete,
-        builder: (context, state) => const OnboardingBatteryCompleteScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.staleRegistration,
-        builder: (context, state) => const StaleRegistrationScreen(),
       ),
       GoRoute(
         path: AppRoutes.homeSlash,
@@ -325,60 +94,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             SvShellScreen(initialHash: state.uri.queryParameters['sv']),
       ),
       GoRoute(
-        path: AppRoutes.slotAssignments,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return SlotAssignmentsScreen(args: extra);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.producedBlockDetails,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>?;
-          return ProducedBlockDetailsScreen(args: extra);
-        },
-      ),
-      // Won slots screen - outside shell route (no bottom nav)
-      GoRoute(
-        path: AppRoutes.mainNodeWonSlots,
-        builder: (context, state) => const NodeWonSlotsScreen(),
-      ),
-      // Redirect bare /main to mainNode
-      GoRoute(
-        path: AppRoutes.main,
-        redirect: (context, state) => AppRoutes.mainNode,
-      ),
-      GoRoute(
-        path: AppRoutes.mainNode,
-        builder: (context, state) => const NodeStatusScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.mainNodeBlockDetails,
-        builder: (context, state) {
-          final block = state.extra as RpcStatusBlockInfo;
-          return BlockDetailsScreen(block: block);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.mainNodeMempool,
-        builder: (context, state) => const MempoolDetailsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.mainNodePeers,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          final peers = extra['peers'] as List<RpcPeerInfo>;
-          final peerId = extra['peerId'] as String?;
-          return NodePeersScreen(peers: peers, peerId: peerId);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.walletSend,
-        builder: (context, state) => const SendScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.walletScan,
-        builder: (context, state) => const ScanScreen(),
+        path: AppRoutes.diagnostics,
+        builder: (context, state) => const DiagnosticsScreen(),
       ),
       GoRoute(
         path: AppRoutes.deviceBenchmark,
@@ -400,58 +117,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const HttpDebugLogsScreen(),
       ),
       GoRoute(
-        path: AppRoutes.terms,
-        builder: (context, state) => const TermsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.walletSendSuccess,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          return TransactionSuccessScreen(
-            amount: extra['amount'] as String,
-            tokenSymbol: extra['tokenSymbol'] as String,
-            recipientAddress: extra['recipientAddress'] as String,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.walletSendFailed,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          return TransactionFailedScreen(
-            errorMessage: extra['errorMessage'] as String,
-          );
-        },
-      ),
-      GoRoute(
         path: AppRoutes.zkIdentityDetail,
         builder: (context, state) => const ZkIdentityDetailScreen(),
       ),
       GoRoute(
         path: AppRoutes.zkIdentityFlow,
         builder: (context, state) => const ZkIdentityFlowScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.challengeDetail,
-        // The detail screen is driven entirely by the EnrichedChallenge passed
-        // via `extra` from the list tap. `extra` is in-memory only, so it's
-        // null after a hot restart / deep link to this path — fall back to home
-        // instead of crashing on the cast below.
-        redirect: (context, state) =>
-            state.extra is EnrichedChallenge ? null : AppRoutes.home,
-        builder: (context, state) {
-          final enriched = state.extra as EnrichedChallenge;
-          return ChallengeDetailScreen(challenge: enriched);
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.epochPerformance,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          return EpochPerformanceScreen(
-            initialEpoch: extra['initialEpoch'] as int,
-          );
-        },
       ),
       GoRoute(
         path: AppRoutes.leaderboard,
@@ -461,23 +132,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         redirect: (context, state) => '${AppRoutes.home}?sv=challenges',
       ),
       GoRoute(
-        path: AppRoutes.profile,
-        builder: (context, state) => const ProfileScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.profileSettings,
-        // SettingsScreen is a bare root Scaffold; wrap it with a back app bar
-        // so it works as a pushed page from Profile.
-        builder: (context, state) => Scaffold(
-          appBar: AppBar(title: const Text('Settings')),
-          body: const SettingsScreen(),
-        ),
-      ),
-      GoRoute(
         path: AppRoutes.dapps,
         // SV *is* the dapps home, so this route folds into the shell. Kept as a
-        // redirect (not deleted): it's in the deep-link allowlist, the guest
-        // redirect target, and the dapp-browser Home button all point here.
+        // redirect (not deleted): it's in the deep-link allowlist and the
+        // dapp-browser Home button points here.
         redirect: (context, state) => AppRoutes.home,
       ),
       GoRoute(
@@ -605,134 +263,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final currentLocation = state.matchedLocation;
       final requestUri = state.uri;
 
-      // v3 auth gate runs first. It forces unauthenticated users (including
-      // existing users upgrading) to the auth landing before any account or
-      // onboarding logic applies. Authenticated/guest users fall through.
-      final authStatus = ref.read(authStatusProvider);
-      final authGate = authRedirect(authStatus, currentLocation);
-      if (authGate != null) return authGate;
-      if (shouldDeferRouterRedirect(authStatus)) return null;
-      if (authStatus == AuthStatus.unauthenticated) {
-        // On an auth route while unauthenticated: allow it, skip account logic.
-        return null;
-      }
-
-      // Guests never enter node onboarding — they browse. Land them on Dapps
-      // from splash/onboarding; otherwise let them roam the app shell
-      // (account-gated screens surface their own "sign in to view" gate).
-      if (authStatus == AuthStatus.guest) {
-        return guestRedirect(currentLocation);
-      }
+      // Login/onboarding is platform-owned: the SV shell renders the login
+      // page itself when the web session is missing, and drives the native
+      // identity over bridge v4 (completeLogin/startNode). The router no
+      // longer gates on auth status — wallet signing goes through the native
+      // confirm sheet, which enforces its own identity gates.
 
       if (shouldBlockUsernodeDeepLink(requestUri)) {
         _log.warn('Blocked unsupported app deep link: $requestUri');
         return AppRoutes.home;
       }
 
-      // Identity gate: while account reconciliation is pending, the active
-      // local account may still belong to a previous user — keep the session
-      // off routes that sign or spend with it.
-      final identityGate = identityGateRedirect(
-        phase: ref.read(identityProvider).phase,
-        location: currentLocation,
-      );
-      if (identityGate != null) {
-        _log.warn('Identity gate: blocking $currentLocation until the '
-            'account reconcile completes');
-        return identityGate;
-      }
-
-      // Fresh reads on every evaluation (see note at the top of this
-      // provider); GoRouterRefreshStream re-runs this guard when any of these
-      // change. Keep them below the auth and identity gates: while an identity
-      // is transitioning, these values can still belong to the previous user.
-      final hasAny = ref.read(hasAnyAccountProvider).maybeWhen(
-            data: (v) => v,
-            orElse: () => null,
-          );
-      final hasCompletedOnboarding =
-          ref.read(hasCompletedOnboardingProvider).maybeWhen(
-                data: (v) => v,
-                orElse: () => null,
-              );
-      final registrationFreshness = ref.read(registrationFreshnessProvider);
-
-      _log.trace(
-          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
-
-      // Still loading state
-      if (hasAny == null || hasCompletedOnboarding == null) {
-        _log.trace('State loading - allowing navigation');
-        return null;
-      }
-
-      // Define public routes that don't require an account
-      const publicRoutes = [
-        AppRoutes.splash,
-        AppRoutes.onboarding,
-        AppRoutes.onboardingWelcomeSetup,
-      ];
-
-      final isPublicRoute = publicRoutes.contains(currentLocation);
-      _log.trace(
-          'Route $currentLocation is ${isPublicRoute ? "public" : "private"}');
-
-      // No account exists
-      if (!hasAny) {
-        _log.trace('No account exists');
-        // Splash should redirect to onboarding (transient route)
-        if (currentLocation == AppRoutes.splash) {
-          _log.trace('Redirecting splash to onboarding');
-          return AppRoutes.onboarding;
-        }
-        // Allow onboarding routes
-        if (currentLocation.startsWith('/onboarding/')) {
-          _log.trace('Allowing onboarding route');
-          return null;
-        }
-        // Redirect all other routes to onboarding
-        _log.trace('Redirecting private route to onboarding');
-        return AppRoutes.onboarding;
-      }
-
-      // Account exists but onboarding NOT completed - allow onboarding routes
-      if (!hasCompletedOnboarding) {
-        _log.trace('Account exists but onboarding not completed');
-        if (currentLocation.startsWith('/onboarding/')) {
-          _log.trace('Allowing onboarding route during onboarding flow');
-          return null;
-        }
-        // Splash should redirect to first permission screen
-        if (currentLocation == AppRoutes.splash) {
-          _log.trace('Redirecting splash to onboarding welcome-setup');
-          return AppRoutes.onboardingWelcomeSetup;
-        }
-      }
-
-      // Account exists AND onboarding completed
-      _log.trace('Account exists and onboarding completed');
-
-      // Block app usage when registration belongs to a previous season.
-      if (registrationFreshness == RegistrationFreshness.stale &&
-          currentLocation != AppRoutes.staleRegistration &&
-          currentLocation != AppRoutes.authLanding) {
-        return AppRoutes.staleRegistration;
-      }
-
-      // Allow stale registration screen (lives outside /onboarding/)
-      if (currentLocation == AppRoutes.staleRegistration) {
-        return null;
-      }
-
-      // Redirect from splash and onboarding to home
-      if (currentLocation == AppRoutes.splash ||
-          currentLocation.startsWith('/onboarding/')) {
-        _log.trace('Redirecting $currentLocation to /home');
+      // Splash is a transient boot route — land in the SV shell.
+      if (currentLocation == AppRoutes.splash) {
         return AppRoutes.home;
       }
 
-      // Allow all other routes when account exists
-      _log.trace('Allowing route: $currentLocation');
       return null;
     },
   );

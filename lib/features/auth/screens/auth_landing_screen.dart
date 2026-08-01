@@ -69,7 +69,7 @@ class AuthLandingScreen extends ConsumerWidget {
                       size: ButtonSize.large,
                       onTap: () async {
                         await ref
-                            .read(authStatusProvider.notifier)
+                            .read(identityProvider.notifier)
                             .continueAsGuest();
                         if (context.mounted) context.go(AppRoutes.splash);
                       },

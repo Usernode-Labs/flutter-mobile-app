@@ -9,6 +9,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -25,14 +26,16 @@ class LeaderboardApiService {
     int? maxGetRetries,
     Duration? retryBaseDelay,
     Future<String?> Function()? tokenProvider,
-    Future<void> Function()? onUnauthorized,
+    Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
+    Future<void> Function(int epoch)? onCredentialMissing,
   })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
         _http = httpClient ?? createAppHttpClient(),
         _writesEnabled = writesEnabled ?? !AppConfig.viewOnly,
         _maxGetRetries = maxGetRetries ?? 2,
         _retryBaseDelay = retryBaseDelay ?? const Duration(milliseconds: 300),
         _tokenProvider = tokenProvider,
-        _onUnauthorized = onUnauthorized;
+        _onUnauthorized = onUnauthorized,
+        _onCredentialMissing = onCredentialMissing;
 
   final String _baseUrl;
   final http.Client _http;
@@ -40,9 +43,11 @@ class LeaderboardApiService {
 
   /// Resolves the current session token for the `Authorization` header, and the
   /// callback to run on a 401 (clear token, bounce to auth). Both optional so
-  /// tests can construct the service without auth wiring.
+  /// tests can construct the service without auth wiring. The callback
+  /// receives the exact credential the failing request carried.
   final Future<String?> Function()? _tokenProvider;
-  final Future<void> Function()? _onUnauthorized;
+  final Future<void> Function(AuthCredentialLease credential)? _onUnauthorized;
+  final Future<void> Function(int epoch)? _onCredentialMissing;
 
   /// Number of additional attempts for idempotent GETs after the first one.
   /// Writes (POST) are never retried to avoid duplicate side effects.
@@ -140,6 +145,9 @@ class LeaderboardApiService {
     return BreakdownResult.fromJson(data as Map<String, dynamic>);
   }
 
+  // FIXME(follow-up): /event/points paginates total_points_per_user; fetch and
+  // merge every page (or expose pagination) instead of returning only the
+  // default first page.
   Future<EventPointsResult> getEventPoints({required int eventId}) async {
     final params = <String, String>{};
     _addEventScope(params, eventId);
@@ -263,10 +271,54 @@ class LeaderboardApiService {
 
   /// Adds the `Authorization: Bearer <token>` header when a session token is
   /// available, leaving [base] untouched otherwise (e.g. in tests without auth).
-  Future<Map<String, String>> _authHeaders(Map<String, String> base) async {
+  Future<
+      ({
+        Map<String, String> headers,
+        AuthCredentialLease? credential,
+      })> _authHeaders(Map<String, String> base) async {
+    final identity = IdentitySnapshots.current;
     final token = await _tokenProvider?.call();
-    if (token == null || token.isEmpty) return base;
-    return {...base, 'Authorization': 'Bearer $token'};
+    if (!identity.sameScopeAs(IdentitySnapshots.current)) {
+      throw const StaleAuthCredentialException();
+    }
+    if (token == null || token.isEmpty) {
+      if (identity.isAuthenticated) {
+        await _onCredentialMissing?.call(identity.epoch);
+        throw const StaleAuthCredentialException();
+      }
+      return (headers: base, credential: null);
+    }
+    if (!identity.isAuthenticated) {
+      throw const StaleAuthCredentialException();
+    }
+    final credential = AuthCredentialLease(
+      epoch: identity.epoch,
+      token: token,
+    );
+    return (
+      headers: {...base, 'Authorization': 'Bearer $token'},
+      credential: credential,
+    );
+  }
+
+  Future<T> _sendWithCurrentCredential<T>(
+    AuthCredentialLease? credential,
+    Future<T> Function() send,
+  ) async {
+    if (credential == null) return send();
+    final current = IdentitySnapshots.current;
+    if (current.epoch != credential.epoch || !current.isAuthenticated) {
+      throw const StaleAuthCredentialException();
+    }
+    final token = await _tokenProvider?.call();
+    final afterRead = IdentitySnapshots.current;
+    if (afterRead.epoch != credential.epoch ||
+        !afterRead.isAuthenticated ||
+        token != credential.token) {
+      throw const StaleAuthCredentialException();
+    }
+    // No await between the final authority check and starting the transport.
+    return send();
   }
 
   Future<dynamic> _get(
@@ -280,9 +332,15 @@ class LeaderboardApiService {
         : uri;
     _log.trace('GET $url');
 
-    final headers = await _authHeaders(_acceptJson);
-    final resp = await _sendWithRetry(() => _http.get(url, headers: headers));
-    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
+    final auth = await _authHeaders(_acceptJson);
+    final resp = await _sendWithRetry(
+      () => _sendWithCurrentCredential(
+        auth.credential,
+        () => _http.get(url, headers: auth.headers),
+      ),
+    );
+    return _parseEnvelope(resp, url,
+        expectedStatuses: expectedStatuses, credential: auth.credential);
   }
 
   Future<dynamic> _post(
@@ -301,11 +359,19 @@ class LeaderboardApiService {
     final url = Uri.parse(absoluteUrl);
     _log.trace('POST $url');
 
-    final headers = await _authHeaders(_jsonHeaders);
+    final auth = await _authHeaders(_jsonHeaders);
     final resp = await _send(
-      () => _http.post(url, headers: headers, body: jsonEncode(body)),
+      () => _sendWithCurrentCredential(
+        auth.credential,
+        () => _http.post(
+          url,
+          headers: auth.headers,
+          body: jsonEncode(body),
+        ),
+      ),
     );
-    return _parseEnvelope(resp, url, expectedStatuses: expectedStatuses);
+    return _parseEnvelope(resp, url,
+        expectedStatuses: expectedStatuses, credential: auth.credential);
   }
 
   void _ensureWritesEnabled() {
@@ -325,6 +391,8 @@ class LeaderboardApiService {
   }) async {
     try {
       return await fn().timeout(AppConfig.leaderboardApiTimeout);
+    } on StaleAuthCredentialException {
+      rethrow;
     } catch (e, stackTrace) {
       _log.warn('Request failed: $e');
       // Only report to Sentry when the failure is terminal — transient errors
@@ -397,6 +465,7 @@ class LeaderboardApiService {
     http.Response resp,
     Uri url, {
     Set<int> expectedStatuses = const {},
+    AuthCredentialLease? credential,
   }) async {
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       final decoded = jsonDecode(resp.body);
@@ -430,10 +499,12 @@ class LeaderboardApiService {
       );
     }
 
-    // An expired/invalid session token: clear it and let the app bounce back to
-    // the auth landing. Still throws so the caller's normal error path runs.
-    if (resp.statusCode == 401) {
-      await _onUnauthorized?.call();
+    // An expired/invalid session token: clear it and let the app bounce back
+    // to the auth landing. Still throws so the caller's normal error path
+    // runs. Only the exact credential attached to this request may be
+    // invalidated; an anonymous request has no session to clear.
+    if (resp.statusCode == 401 && credential != null) {
+      await _onUnauthorized?.call(credential);
     }
 
     throw LeaderboardApiException(resp.statusCode, message, body: resp.body);
@@ -480,8 +551,11 @@ class LeaderboardApiService {
 final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
   final service = LeaderboardApiService(
     tokenProvider: () => ref.read(authTokenStoreProvider).read(),
-    onUnauthorized: () =>
-        ref.read(authStatusProvider.notifier).onUnauthorized(),
+    onUnauthorized: (credential) => ref
+        .read(identityProvider.notifier)
+        .onUnauthorized(credential: credential),
+    onCredentialMissing: (epoch) =>
+        ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
   );
   ref.onDispose(service.dispose);
   return service;

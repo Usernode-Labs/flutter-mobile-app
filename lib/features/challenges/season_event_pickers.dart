@@ -23,6 +23,8 @@ String seasonLabel(BuildContext context, WidgetRef ref) {
         (s) => s!.isActive,
         orElse: () => null,
       );
+  // FIXME(follow-up): The seasons API is newest-first; when none is active,
+  // label seasons.first rather than the oldest last entry.
   return activeSeason?.name ?? seasons.last.name;
 }
 

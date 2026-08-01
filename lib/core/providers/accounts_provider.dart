@@ -31,45 +31,6 @@ final activeAccountProvider = FutureProvider<AccountMeta?>((ref) async {
   return repo.getActive();
 });
 
-const _kReconcilePendingKeyBase = 'account:reconcile_pending';
-
-/// Marks that a sign-in happened whose account reconciliation has not yet
-/// completed. Set by `completeLogin`, cleared by `NodeAccountReconciler`
-/// after a successful run. On boot restore (stored token, no sign-in
-/// transition) the post-sign-in sync only re-runs the reconcile when this
-/// marker is set — so an interrupted reconcile can't strand the device
-/// under the previous identity across restarts, while normal launches stay
-/// network-free.
-Future<void> markAccountReconcilePending() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool(NetworkPrefs.prefixKey(_kReconcilePendingKeyBase), true);
-}
-
-Future<bool> isAccountReconcilePending() async {
-  final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(NetworkPrefs.prefixKey(_kReconcilePendingKeyBase)) ??
-      false;
-}
-
-Future<void> clearAccountReconcilePending() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.remove(NetworkPrefs.prefixKey(_kReconcilePendingKeyBase));
-}
-
-/// Recomputes the active per-identity storage bucket ([NetworkPrefs]). A guest
-/// session always resolves to the guest bucket (no on-chain identity loaded);
-/// otherwise the bucket follows the active on-chain account's address. Call on
-/// every identity transition (boot, login, logout, guest, account activation).
-Future<void> refreshActiveAccountBucket({required bool guest}) async {
-  if (guest) {
-    NetworkPrefs.setActiveBucket(null, guest: true);
-    return;
-  }
-  final repo = await AccountsRepository.create();
-  final active = await repo.getActive();
-  NetworkPrefs.setActiveBucket(active?.address, guest: false);
-}
-
 class AccountsRepository {
   static const _kIndexKeyBase = 'accounts:index';
   static const _kActiveIdKeyBase = 'accounts:activeId';

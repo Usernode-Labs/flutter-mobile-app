@@ -33,6 +33,7 @@ void main() {
       ZkPassportPipelinePhase phase = ZkPassportPipelinePhase.waiting,
       int resume = 0,
       String? pubKey,
+      String? requestNonce = 'nonce-a',
     }) =>
         ZkPassportRuntimeSession(
           requestId: requestId,
@@ -41,6 +42,7 @@ void main() {
           createdAtMs: 100,
           lastProgressAtMs: 200,
           resumeAttemptCount: resume,
+          requestNonce: requestNonce,
           userPublicKey: pubKey,
         );
 
@@ -71,6 +73,47 @@ void main() {
       expect(parsed.phase, ZkPassportPipelinePhase.waiting);
       expect(parsed.resumeAttemptCount, 3);
       expect(parsed.userPublicKey, 'PK');
+      expect(parsed.requestVersion, original.requestVersion);
+    });
+
+    test('a reused request ID has a distinct persisted generation', () {
+      final first = session(requestId: 'same', requestNonce: 'nonce-a');
+      final second = session(requestId: 'same', requestNonce: 'nonce-b');
+
+      expect(first.requestVersion, isNot(second.requestVersion));
+      expect(first.requestVersion?.requestId, second.requestVersion?.requestId);
+      expect(first.createdAtMs, second.createdAtMs);
+    });
+
+    test('launch identity fields persist across a round-trip', () {
+      const original = ZkPassportRuntimeSession(
+        requestId: 'req',
+        facematchStrict: true,
+        phase: ZkPassportPipelinePhase.waiting,
+        createdAtMs: 100,
+        lastProgressAtMs: 200,
+        resumeAttemptCount: 0,
+        launchEpoch: 4,
+        launchBucket: 'acct_ut1abc',
+        launchParticipantId: 77,
+      );
+      final parsed = ZkPassportRuntimeSession.fromJson(original.toJson());
+      expect(parsed, isNotNull);
+      expect(parsed!.launchEpoch, 4);
+      expect(parsed.launchBucket, 'acct_ut1abc');
+      expect(parsed.launchParticipantId, 77);
+    });
+
+    test('legacy sessions without launch identity parse with nulls', () {
+      final legacy = session().toJson()
+        ..remove('launchEpoch')
+        ..remove('launchBucket')
+        ..remove('launchParticipantId');
+      final parsed = ZkPassportRuntimeSession.fromJson(legacy);
+      expect(parsed, isNotNull);
+      expect(parsed!.launchEpoch, isNull);
+      expect(parsed.launchBucket, isNull);
+      expect(parsed.launchParticipantId, isNull);
     });
 
     test('fromJson rejects missing/invalid required fields', () {
@@ -146,12 +189,21 @@ void main() {
         verifyOuterMs: 1,
         wrapOuterMs: 2,
         verifyWrappedMs: 3,
+        requestVersion: ZkPassportRequestVersion(
+          requestId: 'request-a',
+          createdAtMs: 4,
+          nonce: 'nonce-a',
+        ),
       );
       final j = full.toJson();
       expect(j['facematch_verified'], true);
       expect(j['verify_outer_ms'], 1);
       expect(j['wrap_outer_ms'], 2);
       expect(j['verify_wrapped_ms'], 3);
+      expect(
+        ZkPassportLocalRegistration.fromJson(j)?.requestVersion,
+        full.requestVersion,
+      );
     });
 
     test('fromJson parses fields, string ints, empty nullifier -> null', () {

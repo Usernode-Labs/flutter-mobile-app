@@ -81,6 +81,36 @@ void main() {
       expect(redactSensitiveBodyFields(body), body);
     });
 
+    test('entry construction redacts the full setPassword request body', () {
+      // AuthRepository.setPassword sends the plaintext credential under BOTH
+      // `password` and `password_confirmation` — the alias must be masked
+      // too or the complete password still lands in the log store.
+      final entry = HttpLogEntry(
+        timestamp: DateTime(2026, 1, 1),
+        method: 'POST',
+        url: 'https://example.com/api/v4/mobile/auth/set-password',
+        requestBody: '{"password":"hunter2",'
+            '"password_confirmation":"hunter2","device_name":"Pixel"}',
+      );
+
+      expect(entry.requestBody, isNot(contains('hunter2')));
+      expect(entry.requestBody, contains('"password":"***"'));
+      expect(entry.requestBody, contains('"password_confirmation":"***"'));
+      expect(entry.requestBody, contains('"device_name":"Pixel"'));
+      expect(entry.toLogText(), isNot(contains('hunter2')));
+      expect(entry.toJsonEvent()['request_body'], isNot(contains('hunter2')));
+    });
+
+    test('masks common password aliases', () {
+      const body = '{"new_password":"val-n3w","current_password":"val-cur",'
+          '"old_password":"val-old","passphrase":"corr3ct horse"}';
+      final redacted = redactSensitiveBodyFields(body)!;
+      expect(redacted, isNot(contains('val-n3w')));
+      expect(redacted, isNot(contains('val-cur')));
+      expect(redacted, isNot(contains('val-old')));
+      expect(redacted, isNot(contains('corr3ct horse')));
+    });
+
     test('masks values with escaped quotes and truncated strings', () {
       const escaped = r'{"secret_key":"with\"escaped\"quotes"}';
       expect(redactSensitiveBodyFields(escaped), isNot(contains('escaped')));

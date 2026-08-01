@@ -4,18 +4,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
 
 const _base = 'https://test.example.com/api/v3/mobile';
+const _credential = AuthCredentialLease(epoch: 7, token: 'sess-1');
 
-LogShareService _service(
-  MockClient client, {
-  Future<String?> Function()? tokenProvider,
-}) =>
-    LogShareService(
+LogShareService _service(MockClient client) => LogShareService(
       baseUrl: _base,
       httpClient: client,
-      tokenProvider: tokenProvider ?? () async => 'sess-1',
+      retryBackoff: Duration.zero,
+    );
+
+Future<LogShareOutcome> _post(
+  LogShareService service, {
+  Future<bool> Function(AuthCredentialLease)? credentialIsCurrent,
+}) =>
+    service.postLogs(
+      body: const {'events': []},
+      credential: _credential,
+      sendIfCredentialCurrent: (credential, send) async {
+        final current = await (credentialIsCurrent?.call(credential) ??
+            Future<bool>.value(true));
+        return current ? send() : null;
+      },
     );
 
 void main() {
@@ -29,7 +41,7 @@ void main() {
           headers: {'content-type': 'application/json'});
     }));
 
-    final outcome = await service.postLogs(body: {'events': []});
+    final outcome = await _post(service);
 
     expect(url!.path, '/api/v3/mobile/logs');
     expect(auth, 'Bearer sess-1');
@@ -40,25 +52,41 @@ void main() {
     final service = _service(MockClient((req) async => http.Response(
         jsonEncode({'continue': false}), 200,
         headers: {'content-type': 'application/json'})));
-    expect(await service.postLogs(body: const {}), LogShareOutcome.stop);
+    expect(await _post(service), LogShareOutcome.stop);
   });
 
   test('401 stops', () async {
     final service =
         _service(MockClient((req) async => http.Response('{}', 401)));
-    expect(await service.postLogs(body: const {}), LogShareOutcome.stop);
+    expect(await _post(service), LogShareOutcome.stop);
   });
 
-  test('no token skips the request', () async {
+  test('stale credential skips the request', () async {
     var sent = false;
-    final service = _service(
-      MockClient((req) async {
-        sent = true;
-        return http.Response('{}', 200);
-      }),
-      tokenProvider: () async => null,
+    final service = _service(MockClient((req) async {
+      sent = true;
+      return http.Response('{}', 200);
+    }));
+    expect(
+      await _post(service, credentialIsCurrent: (_) async => false),
+      LogShareOutcome.stale,
     );
-    expect(await service.postLogs(body: const {}), LogShareOutcome.stop);
     expect(sent, isFalse);
+  });
+
+  test('does not retry after the credential becomes stale', () async {
+    var requests = 0;
+    var current = true;
+    final service = _service(MockClient((req) async {
+      requests++;
+      current = false;
+      return http.Response('{}', 500);
+    }));
+
+    expect(
+      await _post(service, credentialIsCurrent: (_) async => current),
+      LogShareOutcome.stale,
+    );
+    expect(requests, 1);
   });
 }

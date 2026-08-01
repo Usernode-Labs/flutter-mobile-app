@@ -33,6 +33,18 @@ class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
     implements ZkPassportPipelineController {
   _FakePipelineController() : super(ZkPassportPipelineState.idle());
 
+  bool discardResult = true;
+  int discardCalls = 0;
+
+  @override
+  Future<bool> discardPendingSession({
+    String? requestId,
+    String? reason,
+  }) async {
+    discardCalls++;
+    return discardResult;
+  }
+
   void emitSuccess() {
     state = ZkPassportPipelineState(
       status: ZkPassportPipelineStatus.success,
@@ -264,6 +276,42 @@ void main() {
 
       s.controller.reset();
       expect(s.container.read(zkIdentityChallengeActiveProvider), false);
+    });
+
+    test('cancel leaves the active flow intact when proof discard is refused',
+        () async {
+      final s = _setup();
+      addTearDown(s.container.dispose);
+      final initial = s.container.read(zkIdentityStepControllerProvider);
+      s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
+      s.container.read(zkIdentityChallengeActiveProvider.notifier).state = true;
+      s.pipelineController.discardResult = false;
+
+      expect(await s.controller.cancelVerification(), isFalse);
+
+      expect(s.pipelineController.discardCalls, 1);
+      expect(
+        s.container.read(zkIdentityStepControllerProvider).currentStep,
+        ZkIdentityStep.verification,
+      );
+      expect(s.container.read(zkIdentityChallengeActiveProvider), isTrue);
+    });
+
+    test('cancel resets the flow only after proof discard succeeds', () async {
+      final s = _setup();
+      addTearDown(s.container.dispose);
+      final initial = s.container.read(zkIdentityStepControllerProvider);
+      s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
+      s.container.read(zkIdentityChallengeActiveProvider.notifier).state = true;
+
+      expect(await s.controller.cancelVerification(), isTrue);
+
+      expect(s.pipelineController.discardCalls, 1);
+      expect(
+        s.container.read(zkIdentityStepControllerProvider).currentStep,
+        ZkIdentityStep.checkApp,
+      );
+      expect(s.container.read(zkIdentityChallengeActiveProvider), isFalse);
     });
 
     test('triggerVerification sets zkIdentityChallengeActiveProvider to true',

@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 
@@ -20,8 +21,22 @@ const _meData = {
   'level': 'operator',
 };
 
+void _publishAuthenticatedIdentity({int epoch = 7}) {
+  IdentitySnapshots.publish(Identity(
+    epoch: epoch,
+    phase: IdentityPhase.ready,
+    participantId: 1,
+    accountId: 'account-1',
+    address: 'address-1',
+  ));
+}
+
 void main() {
+  setUp(IdentitySnapshots.reset);
+  tearDown(IdentitySnapshots.reset);
+
   test('getMe sends Bearer, hits /me, parses envelope + level', () async {
+    _publishAuthenticatedIdentity();
     Uri? url;
     String? auth;
     final service = AccountApiService(
@@ -44,11 +59,14 @@ void main() {
   });
 
   test('401 invokes onUnauthorized then throws', () async {
-    var cleared = false;
+    _publishAuthenticatedIdentity();
+    AuthCredentialLease? rejectedCredential;
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
-      onUnauthorized: () async => cleared = true,
+      onUnauthorized: (credential) async {
+        rejectedCredential = credential;
+      },
       httpClient: MockClient((req) async => http.Response('{}', 401)),
     );
 
@@ -57,10 +75,41 @@ void main() {
       throwsA(isA<AccountApiException>()
           .having((e) => e.statusCode, 'statusCode', 401)),
     );
-    expect(cleared, true);
+    expect(rejectedCredential?.epoch, 7);
+    expect(rejectedCredential?.token, 'sess-1');
+  });
+
+  test('missing token under an authenticated identity is repaired, not sent',
+      () async {
+    IdentitySnapshots.publish(const Identity(
+      epoch: 9,
+      phase: IdentityPhase.ready,
+      participantId: 1,
+      accountId: 'account-1',
+      address: 'address-1',
+    ));
+    var sent = false;
+    int? missingEpoch;
+    final service = AccountApiService(
+      baseUrl: _base,
+      tokenProvider: () async => null,
+      onCredentialMissing: (epoch) async => missingEpoch = epoch,
+      httpClient: MockClient((req) async {
+        sent = true;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await expectLater(
+      service.getMe(),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    expect(missingEpoch, 9);
+    expect(sent, isFalse);
   });
 
   test('non-success envelope throws', () async {
+    _publishAuthenticatedIdentity();
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
@@ -69,6 +118,45 @@ void main() {
           headers: {'content-type': 'application/json'})),
     );
     await expectLater(service.getMe(), throwsA(isA<AccountApiException>()));
+  });
+
+  test('stored token outside an authenticated identity is never attached',
+      () async {
+    var sent = false;
+    final service = AccountApiService(
+      baseUrl: _base,
+      tokenProvider: () async => 'stale-token',
+      httpClient: MockClient((req) async {
+        sent = true;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await expectLater(
+      service.getMe(),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    expect(sent, isFalse);
+  });
+
+  test('token replacement before send cancels the request', () async {
+    _publishAuthenticatedIdentity();
+    var reads = 0;
+    var sent = false;
+    final service = AccountApiService(
+      baseUrl: _base,
+      tokenProvider: () async => reads++ == 0 ? 'sess-1' : 'sess-2',
+      httpClient: MockClient((req) async {
+        sent = true;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await expectLater(
+      service.getMe(),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    expect(sent, isFalse);
   });
 
   test('omits Authorization header when there is no token', () async {

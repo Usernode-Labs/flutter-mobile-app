@@ -42,6 +42,7 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       // Named constructor: EdgeInsets.all(16), BorderRadius.circular(12)
       typeName = target.name;
       constructorName = node.methodName.name;
+      _checkIdentityBucketWriter(node, typeName, constructorName);
     } else if (target == null) {
       // Default constructor: SizedBox(height: 16), Icon(Icons.star)
       final name = node.methodName.name;
@@ -83,6 +84,39 @@ class DsLintVisitor extends RecursiveAstVisitor<void> {
       }
     }
     super.visitImportDirective(node);
+  }
+
+  /// Files allowed to mutate the active per-identity storage bucket. The
+  /// SessionController is the single writer (serialized transitions); the
+  /// declaration itself lives in network_prefs.dart.
+  static const _identityBucketWriterAllowlist = [
+    'core/identity/session_controller.dart',
+    'core/utils/network_prefs.dart',
+  ];
+
+  /// `NetworkPrefs.setActiveBucket` outside the SessionController breaks the
+  /// single-writer invariant the identity lifecycle depends on (see
+  /// docs/identity-lifecycle-invariants.md): a second writer can flip the
+  /// bucket mid-transition and leak one identity's data into another's.
+  void _checkIdentityBucketWriter(
+    AstNode node,
+    String typeName,
+    String methodName,
+  ) {
+    if (typeName != 'NetworkPrefs' || methodName != 'setActiveBucket') return;
+    final normalized = filePath.replaceAll('\\', '/');
+    for (final allowed in _identityBucketWriterAllowlist) {
+      if (normalized.endsWith(allowed)) return;
+    }
+    _report(
+      node,
+      'single_identity_bucket_writer',
+      'NetworkPrefs.setActiveBucket called outside SessionController. '
+          'The active identity bucket has exactly one writer '
+          '(core/identity/session_controller.dart); route identity '
+          'transitions through the SessionController instead.',
+      'WARNING',
+    );
   }
 
   /// Types that use default (unnamed) constructors we care about.

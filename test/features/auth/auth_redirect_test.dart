@@ -1,10 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 
 void main() {
   test('unknown -> allow (loading)', () {
     expect(authRedirect(AuthStatus.unknown, AppRoutes.home), isNull);
+  });
+  test('unknown stops lower-priority redirect guards', () {
+    expect(shouldDeferRouterRedirect(AuthStatus.unknown), isTrue);
+    expect(shouldDeferRouterRedirect(AuthStatus.unauthenticated), isFalse);
+    expect(shouldDeferRouterRedirect(AuthStatus.guest), isFalse);
+    expect(shouldDeferRouterRedirect(AuthStatus.authenticated), isFalse);
   });
   test('unauthenticated on private route -> landing', () {
     expect(authRedirect(AuthStatus.unauthenticated, AppRoutes.home),
@@ -61,6 +68,63 @@ void main() {
       expect(guestRedirect(AppRoutes.authLanding), isNull);
       expect(guestRedirect(AppRoutes.authEmail), isNull);
       expect(guestRedirect(AppRoutes.authOtp), isNull);
+    });
+  });
+
+  group('identityGateRedirect', () {
+    test('transitioning and reconciling identities block wallet routes', () {
+      for (final phase in [
+        IdentityPhase.transitioning,
+        IdentityPhase.reconciling,
+      ]) {
+        for (final route in identityGatedRoutes) {
+          expect(
+            identityGateRedirect(phase: phase, location: route),
+            AppRoutes.home,
+            reason: '${phase.name}: $route',
+          );
+        }
+      }
+    });
+
+    test('non-wallet routes stay reachable while reconciling', () {
+      for (final route in [AppRoutes.home, AppRoutes.profile]) {
+        expect(
+          identityGateRedirect(
+            phase: IdentityPhase.reconciling,
+            location: route,
+          ),
+          isNull,
+          reason: route,
+        );
+      }
+    });
+
+    test('wallet routes open once the identity settles to ready', () {
+      expect(
+        identityGateRedirect(
+          phase: IdentityPhase.ready,
+          location: AppRoutes.walletSend,
+        ),
+        isNull,
+      );
+    });
+
+    test('settled non-authenticated phases are never gated', () {
+      for (final phase in [
+        IdentityPhase.unknown,
+        IdentityPhase.unauthenticated,
+        IdentityPhase.guest,
+      ]) {
+        expect(
+          identityGateRedirect(
+            phase: phase,
+            location: AppRoutes.walletSend,
+          ),
+          isNull,
+          reason: phase.name,
+        );
+      }
     });
   });
 }

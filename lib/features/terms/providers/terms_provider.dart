@@ -53,6 +53,9 @@ class CurrentTermsController extends LeaderboardNotifier<TermsSnapshot> {
       throw StateError('Cannot submit consent without a session.');
     }
 
+    // FIXME(follow-up): Lease the exact identity here and revalidate it
+    // immediately before the POST so a session swap cannot submit one user's
+    // loaded terms with another user's token.
     final service = ref.read(leaderboardApiServiceProvider);
     await service.postTermsConsent(
       termsVersionId: terms.id,

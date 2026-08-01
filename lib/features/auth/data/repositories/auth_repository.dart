@@ -67,15 +67,26 @@ class AuthRepository {
     required String password,
     required String passwordConfirmation,
   }) async {
-    final json = await _post(
-      '/set-password',
-      body: {
-        'password': password,
-        'password_confirmation': passwordConfirmation,
-      },
-      bearer: setPasswordToken,
-    );
-    return AuthSession.fromJson(json);
+    try {
+      final json = await _post(
+        '/set-password',
+        body: {
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        },
+        bearer: setPasswordToken,
+      );
+      return AuthSession.fromJson(json);
+    } on AuthException catch (error) {
+      // v4 uses 401 when this one-time bearer has expired or was already
+      // consumed. `_mapError` must keep mapping ordinary 401s (notably login)
+      // to invalidCredentials, so reinterpret it only in this endpoint's
+      // set-password-token context.
+      if (error.kind == AuthErrorKind.invalidCredentials) {
+        throw AuthException(AuthErrorKind.wrongToken, error.message);
+      }
+      rethrow;
+    }
   }
 
   Future<void> logout(String sessionToken) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/screens/auth_landing_screen.dart';
 import 'package:crypto_mobile_app/features/auth/screens/auth_email_screen.dart';
@@ -152,23 +153,57 @@ String? authRedirect(AuthStatus status, String location) {
   }
 }
 
+/// Whether the auth lifecycle is still resolving and all lower-priority route
+/// guards must be skipped. In particular, account/onboarding/freshness state
+/// may still belong to the identity that is being replaced.
+bool shouldDeferRouterRedirect(AuthStatus status) =>
+    status == AuthStatus.unknown;
+
 /// Where a guest should be routed. Guests never enter node onboarding: from
 /// splash/onboarding send them to the Dapps tab; elsewhere return null so they
 /// can roam the app shell. Pure for unit testing.
 String? guestRedirect(String location) {
+  // FIXME(follow-up): Redirect guests away from wallet send/scan; those routes
+  // must never expose or use a previous user's active registry account.
   if (location == AppRoutes.splash || location.startsWith('/onboarding/')) {
     return AppRoutes.dapps;
   }
   return null;
 }
 
+/// Routes that read the active local account directly (Send builds
+/// transactions against `AccountsRepository.getActive()`). While a sign-in's
+/// account reconciliation is still pending, that account may belong to a
+/// PREVIOUS user — block these routes until ownership is confirmed.
+const identityGatedRoutes = <String>[
+  AppRoutes.walletSend,
+  AppRoutes.walletScan,
+];
+
+/// Identity gate: sessions whose identity is changing or whose account
+/// reconciliation is pending are bounced off wallet routes. Pure for unit
+/// testing.
+String? identityGateRedirect({
+  required IdentityPhase phase,
+  required String location,
+}) {
+  if (phase != IdentityPhase.transitioning &&
+      phase != IdentityPhase.reconciling) {
+    return null;
+  }
+  return identityGatedRoutes.contains(location) ? AppRoutes.home : null;
+}
+
 /// A ChangeNotifier that listens to Riverpod provider changes and notifies GoRouter
 /// This bridges Riverpod's state management with GoRouter's refresh mechanism
 class GoRouterRefreshStream extends ChangeNotifier {
   GoRouterRefreshStream(this._ref) {
-    // Listen to auth status changes (v3 auth gate)
-    _ref.listen<AuthStatus>(
-      authStatusProvider,
+    // Every identity transition (login, logout, guest, reconcile completion,
+    // season rollover) publishes a new snapshot — re-run the redirect guard
+    // for each one. This subsumes the old auth-status listener: authStatus
+    // is derived from the same snapshot.
+    _ref.listen<Identity>(
+      identityProvider,
       (previous, next) {
         notifyListeners();
       },
@@ -198,12 +233,6 @@ class GoRouterRefreshStream extends ChangeNotifier {
   }
 
   final Ref _ref;
-
-  @override
-  void dispose() {
-    // Clean up listener
-    super.dispose();
-  }
 }
 
 // Create a stable navigator key outside the provider
@@ -573,25 +602,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (context, state) {
-      // Fresh reads on every evaluation (see note at the top of this
-      // provider); GoRouterRefreshStream re-runs this guard when any of
-      // these change.
-      final hasAny = ref.read(hasAnyAccountProvider).maybeWhen(
-            data: (v) => v,
-            orElse: () => null,
-          );
-      final hasCompletedOnboarding =
-          ref.read(hasCompletedOnboardingProvider).maybeWhen(
-                data: (v) => v,
-                orElse: () => null,
-              );
-      final registrationFreshness = ref.read(registrationFreshnessProvider);
-
       final currentLocation = state.matchedLocation;
       final requestUri = state.uri;
-
-      _log.trace(
-          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
       // v3 auth gate runs first. It forces unauthenticated users (including
       // existing users upgrading) to the auth landing before any account or
@@ -599,6 +611,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authStatus = ref.read(authStatusProvider);
       final authGate = authRedirect(authStatus, currentLocation);
       if (authGate != null) return authGate;
+      if (shouldDeferRouterRedirect(authStatus)) return null;
       if (authStatus == AuthStatus.unauthenticated) {
         // On an auth route while unauthenticated: allow it, skip account logic.
         return null;
@@ -615,6 +628,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         _log.warn('Blocked unsupported app deep link: $requestUri');
         return AppRoutes.home;
       }
+
+      // Identity gate: while account reconciliation is pending, the active
+      // local account may still belong to a previous user — keep the session
+      // off routes that sign or spend with it.
+      final identityGate = identityGateRedirect(
+        phase: ref.read(identityProvider).phase,
+        location: currentLocation,
+      );
+      if (identityGate != null) {
+        _log.warn('Identity gate: blocking $currentLocation until the '
+            'account reconcile completes');
+        return identityGate;
+      }
+
+      // Fresh reads on every evaluation (see note at the top of this
+      // provider); GoRouterRefreshStream re-runs this guard when any of these
+      // change. Keep them below the auth and identity gates: while an identity
+      // is transitioning, these values can still belong to the previous user.
+      final hasAny = ref.read(hasAnyAccountProvider).maybeWhen(
+            data: (v) => v,
+            orElse: () => null,
+          );
+      final hasCompletedOnboarding =
+          ref.read(hasCompletedOnboardingProvider).maybeWhen(
+                data: (v) => v,
+                orElse: () => null,
+              );
+      final registrationFreshness = ref.read(registrationFreshnessProvider);
+
+      _log.trace(
+          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
 
       // Still loading state
       if (hasAny == null || hasCompletedOnboarding == null) {

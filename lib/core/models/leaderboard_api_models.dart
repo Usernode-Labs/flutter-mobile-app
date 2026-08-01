@@ -107,6 +107,7 @@ class WalletProvisionResult {
     this.seasonId,
     this.seasonEventId,
     this.newlyAllocated = false,
+    this.bpReleased = false,
   });
 
   final String address;
@@ -116,6 +117,12 @@ class WalletProvisionResult {
   final int? seasonEventId;
   final bool newlyAllocated;
 
+  /// Whether an admin has released this user's block-producer keys
+  /// (onboarding flow alignment). Persisted per account bucket by the
+  /// reconciler so NodeService can gate producer setup without a network
+  /// round-trip at start time.
+  final bool bpReleased;
+
   factory WalletProvisionResult.fromJson(Map<String, dynamic> json) {
     return WalletProvisionResult(
       address: json['address'] as String,
@@ -124,6 +131,7 @@ class WalletProvisionResult {
       seasonId: _jsonIntN(json['season_id']),
       seasonEventId: _jsonIntN(json['season_event_id']),
       newlyAllocated: json['newly_allocated'] == true,
+      bpReleased: json['bp_released'] == true,
     );
   }
 }

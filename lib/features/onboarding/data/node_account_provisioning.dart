@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -234,6 +235,14 @@ class NodeAccountReconciler {
     // another identity's.
     await installParticipantIdInBucket(
       participantId: participantId,
+      bucket: NetworkPrefs.bucketForAddress(provisioned.address),
+    );
+
+    // Persist the block-production release decision alongside the account.
+    // NodeService reads it at start time to decide whether the runtime gets
+    // a producer key; a node must never produce for an unreleased user.
+    await installBlockProductionReleasedInBucket(
+      released: provisioned.bpReleased,
       bucket: NetworkPrefs.bucketForAddress(provisioned.address),
     );
 

@@ -1,13 +1,8 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
-import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
-import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/config/theme_mode.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
@@ -56,17 +51,9 @@ final backendLifecycleProvider = Provider<void>((ref) {
       // Account deleted: true → false
       if (prevHasAccount && !nextHasAccount) {
         _log.trace('Account deleted - stopping backend');
-        if (Platform.isAndroid) {
-          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-          await AndroidForegroundTaskController.instance.stopMonitoring(
-            reason: 'account_removed',
-          );
-        }
-        await RustBackendService.instance.stopNode();
-        if (Platform.isAndroid) {
-          await PlatformAlarmService.instance.cancelAllAlarms();
-          await PlatformAlarmService.instance.cancelAlarmWatchdog();
-        }
+        await NodeLifecycleCoordinator.instance.stopNode(
+          reason: 'account_removed',
+        );
       }
     },
   );

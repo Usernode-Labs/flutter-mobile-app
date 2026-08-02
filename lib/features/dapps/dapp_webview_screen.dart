@@ -11,10 +11,9 @@ import 'package:crypto_mobile_app/core/providers/providers.dart'
     show buildEnvProvider, debugModeProvider;
 import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/core/providers/wallet_provider.dart';
-import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
-import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
@@ -802,13 +801,11 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
     if (RustBackendService.instance.isRunning) return;
     if (AppSleepStateStore.isSleeping) return;
     if (ref.read(identityProvider).phase != IdentityPhase.ready) return;
-    final started = await RustBackendService.instance.startNode();
-    if (started && defaultTargetPlatform == TargetPlatform.android) {
-      // Same Android block-production wiring as the bridge startNode
-      // handler; startMonitoring re-arms watchdog recovery and audits on
-      // a real disabled -> enabled transition.
-      await AndroidForegroundTaskController.instance.onNodeStarted();
-    }
+    // Same Android block-production wiring as the bridge startNode handler,
+    // via the shared coordinator.
+    await NodeLifecycleCoordinator.instance.startNode(
+      reason: 'standalone_dapp_entry',
+    );
   }
 
   /// Presents the OS file picker for a WebView `<input type="file">` tap
@@ -1060,22 +1057,11 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
       );
       return;
     }
-    final started = await RustBackendService.instance.startNode();
-    // Android block-production support (alarms, foreground service,
-    // watchdog) used to be wired by the old auto-start paths; the
-    // platform-requested start owns it now.
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      if (started) {
-        BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
-        BlockProductionAlarmAuditService.instance.auditBestEffort(
-          reason: 'platform_start',
-        );
-        await AndroidForegroundTaskController.instance.onNodeStarted();
-      } else {
-        BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-        await PlatformAlarmService.instance.cancelAlarmWatchdog();
-      }
-    }
+    // The coordinator owns the Android block-production wiring (watchdog
+    // recovery, audit, foreground service) atomically with the start.
+    final started = await NodeLifecycleCoordinator.instance.startNode(
+      reason: 'platform_start',
+    );
     await _resolveJsPromise(
       id: id,
       value: {'started': started, 'nodeStatus': _nodeStatusSnapshot()},
@@ -1087,17 +1073,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
   /// stopping an already-stopped node resolves normally.
   Future<void> _handleStopNode(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'stopNode')) return;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-      await AndroidForegroundTaskController.instance.stopMonitoring(
-        reason: 'platform_stop',
-      );
-    }
-    await RustBackendService.instance.stopNode();
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      await PlatformAlarmService.instance.cancelAllAlarms();
-      await PlatformAlarmService.instance.cancelAlarmWatchdog();
-    }
+    await NodeLifecycleCoordinator.instance.stopNode(reason: 'platform_stop');
     await _resolveJsPromise(id: id, value: {'stopped': true}, error: null);
   }
 

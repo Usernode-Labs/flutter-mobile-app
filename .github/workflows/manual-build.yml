@@ -714,17 +714,15 @@ jobs:
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
           DELIVER_ALTOOL_ADDITIONAL_UPLOAD_PARAMETERS: "--use-old-altool"
         run: |
-          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
-            export BUILD_ENV=PROD
-          else
-            export BUILD_ENV=NONPROD
-            # The NONPROD "Usernode Internal" profiles are no longer installed
-            # on CI (expired/removed from the PROVISIONING_PROFILES secret).
-            # Export with the active App Store profiles instead; both cover
-            # the same bundle IDs, so TestFlight accepts the build.
-            export PROVISIONING_PROFILE_NAME="mobile-apps"
-            export WIDGET_PROVISIONING_PROFILE_NAME="mobile-apps-widgets"
-          fi
+          # Always run the fastlane ios lane in PROD mode, matching the
+          # de-facto behavior of build-and-deploy.yml (its BUILD_ENV line is
+          # Ruby syntax in a shell step, so fastlane has always defaulted to
+          # PROD). The NONPROD path is broken on two counts: the "Usernode
+          # Internal" profiles are no longer installed on CI, and the
+          # "-internal" version suffix is rejected by App Store Connect
+          # (CFBundleShortVersionString must be numeric). The app's .env
+          # (dart-defines) is still selected by env_type above.
+          export BUILD_ENV=PROD
           bundle exec fastlane ios release
 
       - name: Upload IPA artifact

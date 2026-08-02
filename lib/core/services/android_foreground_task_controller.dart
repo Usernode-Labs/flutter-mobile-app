@@ -6,6 +6,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'package:crypto_mobile_app/core/models/vrf_status.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
+import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
@@ -103,6 +104,24 @@ class AndroidForegroundTaskController {
     if (!nodeOk) {
       _log.error('Cannot start monitoring: node failed to start');
       return false;
+    }
+
+    // Re-arm watchdog recovery for this producer session. Cold boots defer
+    // the node start to the platform bridge and disable recovery in
+    // bootstrap; on headless wakes (alarm / WorkManager watchdog paths) the
+    // bridge never runs, so this native start path is the only place that
+    // can re-enable it. Without this, a headless-started producer runs with
+    // every audit skipping as watchdog_disabled until the next interactive
+    // launch. On a real disabled → enabled transition, run an audit so the
+    // fg_resume alarm and WorkManager watchdog get rescheduled now — the
+    // audit that rode in on the triggering native event raced this start
+    // and was likely skipped as watchdog_disabled.
+    final rearmed =
+        BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
+    if (rearmed) {
+      BlockProductionAlarmAuditService.instance.auditBestEffort(
+        reason: 'native_start_rearm:$reason',
+      );
     }
 
     final wakelockWasHeld = _wakelockHeld;

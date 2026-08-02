@@ -221,10 +221,14 @@ class BlockProductionAlarmAuditService {
   bool _watchdogRecoveryEnabled = true;
   var _watchdogLifecycleGeneration = 0;
 
-  void enableWatchdogRecovery() {
-    if (_watchdogRecoveryEnabled) return;
+  /// Returns true when this call actually re-armed recovery (i.e. it was
+  /// disabled), so callers can trigger a follow-up audit only on a real
+  /// disabled → enabled transition.
+  bool enableWatchdogRecovery() {
+    if (_watchdogRecoveryEnabled) return false;
     _watchdogRecoveryEnabled = true;
     _watchdogLifecycleGeneration += 1;
+    return true;
   }
 
   void disableWatchdogRecovery() {

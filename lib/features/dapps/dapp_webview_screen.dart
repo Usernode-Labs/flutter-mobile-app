@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider
 import 'package:crypto_mobile_app/core/providers/wallet_provider.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
@@ -768,10 +769,46 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
           return;
         }
         _dispatchAuthStatusEvent();
+        // A standalone dapp surface may have been entered while the
+        // identity was still reconciling — retry the node ensure once it
+        // settles to ready.
+        if (next.phase == IdentityPhase.ready) {
+          unawaited(_ensureNodeForStandaloneDappEntry());
+        }
       },
     );
     _loadTxRecords();
     _loadDappTxIds();
+    unawaited(_ensureNodeForStandaloneDappEntry());
+  }
+
+  /// Standalone dapp surfaces (widget/shortcut deep links to
+  /// `/dapps/pinned/<id>`, `/dapps/<slug>` routes) can be entered on a cold
+  /// start without the SV shell ever loading — and the shell is the only
+  /// thing that requests a node start over bridge v4. Sends from every dapp
+  /// surface go through the local node's wallet RPC, so without this a
+  /// shell-bypassing entry leaves the node stopped and every send failing
+  /// with "Node RPC unavailable". Mirrors the bridge `startNode` handler:
+  /// identity-gated (startNode itself refuses unsettled identities), and
+  /// block production stays gated by bp_released inside NodeService, so
+  /// this cannot start producing for an unreleased user.
+  ///
+  /// No-op for the SV shell instance ([DappWebViewScreen.chromeless]) —
+  /// the platform owns node lifecycle there — and while app sleep is
+  /// active (the sleep service owns the node then).
+  Future<void> _ensureNodeForStandaloneDappEntry() async {
+    if (widget.chromeless) return;
+    if (!mounted) return;
+    if (RustBackendService.instance.isRunning) return;
+    if (AppSleepStateStore.isSleeping) return;
+    if (ref.read(identityProvider).phase != IdentityPhase.ready) return;
+    final started = await RustBackendService.instance.startNode();
+    if (started && defaultTargetPlatform == TargetPlatform.android) {
+      // Same Android block-production wiring as the bridge startNode
+      // handler; startMonitoring re-arms watchdog recovery and audits on
+      // a real disabled -> enabled transition.
+      await AndroidForegroundTaskController.instance.onNodeStarted();
+    }
   }
 
   /// Presents the OS file picker for a WebView `<input type="file">` tap

@@ -1,3 +1,0 @@
-Reference screenshot captured inline during figma-inspect session (2026-02-23).
-Source: Figma node 3012:2400 in file Eu4jn5o8finpZ28IAGPyru
-See the spec YAML for full structural details.

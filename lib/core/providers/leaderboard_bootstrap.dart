@@ -130,9 +130,9 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
 /// ref.watch(leaderboardBootstrapProvider);
 /// ```
 ///
-/// Downstream providers ([rankingProvider], [challengesProvider], etc.) watch
-/// [seasonEventContextProvider] and rebuild automatically once the context is
-/// populated.
+/// Downstream providers ([challengesProvider], [breakdownProvider], etc.)
+/// watch [seasonEventContextProvider] and rebuild automatically once the
+/// context is populated.
 final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   // AuthStatus maps both reconciling and ready to authenticated. Leaderboard
   // state is account/bucket scoped, so capture the exact identity instead and

@@ -354,26 +354,35 @@ class AppBootstrap {
         );
       }
 
-      // Watchdog work is useful only while an account-backed producer is
-      // actually running.
+      // Watchdog work is meaningful only for account-backed producers. The
+      // disable/cancel decision keys on account presence, NOT on whether the
+      // node is running: on cold start the node is legitimately stopped
+      // (start is deferred to the platform bridge), and disabling recovery
+      // here would dead-end every headless recovery path — boot receiver,
+      // WorkManager watchdog, and force-stop recovery all route through the
+      // alarm audit, which gates on watchdog recovery before it can call
+      // ensureNodeRunning.
       if (Platform.isAndroid) {
-        final blockProductionActive =
-            hasAnyAccounts && RustBackendService.instance.isRunning;
-        if (blockProductionActive) {
+        if (!hasAnyAccounts) {
+          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
+          log.info(
+            'Cancelling Android alarm watchdog because no account exists',
+          );
+          await PlatformAlarmService.instance.cancelAlarmWatchdog();
+        } else if (RustBackendService.instance.isRunning) {
           BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
           log.info('Starting Android foreground VRF monitoring');
           await AndroidForegroundTaskController.instance.onNodeStarted();
           unawaited(_runStartupAlarmAudit(log));
         } else {
-          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
+          // Account exists but the node start is deferred to the platform.
+          // Recovery stays armed (the cold-start default) so headless
+          // recovery events can pass the audit gate and start the node
+          // themselves; the startup audit is skipped so interactive boots
+          // don't start the node before the platform asks.
           log.info(
-            'Cancelling Android alarm watchdog because block production is inactive',
-            context: {
-              'has_account': hasAnyAccounts,
-              'node_running': RustBackendService.instance.isRunning,
-            },
+            'Node start deferred to platform; Android watchdog recovery stays armed',
           );
-          await PlatformAlarmService.instance.cancelAlarmWatchdog();
         }
       }
 

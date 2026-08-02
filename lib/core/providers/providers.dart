@@ -48,11 +48,17 @@ final backendLifecycleProvider = Provider<void>((ref) {
       final prevHasAccount = previous?.value ?? false;
       final nextHasAccount = next.value ?? false;
 
-      // Account deleted: true → false
-      if (prevHasAccount && !nextHasAccount) {
-        _log.trace('Account deleted - stopping backend');
-        await NodeLifecycleCoordinator.instance.stopNode(
-          reason: 'account_removed',
+      if (prevHasAccount != nextHasAccount) {
+        // Removal tears down the runtime + Android production support;
+        // addition arms watchdog recovery without starting the node (the
+        // platform requests the start explicitly once identity settles).
+        _log.trace(
+          'Account presence changed ($prevHasAccount → $nextHasAccount) - '
+          'reconciling node lifecycle',
+        );
+        await NodeLifecycleCoordinator.instance.reportAccountsChanged(
+          hasAccount: nextHasAccount,
+          reason: nextHasAccount ? 'account_added' : 'account_removed',
         );
       }
     },

@@ -3,12 +3,55 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 
 void main() {
-  group('NodeLifecycleCoordinator', () {
+  group('NodeLifecycleCoordinator desired-state derivation', () {
+    // (hasAccount, intent, sleeping) → (runDesired, recoveryDesired)
+    const cases = <(bool, PlatformNodeIntent, bool, bool, bool)>[
+      // No account: nothing is ever desired, regardless of intent.
+      (false, PlatformNodeIntent.unset, false, false, false),
+      (false, PlatformNodeIntent.start, false, false, false),
+      (false, PlatformNodeIntent.stop, false, false, false),
+      // Account, no platform request yet: recovery armed, no active start.
+      (true, PlatformNodeIntent.unset, false, false, true),
+      (true, PlatformNodeIntent.unset, true, false, true),
+      // Account + explicit start: run, unless sleeping (recovery stays armed
+      // either way — alarm handlers do their own sleep gating).
+      (true, PlatformNodeIntent.start, false, true, true),
+      (true, PlatformNodeIntent.start, true, false, true),
+      // Account + explicit stop: nothing desired.
+      (true, PlatformNodeIntent.stop, false, false, false),
+    ];
+
+    for (final (hasAccount, intent, sleeping, wantRun, wantRecovery) in cases) {
+      test(
+          'hasAccount=$hasAccount intent=${intent.name} sleeping=$sleeping '
+          '→ run=$wantRun recovery=$wantRecovery', () {
+        expect(
+          NodeLifecycleCoordinator.runDesired(
+            hasAccount: hasAccount,
+            intent: intent,
+            sleeping: sleeping,
+          ),
+          wantRun,
+        );
+        expect(
+          NodeLifecycleCoordinator.recoveryDesired(
+            hasAccount: hasAccount,
+            intent: intent,
+          ),
+          wantRecovery,
+        );
+      });
+    }
+  });
+
+  group('NodeLifecycleCoordinator reconcile', () {
     late List<String> calls;
 
     NodeLifecycleCoordinator build({
       required bool android,
       bool startResult = true,
+      bool nodeRunning = false,
+      bool sleeping = false,
     }) {
       calls = [];
       return NodeLifecycleCoordinator(
@@ -17,6 +60,8 @@ void main() {
           return startResult;
         },
         stopBackend: () async => calls.add('stopBackend'),
+        isNodeRunning: () => nodeRunning,
+        isSleeping: () => sleeping,
         enableWatchdogRecovery: () => calls.add('enableRecovery'),
         disableWatchdogRecovery: () => calls.add('disableRecovery'),
         auditBestEffort: ({required String reason}) =>
@@ -91,6 +136,112 @@ void main() {
       await coordinator.stopNode(reason: 'account_removed');
 
       expect(calls, ['stopBackend']);
+    });
+
+    test(
+        'cold boot with an account and a stopped node arms recovery without '
+        'starting the node or auditing', () async {
+      final coordinator = build(android: true);
+
+      final running =
+          await coordinator.reportColdBoot(hasAccount: true, reason: 'boot');
+
+      expect(running, isFalse);
+      // No startBackend (start is deferred to the platform), no audit
+      // (nothing to reconcile against a stopped runtime), no watchdog
+      // cancel (headless recovery must stay possible).
+      expect(calls, ['enableRecovery']);
+    });
+
+    test(
+        'cold boot with an account and an already-running node wires '
+        'production support without restarting the backend', () async {
+      final coordinator = build(android: true, nodeRunning: true);
+
+      final running =
+          await coordinator.reportColdBoot(hasAccount: true, reason: 'boot');
+
+      expect(running, isTrue);
+      expect(calls, ['enableRecovery', 'audit:boot', 'onNodeStarted']);
+    });
+
+    test('cold boot without an account tears down production support',
+        () async {
+      final coordinator = build(android: true);
+
+      final running =
+          await coordinator.reportColdBoot(hasAccount: false, reason: 'boot');
+
+      expect(running, isFalse);
+      expect(calls, [
+        'disableRecovery',
+        'stopMonitoring:boot',
+        'stopBackend',
+        'cancelAllAlarms',
+        'cancelWatchdog',
+      ]);
+    });
+
+    test('account creation arms recovery without starting the node', () async {
+      final coordinator = build(android: true);
+
+      await coordinator.reportAccountsChanged(
+        hasAccount: true,
+        reason: 'account_added',
+      );
+
+      expect(calls, ['enableRecovery']);
+    });
+
+    test(
+        'account removal tears everything down and resets any platform '
+        'start intent', () async {
+      final coordinator = build(android: true);
+      await coordinator.startNode(reason: 'platform_start');
+      calls.clear();
+
+      await coordinator.reportAccountsChanged(
+        hasAccount: false,
+        reason: 'account_removed',
+      );
+
+      expect(calls, [
+        'disableRecovery',
+        'stopMonitoring:account_removed',
+        'stopBackend',
+        'cancelAllAlarms',
+        'cancelWatchdog',
+      ]);
+      // A later login must request the start explicitly.
+      expect(coordinator.intent, PlatformNodeIntent.unset);
+    });
+
+    test(
+        'platform start during active app sleep keeps recovery armed but '
+        'does not start the node', () async {
+      final coordinator = build(android: true, sleeping: true);
+
+      final started = await coordinator.startNode(reason: 'platform_start');
+
+      expect(started, isFalse);
+      expect(calls, ['enableRecovery']);
+    });
+
+    test('platform start after a platform stop starts the node again',
+        () async {
+      final coordinator = build(android: true);
+      await coordinator.stopNode(reason: 'platform_stop');
+      calls.clear();
+
+      final started = await coordinator.startNode(reason: 'platform_start');
+
+      expect(started, isTrue);
+      expect(calls, [
+        'startBackend',
+        'enableRecovery',
+        'audit:platform_start',
+        'onNodeStarted',
+      ]);
     });
   });
 }

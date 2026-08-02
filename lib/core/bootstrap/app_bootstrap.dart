@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
@@ -354,36 +355,22 @@ class AppBootstrap {
         );
       }
 
-      // Watchdog work is meaningful only for account-backed producers. The
-      // disable/cancel decision keys on account presence, NOT on whether the
-      // node is running: on cold start the node is legitimately stopped
-      // (start is deferred to the platform bridge), and disabling recovery
-      // here would dead-end every headless recovery path — boot receiver,
-      // WorkManager watchdog, and force-stop recovery all route through the
-      // alarm audit, which gates on watchdog recovery before it can call
-      // ensureNodeRunning.
-      if (Platform.isAndroid) {
-        if (!hasAnyAccounts) {
-          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-          log.info(
-            'Cancelling Android alarm watchdog because no account exists',
-          );
-          await PlatformAlarmService.instance.cancelAlarmWatchdog();
-        } else if (RustBackendService.instance.isRunning) {
-          BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
-          log.info('Starting Android foreground VRF monitoring');
-          await AndroidForegroundTaskController.instance.onNodeStarted();
-          unawaited(_runStartupAlarmAudit(log));
-        } else {
-          // Account exists but the node start is deferred to the platform.
-          // Recovery stays armed (the cold-start default) so headless
-          // recovery events can pass the audit gate and start the node
-          // themselves; the startup audit is skipped so interactive boots
-          // don't start the node before the platform asks.
-          log.info(
-            'Node start deferred to platform; Android watchdog recovery stays armed',
-          );
-        }
+      // Report cold-boot facts to the lifecycle coordinator, which
+      // reconciles the Android block-production wiring (watchdog recovery,
+      // alarms, foreground service) against them. With an account and no
+      // platform start request yet, recovery stays armed WITHOUT starting
+      // the node: interactive boots defer the start to the platform bridge,
+      // while headless recovery paths (boot receiver, WorkManager watchdog,
+      // force-stop recovery) can still start it through the audit gate.
+      await NodeLifecycleCoordinator.instance.reportColdBoot(
+        hasAccount: hasAnyAccounts,
+        reason: 'bootstrap',
+      );
+      if (Platform.isAndroid && hasAnyAccounts) {
+        // Force-stop detection is bootstrap-specific: it inspects the native
+        // "was force-stopped" launch flag, and on detection kicks a recovery
+        // audit that may start the node headless to restore production.
+        unawaited(_runStartupAlarmAudit(log));
       }
 
       log.debug('Bootstrap end');

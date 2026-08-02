@@ -8,9 +8,6 @@ import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
-import 'package:crypto_mobile_app/core/providers/event_points_provider.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
-import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -120,12 +117,9 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
   _lastRefreshAt = now;
 
   await Future.wait([
-    ref.read(rankingProvider.notifier).silentRefresh(),
     ref.read(challengesProvider.notifier).silentRefresh(),
-    ref.read(leaderboardProvider.notifier).silentRefresh(),
     ref.read(breakdownProvider.notifier).silentRefresh(),
     ref.read(seasonsProvider.notifier).silentRefresh(),
-    ref.read(eventPointsProvider.notifier).silentRefresh(),
   ]);
 }
 

@@ -53,17 +53,17 @@ class Identity {
     this.provisionedSeasonId,
   });
 
-  const Identity.unknown()
-      : epoch = 0,
-        phase = IdentityPhase.unknown,
+  const Identity.unknown({this.epoch = 0})
+      : phase = IdentityPhase.unknown,
         participantId = null,
         accountId = null,
         address = null,
         provisionedSeasonId = null;
 
   /// Monotonic identity generation. Bumped on every transition that changes
-  /// WHO the identity is (login, logout, guest, 401, season rollover) — NOT
-  /// on reconciling → ready, which completes the same identity.
+  /// WHO the identity is (initial login, participant replacement, logout,
+  /// guest, 401, season rollover) — NOT on same-participant bearer rotation
+  /// or reconciling → ready, which preserve/complete the same identity.
   final int epoch;
 
   final IdentityPhase phase;

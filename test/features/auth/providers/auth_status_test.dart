@@ -53,10 +53,13 @@ class _BlockingLogoutRepository extends AuthRepository {
   }
 }
 
-AuthSession _session(String token) => AuthSession(
+AuthSession _session(String token, {int participantId = 1}) => AuthSession(
       token: token,
-      participant:
-          const Participant(id: 1, email: 'a@b.com', emailConfirmed: true),
+      participant: Participant(
+        id: participantId,
+        email: 'a@b.com',
+        emailConfirmed: true,
+      ),
     );
 
 Future<AuthStatus> _settle(ProviderContainer c) async {
@@ -352,7 +355,9 @@ void main() {
     await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
     final staleEpoch = c.read(identityProvider).epoch;
     // A second login supersedes the first reconcile.
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-3'));
+    await c
+        .read(identityProvider.notifier)
+        .completeLogin(_session('sess-3', participantId: 2));
     final committed =
         await c.read(identityProvider.notifier).reconcileSucceeded(
               epoch: staleEpoch,
@@ -640,7 +645,7 @@ void main() {
     addTearDown(controller.dispose);
     await controller.completeLogin(_session('sess-1'));
     final staleIdentity = controller.state;
-    await controller.completeLogin(_session('sess-2'));
+    await controller.completeLogin(_session('sess-2', participantId: 2));
 
     expect(
       await controller.logout(expectedIdentity: staleIdentity),

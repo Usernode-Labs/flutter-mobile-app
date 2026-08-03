@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
+import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -15,6 +17,14 @@ import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repositor
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/SessionController');
+
+/// Work was submitted to a controller whose runtime has been replaced.
+class SessionControllerRetiredException implements Exception {
+  const SessionControllerRetiredException();
+
+  @override
+  String toString() => 'SessionControllerRetiredException()';
+}
 
 final authRepositoryProvider =
     Provider<AuthRepository>((ref) => AuthRepository());
@@ -63,11 +73,16 @@ class SessionController extends StateNotifier<Identity> {
     required AuthGuestFlag guestFlag,
     required AuthRepository repository,
     Future<void> Function()? suspendNode,
+    Future<void> Function()? hardStopRuntime,
+    SessionRuntimeBoundary? runtimeBoundary,
   })  : _tokenStore = tokenStore,
         _guestFlag = guestFlag,
         _repository = repository,
         _suspendNode = suspendNode ?? _defaultSuspendNode,
-        super(const Identity.unknown()) {
+        _hardStopRuntime =
+            hardStopRuntime ?? suspendNode ?? _defaultHardStopRuntime,
+        _runtimeBoundary = runtimeBoundary ?? SessionRuntimeBoundary.instance,
+        super(Identity.unknown(epoch: IdentitySnapshots.current.epoch)) {
     IdentitySnapshots.publish(state);
   }
 
@@ -81,19 +96,27 @@ class SessionController extends StateNotifier<Identity> {
   final AuthTokenStore _tokenStore;
   final AuthGuestFlag _guestFlag;
   final AuthRepository _repository;
+  final SessionRuntimeBoundary _runtimeBoundary;
 
   /// Stops a running node when a transition makes account ownership unknown.
   /// Injectable for tests; the default touches the Rust backend (a no-op
   /// when the node was never started).
   final Future<void> Function() _suspendNode;
+  final Future<void> Function() _hardStopRuntime;
 
   static Future<void> _defaultSuspendNode() =>
       RustBackendService.instance.stopNode();
+
+  static Future<void> _defaultHardStopRuntime() =>
+      NodeLifecycleCoordinator.instance.hardStopForSessionBoundary(
+        reason: 'session_identity_boundary',
+      );
 
   Future<void>? _restoreFuture;
   Future<void> _queueTail = Future.value();
   final Queue<Future<void> Function()> _pendingTransitions = Queue();
   bool _transitionActive = false;
+  bool _retired = false;
 
   /// Completes when every transition queued so far has finished its
   /// persistence writes. Gate-closing transitions publish the new identity
@@ -103,15 +126,36 @@ class SessionController extends StateNotifier<Identity> {
   /// reading the just-written session token) awaits this first.
   Future<void> get transitionsSettled => _queueTail;
 
+  /// Stops this runtime from accepting new identity work. The hard transition
+  /// that retired it is already active and is allowed to finish persistence.
+  void retireForRuntimeRestart() => _retired = true;
+
   /// Runs [body] after every previously queued transition has finished, so
   /// transitions never interleave. When idle, [body] starts synchronously so
   /// gate-closing publications happen before this method returns its Future.
-  Future<T> _transition<T>(Future<T> Function() body) {
+  Future<T> _transition<T>(
+    Future<T> Function() body, {
+    T Function()? whenRetired,
+  }) {
+    Future<T> retiredResult() {
+      if (whenRetired != null) return Future<T>.value(whenRetired());
+      return Future<T>.error(const SessionControllerRetiredException());
+    }
+
+    if (_retired || !mounted) return retiredResult();
     final result = Completer<T>();
 
     Future<void> run() async {
       try {
-        result.complete(await body());
+        if (_retired || !mounted) {
+          if (whenRetired != null) {
+            result.complete(whenRetired());
+          } else {
+            result.completeError(const SessionControllerRetiredException());
+          }
+        } else {
+          result.complete(await body());
+        }
       } catch (error, stackTrace) {
         result.completeError(error, stackTrace);
       } finally {
@@ -305,40 +349,100 @@ class SessionController extends StateNotifier<Identity> {
     ));
   }
 
-  /// A sign-in completed. The identity becomes [IdentityPhase.reconciling]
-  /// until the account reconcile confirms which on-chain account this user
-  /// owns — until then the node stays suspended, signing is refused, and the
-  /// guest bucket is active so no other identity's data is read or written.
-  Future<void> completeLogin(AuthSession session) => _transition(() async {
-        final epoch = state.epoch + 1;
-        // Close every account-sensitive gate without yet advertising an
-        // authenticated session. Providers awakened by `reconciling` must
-        // never observe the previous user's token under the new identity.
+  /// Accepts an authoritative authenticated session.
+  ///
+  /// A renewed credential for the current participant is rotated in place:
+  /// the identity epoch, account binding, node, and surrounding runtime stay
+  /// untouched. An initial login reconciles in the initiating runtime so a
+  /// WebView can await and answer its handoff request. Replacing one
+  /// authenticated participant with another crosses the process-level hard
+  /// boundary before the new durable session target is written.
+  Future<bool> completeLogin(
+    AuthSession session, {
+    Identity? expectedIdentity,
+  }) =>
+      _transition(() async {
+        // The web handoff may wait for JavaScript acknowledgement before it
+        // reaches this queue. It is authoritative only for the exact identity
+        // scope that initiated that acknowledgement.
+        if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
+          return false;
+        }
+
+        final participantId = session.participant.id;
+        final current = state;
+
+        if (current.isAuthenticated && current.participantId == participantId) {
+          // Keep the same epoch: leases carrying the previous token are still
+          // rejected by their exact-token check, while unrelated state does
+          // not rebuild merely because the bearer was renewed.
+          final replacedToken = await _tokenStore.read();
+          await _tokenStore.write(session.token);
+          if (replacedToken != null &&
+              replacedToken.isNotEmpty &&
+              replacedToken != session.token) {
+            await _logoutBestEffort(replacedToken);
+          }
+          return true;
+        }
+
+        final replacingParticipant = current.isAuthenticated;
+        final epoch = current.epoch + 1;
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.transitioning,
         ));
-        // Replace the boot-restorable credential independently of node
-        // shutdown. A shutdown timeout must leave the in-memory identity
-        // fail-closed in `transitioning`, but it must never resurrect the old
-        // session (or lose this new session) on the next process start.
+
+        if (!replacingParticipant) {
+          // No authenticated runtime is being displaced. Keep the initiating
+          // interactive shell alive so it can finish the login handshake.
+          await _persistLoginTarget(session);
+          await _suspendNode();
+          _publish(Identity(
+            epoch: epoch,
+            phase: IdentityPhase.reconciling,
+            participantId: participantId,
+          ));
+          return true;
+        }
+
+        final replacedToken = await _tokenStore.read();
+        // Remove the old boot target before tearing its runtime down. The new
+        // credential is written only after cleanup has completed.
         await _tokenStore.clear();
-        // Marker + staged id BEFORE the token write: they are the
-        // crash-recovery payload. If the token became boot-restorable first
-        // and the app died, the participant id would exist only in the lost
-        // AuthSession. (A crash before the token write loses only the
-        // in-memory publish above — the next boot restores signed-out.)
-        await _writeReconcileMarker();
-        await stageParticipantIdInGuestBucket(session.participant.id);
-        await _guestFlag.clear();
-        await _tokenStore.write(session.token);
-        await _suspendNode();
-        _publish(Identity(
-          epoch: epoch,
-          phase: IdentityPhase.reconciling,
-          participantId: session.participant.id,
-        ));
-      });
+        return _runtimeBoundary.replace<bool>(
+          change: SessionRuntimeChange.participantReplacement,
+          transition: (replacingRuntime) async {
+            if (!replacingRuntime) await _hardStopRuntime();
+
+            await _logoutBestEffort(replacedToken);
+            await _persistLoginTarget(session, clearTokenFirst: false);
+
+            if (!replacingRuntime) {
+              _publish(Identity(
+                epoch: epoch,
+                phase: IdentityPhase.reconciling,
+                participantId: participantId,
+              ));
+            }
+            return true;
+          },
+        );
+      }, whenRetired: () => false);
+
+  Future<void> _persistLoginTarget(
+    AuthSession session, {
+    bool clearTokenFirst = true,
+  }) async {
+    if (clearTokenFirst) await _tokenStore.clear();
+    // Marker + staged id BEFORE the token write are the crash-recovery
+    // payload. A boot-restorable token therefore always restores through the
+    // authoritative account reconcile until ownership is committed.
+    await _writeReconcileMarker();
+    await stageParticipantIdInGuestBucket(session.participant.id);
+    await _guestFlag.clear();
+    await _tokenStore.write(session.token);
+  }
 
   Future<void> continueAsGuest() => _transition(() async {
         final epoch = state.epoch + 1;
@@ -365,131 +469,121 @@ class SessionController extends StateNotifier<Identity> {
         ));
       });
 
-  Future<bool> logout({Identity? expectedIdentity}) => _transition(() async {
+  Future<bool> logout({Identity? expectedIdentity}) =>
+      _logout(expectedIdentity: expectedIdentity);
+
+  Future<bool> _logout({
+    Identity? expectedIdentity,
+    String? expectedToken,
+    bool requireMissingToken = false,
+  }) =>
+      _transition(() async {
         // Async bridge callbacks may have been authorized by a prior identity.
         if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
           return false;
         }
 
+        String? token;
+        if (expectedToken != null || requireMissingToken) {
+          token = await _tokenStore.read();
+          if (expectedIdentity != null &&
+              !state.sameScopeAs(expectedIdentity)) {
+            return false;
+          }
+          if (expectedToken != null && token != expectedToken) return false;
+          if (requireMissingToken && token != null && token.isNotEmpty) {
+            return false;
+          }
+        }
+
         final epoch = state.epoch + 1;
-        // Revoke every in-memory account-sensitive lease synchronously. The
-        // durable credential is cleared below before the fallible producer
-        // shutdown, and the settled identity is published only after it.
+        // Revoke every in-memory account-sensitive lease before scheduling
+        // the process-level boundary.
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.transitioning,
         ));
-        final token = await _tokenStore.read();
-        // Clear the boot-restorable credential before the best-effort network
-        // request. A crash or app restart while /logout is slow must restore
-        // signed out, not resurrect this session.
+        token ??= await _tokenStore.read();
+
+        // Make logout durable before cleanup. If the process dies while the
+        // old runtime is stopping, the next launch still restores signed out.
         await _tokenStore.clear();
         await _guestFlag.clear();
         await clearGuestParticipantId();
         await _clearReconcileMarker();
-        // Credential revocation above is durable even when process-global node
-        // shutdown fails. Do not publish a settled signed-out identity until
-        // the producer is confirmed down.
-        await _suspendNode();
-        final active = await (await AccountsRepository.create()).getActive();
-        _publish(Identity(
-          epoch: epoch,
-          phase: IdentityPhase.unauthenticated,
-          accountId: active?.id,
-          address: active?.address,
-        ));
 
-        if (token != null && token.isNotEmpty) {
-          try {
-            await _repository.logout(token);
-          } catch (e) {
-            _log.warn('Server-side logout failed (token cleared anyway): $e');
-          }
-        }
-        return true;
-      });
+        return _runtimeBoundary.replace<bool>(
+          change: SessionRuntimeChange.logout,
+          transition: (replacingRuntime) async {
+            if (!replacingRuntime) {
+              await _hardStopRuntime();
+              final active =
+                  await (await AccountsRepository.create()).getActive();
+              _publish(Identity(
+                epoch: epoch,
+                phase: IdentityPhase.unauthenticated,
+                accountId: active?.id,
+                address: active?.address,
+              ));
+            }
+
+            await _logoutBestEffort(token);
+            return true;
+          },
+        );
+      }, whenRetired: () => false);
+
+  Future<void> _logoutBestEffort(String? token) async {
+    if (token == null || token.isEmpty) return;
+    try {
+      await _repository.logout(token);
+    } catch (e) {
+      _log.warn('Server-side logout failed (token cleared anyway): $e');
+    }
+  }
 
   /// A request carrying [credential] came back 401. It may invalidate only
   /// that exact identity epoch and token.
   Future<void> onUnauthorized({
     required AuthCredentialLease credential,
-  }) =>
-      _transition(() async {
-        if (state.epoch != credential.epoch) {
-          _log.warn('Ignoring 401 from a request issued under epoch '
-              '${credential.epoch} '
-              '(current: ${state.epoch})');
-          return;
-        }
+  }) async {
+    if (_retired || !mounted || state.epoch != credential.epoch) return;
+    final identity = state;
+
+    // A stray auth-required request outside an authenticated identity
+    // invalidates only that exact token; it is not a session replacement.
+    if (!identity.isAuthenticated) {
+      await _transition(() async {
+        if (!state.sameScopeAs(identity)) return;
         final currentToken = await _tokenStore.read();
-        if (state.epoch != credential.epoch ||
-            currentToken != credential.token) {
-          _log.warn('Ignoring 401 for a credential that is no longer current');
+        if (!state.sameScopeAs(identity) || currentToken != credential.token) {
           return;
         }
-        final epoch = state.epoch + 1;
-        _publish(Identity(
-          epoch: epoch,
-          phase: IdentityPhase.transitioning,
-        ));
         await _tokenStore.clear();
-        await clearGuestParticipantId();
-        await _clearReconcileMarker();
-        // A 401 invalidates the TOKEN, not the user's explicit guest choice.
-        final guest = await _guestFlag.isGuest();
-        await _suspendNode();
-        if (guest) {
-          _publish(Identity(
-            epoch: epoch,
-            phase: IdentityPhase.guest,
-          ));
-          return;
-        }
-        final active = await (await AccountsRepository.create()).getActive();
-        _publish(Identity(
-          epoch: epoch,
-          phase: IdentityPhase.unauthenticated,
-          accountId: active?.id,
-          address: active?.address,
-        ));
-      });
+      }, whenRetired: () {});
+      return;
+    }
+
+    final loggedOut = await _logout(
+      expectedIdentity: identity,
+      expectedToken: credential.token,
+    );
+    if (!loggedOut) {
+      _log.warn('Ignoring 401 for a credential that is no longer current');
+    }
+  }
 
   /// Repairs an authenticated identity whose credential disappeared before a
   /// request could be sent. A token written since the caller's read wins.
-  Future<void> onCredentialMissing({required int epoch}) =>
-      _transition(() async {
-        if (state.epoch != epoch || !state.isAuthenticated) return;
-        final currentToken = await _tokenStore.read();
-        if (state.epoch != epoch ||
-            !state.isAuthenticated ||
-            (currentToken != null && currentToken.isNotEmpty)) {
-          return;
-        }
-        final nextEpoch = state.epoch + 1;
-        _publish(Identity(
-          epoch: nextEpoch,
-          phase: IdentityPhase.transitioning,
-        ));
-        await _tokenStore.clear();
-        await clearGuestParticipantId();
-        await _clearReconcileMarker();
-        final guest = await _guestFlag.isGuest();
-        await _suspendNode();
-        if (guest) {
-          _publish(Identity(
-            epoch: nextEpoch,
-            phase: IdentityPhase.guest,
-          ));
-          return;
-        }
-        final active = await (await AccountsRepository.create()).getActive();
-        _publish(Identity(
-          epoch: nextEpoch,
-          phase: IdentityPhase.unauthenticated,
-          accountId: active?.id,
-          address: active?.address,
-        ));
-      });
+  Future<void> onCredentialMissing({required int epoch}) async {
+    if (_retired || !mounted) return;
+    final identity = state;
+    if (identity.epoch != epoch || !identity.isAuthenticated) return;
+    await _logout(
+      expectedIdentity: identity,
+      requireMissingToken: true,
+    );
+  }
 
   /// The account reconcile confirmed [accountId]/[address] belong to the
   /// identity that was current at [epoch]. Publishes [IdentityPhase.ready]
@@ -531,7 +625,7 @@ class SessionController extends StateNotifier<Identity> {
           provisionedSeasonId: provisionedSeasonId,
         ));
         return true;
-      });
+      }, whenRetired: () => false);
 
   /// The authoritative active season moved past the season this identity's
   /// account was provisioned for. Re-enter [IdentityPhase.reconciling] (new
@@ -570,5 +664,5 @@ class SessionController extends StateNotifier<Identity> {
         // The node is producing/signing under the previous season's account
         // binding; suspend it until the reconcile rebinds the runtime.
         await _suspendNode();
-      });
+      }, whenRetired: () {});
 }

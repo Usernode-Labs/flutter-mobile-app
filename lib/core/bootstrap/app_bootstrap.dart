@@ -34,12 +34,14 @@ class AppBootstrapResult {
   final TaggedLogger log;
   final bool hasAnyAccounts;
   final String? activeAccountId;
+  final Future<void> backendBootstrap;
 
   const AppBootstrapResult({
     required this.container,
     required this.log,
     required this.hasAnyAccounts,
     required this.activeAccountId,
+    required this.backendBootstrap,
   });
 }
 
@@ -54,6 +56,7 @@ class AppBootstrap {
     required String logTag,
     bool registerLifecycleObserver = true,
     bool installErrorHandlers = true,
+    bool applyBootstrapIdentity = true,
   }) async {
     // Initialize network preferences early (before any SharedPreferences access)
     await NetworkPrefs.init();
@@ -120,11 +123,13 @@ class AppBootstrap {
 
     // Accounts are needed to decide background behavior and set crash context
     final repo = await AccountsRepository.create();
-    await _applyBootstrapIdentity(
-      log: log,
-      container: container,
-      repo: repo,
-    );
+    if (applyBootstrapIdentity) {
+      await _applyBootstrapIdentity(
+        log: log,
+        container: container,
+        repo: repo,
+      );
+    }
     // Restore the identity (and with it the active per-identity storage
     // bucket) before any account-scoped pref is read. This publishes the
     // boot identity: unauthenticated, guest, ready, or reconciling when a
@@ -168,7 +173,7 @@ class AppBootstrap {
       };
     }
 
-    _bootstrapBackendAsync(
+    final backendBootstrap = _bootstrapBackendAsync(
       log: log,
       container: container,
       hasAnyAccounts: hasAnyAccounts,
@@ -179,6 +184,7 @@ class AppBootstrap {
       log: log,
       hasAnyAccounts: hasAnyAccounts,
       activeAccountId: activeId,
+      backendBootstrap: backendBootstrap,
     );
   }
 

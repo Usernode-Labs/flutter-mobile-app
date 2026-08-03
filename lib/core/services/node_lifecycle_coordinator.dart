@@ -109,6 +109,7 @@ class NodeLifecycleCoordinator {
   // ── Facts ────────────────────────────────────────────────────────────
   bool _hasAccount = false;
   PlatformNodeIntent _intent = PlatformNodeIntent.unset;
+  bool _acceptingRuntimeWork = true;
 
   // Serializes reconciles so overlapping requests (e.g. a bridge stop racing
   // an account-removed event) can't interleave their start/stop sequences.
@@ -119,6 +120,9 @@ class NodeLifecycleCoordinator {
 
   @visibleForTesting
   bool get hasAccount => _hasAccount;
+
+  @visibleForTesting
+  bool get acceptingRuntimeWork => _acceptingRuntimeWork;
 
   // ── Pure derivation (table-tested) ───────────────────────────────────
 
@@ -144,19 +148,23 @@ class NodeLifecycleCoordinator {
   /// Callers gate on a settled identity, so an explicit start also implies
   /// an account-backed session. Returns whether the node is running after
   /// reconciliation.
-  Future<bool> startNode({required String reason}) => _serialized(() {
-        _hasAccount = true;
-        _intent = PlatformNodeIntent.start;
-        return _reconcile(reason: reason);
-      });
+  Future<bool> startNode({required String reason}) {
+    if (!_acceptingRuntimeWork) return Future.value(false);
+    _hasAccount = true;
+    _intent = PlatformNodeIntent.start;
+    return _serialized(() => _reconcile(reason: reason));
+  }
 
   /// Platform explicitly requests a node stop. Tears down the runtime and
   /// all Android production support so nothing wakes a node that was
   /// deliberately stopped.
-  Future<void> stopNode({required String reason}) => _serialized(() async {
-        _intent = PlatformNodeIntent.stop;
-        await _reconcile(reason: reason);
-      });
+  Future<void> stopNode({required String reason}) {
+    if (!_acceptingRuntimeWork) return Future.value();
+    _intent = PlatformNodeIntent.stop;
+    return _serialized(() async {
+      await _reconcile(reason: reason);
+    });
+  }
 
   /// Cold-start facts from bootstrap. With an account and no explicit
   /// platform request yet, this arms recovery without starting the node —
@@ -165,11 +173,11 @@ class NodeLifecycleCoordinator {
   Future<bool> reportColdBoot({
     required bool hasAccount,
     String reason = 'cold_boot',
-  }) =>
-      _serialized(() {
-        _hasAccount = hasAccount;
-        return _reconcile(reason: reason);
-      });
+  }) {
+    if (!_acceptingRuntimeWork) return Future.value(false);
+    _hasAccount = hasAccount;
+    return _serialized(() => _reconcile(reason: reason));
+  }
 
   /// Account presence changed at runtime (login created the first account,
   /// or the last account was removed). Removal resets any platform intent:
@@ -177,16 +185,42 @@ class NodeLifecycleCoordinator {
   Future<void> reportAccountsChanged({
     required bool hasAccount,
     String reason = 'accounts_changed',
-  }) =>
-      _serialized(() async {
-        _hasAccount = hasAccount;
-        if (!hasAccount) _intent = PlatformNodeIntent.unset;
-        await _reconcile(reason: reason);
-      });
+  }) {
+    if (!_acceptingRuntimeWork) return Future.value();
+    _hasAccount = hasAccount;
+    if (!hasAccount) _intent = PlatformNodeIntent.unset;
+    return _serialized(() async {
+      await _reconcile(reason: reason);
+    });
+  }
+
+  /// Stops admitting work and blocks until the node and every production
+  /// support path have been disarmed.
+  Future<void> hardStopForSessionBoundary({required String reason}) {
+    _acceptingRuntimeWork = false;
+    _hasAccount = false;
+    _intent = PlatformNodeIntent.unset;
+
+    // FIXME(#514): Cancellation cannot distinguish an OS callback dispatched
+    // before teardown but delivered after the next runtime starts. Add a
+    // native generation fence only if that edge case becomes observable.
+    return _serialized(() async {
+      await _tearDownRuntime(reason: reason);
+      if (!_isAndroid()) await _cancelAllAlarms();
+    });
+  }
+
+  /// Reopens admission after the retired runtime has been fully drained.
+  void resumeAfterSessionBoundary() {
+    _acceptingRuntimeWork = true;
+  }
 
   // ── Reconcile ─────────────────────────────────────────────────────────
 
   Future<bool> _reconcile({required String reason}) async {
+    if (!_acceptingRuntimeWork) {
+      return _isNodeRunning();
+    }
     final wantRecovery =
         recoveryDesired(hasAccount: _hasAccount, intent: _intent);
     final wantRun = runDesired(
@@ -199,15 +233,7 @@ class NodeLifecycleCoordinator {
       // Deliberate stop or no account: full teardown. Recovery is disabled
       // first so no audit re-arms alarms mid-teardown; alarms are cancelled
       // after the runtime is down. Every step is idempotent.
-      if (_isAndroid()) {
-        _disableWatchdogRecovery();
-        await _stopMonitoring(reason: reason);
-      }
-      await _stopBackend();
-      if (_isAndroid()) {
-        await _cancelAllAlarms();
-        await _cancelAlarmWatchdog();
-      }
+      await _tearDownRuntime(reason: reason);
       return false;
     }
 
@@ -216,6 +242,7 @@ class NodeLifecycleCoordinator {
       // Backend start is idempotent; calling it while running is a no-op
       // that reports the (running) outcome.
       running = await _startBackend();
+      if (!_acceptingRuntimeWork) return running;
     }
 
     if (!_isAndroid()) return running;
@@ -239,6 +266,18 @@ class NodeLifecycleCoordinator {
       _enableWatchdogRecovery();
     }
     return running;
+  }
+
+  Future<void> _tearDownRuntime({required String reason}) async {
+    if (_isAndroid()) {
+      _disableWatchdogRecovery();
+      await _stopMonitoring(reason: reason);
+    }
+    await _stopBackend();
+    if (_isAndroid()) {
+      await _cancelAllAlarms();
+      await _cancelAlarmWatchdog();
+    }
   }
 
   Future<T> _serialized<T>(Future<T> Function() action) {

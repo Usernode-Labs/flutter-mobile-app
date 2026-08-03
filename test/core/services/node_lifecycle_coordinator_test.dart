@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
@@ -52,13 +54,15 @@ void main() {
       bool startResult = true,
       bool nodeRunning = false,
       bool sleeping = false,
+      Future<bool> Function()? startBackend,
     }) {
       calls = [];
       return NodeLifecycleCoordinator(
-        startBackend: () async {
-          calls.add('startBackend');
-          return startResult;
-        },
+        startBackend: startBackend ??
+            () async {
+              calls.add('startBackend');
+              return startResult;
+            },
         stopBackend: () async => calls.add('stopBackend'),
         isNodeRunning: () => nodeRunning,
         isSleeping: () => sleeping,
@@ -241,6 +245,73 @@ void main() {
         'enableRecovery',
         'audit:platform_start',
         'onNodeStarted',
+      ]);
+    });
+
+    test('hard session stop closes admission and tears everything down',
+        () async {
+      final coordinator = build(android: true);
+
+      await coordinator.hardStopForSessionBoundary(reason: 'logout');
+
+      expect(calls, [
+        'disableRecovery',
+        'stopMonitoring:logout',
+        'stopBackend',
+        'cancelAllAlarms',
+        'cancelWatchdog',
+      ]);
+      expect(coordinator.acceptingRuntimeWork, isFalse);
+    });
+
+    test('closed session rejects starts until replacement admission opens',
+        () async {
+      final coordinator = build(android: true);
+      await coordinator.hardStopForSessionBoundary(reason: 'logout');
+      calls.clear();
+
+      expect(await coordinator.startNode(reason: 'stale_bridge'), isFalse);
+      expect(calls, isEmpty);
+
+      coordinator.resumeAfterSessionBoundary();
+      expect(await coordinator.startNode(reason: 'fresh_bridge'), isTrue);
+      expect(calls, [
+        'startBackend',
+        'enableRecovery',
+        'audit:fresh_bridge',
+        'onNodeStarted',
+      ]);
+    });
+
+    test('hard stop supersedes an in-flight start before it can wire recovery',
+        () async {
+      final startEntered = Completer<void>();
+      final allowStart = Completer<void>();
+      final coordinator = build(
+        android: true,
+        startBackend: () async {
+          calls.add('startBackend');
+          startEntered.complete();
+          await allowStart.future;
+          return true;
+        },
+      );
+
+      final start = coordinator.startNode(reason: 'platform_start');
+      await startEntered.future;
+      final stop = coordinator.hardStopForSessionBoundary(reason: 'logout');
+      allowStart.complete();
+
+      await start;
+      await stop;
+
+      expect(calls, [
+        'startBackend',
+        'disableRecovery',
+        'stopMonitoring:logout',
+        'stopBackend',
+        'cancelAllAlarms',
+        'cancelWatchdog',
       ]);
     });
   });

@@ -16,9 +16,10 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
 import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
+import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -309,6 +310,7 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
       // cleanup strictly sequential and avoids a start racing the hard stop.
       await _shutdownRuntime(
         oldBackendBootstrap,
+        container: oldContainer,
         reason: 'session_${change.name}',
       );
       if (mounted) await WidgetsBinding.instance.endOfFrame;
@@ -346,15 +348,16 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
 
   Future<void> _shutdownRuntime(
     Future<void> backendBootstrap, {
+    required ProviderContainer container,
     required String reason,
   }) async {
+    await backendBootstrap;
+    await container.read(nodeAccountReconcilerProvider).drain();
     if (widget.shutdownRuntime != null) {
-      await backendBootstrap;
       await widget.shutdownRuntime!.call();
       return;
     }
 
-    await backendBootstrap;
     await NodeLifecycleCoordinator.instance
         .hardStopForSessionBoundary(reason: reason);
     AppLifecycleLogger.unregister();

@@ -167,4 +167,87 @@ void main() {
       await _repo(_client(401, {'message': 'x'})).logout('sess-9');
     });
   });
+
+  group('resolveBearerSession', () {
+    test('derives the participant from authenticated /me', () async {
+      late http.Request request;
+      final session = await _repo(_client(
+        200,
+        {
+          'success': true,
+          'data': {
+            'id': 7,
+            'email': null,
+            'display_name': 'Web User',
+            'email_confirmed': false,
+          },
+        },
+        onReq: (value) => request = value,
+      )).resolveBearerSession('bearer-a');
+
+      expect(request.method, 'GET');
+      expect(
+          request.url.toString(), 'https://test.example.com/api/v3/mobile/me');
+      expect(request.headers['authorization'], 'Bearer bearer-a');
+      expect(session.token, 'bearer-a');
+      expect(session.participant.id, 7);
+      expect(session.participant.email, isEmpty);
+    });
+
+    test('rejects an invalid bearer before it can become a session', () async {
+      expect(
+        () => _repo(_client(401, {
+          'success': false,
+          'error': 'Unauthenticated.',
+        })).resolveBearerSession('expired'),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.kind,
+            'kind',
+            AuthErrorKind.invalidCredentials,
+          ),
+        ),
+      );
+    });
+
+    test('rejects a legacy user id that disagrees with the bearer owner',
+        () async {
+      expect(
+        () => _repo(_client(200, {
+          'success': true,
+          'data': {
+            'id': 7,
+            'email': 'a@example.com',
+            'email_confirmed': true,
+          },
+        })).resolveBearerSession(
+          'bearer-a',
+          legacyParticipantId: 8,
+        ),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.kind,
+            'kind',
+            AuthErrorKind.validation,
+          ),
+        ),
+      );
+    });
+
+    test('rejects a success response without an authenticated user', () async {
+      expect(
+        () => _repo(_client(200, {
+          'success': true,
+          'data': {'email': 'missing-id@example.com'},
+        })).resolveBearerSession('bearer-a'),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.message,
+            'message',
+            'Unexpected session validation response.',
+          ),
+        ),
+      );
+    });
+  });
 }

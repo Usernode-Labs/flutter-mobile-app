@@ -5,6 +5,7 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -61,6 +62,8 @@ class NodeAccountReconciler {
 
   Future<bool>? _inFlight;
   int? _inFlightEpoch;
+  Future<bool>? _refreshInFlight;
+  int? _refreshInFlightEpoch;
 
   /// Waits for the reconcile already admitted by this runtime to settle.
   ///
@@ -68,13 +71,99 @@ class NodeAccountReconciler {
   /// newer reconcile can be admitted while the old provider graph is draining.
   /// A reconcile failure must not prevent logout from continuing its cleanup.
   Future<void> drain() async {
-    final inFlight = _inFlight;
-    if (inFlight == null) return;
-    try {
-      await inFlight;
-    } catch (_) {
-      // The reconcile's initiating caller already owns the failure.
+    final work = <Future<bool>>[
+      if (_inFlight case final inFlight?) inFlight,
+      if (_refreshInFlight case final refreshInFlight?) refreshInFlight,
+    ];
+    for (final future in work) {
+      try {
+        await future;
+      } catch (_) {
+        // The initiating driver/caller owns the failure. Draining must still
+        // allow hard logout to continue with the local cleanup.
+      }
     }
+  }
+
+  /// Refreshes backend-authoritative facts for an already-ready identity.
+  ///
+  /// `/me` owns block-production release and `/seasons` owns the active
+  /// season. Both responses are captured under one exact identity snapshot;
+  /// a replacement epoch discards them before they can affect the current
+  /// session. Concurrent lifecycle/connectivity/timer triggers coalesce.
+  Future<bool> refreshAuthoritativeState() {
+    final identity = _currentIdentity();
+    if (identity.phase != IdentityPhase.ready || identity.address == null) {
+      return Future.value(false);
+    }
+    final inFlight = _refreshInFlight;
+    if (inFlight != null && _refreshInFlightEpoch == identity.epoch) {
+      return inFlight;
+    }
+
+    late Future<bool> run;
+    run = _refreshAfter(inFlight, identity).whenComplete(() {
+      if (identical(_refreshInFlight, run)) {
+        _refreshInFlight = null;
+        _refreshInFlightEpoch = null;
+      }
+    });
+    _refreshInFlight = run;
+    _refreshInFlightEpoch = identity.epoch;
+    return run;
+  }
+
+  Future<bool> _refreshAfter(
+    Future<bool>? previous,
+    Identity identity,
+  ) async {
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {
+        // The previous identity's caller observes its own failure.
+      }
+    }
+    if (!_stillReady(identity)) return false;
+    return _refresh(identity);
+  }
+
+  bool _stillReady(Identity expected) {
+    final current = _currentIdentity();
+    return current.phase == IdentityPhase.ready &&
+        current.sameScopeAs(expected);
+  }
+
+  Future<bool> _refresh(Identity expected) async {
+    // Refresh the providers themselves so profile and season consumers see
+    // the same authoritative values used by reconciliation.
+    // Keep these sequential so provider failures retain their concrete error
+    // type; record `.wait` wraps them in ParallelWaitError and would hide a
+    // transient network/API failure from the driver's retry classifier.
+    final me = await _ref.refresh(meProvider.future);
+    if (me == null || !_stillReady(expected)) return false;
+    final seasons = await _ref.refresh(seasonsProvider.future);
+    if (seasons == null || !_stillReady(expected)) return false;
+
+    // This is the sole ready-state writer of release authority. Address the
+    // captured bucket explicitly; never derive it from ambient active state.
+    await installBlockProductionReleasedInBucket(
+      released: me.bpReleased,
+      bucket: NetworkPrefs.bucketForAddress(expected.address!),
+    );
+    if (!_stillReady(expected)) return false;
+
+    final activeSeasonId = seasons
+        .where((season) => season.isActive)
+        .map((season) => season.id)
+        .firstOrNull;
+    if (activeSeasonId != null) {
+      await _ref.read(identityProvider.notifier).beginSeasonRollover(
+            activeSeasonId: activeSeasonId,
+            expectedIdentity: expected,
+          );
+    }
+    return _stillReady(expected);
   }
 
   /// Serializes an account switch with the node runtime WITHOUT starting it

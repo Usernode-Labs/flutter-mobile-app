@@ -24,6 +24,17 @@ void main() {
       expect(me.level, UserLevel.member);
     });
 
+    test('accepts username-only accounts without an email', () {
+      final me = Me.fromJson({
+        'id': 123,
+        'email': null,
+        'email_confirmed': false,
+        'level': 'member',
+      });
+
+      expect(me.email, isEmpty);
+    });
+
     test('maps level strings, unknown -> guest', () {
       expect(userLevelFromString('operator'), UserLevel.operator);
       expect(userLevelFromString('member'), UserLevel.member);

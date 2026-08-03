@@ -13,7 +13,8 @@ class Participant {
 
   factory Participant.fromJson(Map<String, dynamic> json) => Participant(
         id: (json['id'] as num).toInt(),
-        email: json['email'] as String,
+        // Username-only platform accounts legitimately have no email.
+        email: json['email']?.toString() ?? '',
         emailConfirmed: json['email_confirmed'] == true,
         displayName: json['display_name'] as String?,
       );

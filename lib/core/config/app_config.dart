@@ -123,6 +123,14 @@ class AppConfig {
     defaultValue: 'https://social-vibecoding.usernodelabs.org/',
   );
 
+  /// Explicit opt-in for privileged bridge access from loopback development
+  /// origins. The WebView policy additionally requires a debug build, so this
+  /// define cannot grant loopback privileges in a release artifact.
+  static const bool enableLocalPrivilegedBridge = bool.fromEnvironment(
+    'ENABLE_LOCAL_PRIVILEGED_BRIDGE',
+    defaultValue: false,
+  );
+
   // Optional display name shown in the AppBar when [dappsTabUrl] is set.
   // Falls back to the URL host when empty.
   static const String dappsTabName = String.fromEnvironment(

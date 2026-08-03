@@ -27,6 +27,9 @@ mixin _BridgeDispatch
     'reorderHomeScreenShortcuts',
     'openExternal',
     'getBridgeInfo',
+    // Privileged envelopes bootstrap a per-main-navigation capability through
+    // the private `getPrivilegedBridgeCapability` method.
+    'privilegedBridgeCapability',
     'getNodeStatus',
     'nodeStatusEvents',
     'getWalletState',
@@ -42,11 +45,14 @@ mixin _BridgeDispatch
     'openBatterySettings',
     'logout',
     // Bridge v4 (thin-shell migration): platform login + node lifecycle.
+    'beginSessionHandoff',
+    'enterAnonymousSession',
     'completeLogin',
     'startNode',
     'stopNode',
     'getAuthStatus',
     'authStatusEvents',
+    'sessionBoundAuthStatus',
   ];
 
   /// Routes every `Usernode` JS-channel message to its domain handler.
@@ -96,6 +102,62 @@ mixin _BridgeDispatch
       }
 
       if (id == null) return;
+
+      if (method == 'getPrivilegedBridgeCapability') {
+        final capability = _privilegedBridgePolicy.bootstrapCapability();
+        await _resolveJsPromise(
+          id: id,
+          value: capability,
+          error: capability == null
+              ? 'Privileged bridge is unavailable for this main frame'
+              : null,
+        );
+        return;
+      }
+
+      if (_privilegedBridgePolicy.requiresCapability(method) &&
+          !_privilegedBridgePolicy.authorizes(
+            payload['privilegedCapability'],
+          )) {
+        await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: '$method requires a trusted top-frame capability',
+        );
+        return;
+      }
+
+      // This check lives in the central channel dispatch so a child frame
+      // calling the injected Usernode channel directly cannot bypass the
+      // page-side relay's handoff gate.
+      if (_sessionHandoffGate.blocks(method)) {
+        await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: '$method is unavailable during session handoff',
+        );
+        return;
+      }
+
+      if (method == 'beginSessionHandoff') {
+        _sessionHandoffGate.begin();
+        await _resolveJsPromise(
+          id: id,
+          value: const {'blocked': true},
+          error: null,
+        );
+        return;
+      }
+
+      if (method == 'enterAnonymousSession') {
+        _sessionHandoffGate.admit();
+        await _resolveJsPromise(
+          id: id,
+          value: const {'admitted': true},
+          error: null,
+        );
+        return;
+      }
 
       // Any handler that throws before resolving would otherwise leave
       // the page's JS promise pending forever (the outer catch below

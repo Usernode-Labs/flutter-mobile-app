@@ -9,14 +9,19 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 
 const _addressA = 'ut1useraaaaaaaa';
@@ -73,6 +78,88 @@ LeaderboardApiService _provisionService(
   );
 }
 
+LeaderboardApiService _authorityService({required int activeSeasonId}) {
+  return LeaderboardApiService(
+    baseUrl: 'https://test.example.com/api/v4/mobile',
+    tokenProvider: AuthTokenStore().read,
+    httpClient: MockClient((request) async {
+      if (request.url.path.endsWith('/wallet/provision')) {
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'data': {
+              'address': _addressB,
+              'public_key': 'utpk1$_addressB',
+              'secret_key': 'utsk1secret',
+              'newly_allocated': false,
+              'season_id': 7,
+              'bp_released': false,
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      expect(request.url.path, endsWith('/seasons'));
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'data': [
+            {
+              'season_id': activeSeasonId,
+              'name': 'Season $activeSeasonId',
+              'is_active': true,
+            },
+          ],
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }),
+  );
+}
+
+AccountApiService _meService({
+  Completer<void>? requestStarted,
+  Future<void>? releaseRequest,
+  int statusCode = 200,
+  String? email = 'fresh@example.com',
+}) {
+  return AccountApiService(
+    baseUrl: 'https://test.example.com/api/v4/mobile',
+    tokenProvider: AuthTokenStore().read,
+    httpClient: MockClient((request) async {
+      expect(request.url.path, endsWith('/me'));
+      if (requestStarted != null && !requestStarted.isCompleted) {
+        requestStarted.complete();
+      }
+      if (releaseRequest != null) await releaseRequest;
+      if (statusCode != 200) {
+        return http.Response(
+          jsonEncode({'success': false, 'error': 'temporarily unavailable'}),
+          statusCode,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'id': 99,
+            'email': email,
+            'email_confirmed': true,
+            'display_name': 'Fresh Profile',
+            'level': 'operator',
+            'bp_released': true,
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }),
+  );
+}
+
 AuthSession _session(String token, {int participantId = 99}) => AuthSession(
       token: token,
       participant: Participant(
@@ -104,6 +191,33 @@ Override _reconcilerOverride({
       ),
     );
 
+AuthRepository _logoutRepository() => AuthRepository(
+      baseUrl: 'https://test.example.com/api/v4/mobile/auth',
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'success': true}),
+          200,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+
+Completer<void> _registerDrainingRuntimeBoundary(
+  ProviderContainer container,
+  NodeAccountReconciler reconciler,
+) {
+  final completed = Completer<void>();
+  SessionRuntimeBoundary.instance.register((_, persistSession) async {
+    // Mirrors AppRuntimeRoot: retire the old controller, drain its account
+    // work, then let the active transition finish persistence.
+    container.read(identityProvider.notifier).retireForRuntimeRestart();
+    await reconciler.drain();
+    await persistSession();
+    completed.complete();
+  });
+  return completed;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -116,11 +230,13 @@ void main() {
     await NetworkPrefs.init();
     NetworkPrefs.setActiveBucket(null, guest: true);
     IdentitySnapshots.reset();
+    SessionRuntimeBoundary.instance.resetForTesting();
   });
 
   tearDown(() {
     NetworkPrefs.setActiveBucket(null, guest: true);
     IdentitySnapshots.reset();
+    SessionRuntimeBoundary.instance.resetForTesting();
   });
 
   test('does nothing when the identity is not reconciling', () async {
@@ -475,6 +591,121 @@ void main() {
     expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
   });
 
+  test('a provisioning 401 does not deadlock the runtime drain', () async {
+    late ProviderContainer container;
+    final provisionService = LeaderboardApiService(
+      baseUrl: 'https://test.example.com/api/v4/mobile',
+      tokenProvider: AuthTokenStore().read,
+      onUnauthorized: (credential) => container
+          .read(identityProvider.notifier)
+          .onUnauthorized(credential: credential),
+      onCredentialMissing: (epoch) =>
+          container.read(identityProvider.notifier).onCredentialMissing(
+                epoch: epoch,
+              ),
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'success': false, 'error': 'Unauthenticated.'}),
+          401,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+    container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(provisionService),
+      authRepositoryProvider.overrideWithValue(_logoutRepository()),
+      _reconcilerOverride(),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      provisionService.dispose();
+    });
+
+    await _login(container);
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    final boundaryCompleted =
+        _registerDrainingRuntimeBoundary(container, reconciler);
+
+    final reconcileFailure = expectLater(
+      reconciler.reconcile(),
+      throwsA(
+        isA<LeaderboardApiException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          401,
+        ),
+      ),
+    );
+    await boundaryCompleted.future.timeout(const Duration(seconds: 2));
+    await reconcileFailure;
+
+    expect(await AuthTokenStore().read(), isNull);
+  });
+
+  test('an authority-refresh 401 does not deadlock the runtime drain',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+
+    late ProviderContainer container;
+    final authority = _authorityService(activeSeasonId: 7);
+    final me = AccountApiService(
+      baseUrl: 'https://test.example.com/api/v4/mobile',
+      tokenProvider: AuthTokenStore().read,
+      onUnauthorized: (credential) => container
+          .read(identityProvider.notifier)
+          .onUnauthorized(credential: credential),
+      onCredentialMissing: (epoch) =>
+          container.read(identityProvider.notifier).onCredentialMissing(
+                epoch: epoch,
+              ),
+      httpClient: MockClient(
+        (_) async => http.Response(
+          jsonEncode({'success': false, 'error': 'Unauthenticated.'}),
+          401,
+          headers: {'content-type': 'application/json'},
+        ),
+      ),
+    );
+    container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(authority),
+      accountApiServiceProvider.overrideWithValue(me),
+      authRepositoryProvider.overrideWithValue(_logoutRepository()),
+      _reconcilerOverride(),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      authority.dispose();
+      me.dispose();
+    });
+
+    await _login(container);
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    expect(await reconciler.reconcile(), isTrue);
+    final boundaryCompleted =
+        _registerDrainingRuntimeBoundary(container, reconciler);
+
+    final refreshFailure = expectLater(
+      reconciler.refreshAuthoritativeState(),
+      throwsA(
+        isA<AccountApiException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          401,
+        ),
+      ),
+    );
+    await boundaryCompleted.future.timeout(const Duration(seconds: 2));
+    await refreshFailure;
+
+    expect(await AuthTokenStore().read(), isNull);
+  });
+
   test(
       'an identity change while provisioning is in flight discards the '
       'response and keeps the reconcile-pending marker', () async {
@@ -651,5 +882,190 @@ void main() {
     );
     // The identity stays reconciling for the retry path.
     expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
+  });
+
+  test(
+      'email-less authority refresh updates ready state and permits node start',
+      () async {
+    final bucketB = NetworkPrefs.bucketForAddress(_addressB);
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+
+    final authority = _authorityService(activeSeasonId: 7);
+    final me = _meService(email: null);
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(authority),
+      accountApiServiceProvider.overrideWithValue(me),
+      _reconcilerOverride(),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      authority.dispose();
+      me.dispose();
+    });
+
+    await _login(container);
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    expect(await reconciler.reconcile(), isTrue);
+    expect(await loadBlockProductionReleased(), isFalse);
+
+    final driver = IdentityDriver(
+      reconcileNodeAccount: () async {},
+      retryPendingZkCompletion: () async {},
+      refreshAuthoritativeState: reconciler.refreshAuthoritativeState,
+    );
+    addTearDown(driver.dispose);
+    driver.onIdentityChanged(null, container.read(identityProvider));
+    await driver.lastRun;
+    expect(await driver.ensureFreshBeforeNodeStart(), isTrue);
+
+    final profile = await container.read(meProvider.future);
+    final seasons = await container.read(seasonsProvider.future);
+    expect(profile?.displayName, 'Fresh Profile');
+    expect(profile?.email, isEmpty);
+    expect(seasons?.single.id, 7);
+    expect(await loadBlockProductionReleased(), isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getBool('testnet:acct:$bucketB:bp:released'),
+      isTrue,
+    );
+  });
+
+  test('ready refresh re-enters reconciliation after a season rollover',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+
+    final authority = _authorityService(activeSeasonId: 8);
+    final me = _meService();
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(authority),
+      accountApiServiceProvider.overrideWithValue(me),
+      _reconcilerOverride(),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      authority.dispose();
+      me.dispose();
+    });
+
+    await _login(container);
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    expect(await reconciler.reconcile(), isTrue);
+    expect(container.read(identityProvider).provisionedSeasonId, 7);
+
+    // A live process sees the new authoritative season and closes the ready
+    // gate before the next node start. The identity driver owns the ensuing
+    // provision/reconcile attempt.
+    expect(await reconciler.refreshAuthoritativeState(), isFalse);
+    final identity = container.read(identityProvider);
+    expect(identity.phase, IdentityPhase.reconciling);
+    expect(identity.provisionedSeasonId, 7);
+  });
+
+  test('ready refresh preserves transient API errors for retry handling',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+
+    final authority = _authorityService(activeSeasonId: 7);
+    final me = _meService(statusCode: 503);
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(authority),
+      accountApiServiceProvider.overrideWithValue(me),
+      _reconcilerOverride(),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      authority.dispose();
+      me.dispose();
+    });
+
+    await _login(container);
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    expect(await reconciler.reconcile(), isTrue);
+
+    await expectLater(
+      reconciler.refreshAuthoritativeState(),
+      throwsA(
+        isA<AccountApiException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          503,
+        ),
+      ),
+    );
+  });
+
+  test('delayed ready refresh is drained and cannot write after its epoch',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+
+    final requestStarted = Completer<void>();
+    final releaseRequest = Completer<void>();
+    addTearDown(() {
+      if (!releaseRequest.isCompleted) releaseRequest.complete();
+    });
+    final authority = _authorityService(activeSeasonId: 7);
+    final me = _meService(
+      requestStarted: requestStarted,
+      releaseRequest: releaseRequest.future,
+    );
+    late Identity currentIdentity;
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider.overrideWithValue(authority),
+      accountApiServiceProvider.overrideWithValue(me),
+      _reconcilerOverride(currentIdentity: () => currentIdentity),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      authority.dispose();
+      me.dispose();
+    });
+
+    await _login(container);
+    currentIdentity = container.read(identityProvider);
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    expect(await reconciler.reconcile(), isTrue);
+    currentIdentity = container.read(identityProvider);
+
+    final refresh = reconciler.refreshAuthoritativeState();
+    await requestStarted.future;
+    var drained = false;
+    final drain = reconciler.drain().then((_) => drained = true);
+    await Future<void>.delayed(Duration.zero);
+    expect(drained, isFalse);
+
+    currentIdentity = currentIdentity.copyWith(
+      epoch: currentIdentity.epoch + 1,
+      phase: IdentityPhase.transitioning,
+    );
+    releaseRequest.complete();
+    expect(await refresh, isFalse);
+    await drain;
+    expect(drained, isTrue);
+    expect(await loadBlockProductionReleased(), isFalse);
   });
 }

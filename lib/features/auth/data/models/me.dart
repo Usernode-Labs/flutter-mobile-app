@@ -53,7 +53,8 @@ class Me {
 
   factory Me.fromJson(Map<String, dynamic> json) => Me(
         id: (json['id'] as num).toInt(),
-        email: json['email'] as String,
+        // Username-only platform accounts legitimately have no email.
+        email: (json['email'] as String?) ?? '',
         emailConfirmed: json['email_confirmed'] == true,
         level: userLevelFromString(json['level'] as String?),
         displayName: json['display_name'] as String?,

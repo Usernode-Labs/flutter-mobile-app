@@ -98,6 +98,64 @@ class AuthRepository {
     }
   }
 
+  /// Resolves the owner of an opaque mobile bearer through authenticated
+  /// `/me`. Bridge callers may supply a legacy `user` object for compatibility,
+  /// but only this response is authoritative for the native participant.
+  Future<AuthSession> resolveBearerSession(
+    String token, {
+    int? legacyParticipantId,
+  }) async {
+    final mobileBase = _baseUrl.endsWith('/auth')
+        ? _baseUrl.substring(0, _baseUrl.length - 5)
+        : _baseUrl;
+    final url = Uri.parse('$mobileBase/me');
+    http.Response resp;
+    try {
+      resp = await _http.get(url, headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      }).timeout(const Duration(seconds: 15));
+    } catch (e) {
+      _log.warn('bearer validation failed: $e');
+      throw AuthException(
+        AuthErrorKind.network,
+        'Could not validate the session. Please try again.',
+      );
+    }
+
+    final decoded = _tryDecode(resp.body);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw _mapError(resp.statusCode, decoded);
+    }
+    final data = decoded?['data'];
+    if (decoded?['success'] != true || data is! Map<String, dynamic>) {
+      throw AuthException(
+        AuthErrorKind.network,
+        'Unexpected session validation response.',
+      );
+    }
+    late final AuthSession session;
+    try {
+      session = AuthSession(
+        token: token,
+        participant: Participant.fromJson(data),
+      );
+    } catch (_) {
+      throw AuthException(
+        AuthErrorKind.network,
+        'Unexpected session validation response.',
+      );
+    }
+    if (legacyParticipantId != null &&
+        legacyParticipantId != session.participant.id) {
+      throw AuthException(
+        AuthErrorKind.validation,
+        'The supplied user does not match the authenticated bearer.',
+      );
+    }
+    return session;
+  }
+
   Future<Map<String, dynamic>> _post(
     String path, {
     required Map<String, dynamic> body,

@@ -244,7 +244,9 @@ class LeaderboardApiService {
     }
     if (token == null || token.isEmpty) {
       if (identity.isAuthenticated) {
-        await _onCredentialMissing?.call(identity.epoch);
+        _detachSessionInvalidation(
+          _onCredentialMissing?.call(identity.epoch),
+        );
         throw const StaleAuthCredentialException();
       }
       return (headers: base, credential: null);
@@ -465,10 +467,19 @@ class LeaderboardApiService {
     // runs. Only the exact credential attached to this request may be
     // invalidated; an anonymous request has no session to clear.
     if (resp.statusCode == 401 && credential != null) {
-      await _onUnauthorized?.call(credential);
+      _detachSessionInvalidation(_onUnauthorized?.call(credential));
     }
 
     throw LeaderboardApiException(resp.statusCode, message, body: resp.body);
+  }
+
+  void _detachSessionInvalidation(Future<void>? invalidation) {
+    if (invalidation == null) return;
+    // Reconcile/refresh callers are drained by session teardown. Keeping the
+    // teardown Future out of this request Future avoids a self-deadlock.
+    unawaited(invalidation.catchError((Object error, StackTrace stackTrace) {
+      _log.warn('Session invalidation failed: $error');
+    }));
   }
 
   String _friendlyErrorMessage(http.Response resp) {

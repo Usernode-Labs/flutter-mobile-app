@@ -7,6 +7,9 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 /// not cancelled or generation-fenced; that more complex edge case is tracked
 /// separately.
 class SessionHandoffGate {
+  SessionHandoffGate({bool initiallyBlocked = false})
+      : _blocked = initiallyBlocked;
+
   static const sessionScopedMethods = <String>{
     'getNodeAddress',
     'sendTransaction',
@@ -16,7 +19,7 @@ class SessionHandoffGate {
     'getTransactionRecords',
   };
 
-  bool _blocked = false;
+  bool _blocked;
 
   bool get isBlocked => _blocked;
 

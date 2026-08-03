@@ -19,6 +19,14 @@ void main() {
     expect(gate.blocks('signMessage'), isFalse);
   });
 
+  test('session handoff gate can start blocked for the chromeless shell', () {
+    final gate = SessionHandoffGate(initiallyBlocked: true);
+
+    expect(gate.isBlocked, isTrue);
+    expect(gate.blocks('getNodeAddress'), isTrue);
+    expect(gate.blocks('signMessage'), isTrue);
+  });
+
   test('session handoff blocks the exact session-scoped dispatch set', () {
     final gate = SessionHandoffGate()..begin();
 

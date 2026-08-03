@@ -123,7 +123,7 @@ abstract class _DappWebViewScreenStateBase
     extends ConsumerState<DappWebViewScreen> {
   late final WebViewController _controller;
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
-  final SessionHandoffGate _sessionHandoffGate = SessionHandoffGate();
+  late final SessionHandoffGate _sessionHandoffGate;
   int _progress = 0;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
@@ -275,6 +275,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void initState() {
     super.initState();
+    _sessionHandoffGate = SessionHandoffGate(
+      initiallyBlocked: widget.chromeless,
+    );
     _privilegedBridgePolicy = PrivilegedBridgePolicy(
       trustedOrigin: Uri.tryParse(AppConfig.dappsTabUrl),
       allowLocalDevelopment:
@@ -333,7 +336,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             return NavigationDecision.navigate;
           },
           onPageStarted: (url) {
-            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
             if (!mounted) return;
             // A full page load wipes any JS state, so the channel-owns-title
             // latch has to be cleared too — the new page hasn't told us
@@ -353,7 +355,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             }
           },
           onPageFinished: (url) {
-            _privilegedBridgePolicy.observeMainFrameUrl(Uri.tryParse(url));
+            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
             if (!mounted) return;
             setState(() => _progress = 100);
             _reportFirstLoadResult(true);

@@ -62,6 +62,21 @@ class NodeAccountReconciler {
   Future<bool>? _inFlight;
   int? _inFlightEpoch;
 
+  /// Waits for the reconcile already admitted by this runtime to settle.
+  ///
+  /// Session replacement closes the identity gate before calling this, so no
+  /// newer reconcile can be admitted while the old provider graph is draining.
+  /// A reconcile failure must not prevent logout from continuing its cleanup.
+  Future<void> drain() async {
+    final inFlight = _inFlight;
+    if (inFlight == null) return;
+    try {
+      await inFlight;
+    } catch (_) {
+      // The reconcile's initiating caller already owns the failure.
+    }
+  }
+
   /// Serializes an account switch with the node runtime WITHOUT starting it
   /// (node lifecycle is platform-controlled — SV chrome requests the start
   /// over bridge v4 once the identity is ready):
@@ -255,6 +270,7 @@ class NodeAccountReconciler {
     // sign-in retries.
     if (!_stillCurrent(epoch)) return false;
     await _ensureNodeIdentity();
+    if (!_stillCurrent(epoch)) return false;
 
     // Commit: SessionController re-validates the epoch inside its serialized
     // transition queue, so a commit racing a login/logout loses cleanly.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -286,6 +288,48 @@ void main() {
     expect(service.isSleeping, isFalse);
     expect(wakeReasons, ['automatic_sleep_disabled']);
     expect(persistedEnabledValues, [false]);
+
+    service.dispose();
+    await tester.pump();
+  });
+
+  testWidgets('runtime restart drains sleep work and reopens cleanly',
+      (tester) async {
+    final sleepStarted = Completer<void>();
+    final allowSleep = Completer<void>();
+    final sleepReasons = <AppSleepReason>[];
+
+    final service = AppSleepService.forTest(
+      onSleep: (reason) async {
+        sleepReasons.add(reason);
+        if (!sleepStarted.isCompleted) sleepStarted.complete();
+        await allowSleep.future;
+      },
+      onWake: (_) async {},
+      persistSleepState: (_) async {},
+      isWakelockHeld: () async => false,
+    );
+
+    await service.initializeForInteractiveApp();
+    final sleep = service.sleep(reason: AppSleepReason.lifecyclePaused);
+    await sleepStarted.future;
+
+    var stopped = false;
+    final stop = service.stopForRuntimeRestart().then((_) => stopped = true);
+    await tester.pump();
+    expect(stopped, isFalse);
+
+    allowSleep.complete();
+    await sleep;
+    await stop;
+    expect(service.isSleeping, isFalse);
+
+    await service.initializeForInteractiveApp();
+    await service.sleep(reason: AppSleepReason.idleTimeout);
+    expect(sleepReasons, [
+      AppSleepReason.lifecyclePaused,
+      AppSleepReason.idleTimeout,
+    ]);
 
     service.dispose();
     await tester.pump();

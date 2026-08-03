@@ -40,7 +40,10 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// identity that owns a wallet — exactly what SV chrome needs to know
   /// when it may request a node start.
   Map<String, dynamic> _authStatusSnapshot() {
-    final identity = ref.read(identityProvider);
+    return _authStatusSnapshotFor(ref.read(identityProvider));
+  }
+
+  Map<String, dynamic> _authStatusSnapshotFor(Identity identity) {
     return {
       'phase': identity.phase.name,
       'address':
@@ -60,14 +63,13 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
         .catchError((_) {});
   }
 
-  /// `completeLogin` (bridge v4): the platform hands over the mobile
-  /// bearer token it minted from its own web session
-  /// (POST /api/v4/mobile/auth/from-session) plus that response's `user`
-  /// object. Runs the same identity transition a native sign-in used to:
-  /// SessionController.completeLogin stages the credential and suspends
-  /// the node, then the reconciler provisions/imports the custodial
-  /// wallet. Resolves the settled auth snapshot — WITHOUT starting the
-  /// node (node lifecycle is platform-controlled; SV calls startNode).
+  /// `completeLogin` (bridge v4): the platform hands over the mobile bearer
+  /// token it minted from its own web session (POST
+  /// /api/v4/mobile/auth/from-session) plus that response's `user` object.
+  /// Initial login stays in this runtime and resolves the settled auth
+  /// snapshot. Replacing an authenticated participant acknowledges the
+  /// accepted runtime cutover before this WebView is removed. Neither path
+  /// starts the node — lifecycle remains platform-controlled.
   Future<void> _handleCompleteLogin(
       String id, Map<String, dynamic> payload) async {
     if (!await _requireTrustedChromeOrigin(id, 'completeLogin')) return;
@@ -98,24 +100,83 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       ),
     );
 
-    // Idempotent boot handoff: SV re-runs this on every shell boot. When
-    // the same user is already settled, don't tear the identity down just
-    // to rebuild it.
     final current = ref.read(identityProvider);
-    if (current.phase == IdentityPhase.ready &&
-        current.participantId == session.participant.id) {
+    final controller = ref.read(identityProvider.notifier);
+    final replacingParticipant = current.isAuthenticated &&
+        current.participantId != session.participant.id;
+
+    if (replacingParticipant) {
+      // Calling the controller admits the transition and synchronously closes
+      // the old identity gate when its queue is idle. This WebView is terminal
+      // from here: consume the transition locally without later touching ref
+      // or JavaScript, then acknowledge that a restart has been accepted.
+      final transition = controller.completeLogin(
+        session,
+        expectedIdentity: current,
+      );
+      unawaited(transition.then<void>(
+        (applied) {
+          if (!applied) {
+            debugPrint(
+              '[Usernode JS-channel] terminal completeLogin was rejected',
+            );
+          }
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint(
+            '[Usernode JS-channel] terminal completeLogin failed: '
+            '$error\n$stackTrace',
+          );
+        },
+      ));
       await _resolveJsPromise(
-          id: id, value: _authStatusSnapshot(), error: null);
+        id: id,
+        value: const {'restarting': true},
+        error: null,
+      );
       return;
     }
 
-    await ref.read(identityProvider.notifier).completeLogin(session);
+    final sameParticipant = current.isAuthenticated &&
+        current.participantId == session.participant.id;
+    final expectedEpoch = sameParticipant ? current.epoch : current.epoch + 1;
+    final applied = await controller.completeLogin(
+      session,
+      expectedIdentity: current,
+    );
+    if (!mounted) return;
+    if (!applied) {
+      await _rejectStaleIdentityScope(id, 'completeLogin');
+      return;
+    }
+    var responseIdentity = ref.read(identityProvider);
+    if (responseIdentity.epoch != expectedEpoch ||
+        responseIdentity.participantId != session.participant.id) {
+      await _rejectStaleIdentityScope(id, 'completeLogin');
+      return;
+    }
+    if (sameParticipant) {
+      final response = _authStatusSnapshotFor(responseIdentity);
+      await _resolveJsPromise(
+        id: id,
+        value: response,
+        error: null,
+      );
+      return;
+    }
     // The identity driver also reacts to the reconciling publish; the
     // reconciler coalesces per epoch so this direct call just gives the
     // page a Future that settles when provisioning is done.
     try {
       await ref.read(nodeAccountReconcilerProvider).reconcile();
     } catch (e) {
+      if (!mounted) return;
+      responseIdentity = ref.read(identityProvider);
+      if (responseIdentity.epoch != expectedEpoch ||
+          responseIdentity.participantId != session.participant.id) {
+        await _rejectStaleIdentityScope(id, 'completeLogin');
+        return;
+      }
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -123,7 +184,16 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       );
       return;
     }
-    await _resolveJsPromise(id: id, value: _authStatusSnapshot(), error: null);
+    if (!mounted) return;
+    responseIdentity = ref.read(identityProvider);
+    if (responseIdentity.epoch != expectedEpoch ||
+        responseIdentity.participantId != session.participant.id ||
+        responseIdentity.phase != IdentityPhase.ready) {
+      await _rejectStaleIdentityScope(id, 'completeLogin');
+      return;
+    }
+    final response = _authStatusSnapshotFor(responseIdentity);
+    await _resolveJsPromise(id: id, value: response, error: null);
   }
 
   /// `startNode` (bridge v4): platform-requested node start, bound to the
@@ -180,24 +250,36 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     await _resolveJsPromise(id: id, value: _authStatusSnapshot(), error: null);
   }
 
-  /// `logout`: web-side confirm, native commit. The router's auth guard
-  /// takes over from here (post-logout flow stays native chrome, same
-  /// category as onboarding).
+  /// `logout`: web-side confirm/cache fence, then native commit. The terminal
+  /// acknowledgement is delivered after the controller admits the terminal
+  /// transition; the caller must not require follow-up JS work.
   Future<void> _handleLogout(String id) async {
-    final identity = ref.read(identityProvider);
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
-    if (!_identityScopeIsCurrent(identity)) {
-      await _rejectStaleIdentityScope(id, 'logout');
-      return;
-    }
-    final loggedOut = await ref
-        .read(identityProvider.notifier)
-        .logout(expectedIdentity: identity);
-    if (!loggedOut) {
-      await _rejectStaleIdentityScope(id, 'logout');
-      return;
-    }
-    await _resolveJsPromise(id: id, value: true, error: null);
+    if (!mounted) return;
+    final identity = ref.read(identityProvider);
+    final controller = ref.read(identityProvider.notifier);
+    // Start the terminal transition before resolving. Its completion is
+    // deliberately detached: every late path is log-only because the runtime
+    // owns this WebView once logout has been admitted.
+    final transition = controller.logout(expectedIdentity: identity);
+    unawaited(transition.then<void>(
+      (loggedOut) {
+        if (!loggedOut) {
+          debugPrint('[Usernode JS-channel] terminal logout was rejected');
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        debugPrint(
+          '[Usernode JS-channel] terminal logout failed: '
+          '$error\n$stackTrace',
+        );
+      },
+    ));
+    await _resolveJsPromise(
+      id: id,
+      value: true,
+      error: null,
+    );
   }
 
   /// Standalone dapp surfaces (widget/shortcut deep links to

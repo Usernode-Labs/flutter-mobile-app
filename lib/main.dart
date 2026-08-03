@@ -2,13 +2,24 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
+import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
+import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
+import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
+import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -71,7 +82,10 @@ Future<void> _runAppBody({required String logTag}) async {
 
   // Render UI immediately; perform heavy bootstrap asynchronously.
   log.info('Running app UI');
-  runApp(AppRuntimeRoot(initialContainer: boot.container));
+  runApp(AppRuntimeRoot(
+    initialContainer: boot.container,
+    initialBackendBootstrap: boot.backendBootstrap,
+  ));
 }
 
 /// Headless entrypoint for background Flutter engine
@@ -201,29 +215,47 @@ void _startHeadlessProducedBlocksRefresh(
   });
 }
 
+typedef RuntimeBootstrapFactory = Future<ProviderContainer> Function();
+
 class AppRuntimeRoot extends StatefulWidget {
-  const AppRuntimeRoot({super.key, required this.initialContainer});
+  const AppRuntimeRoot({
+    super.key,
+    required this.initialContainer,
+    this.initialBackendBootstrap,
+    this.replacementFactory,
+    this.shutdownRuntime,
+    this.child = const CryptoMobileApp(),
+  });
 
   final ProviderContainer initialContainer;
+  final Future<void>? initialBackendBootstrap;
+  final RuntimeBootstrapFactory? replacementFactory;
+  final Future<void> Function()? shutdownRuntime;
+  final Widget child;
 
   @override
   State<AppRuntimeRoot> createState() => _AppRuntimeRootState();
 }
 
 class _AppRuntimeRootState extends State<AppRuntimeRoot> {
-  late ProviderContainer _container;
+  ProviderContainer? _container;
+  Object? _restartError;
+  late Future<void> _backendBootstrap;
 
   @override
   void initState() {
     super.initState();
     _container = widget.initialContainer;
+    _backendBootstrap = widget.initialBackendBootstrap ?? Future<void>.value();
     AppResetService.instance.registerInProcessRestartHandler(_restartInProcess);
+    SessionRuntimeBoundary.instance.register(_replaceSessionRuntime);
   }
 
   @override
   void dispose() {
     AppResetService.instance.unregisterInProcessRestartHandler();
-    _container.dispose();
+    SessionRuntimeBoundary.instance.unregister();
+    _container?.dispose();
     super.dispose();
   }
 
@@ -241,15 +273,141 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
     final oldContainer = _container;
     setState(() {
       _container = boot.container;
+      _backendBootstrap = boot.backendBootstrap;
+      _restartError = null;
     });
-    oldContainer.dispose();
+    oldContainer?.dispose();
+  }
+
+  Future<void> _replaceSessionRuntime(
+    SessionRuntimeChange change,
+    Future<void> Function() persistSession,
+  ) async {
+    if (AppResetService.instance.isResetInProgress) {
+      throw StateError('Cannot change sessions while app reset is in progress');
+    }
+
+    final oldContainer = _container;
+    if (oldContainer == null) {
+      throw StateError('There is no app runtime to replace');
+    }
+    final oldBackendBootstrap = _backendBootstrap;
+    if (oldContainer.exists(identityProvider)) {
+      oldContainer.read(identityProvider.notifier).retireForRuntimeRestart();
+    }
+
+    AppLifecycleLogger.onForegroundResume = null;
+    if (mounted) {
+      setState(() {
+        _container = null;
+        _restartError = null;
+      });
+    }
+
+    var oldDisposed = false;
+    try {
+      // Finish any bootstrap work before stopping global services. This keeps
+      // cleanup strictly sequential and avoids a start racing the hard stop.
+      await _shutdownRuntime(
+        oldBackendBootstrap,
+        container: oldContainer,
+        reason: 'session_${change.name}',
+      );
+      if (mounted) await WidgetsBinding.instance.endOfFrame;
+      oldContainer.dispose();
+      oldDisposed = true;
+
+      await persistSession();
+      if (!mounted) return;
+
+      final replacement = await _createReplacementRuntime();
+      if (!mounted) {
+        replacement.dispose();
+        return;
+      }
+
+      setState(() {
+        _container = replacement;
+        _backendBootstrap = Future<void>.value();
+        _restartError = null;
+      });
+      LoggingService.instance.info(
+        'App runtime replaced after ${change.name}',
+      );
+    } catch (error, stackTrace) {
+      if (!oldDisposed) oldContainer.dispose();
+      LoggingService.instance.error(
+        'App runtime replacement failed after ${change.name}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (mounted) setState(() => _restartError = error);
+      rethrow;
+    }
+  }
+
+  Future<void> _shutdownRuntime(
+    Future<void> backendBootstrap, {
+    required ProviderContainer container,
+    required String reason,
+  }) async {
+    await backendBootstrap;
+    await container.read(nodeAccountReconcilerProvider).drain();
+    if (widget.shutdownRuntime != null) {
+      await widget.shutdownRuntime!.call();
+      return;
+    }
+
+    await NodeLifecycleCoordinator.instance
+        .hardStopForSessionBoundary(reason: reason);
+    AppLifecycleLogger.unregister();
+    await AppSleepService.instance.stopForRuntimeRestart();
+    await SlotMonitorService.instance.stopMonitoring();
+    await ObservabilityReportingService.instance
+        .stopMobileContextSnapshotReporting();
+    EpochSlotSchedulerService.instance.dispose();
+    await AndroidForegroundTaskController.instance.resetForAppRestart();
+    await RustBackendService.instance.resetForAppRestart();
+    SlotProductionRepository.instance.resetForAppRestart();
+    PlatformAlarmService.instance.resetForAppRestart();
+    MetricsCollectorService.instance.reset();
+  }
+
+  Future<ProviderContainer> _createReplacementRuntime() async {
+    NodeLifecycleCoordinator.instance.resumeAfterSessionBoundary();
+    final factory = widget.replacementFactory;
+    if (factory != null) return factory();
+
+    final boot = await AppBootstrap.initNonUi(
+      logTag: 'usernode/SessionRestart',
+      installErrorHandlers: false,
+      applyBootstrapIdentity: false,
+    );
+    await boot.backendBootstrap;
+    return boot.container;
   }
 
   @override
   Widget build(BuildContext context) {
+    final container = _container;
+    if (container == null) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: _restartError == null
+                ? const CircularProgressIndicator()
+                : const Text(
+                    'Could not restart the app. Please close and reopen it.',
+                    textAlign: TextAlign.center,
+                  ),
+          ),
+        ),
+      );
+    }
     return UncontrolledProviderScope(
-      container: _container,
-      child: const CryptoMobileApp(),
+      container: container,
+      child: widget.child,
     );
   }
 }

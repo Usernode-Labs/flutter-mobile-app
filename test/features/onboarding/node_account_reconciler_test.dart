@@ -94,11 +94,13 @@ Future<void> _login(ProviderContainer c, {String token = 'sess-1'}) async {
 /// the Rust backend).
 Override _reconcilerOverride({
   Future<void> Function()? ensureNodeIdentity,
+  Identity Function()? currentIdentity,
 }) =>
     nodeAccountReconcilerProvider.overrideWith(
       (ref) => NodeAccountReconciler(
         ref,
         ensureNodeIdentity: ensureNodeIdentity ?? () async {},
+        currentIdentity: currentIdentity,
       ),
     );
 
@@ -419,6 +421,60 @@ void main() {
     expect(results, [true, true]);
   });
 
+  test('drain waits for node binding and stale work cannot commit afterward',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        _accountJson('acc_1_b', _addressB),
+      ]),
+      'testnet:accounts:activeId': 'acc_1_b',
+    });
+    await NetworkPrefs.init();
+
+    final provisionCalls = <int>[];
+    final nodeBindingStarted = Completer<void>();
+    final releaseNodeBinding = Completer<void>();
+    addTearDown(() {
+      if (!releaseNodeBinding.isCompleted) releaseNodeBinding.complete();
+    });
+    late Identity currentIdentity;
+    final container = ProviderContainer(overrides: [
+      leaderboardApiServiceProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
+      _reconcilerOverride(
+        ensureNodeIdentity: () async {
+          nodeBindingStarted.complete();
+          await releaseNodeBinding.future;
+        },
+        currentIdentity: () => currentIdentity,
+      ),
+    ]);
+    addTearDown(container.dispose);
+
+    await _login(container);
+    currentIdentity = container.read(identityProvider);
+
+    final reconciler = container.read(nodeAccountReconcilerProvider);
+    final reconcile = reconciler.reconcile();
+    await nodeBindingStarted.future;
+
+    var drainCompleted = false;
+    final drain = reconciler.drain().then((_) => drainCompleted = true);
+    await Future<void>.delayed(Duration.zero);
+    expect(drainCompleted, isFalse);
+
+    currentIdentity = currentIdentity.copyWith(
+      epoch: currentIdentity.epoch + 1,
+      phase: IdentityPhase.transitioning,
+    );
+    releaseNodeBinding.complete();
+    await drain;
+    expect(await reconcile, isFalse);
+    expect(drainCompleted, isTrue);
+    expect(provisionCalls, hasLength(1));
+    expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
+  });
+
   test(
       'an identity change while provisioning is in flight discards the '
       'response and keeps the reconcile-pending marker', () async {
@@ -518,7 +574,7 @@ void main() {
     // run's result.
     await container
         .read(identityProvider.notifier)
-        .completeLogin(_session('sess-2'));
+        .completeLogin(_session('sess-2', participantId: 100));
     final second = reconciler.reconcile();
     releaseFirstCall.complete();
     final results = await Future.wait([first, second]);

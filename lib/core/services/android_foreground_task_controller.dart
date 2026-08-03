@@ -28,6 +28,7 @@ class AndroidForegroundTaskController {
   static const foregroundResumeAlarmId = 'fg_resume';
 
   Timer? _pollTimer;
+  Future<void>? _activePoll;
   bool _initialized = false;
   bool _wakelockHeld = false;
   AccountPublicKey? _cachedOurPubKey;
@@ -173,9 +174,18 @@ class AndroidForegroundTaskController {
   void _startPollTimer() {
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(_pollInterval, (_) {
-      unawaited(_pollVrf());
+      _startPoll();
     });
-    unawaited(_pollVrf());
+    _startPoll();
+  }
+
+  void _startPoll() {
+    if (_activePoll != null) return;
+    final poll = _pollVrf();
+    _activePoll = poll;
+    unawaited(poll.whenComplete(() {
+      if (identical(_activePoll, poll)) _activePoll = null;
+    }));
   }
 
   Future<void> handleAlarmFire({
@@ -234,6 +244,8 @@ class AndroidForegroundTaskController {
     if (!Platform.isAndroid) return;
     _pollTimer?.cancel();
     _pollTimer = null;
+    await _activePoll;
+    _activePoll = null;
     _initialized = false;
     _wakelockHeld = false;
     _cachedOurPubKey = null;

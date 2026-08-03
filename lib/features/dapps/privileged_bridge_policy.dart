@@ -31,6 +31,8 @@ class PrivilegedBridgePolicy {
     'resetZkChallenge',
     'requestPermissions',
     'openBatterySettings',
+    'beginSessionHandoff',
+    'enterAnonymousSession',
     'completeLogin',
     'startNode',
     'stopNode',

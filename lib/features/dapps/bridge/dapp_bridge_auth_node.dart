@@ -177,6 +177,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       return;
     }
     if (sameParticipant) {
+      _sessionHandoffGate.admit();
       final response = _authStatusSnapshotFor(responseIdentity);
       await _resolveJsPromise(
         id: id,
@@ -213,6 +214,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       await _rejectStaleIdentityScope(id, 'completeLogin');
       return;
     }
+    _sessionHandoffGate.admit();
     final response = _authStatusSnapshotFor(responseIdentity);
     await _resolveJsPromise(id: id, value: response, error: null);
   }
@@ -325,6 +327,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   Future<void> _handleLogout(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
     if (!mounted) return;
+    _sessionHandoffGate.begin();
     final identity = ref.read(identityProvider);
     final controller = ref.read(identityProvider.notifier);
     // Start the terminal transition before resolving. Its completion is

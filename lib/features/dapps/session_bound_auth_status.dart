@@ -1,5 +1,33 @@
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 
+/// Closes admission to bridge methods that expose or mutate session-owned
+/// wallet state while the web session is handed off to native.
+///
+/// This is intentionally only an admission gate. Calls already admitted are
+/// not cancelled or generation-fenced; that more complex edge case is tracked
+/// separately.
+class SessionHandoffGate {
+  static const sessionScopedMethods = <String>{
+    'getNodeAddress',
+    'sendTransaction',
+    'signMessage',
+    'txObserved',
+    'getWalletState',
+    'getTransactionRecords',
+  };
+
+  bool _blocked = false;
+
+  bool get isBlocked => _blocked;
+
+  void begin() => _blocked = true;
+
+  void admit() => _blocked = false;
+
+  bool blocks(String method) =>
+      _blocked && sessionScopedMethods.contains(method);
+}
+
 Map<String, dynamic> sessionBoundAuthStatus(
   Identity identity, {
   required String reconciliationStatus,

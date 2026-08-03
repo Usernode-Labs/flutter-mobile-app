@@ -45,6 +45,8 @@ mixin _BridgeDispatch
     'openBatterySettings',
     'logout',
     // Bridge v4 (thin-shell migration): platform login + node lifecycle.
+    'beginSessionHandoff',
+    'enterAnonymousSession',
     'completeLogin',
     'startNode',
     'stopNode',
@@ -121,6 +123,38 @@ mixin _BridgeDispatch
           id: id,
           value: null,
           error: '$method requires a trusted top-frame capability',
+        );
+        return;
+      }
+
+      // This check lives in the central channel dispatch so a child frame
+      // calling the injected Usernode channel directly cannot bypass the
+      // page-side relay's handoff gate.
+      if (_sessionHandoffGate.blocks(method)) {
+        await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: '$method is unavailable during session handoff',
+        );
+        return;
+      }
+
+      if (method == 'beginSessionHandoff') {
+        _sessionHandoffGate.begin();
+        await _resolveJsPromise(
+          id: id,
+          value: const {'blocked': true},
+          error: null,
+        );
+        return;
+      }
+
+      if (method == 'enterAnonymousSession') {
+        _sessionHandoffGate.admit();
+        await _resolveJsPromise(
+          id: id,
+          value: const {'admitted': true},
+          error: null,
         );
         return;
       }

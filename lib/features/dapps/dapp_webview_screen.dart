@@ -123,6 +123,7 @@ abstract class _DappWebViewScreenStateBase
     extends ConsumerState<DappWebViewScreen> {
   late final WebViewController _controller;
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
+  final SessionHandoffGate _sessionHandoffGate = SessionHandoffGate();
   int _progress = 0;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which

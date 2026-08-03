@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -58,7 +59,9 @@ class AccountApiService {
     }
     if (token == null || token.isEmpty) {
       if (identity.isAuthenticated) {
-        await _onCredentialMissing?.call(identity.epoch);
+        _detachSessionInvalidation(
+          _onCredentialMissing?.call(identity.epoch),
+        );
         throw const StaleAuthCredentialException();
       }
       return null;
@@ -111,7 +114,7 @@ class AccountApiService {
     }
 
     if (resp.statusCode == 401 && credential != null) {
-      await _onUnauthorized?.call(credential);
+      _detachSessionInvalidation(_onUnauthorized?.call(credential));
     }
     if (resp.statusCode < 200 || resp.statusCode >= 300) {
       throw AccountApiException(resp.statusCode, 'Request failed.');
@@ -124,6 +127,15 @@ class AccountApiService {
       throw AccountApiException(resp.statusCode, 'Unexpected response format.');
     }
     return Me.fromJson(decoded['data'] as Map<String, dynamic>);
+  }
+
+  void _detachSessionInvalidation(Future<void>? invalidation) {
+    if (invalidation == null) return;
+    // Reconcile/refresh callers are drained by session teardown. Keeping the
+    // teardown Future out of this request Future avoids a self-deadlock.
+    unawaited(invalidation.catchError((Object error, StackTrace stackTrace) {
+      _log.warn('Session invalidation failed: $error');
+    }));
   }
 
   void dispose() => _http.close();

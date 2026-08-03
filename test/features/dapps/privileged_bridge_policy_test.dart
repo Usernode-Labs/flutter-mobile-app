@@ -41,6 +41,8 @@ void main() {
       'resetZkChallenge',
       'requestPermissions',
       'openBatterySettings',
+      'beginSessionHandoff',
+      'enterAnonymousSession',
       'completeLogin',
       'startNode',
       'stopNode',

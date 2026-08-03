@@ -77,18 +77,6 @@ class LeaderboardApiService {
     params['event_id'] = eventId.toString();
   }
 
-  Future<RankingResult> getRanking({int? seasonId, int? eventId}) async {
-    final params = <String, String>{};
-    if (eventId != null) {
-      _addEventScope(params, eventId);
-    } else if (seasonId != null) {
-      params['season_id'] = seasonId.toString();
-    }
-
-    final data = await _get('/me/ranking', queryParams: params);
-    return RankingResult.fromJson(data as Map<String, dynamic>);
-  }
-
   Future<List<ChallengeDto>> getChallenges({
     int? seasonId,
     int? eventId,
@@ -116,23 +104,6 @@ class LeaderboardApiService {
         .toList();
   }
 
-  Future<LeaderboardResult> getLeaderboard({
-    required int seasonId,
-    int? eventId,
-    int page = 1,
-    int perPage = 50,
-  }) async {
-    final params = <String, String>{
-      'season_id': seasonId.toString(),
-      'page': page.toString(),
-      'per_page': perPage.toString(),
-    };
-    if (eventId != null) _addEventScope(params, eventId);
-
-    final data = await _get('/leaderboard', queryParams: params);
-    return LeaderboardResult.fromJson(data as Map<String, dynamic>);
-  }
-
   Future<BreakdownResult> getBreakdown({int? seasonId, int? eventId}) async {
     final params = <String, String>{'include_activity': '1'};
     if (eventId != null) {
@@ -143,16 +114,6 @@ class LeaderboardApiService {
 
     final data = await _get('/me/breakdown', queryParams: params);
     return BreakdownResult.fromJson(data as Map<String, dynamic>);
-  }
-
-  // FIXME(follow-up): /event/points paginates total_points_per_user; fetch and
-  // merge every page (or expose pagination) instead of returning only the
-  // default first page.
-  Future<EventPointsResult> getEventPoints({required int eventId}) async {
-    final params = <String, String>{};
-    _addEventScope(params, eventId);
-    final data = await _get('/event/points', queryParams: params);
-    return EventPointsResult.fromJson(data as Map<String, dynamic>);
   }
 
   Future<List<SeasonDto>> getSeasons({

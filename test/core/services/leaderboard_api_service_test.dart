@@ -48,79 +48,6 @@ void main() {
   tearDown(IdentitySnapshots.reset);
 
   // -------------------------------------------------------------------------
-  // register
-  // -------------------------------------------------------------------------
-
-  // -------------------------------------------------------------------------
-  // getRanking
-  // -------------------------------------------------------------------------
-
-  group('getRanking', () {
-    test('returns RankingResult on 200', () async {
-      final client = _mockClient(
-          200,
-          _envelope({
-            'scope': 'event',
-            'rank': 5,
-            'total_points': 1200,
-            'total_tokens': 1250,
-            'offchain_points': 300,
-            'total_participants': 500,
-            'event_id': 10,
-            'event_name': 'Event Alpha',
-          }));
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
-
-      final result = await service.getRanking();
-
-      expect(result.scope, 'event');
-      expect(result.rank, 5);
-      expect(result.totalTokens, 1250);
-      expect(result.eventId, 10);
-    });
-
-    test('sends correct URL and query params', () async {
-      Uri? capturedUri;
-      final client = _mockClient(
-        200,
-        _envelope({
-          'scope': 'event',
-          'rank': 1,
-          'total_points': 0,
-          'offchain_points': 0,
-          'total_participants': 0,
-        }),
-        onRequest: (r) => capturedUri = r.url,
-      );
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
-
-      await service.getRanking(seasonId: 1, eventId: 5);
-
-      expect(capturedUri, isNotNull);
-      expect(capturedUri!.path, '/api/v3/mobile/me/ranking');
-      expect(capturedUri!.queryParameters.containsKey('participant_id'), false);
-      expect(capturedUri!.queryParameters.containsKey('season_id'), false);
-      expect(capturedUri!.queryParameters['event_id'], '5');
-    });
-
-    test('throws on 404', () async {
-      final client = _mockClient(404, {'error': 'Participant not found'});
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
-
-      expect(
-        () => service.getRanking(),
-        throwsA(
-          isA<LeaderboardApiException>()
-              .having((e) => e.statusCode, 'statusCode', 404),
-        ),
-      );
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // getChallenges
   // -------------------------------------------------------------------------
 
@@ -220,92 +147,6 @@ void main() {
 
       final result = await service.getChallenges();
       expect(result, isEmpty);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // getLeaderboard
-  // -------------------------------------------------------------------------
-
-  group('getLeaderboard', () {
-    test('returns LeaderboardResult on 200', () async {
-      final client = _mockClient(
-          200,
-          _envelope({
-            'season': {'id': 1, 'name': 'Season 1'},
-            'events': [
-              {
-                'id': 1,
-                'name': 'Event 1',
-                'starts_at': '2025-01-01',
-                'ends_at': '2025-01-07',
-                'is_active': true,
-              },
-            ],
-            'leaderboard': [
-              {
-                'rank': 1,
-                'participant_id': 42,
-                'display_name': 'Alice',
-                'total_points': 9999,
-                'offchain_points': 500,
-                'total_produced_blocks': 100,
-                'vrf_total_won_slots': 50,
-                'success_rate': 0.95,
-                'events_participated': 3,
-              },
-            ],
-            'pagination': {
-              'page': 1,
-              'per_page': 50,
-              'total': 1,
-              'total_pages': 1,
-            },
-          }));
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
-
-      final result = await service.getLeaderboard(seasonId: 1);
-
-      expect(result.season.name, 'Season 1');
-      expect(result.events, hasLength(1));
-      expect(result.entries, hasLength(1));
-      expect(result.entries.first.displayName, 'Alice');
-      expect(result.pagination.totalPages, 1);
-    });
-
-    test('sends correct query params with pagination', () async {
-      Uri? capturedUri;
-      final client = _mockClient(
-        200,
-        _envelope({
-          'season': {'id': 1, 'name': 'S1'},
-          'events': <dynamic>[],
-          'leaderboard': <dynamic>[],
-          'pagination': {
-            'page': 3,
-            'per_page': 25,
-            'total': 100,
-            'total_pages': 4,
-          },
-        }),
-        onRequest: (r) => capturedUri = r.url,
-      );
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
-
-      await service.getLeaderboard(
-        seasonId: 1,
-        eventId: 2,
-        page: 3,
-        perPage: 25,
-      );
-
-      expect(capturedUri!.path, '/api/v3/mobile/leaderboard');
-      expect(capturedUri!.queryParameters['season_id'], '1');
-      expect(capturedUri!.queryParameters['event_id'], '2');
-      expect(capturedUri!.queryParameters['page'], '3');
-      expect(capturedUri!.queryParameters['per_page'], '25');
     });
   });
 
@@ -478,7 +319,7 @@ void main() {
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
-        () => service.getRanking(),
+        () => service.getBreakdown(),
         throwsA(
           isA<LeaderboardApiException>()
               .having((e) => e.statusCode, 'statusCode', 500)
@@ -497,7 +338,7 @@ void main() {
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
-        () => service.getRanking(),
+        () => service.getBreakdown(),
         throwsA(
           isA<LeaderboardApiException>()
               .having((e) => e.message, 'message', 'Something went wrong'),
@@ -513,7 +354,7 @@ void main() {
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
-        () => service.getRanking(),
+        () => service.getBreakdown(),
         throwsA(isA<TimeoutException>()),
       );
     });
@@ -700,16 +541,15 @@ void main() {
           200,
           _envelope({
             'scope': 'global',
-            'rank': 1,
+            'display_name': 'X',
             'total_points': 0,
             'offchain_points': 0,
-            'total_participants': 0,
           }),
           onRequest: (r) => auth = r.headers['authorization'],
         ),
         tokenProvider: () async => 'sess-xyz',
       );
-      await service.getRanking(seasonId: 1);
+      await service.getBreakdown(seasonId: 1);
       expect(auth, 'Bearer sess-xyz');
     });
 
@@ -721,16 +561,15 @@ void main() {
           200,
           _envelope({
             'scope': 'global',
-            'rank': 1,
+            'display_name': 'X',
             'total_points': 0,
             'offchain_points': 0,
-            'total_participants': 0,
           }),
           onRequest: (r) => auth = r.headers['authorization'],
         ),
         tokenProvider: () async => null,
       );
-      await service.getRanking(seasonId: 1);
+      await service.getBreakdown(seasonId: 1);
       expect(auth, isNull);
     });
 
@@ -747,7 +586,7 @@ void main() {
         maxGetRetries: 0,
       );
       await expectLater(
-        () => service.getRanking(seasonId: 1),
+        () => service.getBreakdown(seasonId: 1),
         throwsA(isA<LeaderboardApiException>()),
       );
       expect(rejectedCredential?.token, 'sess-xyz');
@@ -770,7 +609,7 @@ void main() {
       );
 
       await expectLater(
-        () => service.getRanking(seasonId: 1),
+        () => service.getBreakdown(seasonId: 1),
         throwsA(isA<StaleAuthCredentialException>()),
       );
       expect(requests, 1);

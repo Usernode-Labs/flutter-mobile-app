@@ -24,10 +24,12 @@ Config buildWidgetbookConfig() {
       final theme = Theme.of(context);
       return LayoutBuilder(
         builder: (context, constraints) {
-          final width =
-              constraints.hasBoundedWidth ? constraints.maxWidth : 412.0;
-          final height =
-              constraints.hasBoundedHeight ? constraints.maxHeight : 915.0;
+          final width = constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : 412.0;
+          final height = constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : 915.0;
 
           return SizedBox(
             width: width,

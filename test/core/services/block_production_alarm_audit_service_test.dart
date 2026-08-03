@@ -179,6 +179,32 @@ void main() {
       expect(harness.watchdogScheduleReasons, isEmpty);
     });
 
+    test(
+        'enableWatchdogRecovery reports the disabled → enabled transition '
+        'and re-arms audits', () async {
+      final harness = _AuditHarness();
+
+      // Already enabled (the default): no transition.
+      expect(harness.service.enableWatchdogRecovery(), isFalse);
+
+      harness.service.disableWatchdogRecovery();
+      final disabledResult =
+          await harness.service.audit(reason: 'workmanager:periodic');
+      expect(disabledResult.skippedReason, 'watchdog_disabled');
+
+      // The headless native start path (AndroidForegroundTaskController.
+      // startMonitoring) relies on this returning true exactly once so it
+      // can trigger the follow-up audit that reschedules the watchdog.
+      expect(harness.service.enableWatchdogRecovery(), isTrue);
+      expect(harness.service.enableWatchdogRecovery(), isFalse);
+
+      final rearmedResult =
+          await harness.service.audit(reason: 'native_start_rearm:alarm');
+      expect(rearmedResult.skippedReason, isNull);
+      expect(harness.watchdogScheduleReasons,
+          contains('native_start_rearm:alarm'));
+    });
+
     test('foreground resume lead is four minutes in production', () {
       expect(
         AndroidForegroundTaskController.foregroundResumeLead,

@@ -246,47 +246,16 @@ Shape values come from `AppRadii`.
 
 | Widget | Source | Genesis |
 |--------|--------|---------|
-| `AtomicChallengeCard` | Board (Season 1/2 Product Push) | [genesis](.specs/AtomicChallengeCard.genesis.md) |
-| `AtomicChallengeDetailPage` | Board (Season 1/2 Product Push) | [genesis](.specs/AtomicChallengeDetailPage.genesis.md) |
-| `BlockProductionStatusCard` | Code | [genesis](.specs/BlockProductionStatusCard.genesis.md) |
-| `BottomNav` | Code | [genesis](.specs/BottomNav.genesis.md) |
-| `BurstPulseIllustration` | Code | [genesis](.specs/BurstPulseIllustration.genesis.md) |
 | `Button` | Code | [genesis](.specs/Button.genesis.md) |
-| `ChallengeActivitySummary` | Code | [genesis](.specs/ChallengeActivitySummary.genesis.md) |
 | `ChallengeCard` | [Figma list](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:19310), [Figma ongoing](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2402) | [genesis](.specs/ChallengeCard.genesis.md) |
 | `ChallengeCategoryIcon` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2775) | [genesis](.specs/ChallengeCategoryIcon.genesis.md) |
-| `ChallengeCategoryTile` | Code | [genesis](.specs/ChallengeCategoryTile.genesis.md) |
 | `ChallengeDetailPage` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:28627) | [genesis](.specs/ChallengeDetailPage.genesis.md) |
-| `ChallengeEventGroup` | Code | [genesis](.specs/ChallengeEventGroup.genesis.md) |
 | `ChallengeRewardCard` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:28627) | [genesis](.specs/ChallengeRewardCard.genesis.md) |
-| `DappAvatar` | Code | [genesis](.specs/DappAvatar.genesis.md) |
-| `DappCard` | Code | [genesis](.specs/DappCard.genesis.md) |
-| `DropdownChain` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChain.genesis.md) |
-| `DropdownChip` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2860) | [genesis](.specs/DropdownChip.genesis.md) |
-| `DropdownSheet` | Code | [genesis](.specs/DropdownSheet.genesis.md) |
-| `DSTextField` | Code | [genesis](.specs/DSTextField.genesis.md) |
-| `EmptyState` | Code | [genesis](.specs/EmptyState.genesis.md) |
-| `EpochPerformancePage` | Code | [genesis](.specs/EpochPerformancePage.genesis.md) |
 | `FullPageErrorState` | Code | [genesis](.specs/FullPageErrorState.genesis.md) |
-| `FullPageLoadingState` | Code | [genesis](.specs/FullPageLoadingState.genesis.md) |
 | `IconBadge` | Code | [genesis](.specs/IconBadge.genesis.md) |
 | `InfoRow` | Code | [genesis](.specs/InfoRow.genesis.md) |
-| `LeaderboardStatsCard` | Code | [genesis](.specs/LeaderboardStatsCard.genesis.md) |
 | `ListSectionHeader` | Code | [genesis](.specs/ListSectionHeader.genesis.md) |
-| `ParallaxSurfaceLayout` | Code | [genesis](.specs/ParallaxSurfaceLayout.genesis.md) |
-| `RankBadge` | Code | [genesis](.specs/RankBadge.genesis.md) |
-| `ResultPage` | Code | [genesis](.specs/ResultPage.genesis.md) |
-| `ScoreHeader` | [Figma default](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2193), [Figma glow](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:3259) | [genesis](.specs/ScoreHeader.genesis.md) |
 | `SheetLayout` | Code | [genesis](.specs/SheetLayout.genesis.md) |
-| `ShimmerBlock` | Code | [genesis](.specs/ShimmerBlock.genesis.md) |
-| `ShimmerCardSkeleton` | Code | [genesis](.specs/ShimmerCardSkeleton.genesis.md) |
-| `ShimmerListTile` | Code | [genesis](.specs/ShimmerListTile.genesis.md) |
-| `SlotAssignmentsPage` | Code | [genesis](.specs/SlotAssignmentsPage.genesis.md) |
-| `StatusBadge` | Code | [genesis](.specs/StatusBadge.genesis.md) |
-| `StatusTextTrailing` | Code | [genesis](.specs/StatusTextTrailing.genesis.md) |
-| `Tabs` | [Figma](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=3012:2400) | [genesis](.specs/Tabs.genesis.md) |
-| `TextChevronTrailing` | Code | [genesis](.specs/TextChevronTrailing.genesis.md) |
-| `TokenAllocationReveal` | Code | [genesis](.specs/TokenAllocationReveal.genesis.md) |
 | `TopAppBar` | [Figma small](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2764), [Figma large](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2943:28629) | [genesis](.specs/TopAppBar.genesis.md) |
 | `TopStatusAppBar` | [Figma large](https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=3964-1802), [Figma compact](https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=3964-1852) | [genesis](.specs/TopStatusAppBar.genesis.md) |
 | `ZkIdentityFlowPage` | Code | [genesis](.specs/ZkIdentityFlowPage.genesis.md) |

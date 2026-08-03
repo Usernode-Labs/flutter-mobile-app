@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 
@@ -95,7 +97,20 @@ final accountApiServiceProvider = Provider<AccountApiService>((ref) {
 /// authenticated). Carries the backend-resolved [Me.level].
 final meProvider = FutureProvider<Me?>((ref) async {
   if (ref.watch(authStatusProvider) != AuthStatus.authenticated) return null;
-  return ref.read(accountApiServiceProvider).getMe();
+  final me = await ref.read(accountApiServiceProvider).getMe();
+  // Refresh the persisted block-production release flag so an admin
+  // release after login takes effect at the next node (re)start. Only a
+  // READY identity has a confirmed account bucket to write into; during
+  // reconciling the address may still belong to a previous user.
+  final identity = ref.read(identityProvider);
+  final address = identity.address;
+  if (identity.phase == IdentityPhase.ready && address != null) {
+    await installBlockProductionReleasedInBucket(
+      released: me.bpReleased,
+      bucket: NetworkPrefs.bucketForAddress(address),
+    );
+  }
+  return me;
 });
 
 /// The user's level (guest / member / operator). Backend-authoritative via

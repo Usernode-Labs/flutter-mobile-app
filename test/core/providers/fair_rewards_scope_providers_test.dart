@@ -5,14 +5,12 @@ import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
-import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 class _RecordingLeaderboardApiService extends LeaderboardApiService {
   ({int? seasonId, int? eventId, bool? activeOnly})? challengesCall;
   ({int? seasonId, int? eventId})? breakdownCall;
-  ({int? seasonId, int? eventId})? rankingCall;
 
   @override
   Future<List<ChallengeDto>> getChallenges({
@@ -63,26 +61,6 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
   }
 
   @override
-  Future<RankingResult> getRanking({
-    int? seasonId,
-    int? eventId,
-  }) async {
-    rankingCall = (
-      seasonId: seasonId,
-      eventId: eventId,
-    );
-    return RankingResult(
-      scope: eventId != null ? 'event' : 'season',
-      rank: 1,
-      totalPoints: 0,
-      offchainPoints: 0,
-      totalParticipants: 1,
-      seasonId: eventId == null ? seasonId : null,
-      eventId: eventId,
-    );
-  }
-
-  @override
   void dispose() {}
 }
 
@@ -117,15 +95,12 @@ void main() {
 
       await container.read(challengesProvider.future);
       await container.read(breakdownProvider.future);
-      await container.read(rankingProvider.future);
 
       expect(service.challengesCall?.seasonId, isNull);
       expect(service.challengesCall?.eventId, 3);
       expect(service.challengesCall?.activeOnly, isTrue);
       expect(service.breakdownCall?.seasonId, isNull);
       expect(service.breakdownCall?.eventId, 3);
-      expect(service.rankingCall?.seasonId, isNull);
-      expect(service.rankingCall?.eventId, 3);
     });
 
     test('season id is used when no event is selected', () async {
@@ -137,28 +112,22 @@ void main() {
 
       await container.read(challengesProvider.future);
       await container.read(breakdownProvider.future);
-      await container.read(rankingProvider.future);
 
       expect(service.challengesCall?.seasonId, 1);
       expect(service.challengesCall?.eventId, isNull);
       expect(service.challengesCall?.activeOnly, isTrue);
       expect(service.breakdownCall?.seasonId, 1);
       expect(service.breakdownCall?.eventId, isNull);
-      expect(service.rankingCall?.seasonId, 1);
-      expect(service.rankingCall?.eventId, isNull);
     });
 
-    test('breakdown and ranking providers do not fetch global scope', () async {
+    test('breakdown provider does not fetch global scope', () async {
       final service = _RecordingLeaderboardApiService();
       final container = _container(service, const SeasonEventContext());
 
       final breakdown = await container.read(breakdownProvider.future);
-      final ranking = await container.read(rankingProvider.future);
 
       expect(breakdown, isNull);
-      expect(ranking, isNull);
       expect(service.breakdownCall, isNull);
-      expect(service.rankingCall, isNull);
     });
   });
 }

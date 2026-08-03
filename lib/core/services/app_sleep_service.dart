@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
-import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -139,7 +138,6 @@ class AppSleepService extends ChangeNotifier {
   bool _initialized = false;
   bool _isEnabled;
   bool _resumeNodeOnWake = false;
-  bool _resumeIosKeepAliveOnWake = false;
   bool _resumeEpochMonitoringOnWake = false;
   bool _awaitingInactivityAfterWakelockRelease = false;
   bool _wakelockPollInFlight = false;
@@ -298,8 +296,6 @@ class AppSleepService extends ChangeNotifier {
     _awaitingInactivityAfterWakelockRelease = false;
 
     _resumeNodeOnWake = RustBackendService.instance.isRunning;
-    _resumeIosKeepAliveOnWake =
-        Platform.isIOS && IOSForegroundKeepAliveService.instance.isActive;
     _resumeEpochMonitoringOnWake =
         EpochSlotSchedulerService.instance.isInitialized;
 
@@ -338,10 +334,6 @@ class AppSleepService extends ChangeNotifier {
     if (Platform.isAndroid && !_useWakelockTransitionFlow) {
       await AndroidForegroundTaskController.instance
           .stopMonitoring(reason: 'app_sleep:${reason.name}');
-    }
-
-    if (_resumeIosKeepAliveOnWake) {
-      await IOSForegroundKeepAliveService.instance.stopKeepAlive();
     }
 
     if (Platform.isAndroid && !_useWakelockTransitionFlow) {
@@ -393,10 +385,6 @@ class AppSleepService extends ChangeNotifier {
         _resumeNodeOnWake) {
       await AndroidForegroundTaskController.instance
           .startMonitoring(reason: 'app_wake');
-    }
-
-    if (Platform.isIOS && _resumeIosKeepAliveOnWake) {
-      await IOSForegroundKeepAliveService.instance.startKeepAlive();
     }
 
     notifyListeners();
@@ -460,9 +448,6 @@ class AppSleepService extends ChangeNotifier {
       }
 
       if (Platform.isIOS) {
-        if (IOSForegroundKeepAliveService.instance.isActive) {
-          return true;
-        }
         return await WakelockPlus.enabled;
       }
     } catch (e) {

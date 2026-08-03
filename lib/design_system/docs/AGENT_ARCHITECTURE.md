@@ -282,21 +282,14 @@ graph LR
 
     subgraph "DS Slot Widgets (lib/design_system/src/)"
         DS_IB["IconBadge"]
-        DS_SB["StatusBadge"]
-        DS_RB["RankBadge"]
         DS_IR["InfoRow"]
-        DS_SH["ScoreHeader"]
+        DS_LSH["ListSectionHeader"]
         DS_CC["ChallengeCard"]
-        DS_TF["TextField"]
-        DS_DD["DropdownChip"]
+        DS_TAB["TopAppBar"]
     end
 
     subgraph "Legacy Core (lib/core/widgets/)"
-        CORE_BTN["AppButton"]
         CORE_CARD["AppCard"]
-        CORE_AB["AppActionButton"]
-        CORE_BS["AppBottomSheet"]
-        CORE_PB["AppProgressBar"]
     end
 
     subgraph "Consumer (lib/features/*/screens/)"
@@ -304,22 +297,15 @@ graph LR
     end
 
     DS_IB -->|"slots into"| M3_LT
-    DS_SB -->|"slots into"| M3_LT
-    DS_RB -->|"slots into"| M3_LT
+    DS_LSH -->|"slots into"| M3_LT
 
     M3_LT --> SCREEN
     M3_CARD --> SCREEN
     M3_SC --> SCREEN
     DS_CC --> SCREEN
-    DS_SH --> SCREEN
-    DS_TF --> SCREEN
-    DS_DD --> SCREEN
+    DS_TAB --> SCREEN
     DS_IR --> SCREEN
-    CORE_BTN --> SCREEN
     CORE_CARD --> SCREEN
-    CORE_AB --> SCREEN
-    CORE_BS --> SCREEN
-    CORE_PB --> SCREEN
 
     CORE_CARD -->|"composed in"| DS_CC
 ```

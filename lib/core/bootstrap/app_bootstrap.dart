@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
@@ -335,30 +336,17 @@ class AppBootstrap {
         );
       }
 
-      // Initialize FRB for native event delivery; only start the node when an
-      // account exists.
+      // Initialize FRB for native event delivery. The node is NOT started
+      // here: node lifecycle is platform-controlled (SV chrome requests the
+      // start over bridge v4 once the shell boots and the identity settles).
+      // Android alarm/watchdog paths still start the node headless for block
+      // production independently of this bootstrap.
       final nodeWasRunning = RustBackendService.instance.isRunning;
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
         await PlatformAlarmService.instance.markReadyForNativeEvents();
-        if (hasAnyAccounts) {
-          log.info('FRB initialized, starting node...');
-          final started = await RustBackendService.instance.startNode();
-          log.info(
-              'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
-          log.info(started
-              ? 'backend startNode: started'
-              : 'backend startNode: skipped');
-          if (started) {
-            log.info(
-                'Node started successfully, waiting 1 second for node to be ready...');
-            await Future.delayed(const Duration(seconds: 1));
-            log.info('Node should be ready now');
-          }
-        } else {
-          log.info('FRB initialized without an account; node start skipped');
-        }
+        log.info('FRB initialized; node start deferred to the platform');
       } else {
         log.info('Backend already running, skipping start');
         await PlatformAlarmService.instance.markReadyForNativeEvents();
@@ -367,27 +355,22 @@ class AppBootstrap {
         );
       }
 
-      // Watchdog work is useful only while an account-backed producer is
-      // actually running.
-      if (Platform.isAndroid) {
-        final blockProductionActive =
-            hasAnyAccounts && RustBackendService.instance.isRunning;
-        if (blockProductionActive) {
-          BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
-          log.info('Starting Android foreground VRF monitoring');
-          await AndroidForegroundTaskController.instance.onNodeStarted();
-          unawaited(_runStartupAlarmAudit(log));
-        } else {
-          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-          log.info(
-            'Cancelling Android alarm watchdog because block production is inactive',
-            context: {
-              'has_account': hasAnyAccounts,
-              'node_running': RustBackendService.instance.isRunning,
-            },
-          );
-          await PlatformAlarmService.instance.cancelAlarmWatchdog();
-        }
+      // Report cold-boot facts to the lifecycle coordinator, which
+      // reconciles the Android block-production wiring (watchdog recovery,
+      // alarms, foreground service) against them. With an account and no
+      // platform start request yet, recovery stays armed WITHOUT starting
+      // the node: interactive boots defer the start to the platform bridge,
+      // while headless recovery paths (boot receiver, WorkManager watchdog,
+      // force-stop recovery) can still start it through the audit gate.
+      await NodeLifecycleCoordinator.instance.reportColdBoot(
+        hasAccount: hasAnyAccounts,
+        reason: 'bootstrap',
+      );
+      if (Platform.isAndroid && hasAnyAccounts) {
+        // Force-stop detection is bootstrap-specific: it inspects the native
+        // "was force-stopped" launch flag, and on detection kicks a recovery
+        // audit that may start the node headless to restore production.
+        unawaited(_runStartupAlarmAudit(log));
       }
 
       log.debug('Bootstrap end');

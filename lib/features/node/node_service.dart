@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_rewards.dart
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/epoch_slots.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
+import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -518,6 +519,20 @@ class RustBackendService {
         _log.info(guestSession
             ? 'Guest session; node runs non-producing (no block producer)'
             : 'VIEW_ONLY enabled; skipping block producer configuration');
+      } else if (Platform.isIOS) {
+        // Block production is disabled entirely on iOS: the platform cannot
+        // keep the app alive reliably enough to honor won slots (no alarms,
+        // no foreground service), so producing there only creates missed
+        // slots. The node still runs, syncs, and signs wallet transactions.
+        _log.info('iOS: block production disabled; node runs non-producing');
+      } else if (!await loadBlockProductionReleased()) {
+        // Onboarding flow alignment: producing blocks is a released
+        // capability. Until the platform releases this user's keys
+        // (bp_released on /me and /wallet/provision, persisted per account
+        // bucket by the reconciler), the node runs non-producing — it still
+        // syncs and signs wallet transactions for dapps.
+        _log.info('Block production not released for this account; '
+            'node runs non-producing');
       } else {
         _log.trace(
           'Configuring block producer with user secret key (length: ${secretKey!.length})',

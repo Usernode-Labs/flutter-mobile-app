@@ -21,12 +21,3 @@ final participantIdProvider = FutureProvider<int?>((ref) async {
 final seasonEventContextProvider = StateProvider<SeasonEventContext>(
   (ref) => const SeasonEventContext(),
 );
-
-/// Set of event IDs the participant has data in (from season-scope breakdown).
-///
-/// Updated by the bootstrap or breakdown provider whenever season-scope
-/// data is available. Used by the event picker to show ended events
-/// the user participated in.
-final participantEventIdsProvider = StateProvider<Set<int>>(
-  (ref) => const {},
-);

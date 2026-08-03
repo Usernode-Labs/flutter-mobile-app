@@ -640,8 +640,14 @@ class SessionController extends StateNotifier<Identity> {
   /// for it. Route it through ONE reconcile (the `/wallet/provision`
   /// response establishes the baseline); the persisted flag keeps this from
   /// looping on every `/seasons` refresh if the backend returns no season id.
-  Future<void> beginSeasonRollover({required int activeSeasonId}) =>
+  Future<void> beginSeasonRollover({
+    required int activeSeasonId,
+    Identity? expectedIdentity,
+  }) =>
       _transition(() async {
+        if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
+          return;
+        }
         if (state.phase != IdentityPhase.ready) return;
         final provisioned = state.provisionedSeasonId;
         if (provisioned == activeSeasonId) return;

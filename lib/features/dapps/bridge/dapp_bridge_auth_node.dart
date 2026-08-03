@@ -36,19 +36,17 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// One JSON shape shared by the `getAuthStatus` reply and the pushed
   /// `usernode:auth-status` CustomEvent (bridge v4). `phase` is the
   /// identity phase name (unknown | transitioning | unauthenticated |
-  /// guest | reconciling | ready); `address` is non-null only for a ready
-  /// identity that owns a wallet — exactly what SV chrome needs to know
-  /// when it may request a node start.
+  /// guest | reconciling | ready); `participantId` and `epoch` bind every
+  /// ready address to the exact native session SV must echo into `startNode`.
   Map<String, dynamic> _authStatusSnapshot() {
     return _authStatusSnapshotFor(ref.read(identityProvider));
   }
 
   Map<String, dynamic> _authStatusSnapshotFor(Identity identity) {
-    return {
-      'phase': identity.phase.name,
-      'address':
-          identity.phase == IdentityPhase.ready ? identity.address : null,
-    };
+    return sessionBoundAuthStatus(
+      identity,
+      reconciliationStatus: ref.read(accountReconciliationStatusProvider).name,
+    );
   }
 
   /// Pushes the current identity phase into the page as a
@@ -65,7 +63,9 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
 
   /// `completeLogin` (bridge v4): the platform hands over the mobile bearer
   /// token it minted from its own web session (POST
-  /// /api/v4/mobile/auth/from-session) plus that response's `user` object.
+  /// /api/v4/mobile/auth/from-session). The legacy `user` payload is checked
+  /// for mismatch only; native derives the participant from authenticated
+  /// `/api/v4/mobile/me` so token and participant cannot diverge.
   /// Initial login stays in this runtime and resolves the settled auth
   /// snapshot. Replacing an authenticated participant acknowledges the
   /// accepted runtime cutover before this WebView is removed. Neither path
@@ -79,28 +79,49 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     final user = args is Map<String, dynamic> && args['user'] is Map
         ? (args['user'] as Map).cast<String, dynamic>()
         : null;
-    if (token == null || token.isEmpty || user == null || user['id'] is! num) {
+    if (token == null || token.isEmpty) {
       await _resolveJsPromise(
         id: id,
         value: null,
-        error: 'args.token (string) and args.user ({id, ...}) are required',
+        error: 'args.token (string) is required',
       );
       return;
     }
-    final session = AuthSession(
-      token: token,
-      participant: Participant(
-        id: (user['id'] as num).toInt(),
-        // Web-only platform accounts may have no email; the identity
-        // machinery keys off the participant id, so an empty string is
-        // safe here.
-        email: user['email']?.toString() ?? '',
-        emailConfirmed: user['email_confirmed'] == true,
-        displayName: user['display_name']?.toString(),
-      ),
-    );
-
+    final legacyUserId = user?['id'];
+    if (user != null && legacyUserId is! num) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'args.user.id must be numeric when args.user is supplied',
+      );
+      return;
+    }
     final current = ref.read(identityProvider);
+    AuthSession session;
+    try {
+      session = await ref.read(authRepositoryProvider).resolveBearerSession(
+            token,
+            legacyParticipantId: (legacyUserId as num?)?.toInt(),
+          );
+    } catch (error) {
+      debugPrint('[Usernode JS-channel] bearer validation failed: $error');
+      if (!mounted) return;
+      if (!_identityScopeIsCurrent(current)) {
+        await _rejectStaleIdentityScope(id, 'completeLogin');
+        return;
+      }
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Session validation failed',
+      );
+      return;
+    }
+    if (!mounted) return;
+    if (!_identityScopeIsCurrent(current)) {
+      await _rejectStaleIdentityScope(id, 'completeLogin');
+      return;
+    }
     final controller = ref.read(identityProvider.notifier);
     final replacingParticipant = current.isAuthenticated &&
         current.participantId != session.participant.id;
@@ -198,13 +219,26 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
 
   /// `startNode` (bridge v4): platform-requested node start, bound to the
   /// current identity's wallet. Refused unless the identity is settled
-  /// (ready) and the requested address (when provided) matches it — the
-  /// page can never start the node under someone else's account.
+  /// (ready), the echoed participant/epoch/address match, and an authoritative
+  /// account refresh succeeds without changing that scope.
   Future<void> _handleStartNode(String id, Map<String, dynamic> payload) async {
     if (!await _requireTrustedChromeOrigin(id, 'startNode')) return;
     final args = payload['args'];
-    final address =
-        args is Map<String, dynamic> ? args['address']?.toString() : null;
+    if (args is! Map<String, dynamic>) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'startNode requires args.address, args.participantId, and '
+            'args.epoch',
+      );
+      return;
+    }
+    final address = args['address']?.toString();
+    final participantIdRaw = args['participantId'];
+    final epochRaw = args['epoch'];
+    final participantId =
+        participantIdRaw is num ? participantIdRaw.toInt() : null;
+    final epoch = epochRaw is num ? epochRaw.toInt() : null;
     final identity = ref.read(identityProvider);
     if (identity.phase != IdentityPhase.ready) {
       await _resolveJsPromise(
@@ -215,11 +249,46 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       );
       return;
     }
-    if (address != null && address.isNotEmpty && address != identity.address) {
+    if (participantId == null ||
+        epoch == null ||
+        address == null ||
+        address.isEmpty ||
+        !sessionScopeMatchesReadyIdentity(
+          identity,
+          participantId: participantId,
+          epoch: epoch,
+          address: address,
+        )) {
       await _resolveJsPromise(
         id: id,
         value: null,
-        error: 'address does not belong to the current identity',
+        error: 'startNode identity scope is stale',
+      );
+      return;
+    }
+    final fresh =
+        await ref.read(identityDriverProvider).ensureFreshBeforeNodeStart();
+    if (!mounted) return;
+    final refreshedIdentity = ref.read(identityProvider);
+    if (!fresh) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Could not refresh the current account state',
+      );
+      return;
+    }
+    if (!identity.sameScopeAs(refreshedIdentity) ||
+        !sessionScopeMatchesReadyIdentity(
+          refreshedIdentity,
+          participantId: participantId,
+          epoch: epoch,
+          address: address,
+        )) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'startNode identity changed during refresh',
       );
       return;
     }
@@ -301,7 +370,12 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     if (!mounted) return;
     if (RustBackendService.instance.isRunning) return;
     if (AppSleepStateStore.isSleeping) return;
-    if (ref.read(identityProvider).phase != IdentityPhase.ready) return;
+    final identity = ref.read(identityProvider);
+    if (identity.phase != IdentityPhase.ready) return;
+    if (!await ref.read(identityDriverProvider).ensureFreshBeforeNodeStart()) {
+      return;
+    }
+    if (!mounted || !identity.sameScopeAs(ref.read(identityProvider))) return;
     // Same Android block-production wiring as the bridge startNode handler,
     // via the shared coordinator.
     await NodeLifecycleCoordinator.instance.startNode(

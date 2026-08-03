@@ -25,12 +25,16 @@ import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_typography.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart'
-    show AuthSession, Participant;
+    show AuthSession;
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
-    show authStatusProvider, identityProvider;
+    show authRepositoryProvider, authStatusProvider, identityProvider;
+import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart'
+    show accountReconciliationStatusProvider, identityDriverProvider;
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart'
     show nodeAccountReconcilerProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
+import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
+import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -118,6 +122,7 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
 abstract class _DappWebViewScreenStateBase
     extends ConsumerState<DappWebViewScreen> {
   late final WebViewController _controller;
+  late final PrivilegedBridgePolicy _privilegedBridgePolicy;
   int _progress = 0;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
@@ -168,7 +173,7 @@ abstract class _DappWebViewScreenStateBase
   /// mutate app-level native state, so only the trusted SV origin may call
   /// them. Rejects the JS promise and returns false for anyone else.
   Future<bool> _requireTrustedChromeOrigin(String id, String method) async {
-    if (await _isTrustedShortcutOrigin()) return true;
+    if (_privilegedBridgePolicy.hasActiveCapability) return true;
     await _resolveJsPromise(
       id: id,
       value: null,
@@ -231,22 +236,11 @@ abstract class _DappWebViewScreenStateBase
     }
   }
 
-  /// True when the top frame currently shows the configured dapps-tab
-  /// home (social vibecoding) — the only page trusted to manage
-  /// homescreen shortcuts. Sub-apps live on their own subdomains (or are
-  /// iframes whose relayed calls the SV bridge refuses to forward), so
-  /// an exact origin match on the current URL is the boundary. Local-dev
-  /// hosts pass so `--local-dev` SV builds stay testable.
+  /// True while the centralized bridge policy has an active trusted
+  /// main-frame capability. The dispatch gate separately requires callers to
+  /// present that capability, so ambient WebView URL state is never enough.
   Future<bool> _isTrustedShortcutOrigin() async {
-    final raw = await _controller.currentUrl();
-    final current = raw == null ? null : Uri.tryParse(raw);
-    if (current == null || current.host.isEmpty) return false;
-    if (_isLocalDevHost(current.host)) return true;
-    final trusted = Uri.tryParse(AppConfig.dappsTabUrl);
-    if (trusted == null || trusted.host.isEmpty) return false;
-    return current.scheme == trusted.scheme &&
-        current.host == trusted.host &&
-        current.port == trusted.port;
+    return _privilegedBridgePolicy.hasActiveCapability;
   }
 
   /// Shared deny-path for the shortcut management handlers. Returns
@@ -280,6 +274,11 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void initState() {
     super.initState();
+    _privilegedBridgePolicy = PrivilegedBridgePolicy(
+      trustedOrigin: Uri.tryParse(AppConfig.dappsTabUrl),
+      allowLocalDevelopment:
+          kDebugMode && AppConfig.enableLocalPrivilegedBridge,
+    );
     // iOS: opt this webview into App-Bound Domains (WKAppBoundDomains in
     // Info.plist). This unlocks Service Workers — SV's offline PWA mode —
     // at the cost of restricting navigation to the bound domains. All dapp
@@ -326,7 +325,14 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (_) {
+          onNavigationRequest: (request) {
+            if (request.isMainFrame) {
+              _privilegedBridgePolicy.beginMainFrameNavigation();
+            }
+            return NavigationDecision.navigate;
+          },
+          onPageStarted: (url) {
+            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
             if (!mounted) return;
             // A full page load wipes any JS state, so the channel-owns-title
             // latch has to be cleared too — the new page hasn't told us
@@ -345,7 +351,8 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
               setState(() => _progress = progress);
             }
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) {
+            _privilegedBridgePolicy.observeMainFrameUrl(Uri.tryParse(url));
             if (!mounted) return;
             setState(() => _progress = 100);
             _reportFirstLoadResult(true);
@@ -358,7 +365,11 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             // Same for the identity phase (bridge v4 boot orchestration).
             _dispatchAuthStatusEvent();
           },
-          onUrlChange: (_) {
+          onUrlChange: (change) {
+            final url = change.url;
+            if (url != null) {
+              _privilegedBridgePolicy.observeMainFrameUrl(Uri.tryParse(url));
+            }
             // SPA pushState navigation — title typically changes too.
             _refreshPageTitle();
             _refreshCanGoBack();
@@ -369,6 +380,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             // Sub-resource failures (an image, a beacon) don't mean the
             // page failed; only main-frame errors flunk the first-load gate.
             if (error.isForMainFrame != false) {
+              _privilegedBridgePolicy.revoke();
               _reportFirstLoadResult(false);
             }
           },
@@ -399,7 +411,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       identityProvider,
       (previous, next) {
         if (previous?.phase == next.phase &&
-            previous?.address == next.address) {
+            previous?.address == next.address &&
+            previous?.participantId == next.participantId &&
+            previous?.epoch == next.epoch) {
           return;
         }
         _dispatchAuthStatusEvent();
@@ -409,6 +423,13 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         if (next.phase == IdentityPhase.ready) {
           unawaited(_ensureNodeForStandaloneDappEntry());
         }
+      },
+    );
+    ref.listenManual(
+      accountReconciliationStatusProvider,
+      (previous, next) {
+        if (previous == next) return;
+        _dispatchAuthStatusEvent();
       },
     );
     _loadTxRecords();
@@ -474,6 +495,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
 
   @override
   void dispose() {
+    _privilegedBridgePolicy.revoke();
     _confirmPoller?.cancel();
     _urlController.dispose();
     _urlFocusNode.dispose();

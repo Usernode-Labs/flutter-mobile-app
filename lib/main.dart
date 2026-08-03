@@ -497,6 +497,9 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      unawaited(
+        ref.read(identityDriverProvider).refreshNow(),
+      );
       // Don't reset _versionCheckShown — the guard in _checkInitialVersion
       // prevents stacking a second dialog on top of an already-shown one.
       ref.invalidate(appVersionCheckProvider);

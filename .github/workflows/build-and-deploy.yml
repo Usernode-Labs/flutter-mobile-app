@@ -86,8 +86,10 @@ jobs:
 
       - name: Determine environment based on branch
         id: env_config
+        env:
+          MOBILE_APP_REF: ${{ inputs.mobile_app_branch || github.ref_name }}
         run: |
-          if [ "${{ github.ref_name }}" == "main" ]; then
+          if [ "$MOBILE_APP_REF" == "main" ]; then
             echo "env_type=PROD" >> $GITHUB_OUTPUT
             echo "track=production" >> $GITHUB_OUTPUT
             echo "bundle_dir=build/app/outputs/bundle/release" >> $GITHUB_OUTPUT
@@ -157,6 +159,21 @@ jobs:
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
+
+      - name: Provision Social push Android client
+        env:
+          SOCIAL_PUSH_ENV_TYPE: ${{ steps.env_config.outputs.env_type }}
+          PROD_SOCIAL_PUSH_REQUIRED: ${{ vars.PROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          NONPROD_SOCIAL_PUSH_REQUIRED: ${{ vars.NONPROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          PROD_PUSH_ENV: ${{ vars.PROD_PUSH_ENV }}
+          NONPROD_PUSH_ENV: ${{ vars.NONPROD_PUSH_ENV }}
+          PROD_FIREBASE_PROJECT_ID: ${{ vars.PROD_FIREBASE_PROJECT_ID }}
+          NONPROD_FIREBASE_PROJECT_ID: ${{ vars.NONPROD_FIREBASE_PROJECT_ID }}
+          PROD_MOBILE_API_BASE_URL: ${{ vars.PROD_MOBILE_API_BASE_URL }}
+          NONPROD_MOBILE_API_BASE_URL: ${{ vars.NONPROD_MOBILE_API_BASE_URL }}
+          PROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.PROD_FIREBASE_ANDROID_CONFIG_BASE64 }}
+          NONPROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.NONPROD_FIREBASE_ANDROID_CONFIG_BASE64 }}
+        run: bash tool/provision-social-push-build.sh android
 
       - name: Set build number from run
         id: version
@@ -629,8 +646,10 @@ jobs:
 
       - name: Determine environment based on branch
         id: env_config_ios
+        env:
+          MOBILE_APP_REF: ${{ inputs.mobile_app_branch || github.ref_name }}
         run: |
-          if [ "${{ github.ref_name }}" == "main" ]; then
+          if [ "$MOBILE_APP_REF" == "main" ]; then
             echo "env_type=PROD" >> $GITHUB_OUTPUT
             echo "📦 Building for PRODUCTION (main branch)"
           else
@@ -694,6 +713,21 @@ jobs:
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"
+
+      - name: Provision Social push iOS client
+        env:
+          SOCIAL_PUSH_ENV_TYPE: ${{ steps.env_config_ios.outputs.env_type }}
+          PROD_SOCIAL_PUSH_REQUIRED: ${{ vars.PROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          NONPROD_SOCIAL_PUSH_REQUIRED: ${{ vars.NONPROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          PROD_PUSH_ENV: ${{ vars.PROD_PUSH_ENV }}
+          NONPROD_PUSH_ENV: ${{ vars.NONPROD_PUSH_ENV }}
+          PROD_FIREBASE_PROJECT_ID: ${{ vars.PROD_FIREBASE_PROJECT_ID }}
+          NONPROD_FIREBASE_PROJECT_ID: ${{ vars.NONPROD_FIREBASE_PROJECT_ID }}
+          PROD_MOBILE_API_BASE_URL: ${{ vars.PROD_MOBILE_API_BASE_URL }}
+          NONPROD_MOBILE_API_BASE_URL: ${{ vars.NONPROD_MOBILE_API_BASE_URL }}
+          PROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.PROD_FIREBASE_IOS_CONFIG_BASE64 }}
+          NONPROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.NONPROD_FIREBASE_IOS_CONFIG_BASE64 }}
+        run: bash tool/provision-social-push-build.sh ios
 
       - name: Build iOS app (no codesign)
         run: |

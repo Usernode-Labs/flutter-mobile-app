@@ -68,6 +68,18 @@ class AppConfig {
   // as topochain v3).
   static String get authApiBaseUrl => '$mobileApiBaseUrl/auth';
 
+  // Public deployment identity for Social remote notifications. Keeping both
+  // values explicit makes unprovisioned/local builds fail closed without
+  // accidentally registering against another Firebase project.
+  static const String pushEnvironment = String.fromEnvironment(
+    'PUSH_ENV',
+    defaultValue: '',
+  );
+  static const String expectedFirebaseProjectId = String.fromEnvironment(
+    'FIREBASE_PROJECT_ID',
+    defaultValue: '',
+  );
+
   // Startup bootstrap for local/dev sign-in without registration.
   static const String _bootstrapSecretKey =
       String.fromEnvironment('BOOTSTRAP_SECRET_KEY', defaultValue: '');

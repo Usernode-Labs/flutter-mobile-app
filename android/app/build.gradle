@@ -4,6 +4,25 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Firebase identity is provisioned by the build environment. Keep local
+// checkouts without a client file buildable; Dart then exposes push as
+// unavailable instead of silently targeting an unintended project.
+def googleServicesJsonCandidates = [
+    file('google-services.json'),
+    file('src/debug/google-services.json'),
+    file('src/profile/google-services.json'),
+    file('src/release/google-services.json'),
+]
+if (googleServicesJsonCandidates.any { candidate -> candidate.exists() }) {
+    apply plugin: 'com.google.gms.google-services'
+    googleServices {
+        missingGoogleServicesStrategy =
+            com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN
+    }
+} else {
+    logger.lifecycle('Firebase Android configuration is absent; Social push is unavailable.')
+}
+
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {

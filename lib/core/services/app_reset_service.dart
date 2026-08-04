@@ -20,6 +20,7 @@ class AppResetService {
 
   final _log = LoggingService.instance.withTag('usernode/AppReset');
   Future<void> Function()? _inProcessRestartHandler;
+  Future<void> Function()? _persistentResetHandler;
   bool _resetInProgress = false;
 
   void registerInProcessRestartHandler(Future<void> Function() handler) {
@@ -28,6 +29,10 @@ class AppResetService {
 
   void unregisterInProcessRestartHandler() {
     _inProcessRestartHandler = null;
+  }
+
+  void registerPersistentResetHandler(Future<void> Function() handler) {
+    _persistentResetHandler = handler;
   }
 
   bool get isResetInProgress => _resetInProgress;
@@ -106,6 +111,13 @@ class AppResetService {
   }
 
   Future<void> _clearPersistentState() async {
+    try {
+      await _persistentResetHandler?.call();
+    } catch (e) {
+      // Optional feature cleanup must not prevent the app's core credentials
+      // and preferences from being cleared.
+      _log.warn('Failed to reset feature-owned persistent state: $e');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 

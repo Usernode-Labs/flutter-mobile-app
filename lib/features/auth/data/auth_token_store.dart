@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -6,11 +8,25 @@ class AuthTokenStore {
       : _storage = storage ?? const FlutterSecureStorage();
 
   static const _key = 'auth:v3:session_token';
+  static final StreamController<void> _changes =
+      StreamController<void>.broadcast(sync: true);
   final FlutterSecureStorage _storage;
 
+  /// Nonsecret process-wide signal used by consumers that must react when a
+  /// same-participant login rotates the bearer without changing Identity.
+  static Stream<void> get changes => _changes.stream;
+
   Future<String?> read() => _storage.read(key: _key);
-  Future<void> write(String token) => _storage.write(key: _key, value: token);
-  Future<void> clear() => _storage.delete(key: _key);
+
+  Future<void> write(String token) async {
+    await _storage.write(key: _key, value: token);
+    _changes.add(null);
+  }
+
+  Future<void> clear() async {
+    await _storage.delete(key: _key);
+    _changes.add(null);
+  }
 }
 
 class AuthGuestFlag {

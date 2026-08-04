@@ -10,7 +10,8 @@ mixin _BridgeDispatch
         _BridgeAuthNode,
         _BridgeWallet,
         _BridgeShortcuts,
-        _BridgeSettings {
+        _BridgeSettings,
+        _BridgeSocialPush {
   /// Bridge protocol version. Bump only on breaking changes; additive
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
@@ -53,6 +54,11 @@ mixin _BridgeDispatch
     'getAuthStatus',
     'authStatusEvents',
     'sessionBoundAuthStatus',
+    // Social remote notifications (additive bridge-v4 capabilities).
+    'getSocialPushState',
+    'setSocialPushEnabled',
+    'claimPendingSocialNotification',
+    'ackPendingSocialNotification',
   ];
 
   /// Routes every `Usernode` JS-channel message to its domain handler.
@@ -150,7 +156,7 @@ mixin _BridgeDispatch
       }
 
       if (method == 'enterAnonymousSession') {
-        _sessionHandoffGate.admit();
+        _admitSessionHandoff();
         await _resolveJsPromise(
           id: id,
           value: const {'admitted': true},
@@ -294,6 +300,22 @@ mixin _BridgeDispatch
 
         if (method == 'getAuthStatus') {
           await _handleGetAuthStatus(id);
+        }
+
+        if (method == 'getSocialPushState') {
+          await _handleGetSocialPushState(id);
+        }
+
+        if (method == 'setSocialPushEnabled') {
+          await _handleSetSocialPushEnabled(id, payload);
+        }
+
+        if (method == 'claimPendingSocialNotification') {
+          await _handleClaimPendingSocialNotification(id);
+        }
+
+        if (method == 'ackPendingSocialNotification') {
+          await _handleAckPendingSocialNotification(id, payload);
         }
       } catch (e, st) {
         debugPrint('[Usernode JS-channel] handler error method=$method id=$id: '

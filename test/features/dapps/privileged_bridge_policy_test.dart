@@ -48,6 +48,10 @@ void main() {
       'stopNode',
       'getAuthStatus',
       'logout',
+      'getSocialPushState',
+      'setSocialPushEnabled',
+      'claimPendingSocialNotification',
+      'ackPendingSocialNotification',
     });
   });
 

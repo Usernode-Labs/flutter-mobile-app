@@ -38,6 +38,10 @@ class PrivilegedBridgePolicy {
     'stopNode',
     'getAuthStatus',
     'logout',
+    'getSocialPushState',
+    'setSocialPushEnabled',
+    'claimPendingSocialNotification',
+    'ackPendingSocialNotification',
   };
 
   final Uri? _trustedOrigin;

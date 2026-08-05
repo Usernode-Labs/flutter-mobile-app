@@ -20,6 +20,8 @@ import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
+import 'package:crypto_mobile_app/features/social_notifications/social_push_binding.dart';
+import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -71,6 +73,23 @@ Future<void> _runAppBody({required String logTag}) async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Start terminated-app tap capture before the replaceable ProviderContainer
+  // and WebView runtime are constructed. The durable pending-tap state is
+  // replayed when the trusted page is ready, so native Firebase calls must not
+  // delay the first frame.
+  unawaited(
+    SocialPushService.instance.initialize().catchError(
+      (Object error, StackTrace stackTrace) {
+        debugPrint(
+          '[SocialPush] Initialization failed: $error\n$stackTrace',
+        );
+      },
+    ),
+  );
+  AppResetService.instance.registerPersistentResetHandler(
+    SocialPushService.instance.resetForAppReset,
+  );
 
   final boot = await AppBootstrap.initNonUi(logTag: logTag);
   final log = boot.log;
@@ -451,6 +470,11 @@ class CryptoMobileApp extends ConsumerWidget {
     // sign-in transition fires for users who stay signed in across it.
     ref.watch(seasonRolloverSyncProvider);
 
+    // Feed the process-lifetime push service only the current ready identity
+    // and exact bearer. Replacing this container replaces the adapter, not the
+    // Firebase listeners or durable pending tap.
+    ref.watch(socialPushBindingProvider);
+
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,
       theme: _lightTheme,
@@ -480,6 +504,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   bool _versionCheckShown = false;
   bool _wasSleeping = false;
   final _appSleepService = AppSleepService.instance;
+  StreamSubscription<void>? _socialPushTapSubscription;
 
   @override
   void initState() {
@@ -487,16 +512,25 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     WidgetsBinding.instance.addObserver(this);
     _wasSleeping = _appSleepService.isSleeping;
     _appSleepService.addListener(_handleAppSleepChanged);
+    _socialPushTapSubscription =
+        SocialPushService.instance.tapEvents.listen((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _openPendingSocialNotification();
+      });
+    });
     _syncVersionChecks();
     // Check version after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialVersion();
+      _openPendingSocialNotification();
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      SocialPushService.instance.reconcileBestEffort();
+      _openPendingSocialNotification();
       unawaited(
         ref.read(identityDriverProvider).refreshNow(),
       );
@@ -532,8 +566,14 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _appSleepService.removeListener(_handleAppSleepChanged);
+    unawaited(_socialPushTapSubscription?.cancel());
     AppVersionCheck.instance.stopPeriodicChecks();
     super.dispose();
+  }
+
+  void _openPendingSocialNotification() {
+    if (!mounted || !SocialPushService.instance.hasPendingTap) return;
+    ref.read(appRouterProvider).go(AppRoutes.home);
   }
 
   void _handleVersionCheckResult(VersionCheckResult result) {

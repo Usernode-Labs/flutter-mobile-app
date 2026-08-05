@@ -17,6 +17,10 @@ class SessionHandoffGate {
     'txObserved',
     'getWalletState',
     'getTransactionRecords',
+    'getSocialPushState',
+    'setSocialPushEnabled',
+    'claimPendingSocialNotification',
+    'ackPendingSocialNotification',
   };
 
   bool _blocked;

@@ -67,6 +67,12 @@ app.*.map.json
 service-account*.json
 AuthKey_*.p8
 
+# Environment-selected Firebase client identity (never source-controlled).
+/android/app/google-services.json
+/android/app/src/*/google-services.json
+/ios/Runner/GoogleService-Info.plist
+/ios/Firebase/**/GoogleService-Info.plist
+
 # flutter_rust_bridge_codegen generated
 lib/src/rust
 

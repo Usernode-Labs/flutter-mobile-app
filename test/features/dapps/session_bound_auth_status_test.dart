@@ -37,6 +37,10 @@ void main() {
       'txObserved',
       'getWalletState',
       'getTransactionRecords',
+      'getSocialPushState',
+      'setSocialPushEnabled',
+      'claimPendingSocialNotification',
+      'ackPendingSocialNotification',
     });
     for (final method in SessionHandoffGate.sessionScopedMethods) {
       expect(gate.blocks(method), isTrue, reason: method);

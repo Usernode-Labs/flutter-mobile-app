@@ -183,7 +183,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       return;
     }
     if (sameParticipant) {
-      _sessionHandoffGate.admit();
+      _admitSessionHandoff();
       final response = _authStatusSnapshotFor(responseIdentity);
       await _resolveJsPromise(
         id: id,
@@ -220,7 +220,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       await _rejectStaleIdentityScope(id, 'completeLogin');
       return;
     }
-    _sessionHandoffGate.admit();
+    _admitSessionHandoff();
     final response = _authStatusSnapshotFor(responseIdentity);
     await _resolveJsPromise(id: id, value: response, error: null);
   }

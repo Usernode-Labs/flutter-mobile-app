@@ -253,6 +253,7 @@
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
+				0AE10023000000000000C0DE /* Select Firebase Configuration */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				0AE1000E000000000000C0DE /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
@@ -303,6 +304,11 @@
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
+						SystemCapabilities = {
+							com.apple.Push = {
+								enabled = 1;
+							};
+						};
 					};
 					0AE1000A000000000000C0DE = {
 						CreatedOnToolsVersion = 15.1;
@@ -358,6 +364,22 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		0AE10023000000000000C0DE /* Select Firebase Configuration */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Select Firebase Configuration";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"$PROJECT_DIR/Runner/copy_firebase_config.sh\"";
+			showEnvVarsInLog = 0;
+		};
 		191C66F1E36633D581DAE4B3 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -591,6 +613,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
+				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
@@ -791,6 +814,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
+				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
@@ -828,6 +852,7 @@
 				isa = XCBuildConfiguration;
 				baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 				buildSettings = {
+					APS_ENVIRONMENT = production;
 					ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 					CLANG_ENABLE_MODULES = YES;
 					CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;

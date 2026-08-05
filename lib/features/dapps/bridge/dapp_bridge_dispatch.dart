@@ -15,7 +15,7 @@ mixin _BridgeDispatch
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
   static const int _bridgeVersion = 4;
-  static const List<String> _bridgeCapabilities = [
+  static const List<String> _staticBridgeCapabilities = [
     'getNodeAddress',
     'sendTransaction',
     'signMessage',
@@ -48,6 +48,21 @@ mixin _BridgeDispatch
     'getAuthStatus',
     'authStatusEvents',
   ];
+
+  /// Platform-aware capability list. Additive, feature-named entries only
+  /// (same convention as `completeLogin` etc.) — no `_bridgeVersion` bump.
+  ///
+  /// `homeScreenShortcutDarkIcon` — `addHomeScreenShortcut` accepts an
+  /// optional `icon_url_dark` and the WidgetKit tiles select it per system
+  /// appearance; `getHomeScreenShortcuts` items carry `has_icon_dark`.
+  /// iOS-only: the flag means "sending a dark icon has a visible effect",
+  /// and Android's pinned launcher shortcuts are static bitmaps that can
+  /// never flip, so advertising there would make the page ship an asset
+  /// that is silently dropped.
+  List<String> get _bridgeCapabilities => [
+        ..._staticBridgeCapabilities,
+        if (HomeShortcutsChannel.isIOS) 'homeScreenShortcutDarkIcon',
+      ];
 
   /// Routes every `Usernode` JS-channel message to its domain handler.
   /// Body moved verbatim from the former inline `onMessageReceived`

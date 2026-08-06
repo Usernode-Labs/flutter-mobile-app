@@ -2018,7 +2018,6 @@ If you encounter issues not covered here:
 - `flutter_hooks`: ^0.20.5 - React-like hooks
 - `cupertino_icons`: ^1.0.2 - iOS-style icons
 - `skeletonizer`: ^2.1.0 - Skeleton loading screens
-- `qr_flutter`: ^4.1.0 - QR code generation
 
 **State Management**:
 

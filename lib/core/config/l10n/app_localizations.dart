@@ -640,12 +640,6 @@ abstract class AppLocalizations {
   /// **'Debug'**
   String get buildInfoDebug;
 
-  /// Navigation bar label for dapps tab
-  ///
-  /// In en, this message translates to:
-  /// **'dApps'**
-  String get navDapps;
-
   /// Retry button label
   ///
   /// In en, this message translates to:

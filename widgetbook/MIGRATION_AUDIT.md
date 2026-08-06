@@ -35,7 +35,6 @@ intentional DS surface.
 | `leaderboard_stats_card_use_case.dart` | `leaderboard_stats_card.stories.dart` | Real leaderboard summary card; keep chart and data edge scenarios. |
 | `list_section_header_use_case.dart` | `list_section_header.stories.dart` | Small shared list primitive; keep as a stable composition part. |
 | `rank_badge_use_case.dart` | `rank_badge.stories.dart` | Shared leaderboard slot widget; keep rank pattern states. |
-| `result_page_use_case.dart` | `result_page.stories.dart` | Shared full-page outcome surface; keep success/failure/info. |
 | `score_header_use_case.dart` | `score_header.stories.dart` | Real score/KPI header; keep score, countdown, and variant states. |
 | `sheet_layout_use_case.dart` | `sheet_layout.stories.dart` | Shared sheet composition primitive. |
 | `shimmer_use_case.dart` | `shimmer_block.stories.dart`, `shimmer_card_skeleton.stories.dart`, `shimmer_list_tile.stories.dart` | Split the old mixed playground into stories for the actual shimmer widgets. |

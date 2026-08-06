@@ -46,6 +46,16 @@ class HomeShortcutsChannel {
     result(true)
   }
 
+  /// The icon store holds up to two PNGs per pinned dapp: `<id>.png` is the
+  /// light/default asset (its name and meaning predate dark icons and must
+  /// stay stable for entries users already have), `<id>.dark.png` is the
+  /// optional dark-appearance asset the widget prefers in dark mode. The
+  /// `.dark` suffix is appended here, after the hex-digest validation, so
+  /// the id can never smuggle a path.
+  private static func iconFileName(id: String, dark: Bool) -> String {
+    dark ? "\(id).dark.png" : "\(id).png"
+  }
+
   private func saveWidgetIcon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let id = args["id"] as? String,
@@ -58,6 +68,7 @@ class HomeShortcutsChannel {
       result(FlutterError(code: "invalid_args", message: "id must be a hex digest", details: nil))
       return
     }
+    let dark = (args["dark"] as? Bool) ?? false
     guard let container = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: HomeShortcutsChannel.appGroupId
     ) else {
@@ -69,7 +80,10 @@ class HomeShortcutsChannel {
     let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
     do {
       try FileManager.default.createDirectory(at: iconsDir, withIntermediateDirectories: true)
-      try bytes.data.write(to: iconsDir.appendingPathComponent("\(id).png"), options: .atomic)
+      try bytes.data.write(
+        to: iconsDir.appendingPathComponent(Self.iconFileName(id: id, dark: dark)),
+        options: .atomic
+      )
       result(true)
     } catch {
       print("[HomeShortcuts] Failed to save icon: \(error)")
@@ -77,6 +91,11 @@ class HomeShortcutsChannel {
     }
   }
 
+  /// Without `dark`, removes BOTH appearance assets (the unpin path — an
+  /// entry leaving the registry must not leak either PNG, or a later re-pin
+  /// of the same URL would resurrect a stale image). With `dark: true`,
+  /// removes only the dark slot: a re-add without `icon_url_dark` reverts
+  /// the entry to single-asset while the light PNG stays untouched.
   private func deleteWidgetIcon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let id = args["id"] as? String else {
@@ -88,6 +107,7 @@ class HomeShortcutsChannel {
       result(FlutterError(code: "invalid_args", message: "id must be a hex digest", details: nil))
       return
     }
+    let darkOnly = (args["dark"] as? Bool) ?? false
     guard let container = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: HomeShortcutsChannel.appGroupId
     ) else {
@@ -95,12 +115,16 @@ class HomeShortcutsChannel {
       result(false)
       return
     }
-    let iconURL = container
-      .appendingPathComponent("pinned_icons", isDirectory: true)
-      .appendingPathComponent("\(id).png")
+    let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
+    let fileNames = darkOnly
+      ? [Self.iconFileName(id: id, dark: true)]
+      : [Self.iconFileName(id: id, dark: false), Self.iconFileName(id: id, dark: true)]
     do {
-      if FileManager.default.fileExists(atPath: iconURL.path) {
-        try FileManager.default.removeItem(at: iconURL)
+      for fileName in fileNames {
+        let iconURL = iconsDir.appendingPathComponent(fileName)
+        if FileManager.default.fileExists(atPath: iconURL.path) {
+          try FileManager.default.removeItem(at: iconURL)
+        }
       }
       result(true)
     } catch {
@@ -109,9 +133,11 @@ class HomeShortcutsChannel {
     }
   }
 
-  /// Ids (icon filenames minus .png) present in the App Group icon store.
-  /// The Flutter side surfaces these as `has_icon` on the registry snapshot
-  /// so the dapps home can re-send icons that never landed.
+  /// Filename stems (minus .png) present in the App Group icon store.
+  /// Light assets yield the bare id, dark assets yield `<id>.dark`; the
+  /// Flutter side splits the two and surfaces them as `has_icon` /
+  /// `has_icon_dark` on the registry snapshot so the dapps home can
+  /// re-send icons that never landed.
   private func listWidgetIconIds(result: @escaping FlutterResult) {
     guard let container = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: HomeShortcutsChannel.appGroupId

@@ -21,7 +21,6 @@ Helpful entry points
 - `lib/core/main_app.dart` — shell + bottom navigation.
 - `lib/core/routing/app_router.dart` — `go_router` configuration and routes.
 - `lib/core/services/github_issue_service.dart` — in-app feedback → GitHub issues (needs `GITHUB_TOKEN`).
-- `lib/core/feature_flags.dart` — feature flags and tags, env/assets overrides.
 - `lib/design_system/tokens/` — AppSpacing, AppRadii, AppSizing, AppBorders, AppOpacity, AppSemanticColors.
 - `lib/core/utils/sentry.dart` — Sentry integration helpers.
 - Rust backend façade — `lib/features/node/data/repositories/rust_backend_service.dart`.
@@ -77,15 +76,8 @@ All new design system work lives in `lib/design_system/`.
 
 Common flags
 - Enable result-based node providers: `--dart-define=USE_RESULT_PROVIDERS=true`
-- Feature toggles: `--dart-define=ENABLED_FEATURES=home,wallet,dapps,profile` or `all`
-- Disable specific granular tags: `--dart-define=DISABLED_FEATURES=wallet.bridge`
 - Sentry DSN: `--dart-define=SENTRY_DSN=...` (omit to disable Sentry)
 - Feedback → GitHub: `--dart-define=GITHUB_TOKEN=ghp_xxx` (required for `GitHubIssueService`)
-
-## Feature Flags
-- Top-level features are in `FeatureFlags.ordered`. Use `FeatureFlags.isEnabled(AppFeature.wallet)`.
-- Granular keys (tags) via `FeatureFlags.on('wallet.send')` with default-on behavior unless disabled.
-- You can also configure `assets/feature_flags.json` with keys `enabled`, `disabled`, and `order`.
 
 ## Localization
 - Edit ARB files under `lib/core/l10n/` (e.g., `app_en.arb`).
@@ -94,7 +86,6 @@ Common flags
 
 ## Navigation
 - Uses `go_router` with a shell route. Add/adjust routes in `lib/core/routing/app_router.dart`.
-- Bottom navigation items derive from `FeatureFlags.ordered`. Keep labels localized.
 
 ## UI & Styling
 - Reuse shared widgets: `AppAppBar`, `AppDrawer`, `AppActionButton`, etc. under `lib/core/widgets/`.

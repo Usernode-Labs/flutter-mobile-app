@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
@@ -122,12 +121,6 @@ class AppResetService {
 
     const secureStorage = FlutterSecureStorage();
     await secureStorage.deleteAll();
-
-    try {
-      await SlotProductionRepository.instance.clearAll();
-    } catch (e) {
-      _log.warn('Failed to clear slot production state explicitly: $e');
-    }
 
     await _clearAppSupportArtifacts();
   }

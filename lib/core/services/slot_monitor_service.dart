@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import '../../features/node/node_service.dart';
-import '../data/slot_production_repository.dart';
 import 'epoch_slot_scheduler_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/SlotMonitorService');
@@ -288,19 +287,6 @@ class SlotMonitorService {
           timestamp: now,
         ));
 
-        // Record production failure to statistics repository
-        try {
-          await SlotProductionRepository.instance.recordProductionFailure(
-            slotNumber: currentSlotNumber,
-            failedTime: now,
-            reason: 'Monitoring timeout',
-          );
-          _log.debug('Recorded production failure for slot $currentSlotNumber');
-        } catch (e) {
-          _log.warn(
-              'Failed to record production failure for slot $currentSlotNumber: $e');
-        }
-
         _clearMonitoringState();
       }
     } catch (e) {
@@ -344,21 +330,6 @@ class SlotMonitorService {
         timestamp: DateTime.now(),
         blockHeight: ourBlock.height,
       ));
-
-      final producedAt = DateTime.now();
-
-      // Record production success to statistics repository
-      try {
-        await SlotProductionRepository.instance.recordProductionSuccess(
-          slotNumber: slotNumber,
-          blockHeight: ourBlock.height,
-          producedTime: producedAt,
-        );
-        _log.debug('Recorded production success for slot $slotNumber');
-      } catch (e) {
-        _log.warn(
-            'Failed to record production success for slot $slotNumber: $e');
-      }
 
       // Stop monitoring this slot
       _clearMonitoringState();

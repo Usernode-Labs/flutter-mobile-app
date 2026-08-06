@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/data/slot_production_repository.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
@@ -344,7 +343,6 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
     EpochSlotSchedulerService.instance.dispose();
     await AndroidForegroundTaskController.instance.resetForAppRestart();
     await RustBackendService.instance.resetForAppRestart();
-    SlotProductionRepository.instance.resetForAppRestart();
     PlatformAlarmService.instance.resetForAppRestart();
     MetricsCollectorService.instance.reset();
   }

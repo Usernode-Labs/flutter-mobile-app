@@ -223,6 +223,21 @@ jobs:
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
+      - name: Provision Social push Android client
+        env:
+          SOCIAL_PUSH_ENV_TYPE: ${{ steps.env_config.outputs.env_type }}
+          PROD_SOCIAL_PUSH_REQUIRED: ${{ vars.PROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          NONPROD_SOCIAL_PUSH_REQUIRED: ${{ vars.NONPROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          PROD_PUSH_ENV: ${{ vars.PROD_PUSH_ENV }}
+          NONPROD_PUSH_ENV: ${{ vars.NONPROD_PUSH_ENV }}
+          PROD_FIREBASE_PROJECT_ID: ${{ vars.PROD_FIREBASE_PROJECT_ID }}
+          NONPROD_FIREBASE_PROJECT_ID: ${{ vars.NONPROD_FIREBASE_PROJECT_ID }}
+          PROD_MOBILE_API_BASE_URL: ${{ vars.PROD_MOBILE_API_BASE_URL }}
+          NONPROD_MOBILE_API_BASE_URL: ${{ vars.NONPROD_MOBILE_API_BASE_URL }}
+          PROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.PROD_FIREBASE_ANDROID_CONFIG_BASE64 }}
+          NONPROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.NONPROD_FIREBASE_ANDROID_CONFIG_BASE64 }}
+        run: bash tool/provision-social-push-build.sh android
+
       - name: Set custom version
         id: version
         run: |
@@ -696,6 +711,21 @@ jobs:
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
+      - name: Provision Social push iOS client
+        env:
+          SOCIAL_PUSH_ENV_TYPE: ${{ steps.env_config.outputs.env_type }}
+          PROD_SOCIAL_PUSH_REQUIRED: ${{ vars.PROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          NONPROD_SOCIAL_PUSH_REQUIRED: ${{ vars.NONPROD_SOCIAL_PUSH_REQUIRED || 'false' }}
+          PROD_PUSH_ENV: ${{ vars.PROD_PUSH_ENV }}
+          NONPROD_PUSH_ENV: ${{ vars.NONPROD_PUSH_ENV }}
+          PROD_FIREBASE_PROJECT_ID: ${{ vars.PROD_FIREBASE_PROJECT_ID }}
+          NONPROD_FIREBASE_PROJECT_ID: ${{ vars.NONPROD_FIREBASE_PROJECT_ID }}
+          PROD_MOBILE_API_BASE_URL: ${{ vars.PROD_MOBILE_API_BASE_URL }}
+          NONPROD_MOBILE_API_BASE_URL: ${{ vars.NONPROD_MOBILE_API_BASE_URL }}
+          PROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.PROD_FIREBASE_IOS_CONFIG_BASE64 }}
+          NONPROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.NONPROD_FIREBASE_IOS_CONFIG_BASE64 }}
+        run: bash tool/provision-social-push-build.sh ios
+
       - name: Build iOS app (no codesign)
         run: |
           set -euo pipefail
@@ -714,11 +744,15 @@ jobs:
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
           DELIVER_ALTOOL_ADDITIONAL_UPLOAD_PARAMETERS: "--use-old-altool"
         run: |
-          if [ "${{ steps.env_config.outputs.env_type }}" == "PROD" ]; then
-            export BUILD_ENV=PROD
-          else
-            export BUILD_ENV=NONPROD
-          fi
+          # Always run the fastlane ios lane in PROD mode, matching the
+          # de-facto behavior of build-and-deploy.yml (its BUILD_ENV line is
+          # Ruby syntax in a shell step, so fastlane has always defaulted to
+          # PROD). The NONPROD path is broken on two counts: the "Usernode
+          # Internal" profiles are no longer installed on CI, and the
+          # "-internal" version suffix is rejected by App Store Connect
+          # (CFBundleShortVersionString must be numeric). The app's .env
+          # (dart-defines) is still selected by env_type above.
+          export BUILD_ENV=PROD
           bundle exec fastlane ios release
 
       - name: Upload IPA artifact

@@ -62,7 +62,8 @@ void main() {
     });
 
     test('statusText maps every status', () {
-      expect(model(status: TransactionStatus.completed).statusText, 'Completed');
+      expect(
+          model(status: TransactionStatus.completed).statusText, 'Completed');
       expect(model(status: TransactionStatus.pending).statusText, 'Pending');
       expect(model(status: TransactionStatus.failed).statusText, 'Failed');
     });
@@ -71,8 +72,10 @@ void main() {
       final now = DateTime.now();
       expect(model(timestamp: now.subtract(const Duration(days: 2))).timeAgo,
           '2 days ago');
-      expect(model(timestamp: now.subtract(const Duration(days: 1, hours: 1)))
-          .timeAgo, '1 day ago');
+      expect(
+          model(timestamp: now.subtract(const Duration(days: 1, hours: 1)))
+              .timeAgo,
+          '1 day ago');
       expect(model(timestamp: now.subtract(const Duration(hours: 5))).timeAgo,
           '5 hours ago');
       expect(model(timestamp: now.subtract(const Duration(hours: 1))).timeAgo,
@@ -114,13 +117,14 @@ void main() {
 
     test('genesis maps title and subtitle', () {
       final m = TransactionModel.fromExplorerTransaction(
-        _tx(txType: 'genesis'), DataSource.local, 'me');
+          _tx(txType: 'genesis'), DataSource.local, 'me');
       expect(m.type, TransactionType.genesis);
       expect(m.title, 'Genesis Allocation');
       expect(m.subtitle, 'Initial distribution');
     });
 
-    test('outgoing transfer is negative with To: subtitle and counterparty', () {
+    test('outgoing transfer is negative with To: subtitle and counterparty',
+        () {
       final m = TransactionModel.fromExplorerTransaction(
         _tx(direction: 'out', amount: 30, to: 'recipientAddress12345678'),
         DataSource.local,
@@ -147,14 +151,15 @@ void main() {
 
     test('transfer without addresses falls back to txType subtitle', () {
       final m = TransactionModel.fromExplorerTransaction(
-        _tx(direction: 'out', to: null), DataSource.local, 'me');
+          _tx(direction: 'out', to: null), DataSource.local, 'me');
       expect(m.subtitle, 'transfer');
     });
 
     test('status strings parse to the right enum, unknown -> completed', () {
-      TransactionStatus s(String status) => TransactionModel
-          .fromExplorerTransaction(_tx(status: status), DataSource.local, 'me')
-          .status;
+      TransactionStatus s(String status) =>
+          TransactionModel.fromExplorerTransaction(
+                  _tx(status: status), DataSource.local, 'me')
+              .status;
       expect(s('confirmed'), TransactionStatus.completed);
       expect(s('success'), TransactionStatus.completed);
       expect(s('pending'), TransactionStatus.pending);
@@ -187,11 +192,13 @@ void main() {
       expect(bal(amount: 500).getFormattedBalance(compact: true), '500.0');
       expect(bal(amount: 1500).getFormattedBalance(compact: true), '1.5K');
       expect(bal(amount: 2500000).getFormattedBalance(compact: true), '2.5M');
-      expect(bal(amount: 3000000000).getFormattedBalance(compact: true), '3.0B');
+      expect(
+          bal(amount: 3000000000).getFormattedBalance(compact: true), '3.0B');
     });
 
     test('getFormattedBalance full honors decimals', () {
-      expect(bal(amount: 1234567).getFormattedBalance(decimals: 0), '1,234,567');
+      expect(
+          bal(amount: 1234567).getFormattedBalance(decimals: 0), '1,234,567');
       expect(bal(amount: 1234.5).getFormattedBalance(decimals: 1), '1,234.5');
     });
 
@@ -253,8 +260,7 @@ void main() {
       expect(full.tokenSymbol, 'ABC');
       expect(full.dataSource, DataSource.cached);
 
-      final empty =
-          ExplorerBalanceResponse.fromJson({}, DataSource.local);
+      final empty = ExplorerBalanceResponse.fromJson({}, DataSource.local);
       expect(empty.balance, 0.0);
       expect(empty.tokenSymbol, 'TKN');
 
@@ -307,8 +313,7 @@ void main() {
       expect(resp.transactions.first.id, 'a');
       expect(resp.dataSource, DataSource.explorerPrimary);
 
-      final empty =
-          ExplorerTransactionsResponse.fromJson({}, DataSource.local);
+      final empty = ExplorerTransactionsResponse.fromJson({}, DataSource.local);
       expect(empty.transactions, isEmpty);
 
       expect((resp.toJson()['items'] as List), hasLength(2));

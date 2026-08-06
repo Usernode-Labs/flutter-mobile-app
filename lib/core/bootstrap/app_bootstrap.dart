@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
@@ -14,6 +15,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
@@ -23,7 +25,6 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
@@ -33,12 +34,14 @@ class AppBootstrapResult {
   final TaggedLogger log;
   final bool hasAnyAccounts;
   final String? activeAccountId;
+  final Future<void> backendBootstrap;
 
   const AppBootstrapResult({
     required this.container,
     required this.log,
     required this.hasAnyAccounts,
     required this.activeAccountId,
+    required this.backendBootstrap,
   });
 }
 
@@ -53,6 +56,7 @@ class AppBootstrap {
     required String logTag,
     bool registerLifecycleObserver = true,
     bool installErrorHandlers = true,
+    bool applyBootstrapIdentity = true,
   }) async {
     // Initialize network preferences early (before any SharedPreferences access)
     await NetworkPrefs.init();
@@ -119,15 +123,19 @@ class AppBootstrap {
 
     // Accounts are needed to decide background behavior and set crash context
     final repo = await AccountsRepository.create();
-    await _applyBootstrapIdentity(
-      log: log,
-      container: container,
-      repo: repo,
-    );
-    // Resolve the active per-identity storage bucket before any account-scoped
-    // pref is read: a guest session gets the guest bucket, otherwise the active
-    // on-chain account's bucket.
-    await refreshActiveAccountBucket(guest: await AuthGuestFlag().isGuest());
+    if (applyBootstrapIdentity) {
+      await _applyBootstrapIdentity(
+        log: log,
+        container: container,
+        repo: repo,
+      );
+    }
+    // Restore the identity (and with it the active per-identity storage
+    // bucket) before any account-scoped pref is read. This publishes the
+    // boot identity: unauthenticated, guest, ready, or reconciling when a
+    // sign-in's account reconcile was interrupted — in which case the node
+    // start below is refused until the reconcile completes.
+    await container.read(identityProvider.notifier).restore();
     final hasAnyAccounts = await repo.hasAny();
     final activeId = repo.getActiveId();
 
@@ -165,7 +173,7 @@ class AppBootstrap {
       };
     }
 
-    _bootstrapBackendAsync(
+    final backendBootstrap = _bootstrapBackendAsync(
       log: log,
       container: container,
       hasAnyAccounts: hasAnyAccounts,
@@ -176,6 +184,7 @@ class AppBootstrap {
       log: log,
       hasAnyAccounts: hasAnyAccounts,
       activeAccountId: activeId,
+      backendBootstrap: backendBootstrap,
     );
   }
 
@@ -333,30 +342,17 @@ class AppBootstrap {
         );
       }
 
-      // Initialize FRB for native event delivery; only start the node when an
-      // account exists.
+      // Initialize FRB for native event delivery. The node is NOT started
+      // here: node lifecycle is platform-controlled (SV chrome requests the
+      // start over bridge v4 once the shell boots and the identity settles).
+      // Android alarm/watchdog paths still start the node headless for block
+      // production independently of this bootstrap.
       final nodeWasRunning = RustBackendService.instance.isRunning;
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
         await PlatformAlarmService.instance.markReadyForNativeEvents();
-        if (hasAnyAccounts) {
-          log.info('FRB initialized, starting node...');
-          final started = await RustBackendService.instance.startNode();
-          log.info(
-              'Backend startNode => $started, isRunning=${RustBackendService.instance.isRunning}');
-          log.info(started
-              ? 'backend startNode: started'
-              : 'backend startNode: skipped');
-          if (started) {
-            log.info(
-                'Node started successfully, waiting 1 second for node to be ready...');
-            await Future.delayed(const Duration(seconds: 1));
-            log.info('Node should be ready now');
-          }
-        } else {
-          log.info('FRB initialized without an account; node start skipped');
-        }
+        log.info('FRB initialized; node start deferred to the platform');
       } else {
         log.info('Backend already running, skipping start');
         await PlatformAlarmService.instance.markReadyForNativeEvents();
@@ -365,27 +361,22 @@ class AppBootstrap {
         );
       }
 
-      // Watchdog work is useful only while an account-backed producer is
-      // actually running.
-      if (Platform.isAndroid) {
-        final blockProductionActive =
-            hasAnyAccounts && RustBackendService.instance.isRunning;
-        if (blockProductionActive) {
-          BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
-          log.info('Starting Android foreground VRF monitoring');
-          await AndroidForegroundTaskController.instance.onNodeStarted();
-          unawaited(_runStartupAlarmAudit(log));
-        } else {
-          BlockProductionAlarmAuditService.instance.disableWatchdogRecovery();
-          log.info(
-            'Cancelling Android alarm watchdog because block production is inactive',
-            context: {
-              'has_account': hasAnyAccounts,
-              'node_running': RustBackendService.instance.isRunning,
-            },
-          );
-          await PlatformAlarmService.instance.cancelAlarmWatchdog();
-        }
+      // Report cold-boot facts to the lifecycle coordinator, which
+      // reconciles the Android block-production wiring (watchdog recovery,
+      // alarms, foreground service) against them. With an account and no
+      // platform start request yet, recovery stays armed WITHOUT starting
+      // the node: interactive boots defer the start to the platform bridge,
+      // while headless recovery paths (boot receiver, WorkManager watchdog,
+      // force-stop recovery) can still start it through the audit gate.
+      await NodeLifecycleCoordinator.instance.reportColdBoot(
+        hasAccount: hasAnyAccounts,
+        reason: 'bootstrap',
+      );
+      if (Platform.isAndroid && hasAnyAccounts) {
+        // Force-stop detection is bootstrap-specific: it inspects the native
+        // "was force-stopped" launch flag, and on detection kicks a recovery
+        // audit that may start the node headless to restore production.
+        unawaited(_runStartupAlarmAudit(log));
       }
 
       log.debug('Bootstrap end');

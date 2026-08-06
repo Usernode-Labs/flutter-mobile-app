@@ -4,27 +4,25 @@ Mobile-only layout targeting the compact window class (<600dp). All spacing deri
 
 ## Screen Anatomy
 
-The native app is chromeless: `/home` renders the SV webview full-bleed (see `SvShellScreen`) and the old `HomeScreen` `IndexedStack` + BottomNav tab shell has been retired. Every native screen is now pushed via `context.push()`. The "tab screen" shape below is kept only as a spacing reference — screens like Node Status and Settings still use it as root scaffolds, just without a BottomNav underneath.
+The native app is chromeless: `/home` renders the SV webview full-bleed (see `SvShellScreen`) and the old `HomeScreen` `IndexedStack` + BottomNav tab shell has been retired. Every native screen is now pushed via `context.push()` and uses the detail-screen shape below (e.g. Diagnostics, zk-identity detail).
 
 ```
-Tab Screen (Challenges, Wallet, Node)    Detail Screen (Leaderboard, ChallengeDetail)
-┌──────────────────────────┐             ┌──────────────────────────┐
-│ StatusBar (system)       │             │ TopAppBar (sliver,pinned)│
-├──────────────────────────┤             │  handles SafeArea        │
-│                          │             ├──────────────────────────┤
-│ ← space16 →  content  ← │             │                          │
-│                          │             │ ← space16 → content   ← │
-│ ┌────────────────────┐   │             │                          │
-│ │ Card / Section     │   │             │ ┌────────────────────┐   │
-│ └────────────────────┘   │             │ │ Card / Section     │   │
-│     ↕ space16            │             │ └────────────────────┘   │
-│ ┌────────────────────┐   │             │     ↕ space24 (section)  │
-│ │ Card / Section     │   │             │ ┌────────────────────┐   │
-│ └────────────────────┘   │             │ │ Card / Section     │   │
-│                          │             │ └────────────────────┘   │
-│                          │             │     ↕ space32 (bottom)   │
-├──────────────────────────┤             └──────────────────────────┘
-│ BottomNav (from shell)   │
+Detail Screen (Diagnostics, ZkIdentityDetail)
+┌──────────────────────────┐
+│ TopAppBar (sliver,pinned)│
+│  handles SafeArea        │
+├──────────────────────────┤
+│                          │
+│ ← space16 → content   ← │
+│                          │
+│ ┌────────────────────┐   │
+│ │ Card / Section     │   │
+│ └────────────────────┘   │
+│     ↕ space24 (section)  │
+│ ┌────────────────────┐   │
+│ │ Card / Section     │   │
+│ └────────────────────┘   │
+│     ↕ space32 (bottom)   │
 └──────────────────────────┘
 ```
 
@@ -38,8 +36,7 @@ Tab Screen (Challenges, Wallet, Node)    Detail Screen (Leaderboard, ChallengeDe
 | Section gap (distinct content groups) | `space24` | 24dp | Major logical breaks between sections |
 | Card gap (same-type cards in a list) | `space16` | 16dp | Between cards of the same group |
 | List item gap | `space12` | 12dp | `ListView.separated` or Column `spacing` |
-| Bottom scroll padding | `space32` | 32dp | Last sliver — breathing room above BottomNav or screen edge |
-| PSL surface body inset | `space24` | 24dp | Horizontal inset for non-ListTile content inside PSL `surfaceSlivers` |
+| Bottom scroll padding | `space32` | 32dp | Last sliver — breathing room above the screen edge |
 
 ### Micro Spacing (inside components)
 
@@ -112,11 +109,10 @@ screen margin + card padding + widget padding + leading width + gap = offset
 
 ### Current Scroll Usage
 
-| Screen | Pattern | Pinned | Safe-area | Surface inset | Notes |
-|--------|---------|--------|-----------|---------------|-------|
-| DApps | `ParallaxSurfaceLayout` | None | Auto pinned sliver | `space24` | `safeAreaOverlay` default |
-| Node Status | `ParallaxSurfaceLayout` | None | Auto pinned sliver | `space24` | `safeAreaOverlay` default |
-| Detail screens | `CustomScrollView` + `TopAppBar` | SliverAppBar | AppBar handles it | n/a | Different pattern |
+| Screen | Pattern | Pinned | Safe-area | Notes |
+|--------|---------|--------|-----------|-------|
+| Detail screens (Diagnostics, zk-identity detail) | `CustomScrollView` + `TopAppBar` | SliverAppBar | AppBar handles it | Standard detail pattern |
+| Full-screen flows (zk-identity flow) | `ZkIdentityFlowPage` scaffold | None | Explicit `SafeArea` | Owns its own chrome |
 
 ### Scroll Design Principles
 
@@ -135,17 +131,16 @@ screen margin + card padding + widget padding + leading width + gap = offset
 
 ### Package Decision: `sliver_tools`
 
-Rejected for now. The current scroll stack uses Flutter SDK slivers plus
-`ParallaxSurfaceLayout`, which already covers pinned bars, grouped surfaces,
-fills, and nested bodies. Reconsider `sliver_tools` only when an approved
-pattern needs behavior the SDK cannot express cleanly.
+Rejected for now. The current scroll stack uses Flutter SDK slivers, which
+already cover pinned bars, grouped surfaces, and fills. Reconsider
+`sliver_tools` only when an approved pattern needs behavior the SDK cannot
+express cleanly.
 
 ## SafeArea Rules
 
 | Screen type | SafeArea handling |
 |-------------|-------------------|
 | Detail screen with TopAppBar | Automatic — `SliverAppBar` handles top insets |
-| Tab screen in IndexedStack | Wrap body in `SafeArea` — shell provides BottomNav |
 | Full-screen (onboarding) | Explicit `SafeArea` around content |
 
 ## Rules
@@ -163,150 +158,6 @@ pattern needs behavior the SDK cannot express cleanly.
 - Wrap `SliverToBoxAdapter` children in `Padding` for screen margins (use `SliverPadding`)
 - Add `SafeArea` when `TopAppBar` already handles insets
 - Use `SingleChildScrollView` wrapping a `Column` when slivers are more appropriate
-
-## Content Sheet Anatomy
-
-The "white sheet over grey scaffold" pattern is implemented by [`ParallaxSurfaceLayout`](../src/parallax_surface_layout.dart): a fixed parallax header behind a scrolling surface container with animated corner radius.
-
-### Layer Architecture
-
-```
-Stack (alignment: topCenter)
-│
-├── Layer 1 — Parallax header (fixed)
-│   Padding(top: pinnedHeadersHeight + _autoSliverExtent)
-│   └── SizedOverflowBox(height: headerHeight)  ← allows parallax overflow
-│       └── Center(child: header)
-│   Translates upward at 40% of scroll speed (kParallaxRatio).
-│   Optional opacity fade (headerFadesOnScroll).
-│
-├── Layer 2 — CustomScrollView (scrollable)
-│   ├── [...pinnedHeaderSlivers]    ← pinned bars (multiple supported)
-│   ├── OR auto SafeAreaPinnedDelegate (safeAreaOverlay && no pinned headers)
-│   │   └── extent = safeTop + kPinnedBarPadding (with title) or safeTop only (no title)
-│   ├── SliverToBoxAdapter          ← transparent spacer (height: headerHeight)
-│   └── surfaceSlivers path:
-│       │   _SliverDecoratedBox(animated corners)
-│       │   └── SliverMainAxisGroup
-│       │       ├── ...surfaceSlivers
-│       │       └── SliverFillRemaining (background fill)
-│       └── OR deprecated surfaceBody path:
-│           └── SliverToBoxAdapter(ConstrainedBox → Container → surfaceBody)
-│
-├── Layer 3 — Header overlay (optional, headerOverlay)
-│   Padding(top: pinnedHeadersHeight + _autoSliverExtent)
-│   └── SizedBox(height: headerHeight)  ← tight constraints, no overflow
-│       └── headerOverlay widget
-│   Parallaxes and fades with header. Interactive (taps land naturally).
-│
-└── Layer 4 — Edge fade overlay (optional, showEdgeFade)
-    └── IgnorePointer → gradient that fades in with scroll
-```
-
-### API Quick-Reference
-
-| Param | Purpose |
-|-------|---------|
-| `header` | Widget centered in the fixed parallax area |
-| `surfaceSlivers` | Slivers inside the decorated surface (lazy-friendly) |
-| `headerHeight` | Height of the transparent spacer / parallax zone |
-| `pinnedHeaderSlivers` | Pinned slivers before the spacer (multiple) |
-| `pinnedHeadersHeight` | Combined height offset for pinned slivers |
-| `onRefresh` | Pull-to-refresh (wraps in `RefreshIndicator`) |
-| `controller` | Optional `ScrollController` for programmatic scroll |
-| `scrollFractionNotifier` | External notifier for delegate-driven animations |
-| `headerFadesOnScroll` | Fade header opacity as user scrolls |
-| `showEdgeFade` | Gradient overlay at surface junction |
-| `safeAreaOverlay` | Auto status-bar overlay when no pinned headers (default `true`) |
-| `kPinnedBarPadding` | 48px (8+32+8) — padding pinned bars add beyond safeTop; auto-sliver includes this for cross-screen alignment |
-| `nestedBody` | Body for NestedScrollView (TabBarView etc.) |
-| `surfacePinnedSlivers` | Slivers pinned at surface junction (nestedBody only) |
-| `surfacePinnedHeight` | Combined height of surfacePinnedSlivers |
-| `onRefreshStatusChange` | Custom refresh status callback (uses `.noSpinner`) |
-| `refreshNotificationPredicate` | Custom scroll notification predicate |
-| `headerOverlay` | Interactive widget above scroll surface, parallaxes with header |
-| `surfaceFillsViewport` | (deprecated path only) Stretch surface for centering |
-| ~~`surfaceBody`~~ | Deprecated — use `surfaceSlivers` |
-| ~~`pinnedHeaderSliver`~~ | Deprecated — use `pinnedHeaderSlivers` |
-| ~~`pinnedHeaderHeight`~~ | Deprecated — use `pinnedHeadersHeight` |
-
-### Safe Area Strategies
-
-`ParallaxSurfaceLayout` handles the status-bar safe-area automatically via
-its `safeAreaOverlay` parameter (default `true`). When no `pinnedHeaderSlivers`
-are provided, an internal pinned `SafeAreaPinnedDelegate` sliver is injected
-inside the `CustomScrollView`, lerping from `surface` → `surfaceContainerLowest`.
-
-The delegate height depends on the `title` parameter:
-- **With `title`**: `safeTop + kPinnedBarPadding` (48 px) — provides a content
-  slot for the title text, matching the structural offset of screens with pinned bars.
-- **Without `title`**: `safeTop` only — minimal safe-area coverage with no
-  empty gap below the status bar.
-
-Screens that provide their own `pinnedHeaderSlivers` (e.g. Wallet) skip the
-auto-sliver because their delegates already include safe-area handling.
-
-| Pattern | pinnedHeaderSlivers | title | Example |
-|---------|---------------------|-------|---------|
-| Pinned bar + safe area | `SliverPersistentHeader` delegates | N/A (auto-skipped) | Wallet |
-| Auto sliver with title | `null` | `'Node Status'` | Node Status |
-| Auto sliver minimal | `null` | `null` | Challenges |
-| No safe-area handling | `null` + `safeAreaOverlay: false` | N/A | Widgetbook |
-
-### Surface Body Decoration Rules
-
-- Content inherits the white surface background — remove explicit `surfaceContainerLowest` from containers that were previously standalone cards.
-- Cards on white surface need `outlineVariant` border (see [SURFACES.md](SURFACES.md) white-on-white exception).
-- Use `space24` gaps between major sections, not container-based visual grouping.
-
-### PSL Surface Body Inset
-
-Non-ListTile content inside a PSL `surfaceSlivers` body uses `space24` horizontal inset from the white surface edge. This aligns section titles, banners, and cards consistently across all PSL screens (Wallet, DApps, Node Status).
-
-**Surface top inset** — PSL injects `kSurfaceTopInset` (8px) before the first surfaceSliver. Screens must NOT add their own top padding to the first sliver. Vertical gaps between slivers remain the screen's responsibility.
-
-### Content Slot System
-
-48px is the natural base height for surface content rows — M3 `IconButton` (48dp), `buttonHeightRegular` (48dp), `iconContainerRegular` (48dp), and `kTabBarHeight` (48dp) all converge on this value. When every first-surface-widget delivers a 48px slot, the title text centers at the same Y (~22px from surface) across all PSL screens.
-
-**Composable layouts expecting slots** — containers whose spacing assumes 48px-height children:
-
-| Layout | Path | Status |
-|--------|------|--------|
-| PSL `surfaceSlivers` | `parallax_surface_layout.dart` | Adopted — `kSurfaceTopInset=8` tuned for 48px first slot |
-| PSL `nestedBody` + `surfacePinnedSlivers` | `parallax_surface_layout.dart` | Prior art — `_kTopInset=8` + `kTabBarHeight=48` |
-
-**Atomic widgets delivering 48px slots** — building blocks that fill a single slot:
-
-| Widget | Mechanism | Slot | Status |
-|--------|-----------|------|--------|
-| M3 TabBar (Challenges) | `kTabBarHeight = 48.0` | 48px natural | Prior art |
-| Title+action row (dApps `_SortBar`) | `SizedBox(height: sizing.iconContainerRegular)` + `Row` | 48px explicit | Adopted |
-| Section title row (Wallet) | `SizedBox(height: sizing.iconContainerRegular)` + `Align(centerStart)` | 48px explicit | Adopted |
-| Title+value row (Node Status) | `SizedBox(height: sizing.iconContainerRegular)` + `Row` | 48px explicit | Adopted |
-| `ListTile` | M3 default 56–72dp | Multi-slot | Compatible |
-
-Multi-slot widgets snap to the 8pt grid — taller is fine, no explicit constraints needed.
-
-**Exemptions:**
-- **ListTile / ExpansionTile** — sit edge-to-edge within the surface; they own their `contentPadding` (16dp from theme).
-- **Challenges** (`nestedBody` / TabBarView) — uses `space16`; different layout path with pinned tab bar.
-
-```dart
-// Section title inside PSL surface — use SliverPadding for horizontal inset
-SliverPadding(
-  padding: EdgeInsets.symmetric(horizontal: spacing.space24),
-  sliver: SliverToBoxAdapter(
-    child: Text('Section Title', style: textTheme.titleMedium),
-  ),
-)
-```
-
-### NestedScrollView Support
-
-Screens that need `NestedScrollView` with independently-scrollable `TabBarView` content use the `nestedBody` parameter. PSL internally creates a `NestedScrollView` with the standard parallax header structure. Use `surfacePinnedSlivers` for elements (like a tab bar) that pin at the surface junction.
-
-See [ParallaxSurfaceLayout genesis doc](../.specs/ParallaxSurfaceLayout.genesis.md) for full architecture.
 
 ## Progressive Extensions (deferred)
 

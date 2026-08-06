@@ -232,7 +232,7 @@ When reviewing a screen (new or migrated), verify:
 | 1 | Padding ownership | No double margins (screen + card both adding horizontal padding) |
 | 2 | Tokens only | No hardcoded EdgeInsets, no magic dp values |
 | 3 | Correct scroll container | Matches LAYOUT.md decision tree |
-| 4 | State handling | Loading/error/empty use DS widgets (FullPageLoadingState, FullPageErrorState, EmptyState) |
+| 4 | State handling | Error states use `FullPageErrorState`; loading/empty use M3 patterns (see SCREEN_PATTERNS.md § 4) |
 | 5 | SafeArea | Present only where needed (not doubled with TopAppBar) |
 | 6 | Bottom padding | `space32` breathing room at end |
 | 7 | RefreshIndicator | Wraps scroll view if pull-to-refresh needed |

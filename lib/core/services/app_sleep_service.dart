@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
-import 'package:crypto_mobile_app/core/services/ios_foreground_keepalive_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -134,15 +133,14 @@ class AppSleepService extends ChangeNotifier {
   Timer? _idleTimer;
   Timer? _scheduledWakeTimer;
   Timer? _wakelockMonitorTimer;
+  Future<void>? _activeWakelockPoll;
   Future<void> _transition = Future.value();
   DateTime? _lastRecordedInteractionAt;
   bool _initialized = false;
   bool _isEnabled;
   bool _resumeNodeOnWake = false;
-  bool _resumeIosKeepAliveOnWake = false;
   bool _resumeEpochMonitoringOnWake = false;
   bool _awaitingInactivityAfterWakelockRelease = false;
-  bool _wakelockPollInFlight = false;
   bool? _lastObservedWakelockHeld;
 
   AppSleepSnapshot _snapshot = AppSleepSnapshot(
@@ -185,6 +183,38 @@ class AppSleepService extends ChangeNotifier {
     _startWakelockMonitor();
     _rescheduleIdleTimer();
     notifyListeners();
+  }
+
+  /// Stops and drains process-level sleep work before replacing the
+  /// interactive runtime.
+  ///
+  /// This service is a process singleton rather than container-owned, so
+  /// disposing the old [ProviderContainer] is not sufficient by itself.
+  Future<void> stopForRuntimeRestart() async {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _scheduledWakeTimer?.cancel();
+    _scheduledWakeTimer = null;
+    _wakelockMonitorTimer?.cancel();
+    _wakelockMonitorTimer = null;
+
+    await _activeWakelockPoll;
+    await _transition;
+
+    _transition = Future.value();
+    _initialized = false;
+    _lastRecordedInteractionAt = null;
+    _resumeNodeOnWake = false;
+    _resumeEpochMonitoringOnWake = false;
+    _awaitingInactivityAfterWakelockRelease = false;
+    _lastObservedWakelockHeld = null;
+    _snapshot = AppSleepSnapshot(
+      isSleeping: false,
+      lifecycleState:
+          WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
+      lastInteractionAt: DateTime.now(),
+    );
+    await _persistSleeping(false);
   }
 
   Future<void> handleLifecycleStateChanged(AppLifecycleState state) async {
@@ -298,8 +328,6 @@ class AppSleepService extends ChangeNotifier {
     _awaitingInactivityAfterWakelockRelease = false;
 
     _resumeNodeOnWake = RustBackendService.instance.isRunning;
-    _resumeIosKeepAliveOnWake =
-        Platform.isIOS && IOSForegroundKeepAliveService.instance.isActive;
     _resumeEpochMonitoringOnWake =
         EpochSlotSchedulerService.instance.isInitialized;
 
@@ -338,10 +366,6 @@ class AppSleepService extends ChangeNotifier {
     if (Platform.isAndroid && !_useWakelockTransitionFlow) {
       await AndroidForegroundTaskController.instance
           .stopMonitoring(reason: 'app_sleep:${reason.name}');
-    }
-
-    if (_resumeIosKeepAliveOnWake) {
-      await IOSForegroundKeepAliveService.instance.stopKeepAlive();
     }
 
     if (Platform.isAndroid && !_useWakelockTransitionFlow) {
@@ -393,10 +417,6 @@ class AppSleepService extends ChangeNotifier {
         _resumeNodeOnWake) {
       await AndroidForegroundTaskController.instance
           .startMonitoring(reason: 'app_wake');
-    }
-
-    if (Platform.isIOS && _resumeIosKeepAliveOnWake) {
-      await IOSForegroundKeepAliveService.instance.startKeepAlive();
     }
 
     notifyListeners();
@@ -460,9 +480,6 @@ class AppSleepService extends ChangeNotifier {
       }
 
       if (Platform.isIOS) {
-        if (IOSForegroundKeepAliveService.instance.isActive) {
-          return true;
-        }
         return await WakelockPlus.enabled;
       }
     } catch (e) {
@@ -488,21 +505,30 @@ class AppSleepService extends ChangeNotifier {
     _wakelockMonitorTimer?.cancel();
     _wakelockMonitorTimer = Timer.periodic(
       _wakelockMonitorInterval,
-      (_) => unawaited(_pollObservedWakelockState()),
+      (_) => _startWakelockPoll(),
     );
   }
 
-  Future<void> _pollObservedWakelockState() async {
-    if (!_useWakelockTransitionFlow || _wakelockPollInFlight) {
+  void _startWakelockPoll() {
+    if (_activeWakelockPoll != null) {
       return;
     }
 
-    _wakelockPollInFlight = true;
+    final poll = _pollObservedWakelockState();
+    _activeWakelockPoll = poll;
+    unawaited(poll.whenComplete(() {
+      if (identical(_activeWakelockPoll, poll)) {
+        _activeWakelockPoll = null;
+      }
+    }));
+  }
+
+  Future<void> _pollObservedWakelockState() async {
     try {
       final isHeld = await _queryWakelockHeld();
       _handleObservedWakelockState(isHeld, source: 'poll');
-    } finally {
-      _wakelockPollInFlight = false;
+    } catch (error) {
+      _log.debug('Failed to poll wakelock state: $error');
     }
   }
 

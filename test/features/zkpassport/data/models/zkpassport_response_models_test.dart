@@ -80,7 +80,8 @@ void main() {
 
     test('sessionId accepts camelCase or snake_case', () {
       expect(
-        ZkPassportSessionResultResponse.fromJson({'sessionId': 'camel'}).sessionId,
+        ZkPassportSessionResultResponse.fromJson({'sessionId': 'camel'})
+            .sessionId,
         'camel',
       );
       expect(
@@ -92,7 +93,8 @@ void main() {
 
     test('finalizedAtMs accepts camelCase or snake_case, else 0', () {
       expect(
-        ZkPassportSessionResultResponse.fromJson({'finalizedAtMs': 5}).finalizedAtMs,
+        ZkPassportSessionResultResponse.fromJson({'finalizedAtMs': 5})
+            .finalizedAtMs,
         5,
       );
       expect(
@@ -111,18 +113,41 @@ void main() {
         expect(proofOf({'proof': '  P  '}), 'P');
       });
       test('nested map keys are tried in order', () {
-        expect(proofOf({'proof': {'outer_proof': 'A'}}), 'A');
-        expect(proofOf({'proof': {'outerProof': 'B'}}), 'B');
-        expect(proofOf({'proof': {'proof_payload': 'C'}}), 'C');
+        expect(
+            proofOf({
+              'proof': {'outer_proof': 'A'}
+            }),
+            'A');
+        expect(
+            proofOf({
+              'proof': {'outerProof': 'B'}
+            }),
+            'B');
+        expect(
+            proofOf({
+              'proof': {'proof_payload': 'C'}
+            }),
+            'C');
       });
       test('proofs list yields first encoded entry', () {
         expect(
-          proofOf({'proof': {'proofs': [{'x': 1}, {'proof': 'L'}]}}),
+          proofOf({
+            'proof': {
+              'proofs': [
+                {'x': 1},
+                {'proof': 'L'}
+              ]
+            }
+          }),
           'L',
         );
       });
       test('falls back to the result payload', () {
-        expect(proofOf({'result': {'outer_proof': 'R'}}), 'R');
+        expect(
+            proofOf({
+              'result': {'outer_proof': 'R'}
+            }),
+            'R');
       });
       test('null when nothing matches', () {
         expect(proofOf({'status': 'result_ok'}), isNull);
@@ -136,7 +161,11 @@ void main() {
       test('prefers error, then message, then result.error', () {
         expect(errOf({'error': ' boom '}), 'boom');
         expect(errOf({'message': 'msg'}), 'msg');
-        expect(errOf({'result': {'error': 'nested'}}), 'nested');
+        expect(
+            errOf({
+              'result': {'error': 'nested'}
+            }),
+            'nested');
       });
       test('null when absent', () {
         expect(errOf({'status': 'x'}), isNull);

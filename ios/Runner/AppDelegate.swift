@@ -5,6 +5,8 @@ import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
+  private static let socialNotificationSource = "usernode_social"
+  private static let socialNotificationCategory = "USERNODE_SOCIAL"
   private let alarmChannelName = "com.usernode.app/alarm"
   private var alarmChannel: FlutterMethodChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
@@ -27,6 +29,7 @@ import UserNotifications
 
     // Set notification center delegate to receive notification events
     UNUserNotificationCenter.current().delegate = self
+    registerSocialNotificationCategory()
     print("[AppDelegate] UNUserNotificationCenter delegate set")
 
     GeneratedPluginRegistrant.register(with: self)
@@ -110,6 +113,35 @@ import UserNotifications
   }
 
   // Check and notify current notification permission status
+  private func registerSocialNotificationCategory() {
+    let center = UNUserNotificationCenter.current()
+    center.getNotificationCategories { categories in
+      var updated = categories
+      updated.insert(
+        UNNotificationCategory(
+          identifier: AppDelegate.socialNotificationCategory,
+          actions: [],
+          intentIdentifiers: [],
+          options: []
+        )
+      )
+      center.setNotificationCategories(updated)
+    }
+  }
+
+  private func isSocialNotification(_ content: UNNotificationContent) -> Bool {
+    let source = content.userInfo["source"] as? String
+    return source == AppDelegate.socialNotificationSource ||
+      content.categoryIdentifier == AppDelegate.socialNotificationCategory
+  }
+
+  private func blockProductionSlot(from content: UNNotificationContent) -> Int? {
+    if let slot = content.userInfo["slotNumber"] as? Int {
+      return slot
+    }
+    return (content.userInfo["slotNumber"] as? NSNumber)?.intValue
+  }
+
   private func checkAndNotifyNotificationPermissionStatus() {
     print("[AppDelegate] Checking notification permission status...")
     UNUserNotificationCenter.current().getNotificationSettings { settings in
@@ -357,8 +389,23 @@ extension AppDelegate {
   ) {
     print("[AppDelegate] Notification delivered (foreground) - ID: \(notification.request.identifier)")
 
-    // Extract slot number from notification
-    let slotNumber = notification.request.content.userInfo["slotNumber"] as? Int ?? 0
+    let content = notification.request.content
+    if isSocialNotification(content) {
+      // FlutterFire owns the message event. The Social page already renders
+      // foreground activity, so suppress a duplicate system banner.
+      super.userNotificationCenter(center, willPresent: notification) { _ in
+        completionHandler([])
+      }
+      return
+    }
+    guard let slotNumber = blockProductionSlot(from: content) else {
+      super.userNotificationCenter(
+        center,
+        willPresent: notification,
+        withCompletionHandler: completionHandler
+      )
+      return
+    }
 
     // Send ios_notification_delivered event to Flutter
     print("[AppDelegate] Sending ios_notification_delivered event to Flutter")
@@ -383,8 +430,24 @@ extension AppDelegate {
   ) {
     print("[AppDelegate] Notification tapped - ID: \(response.notification.request.identifier)")
 
-    // Extract slot number from notification
-    let slotNumber = response.notification.request.content.userInfo["slotNumber"] as? Int ?? 0
+    let content = response.notification.request.content
+    if isSocialNotification(content) {
+      // Forward exactly once so firebase_messaging emits opened/initial data.
+      super.userNotificationCenter(
+        center,
+        didReceive: response,
+        withCompletionHandler: completionHandler
+      )
+      return
+    }
+    guard let slotNumber = blockProductionSlot(from: content) else {
+      super.userNotificationCenter(
+        center,
+        didReceive: response,
+        withCompletionHandler: completionHandler
+      )
+      return
+    }
 
     // Send ios_notification_tapped event to Flutter
     print("[AppDelegate] Sending ios_notification_tapped event to Flutter")

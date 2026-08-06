@@ -1,41 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
-const _participantIdKey = 'leaderboard:participant_id';
+export 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 
-/// Reads the persisted participant ID from SharedPreferences (network-prefixed).
-/// Returns null until onboarding persists the ID.
+/// The participant ID (v4 `user.id`) of the current identity.
+///
+/// Carried on the [Identity] snapshot for authenticated identities; falls
+/// back to the active bucket's persisted value for local-only sessions.
+/// Rebuilds on every identity transition (login, logout, reconcile, season
+/// rollover) because it watches the snapshot itself.
 final participantIdProvider = FutureProvider<int?>((ref) async {
-  return loadParticipantId();
+  final identity = ref.watch(identityProvider);
+  return identity.participantId ?? await loadParticipantId();
 });
-
-/// Persist a participant ID to SharedPreferences (network-prefixed).
-Future<void> saveParticipantId(int id) async {
-  final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixAccountKey(_participantIdKey);
-  await prefs.setInt(key, id);
-}
-
-/// Loads the persisted participant ID directly from storage.
-Future<int?> loadParticipantId() async {
-  final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixAccountKey(_participantIdKey);
-  return prefs.getInt(key);
-}
 
 /// In-memory season/event selection shared across all leaderboard providers.
 final seasonEventContextProvider = StateProvider<SeasonEventContext>(
   (ref) => const SeasonEventContext(),
-);
-
-/// Set of event IDs the participant has data in (from season-scope breakdown).
-///
-/// Updated by the bootstrap or breakdown provider whenever season-scope
-/// data is available. Used by the event picker to show ended events
-/// the user participated in.
-final participantEventIdsProvider = StateProvider<Set<int>>(
-  (ref) => const {},
 );

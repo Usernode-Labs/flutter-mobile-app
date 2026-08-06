@@ -216,7 +216,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     return {'participant_id': participantId};
   }
 
-
   Future<int?> _loadParticipantId() async {
     if (_container != null) {
       try {

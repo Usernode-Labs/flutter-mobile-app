@@ -17,180 +17,52 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // RegistrationEventInfo
-  // -------------------------------------------------------------------------
-
-  group('RegistrationEventInfo', () {
-    test('fromJson parses all fields with event_id key', () {
-      final info = RegistrationEventInfo.fromJson({
-        'event_id': 3,
-        'name': 'Event 3',
-        'ends_at': '2025-03-01T00:00:00Z',
-      });
-      expect(info.id, 3);
-      expect(info.name, 'Event 3');
-      expect(info.endsAt, '2025-03-01T00:00:00Z');
-    });
-
-    test('fromJson falls back to id key (cache compat)', () {
-      final info = RegistrationEventInfo.fromJson({
-        'id': 3,
-        'name': 'Event 3',
-      });
-      expect(info.id, 3);
-    });
-
-    test('fromJson handles null endsAt', () {
-      final info =
-          RegistrationEventInfo.fromJson({'event_id': 1, 'name': 'E1'});
-      expect(info.endsAt, isNull);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // RegistrationV2Result
-  // -------------------------------------------------------------------------
-
-  group('RegistrationV2Result', () {
-    test('fromJson parses re-registration response (with season)', () {
-      final result = RegistrationV2Result.fromJson({
-        'participant_id': 42,
-        'identity_uid': 'uid-abc',
-        'public_key': 'pk-123',
-        'secret_key': 'sk-456',
-        'address': 'addr-789',
-        'tier': 'gold',
-        'season_id': 1,
-        'season_name': 'Season 1',
-        'event': {
-          'event_id': 2,
-          'name': 'Event 2',
-          'ends_at': '2025-06-01',
-        },
-      });
-      expect(result.participantId, 42);
-      expect(result.identityUid, 'uid-abc');
-      expect(result.publicKey, 'pk-123');
-      expect(result.secretKey, 'sk-456');
-      expect(result.address, 'addr-789');
-      expect(result.tier, 'gold');
-      expect(result.seasonId, 1);
-      expect(result.seasonName, 'Season 1');
-      expect(result.event, isNotNull);
-      expect(result.event!.id, 2);
-    });
-
-    test('fromJson parses first registration (no season/event)', () {
-      final result = RegistrationV2Result.fromJson({
-        'participant_id': 1,
-        'identity_uid': 'uid',
-        'public_key': 'pk',
-        'secret_key': 'sk',
-        'address': 'addr',
-        'tier': 'silver',
-      });
-      expect(result.seasonId, isNull);
-      expect(result.seasonName, isNull);
-      expect(result.event, isNull);
-    });
-
-    test('fromJson falls back to phase key (cache compat)', () {
-      final result = RegistrationV2Result.fromJson({
-        'participant_id': 1,
-        'identity_uid': 'uid',
-        'public_key': 'pk',
-        'secret_key': 'sk',
-        'address': 'addr',
-        'tier': 'silver',
-        'season_id': 1,
-        'season_name': 'S1',
-        'phase': {'id': 2, 'name': 'Phase 2'},
-      });
-      expect(result.event, isNotNull);
-      expect(result.event!.id, 2);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // RankingResult
   // -------------------------------------------------------------------------
-
-  group('RankingResult', () {
-    test('fromJson parses event scope', () {
-      final r = RankingResult.fromJson({
-        'scope': 'event',
-        'rank': 5,
-        'total_points': 1200,
-        'total_tokens': 1250,
-        'offchain_points': 300,
-        'total_participants': 500,
-        'event_id': 10,
-        'event_name': 'Event Alpha',
-      });
-      expect(r.scope, 'event');
-      expect(r.rank, 5);
-      expect(r.totalPoints, 1200);
-      expect(r.totalTokens, 1250);
-      expect(r.offchainPoints, 300);
-      expect(r.totalParticipants, 500);
-      expect(r.eventId, 10);
-      expect(r.eventName, 'Event Alpha');
-      expect(r.seasonId, isNull);
-    });
-
-    test('fromJson parses season scope with events_participated', () {
-      final r = RankingResult.fromJson({
-        'scope': 'season',
-        'rank': 3,
-        'total_points': 5000,
-        'offchain_points': 1000,
-        'total_participants': 2000,
-        'season_id': 1,
-        'season_name': 'Season 1',
-        'events_participated': 4,
-        'total_produced_blocks': 25,
-      });
-      expect(r.scope, 'season');
-      expect(r.seasonId, 1);
-      expect(r.seasonName, 'Season 1');
-      expect(r.eventsParticipated, 4);
-      expect(r.totalProducedBlocks, 25);
-      expect(r.eventId, isNull);
-    });
-
-    test('fromJson falls back to phases_participated (cache compat)', () {
-      final r = RankingResult.fromJson({
-        'scope': 'season',
-        'rank': 3,
-        'total_points': 5000,
-        'offchain_points': 1000,
-        'total_participants': 2000,
-        'phases_participated': 4,
-      });
-      expect(r.eventsParticipated, 4);
-    });
-
-    test('fromJson parses global scope with minimal fields', () {
-      final r = RankingResult.fromJson({
-        'scope': 'global',
-        'rank': 1,
-        'total_points': 99999,
-        'offchain_points': 0,
-        'total_participants': 10000,
-      });
-      expect(r.scope, 'global');
-      expect(r.eventId, isNull);
-      expect(r.seasonId, isNull);
-      expect(r.eventsParticipated, isNull);
-      expect(r.totalTokens, 0);
-    });
-  });
 
   // -------------------------------------------------------------------------
   // ChallengeDto
   // -------------------------------------------------------------------------
 
   group('ChallengeDto', () {
+    test('fromJson reads the v4 kind key into subCategory', () {
+      final c = ChallengeDto.fromJson({
+        'id': 7,
+        'season_event_id': 2,
+        'category': 'block_production',
+        'kind': 'ZK_IDENTITY_VERIFICATION',
+        'goal': 'Verify',
+        'task': 'ZK',
+        'reward': 100,
+      });
+      expect(c.eventId, 2);
+      expect(c.subCategory, 'ZK_IDENTITY_VERIFICATION');
+    });
+
+    test('v4 kind wins over a stale sub_category key', () {
+      final c = ChallengeDto.fromJson({
+        'id': 7,
+        'category': 'x',
+        'kind': 'NEW',
+        'sub_category': 'OLD',
+        'goal': '',
+        'task': '',
+        'reward': 0,
+      });
+      expect(c.subCategory, 'NEW');
+    });
+
+    test('fromJson falls back to challenge_id (v4 compact season shape)', () {
+      final c = ChallengeDto.fromJson({
+        'challenge_id': 42,
+        'category': 'technical',
+        'goal': 'Do the thing',
+        'task': 'Task',
+        'reward': 50,
+      });
+      expect(c.id, 42);
+    });
+
     test('fromJson parses all fields', () {
       final c = ChallengeDto.fromJson({
         'id': 7,
@@ -572,54 +444,6 @@ void main() {
   // Leaderboard types
   // -------------------------------------------------------------------------
 
-  group('LeaderboardSeason', () {
-    test('fromJson parses correctly', () {
-      final s = LeaderboardSeason.fromJson({'id': 1, 'name': 'Season 1'});
-      expect(s.id, 1);
-      expect(s.name, 'Season 1');
-    });
-  });
-
-  group('LeaderboardEvent', () {
-    test('fromJson parses all fields including type', () {
-      final e = LeaderboardEvent.fromJson({
-        'id': 5,
-        'name': 'Event 5',
-        'type': 'regular',
-        'starts_at': '2025-01-01',
-        'ends_at': '2025-01-07',
-        'is_active': true,
-      });
-      expect(e.id, 5);
-      expect(e.name, 'Event 5');
-      expect(e.type, 'regular');
-      expect(e.startsAt, '2025-01-01');
-      expect(e.endsAt, '2025-01-07');
-      expect(e.isActive, true);
-    });
-
-    test('fromJson parses season type', () {
-      final e = LeaderboardEvent.fromJson({
-        'id': 10,
-        'name': 'Season 1 Global Challenges',
-        'type': 'season',
-        'is_active': true,
-      });
-      expect(e.type, 'season');
-    });
-
-    test('fromJson handles null dates and type', () {
-      final e = LeaderboardEvent.fromJson({
-        'id': 1,
-        'name': 'E1',
-        'is_active': false,
-      });
-      expect(e.type, isNull);
-      expect(e.startsAt, isNull);
-      expect(e.endsAt, isNull);
-    });
-  });
-
   // -------------------------------------------------------------------------
   // SeasonEventDto
   // -------------------------------------------------------------------------
@@ -808,159 +632,21 @@ void main() {
     });
   });
 
-  group('LeaderboardEntry', () {
-    test('fromJson parses all fields with events_participated', () {
-      final e = LeaderboardEntry.fromJson({
-        'rank': 1,
-        'participant_id': 42,
-        'display_name': 'Alice',
-        'total_points': 9999,
-        'offchain_points': 500,
-        'total_produced_blocks': 100,
-        'vrf_total_won_slots': 50,
-        'success_rate': 0.95,
-        'events_participated': 3,
-      });
-      expect(e.rank, 1);
-      expect(e.participantId, 42);
-      expect(e.displayName, 'Alice');
-      expect(e.totalPoints, 9999);
-      expect(e.successRate, 0.95);
-      expect(e.eventsParticipated, 3);
-    });
-
-    test('fromJson falls back to phases_participated (cache compat)', () {
-      final e = LeaderboardEntry.fromJson({
-        'rank': 1,
-        'participant_id': 42,
-        'total_points': 100,
-        'offchain_points': 0,
-        'total_produced_blocks': 0,
-        'vrf_total_won_slots': 0,
-        'success_rate': 0.0,
-        'phases_participated': 3,
-      });
-      expect(e.eventsParticipated, 3);
-    });
-
-    test('fromJson handles null displayName', () {
-      final e = LeaderboardEntry.fromJson({
-        'rank': 2,
-        'participant_id': 99,
-        'total_points': 100,
-        'offchain_points': 0,
-        'total_produced_blocks': 0,
-        'vrf_total_won_slots': 0,
-        'success_rate': 0.0,
-        'events_participated': 1,
-      });
-      expect(e.displayName, isNull);
-    });
-  });
-
-  group('PaginationInfo', () {
-    test('fromJson parses correctly', () {
-      final p = PaginationInfo.fromJson({
-        'page': 2,
-        'per_page': 50,
-        'total': 250,
-        'total_pages': 5,
-      });
-      expect(p.page, 2);
-      expect(p.perPage, 50);
-      expect(p.total, 250);
-      expect(p.totalPages, 5);
-    });
-  });
-
-  group('LeaderboardResult', () {
-    test('fromJson parses leaderboard key', () {
-      final r = LeaderboardResult.fromJson({
-        'season': {'id': 1, 'name': 'Season 1'},
-        'events': [
-          {
-            'id': 1,
-            'name': 'Event 1',
-            'starts_at': '2025-01-01',
-            'ends_at': '2025-01-07',
-            'is_active': true,
-          },
-        ],
-        'leaderboard': [
-          {
-            'rank': 1,
-            'participant_id': 42,
-            'display_name': 'Bob',
-            'total_points': 5000,
-            'offchain_points': 200,
-            'total_produced_blocks': 50,
-            'vrf_total_won_slots': 30,
-            'success_rate': 0.9,
-            'events_participated': 2,
-          },
-        ],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 1,
-          'total_pages': 1,
-        },
-      });
-      expect(r.season.id, 1);
-      expect(r.events, hasLength(1));
-      expect(r.entries, hasLength(1));
-      expect(r.entries.first.displayName, 'Bob');
-      expect(r.pagination.page, 1);
-    });
-
-    test('fromJson falls back to entries key (cache compat)', () {
-      final r = LeaderboardResult.fromJson({
-        'season': {'id': 1, 'name': 'S1'},
-        'events': <dynamic>[],
-        'entries': [
-          {
-            'rank': 1,
-            'participant_id': 1,
-            'total_points': 100,
-            'offchain_points': 0,
-            'total_produced_blocks': 0,
-            'vrf_total_won_slots': 0,
-            'success_rate': 0.0,
-            'events_participated': 1,
-          },
-        ],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 1,
-          'total_pages': 1,
-        },
-      });
-      expect(r.entries, hasLength(1));
-    });
-
-    test('fromJson handles empty events and leaderboard', () {
-      final r = LeaderboardResult.fromJson({
-        'season': {'id': 1, 'name': 'S1'},
-        'events': <dynamic>[],
-        'leaderboard': <dynamic>[],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 0,
-          'total_pages': 0,
-        },
-      });
-      expect(r.events, isEmpty);
-      expect(r.entries, isEmpty);
-    });
-  });
-
   // -------------------------------------------------------------------------
   // Breakdown types
   // -------------------------------------------------------------------------
 
   group('BreakdownActivity', () {
+    test('fromJson reads the v4 activity_kind key', () {
+      final a = BreakdownActivity.fromJson({
+        'activity_id': 1,
+        'activity_type': 'block_produced',
+        'points': 50,
+        'activity_kind': 'PRODUCE_BLOCKS_CHALLENGE',
+      });
+      expect(a.activitySubCategory, 'PRODUCE_BLOCKS_CHALLENGE');
+    });
+
     test('fromJson parses activity_id key', () {
       final a = BreakdownActivity.fromJson({
         'activity_id': 1,
@@ -1256,6 +942,77 @@ void main() {
       expect(br.allScopedChallengeProgress.single.eventId, 3);
     });
 
+    test('fromJson parses the v4 season scope (no top-level totals)', () {
+      // v4's season response is {display_name, scope, events} — no season
+      // identity and no top-level or per-season totals. Totals derive from
+      // the events.
+      final br = BreakdownResult.fromJson({
+        'display_name': 'Dana',
+        'scope': 'season',
+        'events': [
+          {
+            'event': {'id': 1, 'name': 'E1'},
+            'total_points': 2500,
+            'extra_points': 500,
+            'rank': 2,
+          },
+          {
+            'event': {'id': 2, 'name': 'E2'},
+            'total_points': 1500,
+            'extra_points': 250,
+            'rank': 9,
+          },
+        ],
+      });
+      expect(br.scope, 'season');
+      expect(br.totalPoints, 4000);
+      expect(br.offchainPoints, 750);
+      expect(br.seasonBreakdown!.totalPoints, 4000);
+      expect(br.seasonBreakdown!.events, hasLength(2));
+    });
+
+    test('fromJson parses the v4 global scope (seasons keyed by id/name)', () {
+      // v4's global response is {display_name, scope, seasons: [{id, name,
+      // events}]} — no totals anywhere above the event level.
+      final br = BreakdownResult.fromJson({
+        'display_name': 'Eve',
+        'scope': 'global',
+        'seasons': [
+          {
+            'id': 1,
+            'name': 'Season 1',
+            'events': [
+              {
+                'event': {'id': 3, 'name': 'Phase 1'},
+                'total_points': 800,
+                'extra_points': 100,
+                'rank': 5,
+              },
+            ],
+          },
+          {
+            'id': 2,
+            'name': 'Season 2',
+            'events': [
+              {
+                'event': {'id': 7, 'name': 'Phase 2'},
+                'total_points': 200,
+                'extra_points': 50,
+                'rank': 1,
+              },
+            ],
+          },
+        ],
+      });
+      expect(br.scope, 'global');
+      expect(br.globalSeasons, hasLength(2));
+      expect(br.globalSeasons.first.seasonId, 1);
+      expect(br.globalSeasons.first.seasonName, 'Season 1');
+      expect(br.globalSeasons.first.totalPoints, 800);
+      expect(br.totalPoints, 1000);
+      expect(br.offchainPoints, 150);
+    });
+
     test('progressForChallenge resolves by event and rejects ambiguity', () {
       const br = BreakdownResult(
         scope: 'season',
@@ -1425,48 +1182,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('toJson round-trip', () {
-    test('RankingResult (event scope)', () {
-      final json = {
-        'scope': 'event',
-        'rank': 5,
-        'total_points': 1200,
-        'offchain_points': 300,
-        'total_participants': 500,
-        'event_id': 10,
-        'event_name': 'Event Alpha',
-      };
-      final r = RankingResult.fromJson(json);
-      final r2 = RankingResult.fromJson(r.toJson());
-      expect(r2.scope, r.scope);
-      expect(r2.rank, r.rank);
-      expect(r2.totalPoints, r.totalPoints);
-      expect(r2.offchainPoints, r.offchainPoints);
-      expect(r2.totalParticipants, r.totalParticipants);
-      expect(r2.eventId, r.eventId);
-      expect(r2.eventName, r.eventName);
-      expect(r2.seasonId, isNull);
-    });
-
-    test('RankingResult (season scope)', () {
-      final json = {
-        'scope': 'season',
-        'rank': 3,
-        'total_points': 5000,
-        'offchain_points': 1000,
-        'total_participants': 2000,
-        'season_id': 1,
-        'season_name': 'Season 1',
-        'events_participated': 4,
-        'total_produced_blocks': 25,
-      };
-      final r = RankingResult.fromJson(json);
-      final r2 = RankingResult.fromJson(r.toJson());
-      expect(r2.seasonId, r.seasonId);
-      expect(r2.seasonName, r.seasonName);
-      expect(r2.eventsParticipated, r.eventsParticipated);
-      expect(r2.totalProducedBlocks, r.totalProducedBlocks);
-    });
-
     test('ChallengeDto (all fields)', () {
       final json = {
         'id': 7,
@@ -1528,110 +1243,6 @@ void main() {
       expect(c2.subCategory, isNull);
       expect(c2.description, isNull);
       expect(c2.ctaLabel, isNull);
-    });
-
-    test('LeaderboardSeason', () {
-      final s = LeaderboardSeason.fromJson({'id': 1, 'name': 'Season 1'});
-      final s2 = LeaderboardSeason.fromJson(s.toJson());
-      expect(s2.id, s.id);
-      expect(s2.name, s.name);
-    });
-
-    test('LeaderboardEvent', () {
-      final json = {
-        'id': 5,
-        'name': 'Event 5',
-        'starts_at': '2025-01-01',
-        'ends_at': '2025-01-07',
-        'is_active': true,
-      };
-      final e = LeaderboardEvent.fromJson(json);
-      final e2 = LeaderboardEvent.fromJson(e.toJson());
-      expect(e2.id, e.id);
-      expect(e2.name, e.name);
-      expect(e2.startsAt, e.startsAt);
-      expect(e2.endsAt, e.endsAt);
-      expect(e2.isActive, e.isActive);
-    });
-
-    test('LeaderboardEntry', () {
-      final json = {
-        'rank': 1,
-        'participant_id': 42,
-        'display_name': 'Alice',
-        'total_points': 9999,
-        'offchain_points': 500,
-        'total_produced_blocks': 100,
-        'vrf_total_won_slots': 50,
-        'success_rate': 0.95,
-        'events_participated': 3,
-      };
-      final e = LeaderboardEntry.fromJson(json);
-      final e2 = LeaderboardEntry.fromJson(e.toJson());
-      expect(e2.rank, e.rank);
-      expect(e2.participantId, e.participantId);
-      expect(e2.displayName, e.displayName);
-      expect(e2.totalPoints, e.totalPoints);
-      expect(e2.successRate, e.successRate);
-      expect(e2.eventsParticipated, e.eventsParticipated);
-    });
-
-    test('PaginationInfo', () {
-      final json = {
-        'page': 2,
-        'per_page': 50,
-        'total': 250,
-        'total_pages': 5,
-      };
-      final p = PaginationInfo.fromJson(json);
-      final p2 = PaginationInfo.fromJson(p.toJson());
-      expect(p2.page, p.page);
-      expect(p2.perPage, p.perPage);
-      expect(p2.total, p.total);
-      expect(p2.totalPages, p.totalPages);
-    });
-
-    test('LeaderboardResult', () {
-      final json = {
-        'season': {'id': 1, 'name': 'Season 1'},
-        'events': [
-          {
-            'id': 1,
-            'name': 'Event 1',
-            'starts_at': '2025-01-01',
-            'ends_at': '2025-01-07',
-            'is_active': true,
-          },
-        ],
-        'leaderboard': [
-          {
-            'rank': 1,
-            'participant_id': 42,
-            'display_name': 'Bob',
-            'total_points': 5000,
-            'offchain_points': 200,
-            'total_produced_blocks': 50,
-            'vrf_total_won_slots': 30,
-            'success_rate': 0.9,
-            'events_participated': 2,
-          },
-        ],
-        'pagination': {
-          'page': 1,
-          'per_page': 50,
-          'total': 1,
-          'total_pages': 1,
-        },
-      };
-      final r = LeaderboardResult.fromJson(json);
-      final r2 = LeaderboardResult.fromJson(r.toJson());
-      expect(r2.season.id, r.season.id);
-      expect(r2.season.name, r.season.name);
-      expect(r2.events.length, r.events.length);
-      expect(r2.events.first.id, r.events.first.id);
-      expect(r2.entries.length, r.entries.length);
-      expect(r2.entries.first.displayName, r.entries.first.displayName);
-      expect(r2.pagination.page, r.pagination.page);
     });
 
     test('BreakdownActivity', () {

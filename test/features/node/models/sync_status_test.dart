@@ -26,7 +26,8 @@ void main() {
       expect(SyncStatus.error().hasError, isTrue);
     });
 
-    test('syncing computes progress from applied/target and labels percent', () {
+    test('syncing computes progress from applied/target and labels percent',
+        () {
       final s = SyncStatus.syncing(
         localHeight: 50,
         networkHeight: 100,
@@ -65,7 +66,8 @@ void main() {
     test('null when synced/unknown', () {
       expect(SyncStatus.connecting().blocksRemaining, isNull);
       expect(
-        SyncStatus.synced(localHeight: 100, networkHeight: 100, connectedPeers: 1)
+        SyncStatus.synced(
+                localHeight: 100, networkHeight: 100, connectedPeers: 1)
             .blocksRemaining,
         isNull,
       );

@@ -2,8 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
@@ -610,25 +608,8 @@ class _NodeStatusSummaryModalState
               ],
             ),
 
-            SizedBox(height: spacing.space16),
-
-            // View Details Button
-            SizedBox(
-              width: double.infinity,
-              child: Button(
-                label: 'View Details',
-                variant: ButtonVariant.primary,
-                leadingIcon: const Icon(Symbols.visibility_sharp),
-                onTap: () {
-                  // Dismiss the bottom sheet first (else it lingers under the
-                  // node page and reappears on back), then push the standalone
-                  // /main/node route so back returns to wherever we came from.
-                  final goRouter = GoRouter.of(context);
-                  Navigator.of(context).pop();
-                  goRouter.push(AppRoutes.mainNode);
-                },
-              ),
-            ),
+            // The full node-status detail screen moved into SV (drawer node
+            // sheet); this native modal is now summary-only.
             SizedBox(height: spacing.space8),
           ],
         ),

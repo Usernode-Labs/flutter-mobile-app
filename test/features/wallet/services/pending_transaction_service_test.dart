@@ -49,7 +49,9 @@ void main() {
 
     expect(
       await svc.getAmountForTransaction(
-          fromAddress: a.fromAddress, toAddress: 'aaaaaaaaaaaa', timestamp: now),
+          fromAddress: a.fromAddress,
+          toAddress: 'aaaaaaaaaaaa',
+          timestamp: now),
       10,
     );
     // No match -> null (timestamp far outside tolerance).
@@ -66,8 +68,10 @@ void main() {
     expect(await svc.getPendingTransactionCount(), 1);
 
     // Expired entries are dropped by cleanup.
-    await svc.storePendingTransaction(
-        tx(to: 'cccccccccccc', amount: 5, ts: now.subtract(const Duration(hours: 30))));
+    await svc.storePendingTransaction(tx(
+        to: 'cccccccccccc',
+        amount: 5,
+        ts: now.subtract(const Duration(hours: 30))));
     await svc.cleanupTransactions();
     final remaining = await svc.getAllPendingTransactions();
     expect(remaining.any((t) => t.toAddress == 'cccccccccccc'), isFalse);

@@ -1,88 +1,40 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
-import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
-import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
-import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
+
+export 'package:crypto_mobile_app/core/identity/session_controller.dart'
+    show
+        identityProvider,
+        SessionController,
+        authRepositoryProvider,
+        authTokenStoreProvider,
+        authGuestFlagProvider;
 
 enum AuthStatus { unknown, unauthenticated, guest, authenticated }
 
-final authRepositoryProvider =
-    Provider<AuthRepository>((ref) => AuthRepository());
-
-final authTokenStoreProvider =
-    Provider<AuthTokenStore>((ref) => AuthTokenStore());
-
-final authGuestFlagProvider = Provider<AuthGuestFlag>((ref) => AuthGuestFlag());
-
-final authStatusProvider =
-    StateNotifierProvider<AuthStatusNotifier, AuthStatus>((ref) {
-  return AuthStatusNotifier(
-    tokenStore: ref.watch(authTokenStoreProvider),
-    guestFlag: ref.watch(authGuestFlagProvider),
-    repository: ref.watch(authRepositoryProvider),
-  )..load();
+/// Coarse auth view of the current [Identity]. Both [IdentityPhase.ready]
+/// and [IdentityPhase.reconciling] map to [AuthStatus.authenticated] — a
+/// session exists in both; whether account-scoped state can be trusted is
+/// the finer-grained `identity.isSettled`, which identity-sensitive
+/// consumers (router wallet gate, signer, node start) check separately.
+final authStatusProvider = Provider<AuthStatus>((ref) {
+  switch (ref.watch(identityProvider).phase) {
+    case IdentityPhase.unknown:
+    case IdentityPhase.transitioning:
+      return AuthStatus.unknown;
+    case IdentityPhase.unauthenticated:
+      return AuthStatus.unauthenticated;
+    case IdentityPhase.guest:
+      return AuthStatus.guest;
+    case IdentityPhase.reconciling:
+    case IdentityPhase.ready:
+      return AuthStatus.authenticated;
+  }
 });
-
-class AuthStatusNotifier extends StateNotifier<AuthStatus> {
-  AuthStatusNotifier({
-    required AuthTokenStore tokenStore,
-    required AuthGuestFlag guestFlag,
-    required AuthRepository repository,
-  })  : _tokenStore = tokenStore,
-        _guestFlag = guestFlag,
-        _repository = repository,
-        super(AuthStatus.unknown);
-
-  final AuthTokenStore _tokenStore;
-  final AuthGuestFlag _guestFlag;
-  final AuthRepository _repository;
-
-  Future<void> load() async {
-    final token = await _tokenStore.read();
-    if (!mounted) return;
-    if (token != null && token.isNotEmpty) {
-      state = AuthStatus.authenticated;
-      return;
-    }
-    final guest = await _guestFlag.isGuest();
-    if (!mounted) return;
-    state = guest ? AuthStatus.guest : AuthStatus.unauthenticated;
-  }
-
-  Future<void> completeLogin(AuthSession session) async {
-    await _tokenStore.write(session.token);
-    await _guestFlag.clear();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.authenticated;
-  }
-
-  Future<void> continueAsGuest() async {
-    await _guestFlag.setGuest();
-    await refreshActiveAccountBucket(guest: true);
-    state = AuthStatus.guest;
-  }
-
-  Future<void> logout() async {
-    final token = await _tokenStore.read();
-    if (token != null && token.isNotEmpty) {
-      await _repository.logout(token);
-    }
-    await _tokenStore.clear();
-    await _guestFlag.clear();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.unauthenticated;
-  }
-
-  Future<void> onUnauthorized() async {
-    await _tokenStore.clear();
-    await refreshActiveAccountBucket(guest: false);
-    state = AuthStatus.unauthenticated;
-  }
-}
 
 class AuthFlowState {
   const AuthFlowState({
@@ -129,8 +81,11 @@ class AuthFlowNotifier extends StateNotifier<AuthFlowState> {
 final accountApiServiceProvider = Provider<AccountApiService>((ref) {
   final service = AccountApiService(
     tokenProvider: () => ref.read(authTokenStoreProvider).read(),
-    onUnauthorized: () =>
-        ref.read(authStatusProvider.notifier).onUnauthorized(),
+    onUnauthorized: (credential) => ref
+        .read(identityProvider.notifier)
+        .onUnauthorized(credential: credential),
+    onCredentialMissing: (epoch) =>
+        ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
   );
   ref.onDispose(service.dispose);
   return service;
@@ -139,8 +94,14 @@ final accountApiServiceProvider = Provider<AccountApiService>((ref) {
 /// The authenticated participant profile from `/me` (null when not
 /// authenticated). Carries the backend-resolved [Me.level].
 final meProvider = FutureProvider<Me?>((ref) async {
-  if (ref.watch(authStatusProvider) != AuthStatus.authenticated) return null;
-  return ref.read(accountApiServiceProvider).getMe();
+  final identity = ref.watch(identityProvider);
+  if (!identity.isAuthenticated) return null;
+  final me = await ref.read(accountApiServiceProvider).getMe();
+  // Profile responses are identity-scoped too. Riverpod normally discards a
+  // superseded FutureProvider build, but make the boundary explicit so this
+  // value can never be observed under a replacement session.
+  if (!identity.sameScopeAs(ref.read(identityProvider))) return null;
+  return me;
 });
 
 /// The user's level (guest / member / operator). Backend-authoritative via
@@ -155,4 +116,32 @@ final userLevelProvider = Provider<UserLevel>((ref) {
     me: me,
     hasOnchainAccount: onchain,
   );
+});
+
+/// The current session token (null when none stored). Async because it reads
+/// secure storage; callers that need it per-request use it directly.
+final sessionTokenProvider =
+    FutureProvider<String?>((ref) => ref.watch(authTokenStoreProvider).read());
+
+/// True only when a session is fully established.
+final isAuthenticatedProvider = Provider<bool>(
+    (ref) => ref.watch(authStatusProvider) == AuthStatus.authenticated);
+
+/// True only after the authenticated identity has finished reconciling its
+/// account-scoped state. Background work that can issue authenticated requests
+/// should use this finer gate instead of the coarse auth status.
+final isReadyAuthenticatedProvider = Provider<bool>(
+  (ref) => ref.watch(
+    identityProvider.select(
+      (identity) => identity.phase == IdentityPhase.ready,
+    ),
+  ),
+);
+
+/// Whether the data screens should show the "sign in to view" gate. True once
+/// the session has resolved to guest/unauthenticated; `unknown` (still loading
+/// at boot) returns false so the gate never flashes before the state settles.
+final showSignInGateProvider = Provider<bool>((ref) {
+  final status = ref.watch(authStatusProvider);
+  return status == AuthStatus.guest || status == AuthStatus.unauthenticated;
 });

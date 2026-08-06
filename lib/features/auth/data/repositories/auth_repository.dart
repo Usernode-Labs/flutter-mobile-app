@@ -67,15 +67,26 @@ class AuthRepository {
     required String password,
     required String passwordConfirmation,
   }) async {
-    final json = await _post(
-      '/set-password',
-      body: {
-        'password': password,
-        'password_confirmation': passwordConfirmation,
-      },
-      bearer: setPasswordToken,
-    );
-    return AuthSession.fromJson(json);
+    try {
+      final json = await _post(
+        '/set-password',
+        body: {
+          'password': password,
+          'password_confirmation': passwordConfirmation,
+        },
+        bearer: setPasswordToken,
+      );
+      return AuthSession.fromJson(json);
+    } on AuthException catch (error) {
+      // v4 uses 401 when this one-time bearer has expired or was already
+      // consumed. `_mapError` must keep mapping ordinary 401s (notably login)
+      // to invalidCredentials, so reinterpret it only in this endpoint's
+      // set-password-token context.
+      if (error.kind == AuthErrorKind.invalidCredentials) {
+        throw AuthException(AuthErrorKind.wrongToken, error.message);
+      }
+      rethrow;
+    }
   }
 
   Future<void> logout(String sessionToken) async {
@@ -85,6 +96,64 @@ class AuthRepository {
       // Best-effort: an expired/invalid session still clears locally.
       _log.debug('logout ignored error: $e');
     }
+  }
+
+  /// Resolves the owner of an opaque mobile bearer through authenticated
+  /// `/me`. Bridge callers may supply a legacy `user` object for compatibility,
+  /// but only this response is authoritative for the native participant.
+  Future<AuthSession> resolveBearerSession(
+    String token, {
+    int? legacyParticipantId,
+  }) async {
+    final mobileBase = _baseUrl.endsWith('/auth')
+        ? _baseUrl.substring(0, _baseUrl.length - 5)
+        : _baseUrl;
+    final url = Uri.parse('$mobileBase/me');
+    http.Response resp;
+    try {
+      resp = await _http.get(url, headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      }).timeout(const Duration(seconds: 15));
+    } catch (e) {
+      _log.warn('bearer validation failed: $e');
+      throw AuthException(
+        AuthErrorKind.network,
+        'Could not validate the session. Please try again.',
+      );
+    }
+
+    final decoded = _tryDecode(resp.body);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw _mapError(resp.statusCode, decoded);
+    }
+    final data = decoded?['data'];
+    if (decoded?['success'] != true || data is! Map<String, dynamic>) {
+      throw AuthException(
+        AuthErrorKind.network,
+        'Unexpected session validation response.',
+      );
+    }
+    late final AuthSession session;
+    try {
+      session = AuthSession(
+        token: token,
+        participant: Participant.fromJson(data),
+      );
+    } catch (_) {
+      throw AuthException(
+        AuthErrorKind.network,
+        'Unexpected session validation response.',
+      );
+    }
+    if (legacyParticipantId != null &&
+        legacyParticipantId != session.participant.id) {
+      throw AuthException(
+        AuthErrorKind.validation,
+        'The supplied user does not match the authenticated bearer.',
+      );
+    }
+    return session;
   }
 
   Future<Map<String, dynamic>> _post(
@@ -128,7 +197,9 @@ class AuthRepository {
   }
 
   AuthException _mapError(int status, Map<String, dynamic>? json) {
-    final serverMsg = json?['message'] as String?;
+    // v4's error envelope is `{success: false, error, details?}`; `message`
+    // is kept as a fallback for older/other servers.
+    final serverMsg = (json?['error'] ?? json?['message']) as String?;
     switch (status) {
       case 401:
         return AuthException(AuthErrorKind.invalidCredentials,

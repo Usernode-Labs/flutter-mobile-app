@@ -2,13 +2,12 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
-import 'package:crypto_mobile_app/core/providers/event_points_provider.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_provider.dart';
-import 'package:crypto_mobile_app/core/providers/ranking_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -21,52 +20,24 @@ const _seasonNameKey = 'leaderboard:season_name';
 const _eventIdKey = 'leaderboard:event_id';
 const _eventNameKey = 'leaderboard:event_name';
 
-/// Bootstraps leaderboard state from persisted data and registration results.
-///
-/// Two primary use cases:
-///
-/// 1. **After v2 registration** — call [handleRegistration] to persist
-///    participant + season data, then set the returned context:
-///    ```dart
-///    final ctx = await LeaderboardBootstrap.handleRegistration(v2Result);
-///    ref.read(seasonEventContextProvider.notifier).state = ctx;
-///    ref.invalidate(participantIdProvider);
-///    ```
-///
-/// 2. **Cold start** — watch [leaderboardBootstrapProvider] in the app shell
-///    to auto-restore the [SeasonEventContext] from SharedPreferences.
+/// Bootstraps leaderboard state from persisted data: watch
+/// [leaderboardBootstrapProvider] in the app shell to auto-restore the
+/// [SeasonEventContext] from SharedPreferences on cold start.
 class LeaderboardBootstrap {
-  /// Persist registration data. Returns the [SeasonEventContext] to set on
-  /// [seasonEventContextProvider].
-  static Future<SeasonEventContext> handleRegistration(
-    RegistrationV2Result result,
-  ) async {
-    await saveParticipantId(result.participantId);
-    final ctx = SeasonEventContext(
-      seasonId: result.seasonId,
-      seasonName: result.seasonName,
-    );
-    if (result.seasonId != null) {
-      await _persistContext(ctx);
-    }
-    _log.info(
-      'Persisted participant=${result.participantId}, '
-      'season=${result.seasonId} (${result.seasonName})',
-    );
-    return ctx;
-  }
-
   /// Load persisted season context for cold-start hydration.
   /// Returns null if no leaderboard data has been persisted.
-  static Future<SeasonEventContext?> loadPersistedContext() async {
+  static Future<SeasonEventContext?> loadPersistedContext(
+      {String? bucket}) async {
+    final seasonIdKey = _accountKey(_seasonIdKey, bucket: bucket);
+    final seasonNameKey = _accountKey(_seasonNameKey, bucket: bucket);
+    final eventIdKey = _accountKey(_eventIdKey, bucket: bucket);
+    final eventNameKey = _accountKey(_eventNameKey, bucket: bucket);
     final prefs = await SharedPreferences.getInstance();
-    final seasonId = prefs.getInt(NetworkPrefs.prefixAccountKey(_seasonIdKey));
+    final seasonId = prefs.getInt(seasonIdKey);
     if (seasonId == null) return null;
-    final seasonName =
-        prefs.getString(NetworkPrefs.prefixAccountKey(_seasonNameKey));
-    final eventId = prefs.getInt(NetworkPrefs.prefixAccountKey(_eventIdKey));
-    final eventName =
-        prefs.getString(NetworkPrefs.prefixAccountKey(_eventNameKey));
+    final seasonName = prefs.getString(seasonNameKey);
+    final eventId = prefs.getInt(eventIdKey);
+    final eventName = prefs.getString(eventNameKey);
     return SeasonEventContext(
       seasonId: seasonId,
       seasonName: seasonName,
@@ -77,51 +48,47 @@ class LeaderboardBootstrap {
 
   /// Persist a season/event selection (e.g. when the user picks an event
   /// or "All Events" via the event picker).
-  static Future<void> persistSeasonEvent(SeasonEventContext ctx) async {
+  static Future<void> persistSeasonEvent(
+    SeasonEventContext ctx, {
+    String? bucket,
+  }) async {
     if (ctx.seasonId == null && ctx.eventId == null) return;
-    await _persistContext(ctx);
+    await _persistContext(ctx, bucket: bucket);
   }
 
   // -- private ---------------------------------------------------------------
 
-  static Future<void> _persistContext(SeasonEventContext ctx) async {
+  static String _accountKey(String key, {String? bucket}) => bucket == null
+      ? NetworkPrefs.prefixAccountKey(key)
+      : NetworkPrefs.prefixAccountKeyFor(key, bucket);
+
+  static Future<void> _persistContext(
+    SeasonEventContext ctx, {
+    String? bucket,
+  }) async {
+    final seasonIdKey = _accountKey(_seasonIdKey, bucket: bucket);
+    final seasonNameKey = _accountKey(_seasonNameKey, bucket: bucket);
+    final eventIdKey = _accountKey(_eventIdKey, bucket: bucket);
+    final eventNameKey = _accountKey(_eventNameKey, bucket: bucket);
     final prefs = await SharedPreferences.getInstance();
     if (ctx.seasonId != null) {
-      await prefs.setInt(
-          NetworkPrefs.prefixAccountKey(_seasonIdKey), ctx.seasonId!);
+      await prefs.setInt(seasonIdKey, ctx.seasonId!);
     }
     if (ctx.seasonName != null) {
-      await prefs.setString(
-        NetworkPrefs.prefixAccountKey(_seasonNameKey),
-        ctx.seasonName!,
-      );
+      await prefs.setString(seasonNameKey, ctx.seasonName!);
     }
     if (ctx.eventId != null) {
-      await prefs.setInt(
-          NetworkPrefs.prefixAccountKey(_eventIdKey), ctx.eventId!);
+      await prefs.setInt(eventIdKey, ctx.eventId!);
     } else {
-      await prefs.remove(NetworkPrefs.prefixAccountKey(_eventIdKey));
+      await prefs.remove(eventIdKey);
     }
     if (ctx.eventName != null) {
-      await prefs.setString(
-        NetworkPrefs.prefixAccountKey(_eventNameKey),
-        ctx.eventName!,
-      );
+      await prefs.setString(eventNameKey, ctx.eventName!);
     } else {
-      await prefs.remove(NetworkPrefs.prefixAccountKey(_eventNameKey));
+      await prefs.remove(eventNameKey);
     }
   }
 }
-
-// ---------------------------------------------------------------------------
-// Registration freshness detection
-// ---------------------------------------------------------------------------
-
-enum RegistrationFreshness { current, stale, unknown }
-
-final registrationFreshnessProvider = StateProvider<RegistrationFreshness>(
-  (ref) => RegistrationFreshness.unknown,
-);
 
 /// Refresh all active leaderboard providers silently.
 /// Called from zkpassport flow completion and other non-screen contexts.
@@ -150,12 +117,9 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
   _lastRefreshAt = now;
 
   await Future.wait([
-    ref.read(rankingProvider.notifier).silentRefresh(),
     ref.read(challengesProvider.notifier).silentRefresh(),
-    ref.read(leaderboardProvider.notifier).silentRefresh(),
     ref.read(breakdownProvider.notifier).silentRefresh(),
     ref.read(seasonsProvider.notifier).silentRefresh(),
-    ref.read(eventPointsProvider.notifier).silentRefresh(),
   ]);
 }
 
@@ -166,11 +130,25 @@ Future<void> refreshAllLeaderboardData(Ref ref) async {
 /// ref.watch(leaderboardBootstrapProvider);
 /// ```
 ///
-/// Downstream providers ([rankingProvider], [challengesProvider], etc.) watch
-/// [seasonEventContextProvider] and rebuild automatically once the context is
-/// populated.
+/// Downstream providers ([challengesProvider], [breakdownProvider], etc.)
+/// watch [seasonEventContextProvider] and rebuild automatically once the
+/// context is populated.
 final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
-  final persisted = await LeaderboardBootstrap.loadPersistedContext();
+  // AuthStatus maps both reconciling and ready to authenticated. Leaderboard
+  // state is account/bucket scoped, so capture the exact identity instead and
+  // wait until reconciliation has proved ownership before reading or fetching.
+  final identity = ref.watch(identityProvider);
+  if (identity.phase != IdentityPhase.ready) return;
+
+  var runIsActive = true;
+  ref.onDispose(() => runIsActive = false);
+  bool identityStillCurrent() =>
+      runIsActive && identity.sameScopeAs(ref.read(identityProvider));
+
+  final persisted = await LeaderboardBootstrap.loadPersistedContext(
+    bucket: identity.bucket,
+  );
+  if (!identityStillCurrent()) return;
 
   // Fast path: restore persisted context immediately so downstream
   // providers get data without waiting for the API. A null eventId
@@ -193,6 +171,7 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
     final service = ref.read(leaderboardApiServiceProvider);
     seasons = await service.getSeasons();
   } catch (e) {
+    if (!identityStillCurrent()) return;
     _log.warn('Failed to fetch seasons for auto-select: $e');
     // If we have partial persisted data, use it rather than nothing.
     if (persisted != null) {
@@ -200,6 +179,7 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
     }
     return;
   }
+  if (!identityStillCurrent()) return;
 
   if (seasons.isEmpty) {
     _log.info('No seasons available — skipping auto-select');
@@ -210,6 +190,8 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
   }
 
   // Resolve season: prefer persisted seasonId, then active, then last.
+  // FIXME(follow-up): The seasons API is newest-first; both no-match fallbacks
+  // must use seasons.first rather than the oldest seasons.last.
   final season = persisted?.seasonId != null
       ? (seasons.cast<SeasonDto?>().firstWhere(
                 (s) => s!.id == persisted!.seasonId,
@@ -242,86 +224,16 @@ final leaderboardBootstrapProvider = FutureProvider<void>((ref) async {
     eventName: resolvedEvent?.name,
   );
   ref.read(seasonEventContextProvider.notifier).state = ctx;
-  await LeaderboardBootstrap.persistSeasonEvent(ctx);
+  await LeaderboardBootstrap.persistSeasonEvent(
+    ctx,
+    bucket: identity.bucket,
+  );
+  if (!identityStillCurrent()) return;
   _log.info(
     'Bootstrap: season=${season.id} (${season.name}), '
     'event=${resolvedEvent?.id ?? "All Events"}',
   );
 
-  // Validate registration freshness at the season level.
-  // With season continuity, registration happens via the season phase
-  // and auto-enroll covers all events — so freshness is about whether
-  // the user is registered in the current active season.
-  await _validateRegistrationFreshness(ref,
-      currentSeasonId: season.id, persisted: persisted);
+  // Registration-freshness validation is retired: the stale-registration
+  // screen it fed was deleted with the platform-owned login migration.
 });
-
-/// Checks whether the persisted registration belongs to the current active
-/// season. Sets [registrationFreshnessProvider] accordingly.
-///
-/// With season continuity, users register once via the season phase and are
-/// auto-enrolled in all events. Staleness means the user's registration
-/// belongs to a different (older) season.
-Future<void> _validateRegistrationFreshness(
-  Ref ref, {
-  required int currentSeasonId,
-  SeasonEventContext? persisted,
-}) async {
-  persisted ??= await LeaderboardBootstrap.loadPersistedContext();
-  final participantId = await ref.read(participantIdProvider.future);
-
-  if (participantId == null) {
-    return;
-  }
-
-  // Case 1 — persisted seasonId matches current season → current
-  if (persisted?.seasonId != null && persisted!.seasonId == currentSeasonId) {
-    _log.info('Registration is current (seasonId=${persisted.seasonId})');
-    ref.read(registrationFreshnessProvider.notifier).state =
-        RegistrationFreshness.current;
-    return;
-  }
-
-  // Case 2 — persisted seasonId exists but doesn't match → stale
-  if (persisted?.seasonId != null && persisted!.seasonId != currentSeasonId) {
-    _log.warn(
-      'Registration is stale: persisted seasonId=${persisted.seasonId}, '
-      'current=$currentSeasonId',
-    );
-    ref.read(registrationFreshnessProvider.notifier).state =
-        RegistrationFreshness.stale;
-    return;
-  }
-
-  // Case 3 — no persisted seasonId (legacy registration)
-  // Verify via API whether participant has data in the current season
-  _log.info(
-    'No persisted seasonId — checking API for participant $participantId '
-    'in season $currentSeasonId',
-  );
-  try {
-    final service = ref.read(leaderboardApiServiceProvider);
-    await service.getRanking(
-      participantId: participantId,
-      seasonId: currentSeasonId,
-    );
-    _log.info('Participant is in current season — backfilling seasonId');
-    ref.read(registrationFreshnessProvider.notifier).state =
-        RegistrationFreshness.current;
-    final updated = (persisted ?? const SeasonEventContext()).copyWith(
-      seasonId: currentSeasonId,
-    );
-    await LeaderboardBootstrap.persistSeasonEvent(updated);
-  } on LeaderboardApiException catch (e) {
-    if (e.statusCode == 404) {
-      _log.warn('Participant not in current season (404): $e');
-      ref.read(registrationFreshnessProvider.notifier).state =
-          RegistrationFreshness.stale;
-    } else {
-      _log.warn(
-          'Ranking API returned ${e.statusCode} — leaving freshness unknown');
-    }
-  } catch (e) {
-    _log.warn('Failed to verify registration freshness: $e');
-  }
-}

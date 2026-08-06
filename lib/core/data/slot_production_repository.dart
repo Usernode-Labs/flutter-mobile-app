@@ -334,6 +334,14 @@ class SlotProductionRepository {
 
     _log.info('Cleared ${before - after} old records');
   }
+
+  /// Drops process-local account data before a replacement runtime starts.
+  void resetForAppRestart() {
+    _initialized = false;
+    _prefs = null;
+    _records.clear();
+    _cachedStats = null;
+  }
 }
 
 /// Status of a slot production

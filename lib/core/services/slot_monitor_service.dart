@@ -18,6 +18,7 @@ class SlotMonitorService {
   bool _initialized = false;
   bool _isMonitoring = false;
   Timer? _monitoringTimer;
+  Future<void>? _activePoll;
 
   // Cached timing values from node status
   int _blockInterval = 5000; // Default 5 seconds, updated from status
@@ -117,18 +118,27 @@ class SlotMonitorService {
     // Start polling timer (poll interval = 1 slot duration)
     _monitoringTimer = Timer.periodic(
       Duration(milliseconds: _blockInterval),
-      (_) => _pollNodeStatus(),
+      (_) => unawaited(_runPoll()),
     );
 
     // Do initial poll immediately
-    await _pollNodeStatus();
+    await _runPoll();
   }
 
   /// Stop monitoring current slot
   Future<void> stopMonitoring() async {
-    if (!_isMonitoring) return;
+    if (!_isMonitoring && _activePoll == null) return;
 
     _log.info('Stopping slot monitoring');
+    _monitoringTimer?.cancel();
+    _monitoringTimer = null;
+    _isMonitoring = false;
+
+    await _activePoll;
+    _clearMonitoringState();
+  }
+
+  void _clearMonitoringState() {
     _monitoringTimer?.cancel();
     _monitoringTimer = null;
     _isMonitoring = false;
@@ -147,6 +157,17 @@ class SlotMonitorService {
     _monitoringStartTime = null;
   }
 
+  Future<void> _runPoll() {
+    final active = _activePoll;
+    if (active != null) return active;
+
+    final poll = _pollNodeStatus();
+    _activePoll = poll;
+    return poll.whenComplete(() {
+      if (identical(_activePoll, poll)) _activePoll = null;
+    });
+  }
+
   /// Check if currently monitoring a slot
   bool get isMonitoring => _isMonitoring;
 
@@ -163,6 +184,7 @@ class SlotMonitorService {
 
     try {
       final status = await RustBackendService.instance.getStatus();
+      if (!_isMonitoring || _currentSlot == null) return;
       if (status == null) {
         _log.warn('No status available from Rust backend');
 
@@ -181,6 +203,7 @@ class SlotMonitorService {
       // Get node state from block producer status
       final bpStatus =
           await RustBackendService.instance.getBlockProducerStatus();
+      if (!_isMonitoring || _currentSlot == null) return;
       final nodeState = bpStatus?.blockProducer?.status.toString() ?? 'idle';
 
       // Use backend-provided current global slot
@@ -248,6 +271,7 @@ class SlotMonitorService {
       // Check if our slot was produced
       if (bestTipSlot >= currentSlotNumber) {
         await _checkSlotProduction(currentSlotNumber);
+        if (!_isMonitoring || _currentSlot == null) return;
       }
 
       // Check for timeout (24 slots after slot time)
@@ -277,17 +301,20 @@ class SlotMonitorService {
               'Failed to record production failure for slot $currentSlotNumber: $e');
         }
 
-        await stopMonitoring();
+        _clearMonitoringState();
       }
     } catch (e) {
       _log.error('Error polling node status: $e');
 
-      _eventController.add(SlotMonitoringEvent(
-        type: MonitoringEventType.error,
-        slotNumber: _currentSlot!.slotNumber,
-        timestamp: DateTime.now(),
-        error: e.toString(),
-      ));
+      final currentSlot = _currentSlot;
+      if (currentSlot != null) {
+        _eventController.add(SlotMonitoringEvent(
+          type: MonitoringEventType.error,
+          slotNumber: currentSlot.slotNumber,
+          timestamp: DateTime.now(),
+          error: e.toString(),
+        ));
+      }
     }
   }
 
@@ -333,9 +360,8 @@ class SlotMonitorService {
             'Failed to record production success for slot $slotNumber: $e');
       }
 
-
       // Stop monitoring this slot
-      await stopMonitoring();
+      _clearMonitoringState();
     } on StateError {
       // Slot not found in blockchain - still waiting or failed
       _log.debug('Slot $slotNumber not yet in blockchain');

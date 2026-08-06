@@ -91,155 +91,49 @@ class LeaderboardApiException implements Exception {
 }
 
 // ---------------------------------------------------------------------------
-// Registration v2
+// Wallet provisioning (v4 replacement for the retired v2 registration)
 // ---------------------------------------------------------------------------
 
-class RegistrationEventInfo {
-  final int id;
-  final String name;
-  final String? endsAt;
-
-  const RegistrationEventInfo(
-      {required this.id, required this.name, this.endsAt});
-
-  factory RegistrationEventInfo.fromJson(Map<String, dynamic> json) {
-    return RegistrationEventInfo(
-      id: _jsonInt(json['event_id'] ?? json['id']),
-      name: json['name'] as String? ?? '',
-      endsAt: json['ends_at'] as String?,
-    );
-  }
-}
-
-class RegistrationV2Result {
-  final int participantId;
-  final String identityUid;
-  final String publicKey;
-  final String secretKey;
-  final String address;
-  final String tier;
-  final int? seasonId;
-  final String? seasonName;
-  final RegistrationEventInfo? event;
-
-  const RegistrationV2Result({
-    required this.participantId,
-    required this.identityUid,
+/// The platform-allocated on-chain account returned by
+/// `POST /wallet/provision`. Idempotent server-side: reinstalls and
+/// migrated users get the same account back. [secretKey] is the credential
+/// the device imports to run its node — the same exposure the retired v2
+/// registration response had.
+class WalletProvisionResult {
+  const WalletProvisionResult({
+    required this.address,
     required this.publicKey,
     required this.secretKey,
-    required this.address,
-    required this.tier,
     this.seasonId,
-    this.seasonName,
-    this.event,
+    this.seasonEventId,
+    this.newlyAllocated = false,
+    this.bpReleased = false,
   });
 
-  factory RegistrationV2Result.fromJson(Map<String, dynamic> json) {
-    final event = json['event'] ?? json['phase'];
-    return RegistrationV2Result(
-      participantId: _jsonInt(json['participant_id']),
-      identityUid: json['identity_uid'] as String? ?? '',
-      publicKey: json['public_key'] as String? ?? '',
-      secretKey: json['secret_key'] as String? ?? '',
-      address: json['address'] as String? ?? '',
-      tier: json['tier'] as String? ?? '',
-      seasonId: _jsonIntN(json['season_id']),
-      seasonName: json['season_name'] as String?,
-      event: event is Map<String, dynamic>
-          ? RegistrationEventInfo.fromJson(event)
-          : null,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Ranking
-// ---------------------------------------------------------------------------
-
-class RankingResult {
-  final String scope;
-  final int rank;
-  final int totalPoints;
-  final int totalTokens;
-  final int offchainPoints;
-  final int totalParticipants;
-  // Scope-specific (event)
-  final int? eventId;
-  final String? eventName;
-  // Scope-specific (season / global)
+  final String address;
+  final String publicKey;
+  final String secretKey;
   final int? seasonId;
-  final String? seasonName;
-  final int? eventsParticipated;
-  final int? totalProducedBlocks;
-  // Terms gating. The backend forces [totalTokens] to 0 while [termsAccepted]
-  // is false; [rank] and [totalPoints] are never affected.
-  final bool termsAccepted;
-  final String? termsVersionRequired;
-  final String? termsLink;
+  final int? seasonEventId;
+  final bool newlyAllocated;
 
-  const RankingResult({
-    required this.scope,
-    required this.rank,
-    required this.totalPoints,
-    this.totalTokens = 0,
-    required this.offchainPoints,
-    required this.totalParticipants,
-    this.eventId,
-    this.eventName,
-    this.seasonId,
-    this.seasonName,
-    this.eventsParticipated,
-    this.totalProducedBlocks,
-    this.termsAccepted = true,
-    this.termsVersionRequired,
-    this.termsLink,
-  });
+  /// Whether an admin has released this user's block-producer keys
+  /// (onboarding flow alignment). Persisted per account bucket by the
+  /// reconciler so NodeService can gate producer setup without a network
+  /// round-trip at start time.
+  final bool bpReleased;
 
-  factory RankingResult.fromJson(Map<String, dynamic> json) {
-    return RankingResult(
-      scope: json['scope'] as String? ?? 'event',
-      rank: _jsonIntN(json['rank']) ?? 0,
-      totalPoints: _jsonIntN(json['total_points']) ?? 0,
-      totalTokens: _jsonIntN(json['total_tokens']) ?? 0,
-      offchainPoints: _jsonIntN(json['offchain_points']) ?? 0,
-      totalParticipants: _jsonIntN(json['total_participants']) ?? 0,
-      eventId: _jsonIntN(json['event_id']),
-      eventName: json['event_name'] as String?,
+  factory WalletProvisionResult.fromJson(Map<String, dynamic> json) {
+    return WalletProvisionResult(
+      address: json['address'] as String,
+      publicKey: json['public_key'] as String,
+      secretKey: json['secret_key'] as String,
       seasonId: _jsonIntN(json['season_id']),
-      seasonName: json['season_name'] as String?,
-      eventsParticipated:
-          _jsonIntN(json['events_participated'] ?? json['phases_participated']),
-      totalProducedBlocks: _jsonIntN(json['total_produced_blocks']),
-      // Absent key means a backend that predates terms gating, which is also a
-      // backend that never zeroes tokens — gating there would misreport a real
-      // balance as withheld.
-      termsAccepted: json['terms_accepted'] as bool? ?? true,
-      termsVersionRequired: _nonEmptyString(json['terms_version_required']),
-      termsLink: _sanitizeCtaLink(CtaType.url, json['terms_link']),
+      seasonEventId: _jsonIntN(json['season_event_id']),
+      newlyAllocated: json['newly_allocated'] == true,
+      bpReleased: json['bp_released'] == true,
     );
   }
-
-  Map<String, dynamic> toJson() => {
-        'scope': scope,
-        'rank': rank,
-        'total_points': totalPoints,
-        'total_tokens': totalTokens,
-        'offchain_points': offchainPoints,
-        'total_participants': totalParticipants,
-        if (eventId != null) 'event_id': eventId,
-        if (eventName != null) 'event_name': eventName,
-        if (seasonId != null) 'season_id': seasonId,
-        if (seasonName != null) 'season_name': seasonName,
-        if (eventsParticipated != null)
-          'events_participated': eventsParticipated,
-        if (totalProducedBlocks != null)
-          'total_produced_blocks': totalProducedBlocks,
-        // Emitted unconditionally: omitting a false/null terms field would let
-        // it round-trip back to the permissive default and un-gate the UI.
-        'terms_accepted': termsAccepted,
-        'terms_version_required': termsVersionRequired,
-        'terms_link': termsLink,
-      };
 }
 
 // ---------------------------------------------------------------------------
@@ -340,8 +234,11 @@ class ChallengeDto {
         useMobileCta ? mobileCtaLabel ?? baseCtaLabel : baseCtaLabel;
     final ctaLink = useMobileCta ? sanitizedMobileCtaLink : baseCtaLink;
     return ChallengeDto(
-      id: _jsonInt(json['id']),
-      eventId: _jsonIntN(json['event_id']),
+      // v4's compact per-season/per-event challenge item (GET /seasons'
+      // season_challenges and events[].challenges) keys the id as
+      // challenge_id; the full /challenges shape keeps id.
+      id: _jsonInt(json['id'] ?? json['challenge_id']),
+      eventId: _jsonIntN(json['season_event_id'] ?? json['event_id']),
       eventName: json['event_name'] as String?,
       eventType: json['event_type'] as String?,
       category: json['category'] as String? ?? 'technical',
@@ -361,7 +258,8 @@ class ChallengeDto {
       displayOrder: _jsonIntN(json['display_order']) ?? 0,
       featured: json['featured'] as bool? ?? false,
       featuredOrder: _jsonIntN(json['featured_order']),
-      subCategory: json['sub_category'] as String?,
+      // v4 renames a challenge's `sub_category` to `kind` (SPEC §8.2).
+      subCategory: (json['kind'] ?? json['sub_category']) as String?,
       source: json['source'] is Map<String, dynamic>
           ? ChallengeSource.fromJson(json['source'] as Map<String, dynamic>)
           : null,
@@ -408,67 +306,6 @@ class ChallengeDto {
 }
 
 // ---------------------------------------------------------------------------
-// Leaderboard
-// ---------------------------------------------------------------------------
-
-class LeaderboardSeason {
-  final int id;
-  final String name;
-
-  const LeaderboardSeason({required this.id, required this.name});
-
-  factory LeaderboardSeason.fromJson(Map<String, dynamic> json) {
-    return LeaderboardSeason(
-      id: _jsonInt(json['id']),
-      name: json['name'] as String? ?? '',
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-      };
-}
-
-class LeaderboardEvent {
-  final int id;
-  final String name;
-  final String? type;
-  final String? startsAt;
-  final String? endsAt;
-  final bool isActive;
-
-  const LeaderboardEvent({
-    required this.id,
-    required this.name,
-    this.type,
-    this.startsAt,
-    this.endsAt,
-    required this.isActive,
-  });
-
-  factory LeaderboardEvent.fromJson(Map<String, dynamic> json) {
-    return LeaderboardEvent(
-      id: _jsonInt(json['id']),
-      name: json['name'] as String? ?? '',
-      type: json['type'] as String?,
-      startsAt: json['starts_at'] as String?,
-      endsAt: json['ends_at'] as String?,
-      isActive: json['is_active'] as bool? ?? false,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        if (type != null) 'type': type,
-        if (startsAt != null) 'starts_at': startsAt,
-        if (endsAt != null) 'ends_at': endsAt,
-        'is_active': isActive,
-      };
-}
-
-// ---------------------------------------------------------------------------
 // Seasons (from /seasons endpoint)
 // ---------------------------------------------------------------------------
 
@@ -492,7 +329,8 @@ class SeasonEventDto {
   });
 
   factory SeasonEventDto.fromJson(Map<String, dynamic> json) {
-    final id = _jsonInt(json['event_id'] ?? json['id']);
+    final id =
+        _jsonInt(json['season_event_id'] ?? json['event_id'] ?? json['id']);
     return SeasonEventDto(
       id: id,
       name: json['name'] as String? ?? 'Event $id',
@@ -571,126 +409,6 @@ class SeasonDto {
       };
 }
 
-class LeaderboardEntry {
-  final int rank;
-  final int participantId;
-  final String? displayName;
-  final int totalPoints;
-  final int offchainPoints;
-  final int totalProducedBlocks;
-  final int vrfTotalWonSlots;
-  final double successRate;
-  final int eventsParticipated;
-
-  const LeaderboardEntry({
-    required this.rank,
-    required this.participantId,
-    this.displayName,
-    required this.totalPoints,
-    required this.offchainPoints,
-    required this.totalProducedBlocks,
-    required this.vrfTotalWonSlots,
-    required this.successRate,
-    required this.eventsParticipated,
-  });
-
-  factory LeaderboardEntry.fromJson(Map<String, dynamic> json) {
-    return LeaderboardEntry(
-      rank: _jsonInt(json['rank']),
-      participantId: _jsonInt(json['participant_id']),
-      displayName: json['display_name'] as String?,
-      totalPoints: _jsonInt(json['total_points']),
-      offchainPoints: _jsonInt(json['offchain_points']),
-      totalProducedBlocks: _jsonIntN(json['total_produced_blocks']) ?? 0,
-      vrfTotalWonSlots: _jsonIntN(json['vrf_total_won_slots']) ?? 0,
-      successRate: _jsonDoubleN(json['success_rate']) ?? 0.0,
-      eventsParticipated: _jsonIntN(
-              json['events_participated'] ?? json['phases_participated']) ??
-          0,
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'rank': rank,
-        'participant_id': participantId,
-        if (displayName != null) 'display_name': displayName,
-        'total_points': totalPoints,
-        'offchain_points': offchainPoints,
-        'total_produced_blocks': totalProducedBlocks,
-        'vrf_total_won_slots': vrfTotalWonSlots,
-        'success_rate': successRate,
-        'events_participated': eventsParticipated,
-      };
-}
-
-class PaginationInfo {
-  final int page;
-  final int perPage;
-  final int total;
-  final int totalPages;
-
-  const PaginationInfo({
-    required this.page,
-    required this.perPage,
-    required this.total,
-    required this.totalPages,
-  });
-
-  factory PaginationInfo.fromJson(Map<String, dynamic> json) {
-    return PaginationInfo(
-      page: _jsonInt(json['page']),
-      perPage: _jsonInt(json['per_page']),
-      total: _jsonInt(json['total']),
-      totalPages: _jsonInt(json['total_pages']),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'page': page,
-        'per_page': perPage,
-        'total': total,
-        'total_pages': totalPages,
-      };
-}
-
-class LeaderboardResult {
-  final LeaderboardSeason season;
-  final List<LeaderboardEvent> events;
-  final List<LeaderboardEntry> entries;
-  final PaginationInfo pagination;
-
-  const LeaderboardResult({
-    required this.season,
-    required this.events,
-    required this.entries,
-    required this.pagination,
-  });
-
-  factory LeaderboardResult.fromJson(Map<String, dynamic> json) {
-    final entriesList =
-        json['leaderboard'] as List? ?? json['entries'] as List? ?? [];
-    return LeaderboardResult(
-      season:
-          LeaderboardSeason.fromJson(json['season'] as Map<String, dynamic>),
-      events: (json['events'] as List)
-          .map((e) => LeaderboardEvent.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      entries: entriesList
-          .map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      pagination:
-          PaginationInfo.fromJson(json['pagination'] as Map<String, dynamic>),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'season': season.toJson(),
-        'events': events.map((e) => e.toJson()).toList(),
-        'leaderboard': entries.map((e) => e.toJson()).toList(),
-        'pagination': pagination.toJson(),
-      };
-}
-
 // ---------------------------------------------------------------------------
 // Breakdown
 // ---------------------------------------------------------------------------
@@ -724,7 +442,9 @@ class BreakdownActivity {
       description: json['description'] as String?,
       activityAt: json['activity_at'] as String?,
       challengeId: _jsonIntN(json['challenge_id']),
-      activitySubCategory: json['activity_sub_category'] as String?,
+      // v4 renames `activity_sub_category` to `activity_kind` (SPEC §8.2).
+      activitySubCategory:
+          (json['activity_kind'] ?? json['activity_sub_category']) as String?,
     );
   }
 
@@ -781,10 +501,12 @@ class EventBreakdown {
   factory EventBreakdown.fromJson(Map<String, dynamic> json) {
     final eventObj = json['event'] as Map<String, dynamic>?;
     return EventBreakdown(
-      eventId: _jsonInt(eventObj?['id'] ?? json['event_id']),
+      eventId: _jsonInt(
+          eventObj?['id'] ?? json['season_event_id'] ?? json['event_id']),
       eventName: (eventObj?['name'] ?? json['event_name']) as String? ?? '',
       totalPoints: _jsonPointInt(json['total_points']),
-      offchainPoints: _jsonPointInt(json['offchain_points']),
+      offchainPoints:
+          _jsonPointInt(json['extra_points'] ?? json['offchain_points']),
       rank: _jsonIntN(json['rank']),
       firstBlockPoints: _jsonPointIntN(json['first_block_points']),
       top3Points: _jsonPointIntN(json['top_3_points'] ?? json['top3_points']),
@@ -841,15 +563,26 @@ class SeasonBreakdown {
 
   factory SeasonBreakdown.fromJson(Map<String, dynamic> json) {
     final seasonObj = json['season'] as Map<String, dynamic>?;
+    final events = (json['events'] as List?)
+            ?.map((e) => EventBreakdown.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const <EventBreakdown>[];
     return SeasonBreakdown(
-      seasonId: _jsonInt(seasonObj?['id'] ?? json['season_id']),
-      seasonName: (seasonObj?['name'] ?? json['season_name']) as String? ?? '',
-      totalPoints: _jsonPointInt(json['total_points']),
-      offchainPoints: _jsonPointInt(json['offchain_points']),
-      events: (json['events'] as List?)
-              ?.map((e) => EventBreakdown.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      // v4 global entries are {id, name, events}; the v4 season-scope
+      // response carries no season identity at all (the caller supplied
+      // the season_id) — fall back to 0 rather than failing the parse.
+      seasonId:
+          _jsonIntN(seasonObj?['id'] ?? json['season_id'] ?? json['id']) ?? 0,
+      seasonName: (seasonObj?['name'] ?? json['season_name'] ?? json['name'])
+              as String? ??
+          '',
+      // v4 has no per-season totals — derive them from the events.
+      totalPoints: _jsonPointIntN(json['total_points']) ??
+          events.fold<int>(0, (a, e) => a + e.totalPoints),
+      offchainPoints:
+          _jsonPointIntN(json['extra_points'] ?? json['offchain_points']) ??
+              events.fold<int>(0, (a, e) => a + e.offchainPoints),
+      events: events,
     );
   }
 
@@ -896,21 +629,33 @@ class BreakdownResult {
   factory BreakdownResult.fromJson(Map<String, dynamic> json) {
     final scope = json['scope'] as String? ?? 'event';
     final progress = _parseChallengeProgressList(json['challenge_progress']);
+    final eventBreakdown =
+        scope == 'event' ? EventBreakdown.fromJson(json) : null;
+    final seasonBreakdown =
+        scope == 'season' ? SeasonBreakdown.fromJson(json) : null;
+    final globalSeasons = scope == 'global'
+        ? (json['seasons'] as List?)
+                ?.whereType<Map<String, dynamic>>()
+                .map(SeasonBreakdown.fromJson)
+                .toList() ??
+            const <SeasonBreakdown>[]
+        : const <SeasonBreakdown>[];
+    // v4 season/global responses carry only {display_name, scope,
+    // events|seasons} — no top-level totals (only event scope spreads them
+    // in). Derive from the nested breakdowns instead of failing the parse.
     return BreakdownResult(
       scope: scope,
       displayName: json['display_name'] as String? ?? '',
-      totalPoints: _jsonPointInt(json['total_points']),
-      offchainPoints: _jsonPointInt(json['offchain_points']),
-      eventBreakdown: scope == 'event' ? EventBreakdown.fromJson(json) : null,
-      seasonBreakdown:
-          scope == 'season' ? SeasonBreakdown.fromJson(json) : null,
-      globalSeasons: scope == 'global'
-          ? (json['seasons'] as List?)
-                  ?.whereType<Map<String, dynamic>>()
-                  .map(SeasonBreakdown.fromJson)
-                  .toList() ??
-              const []
-          : const [],
+      totalPoints: _jsonPointIntN(json['total_points']) ??
+          seasonBreakdown?.totalPoints ??
+          globalSeasons.fold<int>(0, (a, s) => a + s.totalPoints),
+      offchainPoints:
+          _jsonPointIntN(json['extra_points'] ?? json['offchain_points']) ??
+              seasonBreakdown?.offchainPoints ??
+              globalSeasons.fold<int>(0, (a, s) => a + s.offchainPoints),
+      eventBreakdown: eventBreakdown,
+      seasonBreakdown: seasonBreakdown,
+      globalSeasons: globalSeasons,
       challengeProgress: progress.isEmpty ? null : progress,
     );
   }
@@ -986,75 +731,6 @@ typedef ScopedChallengeProgress = ({
   int? eventId,
   ChallengeProgress progress,
 });
-
-// ---------------------------------------------------------------------------
-// Event Points (distribution / histogram)
-// ---------------------------------------------------------------------------
-
-class ParticipantPoints {
-  final int participantId;
-  final int totalPoints;
-
-  const ParticipantPoints({
-    required this.participantId,
-    required this.totalPoints,
-  });
-
-  factory ParticipantPoints.fromJson(Map<String, dynamic> json) {
-    return ParticipantPoints(
-      participantId: _jsonInt(json['participant_id']),
-      totalPoints: _jsonInt(json['total_points']),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'participant_id': participantId,
-        'total_points': totalPoints,
-      };
-}
-
-class EventPointsResult {
-  final int eventId;
-  final String eventName;
-  final int eventTotalPoints;
-  final int participantTotalPoints;
-  final List<ParticipantPoints> totalPointsPerUser;
-  final int totalParticipants;
-
-  const EventPointsResult({
-    required this.eventId,
-    required this.eventName,
-    required this.eventTotalPoints,
-    required this.participantTotalPoints,
-    required this.totalPointsPerUser,
-    required this.totalParticipants,
-  });
-
-  factory EventPointsResult.fromJson(Map<String, dynamic> json) {
-    return EventPointsResult(
-      eventId: _jsonInt(json['event_id']),
-      eventName: json['event_name'] as String? ?? '',
-      eventTotalPoints: _jsonInt(json['event_total_points']),
-      participantTotalPoints: _jsonInt(json['participant_total_points']),
-      totalPointsPerUser: (json['total_points_per_user'] as List?)
-              ?.map(
-                  (e) => ParticipantPoints.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          const [],
-      totalParticipants: _jsonInt(json['total_participants']),
-    );
-  }
-
-  Map<String, dynamic> toJson() => {
-        'event_id': eventId,
-        'event_name': eventName,
-        'event_total_points': eventTotalPoints,
-        'participant_total_points': participantTotalPoints,
-        'total_points_per_user':
-            totalPointsPerUser.map((e) => e.toJson()).toList(),
-        'total_participants': totalParticipants,
-      };
-}
 
 // ---------------------------------------------------------------------------
 // Shared context

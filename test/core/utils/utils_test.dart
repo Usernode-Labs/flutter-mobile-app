@@ -21,8 +21,8 @@ void main() {
   });
 
   group('Utils.timestampToTimeAgo', () {
-    BigInt msAgo(Duration d) => BigInt.from(
-        DateTime.now().toUtc().subtract(d).millisecondsSinceEpoch);
+    BigInt msAgo(Duration d) =>
+        BigInt.from(DateTime.now().toUtc().subtract(d).millisecondsSinceEpoch);
 
     test('buckets from just-now up to years', () {
       expect(Utils.timestampToTimeAgo(msAgo(const Duration(seconds: 10))),
@@ -50,8 +50,9 @@ void main() {
 
   group('Utils.shortenID', () {
     test('shortens long ids with an ellipsis', () {
-      expect(Utils.shortenID('0123456789abcdef0123456789abcdef',
-          head: 8, tail: 8), '01234567…89abcdef');
+      expect(
+          Utils.shortenID('0123456789abcdef0123456789abcdef', head: 8, tail: 8),
+          '01234567…89abcdef');
     });
     test('returns short strings unchanged', () {
       expect(Utils.shortenID('short', head: 8, tail: 8), 'short');

@@ -230,11 +230,9 @@ Scaffold and SafeArea handle system insets (status bar, notch, keyboard). These 
 | Screen type | System inset handling |
 |-------------|---------------------|
 | Detail screen with `TopAppBar` | Automatic — `SliverAppBar` consumes top inset |
-| Tab screen with `ParallaxSurfaceLayout` | Automatic — internal pinned sliver via `safeAreaOverlay` covers status bar. Height = `safeTop + kPinnedBarPadding` (48 px) when `title` is provided, or `safeTop` only (minimal) when no title. Skipped when `pinnedHeaderSlivers` provided. See [LAYOUT.md § Safe Area Strategies](LAYOUT.md#safe-area-strategies). |
-| Tab screen in IndexedStack (no ParallaxSurfaceLayout) | Wrap body in `SafeArea` — shell provides BottomNav |
 | Full-screen (onboarding) | Explicit `SafeArea` around content |
 
-**Never** nest `SafeArea` inside a screen that already has `TopAppBar` — the AppBar already consumed that inset. Similarly, do not add `SafeArea` to screens using `ParallaxSurfaceLayout` — the layout handles the status bar overlay internally.
+**Never** nest `SafeArea` inside a screen that already has `TopAppBar` — the AppBar already consumed that inset.
 
 ### Anti-Pattern: Raw Container as Surface
 
@@ -262,7 +260,7 @@ AppCard.regular(child: content)
 
 | Screen Type | Shell | TopAppBar | SafeArea | Scroll Container | Bottom Padding |
 |---|---|---|---|---|---|
-| Root screen (e.g. Node Status, Settings) | Pushed root scaffold — no BottomNav (native tab shell retired for the SV shell) | No SliverAppBar | Explicit `SafeArea` | `ListView` or `CustomScrollView` | `space32` |
+| Root screen (e.g. Diagnostics) | Pushed root scaffold (native tab shell retired for the SV shell) | No SliverAppBar | Explicit `SafeArea` | `ListView` or `CustomScrollView` | `space32` |
 | Detail screen | Pushed via `context.push()` | `SliverAppBar` (pinned) | Automatic via AppBar | `CustomScrollView` | `space32` |
 | Full-screen (onboarding) | Standalone | None or minimal | Explicit `SafeArea` | `SingleChildScrollView` or `Column` | `space24` |
 | Modal / Bottom sheet | `showModalBottomSheet` | DragHandle or header | Not needed | `ListView` or `Column` | `space16` |
@@ -298,9 +296,9 @@ Use the DS state widgets instead of ad-hoc spinners or error text.
 
 | State | Widget | Placement |
 |-------|--------|-----------|
-| Full-page loading | `FullPageLoadingState` | `Scaffold.body` while entire screen loads |
+| Full-page loading | `Center` + `CircularProgressIndicator` | `Scaffold.body` while entire screen loads |
 | Full-page error | `FullPageErrorState` | `Scaffold.body` on fatal load failure |
-| Empty data set | `EmptyState` | Inside scroll body when data is empty |
+| Empty data set | Centered icon + `Text` (M3) | Inside scroll body when data is empty |
 | Inline loading | `SizedBox` + `CircularProgressIndicator(strokeWidth: 2)` | Bottom of list, "load more" |
 | Inline error | `Text` with `colorScheme.error` | Inside list or card |
 
@@ -308,10 +306,8 @@ Use the DS state widgets instead of ad-hoc spinners or error text.
 
 ```dart
 ref.watch(myProvider).when(
-  data: (data) => data.isEmpty
-      ? const EmptyState(icon: Symbols.inbox_sharp, title: 'No items')
-      : _buildContent(data),
-  loading: () => const FullPageLoadingState(),
+  data: (data) => _buildContent(data),
+  loading: () => const Center(child: CircularProgressIndicator()),
   error: (e, _) => FullPageErrorState(
     message: 'Failed to load data',
     onRetry: () => ref.invalidate(myProvider),

@@ -14,7 +14,6 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/SessionController');
 
@@ -105,7 +104,10 @@ class SessionController extends StateNotifier<Identity> {
   final Future<void> Function() _hardStopRuntime;
 
   static Future<void> _defaultSuspendNode() =>
-      RustBackendService.instance.stopNode();
+      NodeLifecycleCoordinator.instance.reportIdentityChanged(
+        IdentitySnapshots.current,
+        reason: 'session_identity_unsettled',
+      );
 
   static Future<void> _defaultHardStopRuntime() =>
       NodeLifecycleCoordinator.instance.hardStopForSessionBoundary(

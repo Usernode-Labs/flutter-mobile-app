@@ -10,13 +10,27 @@ class ForegroundServiceManager(private val context: Context) {
         private const val TAG = "usernode/ForegroundServiceMgr"
     }
 
-    fun startForegroundService(title: String, message: String, globalSlot: Int): Boolean {
+    fun startForegroundService(
+        title: String,
+        message: String,
+        globalSlot: Int,
+        recoveryGeneration: Long,
+        bindingFingerprint: String
+    ): Boolean {
         return try {
             val intent = Intent(context, SlotMonitoringService::class.java).apply {
                 action = SlotMonitoringService.ACTION_START_MONITORING
                 putExtra("globalSlot", globalSlot)
                 putExtra("title", title)
                 putExtra("message", message)
+                putExtra(
+                    SlotMonitoringService.EXTRA_RECOVERY_GENERATION,
+                    recoveryGeneration
+                )
+                putExtra(
+                    SlotMonitoringService.EXTRA_BINDING_FINGERPRINT,
+                    bindingFingerprint
+                )
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -33,14 +47,16 @@ class ForegroundServiceManager(private val context: Context) {
         }
     }
 
-    fun stopForegroundService(): Boolean {
+    fun stopForegroundService(destroyBackgroundEngine: Boolean = true): Boolean {
         return try {
             val intent = Intent(context, SlotMonitoringService::class.java).apply {
                 action = SlotMonitoringService.ACTION_STOP_MONITORING
             }
 
             context.stopService(intent)
-            BackgroundAlarmEngine.destroyCachedEngine("stopForegroundService")
+            if (destroyBackgroundEngine) {
+                BackgroundAlarmEngine.destroyCachedEngine("stopForegroundService")
+            }
 
             Log.i(TAG, "Stopped foreground service")
             true

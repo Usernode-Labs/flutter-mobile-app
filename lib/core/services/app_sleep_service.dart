@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -369,9 +370,17 @@ class AppSleepService extends ChangeNotifier {
     }
 
     if (Platform.isAndroid && !_useWakelockTransitionFlow) {
-      await PlatformAlarmService.instance.cancelAllAlarms();
+      final authority = RustBackendService.instance.runtimeAuthority;
+      if (authority != null) {
+        await PlatformAlarmService.instance.cancelAllAlarms(
+          authority: authority,
+        );
+      }
     }
-    await RustBackendService.instance.pauseNode();
+    await NodeLifecycleCoordinator.instance.reportSleepChanged(
+      sleeping: true,
+      reason: 'app_sleep:${reason.name}',
+    );
   }
 
   Future<void> _wakeInternal(String reason) async {
@@ -402,10 +411,10 @@ class AppSleepService extends ChangeNotifier {
       return;
     }
 
-    if (_shouldResumeNodeDirectlyOnWake(reason)) {
-      await RustBackendService.instance.startNode();
-      await RustBackendService.instance.resumeNode();
-    }
+    await NodeLifecycleCoordinator.instance.reportSleepChanged(
+      sleeping: false,
+      reason: 'app_wake:$reason',
+    );
 
     if (_resumeEpochMonitoringOnWake) {
       await EpochSlotSchedulerService.instance.initialize();
@@ -611,19 +620,6 @@ class AppSleepService extends ChangeNotifier {
 
     unawaited(_persistSleeping(false));
     unawaited(wake(reason: 'wakelock_acquired:$source'));
-  }
-
-  bool _shouldResumeNodeDirectlyOnWake(String reason) {
-    if (!_resumeNodeOnWake) {
-      return false;
-    }
-
-    if (!_useWakelockTransitionFlow) {
-      return true;
-    }
-
-    return reason == manualUiWakeReason &&
-        _snapshot.lifecycleState == AppLifecycleState.resumed;
   }
 
   Future<void> _handleLifecycleInactivityChange(AppLifecycleState state) async {

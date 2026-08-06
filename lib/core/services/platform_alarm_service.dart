@@ -14,6 +14,97 @@ typedef BootRescheduleCallback = Future<void> Function();
 typedef NativeEventCallback = Future<bool> Function(
     String eventType, Map<String, dynamic> eventData);
 
+typedef NodeRuntimeAuthority = ({
+  int generation,
+  String bindingFingerprint,
+});
+
+extension NodeRuntimeAuthorityValues on NodeRuntimeAuthority {
+  Map<String, Object?> get channelArguments => {
+        'authorityGeneration': generation,
+        'authorityBindingFingerprint': bindingFingerprint,
+      };
+
+  bool matchesEvent(Map<String, dynamic> data) =>
+      generation == _alarmDebugInt(data['recoveryGeneration']) &&
+      bindingFingerprint == _alarmDebugString(data['bindingFingerprint']);
+}
+
+/// Fresh snapshot of the mutable native recovery state.
+///
+/// Long-lived runtime consumers must retain only [authority]. The [enabled]
+/// bit can change without changing that authority and is meaningful only on a
+/// freshly loaded snapshot or mutation result.
+@immutable
+class NodeRecoveryLease {
+  const NodeRecoveryLease({
+    required this.enabled,
+    required this.generation,
+    required this.bindingFingerprint,
+  });
+
+  const NodeRecoveryLease.disabled({this.generation = 0})
+      : enabled = false,
+        bindingFingerprint = null;
+
+  factory NodeRecoveryLease.fromMap(Map<Object?, Object?> map) {
+    return NodeRecoveryLease(
+      enabled: map['enabled'] == true,
+      generation: _alarmDebugInt(map['generation']) ?? 0,
+      bindingFingerprint: _alarmDebugString(map['bindingFingerprint']),
+    );
+  }
+
+  final bool enabled;
+  final int generation;
+  final String? bindingFingerprint;
+
+  NodeRuntimeAuthority? get authority {
+    final fingerprint = bindingFingerprint;
+    if (fingerprint == null) return null;
+    return (
+      generation: generation,
+      bindingFingerprint: fingerprint,
+    );
+  }
+
+  bool sameCursorAs(NodeRecoveryLease other) =>
+      generation == other.generation &&
+      bindingFingerprint == other.bindingFingerprint;
+
+  bool matchesAuthority(NodeRuntimeAuthority other) =>
+      generation == other.generation &&
+      bindingFingerprint == other.bindingFingerprint;
+
+  Map<String, Object?> get cursorArguments => {
+        'authorityGeneration': generation,
+        'authorityBindingFingerprint': bindingFingerprint,
+      };
+
+  bool matchesEvent(Map<String, dynamic> data) =>
+      enabled && authority?.matchesEvent(data) == true;
+}
+
+@immutable
+class NodeRecoveryLeaseMutation {
+  const NodeRecoveryLeaseMutation({
+    required this.lease,
+    required this.accepted,
+  });
+
+  const NodeRecoveryLeaseMutation.accepted(this.lease) : accepted = true;
+
+  factory NodeRecoveryLeaseMutation.fromMap(Map<Object?, Object?> map) {
+    return NodeRecoveryLeaseMutation(
+      lease: NodeRecoveryLease.fromMap(map),
+      accepted: map['accepted'] == true,
+    );
+  }
+
+  final NodeRecoveryLease lease;
+  final bool accepted;
+}
+
 class AlarmDebugState {
   const AlarmDebugState({
     required this.alarmId,
@@ -258,20 +349,31 @@ class PlatformAlarmService {
   static final PlatformAlarmService instance = PlatformAlarmService._();
   PlatformAlarmService._({ObservabilityReportingService? observability})
       : _observability =
-            observability ?? ObservabilityReportingService.instance;
+            observability ?? ObservabilityReportingService.instance,
+        _isAndroidOverride = null;
 
   @visibleForTesting
   PlatformAlarmService.test({
     required ObservabilityReportingService observability,
-  }) : _observability = observability;
+    bool Function()? isAndroid,
+    bool initialized = false,
+    bool permissionsGranted = false,
+  })  : _observability = observability,
+        _isAndroidOverride = isAndroid {
+    _initialized = initialized;
+    _permissionsGranted = permissionsGranted;
+  }
 
   static const MethodChannel _channel = MethodChannel('com.usernode.app/alarm');
   final ObservabilityReportingService _observability;
+  final bool Function()? _isAndroidOverride;
 
   bool _initialized = false;
   bool _permissionsGranted = false;
   String? _lastAlarmFiredEventKey;
   DateTime? _lastAlarmFiredEventAt;
+
+  bool get _isAndroid => _isAndroidOverride?.call() ?? Platform.isAndroid;
 
   static const _alarmFiredDuplicateWindow = Duration(seconds: 10);
 
@@ -803,7 +905,10 @@ class PlatformAlarmService {
     }
   }
 
-  Future<bool> ensureAlarmWatchdogScheduled({required String reason}) async {
+  Future<bool> ensureAlarmWatchdogScheduled({
+    required String reason,
+    required NodeRuntimeAuthority authority,
+  }) async {
     if (!Platform.isAndroid) return false;
     if (!_initialized) {
       _log.debug('Cannot schedule alarm watchdog: service not initialized');
@@ -813,7 +918,10 @@ class PlatformAlarmService {
     try {
       final success = await _channel.invokeMethod<bool>(
             'ensureAlarmWatchdogScheduled',
-            {'reason': reason},
+            {
+              'reason': reason,
+              ...authority.channelArguments,
+            },
           ) ??
           false;
       _observability.reportBlockProductionAlarmAuditEvent(
@@ -844,7 +952,75 @@ class PlatformAlarmService {
     }
   }
 
-  Future<bool> requestAlarmWatchdogRun({required String reason}) async {
+  Future<NodeRecoveryLeaseMutation> activateNodeRecoveryLease({
+    required NodeRuntimeAuthority authority,
+  }) =>
+      _mutateNodeRecoveryLease(
+        'activateNodeRecoveryLease',
+        authority.channelArguments,
+      );
+
+  Future<NodeRecoveryLeaseMutation> reserveNodeRuntimeBinding({
+    required String bindingFingerprint,
+    required NodeRecoveryLease expectedLease,
+  }) =>
+      _mutateNodeRecoveryLease(
+        'reserveNodeRuntimeBinding',
+        {
+          'bindingFingerprint': bindingFingerprint,
+          ...expectedLease.cursorArguments,
+        },
+      );
+
+  Future<NodeRecoveryLeaseMutation> disableNodeRecoveryLease({
+    required NodeRuntimeAuthority authority,
+  }) =>
+      _mutateNodeRecoveryLease(
+        'disableNodeRecoveryLease',
+        authority.channelArguments,
+      );
+
+  Future<NodeRecoveryLeaseMutation> revokeNodeRecoveryLease({
+    required NodeRecoveryLease expectedLease,
+  }) =>
+      _mutateNodeRecoveryLease(
+        'revokeNodeRecoveryLease',
+        expectedLease.cursorArguments,
+      );
+
+  Future<NodeRecoveryLeaseMutation> _mutateNodeRecoveryLease(
+    String method,
+    Map<String, Object?> arguments,
+  ) async {
+    if (!_isAndroid) {
+      return const NodeRecoveryLeaseMutation.accepted(
+        NodeRecoveryLease.disabled(),
+      );
+    }
+    if (!_initialized) await initialize();
+    final raw = await _channel.invokeMethod<Object?>(method, arguments);
+    final mutation = raw is Map
+        ? NodeRecoveryLeaseMutation.fromMap(raw.cast<Object?, Object?>())
+        : const NodeRecoveryLeaseMutation(
+            lease: NodeRecoveryLease.disabled(),
+            accepted: false,
+          );
+    return mutation;
+  }
+
+  Future<NodeRecoveryLease> getNodeRecoveryLease() async {
+    if (!_isAndroid) return const NodeRecoveryLease.disabled();
+    if (!_initialized) await initialize();
+    final raw = await _channel.invokeMethod<Object?>('getNodeRecoveryLease');
+    return raw is Map
+        ? NodeRecoveryLease.fromMap(raw.cast<Object?, Object?>())
+        : const NodeRecoveryLease.disabled();
+  }
+
+  Future<bool> requestAlarmWatchdogRun({
+    required String reason,
+    required NodeRuntimeAuthority authority,
+  }) async {
     if (!Platform.isAndroid) return false;
     if (!_initialized) {
       _log.debug('Cannot request alarm watchdog run: service not initialized');
@@ -854,7 +1030,10 @@ class PlatformAlarmService {
     try {
       final success = await _channel.invokeMethod<bool>(
             'requestAlarmWatchdogRun',
-            {'reason': reason},
+            {
+              'reason': reason,
+              ...authority.channelArguments,
+            },
           ) ??
           false;
       _observability.reportBlockProductionAlarmAuditEvent(
@@ -875,12 +1054,18 @@ class PlatformAlarmService {
     }
   }
 
-  Future<bool> cancelAlarmWatchdog() async {
+  Future<bool> cancelAlarmWatchdog({
+    required NodeRuntimeAuthority authority,
+  }) async {
     if (!Platform.isAndroid) return false;
     if (!_initialized) return false;
 
     try {
-      return await _channel.invokeMethod<bool>('cancelAlarmWatchdog') ?? false;
+      return await _channel.invokeMethod<bool>(
+            'cancelAlarmWatchdog',
+            authority.channelArguments,
+          ) ??
+          false;
     } on PlatformException catch (e) {
       _log.warn('Error cancelling alarm watchdog: ${e.message}');
       return false;
@@ -949,9 +1134,18 @@ class PlatformAlarmService {
     required String alarmId,
     required int globalSlot,
     required int delayMs,
+    required NodeRuntimeAuthority? authority,
     Map<String, dynamic>? data,
   }) async {
     final alarmData = Map<String, dynamic>.from(data ?? const {});
+    if (_isAndroid) {
+      if (authority == null) {
+        _log.warn('Cannot schedule alarm without an active recovery lease');
+        return false;
+      }
+      alarmData['recoveryGeneration'] = authority.generation;
+      alarmData['bindingFingerprint'] = authority.bindingFingerprint;
+    }
     final requestedDelayMs = delayMs;
     final normalizedDelayMs = delayMs < 0 ? 0 : delayMs;
     final scheduledAtMs = DateTime.now().millisecondsSinceEpoch;
@@ -1032,7 +1226,7 @@ class PlatformAlarmService {
       };
 
       bool success;
-      if (Platform.isAndroid) {
+      if (_isAndroid) {
         success = await _scheduleAndroidAlarm(params);
       } else if (Platform.isIOS) {
         success = await _scheduleIOSAlarm(params);
@@ -1184,15 +1378,20 @@ class PlatformAlarmService {
   }
 
   /// Cancel a specific alarm
-  Future<bool> cancelAlarm(String alarmId) async {
+  Future<bool> cancelAlarm(
+    String alarmId, {
+    required NodeRuntimeAuthority authority,
+  }) async {
     if (!_initialized) {
       _log.warn('Cannot cancel alarm: service not initialized');
       return false;
     }
 
     try {
-      final success = await _channel
-              .invokeMethod<bool>('cancelAlarm', {'alarmId': alarmId}) ??
+      final success = await _channel.invokeMethod<bool>('cancelAlarm', {
+            'alarmId': alarmId,
+            ...authority.channelArguments,
+          }) ??
           false;
 
       if (success) {
@@ -1209,15 +1408,20 @@ class PlatformAlarmService {
   }
 
   /// Cancel all scheduled alarms
-  Future<bool> cancelAllAlarms() async {
+  Future<bool> cancelAllAlarms({
+    required NodeRuntimeAuthority authority,
+  }) async {
     if (!_initialized) {
       _log.warn('Cannot cancel alarms: service not initialized');
       return false;
     }
 
     try {
-      final success =
-          await _channel.invokeMethod<bool>('cancelAllAlarms') ?? false;
+      final success = await _channel.invokeMethod<bool>(
+            'cancelAllAlarms',
+            authority.channelArguments,
+          ) ??
+          false;
 
       if (success) {
         _log.info('All alarms cancelled');
@@ -1240,6 +1444,7 @@ class PlatformAlarmService {
     required String title,
     required String message,
     required int globalSlot,
+    required NodeRuntimeAuthority authority,
   }) async {
     if (!Platform.isAndroid) {
       _log.debug('Foreground service is Android-only');
@@ -1251,6 +1456,7 @@ class PlatformAlarmService {
         'title': title,
         'message': message,
         'globalSlot': globalSlot,
+        ...authority.channelArguments,
       };
 
       final success =
@@ -1272,15 +1478,20 @@ class PlatformAlarmService {
   }
 
   /// Stop foreground service (Android only)
-  Future<bool> stopForegroundService() async {
+  Future<bool> stopForegroundService({
+    required NodeRuntimeAuthority authority,
+  }) async {
     if (!Platform.isAndroid) {
       _log.debug('Foreground service is Android-only');
       return false;
     }
 
     try {
-      final success =
-          await _channel.invokeMethod<bool>('stopForegroundService') ?? false;
+      final success = await _channel.invokeMethod<bool>(
+            'stopForegroundService',
+            authority.channelArguments,
+          ) ??
+          false;
 
       if (success) {
         _log.info('Foreground service stopped');
@@ -1439,37 +1650,6 @@ class PlatformAlarmService {
       return isHeld ?? false;
     } catch (e) {
       _log.error('Error checking wakelock status: $e');
-      return false;
-    }
-  }
-
-  /// Acquire a native Android PARTIAL_WAKE_LOCK (does not require a foreground Activity).
-  ///
-  /// This is used for background/foreground service work where `wakelock_plus` would throw
-  /// `NoActivityException`.
-  Future<bool> acquireWakelock() async {
-    if (!Platform.isAndroid) return false;
-    try {
-      await _channel.invokeMethod('acquireWakelock');
-      _recordRuntimeContextChanged('keep_alive_changed');
-      _recordPowerNetworkServiceContextChanged('foreground_service_changed');
-      return true;
-    } catch (e) {
-      _log.error('Error acquiring wakelock: $e');
-      return false;
-    }
-  }
-
-  /// Release the native Android PARTIAL_WAKE_LOCK.
-  Future<bool> releaseWakelock() async {
-    if (!Platform.isAndroid) return false;
-    try {
-      await _channel.invokeMethod('releaseWakelock');
-      _recordRuntimeContextChanged('keep_alive_changed');
-      _recordPowerNetworkServiceContextChanged('foreground_service_changed');
-      return true;
-    } catch (e) {
-      _log.error('Error releasing wakelock: $e');
       return false;
     }
   }

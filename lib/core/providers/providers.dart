@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:crypto_mobile_app/core/config/theme_mode.dart';
@@ -37,31 +39,25 @@ Future<void> markOnboardingComplete() async {
   await prefs.setBool(key, true);
 }
 
-// Backend lifecycle manager. Node STARTS are platform-controlled (SV chrome
-// requests them over bridge v4) — this provider only guarantees teardown:
-// when the last local account disappears, the node must not keep running
-// (and producing/signing) under a key that no longer belongs to anyone.
+// Always-alive adapter from the authoritative identity state machine into the
+// node desired-state coordinator. Account-registry presence is deliberately
+// not lifecycle authority: logout retains local accounts, and a delayed
+// account snapshot must never re-arm an old producer runtime.
 final backendLifecycleProvider = Provider<void>((ref) {
-  ref.listen<AsyncValue<bool>>(
-    hasAnyAccountProvider,
+  ref.listen<Identity>(
+    identityProvider,
     (previous, next) async {
-      final prevHasAccount = previous?.value ?? false;
-      final nextHasAccount = next.value ?? false;
-
-      if (prevHasAccount != nextHasAccount) {
-        // Removal tears down the runtime + Android production support;
-        // addition arms watchdog recovery without starting the node (the
-        // platform requests the start explicitly once identity settles).
-        _log.trace(
-          'Account presence changed ($prevHasAccount → $nextHasAccount) - '
-          'reconciling node lifecycle',
-        );
-        await NodeLifecycleCoordinator.instance.reportAccountsChanged(
-          hasAccount: nextHasAccount,
-          reason: nextHasAccount ? 'account_added' : 'account_removed',
-        );
-      }
+      _log.trace(
+        'Identity changed '
+        '(${previous?.phase.name ?? 'none'} → ${next.phase.name}) - '
+        'reconciling node lifecycle binding',
+      );
+      await NodeLifecycleCoordinator.instance.reportIdentityChanged(
+        next,
+        reason: 'identity:${next.phase.name}',
+      );
     },
+    fireImmediately: true,
   );
 
   return;

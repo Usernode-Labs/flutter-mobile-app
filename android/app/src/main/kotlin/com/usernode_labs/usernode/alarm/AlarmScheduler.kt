@@ -42,6 +42,18 @@ class AlarmScheduler(
             val effectiveDelayMs = delayMs.coerceAtLeast(0L)
             val triggerAtMs = currentTime + effectiveDelayMs
             val triggerElapsedRealtimeMs = scheduledElapsedRealtimeMs + effectiveDelayMs
+            val recoveryGeneration =
+                (data["recoveryGeneration"] as? Number)?.toLong()
+            val bindingFingerprint = data["bindingFingerprint"] as? String
+            if (!NodeRecoveryLeaseStore.matches(
+                    context,
+                    recoveryGeneration,
+                    bindingFingerprint
+                )
+            ) {
+                Log.i(TAG, "Ignoring alarm scheduled with a stale recovery lease (id=$alarmId)")
+                return false
+            }
 
             // Check if we can schedule exact alarms
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

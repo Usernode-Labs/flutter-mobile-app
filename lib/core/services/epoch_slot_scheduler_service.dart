@@ -374,7 +374,13 @@ class EpochSlotSchedulerService {
   Future<void> _cancelSlotAlarm(ScheduledSlot slot) async {
     try {
       final alarmId = 'slot_${slot.slotNumber}';
-      await PlatformAlarmService.instance.cancelAlarm(alarmId);
+      final authority = RustBackendService.instance.runtimeAuthority;
+      if (authority != null) {
+        await PlatformAlarmService.instance.cancelAlarm(
+          alarmId,
+          authority: authority,
+        );
+      }
       _log.debug('Cancelled alarm for slot ${slot.slotNumber}');
     } catch (e) {
       _log.error('Error cancelling slot alarm: $e');

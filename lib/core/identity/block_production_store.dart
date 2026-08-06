@@ -20,6 +20,21 @@ Future<bool> loadBlockProductionReleased() async {
   return prefs.getBool(NetworkPrefs.prefixAccountKey(_bpReleasedKey)) ?? false;
 }
 
+/// Reads the release flag for an explicitly addressed account [bucket].
+///
+/// Lifecycle reconciliation must never derive this security-sensitive value
+/// from whichever bucket happens to be ambiently active after an `await`.
+Future<bool> loadBlockProductionReleasedInBucket({
+  required String bucket,
+  required String network,
+}) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(
+        NetworkPrefs.prefixKeyWith('acct:$bucket:$_bpReleasedKey', network),
+      ) ??
+      false;
+}
+
 /// Persists the released flag into an explicit account [bucket]. Written by
 /// the account reconciler (off the provision response) and refreshed
 /// whenever `/me` is fetched, so an admin release takes effect on the next

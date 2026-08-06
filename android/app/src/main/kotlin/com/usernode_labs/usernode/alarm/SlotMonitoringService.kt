@@ -16,6 +16,8 @@ class SlotMonitoringService : Service() {
         const val ACTION_STOP_MONITORING = "com.usernode.app.STOP_MONITORING"
         const val ACTION_START_PERSISTENT = "com.usernode.app.START_PERSISTENT"
         const val ACTION_STOP_PERSISTENT = "com.usernode.app.STOP_PERSISTENT"
+        const val EXTRA_RECOVERY_GENERATION = "recoveryGeneration"
+        const val EXTRA_BINDING_FINGERPRINT = "bindingFingerprint"
 
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "slot_monitoring_channel"
@@ -49,41 +51,75 @@ class SlotMonitoringService : Service() {
         // happens on crash
         if (intent == null) {
             Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
-
-            startMonitoring(0, false)
-            return START_STICKY
+            stopSelfResult(startId)
+            return START_NOT_STICKY
         }
 
-        when (intent.action) {
+        val restartMode = when (intent.action) {
             ACTION_START_MONITORING -> {
+                val recoveryGeneration = optionalLongExtra(
+                    intent,
+                    EXTRA_RECOVERY_GENERATION
+                )
+                val bindingFingerprint = intent.getStringExtra(EXTRA_BINDING_FINGERPRINT)
                 val globalSlot = readGlobalSlotExtra(intent) ?: 0
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
                 val alarmTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
                 Log.d(TAG, "[SlotMonitoringService] START_MONITORING - GlobalSlot: $globalSlot, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
-                // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
-                startMonitoring(globalSlot, nodeRunning, alarmTimeMs)
+                val accepted = NodeRecoveryLeaseStore.runIfMatches(
+                    applicationContext,
+                    recoveryGeneration,
+                    bindingFingerprint
+                ) {
+                    // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
+                    startMonitoring(globalSlot, nodeRunning, alarmTimeMs)
+                    true
+                }
+                if (!accepted) {
+                    Log.i(
+                        TAG,
+                        "Rejecting stale recovery monitoring start " +
+                            "(generation=$recoveryGeneration)"
+                    )
+                    rejectStaleRecoveryStart(startId)
+                    return START_NOT_STICKY
+                }
+                START_NOT_STICKY
             }
             ACTION_STOP_MONITORING -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_MONITORING action received")
                 stopMonitoring()
+                START_NOT_STICKY
             }
             ACTION_START_PERSISTENT -> {
                 Log.d(TAG, "[SlotMonitoringService] START_PERSISTENT action received")
                 startPersistentMode()
+                START_STICKY
             }
             ACTION_STOP_PERSISTENT -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_PERSISTENT action received")
                 stopPersistentMode()
+                START_NOT_STICKY
             }
             else -> {
                 Log.w(TAG, "[SlotMonitoringService] Unknown action: ${intent.action}")
+                START_NOT_STICKY
             }
         }
 
-        Log.d(TAG, "[SlotMonitoringService] Returning START_STICKY")
-        return START_STICKY
+        Log.d(TAG, "[SlotMonitoringService] Returning restart mode $restartMode")
+        return restartMode
+    }
+
+    private fun rejectStaleRecoveryStart(startId: Int) {
+        // A newer binding may already own this singleton service. Preserve its
+        // foreground state; otherwise reject this start without touching the
+        // process-wide wakelock, which teardown (serialized after the
+        // receiver's atomic lease gate) owns and releases.
+        if (isForegroundServiceActive || isPersistentModeActive) return
+        stopSelfResult(startId)
     }
 
     private fun startMonitoring(globalSlot: Int, nodeRunning: Boolean, alarmTimeMs: Long = -1L) {
@@ -186,6 +222,18 @@ class SlotMonitoringService : Service() {
         }?.takeIf { it >= 0 }
     }
 
+    @Suppress("DEPRECATION")
+    private fun optionalLongExtra(intent: Intent, key: String): Long? {
+        val value = intent.extras?.get(key) ?: return null
+        return when (value) {
+            is Long -> value
+            is Int -> value.toLong()
+            is Number -> value.toLong()
+            is String -> value.toLongOrNull()
+            else -> null
+        }?.takeIf { it >= 0L }
+    }
+
     private fun startPersistentMode() {
         isPersistentMode = true
         isPersistentModeActive = true
@@ -269,6 +317,7 @@ class SlotMonitoringService : Service() {
         Log.i(TAG, "[SlotMonitoringService] Service onDestroy() - GlobalSlot: $currentGlobalSlot, Time: ${System.currentTimeMillis()}")
         Log.d(TAG, "[SlotMonitoringService] Service destroyed, monitoring ended")
         isForegroundServiceActive = false
+        isPersistentModeActive = false
     }
 
     private fun createNotificationChannel() {

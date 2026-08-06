@@ -15,8 +15,18 @@ class AlarmWatchdogWorker(
     }
 
     override suspend fun doWork(): Result {
-        if (!AlarmWatchdogScheduler.isEnabled(applicationContext)) {
-            Log.i(TAG, "Alarm watchdog is disabled; ignoring queued work")
+        val recoveryGeneration = inputData
+            .getLong("recoveryGeneration", -1L)
+            .takeIf { it >= 0L }
+        val bindingFingerprint = inputData.getString("bindingFingerprint")
+        if (!AlarmWatchdogScheduler.isEnabled(applicationContext) ||
+            !NodeRecoveryLeaseStore.matches(
+                applicationContext,
+                recoveryGeneration,
+                bindingFingerprint
+            )
+        ) {
+            Log.i(TAG, "Alarm watchdog lease is stale or disabled; ignoring queued work")
             return Result.success()
         }
 
@@ -39,13 +49,21 @@ class AlarmWatchdogWorker(
                 mapOf(
                     "reason" to reason,
                     "startedAtMs" to startedAtMs,
-                    "runAttemptCount" to attempt
+                    "runAttemptCount" to attempt,
+                    "recoveryGeneration" to recoveryGeneration,
+                    "bindingFingerprint" to bindingFingerprint
                 )
             )
             if (acknowledged) {
                 Result.success()
-            } else if (!AlarmWatchdogScheduler.isEnabled(applicationContext)) {
-                Log.i(TAG, "Alarm watchdog was disabled while running; skipping retry")
+            } else if (!AlarmWatchdogScheduler.isEnabled(applicationContext) ||
+                !NodeRecoveryLeaseStore.matches(
+                    applicationContext,
+                    recoveryGeneration,
+                    bindingFingerprint
+                )
+            ) {
+                Log.i(TAG, "Alarm watchdog lease changed while running; skipping retry")
                 Result.success()
             } else {
                 Log.w(TAG, "Alarm watchdog event was not acknowledged; retrying")

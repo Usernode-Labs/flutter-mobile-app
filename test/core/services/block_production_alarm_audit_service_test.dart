@@ -139,6 +139,7 @@ void main() {
         harness.events('fg_resume_watchdog_recreated').single['reason'],
         'workmanager:periodic',
       );
+      expect(harness.completedRecoveryAuthorities, [harness.authority]);
     });
 
     test('WorkManager watchdog is not acknowledged after a transient skip',
@@ -177,6 +178,64 @@ void main() {
 
       expect(result.skippedReason, 'watchdog_disabled');
       expect(harness.watchdogScheduleReasons, isEmpty);
+    });
+
+    test('a successor lifecycle does not coalesce onto a stale audit',
+        () async {
+      final firstEpoch = Completer<AlarmAuditEpochSnapshot?>();
+      var epochLoad = 0;
+      final harness = _AuditHarness(
+        epochLoader: () {
+          epochLoad += 1;
+          if (epochLoad == 1) return firstEpoch.future;
+          return Future.value(
+            const AlarmAuditEpochSnapshot(
+              epoch: 8,
+              vrfComplete: true,
+              wonSlots: [
+                AlarmAuditWonSlot(
+                  globalSlot: 84,
+                  expectedTimeMs: 40000,
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      final staleAudit = harness.service.audit(reason: 'generation_1');
+      await pumpEventQueue();
+      expect(harness.loadEpochCalls, 1);
+
+      harness.service.disableWatchdogRecovery();
+      expect(harness.service.enableWatchdogRecovery(), isTrue);
+      harness.authority = const (
+        generation: 2,
+        bindingFingerprint: 'binding-b',
+      );
+
+      final currentAudit = harness.service.audit(reason: 'generation_2');
+      final currentResult = await currentAudit;
+
+      expect(currentResult.skippedReason, isNull);
+      expect(harness.loadEpochCalls, 2);
+      expect(harness.foregroundResumeSchedules, hasLength(1));
+      expect(harness.foregroundResumeSchedules.single.globalSlot, 84);
+      expect(harness.foregroundResumeSchedules.single.authorityGeneration, 2);
+
+      firstEpoch.complete(
+        const AlarmAuditEpochSnapshot(
+          epoch: 7,
+          vrfComplete: true,
+          wonSlots: [
+            AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 20000),
+          ],
+        ),
+      );
+      final staleResult = await staleAudit;
+
+      expect(staleResult.skippedReason, 'watchdog_disabled');
+      expect(harness.foregroundResumeSchedules, hasLength(1));
     });
 
     test(
@@ -367,6 +426,7 @@ void main() {
         harness.events('fg_resume_watchdog_slot_too_close'),
         hasLength(1),
       );
+      expect(harness.completedRecoveryAuthorities, isEmpty);
     });
 
     test('slot too close schedules an immediate alarm if monitoring fails',
@@ -446,6 +506,7 @@ class _AuditHarness {
       ],
     ),
     this.epochCompleter,
+    this.epochLoader,
     Set<String>? presentAlarms,
     Map<String, AlarmDebugState>? debugStates,
     this.nodeRunning = true,
@@ -456,7 +517,13 @@ class _AuditHarness {
     this.foregroundResumeScheduleSucceeds = true,
     this.epochEndTimeMs = 30000,
     this.ensureNodeRunningCompleter,
-  })  : presentAlarms = presentAlarms ?? <String>{},
+    NodeRuntimeAuthority? authority,
+  })  : authority = authority ??
+            const (
+              generation: 1,
+              bindingFingerprint: 'binding-a',
+            ),
+        presentAlarms = presentAlarms ?? <String>{},
         debugStates = debugStates ?? const <String, AlarmDebugState>{} {
     service = BlockProductionAlarmAuditService.test(
       initializeAlarmService: () async => true,
@@ -473,6 +540,7 @@ class _AuditHarness {
         required schedulerReason,
         required globalSlot,
         required slotTimeMs,
+        required authority,
       }) async {
         foregroundResumeSchedules.add(
           _ForegroundResumeSchedule(
@@ -480,6 +548,7 @@ class _AuditHarness {
             schedulerReason: schedulerReason,
             globalSlot: globalSlot,
             slotTimeMs: slotTimeMs,
+            authorityGeneration: authority.generation,
           ),
         );
         return ForegroundResumeAlarmScheduleResult(
@@ -492,12 +561,16 @@ class _AuditHarness {
               : 'platform_schedule_failed',
         );
       },
-      startMonitoring: (reason) async {
+      startMonitoring: (reason, authority) async {
         monitoringReasons.add(reason);
+        monitoringActive = monitoringStarts;
         return monitoringStarts;
       },
       loadEpochSnapshot: () async {
         loadEpochCalls++;
+        if (epochLoader != null) {
+          return epochLoader!();
+        }
         if (epochCompleter != null) {
           return epochCompleter!.future;
         }
@@ -519,6 +592,7 @@ class _AuditHarness {
           rustTimeMs + clockDriftMs,
       lastNodeTimeMs: () => nodeTimeMs,
       lastNodeClockSampleSystemTimeMs: () => nodeClockSampleSystemTimeMs,
+      runtimeAuthority: () => this.authority,
       isAndroid: () => true,
       appState: () => 'foreground',
       platformVersion: () => 'android-test',
@@ -526,11 +600,16 @@ class _AuditHarness {
       foregroundResumeLead: foregroundResumeLead,
       recoveryRetryDelays: recoveryRetryDelays,
       scheduleRecoveryRetry: scheduleRecoveryRetry,
-      ensureWatchdogScheduled: (reason) async {
+      ensureWatchdogScheduled: (reason, authority) async {
         watchdogScheduleReasons.add(reason);
         return true;
       },
       loadWatchdogState: () async => watchdogState,
+      completeRecoveryRunIfIdle: (authority) async {
+        if (!monitoringActive) {
+          completedRecoveryAuthorities.add(authority);
+        }
+      },
     );
   }
 
@@ -544,19 +623,23 @@ class _AuditHarness {
   final int nodeClockSampleSystemTimeMs = 9950;
   final AlarmAuditEpochSnapshot? epoch;
   final Completer<AlarmAuditEpochSnapshot?>? epochCompleter;
+  final Future<AlarmAuditEpochSnapshot?> Function()? epochLoader;
   final List<Duration>? recoveryRetryDelays;
   final AlarmAuditRecoveryRetryScheduler? scheduleRecoveryRetry;
   final Set<String> presentAlarms;
   final Map<String, AlarmDebugState> debugStates;
   final Map<String, dynamic>? watchdogState;
   final bool monitoringStarts;
+  bool monitoringActive = false;
   final bool foregroundResumeScheduleSucceeds;
   final int? epochEndTimeMs;
   final Completer<bool>? ensureNodeRunningCompleter;
+  NodeRuntimeAuthority authority;
   final records = <_CapturedObservabilityRecord>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];
   final monitoringReasons = <String>[];
   final watchdogScheduleReasons = <String>[];
+  final completedRecoveryAuthorities = <NodeRuntimeAuthority>[];
   var loadEpochCalls = 0;
   var ensureNodeRunningCalls = 0;
 
@@ -602,12 +685,14 @@ class _ForegroundResumeSchedule {
     required this.schedulerReason,
     required this.globalSlot,
     required this.slotTimeMs,
+    required this.authorityGeneration,
   });
 
   final int rustWakeTimeMs;
   final String schedulerReason;
   final int globalSlot;
   final int slotTimeMs;
+  final int authorityGeneration;
 }
 
 class _CapturedObservabilityRecord {

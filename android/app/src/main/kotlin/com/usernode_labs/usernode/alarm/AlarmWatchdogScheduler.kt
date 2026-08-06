@@ -33,8 +33,17 @@ object AlarmWatchdogScheduler {
     private const val ONE_TIME_REASON_KEY = "one_time_reason"
     private const val CANCELLED_AT_MS_KEY = "cancelled_at_ms"
 
-    fun ensurePeriodic(context: Context, reason: String): Boolean {
-        return try {
+    fun ensurePeriodic(
+        context: Context,
+        reason: String,
+        recoveryGeneration: Long?,
+        bindingFingerprint: String?
+    ): Boolean = NodeRecoveryLeaseStore.runIfMatches(
+        context,
+        recoveryGeneration,
+        bindingFingerprint
+    ) {
+        try {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
@@ -45,7 +54,13 @@ object AlarmWatchdogScheduler {
                 15,
                 TimeUnit.MINUTES
             )
-                .setInputData(workDataOf("reason" to reason))
+                .setInputData(
+                    workDataOf(
+                        "reason" to reason,
+                        "recoveryGeneration" to recoveryGeneration,
+                        "bindingFingerprint" to bindingFingerprint
+                    )
+                )
                 .setConstraints(constraints)
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
@@ -58,7 +73,7 @@ object AlarmWatchdogScheduler {
             WorkManager.getInstance(context.applicationContext)
                 .enqueueUniquePeriodicWork(
                     PERIODIC_WORK_NAME,
-                    ExistingPeriodicWorkPolicy.KEEP,
+                    ExistingPeriodicWorkPolicy.UPDATE,
                     request
                 )
             prefs(context)
@@ -75,18 +90,33 @@ object AlarmWatchdogScheduler {
         }
     }
 
-    fun enqueueOneTime(context: Context, reason: String): Boolean {
+    fun enqueueOneTime(
+        context: Context,
+        reason: String,
+        recoveryGeneration: Long?,
+        bindingFingerprint: String?
+    ): Boolean = NodeRecoveryLeaseStore.runIfMatches(
+        context,
+        recoveryGeneration,
+        bindingFingerprint
+    ) {
         if (!isEnabled(context)) {
             Log.i(TAG, "Ignoring one-time watchdog request while disabled (reason=$reason)")
-            return false
+            return@runIfMatches false
         }
 
-        return try {
+        try {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
             val request = OneTimeWorkRequestBuilder<AlarmWatchdogWorker>()
-                .setInputData(workDataOf("reason" to reason))
+                .setInputData(
+                    workDataOf(
+                        "reason" to reason,
+                        "recoveryGeneration" to recoveryGeneration,
+                        "bindingFingerprint" to bindingFingerprint
+                    )
+                )
                 .setConstraints(constraints)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .addTag(WATCHDOG_TAG)
@@ -111,6 +141,18 @@ object AlarmWatchdogScheduler {
         }
     }
 
+    fun cancelIfAuthorized(
+        context: Context,
+        recoveryGeneration: Long?,
+        bindingFingerprint: String?
+    ): Boolean = NodeRecoveryLeaseStore.runIfMatches(
+        context,
+        recoveryGeneration,
+        bindingFingerprint
+    ) {
+        cancel(context)
+    }
+
     fun cancel(context: Context): Boolean {
         return try {
             val workManager = WorkManager.getInstance(context.applicationContext)
@@ -130,7 +172,8 @@ object AlarmWatchdogScheduler {
     }
 
     fun isEnabled(context: Context): Boolean =
-        prefs(context).getBoolean(PERIODIC_CONFIGURED_KEY, false)
+        prefs(context).getBoolean(PERIODIC_CONFIGURED_KEY, false) &&
+            NodeRecoveryLeaseStore.load(context).enabled
 
     suspend fun state(context: Context): Map<String, Any?> = withContext(Dispatchers.IO) {
         val prefs = prefs(context)

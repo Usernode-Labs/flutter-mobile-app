@@ -168,12 +168,19 @@ class AlarmMethodChannelHandler(context: Context) {
                     return
                 }
 
-                val success = alarmScheduler.scheduleExactAlarm(
-                    alarmId = alarmId,
-                    delayMs = delayMs,
-                    globalSlot = globalSlot,
-                    data = data ?: emptyMap()
-                )
+                val alarmData = data ?: emptyMap()
+                val success = NodeRecoveryLeaseStore.runIfMatches(
+                    appContext,
+                    (alarmData["recoveryGeneration"] as? Number)?.toLong(),
+                    alarmData["bindingFingerprint"] as? String
+                ) {
+                    alarmScheduler.scheduleExactAlarm(
+                        alarmId = alarmId,
+                        delayMs = delayMs,
+                        globalSlot = globalSlot,
+                        data = alarmData
+                    )
+                }
                 result.success(success)
             }
             "cancelAlarm" -> {
@@ -183,11 +190,23 @@ class AlarmMethodChannelHandler(context: Context) {
                     return
                 }
 
-                val success = alarmScheduler.cancelAlarm(alarmId)
+                val success = NodeRecoveryLeaseStore.runIfMatches(
+                    appContext,
+                    authorityGeneration(call),
+                    authorityBindingFingerprint(call)
+                ) {
+                    alarmScheduler.cancelAlarm(alarmId)
+                }
                 result.success(success)
             }
             "cancelAllAlarms" -> {
-                val success = alarmScheduler.cancelAllAlarms()
+                val success = NodeRecoveryLeaseStore.runIfMatches(
+                    appContext,
+                    authorityGeneration(call),
+                    authorityBindingFingerprint(call)
+                ) {
+                    alarmScheduler.cancelAllAlarms()
+                }
                 result.success(success)
             }
             "hasScheduledAlarm" -> {
@@ -213,21 +232,46 @@ class AlarmMethodChannelHandler(context: Context) {
                 val message = call.argument<String>("message")
                 val globalSlot = call.argument<Number>("globalSlot")?.toInt()
                     ?: call.argument<Number>("slotNumber")?.toInt()
+                val authorityGeneration = authorityGeneration(call)
+                val authorityBindingFingerprint = authorityBindingFingerprint(call)
 
-                if (title == null || message == null || globalSlot == null) {
+                if (title == null ||
+                    message == null ||
+                    globalSlot == null ||
+                    authorityGeneration == null ||
+                    authorityBindingFingerprint.isNullOrBlank()
+                ) {
                     result.error("INVALID_ARGS", "Missing required arguments", null)
                     return
                 }
 
-                val success = foregroundServiceManager.startForegroundService(
-                    title = title,
-                    message = message,
-                    globalSlot = globalSlot
-                )
+                val success = NodeRecoveryLeaseStore.runIfMatches(
+                    appContext,
+                    authorityGeneration,
+                    authorityBindingFingerprint
+                ) {
+                    NativeWakeLockManager.acquire(appContext)
+                    val started = foregroundServiceManager.startForegroundService(
+                        title = title,
+                        message = message,
+                        globalSlot = globalSlot,
+                        recoveryGeneration = authorityGeneration,
+                        bindingFingerprint = authorityBindingFingerprint
+                    )
+                    if (!started) NativeWakeLockManager.release()
+                    started
+                }
                 result.success(success)
             }
             "stopForegroundService" -> {
-                val success = foregroundServiceManager.stopForegroundService()
+                val success = NodeRecoveryLeaseStore.runIfMatches(
+                    appContext,
+                    authorityGeneration(call),
+                    authorityBindingFingerprint(call)
+                ) {
+                    NativeWakeLockManager.release()
+                    foregroundServiceManager.stopForegroundService()
+                }
                 result.success(success)
             }
             "startPersistentForegroundService" -> {
@@ -287,20 +331,6 @@ class AlarmMethodChannelHandler(context: Context) {
                 incrementBackgroundTaskCount()
                 result.success(true)
             }
-            "acquireWakelock" -> {
-                NativeWakeLockManager.acquire(appContext)
-                result.success(true)
-            }
-            "releaseWakelock" -> {
-                NativeWakeLockManager.release()
-                result.success(true)
-
-                // // Treat wakelock release as "app suspended" for engine lifecycle:
-                // // destroy engine + remove from cache so next open/alarm starts fresh.
-                // Handler(Looper.getMainLooper()).post {
-                //     BackgroundAlarmEngine.destroyCachedEngine("wakelock_release")
-                // }
-            }
             "markFlutterReadyForAlarmEvents" -> {
                 result.success(markFlutterReadyForAlarmEvents())
             }
@@ -312,14 +342,114 @@ class AlarmMethodChannelHandler(context: Context) {
             }
             "ensureAlarmWatchdogScheduled" -> {
                 val reason = call.argument<String>("reason") ?: "dart"
-                result.success(AlarmWatchdogScheduler.ensurePeriodic(appContext, reason))
+                result.success(
+                    AlarmWatchdogScheduler.ensurePeriodic(
+                        appContext,
+                        reason,
+                        authorityGeneration(call),
+                        authorityBindingFingerprint(call)
+                    )
+                )
             }
             "requestAlarmWatchdogRun" -> {
                 val reason = call.argument<String>("reason") ?: "dart"
-                result.success(AlarmWatchdogScheduler.enqueueOneTime(appContext, reason))
+                result.success(
+                    AlarmWatchdogScheduler.enqueueOneTime(
+                        appContext,
+                        reason,
+                        authorityGeneration(call),
+                        authorityBindingFingerprint(call)
+                    )
+                )
             }
             "cancelAlarmWatchdog" -> {
-                result.success(AlarmWatchdogScheduler.cancel(appContext))
+                result.success(
+                    AlarmWatchdogScheduler.cancelIfAuthorized(
+                        appContext,
+                        authorityGeneration(call),
+                        authorityBindingFingerprint(call)
+                    )
+                )
+            }
+            "reserveNodeRuntimeBinding" -> {
+                val bindingFingerprint = call.argument<String>("bindingFingerprint")
+                val expectedGeneration = authorityGeneration(call)
+                if (bindingFingerprint.isNullOrBlank()) {
+                    result.error("INVALID_RUNTIME_BINDING", "bindingFingerprint is required", null)
+                } else if (expectedGeneration == null) {
+                    result.error(
+                        "INVALID_RUNTIME_AUTHORITY",
+                        "authorityGeneration is required",
+                        null
+                    )
+                } else {
+                    result.success(
+                        NodeRecoveryLeaseStore.reserve(
+                            appContext,
+                            bindingFingerprint,
+                            expectedGeneration,
+                            authorityBindingFingerprint(call),
+                            ::stopRetiredProductionSupport
+                        ).asMap()
+                    )
+                }
+            }
+            "activateNodeRecoveryLease" -> {
+                val generation = authorityGeneration(call)
+                val bindingFingerprint = authorityBindingFingerprint(call)
+                if (generation == null || bindingFingerprint.isNullOrBlank()) {
+                    result.error(
+                        "INVALID_RECOVERY_BINDING",
+                        "bindingFingerprint is required",
+                        null
+                    )
+                } else {
+                    result.success(
+                        NodeRecoveryLeaseStore.activate(
+                            appContext,
+                            generation,
+                            bindingFingerprint
+                        ).asMap()
+                    )
+                }
+            }
+            "disableNodeRecoveryLease" -> {
+                val generation = authorityGeneration(call)
+                val bindingFingerprint = authorityBindingFingerprint(call)
+                if (generation == null || bindingFingerprint.isNullOrBlank()) {
+                    result.error(
+                        "INVALID_RECOVERY_BINDING",
+                        "bindingFingerprint is required",
+                        null
+                    )
+                } else {
+                    result.success(
+                        NodeRecoveryLeaseStore.disable(
+                            appContext,
+                            generation,
+                            bindingFingerprint,
+                            ::stopRetiredProductionSupport
+                        ).asMap()
+                    )
+                }
+            }
+            "revokeNodeRecoveryLease" -> {
+                val generation = authorityGeneration(call)
+                if (generation == null) {
+                    result.error("INVALID_RECOVERY_AUTHORITY", "authorityGeneration is required", null)
+                    return
+                }
+                result.success(
+                    NodeRecoveryLeaseStore.revoke(
+                        appContext,
+                        generation,
+                        authorityBindingFingerprint(call),
+                        ::stopRetiredProductionSupport
+                    ).asMap()
+                )
+            }
+            "getNodeRecoveryLease" -> {
+                result.success(NodeRecoveryLeaseStore.load(appContext).asMap())
             }
             "getAlarmWatchdogState" -> {
                 methodScope.launch {
@@ -338,6 +468,19 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.notImplemented()
             }
         }
+    }
+
+    private fun authorityGeneration(call: MethodCall): Long? =
+        call.argument<Number>("authorityGeneration")?.toLong()
+
+    private fun authorityBindingFingerprint(call: MethodCall): String? =
+        call.argument<String>("authorityBindingFingerprint")
+
+    private fun stopRetiredProductionSupport() {
+        NativeWakeLockManager.release()
+        foregroundServiceManager.stopForegroundService(destroyBackgroundEngine = false)
+        alarmScheduler.cancelAllAlarms()
+        AlarmWatchdogScheduler.cancel(appContext)
     }
 
     private fun restartActivity(): Boolean {

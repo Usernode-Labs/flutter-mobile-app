@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
@@ -75,6 +76,17 @@ class AppBootstrap {
 
     // Initialize platform alarm service early to capture native events
     await PlatformAlarmService.instance.initialize();
+    if (Platform.isAndroid) {
+      // Anchor authority before account/bootstrap work can asynchronously
+      // resolve a different identity. Later mutations are CAS operations
+      // against this exact token.
+      final bootAuthority =
+          await PlatformAlarmService.instance.getNodeRecoveryLease();
+      NodeLifecycleCoordinator.instance.initializeAndroidAuthority(
+        bootAuthority,
+        canRebind: registerLifecycleObserver,
+      );
+    }
     PlatformAlarmService.instance.setNativeEventCallback(
       (eventType, eventData) async {
         if (eventType == 'android_alarm_recovery_requested') {
@@ -83,7 +95,33 @@ class AppBootstrap {
             context: eventData,
           );
         }
-        _dispatchNativeEvent(
+        if (_isNodeRecoveryEvent(eventType)) {
+          final recoveryResult =
+              await NodeLifecycleCoordinator.instance.recoverFromNativeEvent(
+            eventData,
+            reason: 'native:$eventType',
+          );
+          switch (recoveryResult) {
+            case NodeNativeRecoveryResult.rejected:
+              log.info(
+                'Ignoring stale or unauthorized native recovery event',
+                context: {'event_type': eventType, ...eventData},
+              );
+              // Acknowledge stale WorkManager deliveries so they are not
+              // retried indefinitely after logout or rebinding.
+              return true;
+            case NodeNativeRecoveryResult.retryableFailure:
+              log.warn(
+                'Authorized native recovery could not start the node',
+                context: {'event_type': eventType, ...eventData},
+              );
+              // WorkManager owns retry/backoff for an authorized delivery.
+              return false;
+            case NodeNativeRecoveryResult.recovered:
+              break;
+          }
+        }
+        await _dispatchNativeEvent(
           log: log,
           handlerName: 'app_sleep',
           eventType: eventType,
@@ -91,7 +129,7 @@ class AppBootstrap {
           handler: () =>
               AppSleepService.instance.handleNativeEvent(eventType, eventData),
         );
-        _dispatchNativeEvent(
+        await _dispatchNativeEvent(
           log: log,
           handlerName: 'android_foreground_task',
           eventType: eventType,
@@ -188,15 +226,15 @@ class AppBootstrap {
     );
   }
 
-  static void _dispatchNativeEvent({
+  static Future<void> _dispatchNativeEvent({
     required TaggedLogger log,
     required String handlerName,
     required String eventType,
     required Map<String, dynamic> eventData,
-    required void Function() handler,
-  }) {
+    required FutureOr<void> Function() handler,
+  }) async {
     try {
-      handler();
+      await handler();
     } catch (e, st) {
       log.warn(
         'Native event handler failed',
@@ -210,6 +248,11 @@ class AppBootstrap {
       log.debug('$st');
     }
   }
+
+  static bool _isNodeRecoveryEvent(String eventType) =>
+      eventType == 'android_alarm_fired' ||
+      eventType == 'android_alarm_recovery_requested' ||
+      eventType == 'android_workmanager_watchdog';
 
   static Future<void> _applyBootstrapIdentity({
     required TaggedLogger log,
@@ -351,11 +394,9 @@ class AppBootstrap {
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
-        await PlatformAlarmService.instance.markReadyForNativeEvents();
         log.info('FRB initialized; node start deferred to the platform');
       } else {
         log.info('Backend already running, skipping start');
-        await PlatformAlarmService.instance.markReadyForNativeEvents();
         await ObservabilityReportingService.instance.reportNodeInitialized(
           resetStaticContext: false,
         );
@@ -368,11 +409,34 @@ class AppBootstrap {
       // the node: interactive boots defer the start to the platform bridge,
       // while headless recovery paths (boot receiver, WorkManager watchdog,
       // force-stop recovery) can still start it through the audit gate.
-      await NodeLifecycleCoordinator.instance.reportColdBoot(
-        hasAccount: hasAnyAccounts,
-        reason: 'bootstrap',
-      );
-      if (Platform.isAndroid && hasAnyAccounts) {
+      final recoveryStateRestored = Platform.isAndroid
+          ? await settleNativeRecoveryBeforeReady(
+              reconcile: () async {
+                await NodeLifecycleCoordinator.instance.reportColdBoot(
+                  reason: 'bootstrap',
+                );
+              },
+              failClosed: (error, stackTrace) async {
+                log.warn(
+                  'Cold-boot recovery reconciliation failed; invalidating '
+                  'native authority before releasing queued events: $error',
+                );
+                log.debug('$stackTrace');
+                await NodeLifecycleCoordinator.instance
+                    .hardStopForSessionBoundary(
+                  reason: 'bootstrap_recovery_reconcile_failed',
+                );
+                NodeLifecycleCoordinator.instance.resumeAfterSessionBoundary();
+              },
+              markReady: () =>
+                  PlatformAlarmService.instance.markReadyForNativeEvents(),
+            )
+          : await NodeLifecycleCoordinator.instance.reportColdBoot(
+              reason: 'bootstrap',
+            );
+      if (Platform.isAndroid &&
+          recoveryStateRestored &&
+          IdentitySnapshots.current.phase == IdentityPhase.ready) {
         // Force-stop detection is bootstrap-specific: it inspects the native
         // "was force-stopped" launch flag, and on detection kicks a recovery
         // audit that may start the node headless to restore production.
@@ -384,6 +448,27 @@ class AppBootstrap {
       log.error('Bootstrap failed: $e', error: e, stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'bootstrap');
     }
+  }
+
+  /// Reconciles the durable Android recovery lease before releasing native
+  /// events. A failed reconciliation must first invalidate authority; if that
+  /// fail-closed step also fails, readiness remains blocked deliberately.
+  @visibleForTesting
+  static Future<bool> settleNativeRecoveryBeforeReady({
+    required Future<void> Function() reconcile,
+    required Future<void> Function(Object error, StackTrace stackTrace)
+        failClosed,
+    required Future<void> Function() markReady,
+  }) async {
+    var reconciled = true;
+    try {
+      await reconcile();
+    } catch (error, stackTrace) {
+      reconciled = false;
+      await failClosed(error, stackTrace);
+    }
+    await markReady();
+    return reconciled;
   }
 
   static Future<void> _runStartupAlarmAudit(TaggedLogger log) async {

@@ -54,6 +54,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
         val reason = intent.getStringExtra("reason")
         val purpose = intent.getStringExtra("purpose")
+        val recoveryGeneration = optionalLongExtra(intent, "recoveryGeneration")
+        val bindingFingerprint = intent.getStringExtra("bindingFingerprint")
 
         Log.d(TAG, "[AlarmReceiver] Slot alarm details - ID: $alarmId, GlobalSlot: $globalSlot, Scheduled: $scheduledTimeMs")
 
@@ -63,6 +65,17 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         if (globalSlot == null) {
             Log.e(TAG, "[AlarmReceiver] Missing or invalid globalSlot in intent")
+            return
+        }
+        if (recoveryGeneration == null ||
+            bindingFingerprint == null ||
+            !NodeRecoveryLeaseStore.matches(
+                context,
+                recoveryGeneration,
+                bindingFingerprint
+            )
+        ) {
+            Log.i(TAG, "Ignoring stale slot alarm for recovery generation $recoveryGeneration")
             return
         }
 
@@ -89,9 +102,31 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for global slot $globalSlot (latency: ${latencyMs}ms)")
 
-        // Take the native wakelock before handing control to Flutter so the
-        // inactivity sleep path cannot win a race against alarm recovery.
-        NativeWakeLockManager.acquire(context)
+        // Enqueue native monitoring under the same lock as lease revocation.
+        // SlotMonitoringService validates the captured lease again when the
+        // start intent is delivered, closing both sides of the async handoff.
+        val monitoringStarted = NodeRecoveryLeaseStore.runIfMatches(
+            context,
+            recoveryGeneration,
+            bindingFingerprint
+        ) {
+            NativeWakeLockManager.acquire(context)
+            val started = startMonitoringService(
+                context = context,
+                alarmId = alarmId,
+                globalSlot = globalSlot,
+                nodeRunning = nodeRunning,
+                alarmTimeMs = scheduledTimeMs,
+                recoveryGeneration = recoveryGeneration,
+                bindingFingerprint = bindingFingerprint
+            )
+            if (!started) NativeWakeLockManager.release()
+            started
+        }
+        if (!monitoringStarted) {
+            Log.i(TAG, "Ignoring slot alarm superseded before native monitoring start")
+            return
+        }
 
         val eventData = mutableMapOf<String, Any?>(
             "alarmId" to alarmId,
@@ -112,6 +147,8 @@ class AlarmReceiver : BroadcastReceiver() {
         elapsedDeliveryLatencyMs?.let { eventData["elapsedDeliveryLatencyMs"] = it }
         reason?.let { eventData["reason"] = it }
         purpose?.let { eventData["purpose"] = it }
+        eventData["recoveryGeneration"] = recoveryGeneration
+        eventData["bindingFingerprint"] = bindingFingerprint
 
         val handler = AlarmMethodChannelHandler.getInstance()
         if (handler != null && handler.isActivityAttached()) {
@@ -127,36 +164,6 @@ class AlarmReceiver : BroadcastReceiver() {
         }
         AlarmStateStore(context).recordFlutterEventSent(alarmId, System.currentTimeMillis())
 
-        // Start foreground service to keep app alive during monitoring
-        Log.d(TAG, "[AlarmReceiver] Starting SlotMonitoringService")
-        val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
-            action = SlotMonitoringService.ACTION_START_MONITORING
-            putExtra("alarmId", alarmId)
-            putExtra("globalSlot", globalSlot)
-            putExtra("nodeRunning", nodeRunning)
-            putExtra("alarmTimeMs", scheduledTimeMs)
-            nativeScheduledAtMs?.let { putExtra("nativeScheduledAtMs", it) }
-            scheduledElapsedRealtimeMs?.let { putExtra("scheduledElapsedRealtimeMs", it) }
-            nativeTriggerAtMs?.let { putExtra("nativeTriggerAtMs", it) }
-            triggerElapsedRealtimeMs?.let { putExtra("triggerElapsedRealtimeMs", it) }
-            putExtra("receiverElapsedRealtimeMs", receiverElapsedRealtimeMs)
-            nativeDeliveryLatencyMs?.let { putExtra("nativeDeliveryLatencyMs", it) }
-            elapsedDeliveryLatencyMs?.let { putExtra("elapsedDeliveryLatencyMs", it) }
-            reason?.let { putExtra("reason", it) }
-            purpose?.let { putExtra("purpose", it) }
-        }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Log.d(TAG, "[AlarmReceiver] Using startForegroundService (API >= 26)")
-                context.startForegroundService(serviceIntent)
-            } else {
-                Log.d(TAG, "[AlarmReceiver] Using startService (API < 26)")
-                context.startService(serviceIntent)
-            }
-            Log.d(TAG, "[AlarmReceiver] SlotMonitoringService start command sent")
-        } catch (e: Exception) {
-            Log.e(TAG, "[AlarmReceiver] Failed to start SlotMonitoringService", e)
-        }
     }
 
     private fun handleBootCompleted(context: Context) {
@@ -166,15 +173,24 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         Log.i(TAG, "Device boot completed - starting monitoring")
-        AlarmWatchdogScheduler.ensurePeriodic(context, "boot_completed")
-        AlarmWatchdogScheduler.enqueueOneTime(context, "boot_completed")
-        sendAuditRecoveryEvent(context, "boot_completed")
-        startMonitoringService(
-            context = context,
-            alarmId = "boot_completed",
-            globalSlot = 0,
-            nodeRunning = false
-        )
+        val lease = NodeRecoveryLeaseStore.load(context)
+        val bindingFingerprint = lease.bindingFingerprint ?: return
+        scheduleWatchdog(context, "boot_completed", lease)
+        val monitoringStarted = NodeRecoveryLeaseStore.runIfMatches(
+            context,
+            lease.generation,
+            bindingFingerprint
+        ) {
+            startMonitoringService(
+                context = context,
+                alarmId = "boot_completed",
+                globalSlot = 0,
+                nodeRunning = false,
+                recoveryGeneration = lease.generation,
+                bindingFingerprint = bindingFingerprint
+            )
+        }
+        if (monitoringStarted) sendAuditRecoveryEvent(context, "boot_completed", lease)
     }
 
     private fun handlePackageReplaced(context: Context) {
@@ -184,15 +200,24 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         Log.i(TAG, "App updated - starting monitoring")
-        AlarmWatchdogScheduler.ensurePeriodic(context, "package_replaced")
-        AlarmWatchdogScheduler.enqueueOneTime(context, "package_replaced")
-        sendAuditRecoveryEvent(context, "package_replaced")
-        startMonitoringService(
-            context = context,
-            alarmId = "package_replaced",
-            globalSlot = 0,
-            nodeRunning = false
-        )
+        val lease = NodeRecoveryLeaseStore.load(context)
+        val bindingFingerprint = lease.bindingFingerprint ?: return
+        scheduleWatchdog(context, "package_replaced", lease)
+        val monitoringStarted = NodeRecoveryLeaseStore.runIfMatches(
+            context,
+            lease.generation,
+            bindingFingerprint
+        ) {
+            startMonitoringService(
+                context = context,
+                alarmId = "package_replaced",
+                globalSlot = 0,
+                nodeRunning = false,
+                recoveryGeneration = lease.generation,
+                bindingFingerprint = bindingFingerprint
+            )
+        }
+        if (monitoringStarted) sendAuditRecoveryEvent(context, "package_replaced", lease)
     }
 
     private fun handleExactAlarmPermissionStateChanged(context: Context) {
@@ -209,8 +234,8 @@ class AlarmReceiver : BroadcastReceiver() {
             "android_exact_alarm_permission_denied"
         }
         if (granted && AlarmWatchdogScheduler.isEnabled(context)) {
-            AlarmWatchdogScheduler.ensurePeriodic(context, "exact_alarm_permission_granted")
-            AlarmWatchdogScheduler.enqueueOneTime(context, "exact_alarm_permission_granted")
+            val lease = NodeRecoveryLeaseStore.load(context)
+            scheduleWatchdog(context, "exact_alarm_permission_granted", lease)
         }
         sendFlutterEvent(
             context = context,
@@ -222,13 +247,39 @@ class AlarmReceiver : BroadcastReceiver() {
         )
     }
 
-    private fun sendAuditRecoveryEvent(context: Context, reason: String) {
+    private fun scheduleWatchdog(
+        context: Context,
+        reason: String,
+        lease: NodeRecoveryLeaseStore.Lease
+    ) {
+        AlarmWatchdogScheduler.ensurePeriodic(
+            context,
+            reason,
+            lease.generation,
+            lease.bindingFingerprint
+        )
+        AlarmWatchdogScheduler.enqueueOneTime(
+            context,
+            reason,
+            lease.generation,
+            lease.bindingFingerprint
+        )
+    }
+
+    private fun sendAuditRecoveryEvent(
+        context: Context,
+        reason: String,
+        lease: NodeRecoveryLeaseStore.Lease
+    ) {
+        val bindingFingerprint = lease.bindingFingerprint ?: return
         sendFlutterEvent(
             context = context,
             eventType = "android_alarm_recovery_requested",
             eventData = mapOf(
                 "reason" to reason,
-                "source" to "alarm_receiver"
+                "source" to "alarm_receiver",
+                "recoveryGeneration" to lease.generation,
+                "bindingFingerprint" to bindingFingerprint
             )
         )
     }
@@ -251,22 +302,33 @@ class AlarmReceiver : BroadcastReceiver() {
         context: Context,
         alarmId: String,
         globalSlot: Int,
-        nodeRunning: Boolean
-    ) {
+        nodeRunning: Boolean,
+        alarmTimeMs: Long = -1L,
+        recoveryGeneration: Long,
+        bindingFingerprint: String
+    ): Boolean {
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
             putExtra("globalSlot", globalSlot)
             putExtra("nodeRunning", nodeRunning)
+            putExtra("alarmTimeMs", alarmTimeMs)
+            putExtra(SlotMonitoringService.EXTRA_RECOVERY_GENERATION, recoveryGeneration)
+            putExtra(SlotMonitoringService.EXTRA_BINDING_FINGERPRINT, bindingFingerprint)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            context.startForegroundService(serviceIntent)
-        } else {
-            context.startService(serviceIntent)
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
+            Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, globalSlot=$globalSlot)")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start SlotMonitoringService", e)
+            false
         }
-
-        Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, globalSlot=$globalSlot)")
     }
 
     private fun showFallbackNotification(

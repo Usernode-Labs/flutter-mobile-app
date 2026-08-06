@@ -7,10 +7,10 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/NodeAccountProvisioning');
@@ -163,6 +163,12 @@ class NodeAccountReconciler {
             expectedIdentity: expected,
           );
     }
+    if (_stillReady(expected)) {
+      await NodeLifecycleCoordinator.instance.reportIdentityChanged(
+        expected,
+        reason: 'authority_refresh',
+      );
+    }
     return _stillReady(expected);
   }
 
@@ -170,19 +176,15 @@ class NodeAccountReconciler {
   /// (node lifecycle is platform-controlled — SV chrome requests the start
   /// over bridge v4 once the identity is ready):
   ///
-  /// - waits for any in-flight [RustBackendService.startNode] — a wake/alarm
-  ///   start may already have captured the OLD account's key while
-  ///   `isRunning` is still false, so deciding before it settles would race;
-  /// - a running node is stopped so the runtime never outlives the account
-  ///   whose producer key and wallet signer it captured at build time (there
-  ///   is no swap API). The platform-requested start after `ready` builds a
-  ///   fresh runtime under the reconciled account's key.
+  /// Publishing the reconciling identity clears the coordinator's binding.
+  /// Its serial worker drains any in-flight start and retires that exact
+  /// mobile-node handle before a later `ready` publication can rebuild under
+  /// the reconciled account.
   static Future<void> _defaultEnsureNodeIdentity() async {
-    final svc = RustBackendService.instance;
-    await svc.waitForStartCompletion();
-    if (svc.isRunning) {
-      await svc.stopNode();
-    }
+    await NodeLifecycleCoordinator.instance.reportIdentityChanged(
+      IdentitySnapshots.current,
+      reason: 'account_reconcile',
+    );
   }
 
   /// Runs a reconcile, coalescing concurrent calls FOR THE SAME identity

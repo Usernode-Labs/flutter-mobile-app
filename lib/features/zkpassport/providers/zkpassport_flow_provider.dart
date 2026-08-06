@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -1564,7 +1565,9 @@ class ZkPassportPipelineController
     }
 
     _log.info('Starting node for zkPassport proof verification');
-    final started = await backend.startNode();
+    final started = await NodeLifecycleCoordinator.instance.startNode(
+      reason: 'zkpassport_pipeline',
+    );
     if (!started) {
       return null;
     }

@@ -6,7 +6,6 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'package:crypto_mobile_app/core/models/vrf_status.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
-import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
@@ -16,8 +15,25 @@ import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 
 final _log = LoggingService.instance.withTag('usernode/AndroidForegroundTask');
 
+typedef MonitoringStoppedCallback = Future<void> Function(
+  NodeRuntimeAuthority authority,
+);
+
 class AndroidForegroundTaskController {
-  AndroidForegroundTaskController._();
+  AndroidForegroundTaskController._({
+    bool Function()? isAndroid,
+    NodeRuntimeAuthority? monitoringAuthority,
+  })  : _isAndroid = isAndroid ?? (() => Platform.isAndroid),
+        _monitoringAuthority = monitoringAuthority;
+
+  @visibleForTesting
+  AndroidForegroundTaskController.test({
+    required bool Function() isAndroid,
+    NodeRuntimeAuthority? monitoringAuthority,
+  }) : this._(
+          isAndroid: isAndroid,
+          monitoringAuthority: monitoringAuthority,
+        );
 
   static final AndroidForegroundTaskController instance =
       AndroidForegroundTaskController._();
@@ -31,14 +47,21 @@ class AndroidForegroundTaskController {
   Future<void>? _activePoll;
   bool _initialized = false;
   bool _wakelockHeld = false;
+  NodeRuntimeAuthority? _monitoringAuthority;
   AccountPublicKey? _cachedOurPubKey;
   ({int height, DateTime since})? _awaitingOtherProducerState;
   String? _alarmRecoveryInFlightKey;
   String? _lastHandledAlarmKey;
   DateTime? _lastHandledAlarmAt;
+  MonitoringStoppedCallback? _onMonitoringStopped;
+  final bool Function() _isAndroid;
+
+  void setMonitoringStoppedCallback(MonitoringStoppedCallback callback) {
+    _onMonitoringStopped = callback;
+  }
 
   Future<void> initialize() async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid()) return;
     if (_initialized) return;
 
     WidgetsFlutterBinding.ensureInitialized();
@@ -77,20 +100,22 @@ class AndroidForegroundTaskController {
     _log.info('AndroidForegroundTask initialized');
   }
 
-  Future<void> onNodeStarted() async {
-    if (!Platform.isAndroid) return;
+  Future<void> onNodeStarted({required NodeRuntimeAuthority authority}) async {
+    if (!_isAndroid()) return;
+    _adoptMonitoringAuthority(authority);
     if (AppSleepStateStore.isSleeping) {
       _log.info('Skipping Android monitoring start while app sleep is active');
       return;
     }
-    await startMonitoring(reason: 'node_started');
+    await startMonitoring(reason: 'node_started', authority: authority);
   }
 
   Future<bool> startMonitoring({
     String reason = 'manual',
     bool allowWhileSleeping = false,
+    NodeRuntimeAuthority? authority,
   }) async {
-    if (!Platform.isAndroid) return false;
+    if (!_isAndroid()) return false;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Skipping Android monitoring start while app sleep is active',
@@ -100,62 +125,51 @@ class AndroidForegroundTaskController {
     }
     await initialize();
 
-    // Ensure the Rust node is running before polling VRF or scheduling alarms.
-    final nodeOk = await _ensureNodeRunning();
-    if (!nodeOk) {
-      _log.error('Cannot start monitoring: node failed to start');
+    // Lifecycle authority belongs to NodeLifecycleCoordinator. Monitoring is
+    // only a consumer of an already-authorized runtime.
+    if (!RustBackendService.instance.isRunning) {
+      _log.error('Cannot start monitoring: authorized node is not running');
       return false;
     }
 
-    // Re-arm watchdog recovery for this producer session. Cold boots defer
-    // the node start to the platform bridge and disable recovery in
-    // bootstrap; on headless wakes (alarm / WorkManager watchdog paths) the
-    // bridge never runs, so this native start path is the only place that
-    // can re-enable it. Without this, a headless-started producer runs with
-    // every audit skipping as watchdog_disabled until the next interactive
-    // launch. On a real disabled → enabled transition, run an audit so the
-    // fg_resume alarm and WorkManager watchdog get rescheduled now — the
-    // audit that rode in on the triggering native event raced this start
-    // and was likely skipped as watchdog_disabled.
-    final rearmed =
-        BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
-    if (rearmed) {
-      BlockProductionAlarmAuditService.instance.auditBestEffort(
-        reason: 'native_start_rearm:$reason',
-      );
-    }
-
-    final wakelockWasHeld = _wakelockHeld;
-    final wakelockAcquired = await _acquireWakelock();
-    if (!wakelockAcquired) {
-      _log.error('Cannot start monitoring: native wakelock was not acquired');
+    final monitoringAuthority = authority ??
+        _monitoringAuthority ??
+        RustBackendService.instance.runtimeAuthority;
+    if (monitoringAuthority == null) {
+      _log.error('Cannot start monitoring: runtime authority is unavailable');
       return false;
     }
 
-    final running =
-        await PlatformAlarmService.instance.isForegroundServiceRunning();
-    if (!running) {
-      final result = await PlatformAlarmService.instance.startForegroundService(
-        title: 'Usernode',
-        message: 'Evaluating VRF slots',
-        globalSlot: 0,
-      );
-      _log.info('Foreground service start result: $result');
-      if (!result) {
-        if (!wakelockWasHeld) {
-          await _releaseWakelock();
-        }
-        _log.error('Cannot start monitoring: foreground service start failed');
-        return false;
-      }
+    final result = await PlatformAlarmService.instance.startForegroundService(
+      title: 'Usernode',
+      message: 'Evaluating VRF slots',
+      globalSlot: 0,
+      authority: monitoringAuthority,
+    );
+    _log.info('Foreground service start result: $result');
+    if (!result) {
+      _log.error('Cannot start monitoring: authority was superseded');
+      return false;
     }
 
+    _adoptMonitoringAuthority(monitoringAuthority);
+    _wakelockHeld = true;
     _startPollTimer();
     return true;
   }
 
-  Future<void> stopMonitoring({String reason = 'stopped'}) async {
-    if (!Platform.isAndroid) return;
+  Future<void> stopMonitoring({
+    String reason = 'stopped',
+    NodeRuntimeAuthority? authority,
+  }) async {
+    if (!_isAndroid()) return;
+    final monitoringAuthority = authority ?? _monitoringAuthority;
+    if (authority != null &&
+        _monitoringAuthority != null &&
+        _monitoringAuthority != authority) {
+      _log.info('Ignoring monitoring stop from a superseded authority');
+      return;
+    }
     _pollTimer?.cancel();
     _pollTimer = null;
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
@@ -167,8 +181,19 @@ class AndroidForegroundTaskController {
       _log.info(
           'Activity is resumed; skipping node pause on stopMonitoring ($reason)');
     }
-    await _releaseWakelock();
-    await PlatformAlarmService.instance.stopForegroundService();
+    if (monitoringAuthority != null) {
+      await PlatformAlarmService.instance.stopForegroundService(
+        authority: monitoringAuthority,
+      );
+      if (_monitoringAuthority == monitoringAuthority) {
+        _adoptMonitoringAuthority(null);
+      }
+    }
+    _wakelockHeld = false;
+    final onMonitoringStopped = _onMonitoringStopped;
+    if (monitoringAuthority != null && onMonitoringStopped != null) {
+      unawaited(onMonitoringStopped(monitoringAuthority));
+    }
   }
 
   void _startPollTimer() {
@@ -181,7 +206,12 @@ class AndroidForegroundTaskController {
 
   void _startPoll() {
     if (_activePoll != null) return;
-    final poll = _pollVrf();
+    final authority = _monitoringAuthority;
+    if (authority == null) {
+      _log.warn('Skipping VRF poll: monitoring authority is unavailable');
+      return;
+    }
+    final poll = _pollVrf(authority);
     _activePoll = poll;
     unawaited(poll.whenComplete(() {
       if (identical(_activePoll, poll)) _activePoll = null;
@@ -241,13 +271,14 @@ class AndroidForegroundTaskController {
   }
 
   Future<void> resetForAppRestart() async {
-    if (!Platform.isAndroid) return;
+    if (!_isAndroid()) return;
     _pollTimer?.cancel();
     _pollTimer = null;
     await _activePoll;
     _activePoll = null;
     _initialized = false;
     _wakelockHeld = false;
+    _adoptMonitoringAuthority(null);
     _cachedOurPubKey = null;
     _awaitingOtherProducerState = null;
     _alarmRecoveryInFlightKey = null;
@@ -255,21 +286,10 @@ class AndroidForegroundTaskController {
     _lastHandledAlarmAt = null;
   }
 
-  Future<bool> _ensureNodeRunning() async {
-    try {
-      final started = await RustBackendService.instance.startNode();
-      await RustBackendService.instance.resumeNode();
-      _log.info('Node start result: $started');
-      return started;
-    } catch (e, st) {
-      _log.error('Error ensuring node running', error: e, stackTrace: st);
-      return false;
-    }
-  }
-
-  Future<void> _pollVrf() async {
+  Future<void> _pollVrf(NodeRuntimeAuthority authority) async {
     try {
       final info = await RustBackendService.instance.getEpochInfo();
+      if (!_isCurrentMonitoringAuthority(authority)) return;
       if (info == null) {
         _log.warn('VRF poll: epoch info unavailable');
         return;
@@ -277,6 +297,7 @@ class AndroidForegroundTaskController {
 
       final clockDriftMs =
           await RustBackendService.instance.resolveNodeClockDriftMs();
+      if (!_isCurrentMonitoringAuthority(authority)) return;
       if (clockDriftMs == null) {
         _log.warn('VRF poll: node clock drift unavailable');
         return;
@@ -304,6 +325,7 @@ class AndroidForegroundTaskController {
             targetGlobalSlot: nextWon.globalSlot,
             targetRustSlotTimeMs: rustSlotTimeMs,
             targetSlotTimeMs: localSlotTimeMs,
+            authority: authority,
           );
         } else {
           _log.info(
@@ -320,6 +342,7 @@ class AndroidForegroundTaskController {
       }
 
       final epochEndRustTimeMs = await resolveEpochEndTimeMs(info.currentEpoch);
+      if (!_isCurrentMonitoringAuthority(authority)) return;
       if (epochEndRustTimeMs == null) {
         _log.warn('VRF poll: could not compute epoch end');
         return;
@@ -335,6 +358,7 @@ class AndroidForegroundTaskController {
         await _scheduleResume(
           epochEndRustTimeMs - foregroundResumeLead.inMilliseconds,
           'epoch_end_${info.currentEpoch}',
+          authority: authority,
         );
       } else {
         _log.info('Epoch end is too close, keeping foreground until end');
@@ -344,12 +368,20 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<bool> _shouldHoldForOtherProducerBlock(
-      {bool doubleCheck = true}) async {
+  Future<bool> _shouldHoldForOtherProducerBlock({
+    NodeRuntimeAuthority? authority,
+    bool doubleCheck = true,
+  }) async {
+    if (authority != null && !_isCurrentMonitoringAuthority(authority)) {
+      return false;
+    }
     try {
       if (_cachedOurPubKey == null) {
         final bpStatus =
             await RustBackendService.instance.getBlockProducerStatus();
+        if (authority != null && !_isCurrentMonitoringAuthority(authority)) {
+          return false;
+        }
         _cachedOurPubKey = bpStatus?.blockProducer?.pubKey;
       }
       if (_cachedOurPubKey == null) {
@@ -363,6 +395,9 @@ class AndroidForegroundTaskController {
           fromTip: true,
           blockProducer: _cachedOurPubKey,
         );
+        if (authority != null && !_isCurrentMonitoringAuthority(authority)) {
+          return false;
+        }
         final ownBlock = (ownBlocks?.items.isNotEmpty ?? false)
             ? ownBlocks!.items.first
             : null;
@@ -392,6 +427,9 @@ class AndroidForegroundTaskController {
         limit: 1,
         fromTip: true,
       );
+      if (authority != null && !_isCurrentMonitoringAuthority(authority)) {
+        return false;
+      }
       final items = recentBlocks?.items ?? const [];
       final ourPubKeyStr = _cachedOurPubKey.toString();
       final hasOtherAfter = items.any((block) =>
@@ -400,7 +438,10 @@ class AndroidForegroundTaskController {
 
       if (hasOtherAfter) {
         if (doubleCheck) {
-          return await _shouldHoldForOtherProducerBlock(doubleCheck: false);
+          return await _shouldHoldForOtherProducerBlock(
+            authority: authority,
+            doubleCheck: false,
+          );
         }
         _awaitingOtherProducerState = null;
         return false;
@@ -412,6 +453,9 @@ class AndroidForegroundTaskController {
         'Failed to check post-production block status: $e',
       );
       _log.debug('$st');
+      if (authority != null && !_isCurrentMonitoringAuthority(authority)) {
+        return false;
+      }
       return _awaitingOtherProducerState != null;
     }
   }
@@ -422,6 +466,7 @@ class AndroidForegroundTaskController {
     int? targetGlobalSlot,
     int? targetRustSlotTimeMs,
     int? targetSlotTimeMs,
+    required NodeRuntimeAuthority authority,
   }) async {
     await scheduleResumeAlarm(
       rustWakeTimeMs: rustWakeTimeMs,
@@ -430,6 +475,7 @@ class AndroidForegroundTaskController {
       targetRustSlotTimeMs: targetRustSlotTimeMs,
       targetSlotTimeMs: targetSlotTimeMs,
       stopMonitoringAfterSchedule: true,
+      authority: authority,
     );
   }
 
@@ -440,8 +486,27 @@ class AndroidForegroundTaskController {
     int? targetRustSlotTimeMs,
     int? targetSlotTimeMs,
     bool stopMonitoringAfterSchedule = false,
+    NodeRuntimeAuthority? authority,
   }) async {
-    if (await _shouldHoldForOtherProducerBlock()) {
+    final schedulingAuthority = authority ?? _monitoringAuthority;
+    if (_isAndroid() && schedulingAuthority == null) {
+      _log.warn('Skipping resume alarm: monitoring authority is unavailable');
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'runtime_authority_unavailable',
+      );
+    }
+    if (_isAndroid() && !_isCurrentMonitoringAuthority(schedulingAuthority!)) {
+      _log.info('Skipping resume alarm from a superseded authority');
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'runtime_authority_superseded',
+      );
+    }
+
+    if (await _shouldHoldForOtherProducerBlock(
+      authority: schedulingAuthority,
+    )) {
       final height = _awaitingOtherProducerState?.height;
       _log.info(
         'Keeping wakelock: waiting for another producer block after height ${height ?? 'unknown'}',
@@ -451,9 +516,21 @@ class AndroidForegroundTaskController {
         failureReason: 'holding_for_other_producer_block',
       );
     }
+    if (_isAndroid() && !_isCurrentMonitoringAuthority(schedulingAuthority!)) {
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'runtime_authority_superseded',
+      );
+    }
 
     final clockDriftMs =
         await RustBackendService.instance.resolveNodeClockDriftMs();
+    if (_isAndroid() && !_isCurrentMonitoringAuthority(schedulingAuthority!)) {
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'runtime_authority_superseded',
+      );
+    }
     if (clockDriftMs == null) {
       _log.warn('Skipping resume alarm: node clock drift unavailable');
       return const ForegroundResumeAlarmScheduleResult(
@@ -476,6 +553,7 @@ class AndroidForegroundTaskController {
       alarmId: foregroundResumeAlarmId,
       delayMs: delayMs,
       globalSlot: targetGlobalSlot ?? 0,
+      authority: schedulingAuthority,
       data: {
         'reason': reason,
         'nodeRunning': RustBackendService.instance.isRunning,
@@ -503,7 +581,10 @@ class AndroidForegroundTaskController {
       'clockDriftMs=$clockDriftMs)',
     );
     if (success && stopMonitoringAfterSchedule) {
-      await stopMonitoring(reason: reason);
+      await stopMonitoring(
+        reason: reason,
+        authority: schedulingAuthority,
+      );
     }
 
     return ForegroundResumeAlarmScheduleResult(
@@ -544,40 +625,28 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<bool> _acquireWakelock() async {
-    try {
-      // Use a native PARTIAL_WAKE_LOCK so it works without a foreground Activity.
-      final ok = await PlatformAlarmService.instance.acquireWakelock();
-      _wakelockHeld = ok;
-      if (ok) _log.info('Native wakelock acquired');
-      return ok;
-    } catch (e) {
-      _log.warn('Failed to acquire wakelock: $e');
-      return false;
-    }
-  }
-
-  Future<void> _releaseWakelock() async {
-    try {
-      final ok = await PlatformAlarmService.instance.releaseWakelock();
-      _wakelockHeld = false;
-      if (ok) _log.info('Native wakelock released');
-    } catch (e) {
-      _log.warn('Failed to release wakelock: $e');
-    }
-  }
-
   Future<bool> isForegroundServiceRunning() async {
-    if (!Platform.isAndroid) return false;
+    if (!_isAndroid()) return false;
     return await PlatformAlarmService.instance.isForegroundServiceRunning();
   }
 
   /// Handle native alarm events (from AlarmReceiver via PlatformAlarmService)
-  void handleNativeEvent(String eventType, Map<String, dynamic> data) {
-    if (!Platform.isAndroid) return;
-    if (eventType != 'android_alarm_fired') return;
-
-    unawaited(_handleAlarmFiredEvent(data));
+  Future<void> handleNativeEvent(
+    String eventType,
+    Map<String, dynamic> data,
+  ) async {
+    if (!_isAndroid()) return;
+    switch (eventType) {
+      case 'android_alarm_fired':
+        await _handleAlarmFiredEvent(data);
+        return;
+      case 'android_alarm_recovery_requested':
+        await startMonitoring(
+          reason: 'native_recovery',
+          allowWhileSleeping: true,
+        );
+        return;
+    }
   }
 
   Future<void> _handleAlarmFiredEvent(Map<String, dynamic> data) async {
@@ -599,12 +668,10 @@ class AndroidForegroundTaskController {
     final alarmId = data['alarmId'] as String? ?? '';
     if (alarmId == foregroundResumeAlarmId) {
       final alarmKey = _alarmEventKey(data);
-      unawaited(
-        handleAlarmFire(
-          reason: 'alarm_resume',
-          alarmKey: alarmKey,
-          allowWhileSleeping: allowWhileSleeping,
-        ),
+      await handleAlarmFire(
+        reason: 'alarm_resume',
+        alarmKey: alarmKey,
+        allowWhileSleeping: allowWhileSleeping,
       );
     }
   }
@@ -634,7 +701,7 @@ class AndroidForegroundTaskController {
   }
 
   Future<bool> isWakelockHeld() async {
-    if (!Platform.isAndroid) return false;
+    if (!_isAndroid()) return false;
     if (_wakelockHeld) return true;
     try {
       return await PlatformAlarmService.instance.isWakelockHeld();
@@ -644,8 +711,23 @@ class AndroidForegroundTaskController {
   }
 
   bool isWakelockHeldSync() {
-    if (!Platform.isAndroid) return false;
+    if (!_isAndroid()) return false;
     return _wakelockHeld;
+  }
+
+  bool _isCurrentMonitoringAuthority(NodeRuntimeAuthority authority) =>
+      _monitoringAuthority == authority;
+
+  void _adoptMonitoringAuthority(NodeRuntimeAuthority? authority) {
+    final current = _monitoringAuthority;
+    final unchanged = current == null
+        ? authority == null
+        : authority != null && current == authority;
+    if (!unchanged) {
+      _cachedOurPubKey = null;
+      _awaitingOtherProducerState = null;
+    }
+    _monitoringAuthority = authority;
   }
 
   void _recordRuntimeContextChanged(String reason) {

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 
 import 'package:crypto_mobile_app/core/models/vrf_status.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -18,6 +19,7 @@ typedef AlarmAuditScheduleForegroundResume
   required String schedulerReason,
   required int globalSlot,
   required int slotTimeMs,
+  required NodeRuntimeAuthority authority,
 });
 
 typedef AlarmAuditRecoveryRetryScheduler = void Function(
@@ -27,11 +29,19 @@ typedef AlarmAuditRecoveryRetryScheduler = void Function(
 
 typedef AlarmAuditEnsureWatchdogScheduled = Future<bool> Function(
   String reason,
+  NodeRuntimeAuthority authority,
 );
 
 typedef AlarmAuditLoadWatchdogState = Future<Map<String, dynamic>?> Function();
 
-typedef AlarmAuditStartMonitoring = Future<bool> Function(String reason);
+typedef AlarmAuditCompleteRecoveryRunIfIdle = Future<void> Function(
+  NodeRuntimeAuthority authority,
+);
+
+typedef AlarmAuditStartMonitoring = Future<bool> Function(
+  String reason,
+  NodeRuntimeAuthority authority,
+);
 
 typedef AlarmAuditLoadEpochEndTimeMs = Future<int?> Function(int epoch);
 
@@ -56,6 +66,7 @@ class BlockProductionAlarmAuditService {
     int Function(int rustTimeMs, int clockDriftMs)? rustToLocalTimeMs,
     int? Function()? lastNodeTimeMs,
     int? Function()? lastNodeClockSampleSystemTimeMs,
+    NodeRuntimeAuthority? Function()? runtimeAuthority,
     bool Function()? isAndroid,
     String Function()? appState,
     String Function()? platformVersion,
@@ -65,6 +76,7 @@ class BlockProductionAlarmAuditService {
     AlarmAuditRecoveryRetryScheduler? scheduleRecoveryRetry,
     AlarmAuditEnsureWatchdogScheduled? ensureWatchdogScheduled,
     AlarmAuditLoadWatchdogState? loadWatchdogState,
+    AlarmAuditCompleteRecoveryRunIfIdle? completeRecoveryRunIfIdle,
   })  : _initializeAlarmService =
             initializeAlarmService ?? PlatformAlarmService.instance.initialize,
         _refreshPermissions = refreshPermissions ??
@@ -81,8 +93,12 @@ class BlockProductionAlarmAuditService {
         _scheduleForegroundResume =
             scheduleForegroundResume ?? _scheduleDefaultForegroundResume,
         _startMonitoring = startMonitoring ??
-            ((reason) => AndroidForegroundTaskController.instance
-                .startMonitoring(reason: reason, allowWhileSleeping: true)),
+            ((reason, authority) =>
+                AndroidForegroundTaskController.instance.startMonitoring(
+                  reason: reason,
+                  allowWhileSleeping: true,
+                  authority: authority,
+                )),
         _loadEpochSnapshot = loadEpochSnapshot ?? _loadDefaultEpochSnapshot,
         _loadEpochEndTimeMs = loadEpochEndTimeMs ??
             AndroidForegroundTaskController.instance.resolveEpochEndTimeMs,
@@ -104,6 +120,8 @@ class BlockProductionAlarmAuditService {
             (() => RustBackendService.instance.lastNodeTimeMs),
         _lastNodeClockSampleSystemTimeMs = lastNodeClockSampleSystemTimeMs ??
             (() => RustBackendService.instance.lastNodeClockSampleSystemTimeMs),
+        _runtimeAuthority = runtimeAuthority ??
+            (() => RustBackendService.instance.runtimeAuthority),
         _isAndroid = isAndroid ?? (() => Platform.isAndroid),
         _appState = appState ?? _defaultAppState,
         _platformVersion =
@@ -122,10 +140,23 @@ class BlockProductionAlarmAuditService {
         _scheduleRecoveryRetry = scheduleRecoveryRetry ??
             ((delay, callback) => Timer(delay, callback)),
         _ensureWatchdogScheduled = ensureWatchdogScheduled ??
-            ((reason) => PlatformAlarmService.instance
-                .ensureAlarmWatchdogScheduled(reason: reason)),
+            ((reason, authority) {
+              return PlatformAlarmService.instance.ensureAlarmWatchdogScheduled(
+                reason: reason,
+                authority: authority,
+              );
+            }),
         _loadWatchdogState = loadWatchdogState ??
-            PlatformAlarmService.instance.getAlarmWatchdogState;
+            PlatformAlarmService.instance.getAlarmWatchdogState,
+        _completeRecoveryRunIfIdle = completeRecoveryRunIfIdle ??
+            ((authority) async {
+              if (await AndroidForegroundTaskController.instance
+                  .isWakelockHeld()) {
+                return;
+              }
+              await NodeLifecycleCoordinator.instance
+                  .completeRecoveryRun(authority: authority);
+            });
 
   @visibleForTesting
   BlockProductionAlarmAuditService.test({
@@ -146,6 +177,7 @@ class BlockProductionAlarmAuditService {
     int Function(int rustTimeMs, int clockDriftMs)? rustToLocalTimeMs,
     int? Function()? lastNodeTimeMs,
     int? Function()? lastNodeClockSampleSystemTimeMs,
+    NodeRuntimeAuthority? Function()? runtimeAuthority,
     bool Function()? isAndroid,
     String Function()? appState,
     String Function()? platformVersion,
@@ -155,6 +187,7 @@ class BlockProductionAlarmAuditService {
     AlarmAuditRecoveryRetryScheduler? scheduleRecoveryRetry,
     AlarmAuditEnsureWatchdogScheduled? ensureWatchdogScheduled,
     AlarmAuditLoadWatchdogState? loadWatchdogState,
+    AlarmAuditCompleteRecoveryRunIfIdle? completeRecoveryRunIfIdle,
   }) : this._(
           initializeAlarmService: initializeAlarmService,
           refreshPermissions: refreshPermissions,
@@ -173,6 +206,7 @@ class BlockProductionAlarmAuditService {
           rustToLocalTimeMs: rustToLocalTimeMs,
           lastNodeTimeMs: lastNodeTimeMs,
           lastNodeClockSampleSystemTimeMs: lastNodeClockSampleSystemTimeMs,
+          runtimeAuthority: runtimeAuthority,
           isAndroid: isAndroid,
           appState: appState,
           platformVersion: platformVersion,
@@ -182,6 +216,8 @@ class BlockProductionAlarmAuditService {
           scheduleRecoveryRetry: scheduleRecoveryRetry,
           ensureWatchdogScheduled: ensureWatchdogScheduled,
           loadWatchdogState: loadWatchdogState,
+          completeRecoveryRunIfIdle:
+              completeRecoveryRunIfIdle ?? ((_) async {}),
         );
 
   static final BlockProductionAlarmAuditService instance =
@@ -203,6 +239,7 @@ class BlockProductionAlarmAuditService {
   final int Function(int rustTimeMs, int clockDriftMs) _rustToLocalTimeMs;
   final int? Function() _lastNodeTimeMs;
   final int? Function() _lastNodeClockSampleSystemTimeMs;
+  final NodeRuntimeAuthority? Function() _runtimeAuthority;
   final bool Function() _isAndroid;
   final String Function() _appState;
   final String Function() _platformVersion;
@@ -212,8 +249,9 @@ class BlockProductionAlarmAuditService {
   final AlarmAuditRecoveryRetryScheduler _scheduleRecoveryRetry;
   final AlarmAuditEnsureWatchdogScheduled _ensureWatchdogScheduled;
   final AlarmAuditLoadWatchdogState _loadWatchdogState;
+  final AlarmAuditCompleteRecoveryRunIfIdle _completeRecoveryRunIfIdle;
 
-  Future<AlarmAuditResult>? _inFlight;
+  ({int lifecycleGeneration, Future<AlarmAuditResult> future})? _inFlight;
   bool _forceStopChecked = false;
   String? _pendingRecoveryReason;
   var _recoveryRetryAttempt = 0;
@@ -403,28 +441,35 @@ class BlockProductionAlarmAuditService {
   }
 
   Future<AlarmAuditResult> audit({required String reason}) {
+    final lifecycleGeneration = _watchdogLifecycleGeneration;
     final active = _inFlight;
-    if (active != null) {
-      return active;
+    if (active != null && active.lifecycleGeneration == lifecycleGeneration) {
+      return active.future;
     }
 
     late final Future<AlarmAuditResult> future;
-    future = _runAudit(reason).whenComplete(() {
-      if (identical(_inFlight, future)) {
+    future = _runAudit(reason, lifecycleGeneration).whenComplete(() {
+      if (identical(_inFlight?.future, future)) {
         _inFlight = null;
       }
     });
-    _inFlight = future;
+    _inFlight = (
+      lifecycleGeneration: lifecycleGeneration,
+      future: future,
+    );
     return future;
   }
 
-  Future<AlarmAuditResult> _runAudit(String reason) async {
+  Future<AlarmAuditResult> _runAudit(
+    String reason,
+    int lifecycleGeneration,
+  ) async {
+    var recoveryAuthority = _runtimeAuthority();
     try {
       if (!_isAndroid()) {
         return _skip(reason, 'unsupported_platform');
       }
 
-      final lifecycleGeneration = _watchdogLifecycleGeneration;
       if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
         return _skip(
           reason,
@@ -443,9 +488,11 @@ class BlockProductionAlarmAuditService {
       );
 
       if (!exactAlarmPermission) {
+        final authority = _runtimeAuthority();
         if (_isWatchdogRecoveryActive(lifecycleGeneration) &&
-            _isNodeRunning()) {
-          await _ensureWatchdogScheduled(reason);
+            _isNodeRunning() &&
+            authority != null) {
+          await _ensureWatchdogScheduled(reason, authority);
           await _reportWatchdogState(reason);
         }
         return _skip(
@@ -472,10 +519,27 @@ class BlockProductionAlarmAuditService {
         );
       }
 
-      await _ensureWatchdogScheduled(reason);
+      final authority = _runtimeAuthority();
+      if (authority == null) {
+        return _skip(
+          reason,
+          'runtime_authority_unavailable',
+          fgResumeStatus: 'skipped:runtime_authority_unavailable',
+        );
+      }
+      recoveryAuthority ??= authority;
+
+      await _ensureWatchdogScheduled(reason, authority);
       await _reportWatchdogState(reason);
 
       final clockDriftMs = await _resolveClockDriftMs();
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return _skip(
+          reason,
+          'watchdog_disabled',
+          fgResumeStatus: 'skipped:watchdog_disabled',
+        );
+      }
       if (clockDriftMs == null) {
         return _skip(
           reason,
@@ -485,6 +549,13 @@ class BlockProductionAlarmAuditService {
       }
 
       final epoch = await _loadEpochSnapshot();
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return _skip(
+          reason,
+          'watchdog_disabled',
+          fgResumeStatus: 'skipped:watchdog_disabled',
+        );
+      }
       if (epoch == null) {
         return _skip(
           reason,
@@ -505,7 +576,16 @@ class BlockProductionAlarmAuditService {
         reason: reason,
         epoch: epoch,
         clockDriftMs: clockDriftMs,
+        lifecycleGeneration: lifecycleGeneration,
+        authority: authority,
       );
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return _skip(
+          reason,
+          'watchdog_disabled',
+          fgResumeStatus: 'skipped:watchdog_disabled',
+        );
+      }
 
       _reportCompleted(reason: reason, fgResumeStatus: fgResumeStatus);
 
@@ -538,6 +618,16 @@ class BlockProductionAlarmAuditService {
         failureReason: e.toString(),
         fgResumeStatus: 'skipped:audit_exception',
       );
+    } finally {
+      final authority = recoveryAuthority;
+      if (authority != null) {
+        try {
+          await _completeRecoveryRunIfIdle(authority);
+        } catch (e, st) {
+          _log.warn('Failed to release completed recovery run: $e');
+          _log.debug('$st');
+        }
+      }
     }
   }
 
@@ -550,7 +640,12 @@ class BlockProductionAlarmAuditService {
     required String reason,
     required AlarmAuditEpochSnapshot epoch,
     required int clockDriftMs,
+    required int lifecycleGeneration,
+    required NodeRuntimeAuthority authority,
   }) async {
+    if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+      return 'skipped:watchdog_disabled';
+    }
     final nowMs = _nowMs();
     final nextWonSlot = _nextFutureWonSlot(
       epoch.wonSlots,
@@ -565,6 +660,9 @@ class BlockProductionAlarmAuditService {
       schedulerReason = 'next_won_slot:${target.globalSlot}';
     } else {
       final epochEndRustTimeMs = await _loadEpochEndTimeMs(epoch.epoch);
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return 'skipped:watchdog_disabled';
+      }
       if (epochEndRustTimeMs == null) {
         _report(
           'fg_resume_watchdog_failed',
@@ -600,15 +698,23 @@ class BlockProductionAlarmAuditService {
       clockDriftSampleAgeMs: _clockDriftSampleAgeMs(nowMs),
     );
     if (target.slotTimeMs - nowMs <= fgLeadMs) {
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return 'skipped:watchdog_disabled';
+      }
       var monitoringStarted = false;
       String? monitoringFailure;
       try {
-        monitoringStarted =
-            await _startMonitoring('fg_resume_watchdog_slot_too_close');
+        monitoringStarted = await _startMonitoring(
+          'fg_resume_watchdog_slot_too_close',
+          authority,
+        );
       } catch (e, st) {
         monitoringFailure = e.toString();
         _log.warn('Failed to start imminent-slot monitoring: $e');
         _log.debug('$st');
+      }
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return 'skipped:watchdog_disabled';
       }
       _report(
         'fg_resume_watchdog_slot_too_close',
@@ -631,7 +737,11 @@ class BlockProductionAlarmAuditService {
         schedulerReason: schedulerReason,
         globalSlot: alarm.globalSlot,
         slotTimeMs: alarm.slotTimeMs,
+        authority: authority,
       );
+      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+        return 'skipped:watchdog_disabled';
+      }
       if (fallback.success) {
         _report(
           'fg_resume_watchdog_immediate_alarm_scheduled',
@@ -661,6 +771,9 @@ class BlockProductionAlarmAuditService {
     }
 
     final state = await _getAlarmDebugState(alarm.alarmId);
+    if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+      return 'skipped:watchdog_disabled';
+    }
     final mismatches = _foregroundResumeMismatches(
       expected: alarm,
       state: state,
@@ -683,7 +796,11 @@ class BlockProductionAlarmAuditService {
       schedulerReason: schedulerReason,
       globalSlot: alarm.globalSlot,
       slotTimeMs: alarm.slotTimeMs,
+      authority: authority,
     );
+    if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+      return 'skipped:watchdog_disabled';
+    }
     final scheduledAlarm = alarm.copyWith(
       alarmTimeMs: result.alarmTimeMs ?? alarm.alarmTimeMs,
     );
@@ -906,11 +1023,10 @@ class BlockProductionAlarmAuditService {
 
   static Future<bool> _ensureDefaultNodeRunning() async {
     try {
-      final started = await RustBackendService.instance.startNode();
-      if (started) {
-        await RustBackendService.instance.resumeNode();
-      }
-      return started;
+      if (RustBackendService.instance.isRunning) return true;
+      return await NodeLifecycleCoordinator.instance.recoverFromCurrentLease(
+        reason: 'alarm_audit',
+      );
     } catch (e, st) {
       _log.warn('Failed to ensure node is running: $e');
       _log.debug('$st');
@@ -924,6 +1040,7 @@ class BlockProductionAlarmAuditService {
     required String schedulerReason,
     required int globalSlot,
     required int slotTimeMs,
+    required NodeRuntimeAuthority authority,
   }) {
     return AndroidForegroundTaskController.instance.scheduleResumeAlarm(
       rustWakeTimeMs: rustWakeTimeMs,
@@ -933,6 +1050,7 @@ class BlockProductionAlarmAuditService {
           AndroidForegroundTaskController.foregroundResumeLead.inMilliseconds,
       targetSlotTimeMs: slotTimeMs,
       stopMonitoringAfterSchedule: false,
+      authority: authority,
     );
   }
 

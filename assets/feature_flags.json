@@ -1,4 +1,0 @@
-{
-  "enabled": ["settings", "node", "feedback"],
-  "order": ["node", "settings"]
-}

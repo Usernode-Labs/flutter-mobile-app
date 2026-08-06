@@ -1,71 +1,6 @@
 import 'package:intl/intl.dart';
 
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/design_system/src/challenge_card.dart';
-
-/// Maps [ChallengeDto.category] string to [ChallengeCategory] enum.
-///
-/// Case-insensitive. Unknown values fall back to [ChallengeCategory.technical].
-ChallengeCategory mapCategory(String category) {
-  switch (category.toLowerCase()) {
-    case 'technical':
-      return ChallengeCategory.technical;
-    case 'community':
-      return ChallengeCategory.community;
-    case 'flash':
-      return ChallengeCategory.flash;
-    default:
-      return ChallengeCategory.technical;
-  }
-}
-
-/// Maps a [ChallengeDto] to the simplified v1 [ChallengeCardVariant].
-///
-/// No ongoing detection for v1 — all enabled challenges are `active`.
-ChallengeCardVariant mapVariant(ChallengeDto dto) {
-  if (dto.completed) return ChallengeCardVariant.completed;
-  if (!dto.enabled && !dto.completed) return ChallengeCardVariant.missed;
-  return ChallengeCardVariant.active;
-}
-
-/// Result of categorizing challenges into tab buckets.
-class CategorizedChallenges {
-  final List<ChallengeDto> active;
-  final List<ChallengeDto> completed;
-  final List<ChallengeDto> missed;
-
-  const CategorizedChallenges({
-    required this.active,
-    required this.completed,
-    required this.missed,
-  });
-}
-
-/// Splits challenges into three lists for the tab view.
-CategorizedChallenges categorizeChallenges(List<ChallengeDto> challenges) {
-  final active = <ChallengeDto>[];
-  final completed = <ChallengeDto>[];
-  final missed = <ChallengeDto>[];
-
-  for (final dto in challenges) {
-    if (!dto.enabled) continue;
-    if (dto.completed) {
-      completed.add(dto);
-    } else {
-      active.add(dto);
-    }
-  }
-
-  return CategorizedChallenges(
-    active: active,
-    completed: completed,
-    missed: missed,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Activity extraction from breakdown
-// ---------------------------------------------------------------------------
 
 /// Extracts breakdown activities based on the breakdown scope.
 ///
@@ -117,8 +52,7 @@ class EnrichedChallenge {
   /// or null if not completed.
   ///
   /// Reflects only the single primary breakdown [activity]; use
-  /// [displayEarnedPoints] for the user-facing total. Kept as-is because tab
-  /// categorization (`mapEnrichedVariant`) keys off whether this is non-zero.
+  /// [displayEarnedPoints] for the user-facing total.
   int? get earnedPoints {
     final base = activity?.points;
     if (base == null && extraPoints == 0) return null;
@@ -290,56 +224,6 @@ List<EnrichedChallenge> _pinProduceBlocks(List<EnrichedChallenge> list) {
   return [...pb, ...rest];
 }
 
-/// Maps an [EnrichedChallenge] to [ChallengeCardVariant] using
-/// participant-specific completion data.
-///
-/// For produce-blocks challenges, [eventSuccessRate] provides a fallback for
-/// ongoing detection when there is no per-challenge activity match but the
-/// event-level breakdown shows a non-zero success rate.
-ChallengeCardVariant mapEnrichedVariant(
-  EnrichedChallenge c, {
-  double? eventSuccessRate,
-}) {
-  // Over = explicitly completed OR past its end date. Matches the tab
-  // categorization in [categorizeEnrichedChallenges]: over + points = completed,
-  // over + no points = missed.
-  final hasEarnedPoints = (c.displayEarnedPoints ?? 0) > 0;
-  if (c.dto.completed || _isScheduleExpired(c.dto)) {
-    return hasEarnedPoints
-        ? ChallengeCardVariant.completed
-        : ChallengeCardVariant.missed;
-  }
-  if (!c.dto.enabled) return ChallengeCardVariant.missed;
-
-  // Produce-blocks challenges still in progress render as "ongoing" (they stay
-  // in the Active tab) when there's evidence of participation.
-  if (isProduceBlocksChallenge(c.dto)) {
-    if (hasEarnedPoints) return ChallengeCardVariant.ongoing;
-    if (eventSuccessRate != null && eventSuccessRate > 0) {
-      return ChallengeCardVariant.ongoing;
-    }
-  }
-  return ChallengeCardVariant.active;
-}
-
-/// Formats actual earned points from breakdown, e.g. 6491 → "6,491 pts".
-String formatEarnedPoints(int points) {
-  return '${formatPoints(points)} pts';
-}
-
-/// Formats a date range as "Jan 15 - Feb 15", converting UTC to local time.
-///
-/// Returns an empty string if both dates are null.
-String formatDateRange(String? start, String? end) {
-  final fmt = DateFormat('MMM d');
-  final parts = <String>[];
-  final s = _parseAsUtc(start)?.toLocal();
-  if (s != null) parts.add(fmt.format(s));
-  final e = _parseAsUtc(end)?.toLocal();
-  if (e != null) parts.add(fmt.format(e));
-  return parts.join(' - ');
-}
-
 /// Formats an integer with comma grouping, e.g. 8000 → "8,000".
 String formatPoints(int points) {
   return NumberFormat('#,##0').format(points);
@@ -356,46 +240,9 @@ String formatRewardText(String reward) {
   return reward;
 }
 
-/// Formats a reward value for the completed/missed bar.
-///
-/// If [reward] is a pure number string, formats as "6,500 pts".
-/// Otherwise returns the raw string.
-String formatCompletedPoints(String reward) {
-  final asInt = int.tryParse(reward);
-  if (asInt != null) return '${formatPoints(asInt)} pts';
-  return reward;
-}
-
-/// Formats a human-readable label for a point-tracking duration.
-///
-/// - >= 24h: "Last 24h"
-/// - >= 1h: "Last Xh" (e.g. "Last 3h")
-/// - >= 5m: "Last Xm" (e.g. "Last 15m")
-/// - < 5m: "Last 24h" (too short to be meaningful; show default)
-String formatDiffLabel(Duration since) {
-  if (since >= const Duration(hours: 24)) return 'Last 24h';
-  if (since >= const Duration(hours: 1)) return 'Last ${since.inHours}h';
-  if (since >= const Duration(minutes: 5)) return 'Last ${since.inMinutes}m';
-  return 'Last 24h';
-}
-
-// ---------------------------------------------------------------------------
-// Reward-type detection & parsing
-// ---------------------------------------------------------------------------
-
-/// The subcategory value that identifies produce-blocks challenges.
-const String kProduceBlocksSubCategory = 'PRODUCE_BLOCKS_CHALLENGE';
-
 /// ID prefix for extra-point activities returned by the backend, e.g.
 /// `"extra-point-42"`.
 const String kExtraPointIdPrefix = 'extra-point-';
-
-/// Points reserved for top-3 rank bonus in the reward ceiling.
-///
-/// The API returns a single ceiling (e.g. 6,500) that includes both the
-/// success-rate component and the top-3 bonus. Until the API splits these,
-/// we subtract this constant to derive maxSuccessRatePoints.
-const int kTop3RankBonusPoints = 1500;
 
 /// Parses the ceiling value from reward strings like "Up to 6,500 pts" → 6500.
 ///
@@ -407,72 +254,13 @@ int? parseRewardCeiling(String reward) {
   return int.tryParse(match.group(1)!.replaceAll(',', ''));
 }
 
-/// Returns true when the challenge is the produce-blocks challenge.
-bool isProduceBlocksChallenge(ChallengeDto dto) {
-  return dto.subCategory == kProduceBlocksSubCategory;
-}
-
-/// SubCategory identifier for the vibecoding-framework challenge.
-const String kVibecodingSubCategory = 'TEST_VIBECODING_FRAMEWORK';
-
-/// True when the challenge is the vibecoding-framework challenge.
-bool isVibecodingChallenge(ChallengeDto dto) =>
-    dto.subCategory == kVibecodingSubCategory;
+/// SubCategory identifier for the produce-blocks challenge.
+const String kProduceBlocksSubCategory = 'PRODUCE_BLOCKS_CHALLENGE';
 
 /// SubCategory identifier for the ZK Identity challenge.
 const String zkIdentitySubCategory = 'ZK_IDENTITY_VERIFICATION';
 
-/// True when the aggregator hasn't yet tallied earned points for a
-/// produce-blocks challenge that already has block activity.
-bool isProduceBlocksSyncing({
-  required bool isProduceBlocks,
-  required int? earnedPoints,
-  required double successRate,
-}) {
-  return isProduceBlocks &&
-      (earnedPoints == null || earnedPoints == 0) &&
-      successRate > 0;
-}
-
-/// Formats rank as an ordinal: 1 → "1st", 2 → "2nd", 3 → "3rd".
-///
-/// Returns null for null input or ranks outside 1–3.
-String? formatRankOrdinal(int? rank) {
-  return switch (rank) {
-    1 => '1st',
-    2 => '2nd',
-    3 => '3rd',
-    _ => null,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Event grouping
-// ---------------------------------------------------------------------------
-
-/// Groups enriched challenges by [ChallengeDto.eventId].
-///
-/// Returns a linked map preserving insertion order. Challenges without an
-/// eventId are grouped under a `null` key.
-typedef EventGroup = ({
-  int? eventId,
-  String? eventName,
-  List<EnrichedChallenge> challenges
-});
-
-List<EventGroup> groupByEvent(List<EnrichedChallenge> challenges) {
-  final map = <int?, List<EnrichedChallenge>>{};
-  final names = <int?, String?>{};
-  for (final c in challenges) {
-    final id = c.dto.eventId;
-    (map[id] ??= []).add(c);
-    names.putIfAbsent(id, () => c.dto.eventName);
-  }
-  // Newest events first (higher eventId = newer).
-  final sortedKeys = map.keys.toList()
-    ..sort((a, b) => (b ?? 0).compareTo(a ?? 0));
-  return [
-    for (final key in sortedKeys)
-      (eventId: key, eventName: names[key], challenges: map[key]!),
-  ];
+/// Returns true when the challenge is the produce-blocks challenge.
+bool isProduceBlocksChallenge(ChallengeDto dto) {
+  return dto.subCategory == kProduceBlocksSubCategory;
 }

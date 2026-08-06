@@ -184,46 +184,6 @@ class LeaderboardApiService {
     return WalletProvisionResult.fromJson(data as Map<String, dynamic>);
   }
 
-  /// Fetches the currently published terms, including this participant's
-  /// consent for that version.
-  ///
-  /// Returns null when the backend has nothing published (HTTP 404), which is a
-  /// normal state and not an error — callers skip the terms flow entirely.
-  /// Note a 404 also covers "participant not found"; both collapse to "no terms
-  /// to show", which is the safe reading either way.
-  Future<CurrentTerms?> getCurrentTerms() async {
-    try {
-      final data = await _get(
-        '/terms/current',
-        expectedStatuses: const {404},
-      );
-      return CurrentTerms.fromJson(data as Map<String, dynamic>);
-    } on LeaderboardApiException catch (e) {
-      if (e.statusCode == 404) return null; // nothing published
-      rethrow;
-    }
-  }
-
-  /// Records acceptance of a terms version.
-  ///
-  /// [termsVersionId] must be the `id` from [getCurrentTerms] — the backend
-  /// rejects a stale or unpublished version with HTTP 422.
-  Future<void> postTermsConsent({
-    required int termsVersionId,
-    required String appVersion,
-  }) async {
-    _ensureWritesEnabled();
-    await _post(
-      '/terms/consent',
-      body: {
-        'terms_version_id': termsVersionId,
-        'status': TermsConsentStatus.accepted,
-        'app_version': appVersion,
-      },
-      expectedStatuses: const {422},
-    );
-  }
-
   void dispose() => _http.close();
 
   // ---------------------------------------------------------------------------

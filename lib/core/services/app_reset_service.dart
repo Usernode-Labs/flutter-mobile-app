@@ -8,7 +8,6 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/wallet/services/pending_transaction_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -123,13 +122,6 @@ class AppResetService {
 
     const secureStorage = FlutterSecureStorage();
     await secureStorage.deleteAll();
-
-    try {
-      final pendingTransactions = await PendingTransactionService.getInstance();
-      await pendingTransactions.clearAllPendingTransactions();
-    } catch (e) {
-      _log.warn('Failed to clear pending transactions explicitly: $e');
-    }
 
     try {
       await SlotProductionRepository.instance.clearAll();

@@ -12,10 +12,6 @@
   "@initializingNode": {
     "description": "Loading text on splash screen"
   },
-  "node": "Node",
-  "@node": {
-    "description": "Node tab label"
-  },
   "clockDriftWarningTitle": "System time incorrect",
   "@clockDriftWarningTitle": {
     "description": "Title for the clock drift warning dialog"
@@ -441,14 +437,6 @@
   "@retry": {
     "description": "Retry button label"
   },
-  "totalPointsLabel": "TOTAL POINTS",
-  "@totalPointsLabel": {
-    "description": "Label above total points stat"
-  },
-  "rankLabel": "RANK",
-  "@rankLabel": {
-    "description": "Label above rank stat"
-  },
   "challengeTotalReward": "Total Reward {reward}",
   "@challengeTotalReward": {
     "description": "Detail screen total reward heading",
@@ -747,18 +735,6 @@
   "networkCloseApp": "Close App",
   "@networkCloseApp": {
     "description": "Close app button in restart dialog"
-  },
-  "blockHash": "Block Hash",
-  "@blockHash": {
-    "description": "Block hash label"
-  },
-  "blockHeight": "Height",
-  "@blockHeight": {
-    "description": "Block height label"
-  },
-  "blockProducer": "Producer",
-  "@blockProducer": {
-    "description": "Producer label"
   },
   "settingsDebugMode": "Debug Mode",
   "@settingsDebugMode": {

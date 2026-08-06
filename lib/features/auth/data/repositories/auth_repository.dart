@@ -39,56 +39,6 @@ class AuthRepository {
     'Accept': 'application/json',
   };
 
-  Future<CheckEmailResult> checkEmail(String email) async {
-    final json = await _post('/check-email', body: {'email': email});
-    return CheckEmailResult.fromJson(json);
-  }
-
-  Future<AuthSession> login(
-      {required String email, required String password}) async {
-    final json =
-        await _post('/login', body: {'email': email, 'password': password});
-    return AuthSession.fromJson(json);
-  }
-
-  Future<void> requestOtp(String email) async {
-    await _post('/otp/request', body: {'email': email});
-  }
-
-  Future<OtpTicket> verifyOtp(
-      {required String email, required String code}) async {
-    final json =
-        await _post('/otp/verify', body: {'email': email, 'code': code});
-    return OtpTicket.fromJson(json);
-  }
-
-  Future<AuthSession> setPassword({
-    required String setPasswordToken,
-    required String password,
-    required String passwordConfirmation,
-  }) async {
-    try {
-      final json = await _post(
-        '/set-password',
-        body: {
-          'password': password,
-          'password_confirmation': passwordConfirmation,
-        },
-        bearer: setPasswordToken,
-      );
-      return AuthSession.fromJson(json);
-    } on AuthException catch (error) {
-      // v4 uses 401 when this one-time bearer has expired or was already
-      // consumed. `_mapError` must keep mapping ordinary 401s (notably login)
-      // to invalidCredentials, so reinterpret it only in this endpoint's
-      // set-password-token context.
-      if (error.kind == AuthErrorKind.invalidCredentials) {
-        throw AuthException(AuthErrorKind.wrongToken, error.message);
-      }
-      rethrow;
-    }
-  }
-
   Future<void> logout(String sessionToken) async {
     try {
       await _post('/logout', body: const {}, bearer: sessionToken);

@@ -6,7 +6,6 @@ import 'package:http/testing.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
-import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 
 const _base = 'https://test.example.com/api/v3/mobile';
 
@@ -55,7 +54,6 @@ void main() {
     expect(url!.path, '/api/v3/mobile/me');
     expect(auth, 'Bearer sess-1');
     expect(me.id, 123);
-    expect(me.level, UserLevel.operator);
   });
 
   test('401 invokes onUnauthorized then throws', () async {

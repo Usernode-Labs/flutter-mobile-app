@@ -207,7 +207,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.3.3+1210"
+    version: "0.4.0+1220"
   dart_style:
     dependency: transitive
     description:

@@ -59,41 +59,6 @@ class ExplorerService {
     return null;
   }
 
-  /// Get account transactions from explorer APIs with fallback
-  /// Returns null if all APIs fail - caller should use cached data or UTXO fallback
-  Future<ExplorerTransactionsResponse?> getAccountTransactions(
-      String account) async {
-    // Get chain ID from node status
-    final chainId = _ref.read(nodeStatusProvider).value?.chainId;
-    if (chainId == null) {
-      _log.debug(
-          'Chain ID not available from node status, skipping explorer API');
-      return null;
-    }
-
-    _log.debug(
-        'Fetching transactions for account: $account on chain: $chainId');
-
-    // Try primary explorer
-    final primaryResponse = await _tryGetTransactions(
-        AppConfig.primaryExplorerUrl,
-        account,
-        chainId,
-        DataSource.explorerPrimary);
-    if (primaryResponse != null) return primaryResponse;
-
-    // Try secondary explorer
-    final secondaryResponse = await _tryGetTransactions(
-        AppConfig.secondaryExplorerUrl,
-        account,
-        chainId,
-        DataSource.explorerSecondary);
-    if (secondaryResponse != null) return secondaryResponse;
-
-    _log.warn('All explorer APIs failed for transactions request');
-    return null;
-  }
-
   /// Try to get balance from a specific explorer endpoint
   Future<ExplorerBalanceResponse?> _tryGetBalance(
       String baseUrl, String account, String chainId, DataSource source) async {
@@ -142,54 +107,6 @@ class ExplorerService {
     }
   }
 
-  /// Try to get transactions from a specific explorer endpoint
-  Future<ExplorerTransactionsResponse?> _tryGetTransactions(
-      String baseUrl, String account, String chainId, DataSource source) async {
-    if (_isCircuitBreakerOpen(baseUrl)) {
-      _log.debug('Circuit breaker is open for $baseUrl, skipping');
-      return null;
-    }
-
-    try {
-      final url = '$baseUrl/$chainId/accounts/$account/txs?limit=25';
-      _log.debug('Requesting transactions from: $url');
-
-      final response =
-          await _client.get(Uri.parse(url)).timeout(AppConfig.explorerTimeout);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final txResponse = ExplorerTransactionsResponse.fromJson(data, source);
-
-        // Check if we got meaningful data (has transactions or valid response structure)
-        if (txResponse.transactions.isNotEmpty ||
-            _isValidTransactionsResponse(data)) {
-          _recordSuccess(baseUrl);
-          _log.debug(
-              'Successfully fetched ${txResponse.transactions.length} transactions from $source');
-
-          // Cache the successful response
-          await _cacheTransactionsResponse(account, txResponse);
-
-          return txResponse;
-        } else {
-          _log.debug('Explorer returned empty transaction data from $source');
-          // Don't record this as a failure, but also don't cache empty data
-          return null;
-        }
-      } else {
-        _log.warn(
-            'Explorer API returned ${response.statusCode}: ${response.body}');
-        _recordFailure(baseUrl);
-        return null;
-      }
-    } catch (e) {
-      _log.warn('Failed to fetch transactions from $baseUrl: $e');
-      _recordFailure(baseUrl);
-      return null;
-    }
-  }
-
   /// Cache balance response for offline use
   Future<void> _cacheBalanceResponse(
       String account, ExplorerBalanceResponse response) async {
@@ -204,23 +121,6 @@ class ExplorerService {
       _log.debug('Cached balance response for $account');
     } catch (e) {
       _log.warn('Failed to cache balance response: $e');
-    }
-  }
-
-  /// Cache transactions response for offline use
-  Future<void> _cacheTransactionsResponse(
-      String account, ExplorerTransactionsResponse response) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final cacheKey = 'explorer_transactions_$account';
-      final cacheData = {
-        'response': response.toJson(),
-        'cached_at': DateTime.now().millisecondsSinceEpoch,
-      };
-      await prefs.setString(cacheKey, json.encode(cacheData));
-      _log.debug('Cached transactions response for $account');
-    } catch (e) {
-      _log.warn('Failed to cache transactions response: $e');
     }
   }
 
@@ -252,35 +152,6 @@ class ExplorerService {
     }
   }
 
-  /// Get cached transactions if available and not expired
-  Future<ExplorerTransactionsResponse?> getCachedTransactions(
-      String account) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final cacheKey = 'explorer_transactions_$account';
-      final cachedData = prefs.getString(cacheKey);
-
-      if (cachedData == null) return null;
-
-      final cache = json.decode(cachedData);
-      final cachedAt = DateTime.fromMillisecondsSinceEpoch(cache['cached_at']);
-
-      // Check if cache is still valid
-      if (DateTime.now().difference(cachedAt) > AppConfig.explorerCacheTtl) {
-        _log.debug('Cached transactions for $account have expired');
-        return null;
-      }
-
-      final response = ExplorerTransactionsResponse.fromJson(
-          cache['response'], DataSource.cached);
-      _log.debug('Retrieved cached transactions for $account');
-      return response;
-    } catch (e) {
-      _log.warn('Failed to retrieve cached transactions: $e');
-      return null;
-    }
-  }
-
   /// Check if balance response contains valid data structure
   bool _isValidBalanceResponse(Map<String, dynamic> data) {
     // Consider response valid if it has proper structure even with 0 balance
@@ -288,16 +159,6 @@ class ExplorerService {
     return data.containsKey('balance') ||
         data.containsKey('token_symbol') ||
         data.containsKey('amount');
-  }
-
-  /// Check if transactions response contains valid data structure
-  bool _isValidTransactionsResponse(Map<String, dynamic> data) {
-    // Consider response valid if it has proper structure even with empty transactions
-    // This handles accounts that legitimately have no transactions yet
-    return data.containsKey('items') ||
-        data.containsKey('transactions') ||
-        data.containsKey('txs') ||
-        data.containsKey('data');
   }
 
   /// Circuit breaker logic
@@ -370,113 +231,6 @@ class ExplorerBalanceResponse {
       'token_symbol': tokenSymbol,
       'data_source': dataSource.toString(),
       'fetched_at': fetchedAt.millisecondsSinceEpoch,
-    };
-  }
-}
-
-/// Response model for explorer transactions API
-class ExplorerTransactionsResponse {
-  final List<ExplorerTransaction> transactions;
-  final DataSource dataSource;
-  final DateTime fetchedAt;
-
-  ExplorerTransactionsResponse({
-    required this.transactions,
-    required this.dataSource,
-    required this.fetchedAt,
-  });
-
-  factory ExplorerTransactionsResponse.fromJson(
-      Map<String, dynamic> json, DataSource source) {
-    final txList = json['items'] as List<dynamic>? ?? [];
-    final transactions = txList
-        .map((tx) => ExplorerTransaction.fromJson(tx as Map<String, dynamic>))
-        .toList();
-
-    return ExplorerTransactionsResponse(
-      transactions: transactions,
-      dataSource: source,
-      fetchedAt: DateTime.now(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    // Mirror the live API shape (`items`) so a cached blob round-trips back
-    // through [fromJson]. Writing a different key here silently yields an
-    // empty list on read, wiping cached Recent Activity.
-    return {
-      'items': transactions.map((tx) => tx.toJson()).toList(),
-      'data_source': dataSource.toString(),
-      'fetched_at': fetchedAt.millisecondsSinceEpoch,
-    };
-  }
-}
-
-/// Individual transaction from explorer API
-class ExplorerTransaction {
-  final String id;
-  final String txType; // "transfer", "reward", "genesis"
-  final String direction; // "in", "out"
-  final double amount;
-  final String tokenSymbol;
-  final DateTime timestamp;
-  final String status;
-  final String? fromAddress;
-  final String? toAddress;
-  final int? blockHeight;
-  final String? blockHash;
-
-  ExplorerTransaction({
-    required this.id,
-    required this.txType,
-    required this.direction,
-    required this.amount,
-    required this.tokenSymbol,
-    required this.timestamp,
-    required this.status,
-    this.fromAddress,
-    this.toAddress,
-    this.blockHeight,
-    this.blockHash,
-  });
-
-  /// Legacy getter for backward compatibility
-  String get type => direction;
-
-  factory ExplorerTransaction.fromJson(Map<String, dynamic> json) {
-    return ExplorerTransaction(
-      id: json['tx_id'] as String? ?? '',
-      txType: json['tx_type'] as String? ?? 'transfer',
-      direction: json['direction'] as String? ?? 'unknown',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
-      tokenSymbol: 'TKN', // API doesn't provide token_symbol, default to TKN
-      timestamp: DateTime.fromMillisecondsSinceEpoch(
-          json['timestamp_ms'] as int? ??
-              DateTime.now().millisecondsSinceEpoch),
-      status: json['status'] as String? ?? 'confirmed',
-      fromAddress: json['source'] as String?,
-      toAddress: json['destination'] as String?,
-      blockHeight: json['block_height'] as int?,
-      blockHash: json['block_hash'] as String?,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    // Use the same field names [fromJson] reads from the live API so a cached
-    // entry deserializes back into an identical ExplorerTransaction. (`amount`
-    // round-trips as a number; `token_symbol` is not in the API and is
-    // re-defaulted to TKN on read, so it is intentionally not persisted.)
-    return {
-      'tx_id': id,
-      'tx_type': txType,
-      'direction': direction,
-      'amount': amount,
-      'timestamp_ms': timestamp.millisecondsSinceEpoch,
-      'status': status,
-      'source': fromAddress,
-      'destination': toAddress,
-      'block_height': blockHeight,
-      'block_hash': blockHash,
     };
   }
 }

@@ -18,9 +18,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get initializingNode => 'Initializing node...';
 
   @override
-  String get node => 'Node';
-
-  @override
   String get clockDriftWarningTitle => 'System time incorrect';
 
   @override
@@ -322,12 +319,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
-  String get totalPointsLabel => 'TOTAL POINTS';
-
-  @override
-  String get rankLabel => 'RANK';
-
-  @override
   String challengeTotalReward(String reward) {
     return 'Total Reward $reward';
   }
@@ -552,15 +543,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get networkCloseApp => 'Close App';
-
-  @override
-  String get blockHash => 'Block Hash';
-
-  @override
-  String get blockHeight => 'Height';
-
-  @override
-  String get blockProducer => 'Producer';
 
   @override
   String get settingsDebugMode => 'Debug Mode';

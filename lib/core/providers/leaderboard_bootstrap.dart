@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -96,9 +95,6 @@ class LeaderboardBootstrap {
 /// Throttled to at most once every 5 seconds.
 DateTime? _lastRefreshAt;
 
-/// Reset throttle state for testing.
-@visibleForTesting
-void resetRefreshThrottle() => _lastRefreshAt = null;
 
 Future<void> refreshAllLeaderboardData(Ref ref) async {
   final now = DateTime.now();

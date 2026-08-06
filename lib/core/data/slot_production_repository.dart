@@ -79,34 +79,6 @@ class SlotProductionRepository {
     }
   }
 
-  /// Record a slot production attempt
-  Future<void> recordProductionAttempt({
-    required int slotNumber,
-    required DateTime attemptTime,
-  }) async {
-    if (!_initialized) return;
-
-    try {
-      // Find existing record or create new one
-      final existingIndex = _records.indexWhere(
-        (r) => r.slotNumber == slotNumber,
-      );
-
-      if (existingIndex != -1) {
-        _records[existingIndex] = _records[existingIndex].copyWith(
-          status: SlotProductionStatus.attempting,
-          attemptTime: attemptTime,
-        );
-      } else {
-        _log.warn('No won slot record found for slot $slotNumber');
-      }
-
-      await _persistRecords();
-      _log.debug('Recorded production attempt for slot: $slotNumber');
-    } catch (e) {
-      _log.error('Error recording production attempt: $e');
-    }
-  }
 
   /// Record a successful slot production
   Future<void> recordProductionSuccess({
@@ -170,31 +142,6 @@ class SlotProductionRepository {
     } catch (e) {
       _log.error('Error recording production failure: $e');
     }
-  }
-
-  /// Get all records
-  List<SlotProductionRecord> getAllRecords() {
-    return List.unmodifiable(_records);
-  }
-
-  /// Get records for a specific epoch
-  List<SlotProductionRecord> getRecordsForEpoch(int epoch) {
-    return _records.where((r) => r.epoch == epoch).toList();
-  }
-
-  /// Get recent records (last N)
-  List<SlotProductionRecord> getRecentRecords({int limit = 50}) {
-    final sorted = List<SlotProductionRecord>.from(_records)
-      ..sort((a, b) => b.slotTime.compareTo(a.slotTime));
-    return sorted.take(limit).toList();
-  }
-
-  /// Get production statistics
-  SlotProductionStats getStats() {
-    if (_cachedStats == null) {
-      _calculateStats();
-    }
-    return _cachedStats!;
   }
 
   /// Calculate statistics from records
@@ -320,19 +267,6 @@ class SlotProductionRepository {
     await _prefs?.remove(_statsKey);
     _calculateStats();
     _log.info('Cleared all production records and stats');
-  }
-
-  /// Clear records older than a certain date
-  Future<void> clearOldRecords(DateTime cutoffDate) async {
-    final before = _records.length;
-    _records.removeWhere((r) => r.slotTime.isBefore(cutoffDate));
-    final after = _records.length;
-
-    await _persistRecords();
-    _calculateStats();
-    await _persistStats();
-
-    _log.info('Cleared ${before - after} old records');
   }
 
   /// Drops process-local account data before a replacement runtime starts.

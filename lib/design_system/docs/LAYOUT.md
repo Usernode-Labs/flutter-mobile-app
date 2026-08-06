@@ -114,10 +114,8 @@ screen margin + card padding + widget padding + leading width + gap = offset
 
 | Screen | Pattern | Pinned | Safe-area | Surface inset | Notes |
 |--------|---------|--------|-----------|---------------|-------|
-| Wallet | `ParallaxSurfaceLayout` | AddressBarDelegate | Delegate handles it | `space24` | Single pinned bar |
 | DApps | `ParallaxSurfaceLayout` | None | Auto pinned sliver | `space24` | `safeAreaOverlay` default |
 | Node Status | `ParallaxSurfaceLayout` | None | Auto pinned sliver | `space24` | `safeAreaOverlay` default |
-| Challenges | `ParallaxSurfaceLayout` nested body | ChipBar + TabBar | Delegate handles it | `space16` | `nestedBody` + `surfacePinnedSlivers` |
 | Detail screens | `CustomScrollView` + `TopAppBar` | SliverAppBar | AppBar handles it | n/a | Different pattern |
 
 ### Scroll Design Principles

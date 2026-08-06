@@ -869,10 +869,6 @@
     }
   },
 
-  "walletNoActiveAccount": "No active account found. Please create or select an account.",
-  "@walletNoActiveAccount": {
-    "description": "No active account error"
-  },
   "walletInvalidAmount": "Invalid amount. Enter a whole-number amount.",
   "@walletInvalidAmount": {
     "description": "Invalid amount validation error"
@@ -900,10 +896,6 @@
   "@walletReviewSend": {
     "description": "Review send screen title"
   },
-  "walletAmount": "Amount",
-  "@walletAmount": {
-    "description": "Amount label"
-  },
   "walletNetworkFee": "Network fee",
   "@walletNetworkFee": {
     "description": "Network fee label"
@@ -912,17 +904,9 @@
   "@walletBack": {
     "description": "Back button"
   },
-  "walletSend": "Send",
-  "@walletSend": {
-    "description": "Send button"
-  },
   "commonOk": "OK",
   "@commonOk": {
     "description": "OK button"
-  },
-  "walletDone": "Done",
-  "@walletDone": {
-    "description": "Done button/title"
   },
   "walletPaymentSent": "Payment Sent",
   "@walletPaymentSent": {
@@ -986,51 +970,6 @@
       "connected": {"type": "String"},
       "connecting": {"type": "String"}
     }
-  },
-
-  "wonSlotsTitle": "Won Slots",
-  "@wonSlotsTitle": {
-    "description": "Won slots screen title"
-  },
-  "wonSlotsLoadingEpoch": "Loading epoch data...",
-  "@wonSlotsLoadingEpoch": {
-    "description": "Loading epoch data message"
-  },
-  "wonSlotsEpochUnavailable": "Epoch data unavailable",
-  "@wonSlotsEpochUnavailable": {
-    "description": "Epoch data unavailable message"
-  },
-  "wonSlotsNoData": "No won slots data available",
-  "@wonSlotsNoData": {
-    "description": "No won slots message"
-  },
-  "wonSlotsGroupedByHour": "Grouped by hour",
-  "@wonSlotsGroupedByHour": {
-    "description": "Grouped by hour subtitle"
-  },
-  "wonSlotsGroupedByDay": "Grouped by day",
-  "@wonSlotsGroupedByDay": {
-    "description": "Grouped by day subtitle"
-  },
-  "wonSlotsWon": "Won",
-  "@wonSlotsWon": {
-    "description": "Won label"
-  },
-  "wonSlotsProduced": "Produced",
-  "@wonSlotsProduced": {
-    "description": "Produced label"
-  },
-  "wonSlotsMissed": "Missed",
-  "@wonSlotsMissed": {
-    "description": "Missed label"
-  },
-  "wonSlotsPending": "Pending",
-  "@wonSlotsPending": {
-    "description": "Pending label"
-  },
-  "wonSlotsToday": "Today",
-  "@wonSlotsToday": {
-    "description": "Today label"
   },
 
   "producedBlocksTitle": "Produced Blocks",
@@ -2210,27 +2149,6 @@
     "description": "Reassuring subtitle shown on ZK identity verification failure, naming the specific fields the user kept private"
   },
 
-  "walletSentSuccessfully": "Sent successfully!",
-  "@walletSentSuccessfully": {
-    "description": "Transaction success screen title"
-  },
-  "walletSentDetail": "{amount} {tokenSymbol} sent to\n{address}",
-  "@walletSentDetail": {
-    "description": "Transaction success screen subtitle",
-    "placeholders": {
-      "amount": {"type": "String"},
-      "tokenSymbol": {"type": "String"},
-      "address": {"type": "String"}
-    }
-  },
-  "walletTransactionFailed": "Transaction Failed",
-  "@walletTransactionFailed": {
-    "description": "Transaction failed screen title"
-  },
-  "walletTransactionFailedGeneric": "An error occurred while processing your transaction",
-  "@walletTransactionFailedGeneric": {
-    "description": "Generic transaction failure message"
-  },
   "walletAddressCopied": "Address copied to clipboard",
   "@walletAddressCopied": {
     "description": "Snackbar message when wallet address is copied"
@@ -2267,60 +2185,6 @@
   "@walletCopyAddress": {
     "description": "Button to copy the wallet address from the receive sheet"
   },
-  "walletRecipientAddress": "Recipient address",
-  "@walletRecipientAddress": {
-    "description": "Hint text for recipient address field"
-  },
-  "walletRecentRecipients": "Recent Recipients",
-  "@walletRecentRecipients": {
-    "description": "Title for recent recipients sheet and tooltip"
-  },
-  "walletFee": "Fee",
-  "@walletFee": {
-    "description": "Fee field hint text"
-  },
-  "walletMemoOptional": "Memo (optional)",
-  "@walletMemoOptional": {
-    "description": "Memo field hint text"
-  },
-  "walletSending": "Sending...",
-  "@walletSending": {
-    "description": "Send button text while transaction is processing"
-  },
-  "walletWaitingForSync": "Waiting for sync",
-  "@walletWaitingForSync": {
-    "description": "Send screen status while a transfer waits for wallet sync"
-  },
-  "walletWaitingForSyncHelp": "You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.",
-  "@walletWaitingForSyncHelp": {
-    "description": "Send screen helper text while a transfer waits for wallet sync"
-  },
-  "walletFieldRequired": "Please enter a {fieldName}",
-  "@walletFieldRequired": {
-    "description": "Validation error for required field",
-    "placeholders": {
-      "fieldName": {"type": "String"}
-    }
-  },
-  "walletFieldTooShort": "{fieldName} appears to be too short",
-  "@walletFieldTooShort": {
-    "description": "Validation error for field that is too short",
-    "placeholders": {
-      "fieldName": {"type": "String"}
-    }
-  },
-  "walletFieldInvalid": "Please enter a valid {fieldName}",
-  "@walletFieldInvalid": {
-    "description": "Validation error for invalid field value",
-    "placeholders": {
-      "fieldName": {"type": "String"}
-    }
-  },
-  "walletNoRecentAddresses": "No recent addresses",
-  "@walletNoRecentAddresses": {
-    "description": "Empty state in recent recipients sheet"
-  },
-
   "nodeOffline": "Offline",
   "@nodeOffline": {
     "description": "Node status label when offline"
@@ -2420,10 +2284,6 @@
     "description": "VRF evaluation status pending"
   },
 
-  "commonGotIt": "Got it",
-  "@commonGotIt": {
-    "description": "Dismissal button text"
-  },
   "commonCancel": "Cancel",
   "@commonCancel": {
     "description": "Cancel button text"
@@ -2700,126 +2560,17 @@
   "@faqVrfTimingDescription": {
     "description": "Timing explanation text"
   },
-  "blockAppliedLocally": "Applied Locally",
-  "@blockAppliedLocally": {
-    "description": "Timeline item title"
-  },
-  "blockAtSlot": "Block #{height} at Slot {slot}",
-  "@blockAtSlot": {
-    "description": "Block at slot header",
-    "placeholders": {
-      "height": {"type": "int"},
-      "slot": {"type": "int"}
-    }
-  },
-  "blockBatches": "Batches",
-  "@blockBatches": {
-    "description": "Batches label"
-  },
-  "blockCommitted": "Block Committed",
-  "@blockCommitted": {
-    "description": "Timeline item title"
-  },
-  "blockConfirmed": "Block Confirmed",
-  "@blockConfirmed": {
-    "description": "Timeline item title"
-  },
-  "blockDetailsTitle": "Block Details",
-  "@blockDetailsTitle": {
-    "description": "Block details screen title"
-  },
-  "blockEpoch": "Epoch",
-  "@blockEpoch": {
-    "description": "Epoch label"
-  },
-  "blockEpochSlot": "Epoch {epoch}, Slot {slot}",
-  "@blockEpochSlot": {
-    "description": "Timeline item subtitle for epoch and slot",
-    "placeholders": {
-      "epoch": {"type": "int"},
-      "slot": {"type": "int"}
-    }
-  },
-  "blockGlobalSlot": "Global Slot",
-  "@blockGlobalSlot": {
-    "description": "Global slot label"
-  },
   "blockHash": "Block Hash",
   "@blockHash": {
     "description": "Block hash label"
-  },
-  "blockHashPrefix": "Hash: {hash}...",
-  "@blockHashPrefix": {
-    "description": "Block hash with prefix",
-    "placeholders": {
-      "hash": {"type": "String"}
-    }
   },
   "blockHeight": "Height",
   "@blockHeight": {
     "description": "Block height label"
   },
-  "blockIncludedBatchesTx": "Included {batches} batches / {transactions} transactions",
-  "@blockIncludedBatchesTx": {
-    "description": "Timeline item subtitle for batches and transactions",
-    "placeholders": {
-      "batches": {"type": "int"},
-      "transactions": {"type": "int"}
-    }
-  },
-  "blockIncludedBatchesTxGeneric": "Included batches / transactions",
-  "@blockIncludedBatchesTxGeneric": {
-    "description": "Timeline item subtitle when batch info unavailable"
-  },
-  "blockInformation": "Block Information",
-  "@blockInformation": {
-    "description": "Block information card title"
-  },
-  "blockNumber": "Block #{height}",
-  "@blockNumber": {
-    "description": "Block number label",
-    "placeholders": {
-      "height": {"type": "int"}
-    }
-  },
   "blockProducer": "Producer",
   "@blockProducer": {
     "description": "Producer label"
-  },
-  "blockProductionScheduled": "Block Production Scheduled",
-  "@blockProductionScheduled": {
-    "description": "Timeline item title"
-  },
-  "blockSlotWon": "Slot {slot} won",
-  "@blockSlotWon": {
-    "description": "Timeline item subtitle for slot won",
-    "placeholders": {
-      "slot": {"type": "int"}
-    }
-  },
-  "blockStateTransition": "State Transition.",
-  "@blockStateTransition": {
-    "description": "Timeline item title"
-  },
-  "blockStatesUpdated": "Protocol and Consensus states updated",
-  "@blockStatesUpdated": {
-    "description": "Timeline item subtitle for state transition"
-  },
-  "blockTransactions": "Transactions",
-  "@blockTransactions": {
-    "description": "Transactions label"
-  },
-  "blockTxBatchesIncluded": "Transaction Batches Included",
-  "@blockTxBatchesIncluded": {
-    "description": "Timeline item title"
-  },
-  "blockUtxosUpdated": "UTXOs updated",
-  "@blockUtxosUpdated": {
-    "description": "Timeline item subtitle for applied locally"
-  },
-  "blockVrfSlotDiscovered": "VRF Slot Discovered",
-  "@blockVrfSlotDiscovered": {
-    "description": "Timeline item title"
   },
   "nodeApplyPhase": "Apply",
   "@nodeApplyPhase": {
@@ -2912,26 +2663,6 @@
     "description": "Button text on stale registration screen"
   },
 
-  "walletScan": "Scan",
-  "@walletScan": {
-    "description": "Speed dial label for scan QR action"
-  },
-  "walletScanTitle": "Scan QR Code",
-  "@walletScanTitle": {
-    "description": "Scan screen app bar title"
-  },
-  "walletScanInvalidQr": "Invalid QR code",
-  "@walletScanInvalidQr": {
-    "description": "Error shown when a scanned QR code cannot be parsed"
-  },
-  "walletScanUnsupportedType": "Unsupported QR code type",
-  "@walletScanUnsupportedType": {
-    "description": "Error shown when the QR code type field is not recognized"
-  },
-  "walletScanCameraPermissionDenied": "Camera permission denied. Enable it in Settings to scan QR codes.",
-  "@walletScanCameraPermissionDenied": {
-    "description": "Message shown when camera permission is denied"
-  },
   "settingsDebugMode": "Debug Mode",
   "@settingsDebugMode": {
     "description": "Diagnostics toggle that enables in-memory HTTP request logging"

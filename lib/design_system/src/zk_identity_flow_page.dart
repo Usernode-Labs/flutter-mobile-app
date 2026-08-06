@@ -41,7 +41,7 @@ class ZkIdentityFlowPage extends StatelessWidget {
   final int currentStepIndex;
 
   /// When true, hides step label/description and centers [activeStepContent]
-  /// vertically — matching [ResultPage] layout.
+  /// vertically.
   final bool centerActiveContent;
   final Widget? activeStepContent;
 

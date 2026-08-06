@@ -52,12 +52,6 @@ class ActivityFeedPrototype extends StatelessWidget {
               onProfilePressed: _noop,
               onNodePressed: _noop,
             ),
-            TopStatusAppBarSize.scaffoldCompact => TopStatusAppBar.compact(
-              title: 'Activity',
-              nodeStatus: nodeStatus,
-              onProfilePressed: _noop,
-              onNodePressed: _noop,
-            ),
           },
           SliverPadding(
             padding: EdgeInsets.fromLTRB(

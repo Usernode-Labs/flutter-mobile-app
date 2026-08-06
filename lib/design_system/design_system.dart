@@ -45,7 +45,6 @@ export 'src/info_row.dart';
 export 'src/leaderboard_stats_card.dart';
 export 'src/list_section_header.dart';
 export 'src/rank_badge.dart';
-export 'src/result_page.dart';
 export 'src/score_header.dart';
 export 'src/sheet_layout.dart';
 export 'src/shimmer_block.dart';

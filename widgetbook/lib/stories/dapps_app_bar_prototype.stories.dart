@@ -63,12 +63,6 @@ class DappsAppBarPrototype extends StatelessWidget {
               onProfilePressed: _noop,
               onNodePressed: _noop,
             ),
-            TopStatusAppBarSize.scaffoldCompact => TopStatusAppBar.compact(
-              title: 'Apps',
-              nodeStatus: nodeStatus,
-              onProfilePressed: _noop,
-              onNodePressed: _noop,
-            ),
           },
           SliverPadding(
             padding: EdgeInsets.fromLTRB(

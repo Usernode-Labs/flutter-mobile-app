@@ -27,7 +27,5 @@ void main() {
     expect(componentPaths['WalletAppBarPrototype'], 'prototypes/apps');
 
     expect(componentPaths['Button'], 'live app/widgets/buttons');
-    expect(componentPaths['NodeSyncDetailPage'], 'prototypes/pages/node');
-    expect(componentPaths['SettingsDetailPage'], 'prototypes/pages/settings');
   });
 }

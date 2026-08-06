@@ -1174,12 +1174,6 @@ abstract class AppLocalizations {
   /// **'Registration failed: {error}'**
   String importApiAccountRegistrationFailed(String error);
 
-  /// No active account error
-  ///
-  /// In en, this message translates to:
-  /// **'No active account found. Please create or select an account.'**
-  String get walletNoActiveAccount;
-
   /// Invalid amount validation error
   ///
   /// In en, this message translates to:
@@ -1216,12 +1210,6 @@ abstract class AppLocalizations {
   /// **'Review Send'**
   String get walletReviewSend;
 
-  /// Amount label
-  ///
-  /// In en, this message translates to:
-  /// **'Amount'**
-  String get walletAmount;
-
   /// Network fee label
   ///
   /// In en, this message translates to:
@@ -1234,23 +1222,11 @@ abstract class AppLocalizations {
   /// **'Back'**
   String get walletBack;
 
-  /// Send button
-  ///
-  /// In en, this message translates to:
-  /// **'Send'**
-  String get walletSend;
-
   /// OK button
   ///
   /// In en, this message translates to:
   /// **'OK'**
   String get commonOk;
-
-  /// Done button/title
-  ///
-  /// In en, this message translates to:
-  /// **'Done'**
-  String get walletDone;
 
   /// Payment sent success title
   ///
@@ -1335,72 +1311,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count} Peers  •  {connected} Connected  •  {connecting} Connecting'**
   String nodePeersSummary(String count, String connected, String connecting);
-
-  /// Won slots screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Won Slots'**
-  String get wonSlotsTitle;
-
-  /// Loading epoch data message
-  ///
-  /// In en, this message translates to:
-  /// **'Loading epoch data...'**
-  String get wonSlotsLoadingEpoch;
-
-  /// Epoch data unavailable message
-  ///
-  /// In en, this message translates to:
-  /// **'Epoch data unavailable'**
-  String get wonSlotsEpochUnavailable;
-
-  /// No won slots message
-  ///
-  /// In en, this message translates to:
-  /// **'No won slots data available'**
-  String get wonSlotsNoData;
-
-  /// Grouped by hour subtitle
-  ///
-  /// In en, this message translates to:
-  /// **'Grouped by hour'**
-  String get wonSlotsGroupedByHour;
-
-  /// Grouped by day subtitle
-  ///
-  /// In en, this message translates to:
-  /// **'Grouped by day'**
-  String get wonSlotsGroupedByDay;
-
-  /// Won label
-  ///
-  /// In en, this message translates to:
-  /// **'Won'**
-  String get wonSlotsWon;
-
-  /// Produced label
-  ///
-  /// In en, this message translates to:
-  /// **'Produced'**
-  String get wonSlotsProduced;
-
-  /// Missed label
-  ///
-  /// In en, this message translates to:
-  /// **'Missed'**
-  String get wonSlotsMissed;
-
-  /// Pending label
-  ///
-  /// In en, this message translates to:
-  /// **'Pending'**
-  String get wonSlotsPending;
-
-  /// Today label
-  ///
-  /// In en, this message translates to:
-  /// **'Today'**
-  String get wonSlotsToday;
 
   /// Produced blocks screen title
   ///
@@ -2968,30 +2878,6 @@ abstract class AppLocalizations {
   /// **'You didn\'t share your name, photo, or ID'**
   String get zkIdentityResultFailureSubtitle;
 
-  /// Transaction success screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Sent successfully!'**
-  String get walletSentSuccessfully;
-
-  /// Transaction success screen subtitle
-  ///
-  /// In en, this message translates to:
-  /// **'{amount} {tokenSymbol} sent to\n{address}'**
-  String walletSentDetail(String amount, String tokenSymbol, String address);
-
-  /// Transaction failed screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Transaction Failed'**
-  String get walletTransactionFailed;
-
-  /// Generic transaction failure message
-  ///
-  /// In en, this message translates to:
-  /// **'An error occurred while processing your transaction'**
-  String get walletTransactionFailedGeneric;
-
   /// Snackbar message when wallet address is copied
   ///
   /// In en, this message translates to:
@@ -3045,72 +2931,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy address'**
   String get walletCopyAddress;
-
-  /// Hint text for recipient address field
-  ///
-  /// In en, this message translates to:
-  /// **'Recipient address'**
-  String get walletRecipientAddress;
-
-  /// Title for recent recipients sheet and tooltip
-  ///
-  /// In en, this message translates to:
-  /// **'Recent Recipients'**
-  String get walletRecentRecipients;
-
-  /// Fee field hint text
-  ///
-  /// In en, this message translates to:
-  /// **'Fee'**
-  String get walletFee;
-
-  /// Memo field hint text
-  ///
-  /// In en, this message translates to:
-  /// **'Memo (optional)'**
-  String get walletMemoOptional;
-
-  /// Send button text while transaction is processing
-  ///
-  /// In en, this message translates to:
-  /// **'Sending...'**
-  String get walletSending;
-
-  /// Send screen status while a transfer waits for wallet sync
-  ///
-  /// In en, this message translates to:
-  /// **'Waiting for sync'**
-  String get walletWaitingForSync;
-
-  /// Send screen helper text while a transfer waits for wallet sync
-  ///
-  /// In en, this message translates to:
-  /// **'You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.'**
-  String get walletWaitingForSyncHelp;
-
-  /// Validation error for required field
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter a {fieldName}'**
-  String walletFieldRequired(String fieldName);
-
-  /// Validation error for field that is too short
-  ///
-  /// In en, this message translates to:
-  /// **'{fieldName} appears to be too short'**
-  String walletFieldTooShort(String fieldName);
-
-  /// Validation error for invalid field value
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter a valid {fieldName}'**
-  String walletFieldInvalid(String fieldName);
-
-  /// Empty state in recent recipients sheet
-  ///
-  /// In en, this message translates to:
-  /// **'No recent addresses'**
-  String get walletNoRecentAddresses;
 
   /// Node status label when offline
   ///
@@ -3225,12 +3045,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Pending'**
   String get nodeVrfPendingLabel;
-
-  /// Dismissal button text
-  ///
-  /// In en, this message translates to:
-  /// **'Got it'**
-  String get commonGotIt;
 
   /// Cancel button text
   ///
@@ -3610,71 +3424,11 @@ abstract class AppLocalizations {
   /// **'Each slot has a ~5-seconds window. If your device doesn\'\'t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"'**
   String get faqVrfTimingDescription;
 
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Applied Locally'**
-  String get blockAppliedLocally;
-
-  /// Block at slot header
-  ///
-  /// In en, this message translates to:
-  /// **'Block #{height} at Slot {slot}'**
-  String blockAtSlot(int height, int slot);
-
-  /// Batches label
-  ///
-  /// In en, this message translates to:
-  /// **'Batches'**
-  String get blockBatches;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Committed'**
-  String get blockCommitted;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Confirmed'**
-  String get blockConfirmed;
-
-  /// Block details screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Details'**
-  String get blockDetailsTitle;
-
-  /// Epoch label
-  ///
-  /// In en, this message translates to:
-  /// **'Epoch'**
-  String get blockEpoch;
-
-  /// Timeline item subtitle for epoch and slot
-  ///
-  /// In en, this message translates to:
-  /// **'Epoch {epoch}, Slot {slot}'**
-  String blockEpochSlot(int epoch, int slot);
-
-  /// Global slot label
-  ///
-  /// In en, this message translates to:
-  /// **'Global Slot'**
-  String get blockGlobalSlot;
-
   /// Block hash label
   ///
   /// In en, this message translates to:
   /// **'Block Hash'**
   String get blockHash;
-
-  /// Block hash with prefix
-  ///
-  /// In en, this message translates to:
-  /// **'Hash: {hash}...'**
-  String blockHashPrefix(String hash);
 
   /// Block height label
   ///
@@ -3682,83 +3436,11 @@ abstract class AppLocalizations {
   /// **'Height'**
   String get blockHeight;
 
-  /// Timeline item subtitle for batches and transactions
-  ///
-  /// In en, this message translates to:
-  /// **'Included {batches} batches / {transactions} transactions'**
-  String blockIncludedBatchesTx(int batches, int transactions);
-
-  /// Timeline item subtitle when batch info unavailable
-  ///
-  /// In en, this message translates to:
-  /// **'Included batches / transactions'**
-  String get blockIncludedBatchesTxGeneric;
-
-  /// Block information card title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Information'**
-  String get blockInformation;
-
-  /// Block number label
-  ///
-  /// In en, this message translates to:
-  /// **'Block #{height}'**
-  String blockNumber(int height);
-
   /// Producer label
   ///
   /// In en, this message translates to:
   /// **'Producer'**
   String get blockProducer;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Block Production Scheduled'**
-  String get blockProductionScheduled;
-
-  /// Timeline item subtitle for slot won
-  ///
-  /// In en, this message translates to:
-  /// **'Slot {slot} won'**
-  String blockSlotWon(int slot);
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'State Transition.'**
-  String get blockStateTransition;
-
-  /// Timeline item subtitle for state transition
-  ///
-  /// In en, this message translates to:
-  /// **'Protocol and Consensus states updated'**
-  String get blockStatesUpdated;
-
-  /// Transactions label
-  ///
-  /// In en, this message translates to:
-  /// **'Transactions'**
-  String get blockTransactions;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'Transaction Batches Included'**
-  String get blockTxBatchesIncluded;
-
-  /// Timeline item subtitle for applied locally
-  ///
-  /// In en, this message translates to:
-  /// **'UTXOs updated'**
-  String get blockUtxosUpdated;
-
-  /// Timeline item title
-  ///
-  /// In en, this message translates to:
-  /// **'VRF Slot Discovered'**
-  String get blockVrfSlotDiscovered;
 
   /// Apply phase card title
   ///
@@ -3879,36 +3561,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Contact us on Discord'**
   String get registrationStaleAction;
-
-  /// Speed dial label for scan QR action
-  ///
-  /// In en, this message translates to:
-  /// **'Scan'**
-  String get walletScan;
-
-  /// Scan screen app bar title
-  ///
-  /// In en, this message translates to:
-  /// **'Scan QR Code'**
-  String get walletScanTitle;
-
-  /// Error shown when a scanned QR code cannot be parsed
-  ///
-  /// In en, this message translates to:
-  /// **'Invalid QR code'**
-  String get walletScanInvalidQr;
-
-  /// Error shown when the QR code type field is not recognized
-  ///
-  /// In en, this message translates to:
-  /// **'Unsupported QR code type'**
-  String get walletScanUnsupportedType;
-
-  /// Message shown when camera permission is denied
-  ///
-  /// In en, this message translates to:
-  /// **'Camera permission denied. Enable it in Settings to scan QR codes.'**
-  String get walletScanCameraPermissionDenied;
 
   /// Diagnostics toggle that enables in-memory HTTP request logging
   ///

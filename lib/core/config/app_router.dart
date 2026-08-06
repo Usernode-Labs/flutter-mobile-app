@@ -23,10 +23,8 @@ import 'package:crypto_mobile_app/features/terms/screens/terms_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/slot_assignments_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/produced_block_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_status_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/node_won_slots_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/mempool_details_screen.dart';
 import 'package:crypto_mobile_app/features/node/screens/node_peers_screen.dart';
-import 'package:crypto_mobile_app/features/node/screens/block_details_screen.dart';
 import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
@@ -42,10 +40,6 @@ import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benc
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_run_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/http_debug_logs_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/scan_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/send_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/transaction_success_screen.dart';
-import 'package:crypto_mobile_app/features/wallet/screens/transaction_failed_screen.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
@@ -85,12 +79,6 @@ class AppRoutes {
   static const slotAssignments = '/produced/slot-assignments';
   static const producedBlockDetails = '/produced/block-details';
 
-  // Wallet routes
-  static const walletSend = '/wallet/send';
-  static const walletScan = '/wallet/scan';
-  static const walletSendSuccess = '/wallet/send/success';
-  static const walletSendFailed = '/wallet/send/failed';
-
   // Challenge routes
   static const challengeDetail = '/challenges/detail';
   static const epochPerformance = '/challenges/epoch-performance';
@@ -120,8 +108,6 @@ class AppRoutes {
 
   // Main shell routes
   static const mainNode = '/main/node';
-  static const mainNodeWonSlots = '/main/node/won-slots';
-  static const mainNodeBlockDetails = '/main/node/block-details';
   static const mainNodeMempool = '/main/node/mempool';
   static const mainNodePeers = '/main/node/peers';
 }
@@ -161,6 +147,119 @@ String? guestRedirect(String location) {
   if (location == AppRoutes.splash || location.startsWith('/onboarding/')) {
     return AppRoutes.dapps;
   }
+  return null;
+}
+
+/// The full router guard as a pure function so ordering is unit-testable.
+/// The provider's `redirect` reads state and delegates here.
+String? appRedirect({
+  required AuthStatus authStatus,
+  required String location,
+  required Uri requestUri,
+  required bool? hasAnyAccount,
+  required bool? hasCompletedOnboarding,
+  required RegistrationFreshness registrationFreshness,
+}) {
+  _log.trace(
+      'Redirect guard called - location: $location, hasAny: $hasAnyAccount, onboardingComplete: $hasCompletedOnboarding');
+
+  // v3 auth gate runs first. It forces unauthenticated users (including
+  // existing users upgrading) to the auth landing before any account or
+  // onboarding logic applies. Authenticated/guest users fall through.
+  final authGate = authRedirect(authStatus, location);
+  if (authGate != null) return authGate;
+  if (authStatus == AuthStatus.unauthenticated) {
+    // On an auth route while unauthenticated: allow it, skip account logic.
+    return null;
+  }
+
+  // Deep-link blocking must run before the guest branch: iOS registers the
+  // usernode:// scheme with no path restriction, so a guest session would
+  // otherwise deep-link straight past the allowlist to any registered route.
+  if (shouldBlockUsernodeDeepLink(requestUri)) {
+    _log.warn('Blocked unsupported app deep link: $requestUri');
+    return AppRoutes.home;
+  }
+
+  // Guests never enter node onboarding — they browse. Land them on Dapps
+  // from splash/onboarding; otherwise let them roam the app shell
+  // (account-gated screens surface their own "sign in to view" gate).
+  if (authStatus == AuthStatus.guest) {
+    return guestRedirect(location);
+  }
+
+  // Still loading state
+  if (hasAnyAccount == null || hasCompletedOnboarding == null) {
+    _log.trace('State loading - allowing navigation');
+    return null;
+  }
+
+  // Define public routes that don't require an account
+  const publicRoutes = [
+    AppRoutes.splash,
+    AppRoutes.onboarding,
+    AppRoutes.onboardingImportApi,
+    AppRoutes.onboardingWelcomeSetup,
+  ];
+
+  final isPublicRoute = publicRoutes.contains(location);
+  _log.trace('Route $location is ${isPublicRoute ? "public" : "private"}');
+
+  // No account exists
+  if (!hasAnyAccount) {
+    _log.trace('No account exists');
+    // Splash should redirect to onboarding (transient route)
+    if (location == AppRoutes.splash) {
+      _log.trace('Redirecting splash to onboarding');
+      return AppRoutes.onboarding;
+    }
+    // Allow onboarding routes
+    if (location.startsWith('/onboarding/')) {
+      _log.trace('Allowing onboarding route');
+      return null;
+    }
+    // Redirect all other routes to onboarding
+    _log.trace('Redirecting private route to onboarding');
+    return AppRoutes.onboarding;
+  }
+
+  // Account exists but onboarding NOT completed - allow onboarding routes
+  if (!hasCompletedOnboarding) {
+    _log.trace('Account exists but onboarding not completed');
+    if (location.startsWith('/onboarding/')) {
+      _log.trace('Allowing onboarding route during onboarding flow');
+      return null;
+    }
+    // Splash should redirect to first permission screen
+    if (location == AppRoutes.splash) {
+      _log.trace('Redirecting splash to onboarding welcome-setup');
+      return AppRoutes.onboardingWelcomeSetup;
+    }
+  }
+
+  // Account exists AND onboarding completed
+  _log.trace('Account exists and onboarding completed');
+
+  // Block app usage when registration belongs to a previous season.
+  if (registrationFreshness == RegistrationFreshness.stale &&
+      location != AppRoutes.staleRegistration &&
+      location != AppRoutes.onboardingImportApi) {
+    return AppRoutes.staleRegistration;
+  }
+
+  // Allow stale registration screen (lives outside /onboarding/)
+  if (location == AppRoutes.staleRegistration) {
+    return null;
+  }
+
+  // Redirect from splash and onboarding to home
+  if (location == AppRoutes.splash || location.startsWith('/onboarding/')) {
+    _log.trace('Redirecting $location to /home');
+    return AppRoutes.home;
+  }
+
+  // Allow all other routes when account exists
+  _log.trace('Allowing route: $location');
   return null;
 }
 
@@ -315,11 +414,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ProducedBlockDetailsScreen(args: extra);
         },
       ),
-      // Won slots screen - outside shell route (no bottom nav)
-      GoRoute(
-        path: AppRoutes.mainNodeWonSlots,
-        builder: (context, state) => const NodeWonSlotsScreen(),
-      ),
       // Redirect bare /main to mainNode
       GoRoute(
         path: AppRoutes.main,
@@ -328,13 +422,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.mainNode,
         builder: (context, state) => const NodeStatusScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.mainNodeBlockDetails,
-        builder: (context, state) {
-          final block = state.extra as RpcStatusBlockInfo;
-          return BlockDetailsScreen(block: block);
-        },
       ),
       GoRoute(
         path: AppRoutes.mainNodeMempool,
@@ -348,14 +435,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final peerId = extra['peerId'] as String?;
           return NodePeersScreen(peers: peers, peerId: peerId);
         },
-      ),
-      GoRoute(
-        path: AppRoutes.walletSend,
-        builder: (context, state) => const SendScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.walletScan,
-        builder: (context, state) => const ScanScreen(),
       ),
       GoRoute(
         path: AppRoutes.deviceBenchmark,
@@ -379,26 +458,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.terms,
         builder: (context, state) => const TermsScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.walletSendSuccess,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          return TransactionSuccessScreen(
-            amount: extra['amount'] as String,
-            tokenSymbol: extra['tokenSymbol'] as String,
-            recipientAddress: extra['recipientAddress'] as String,
-          );
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.walletSendFailed,
-        builder: (context, state) {
-          final extra = state.extra as Map<String, dynamic>;
-          return TransactionFailedScreen(
-            errorMessage: extra['errorMessage'] as String,
-          );
-        },
       ),
       GoRoute(
         path: AppRoutes.zkIdentityDetail,
@@ -592,111 +651,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 orElse: () => null,
               );
       final registrationFreshness = ref.read(registrationFreshnessProvider);
-
-      final currentLocation = state.matchedLocation;
-      final requestUri = state.uri;
-
-      _log.trace(
-          'Redirect guard called - location: $currentLocation, hasAny: $hasAny, onboardingComplete: $hasCompletedOnboarding');
-
-      // v3 auth gate runs first. It forces unauthenticated users (including
-      // existing users upgrading) to the auth landing before any account or
-      // onboarding logic applies. Authenticated/guest users fall through.
       final authStatus = ref.read(authStatusProvider);
-      final authGate = authRedirect(authStatus, currentLocation);
-      if (authGate != null) return authGate;
-      if (authStatus == AuthStatus.unauthenticated) {
-        // On an auth route while unauthenticated: allow it, skip account logic.
-        return null;
-      }
 
-      // Guests never enter node onboarding — they browse. Land them on Dapps
-      // from splash/onboarding; otherwise let them roam the app shell
-      // (account-gated screens surface their own "sign in to view" gate).
-      if (authStatus == AuthStatus.guest) {
-        return guestRedirect(currentLocation);
-      }
-
-      if (shouldBlockUsernodeDeepLink(requestUri)) {
-        _log.warn('Blocked unsupported app deep link: $requestUri');
-        return AppRoutes.home;
-      }
-
-      // Still loading state
-      if (hasAny == null || hasCompletedOnboarding == null) {
-        _log.trace('State loading - allowing navigation');
-        return null;
-      }
-
-      // Define public routes that don't require an account
-      const publicRoutes = [
-        AppRoutes.splash,
-        AppRoutes.onboarding,
-        AppRoutes.onboardingImportApi,
-        AppRoutes.onboardingWelcomeSetup,
-      ];
-
-      final isPublicRoute = publicRoutes.contains(currentLocation);
-      _log.trace(
-          'Route $currentLocation is ${isPublicRoute ? "public" : "private"}');
-
-      // No account exists
-      if (!hasAny) {
-        _log.trace('No account exists');
-        // Splash should redirect to onboarding (transient route)
-        if (currentLocation == AppRoutes.splash) {
-          _log.trace('Redirecting splash to onboarding');
-          return AppRoutes.onboarding;
-        }
-        // Allow onboarding routes
-        if (currentLocation.startsWith('/onboarding/')) {
-          _log.trace('Allowing onboarding route');
-          return null;
-        }
-        // Redirect all other routes to onboarding
-        _log.trace('Redirecting private route to onboarding');
-        return AppRoutes.onboarding;
-      }
-
-      // Account exists but onboarding NOT completed - allow onboarding routes
-      if (!hasCompletedOnboarding) {
-        _log.trace('Account exists but onboarding not completed');
-        if (currentLocation.startsWith('/onboarding/')) {
-          _log.trace('Allowing onboarding route during onboarding flow');
-          return null;
-        }
-        // Splash should redirect to first permission screen
-        if (currentLocation == AppRoutes.splash) {
-          _log.trace('Redirecting splash to onboarding welcome-setup');
-          return AppRoutes.onboardingWelcomeSetup;
-        }
-      }
-
-      // Account exists AND onboarding completed
-      _log.trace('Account exists and onboarding completed');
-
-      // Block app usage when registration belongs to a previous season.
-      if (registrationFreshness == RegistrationFreshness.stale &&
-          currentLocation != AppRoutes.staleRegistration &&
-          currentLocation != AppRoutes.onboardingImportApi) {
-        return AppRoutes.staleRegistration;
-      }
-
-      // Allow stale registration screen (lives outside /onboarding/)
-      if (currentLocation == AppRoutes.staleRegistration) {
-        return null;
-      }
-
-      // Redirect from splash and onboarding to home
-      if (currentLocation == AppRoutes.splash ||
-          currentLocation.startsWith('/onboarding/')) {
-        _log.trace('Redirecting $currentLocation to /home');
-        return AppRoutes.home;
-      }
-
-      // Allow all other routes when account exists
-      _log.trace('Allowing route: $currentLocation');
-      return null;
+      return appRedirect(
+        authStatus: authStatus,
+        location: state.matchedLocation,
+        requestUri: state.uri,
+        hasAnyAccount: hasAny,
+        hasCompletedOnboarding: hasCompletedOnboarding,
+        registrationFreshness: registrationFreshness,
+      );
     },
   );
 });

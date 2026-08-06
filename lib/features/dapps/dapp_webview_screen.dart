@@ -19,7 +19,6 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/widgets/node_status_icon.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
-import 'package:crypto_mobile_app/design_system/src/top_status_app_bar.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
@@ -2262,18 +2261,10 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Tab root (embedded hub home) shows compact shared shell affordances; once
-    // the user drills into a dapp (web history exists) the bar becomes white
-    // pushed-detail chrome. Only the `appBar:` swaps — the WebViewWidget body
-    // stays mounted, so flipping modes never reloads the page.
-    //
     // The webview lives directly in the Scaffold body (NOT inside a
     // CustomScrollView/SliverFillRemaining): hosting the WebView's SurfaceView
     // platform view inside a scrollable starves it of buffers and ANRs the app
-    // (BLASTBufferQueue "can't acquire next buffer"). That rules out the
-    // sliver-based TopStatusAppBar here, so the root uses the preferred-size
-    // compact variant instead.
-    final isShellRoot = widget.embedded && !_canGoBack;
+    // (BLASTBufferQueue "can't acquire next buffer").
     final colors = Theme.of(context).colorScheme;
 
     return PopScope(
@@ -2293,11 +2284,7 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
         // Chromeless (full-screen SV shell): the page owns its own header,
         // so no Flutter bar at all — just keep the webview out from under
         // the OS status bar.
-        appBar: widget.chromeless
-            ? null
-            : isShellRoot
-                ? _buildShellAppBar(context)
-                : _buildBrowserAppBar(context),
+        appBar: widget.chromeless ? null : _buildBrowserAppBar(context),
         body: ColoredBox(
           color: colors.surfaceContainerLowest,
           child: widget.chromeless
@@ -2308,19 +2295,6 @@ class _DappWebViewScreenState extends ConsumerState<DappWebViewScreen> {
               : WebViewWidget(controller: _controller),
         ),
       ),
-    );
-  }
-
-  /// Tab-root shell bar: the compact TopStatusAppBar shape used by app roots,
-  /// exposed as a preferred-size widget so the WebView can stay out of slivers.
-  PreferredSizeWidget _buildShellAppBar(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return TopStatusAppBar.scaffoldCompact(
-      title: l10n.navDapps,
-      nodeStatus: ref.watch(topStatusChromeNodeStatusProvider),
-      onProfilePressed: () => context.push(AppRoutes.profile),
-      onNodePressed: () => context.push(AppRoutes.mainNode),
     );
   }
 

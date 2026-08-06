@@ -275,7 +275,6 @@ Shape values come from `AppRadii`.
 | `ListSectionHeader` | Code | [genesis](.specs/ListSectionHeader.genesis.md) |
 | `ParallaxSurfaceLayout` | Code | [genesis](.specs/ParallaxSurfaceLayout.genesis.md) |
 | `RankBadge` | Code | [genesis](.specs/RankBadge.genesis.md) |
-| `ResultPage` | Code | [genesis](.specs/ResultPage.genesis.md) |
 | `ScoreHeader` | [Figma default](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2193), [Figma glow](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:3259) | [genesis](.specs/ScoreHeader.genesis.md) |
 | `SheetLayout` | Code | [genesis](.specs/SheetLayout.genesis.md) |
 | `ShimmerBlock` | Code | [genesis](.specs/ShimmerBlock.genesis.md) |

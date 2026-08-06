@@ -15,9 +15,6 @@ enum TopStatusAppBarSize {
 
   /// Native Material 3 compact top app bar.
   compact,
-
-  /// Compact top app bar for `Scaffold.appBar` slots.
-  scaffoldCompact,
 }
 
 /// Node status surfaced by [TopStatusAppBar].
@@ -92,18 +89,6 @@ class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
   })  : size = TopStatusAppBarSize.compact,
         profileLabel = null;
 
-  /// Creates a compact top status app bar for a `Scaffold.appBar` slot.
-  const TopStatusAppBar.scaffoldCompact({
-    super.key,
-    required this.title,
-    required this.onProfilePressed,
-    required this.onNodePressed,
-    this.nodeStatus = TopStatusNodeStatus.synced,
-    this.backgroundColor,
-    this.forceTransparent = false,
-  })  : size = TopStatusAppBarSize.scaffoldCompact,
-        profileLabel = null;
-
   /// Visible screen title.
   final String title;
 
@@ -134,8 +119,6 @@ class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
       TopStatusAppBarSize.large =>
         const Size.fromHeight(_kTopStatusLargeExpandedHeight),
       TopStatusAppBarSize.compact => const Size.fromHeight(kToolbarHeight),
-      TopStatusAppBarSize.scaffoldCompact =>
-        const Size.fromHeight(_kTopStatusLargeCollapsedHeight),
     };
   }
 
@@ -144,7 +127,6 @@ class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
     return switch (size) {
       TopStatusAppBarSize.large => _buildLarge(context),
       TopStatusAppBarSize.compact => _buildCompact(context),
-      TopStatusAppBarSize.scaffoldCompact => _buildScaffoldCompact(context),
     };
   }
 
@@ -237,76 +219,6 @@ class TopStatusAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
       forceMaterialTransparency: forceTransparent,
-    );
-  }
-
-  Widget _buildScaffoldCompact(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final borders = Theme.of(context).extension<AppBorders>()!;
-    final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final sizing = Theme.of(context).extension<AppSizing>()!;
-    final effectiveBackground = forceTransparent
-        ? Colors.transparent
-        : backgroundColor ?? colors.surfaceContainerLowest;
-    final node = TopStatusNodeVisual.resolve(
-      context,
-      nodeStatus,
-      intent: TopStatusNodeVisualIntent.chrome,
-    );
-
-    return AppBar(
-      automaticallyImplyLeading: false,
-      centerTitle: true,
-      toolbarHeight: _kTopStatusLargeCollapsedHeight,
-      leadingWidth: spacing.space16 + sizing.iconContainerRegular,
-      leading: Padding(
-        padding: EdgeInsetsDirectional.only(start: spacing.space16),
-        child: _TopStatusAction(
-          icon: Symbols.account_circle_sharp,
-          label: 'Profile',
-          tooltip: 'Profile',
-          onPressed: onProfilePressed,
-          progress: 1,
-          showLabel: false,
-          alignment: AlignmentDirectional.centerStart,
-          hitKey: _kTopStatusProfileHitKey,
-          visualKey: _kTopStatusProfileVisualKey,
-          iconKey: _kTopStatusProfileIconKey,
-        ),
-      ),
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      titleSpacing: 0,
-      actions: [
-        Padding(
-          padding: EdgeInsetsDirectional.only(end: spacing.space16),
-          child: _TopStatusAction(
-            icon: node.icon,
-            label: node.label,
-            tooltip: node.tooltip,
-            foregroundColor: node.foregroundColor,
-            backgroundColor: node.backgroundColor,
-            onPressed: onNodePressed,
-            progress: 1,
-            showLabel: false,
-            alignment: AlignmentDirectional.centerEnd,
-            hitKey: _kTopStatusNodeHitKey,
-            visualKey: _kTopStatusNodeVisualKey,
-            iconKey: _kTopStatusNodeIconKey,
-          ),
-        ),
-      ],
-      backgroundColor: effectiveBackground,
-      foregroundColor: colors.onSurface,
-      surfaceTintColor: Colors.transparent,
-      scrolledUnderElevation: 0,
-      shape: forceTransparent
-          ? null
-          : Border(
-              bottom: BorderSide(
-                color: colors.onSurface.withValues(alpha: borders.opacity),
-                width: borders.width,
-              ),
-            ),
     );
   }
 }

@@ -187,14 +187,6 @@ class TopStatusAppBarPreview extends StatelessWidget {
         backgroundColor: backgroundColor,
         forceTransparent: forceTransparent,
       ),
-      TopStatusAppBarSize.scaffoldCompact => TopStatusAppBar.scaffoldCompact(
-        title: title,
-        nodeStatus: nodeStatus,
-        onProfilePressed: onProfilePressed,
-        onNodePressed: onNodePressed,
-        backgroundColor: backgroundColor,
-        forceTransparent: forceTransparent,
-      ),
     };
   }
 }

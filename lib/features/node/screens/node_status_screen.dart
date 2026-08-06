@@ -235,9 +235,9 @@ class _NodeStatusScreenState extends ConsumerState<NodeStatusScreen> {
     // without exposing the old build-info drawer.
     final canPop = context.canPop();
 
-    // Detail pattern (mirrors the `NodeSyncDetailPage` prototype): a flat white
-    // surface with a raw SliverAppBar, no parallax header or card containers —
-    // content sits directly on white, grouped only by section headers.
+    // Detail pattern: a flat white surface with a raw SliverAppBar, no
+    // parallax header or card containers — content sits directly on white,
+    // grouped only by section headers.
     return Scaffold(
       backgroundColor: colorScheme.surfaceContainerLowest,
       body: RefreshIndicator(

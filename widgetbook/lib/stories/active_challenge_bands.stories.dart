@@ -61,8 +61,7 @@ class ActiveChallengeBands extends StatelessWidget {
               onProfilePressed: () {},
               onNodePressed: () {},
             ),
-            TopStatusAppBarSize.compact ||
-            TopStatusAppBarSize.scaffoldCompact => TopStatusAppBar.compact(
+            TopStatusAppBarSize.compact => TopStatusAppBar.compact(
               title: 'Season 1',
               nodeStatus: nodeStatus,
               onProfilePressed: () {},

@@ -634,10 +634,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get walletNoActiveAccount =>
-      'No active account found. Please create or select an account.';
-
-  @override
   String get walletInvalidAmount =>
       'Invalid amount. Enter a whole-number amount.';
 
@@ -661,22 +657,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get walletReviewSend => 'Review Send';
 
   @override
-  String get walletAmount => 'Amount';
-
-  @override
   String get walletNetworkFee => 'Network fee';
 
   @override
   String get walletBack => 'Back';
 
   @override
-  String get walletSend => 'Send';
-
-  @override
   String get commonOk => 'OK';
-
-  @override
-  String get walletDone => 'Done';
 
   @override
   String get walletPaymentSent => 'Payment Sent';
@@ -723,39 +710,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String nodePeersSummary(String count, String connected, String connecting) {
     return '$count Peers  •  $connected Connected  •  $connecting Connecting';
   }
-
-  @override
-  String get wonSlotsTitle => 'Won Slots';
-
-  @override
-  String get wonSlotsLoadingEpoch => 'Loading epoch data...';
-
-  @override
-  String get wonSlotsEpochUnavailable => 'Epoch data unavailable';
-
-  @override
-  String get wonSlotsNoData => 'No won slots data available';
-
-  @override
-  String get wonSlotsGroupedByHour => 'Grouped by hour';
-
-  @override
-  String get wonSlotsGroupedByDay => 'Grouped by day';
-
-  @override
-  String get wonSlotsWon => 'Won';
-
-  @override
-  String get wonSlotsProduced => 'Produced';
-
-  @override
-  String get wonSlotsMissed => 'Missed';
-
-  @override
-  String get wonSlotsPending => 'Pending';
-
-  @override
-  String get wonSlotsToday => 'Today';
 
   @override
   String get producedBlocksTitle => 'Produced Blocks';
@@ -1640,21 +1594,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'You didn\'t share your name, photo, or ID';
 
   @override
-  String get walletSentSuccessfully => 'Sent successfully!';
-
-  @override
-  String walletSentDetail(String amount, String tokenSymbol, String address) {
-    return '$amount $tokenSymbol sent to\n$address';
-  }
-
-  @override
-  String get walletTransactionFailed => 'Transaction Failed';
-
-  @override
-  String get walletTransactionFailedGeneric =>
-      'An error occurred while processing your transaction';
-
-  @override
   String get walletAddressCopied => 'Address copied to clipboard';
 
   @override
@@ -1681,46 +1620,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get walletCopyAddress => 'Copy address';
-
-  @override
-  String get walletRecipientAddress => 'Recipient address';
-
-  @override
-  String get walletRecentRecipients => 'Recent Recipients';
-
-  @override
-  String get walletFee => 'Fee';
-
-  @override
-  String get walletMemoOptional => 'Memo (optional)';
-
-  @override
-  String get walletSending => 'Sending...';
-
-  @override
-  String get walletWaitingForSync => 'Waiting for sync';
-
-  @override
-  String get walletWaitingForSyncHelp =>
-      'You can leave this screen. As long as the app stays open, the transaction will be attempted after sync and should go through if your balance is enough.';
-
-  @override
-  String walletFieldRequired(String fieldName) {
-    return 'Please enter a $fieldName';
-  }
-
-  @override
-  String walletFieldTooShort(String fieldName) {
-    return '$fieldName appears to be too short';
-  }
-
-  @override
-  String walletFieldInvalid(String fieldName) {
-    return 'Please enter a valid $fieldName';
-  }
-
-  @override
-  String get walletNoRecentAddresses => 'No recent addresses';
 
   @override
   String get nodeOffline => 'Offline';
@@ -1790,9 +1689,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodeVrfPendingLabel => 'Pending';
-
-  @override
-  String get commonGotIt => 'Got it';
 
   @override
   String get commonCancel => 'Cancel';
@@ -2006,91 +1902,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Each slot has a ~5-seconds window. If your device doesn\'\'t wake up in time or loses network connectivity, the slot is missed and counted as \"failed.\"';
 
   @override
-  String get blockAppliedLocally => 'Applied Locally';
-
-  @override
-  String blockAtSlot(int height, int slot) {
-    return 'Block #$height at Slot $slot';
-  }
-
-  @override
-  String get blockBatches => 'Batches';
-
-  @override
-  String get blockCommitted => 'Block Committed';
-
-  @override
-  String get blockConfirmed => 'Block Confirmed';
-
-  @override
-  String get blockDetailsTitle => 'Block Details';
-
-  @override
-  String get blockEpoch => 'Epoch';
-
-  @override
-  String blockEpochSlot(int epoch, int slot) {
-    return 'Epoch $epoch, Slot $slot';
-  }
-
-  @override
-  String get blockGlobalSlot => 'Global Slot';
-
-  @override
   String get blockHash => 'Block Hash';
-
-  @override
-  String blockHashPrefix(String hash) {
-    return 'Hash: $hash...';
-  }
 
   @override
   String get blockHeight => 'Height';
 
   @override
-  String blockIncludedBatchesTx(int batches, int transactions) {
-    return 'Included $batches batches / $transactions transactions';
-  }
-
-  @override
-  String get blockIncludedBatchesTxGeneric => 'Included batches / transactions';
-
-  @override
-  String get blockInformation => 'Block Information';
-
-  @override
-  String blockNumber(int height) {
-    return 'Block #$height';
-  }
-
-  @override
   String get blockProducer => 'Producer';
-
-  @override
-  String get blockProductionScheduled => 'Block Production Scheduled';
-
-  @override
-  String blockSlotWon(int slot) {
-    return 'Slot $slot won';
-  }
-
-  @override
-  String get blockStateTransition => 'State Transition.';
-
-  @override
-  String get blockStatesUpdated => 'Protocol and Consensus states updated';
-
-  @override
-  String get blockTransactions => 'Transactions';
-
-  @override
-  String get blockTxBatchesIncluded => 'Transaction Batches Included';
-
-  @override
-  String get blockUtxosUpdated => 'UTXOs updated';
-
-  @override
-  String get blockVrfSlotDiscovered => 'VRF Slot Discovered';
 
   @override
   String get nodeApplyPhase => 'Apply';
@@ -2164,22 +1982,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get registrationStaleAction => 'Contact us on Discord';
-
-  @override
-  String get walletScan => 'Scan';
-
-  @override
-  String get walletScanTitle => 'Scan QR Code';
-
-  @override
-  String get walletScanInvalidQr => 'Invalid QR code';
-
-  @override
-  String get walletScanUnsupportedType => 'Unsupported QR code type';
-
-  @override
-  String get walletScanCameraPermissionDenied =>
-      'Camera permission denied. Enable it in Settings to scan QR codes.';
 
   @override
   String get settingsDebugMode => 'Debug Mode';

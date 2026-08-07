@@ -416,6 +416,33 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     unawaited(_ensureNodeForStandaloneDappEntry());
   }
 
+  /// Reacts to a changed [DappWebViewScreen.url] on a *live* webview. Most
+  /// callers key this screen by URL, so a URL change recreates the state and
+  /// never lands here — the exception is the SV shell, which keeps a stable
+  /// key so a widget/shortcut deep link arriving while the app is warm
+  /// (e.g. `/home?sv=app/<slug>`) can navigate the running SPA instead of
+  /// cold-rebooting it.
+  ///
+  /// A fragment-only change is handed to the page as a `location.hash`
+  /// assignment — the SPA's hashchange router takes it from there with its
+  /// own screen transition. Anything else is a real navigation.
+  @override
+  void didUpdateWidget(covariant DappWebViewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url == widget.url) return;
+    final next = parseDappUrl(widget.url);
+    final prev = parseDappUrl(oldWidget.url);
+    final sameDocument =
+        next.replace(fragment: '') == prev.replace(fragment: '');
+    if (sameDocument) {
+      _controller
+          .runJavaScript('window.location.hash = ${jsonEncode(next.fragment)};')
+          .catchError((_) {});
+    } else {
+      _controller.loadRequest(next);
+    }
+  }
+
   /// Presents the OS file picker for a WebView `<input type="file">` tap
   /// and returns the chosen file URIs (empty list = user cancelled).
   Future<List<String>> _showAndroidFileSelector(

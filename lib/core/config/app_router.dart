@@ -1,6 +1,9 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/diagnostics_screen.dart';
@@ -53,6 +56,36 @@ class AppRoutes {
   // ZK Identity (native: runs NFC/hardware flows)
   static const zkIdentityDetail = '/challenges/zk-identity';
   static const zkIdentityFlow = '/challenges/zk-identity/flow';
+}
+
+/// Remaps a pinned dapp's URL into the SV-shell home route when the URL
+/// lives on the trusted SV origin, or returns null when it should open in
+/// the standalone dapp browser instead.
+///
+/// SV pins its apps as `https://<sv-origin>/#app/<slug>` — a hash route of
+/// the platform SPA. Opening that in the standalone browser shows the
+/// pre-thin-shell UI (native app bar over a second SV boot). Folding it
+/// into `/home?sv=<fragment>` reuses the same shell (and, when the app is
+/// warm, the same *running* webview) that every other surface uses.
+/// Non-SV origins keep the standalone browser: that's what it's for.
+String? svShellRouteForPinnedDappUrl({
+  required String pinnedUrl,
+  required String dappsTabUrl,
+}) {
+  final pinned = Uri.tryParse(pinnedUrl.trim());
+  final trusted = Uri.tryParse(dappsTabUrl.trim());
+  if (pinned == null || trusted == null) return null;
+  if (pinned.host.isEmpty || trusted.host.isEmpty) return null;
+  // Same origin boundary as the bridge's shortcut trust gate: exact
+  // scheme + host + port match.
+  if (pinned.scheme != trusted.scheme ||
+      pinned.host != trusted.host ||
+      pinned.port != trusted.port) {
+    return null;
+  }
+  final fragment = pinned.fragment;
+  if (fragment.isEmpty) return AppRoutes.home;
+  return '${AppRoutes.home}?sv=${Uri.encodeQueryComponent(fragment)}';
 }
 
 // Create a stable navigator key outside the provider
@@ -143,6 +176,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // this path has an extra segment (`/dapps/pinned/<id>` vs
         // `/dapps/<slug>`).
         path: AppRoutes.dappPinned,
+        // Widget tiles / launcher shortcuts deep-link here. Entries whose
+        // URL lives on the SV origin (SV pins `#app/<slug>` hash routes)
+        // are remapped into the SV shell so a widget tap opens the app in
+        // the platform UI — same chrome and transitions as tapping it on
+        // the SV home — instead of the legacy standalone dapp browser.
+        // Non-SV origins and unknown ids fall through to the builder.
+        redirect: (context, state) async {
+          final id = state.pathParameters['id'];
+          if (id == null) return null;
+          try {
+            final dapps = await ref.read(pinnedDappsProvider.future);
+            final dapp = dapps.where((d) => d.id == id).firstOrNull;
+            if (dapp == null) return null;
+            return svShellRouteForPinnedDappUrl(
+              pinnedUrl: dapp.url,
+              dappsTabUrl: AppConfig.dappsTabUrl,
+            );
+          } catch (e) {
+            // Registry read failed — let the builder surface the error UI.
+            _log.warn('Pinned dapp shell remap failed: $e');
+            return null;
+          }
+        },
         builder: (context, state) {
           final id = state.pathParameters['id'];
           return Consumer(

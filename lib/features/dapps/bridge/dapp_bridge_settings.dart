@@ -89,16 +89,22 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// (each setter resolves with the refreshed state so SV re-renders from a
   /// single source of truth). Mirrors what the native settings screen shows.
   Future<Map<String, dynamic>> _settingsStateSnapshot() async {
-    // Permission checks mirror the native QuickSettingsPanel wiring.
+    // Live probes, not the service's cached combined flag: the granular
+    // request methods don't refresh `hasPermissions`, and its legacy
+    // notifications&&exactAlarm semantics would mislabel `exactAlarmGranted`.
     bool exactAlarmGranted = false;
     bool? batteryOptDisabled;
+    bool notificationsGranted = false;
     String? deviceManufacturer;
     try {
       await PlatformAlarmService.instance.initialize();
-      exactAlarmGranted = PlatformAlarmService.instance.hasPermissions;
+      notificationsGranted =
+          await PlatformAlarmService.instance.hasNotificationsPermission();
+      final alarm =
+          await PlatformAlarmService.instance.alarmPermissionsSnapshot();
+      exactAlarmGranted = alarm['exactAlarmGranted'] == true;
+      batteryOptDisabled = alarm['batteryOptDisabled'] as bool?;
       if (defaultTargetPlatform == TargetPlatform.android) {
-        batteryOptDisabled =
-            await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
         deviceManufacturer =
             await PlatformAlarmService.instance.getDeviceManufacturer();
       }
@@ -145,6 +151,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
         'platform':
             defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
         'exactAlarmGranted': exactAlarmGranted,
+        'notificationsGranted': notificationsGranted,
         'batteryOptDisabled': batteryOptDisabled,
         'deviceManufacturer': deviceManufacturer,
       },
@@ -234,5 +241,54 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     if (!await _requireTrustedChromeOrigin(id, 'openBatterySettings')) return;
     await PlatformAlarmService.instance.openBatteryOptimizationSettings();
     await _resolveJsPromise(id: id, value: true, error: null);
+  }
+
+  /// Granular variant of `requestPermissions`: notification permission only.
+  /// SV prompts at its own product moments (social push, nudges) without
+  /// dragging the user through the alarm/battery chain.
+  Future<void> _handleRequestNotificationPermission(String id) async {
+    if (!await _requireTrustedChromeOrigin(
+        id, 'requestNotificationPermission')) {
+      return;
+    }
+    final granted =
+        await PlatformAlarmService.instance.requestNotificationsPermission();
+    final state = await _settingsStateSnapshot();
+    await _resolveJsPromise(
+      id: id,
+      value: {...state, 'granted': granted},
+      error: null,
+    );
+  }
+
+  /// Granular variant of `requestPermissions`: exact-alarm + battery only,
+  /// for the post-`startNode` sheet. Never shows the notification dialog.
+  Future<void> _handleRequestAlarmPermissions(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'requestAlarmPermissions')) {
+      return;
+    }
+    final granted =
+        await PlatformAlarmService.instance.requestAlarmPermissions();
+    final state = await _settingsStateSnapshot();
+    await _resolveJsPromise(
+      id: id,
+      value: {...state, 'granted': granted},
+      error: null,
+    );
+  }
+
+  /// Deep link to the OS notification settings — the recovery path once the
+  /// OS permission dialog is exhausted (denied on iOS, or twice on Android).
+  Future<void> _handleOpenNotificationSettings(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'openNotificationSettings')) {
+      return;
+    }
+    final opened =
+        await PlatformAlarmService.instance.openNotificationSettings();
+    await _resolveJsPromise(
+      id: id,
+      value: opened,
+      error: opened ? null : 'Could not open notification settings',
+    );
   }
 }

@@ -199,6 +199,26 @@ import UserNotifications
       print("[AppDelegate] requestNotificationPermission called")
       requestNotificationPermission(result: result)
 
+    case "hasNotificationPermission":
+      UNUserNotificationCenter.current().getNotificationSettings { settings in
+        DispatchQueue.main.async {
+          result(settings.authorizationStatus == .authorized ||
+                 settings.authorizationStatus == .provisional)
+        }
+      }
+
+    case "openNotificationSettings":
+      DispatchQueue.main.async {
+        guard let url = URL(string: UIApplication.openSettingsURLString),
+              UIApplication.shared.canOpenURL(url) else {
+          result(false)
+          return
+        }
+        UIApplication.shared.open(url) { opened in
+          result(opened)
+        }
+      }
+
     case "scheduleIOSBGTask":
       print("[AppDelegate] scheduleIOSBGTask called")
       guard let args = call.arguments as? [String: Any],

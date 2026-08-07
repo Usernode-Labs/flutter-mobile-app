@@ -562,10 +562,10 @@ class PlatformAlarmService {
     }
 
     try {
-      if (Platform.isAndroid) {
+      if (defaultTargetPlatform == TargetPlatform.android) {
         return await _requestAndroidPermissions();
-      } else if (Platform.isIOS) {
-        return await _requestIOSPermissions();
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return await _requestIOSNotificationPermission();
       }
       return false;
     } catch (e) {
@@ -574,57 +574,131 @@ class PlatformAlarmService {
     }
   }
 
+  /// Requests only the node-runtime permissions: SCHEDULE_EXACT_ALARM and the
+  /// battery-optimization exemption. Deliberately excludes notifications so
+  /// the SV "node needs alarm & battery" sheet never double-prompts.
+  ///
+  /// Not applicable off Android: resolves true without any platform traffic.
+  Future<bool> requestAlarmPermissions() async {
+    if (!_initialized) {
+      _log.warn('Cannot request alarm permissions: service not initialized');
+      return false;
+    }
+    if (defaultTargetPlatform != TargetPlatform.android) return true;
+
+    try {
+      final hasExactAlarm = await _requestAndroidExactAlarmAndBattery();
+      _recordRuntimeContextChanged('permissions_changed');
+      _recordPowerNetworkServiceContextChanged('permissions_changed');
+      return hasExactAlarm;
+    } on PlatformException catch (e) {
+      _log.error('Error requesting alarm permissions: ${e.message}');
+      return false;
+    }
+  }
+
+  /// Requests only the notification permission (POST_NOTIFICATIONS on
+  /// Android 13+, UNUserNotificationCenter on iOS).
+  Future<bool> requestNotificationsPermission() async {
+    if (!_initialized) {
+      _log.warn(
+          'Cannot request notification permission: service not initialized');
+      return false;
+    }
+
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final granted = await _requestAndroidNotificationsPermission();
+        _recordRuntimeContextChanged('permissions_changed');
+        return granted;
+      }
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return await _requestIOSNotificationPermission();
+      }
+      return false;
+    } on PlatformException catch (e) {
+      _log.error('Error requesting notification permission: ${e.message}');
+      return false;
+    }
+  }
+
+  /// Whether the OS notification permission is currently granted.
+  Future<bool> hasNotificationsPermission() async {
+    try {
+      final method = defaultTargetPlatform == TargetPlatform.android
+          ? 'hasPostNotificationsPermission'
+          : 'hasNotificationPermission';
+      return await _channel.invokeMethod<bool>(method) ?? false;
+    } catch (e) {
+      _log.warn('Notification permission probe failed: $e');
+      return false;
+    }
+  }
+
+  /// Opens the OS notification settings page for this app — the only path
+  /// left once the OS dialog is exhausted (iOS shows it once ever; Android
+  /// stops after two denials).
+  Future<bool> openNotificationSettings() async {
+    try {
+      return await _channel.invokeMethod<bool>('openNotificationSettings') ??
+          false;
+    } catch (e) {
+      _log.error('Error opening notification settings: $e');
+      return false;
+    }
+  }
+
+  /// Current exact-alarm/battery state for the bridge's `startNode` response.
+  /// Off Android both concepts are meaningless: `applicable` is false and the
+  /// states are null so SV can skip its sheet.
+  Future<Map<String, Object?>> alarmPermissionsSnapshot() async {
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return const {
+        'applicable': false,
+        'exactAlarmGranted': null,
+        'batteryOptDisabled': null,
+      };
+    }
+    // Independent probes with a short timeout each: one failing (or a stuck
+    // channel) must neither block startNode's resolution nor mask the other.
+    bool exactAlarm = false;
+    bool batteryOptDisabled = false;
+    try {
+      exactAlarm = await _channel
+              .invokeMethod<bool>('hasExactAlarmPermission')
+              .timeout(const Duration(seconds: 3)) ??
+          false;
+    } catch (e) {
+      _log.warn('Exact-alarm permission probe failed: $e');
+    }
+    try {
+      batteryOptDisabled = await _channel
+              .invokeMethod<bool>('isBatteryOptimizationDisabled')
+              .timeout(const Duration(seconds: 3)) ??
+          false;
+    } catch (e) {
+      _log.warn('Battery optimization probe failed: $e');
+    }
+    return {
+      'applicable': true,
+      'exactAlarmGranted': exactAlarm,
+      'batteryOptDisabled': batteryOptDisabled,
+    };
+  }
+
   /// Request Android permissions (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, Battery Optimization)
   Future<bool> _requestAndroidPermissions() async {
     try {
       _log.info('Requesting Android permissions...');
 
       // 1. Request POST_NOTIFICATIONS first (Android 13+)
-      bool hasNotifications =
-          await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
-              false;
+      final hasNotifications = await _requestAndroidNotificationsPermission();
 
-      if (!hasNotifications) {
-        _log.info('Requesting POST_NOTIFICATIONS permission...');
-        await _channel.invokeMethod('requestPostNotificationsPermission');
-        // Wait a bit for the permission dialog to be processed
-        await Future.delayed(const Duration(milliseconds: 500));
-        hasNotifications = await _channel
-                .invokeMethod<bool>('hasPostNotificationsPermission') ??
-            false;
-      }
-
-      // 2. Request SCHEDULE_EXACT_ALARM (Android 12+)
-      bool hasExactAlarm =
-          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
-
-      if (!hasExactAlarm) {
-        _log.info('Requesting SCHEDULE_EXACT_ALARM permission...');
-        await _channel.invokeMethod('requestExactAlarmPermission');
-        // This opens settings, so we'll need to wait for user to return
-        // The permission check will happen when app resumes
-      }
-
-      // 3. Request Battery Optimization Exemption
-      bool hasBatteryExemption =
-          await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ??
-              false;
-
-      if (!hasBatteryExemption) {
-        _log.info('Requesting battery optimization exemption...');
-        await _channel.invokeMethod('requestBatteryOptimizationExemption');
-        // This may open a dialog or settings
-        await Future.delayed(const Duration(milliseconds: 500));
-        hasBatteryExemption = await _channel
-                .invokeMethod<bool>('isBatteryOptimizationDisabled') ??
-            false;
-      }
+      // 2 + 3. Exact alarm and battery exemption.
+      final hasExactAlarm = await _requestAndroidExactAlarmAndBattery();
 
       // Update permissions granted status
       _permissionsGranted = hasNotifications && hasExactAlarm;
-
-      _log.info(
-          'Permissions status - Notifications: $hasNotifications, Exact Alarm: $hasExactAlarm, Battery: $hasBatteryExemption');
 
       _recordRuntimeContextChanged('permissions_changed');
       _recordPowerNetworkServiceContextChanged('permissions_changed');
@@ -636,8 +710,58 @@ class PlatformAlarmService {
     }
   }
 
+  Future<bool> _requestAndroidNotificationsPermission() async {
+    bool hasNotifications =
+        await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
+            false;
+
+    if (!hasNotifications) {
+      _log.info('Requesting POST_NOTIFICATIONS permission...');
+      await _channel.invokeMethod('requestPostNotificationsPermission');
+      // Wait a bit for the permission dialog to be processed
+      await Future.delayed(const Duration(milliseconds: 500));
+      hasNotifications =
+          await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
+              false;
+    }
+    return hasNotifications;
+  }
+
+  /// Runs the SCHEDULE_EXACT_ALARM and battery-exemption steps; returns
+  /// whether the exact-alarm permission is granted afterwards.
+  Future<bool> _requestAndroidExactAlarmAndBattery() async {
+    bool hasExactAlarm =
+        await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
+
+    if (!hasExactAlarm) {
+      _log.info('Requesting SCHEDULE_EXACT_ALARM permission...');
+      await _channel.invokeMethod('requestExactAlarmPermission');
+      // This opens settings, so we'll need to wait for user to return
+      // The permission check will happen when app resumes
+    }
+
+    bool hasBatteryExemption =
+        await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ??
+            false;
+
+    if (!hasBatteryExemption) {
+      _log.info('Requesting battery optimization exemption...');
+      await _channel.invokeMethod('requestBatteryOptimizationExemption');
+      // This may open a dialog or settings
+      await Future.delayed(const Duration(milliseconds: 500));
+      hasBatteryExemption =
+          await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ??
+              false;
+    }
+
+    _log.info(
+        'Alarm permission status - Exact Alarm: $hasExactAlarm, Battery: $hasBatteryExemption');
+
+    return hasExactAlarm;
+  }
+
   /// Request iOS notification permissions
-  Future<bool> _requestIOSPermissions() async {
+  Future<bool> _requestIOSNotificationPermission() async {
     try {
       final granted =
           await _channel.invokeMethod<bool>('requestNotificationPermission') ??

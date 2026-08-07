@@ -310,7 +310,7 @@ class EpochSlotSchedulerService {
       await _persistState();
 
       _log.info(
-        'Recorded ${epochData.wonSlots!.length} won slots for epoch ${epochData.epoch}; per-slot alarms are disabled',
+        'Found ${epochData.wonSlots!.length} won slots for epoch ${epochData.epoch}; per-slot alarms are disabled',
       );
 
       return SchedulingResult(

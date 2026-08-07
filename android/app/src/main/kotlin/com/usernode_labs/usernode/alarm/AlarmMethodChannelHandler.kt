@@ -271,6 +271,9 @@ class AlarmMethodChannelHandler(context: Context) {
             "openBatterySettings" -> {
                 result.success(openBatteryOptimizationSettings())
             }
+            "openNotificationSettings" -> {
+                result.success(openAppNotificationSettings())
+            }
             "getDeviceManufacturer" -> {
                 result.success(Build.MANUFACTURER)
             }
@@ -502,6 +505,25 @@ class AlarmMethodChannelHandler(context: Context) {
             return powerManager.isIgnoringBatteryOptimizations(appContext.packageName)
         }
         return true
+    }
+
+    private fun openAppNotificationSettings(): Boolean {
+        val activity = activityRef?.get()
+        if (activity == null) {
+            Log.w(TAG, "Cannot open notification settings - no Activity attached")
+            return false
+        }
+        return try {
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, appContext.packageName)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open app notification settings", e)
+            false
+        }
     }
 
     private fun openBatteryOptimizationSettings(): Boolean {

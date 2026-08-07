@@ -44,6 +44,13 @@ mixin _BridgeDispatch
     'resetZkChallenge',
     'requestPermissions',
     'openBatterySettings',
+    // Granular permission surface (Option B): node-coupled alarm/battery
+    // prompt after startNode, notification prompt at SV product moments.
+    'requestNotificationPermission',
+    'requestAlarmPermissions',
+    'openNotificationSettings',
+    // Flag-only: `startNode` responses carry an `alarmPermissions` block.
+    'startNodeAlarmPermissions',
     'logout',
     // Bridge v4 (thin-shell migration): platform login + node lifecycle.
     'beginSessionHandoff',
@@ -280,6 +287,18 @@ mixin _BridgeDispatch
 
         if (method == 'openBatterySettings') {
           await _handleOpenBatterySettings(id);
+        }
+
+        if (method == 'requestNotificationPermission') {
+          await _handleRequestNotificationPermission(id);
+        }
+
+        if (method == 'requestAlarmPermissions') {
+          await _handleRequestAlarmPermissions(id);
+        }
+
+        if (method == 'openNotificationSettings') {
+          await _handleOpenNotificationSettings(id);
         }
 
         if (method == 'logout') {

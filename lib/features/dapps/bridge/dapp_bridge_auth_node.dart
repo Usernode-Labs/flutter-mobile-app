@@ -305,9 +305,18 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     final started = await NodeLifecycleCoordinator.instance.startNode(
       reason: 'platform_start',
     );
+    // Alarm/battery state rides along so SV can show its "node needs alarm &
+    // battery" sheet at the one moment it matters (runs on every cold start,
+    // so revoked permissions get re-flagged too). Not-applicable off Android.
+    final alarmPermissions =
+        await PlatformAlarmService.instance.alarmPermissionsSnapshot();
     await _resolveJsPromise(
       id: id,
-      value: {'started': started, 'nodeStatus': _nodeStatusSnapshot()},
+      value: {
+        'started': started,
+        'nodeStatus': _nodeStatusSnapshot(),
+        'alarmPermissions': alarmPermissions,
+      },
       error: started ? null : 'Node failed to start',
     );
   }

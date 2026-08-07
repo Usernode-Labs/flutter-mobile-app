@@ -45,13 +45,17 @@ void main() {
       final granted = await service.requestAlarmPermissions();
 
       // Exact-alarm grants happen in system settings, so the result reflects
-      // the pre-request state; the re-check happens on app resume.
+      // the pre-request state; the re-check happens on app resume. The exact
+      // call sequence is the contract: alarm check → request, then battery
+      // check → request → re-check — and never any notification traffic.
       expect(granted, isFalse);
-      expect(calls, contains('requestExactAlarmPermission'));
-      expect(calls, contains('requestBatteryOptimizationExemption'));
-      expect(calls, isNot(contains('hasPostNotificationsPermission')));
-      expect(calls, isNot(contains('requestPostNotificationsPermission')));
-      expect(calls, isNot(contains('requestNotificationPermission')));
+      expect(calls, [
+        'hasExactAlarmPermission',
+        'requestExactAlarmPermission',
+        'isBatteryOptimizationDisabled',
+        'requestBatteryOptimizationExemption',
+        'isBatteryOptimizationDisabled',
+      ]);
     });
 
     test('android: exact alarm granted, battery pending -> true', () async {
@@ -92,7 +96,7 @@ void main() {
   });
 
   group('requestNotificationsPermission', () {
-    test('android: POST_NOTIFICATIONS chain only', () async {
+    test('android: POST_NOTIFICATIONS chain only, in order', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       await setUpService();
       responses['hasPostNotificationsPermission'] = [false, true];
@@ -100,9 +104,11 @@ void main() {
       final granted = await service.requestNotificationsPermission();
 
       expect(granted, isTrue);
-      expect(calls, contains('requestPostNotificationsPermission'));
-      expect(calls, isNot(contains('hasExactAlarmPermission')));
-      expect(calls, isNot(contains('isBatteryOptimizationDisabled')));
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+        'hasPostNotificationsPermission',
+      ]);
     });
 
     test('iOS: delegates to requestNotificationPermission', () async {
@@ -146,6 +152,34 @@ void main() {
       expect(await service.openNotificationSettings(), isTrue);
       expect(calls, ['openNotificationSettings']);
     });
+
+    test('propagates a native false (no Activity attached)', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      responses['openNotificationSettings'] = [false];
+
+      expect(await service.openNotificationSettings(), isFalse);
+    });
+  });
+
+  group('requestPermissions (legacy bundle)', () {
+    test('android: keeps notifications → exact alarm → battery order',
+        () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [true];
+      responses['hasExactAlarmPermission'] = [true];
+      responses['isBatteryOptimizationDisabled'] = [true];
+
+      final granted = await service.requestPermissions();
+
+      expect(granted, isTrue);
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'hasExactAlarmPermission',
+        'isBatteryOptimizationDisabled',
+      ]);
+    });
   });
 
   group('alarmPermissionsSnapshot', () {
@@ -176,6 +210,28 @@ void main() {
         'batteryOptDisabled': null,
       });
       expect(calls, isEmpty);
+    });
+
+    test('android: one probe failing does not mask the other', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
+          (call) async {
+        calls.add(call.method);
+        if (call.method == 'hasExactAlarmPermission') {
+          throw PlatformException(code: 'boom');
+        }
+        if (call.method == 'isBatteryOptimizationDisabled') return true;
+        return null;
+      });
+
+      final snapshot = await service.alarmPermissionsSnapshot();
+
+      expect(snapshot, {
+        'applicable': true,
+        'exactAlarmGranted': false,
+        'batteryOptDisabled': true,
+      });
     });
   });
 }

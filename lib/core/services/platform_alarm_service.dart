@@ -659,16 +659,25 @@ class PlatformAlarmService {
         'batteryOptDisabled': null,
       };
     }
+    // Independent probes with a short timeout each: one failing (or a stuck
+    // channel) must neither block startNode's resolution nor mask the other.
     bool exactAlarm = false;
     bool batteryOptDisabled = false;
     try {
-      exactAlarm =
-          await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
-      batteryOptDisabled =
-          await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ??
-              false;
+      exactAlarm = await _channel
+              .invokeMethod<bool>('hasExactAlarmPermission')
+              .timeout(const Duration(seconds: 3)) ??
+          false;
     } catch (e) {
-      _log.warn('Alarm permission probe failed: $e');
+      _log.warn('Exact-alarm permission probe failed: $e');
+    }
+    try {
+      batteryOptDisabled = await _channel
+              .invokeMethod<bool>('isBatteryOptimizationDisabled')
+              .timeout(const Duration(seconds: 3)) ??
+          false;
+    } catch (e) {
+      _log.warn('Battery optimization probe failed: $e');
     }
     return {
       'applicable': true,

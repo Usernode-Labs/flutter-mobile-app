@@ -89,19 +89,22 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// (each setter resolves with the refreshed state so SV re-renders from a
   /// single source of truth). Mirrors what the native settings screen shows.
   Future<Map<String, dynamic>> _settingsStateSnapshot() async {
-    // Permission checks mirror the native QuickSettingsPanel wiring.
+    // Live probes, not the service's cached combined flag: the granular
+    // request methods don't refresh `hasPermissions`, and its legacy
+    // notifications&&exactAlarm semantics would mislabel `exactAlarmGranted`.
     bool exactAlarmGranted = false;
     bool? batteryOptDisabled;
     bool notificationsGranted = false;
     String? deviceManufacturer;
     try {
       await PlatformAlarmService.instance.initialize();
-      exactAlarmGranted = PlatformAlarmService.instance.hasPermissions;
       notificationsGranted =
           await PlatformAlarmService.instance.hasNotificationsPermission();
+      final alarm =
+          await PlatformAlarmService.instance.alarmPermissionsSnapshot();
+      exactAlarmGranted = alarm['exactAlarmGranted'] == true;
+      batteryOptDisabled = alarm['batteryOptDisabled'] as bool?;
       if (defaultTargetPlatform == TargetPlatform.android) {
-        batteryOptDisabled =
-            await PlatformAlarmService.instance.isBatteryOptimizationDisabled();
         deviceManufacturer =
             await PlatformAlarmService.instance.getDeviceManufacturer();
       }
@@ -280,7 +283,12 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     if (!await _requireTrustedChromeOrigin(id, 'openNotificationSettings')) {
       return;
     }
-    await PlatformAlarmService.instance.openNotificationSettings();
-    await _resolveJsPromise(id: id, value: true, error: null);
+    final opened =
+        await PlatformAlarmService.instance.openNotificationSettings();
+    await _resolveJsPromise(
+      id: id,
+      value: opened,
+      error: opened ? null : 'Could not open notification settings',
+    );
   }
 }

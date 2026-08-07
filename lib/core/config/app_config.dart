@@ -96,10 +96,6 @@ class AppConfig {
       String.fromEnvironment('BOOTSTRAP_EVENT_ID', defaultValue: '');
   static const String bootstrapEventName =
       String.fromEnvironment('BOOTSTRAP_EVENT_NAME', defaultValue: '');
-  static const bool bootstrapCompleteOnboarding = bool.fromEnvironment(
-    'BOOTSTRAP_COMPLETE_ONBOARDING',
-    defaultValue: true,
-  );
 
   static String get bootstrapSecretKey => _bootstrapSecretKey.trim();
   static bool get hasBootstrapSecretKey => bootstrapSecretKey.isNotEmpty;
@@ -249,12 +245,6 @@ class AppConfig {
       bool.fromEnvironment('ENABLE_REAL_PROVER', defaultValue: false);
 
   // Block Production configuration (all in seconds)
-  // Headless produced-blocks refresh cadence: in background mode we keep
-  // producedBlocksSummaryProvider warm on this interval without any UI. (Was
-  // previously shared with the now-removed topochain metrics collector.)
-  static const int headlessRefreshIntervalSeconds = int.fromEnvironment(
-      'HEADLESS_REFRESH_INTERVAL_SECONDS',
-      defaultValue: 30);
   static const int blockProductionWakeBeforeSlotSeconds = int.fromEnvironment(
       'BLOCK_PRODUCTION_WAKE_BEFORE_SLOT_SECONDS',
       defaultValue: 60);
@@ -263,8 +253,6 @@ class AppConfig {
       defaultValue: 900);
 
   // Convert to Duration for convenience
-  static Duration get headlessRefreshInterval =>
-      const Duration(seconds: headlessRefreshIntervalSeconds);
   static Duration get blockProductionWakeBeforeSlot =>
       const Duration(seconds: blockProductionWakeBeforeSlotSeconds);
   static Duration get epochMonitorBaseInterval =>

@@ -493,31 +493,6 @@ void main() {
 
       expect(records, hasLength(1));
     });
-
-    test('block production monitoring start is reported as an event', () {
-      final records = <_CapturedObservabilityRecord>[];
-      final service = _service(records);
-
-      service.reportBlockProductionMonitoringStarted(
-        globalSlot: 42,
-        epoch: 7,
-        slotTimeMs: 1700000060000,
-        alarmTimeMs: 1700000005000,
-        monitoringStartedAtMs: 1700000005200,
-      );
-
-      expect(records, hasLength(1));
-      final record = records.single;
-      expect(record.kind, FlutterObservabilityKind.event);
-      expect(record.event, 'app_block_production_monitoring_started');
-      expect(record.payload, {
-        'global_slot': 42,
-        'epoch': 7,
-        'slot_time_ms': 1700000060000,
-        'alarm_time_ms': 1700000005000,
-        'monitoring_started_at_ms': 1700000005200,
-      });
-    });
   });
 }
 

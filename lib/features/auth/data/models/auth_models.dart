@@ -37,25 +37,3 @@ class AuthSession {
         ),
       );
 }
-
-class CheckEmailResult {
-  const CheckEmailResult({required this.exists, required this.passwordSet});
-
-  final bool exists;
-  final bool passwordSet;
-
-  factory CheckEmailResult.fromJson(Map<String, dynamic> json) =>
-      CheckEmailResult(
-        exists: json['exists'] == true,
-        passwordSet: json['password_set'] == true,
-      );
-}
-
-class OtpTicket {
-  const OtpTicket({required this.setPasswordToken});
-
-  final String setPasswordToken;
-
-  factory OtpTicket.fromJson(Map<String, dynamic> json) =>
-      OtpTicket(setPasswordToken: json['set_password_token'] as String);
-}

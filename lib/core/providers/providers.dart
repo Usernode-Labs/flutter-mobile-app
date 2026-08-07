@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
@@ -9,7 +8,6 @@ import 'package:crypto_mobile_app/core/config/debug_mode.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Providers');
 
@@ -21,21 +19,6 @@ final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
   _log.debug('hasAnyAccountProvider: result = $result');
   return result;
 });
-
-// Onboarding completion provider (network-prefixed)
-const _kOnboardingCompletedKeyBase = 'onboarding:completed';
-
-final hasCompletedOnboardingProvider = FutureProvider<bool>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixAccountKey(_kOnboardingCompletedKeyBase);
-  return prefs.getBool(key) ?? false;
-});
-
-Future<void> markOnboardingComplete() async {
-  final prefs = await SharedPreferences.getInstance();
-  final key = NetworkPrefs.prefixAccountKey(_kOnboardingCompletedKeyBase);
-  await prefs.setBool(key, true);
-}
 
 // Backend lifecycle manager. Node STARTS are platform-controlled (SV chrome
 // requests them over bridge v4) — this provider only guarantees teardown:
@@ -80,20 +63,6 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
     final saved = await ThemeModeStorage.load();
     state = saved;
   }
-
-  Future<void> set(ThemeMode mode) async {
-    state = mode;
-    await ThemeModeStorage.save(mode);
-  }
-
-  Future<void> cycle() async {
-    final next = switch (state) {
-      ThemeMode.system => ThemeMode.light,
-      ThemeMode.light => ThemeMode.dark,
-      ThemeMode.dark => ThemeMode.system,
-    };
-    await set(next);
-  }
 }
 
 final themeModeProvider =
@@ -127,33 +96,3 @@ final debugModeProvider =
 final httpDebugLogStoreProvider =
     Provider<HttpDebugLogStore>((ref) => HttpDebugLogStore.instance);
 
-// Current network provider for reactive network state tracking
-class CurrentNetworkController extends StateNotifier<String> {
-  CurrentNetworkController() : super('testnet') {
-    _init();
-  }
-
-  Future<void> _init() async {
-    // Initialize from cached network value
-    state = NetworkPrefs.currentNetwork;
-  }
-
-  Future<void> refresh() async {
-    // Force refresh from SharedPreferences
-    final newNetwork = await NetworkPrefs.getNetwork();
-    if (mounted) {
-      state = newNetwork;
-    }
-  }
-
-  void updateNetwork(String network) {
-    if (mounted) {
-      state = network;
-    }
-  }
-}
-
-final currentNetworkProvider =
-    StateNotifierProvider<CurrentNetworkController, String>((ref) {
-  return CurrentNetworkController();
-});

@@ -59,10 +59,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
-  assets:
-  - assets/feature_flags.json
-  - assets/images/
-  - lib/design_system/DESIGN_SYSTEM.md
   fonts:
   - family: IBMPlexMono
     fonts:

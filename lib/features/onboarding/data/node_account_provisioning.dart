@@ -377,12 +377,7 @@ class NodeAccountReconciler {
       // Let account-gated UI see the new state immediately.
       _ref.invalidate(hasAnyAccountProvider);
       _ref.invalidate(accountsProvider);
-      _ref.invalidate(activeAccountProvider);
     }
-    // Onboarding completion is bucket-scoped. Reconcile always moves the
-    // active bucket from guest to the confirmed account, even when that
-    // account was already active in the registry (`changed == false`).
-    _ref.invalidate(hasCompletedOnboardingProvider);
     _ref.invalidate(participantIdProvider);
 
     return true;

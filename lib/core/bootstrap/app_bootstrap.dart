@@ -7,11 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
-import 'package:crypto_mobile_app/core/feature_flags.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
-import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
@@ -238,10 +236,10 @@ class AppBootstrap {
       'has_participant_id': participantId != null,
       'season_id': seasonId,
       'event_id': eventId,
-      'complete_onboarding': AppConfig.bootstrapCompleteOnboarding,
     });
 
-    var hasActiveAccount = false;
+    // (Bootstrap-env onboarding completion was removed with the retired
+    // native onboarding; account activation below is the only effect.)
     if (secretKey.isNotEmpty) {
       try {
         await RustBackendService.instance.init();
@@ -256,7 +254,6 @@ class AppBootstrap {
         }
         if (existingAccount != null) {
           await repo.setActiveId(existingAccount.id);
-          hasActiveAccount = true;
           log.info(
             'Bootstrap account already exists; reusing existing account',
             context: {
@@ -269,7 +266,6 @@ class AppBootstrap {
             name: AppConfig.bootstrapAccountName,
             secretKey: secretKey,
           );
-          hasActiveAccount = true;
           log.info(
             'Bootstrap account ready',
             context: {'account_id': account.id, 'address': account.address},
@@ -282,8 +278,6 @@ class AppBootstrap {
           stackTrace: st,
         );
       }
-    } else {
-      hasActiveAccount = await repo.hasAny();
     }
 
     if (participantId != null) {
@@ -312,10 +306,6 @@ class AppBootstrap {
       });
     }
 
-    if (hasActiveAccount && AppConfig.bootstrapCompleteOnboarding) {
-      await markOnboardingComplete();
-      log.info('Marked onboarding complete from bootstrap env');
-    }
   }
 
   static Future<void> _bootstrapBackendAsync({
@@ -333,14 +323,6 @@ class AppBootstrap {
         'environment': cfg.environment,
         'verboseLogging': cfg.verboseLogging,
       });
-
-      // Load feature flags from assets (if provided)
-      await FeatureFlags.loadFromAssetIfAvailable();
-      if (kDebugMode) {
-        log.debug(
-          'Feature flags loaded: ${FeatureFlags.ordered.where(FeatureFlags.isEnabled).toList()}',
-        );
-      }
 
       // Initialize FRB for native event delivery. The node is NOT started
       // here: node lifecycle is platform-controlled (SV chrome requests the

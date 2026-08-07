@@ -363,25 +363,6 @@ class ObservabilityReportingService {
     );
   }
 
-  FlutterObservabilityRecordResult reportBlockProductionMonitoringStarted({
-    required int globalSlot,
-    required int monitoringStartedAtMs,
-    int? epoch,
-    int? slotTimeMs,
-    int? alarmTimeMs,
-  }) {
-    return recordEvent(
-      event: 'app_block_production_monitoring_started',
-      details: {
-        'global_slot': globalSlot,
-        if (epoch != null) 'epoch': epoch,
-        if (slotTimeMs != null) 'slot_time_ms': slotTimeMs,
-        if (alarmTimeMs != null) 'alarm_time_ms': alarmTimeMs,
-        'monitoring_started_at_ms': monitoringStartedAtMs,
-      },
-    );
-  }
-
   Future<void> reportStaticMobileContextSnapshot({
     String reason = 'node_initialized',
     Map<String, dynamic>? eventData,

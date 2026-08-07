@@ -5,7 +5,6 @@ import 'package:crypto_mobile_app/core/services/android_foreground_task_controll
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:flutter/widgets.dart';
@@ -361,7 +360,6 @@ class AppSleepService extends ChangeNotifier {
 
     AppVersionCheck.instance.stopPeriodicChecks();
     EpochSlotSchedulerService.instance.stopEpochMonitoring();
-    await SlotMonitorService.instance.stopMonitoring();
 
     if (Platform.isAndroid && !_useWakelockTransitionFlow) {
       await AndroidForegroundTaskController.instance

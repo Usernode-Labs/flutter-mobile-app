@@ -13,7 +13,6 @@ import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart'
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
-import 'package:crypto_mobile_app/core/services/slot_monitor_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
@@ -40,7 +39,6 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
-
 
 /// Marionette MCP mode initializes MarionetteBinding for runtime inspection
 /// and screenshots by an external AI agent. It must bypass Sentry because
@@ -337,7 +335,6 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
         .hardStopForSessionBoundary(reason: reason);
     AppLifecycleLogger.unregister();
     await AppSleepService.instance.stopForRuntimeRestart();
-    await SlotMonitorService.instance.stopMonitoring();
     await ObservabilityReportingService.instance
         .stopMobileContextSnapshotReporting();
     EpochSlotSchedulerService.instance.dispose();

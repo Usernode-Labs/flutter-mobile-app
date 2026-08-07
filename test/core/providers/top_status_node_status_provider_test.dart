@@ -1,5 +1,4 @@
 import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
-import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

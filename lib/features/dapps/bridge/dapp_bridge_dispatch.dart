@@ -61,39 +61,11 @@ mixin _BridgeDispatch
       if (method == null) return;
 
       // `titleChanged` is a fire-and-forget signal from the page that
-      // `document.title` has been updated outside of a real navigation
-      // (e.g. an SPA route change without a pushState, or a deferred
-      // title set after data finishes loading). webview_flutter's
-      // onUrlChange-based `_refreshPageTitle` only catches title
-      // changes that happen at navigation moments; without this
-      // channel, the AppBar's `_pageTitle` lags one navigation
-      // behind the page's actual title. Unlike the other methods
-      // here, there's no pending JS promise to resolve, so we don't
-      // require `id`.
-      if (method == 'titleChanged') {
-        // Use `.toString()` rather than `as String?` so we don't
-        // throw on unexpected payload shapes (the cast surfaced as
-        // a silent setState-skip when the value happened to come
-        // back as a non-String).
-        final raw = payload['value']?.toString().trim();
-        final newTitle = (raw == null || raw.isEmpty) ? null : raw;
-        debugPrint(
-          '[Usernode JS-channel] titleChanged value="$newTitle" '
-          'current="$_pageTitle" mounted=$mounted',
-        );
-        if (!mounted) return;
-        // Pin to the channel as the source of truth for this page
-        // load. Without this, the very next pushState-driven
-        // onUrlChange will run `_refreshPageTitle`, see WKWebView's
-        // stale getTitle() value (the *previous* screen's title)
-        // and clobber the value we're about to set with setState
-        // below — visible as `titleChanged value="dApps"` followed
-        // by `build _pageTitle="whiteboard"` in the logs.
-        _titleFromChannel = true;
-        if (newTitle == _pageTitle) return;
-        setState(() => _pageTitle = newTitle);
-        return;
-      }
+      // `document.title` has been updated. It used to drive the legacy
+      // browser AppBar's title; with that chrome removed nothing native
+      // renders the title, but pages (SV's App.setHeaderTitle) still post
+      // it — accept and ignore for protocol compatibility.
+      if (method == 'titleChanged') return;
 
       if (id == null) return;
 

@@ -16,9 +16,5 @@ void main() {
     expect(componentPaths['Button'], 'live app/widgets/buttons');
     expect(componentPaths['ChallengeCard'], 'live app/widgets/challenges');
     expect(componentPaths['ZkIdentityFlowPage'], 'live app/pages/zk-identity');
-    expect(
-      componentPaths['TopStatusAppBarPreview'],
-      'live app/widgets/navigation',
-    );
   });
 }

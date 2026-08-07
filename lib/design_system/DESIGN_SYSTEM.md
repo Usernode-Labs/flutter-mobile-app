@@ -257,7 +257,6 @@ Shape values come from `AppRadii`.
 | `ListSectionHeader` | Code | [genesis](.specs/ListSectionHeader.genesis.md) |
 | `SheetLayout` | Code | [genesis](.specs/SheetLayout.genesis.md) |
 | `TopAppBar` | [Figma small](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2994:2764), [Figma large](https://figma.com/design/Eu4jn5o8finpZ28IAGPyru/?node-id=2943:28629) | [genesis](.specs/TopAppBar.genesis.md) |
-| `TopStatusAppBar` | [Figma large](https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=3964-1802), [Figma compact](https://www.figma.com/design/Eu4jn5o8finpZ28IAGPyru/Testnet-App?node-id=3964-1852) | [genesis](.specs/TopStatusAppBar.genesis.md) |
 | `ZkIdentityFlowPage` | Code | [genesis](.specs/ZkIdentityFlowPage.genesis.md) |
 | `ZkIdentityStatusCard` | Code | [genesis](.specs/ZkIdentityStatusCard.genesis.md) |
 | `ZkIdentityStepIllustration` | Code | [genesis](.specs/ZkIdentityStepIllustration.genesis.md) |

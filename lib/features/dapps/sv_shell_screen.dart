@@ -106,8 +106,6 @@ class _SvShellScreenState extends State<SvShellScreen> {
       key: ValueKey('sv-shell:$_attempt'),
       url: _shellUrl,
       name: 'Usernode',
-      embedded: true,
-      chromeless: true,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,
     );
 

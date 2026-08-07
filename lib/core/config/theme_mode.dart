@@ -24,17 +24,4 @@ class ThemeModeStorage {
     }
   }
 
-  static Future<void> save(ThemeMode mode) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final v = switch (mode) {
-        ThemeMode.light => 'light',
-        ThemeMode.dark => 'dark',
-        ThemeMode.system => 'system',
-      };
-      await prefs.setString(_key, v);
-    } catch (e, st) {
-      await SentryUtil.captureError(e, st, tag: 'theme_save');
-    }
-  }
 }

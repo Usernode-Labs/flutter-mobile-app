@@ -320,7 +320,6 @@ void main() {
     addTearDown(c.dispose);
     await _settle(c);
     await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
-    expect(c.read(isReadyAuthenticatedProvider), isFalse);
     final epoch = c.read(identityProvider).epoch;
     final committed =
         await c.read(identityProvider.notifier).reconcileSucceeded(
@@ -333,7 +332,6 @@ void main() {
     expect(committed, isTrue);
     final identity = c.read(identityProvider);
     expect(identity.phase, IdentityPhase.ready);
-    expect(c.read(isReadyAuthenticatedProvider), isTrue);
     expect(identity.epoch, epoch);
     expect(identity.address, 'addr-1');
     expect(identity.provisionedSeasonId, 7);

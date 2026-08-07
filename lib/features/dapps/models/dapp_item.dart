@@ -29,12 +29,3 @@ class DappItem {
       .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
       .replaceAll(RegExp(r'^-+|-+$'), '');
 }
-
-class DappStats {
-  final int users;
-  final int txns;
-
-  const DappStats({required this.users, required this.txns});
-
-  static const zero = DappStats(users: 0, txns: 0);
-}

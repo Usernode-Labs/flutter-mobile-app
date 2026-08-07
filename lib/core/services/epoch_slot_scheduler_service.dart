@@ -5,7 +5,6 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import '../../features/node/node_service.dart';
-import '../data/slot_production_repository.dart';
 import 'platform_alarm_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/EpochSlotScheduler');
@@ -307,33 +306,11 @@ class EpochSlotSchedulerService {
       // Clear old scheduled slots
       await cancelAllSlots();
 
-      for (final wonSlot in epochData.wonSlots!) {
-        final rustSlotTimeMs = wonSlot.expectedTimeMs.toInt();
-        final localSlotTimeMs =
-            RustBackendService.instance.localTimeMsFromRustTimeMs(
-          rustSlotTimeMs,
-          clockDriftMs: clockDriftMs,
-        );
-        final slotTime = DateTime.fromMillisecondsSinceEpoch(localSlotTimeMs);
-
-        // Record won slot to statistics repository
-        try {
-          await SlotProductionRepository.instance.recordWonSlot(
-            slotNumber: wonSlot.globalSlot,
-            epoch: epochData.epoch,
-            slotTime: slotTime,
-          );
-          _log.debug('Recorded won slot ${wonSlot.globalSlot} to statistics');
-        } catch (e) {
-          _log.warn('Failed to record won slot ${wonSlot.globalSlot}: $e');
-        }
-      }
-
       _scheduledSlots = [];
       await _persistState();
 
       _log.info(
-        'Recorded ${epochData.wonSlots!.length} won slots for epoch ${epochData.epoch}; per-slot alarms are disabled',
+        'Found ${epochData.wonSlots!.length} won slots for epoch ${epochData.epoch}; per-slot alarms are disabled',
       );
 
       return SchedulingResult(

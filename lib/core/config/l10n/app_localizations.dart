@@ -112,12 +112,6 @@ abstract class AppLocalizations {
   /// **'Initializing node...'**
   String get initializingNode;
 
-  /// Node tab label
-  ///
-  /// In en, this message translates to:
-  /// **'Node'**
-  String get node;
-
   /// Title for the clock drift warning dialog
   ///
   /// In en, this message translates to:
@@ -646,18 +640,6 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
-  /// Label above total points stat
-  ///
-  /// In en, this message translates to:
-  /// **'TOTAL POINTS'**
-  String get totalPointsLabel;
-
-  /// Label above rank stat
-  ///
-  /// In en, this message translates to:
-  /// **'RANK'**
-  String get rankLabel;
-
   /// Detail screen total reward heading
   ///
   /// In en, this message translates to:
@@ -1083,24 +1065,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close App'**
   String get networkCloseApp;
-
-  /// Block hash label
-  ///
-  /// In en, this message translates to:
-  /// **'Block Hash'**
-  String get blockHash;
-
-  /// Block height label
-  ///
-  /// In en, this message translates to:
-  /// **'Height'**
-  String get blockHeight;
-
-  /// Producer label
-  ///
-  /// In en, this message translates to:
-  /// **'Producer'**
-  String get blockProducer;
 
   /// Diagnostics toggle that enables in-memory HTTP request logging
   ///

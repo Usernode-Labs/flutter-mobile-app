@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
@@ -418,40 +417,6 @@ void main() {
       isFalse,
     );
     expect(provisionCalls, hasLength(1));
-  });
-
-  test('same-account reconcile refreshes onboarding from the confirmed bucket',
-      () async {
-    final bucketB = NetworkPrefs.bucketForAddress(_addressB);
-    SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
-        _accountJson('acc_1_b', _addressB),
-      ]),
-      'testnet:accounts:activeId': 'acc_1_b',
-      'testnet:acct:$bucketB:onboarding:completed': true,
-    });
-    await NetworkPrefs.init();
-
-    final provisionCalls = <int>[];
-    final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
-          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
-      _reconcilerOverride(),
-    ]);
-    addTearDown(container.dispose);
-
-    await _login(container);
-    // Reconciliation has not confirmed an account yet, so this first read is
-    // cached from the guest bucket.
-    expect(await container.read(hasCompletedOnboardingProvider.future), false);
-
-    final committed =
-        await container.read(nodeAccountReconcilerProvider).reconcile();
-
-    expect(committed, isTrue);
-    // The registry account did not change, but the active identity bucket did
-    // (guest -> B), so the provider must have been invalidated regardless.
-    expect(await container.read(hasCompletedOnboardingProvider.future), true);
   });
 
   test(

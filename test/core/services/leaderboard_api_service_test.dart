@@ -497,7 +497,7 @@ void main() {
       );
 
       await expectLater(
-        () => service.postTermsConsent(termsVersionId: 1, appVersion: '1.0.0'),
+        () => service.provisionWallet(),
         throwsA(isA<LeaderboardApiException>()),
       );
       expect(attempts, 1);

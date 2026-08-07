@@ -37,16 +37,6 @@ TopStatusNodeStatus topStatusNodeStatusFromSyncStatus(
   );
 }
 
-/// Maps the live node sync state to the [TopStatusNodeStatus] shown by the
-/// shared top bar (`TopStatusAppBar`) across the Challenges / Wallet / dApps
-/// root screens. `error` or not-yet-loaded resolves to offline.
-final topStatusNodeStatusProvider = Provider<TopStatusNodeStatus>((ref) {
-  final state = ref.watch(
-    nodeStatusProvider.select((s) => s.valueOrNull?.syncStatus.state),
-  );
-  return topStatusNodeStatusFromConnectionState(state);
-});
-
 const topStatusChromeSyncingGracePeriod = Duration(seconds: 3);
 
 final topStatusChromeSyncingGracePeriodProvider = Provider<Duration>(
@@ -68,8 +58,7 @@ final topStatusChromeRawNodeStatusProvider =
 });
 
 /// Chrome-level node status with light hysteresis for tiny `synced`/`syncing`
-/// oscillations caused by the 1s node status poll. Diagnostic surfaces should
-/// use [topStatusNodeStatusProvider] so they stay raw and exact.
+/// oscillations caused by the 1s node status poll.
 final topStatusChromeNodeStatusProvider = StateNotifierProvider<
     TopStatusChromeNodeStatusController, TopStatusNodeStatus>((ref) {
   final controller = TopStatusChromeNodeStatusController(

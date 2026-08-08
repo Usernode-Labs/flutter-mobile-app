@@ -79,6 +79,7 @@ class RustBackendService {
   Completer<bool>? _startNodeCompleter;
   bool _nodeRunning = false;
   bool _nodePaused = false;
+  bool _terminalResetRequested = false;
   bool? _runtimeViewOnly;
   String? _instanceId;
   String? _cachedPeerId;
@@ -269,13 +270,10 @@ class RustBackendService {
   /// Safe to call multiple times; subsequent calls return true if already running.
   ///
   /// Identity gate: every start path (bootstrap, wake, foreground task,
-  /// alarms, lifecycle) funnels through here, so this is where "never run
-  /// the node while account ownership is unsettled" is enforced. While the
-  /// identity is reconciling (a sign-in or season rollover whose account
-  /// reconcile has not completed), the active account may still belong to a
-  /// previous user — refuse to start. The [NodeAccountReconciler] is the ONE
-  /// caller allowed through (via [identityOverride]) because it starts the
-  /// node under the account it just confirmed.
+  /// alarms, lifecycle) funnels through here. Only a signed-in, ready identity
+  /// is currently admitted. The internal keyless/view-only construction is
+  /// intentionally retained for a future explicit guest-node product mode,
+  /// but no caller may bypass this gate today.
   ///
   /// The gate is checked at entry AND re-checked after the (long) internal
   /// start: a login can close the gate while a start is in flight, and the
@@ -288,13 +286,16 @@ class RustBackendService {
   /// shut down and a new one is built under the now-active account.
   Future<bool> startNode({
     int? httpPort,
-    bool identityOverride = false,
     bool freshRuntime = false,
   }) async {
-    if (!identityOverride && !IdentitySnapshots.current.allowsNodeStart) {
+    if (_terminalResetRequested) {
+      _log.warn('startNode refused: terminal reset is in progress');
+      return false;
+    }
+    if (!IdentitySnapshots.current.allowsNodeStart) {
       _log.warn('startNode refused: identity is '
-          '${IdentitySnapshots.current.phase.name} (account ownership '
-          'unsettled until the reconcile completes)');
+          '${IdentitySnapshots.current.phase.name}; a signed-in, ready '
+          'identity is required');
       return false;
     }
     if (_startNodeCompleter != null) {
@@ -309,9 +310,14 @@ class RustBackendService {
         httpPort: httpPort,
         freshRuntime: freshRuntime,
       );
-      if (started &&
-          !identityOverride &&
-          !IdentitySnapshots.current.allowsNodeStart) {
+      if (started && _terminalResetRequested) {
+        _log.warn('startNode: terminal reset began mid-start; '
+            'signalling the just-started node to shut down');
+        signalShutdownForTerminalReset();
+        completer.complete(false);
+        return false;
+      }
+      if (started && !IdentitySnapshots.current.allowsNodeStart) {
         // The identity became unsettled while the start was in flight; the
         // runtime captured the pre-transition account's key. Settle waiters
         // first (stopNode waits on this completer), then tear down.
@@ -474,6 +480,7 @@ class RustBackendService {
           return false;
         }
       } else {
+        if (_terminalResetRequested) return false;
         _rpc = rpc;
         _control = control;
         _nodeRunning = true;
@@ -512,16 +519,17 @@ class RustBackendService {
 
       // Load network configuration from URLs (with retry)
       await _configureNetworkFromUrls(builder);
+      if (_terminalResetRequested) return false;
 
       final delegated =
           !viewOnly && await StakingPreferenceStore.active().isDelegated();
 
-      // A guest session is treated as view-only: the node still runs and syncs,
-      // but never produces blocks — a returning operator's leftover keys must
-      // not operate while browsing as a guest.
+      // Keep keyless/view-only construction below the admission gate for
+      // explicit VIEW_ONLY builds and a future guest-node product mode.
+      // Current guest identities never reach this branch through startNode.
       if (viewOnly) {
         _log.info(guestSession
-            ? 'Guest session; node runs non-producing (no block producer)'
+            ? 'Keyless guest safety mode; skipping block producer configuration'
             : 'VIEW_ONLY enabled; skipping block producer configuration');
       } else if (delegated) {
         _log.info('Stake is delegated; node runs without a block producer');
@@ -567,6 +575,7 @@ class RustBackendService {
       // Use network-specific paths to avoid conflicts when switching networks.
       final appSupportDir = await getApplicationSupportDirectory();
       final networkType = await _getSelectedNetwork();
+      if (_terminalResetRequested) return false;
       // TODO this should include the hash of the genesis block
       final nodeStoragePath =
           '${appSupportDir.path}/${networkType.name}_usernode_node_storage.sqlite';
@@ -579,11 +588,18 @@ class RustBackendService {
       _log.trace('Using VRF storage path: $vrfPath');
       builder.vrfStoragePath(path: vrfPath);
 
+      if (_terminalResetRequested) return false;
       final node = builder.build();
       _rpc = node.rpc();
 
       // Run the node in a background thread.
+      if (_terminalResetRequested) return false;
       _control = node.runForeverInNewThread();
+      if (_terminalResetRequested) {
+        _control?.shutdown();
+        _clearLocalRuntimeState();
+        return false;
+      }
       _nodeRunning = true;
       _nodePaused = false;
       _runtimeViewOnly = viewOnly;
@@ -638,6 +654,7 @@ class RustBackendService {
     const retryDelay = Duration(milliseconds: 500);
 
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (_terminalResetRequested) return false;
       try {
         _log.debug(
           'Configuring wallet signer for account $accountId '
@@ -646,6 +663,7 @@ class RustBackendService {
         final resp = await _rpc!.walletSetSignerFromSecret(
           secretKey: secretKey,
         );
+        if (_terminalResetRequested) return false;
 
         if (resp != null && resp.ok) {
           _log.info('Wallet signer configured for account $accountId');
@@ -703,6 +721,10 @@ class RustBackendService {
   }
 
   Future<void> resumeNode() async {
+    if (_terminalResetRequested) {
+      _log.warn('resumeNode refused: terminal reset is in progress');
+      return;
+    }
     // Same gate as startNode: resume is a secondary "make the runtime
     // operate" path (ZK pipeline, lifecycle foreground) and must not wake a
     // suspended runtime while account ownership is unsettled.
@@ -790,6 +812,33 @@ class RustBackendService {
     }
   }
 
+  /// Irreversibly fences this façade and sends the existing synchronous Rust
+  /// shutdown signal without waiting for the runtime to retire.
+  ///
+  /// Android process death owns final teardown. iOS remains in an inert app
+  /// surface after this call, so no start or resume path is allowed to reopen
+  /// the runtime in this process.
+  void signalShutdownForTerminalReset() {
+    _terminalResetRequested = true;
+
+    NodeControl? control = _control;
+    if (_initialized) {
+      try {
+        control = Node.getGlobalControl() ?? control;
+      } catch (error) {
+        _log.warn('Could not resolve process-global node during reset: $error');
+      }
+    }
+
+    try {
+      control?.shutdown();
+    } catch (error) {
+      _log.warn('Could not signal node shutdown during reset: $error');
+    } finally {
+      _clearLocalRuntimeState();
+    }
+  }
+
   /// Get the currently selected network type from storage.
   ///
   /// This is exposed via the public [getSelectedNetwork] wrapper so that other
@@ -852,20 +901,6 @@ class RustBackendService {
     _log.info('Restarting node');
     await stopNode();
     await startNode();
-  }
-
-  /// Clears cached service state so the next bootstrap starts from a clean slate.
-  Future<void> resetForAppRestart() async {
-    await stopNode();
-    _initialized = false;
-    _initCompleter = null;
-    _startNodeCompleter = null;
-    _nodeRunning = false;
-    _nodePaused = false;
-    _instanceId = null;
-    _cachedPeerId = null;
-    _cachedGenesisTimestamp = null;
-    _clearNodeClockDrift();
   }
 
   /// Obtain the RPC client for ad-hoc calls.

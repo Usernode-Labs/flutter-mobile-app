@@ -30,6 +30,7 @@ class AndroidForegroundTaskController {
   Timer? _pollTimer;
   Future<void>? _activePoll;
   bool _initialized = false;
+  bool _terminalResetRequested = false;
   bool _wakelockHeld = false;
   AccountPublicKey? _cachedOurPubKey;
   ({int height, DateTime since})? _awaitingOtherProducerState;
@@ -39,6 +40,7 @@ class AndroidForegroundTaskController {
 
   Future<void> initialize() async {
     if (!Platform.isAndroid) return;
+    if (_terminalResetRequested) return;
     if (_initialized) return;
 
     WidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +73,7 @@ class AndroidForegroundTaskController {
     } catch (e) {
       _log.warn('Error handling notification permission: $e');
     }
+    if (_terminalResetRequested) return;
     _recordRuntimeContextChanged('permissions_changed');
 
     _initialized = true;
@@ -79,6 +82,7 @@ class AndroidForegroundTaskController {
 
   Future<void> onNodeStarted() async {
     if (!Platform.isAndroid) return;
+    if (_terminalResetRequested) return;
     if (AppSleepStateStore.isSleeping) {
       _log.info('Skipping Android monitoring start while app sleep is active');
       return;
@@ -91,6 +95,7 @@ class AndroidForegroundTaskController {
     bool allowWhileSleeping = false,
   }) async {
     if (!Platform.isAndroid) return false;
+    if (_terminalResetRequested) return false;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Skipping Android monitoring start while app sleep is active',
@@ -99,9 +104,11 @@ class AndroidForegroundTaskController {
       return false;
     }
     await initialize();
+    if (_terminalResetRequested) return false;
 
     // Ensure the Rust node is running before polling VRF or scheduling alarms.
     final nodeOk = await _ensureNodeRunning();
+    if (_terminalResetRequested) return false;
     if (!nodeOk) {
       _log.error('Cannot start monitoring: node failed to start');
       return false;
@@ -127,6 +134,10 @@ class AndroidForegroundTaskController {
 
     final wakelockWasHeld = _wakelockHeld;
     final wakelockAcquired = await _acquireWakelock();
+    if (_terminalResetRequested) {
+      if (wakelockAcquired) await _releaseWakelock();
+      return false;
+    }
     if (!wakelockAcquired) {
       _log.error('Cannot start monitoring: native wakelock was not acquired');
       return false;
@@ -134,6 +145,10 @@ class AndroidForegroundTaskController {
 
     final running =
         await PlatformAlarmService.instance.isForegroundServiceRunning();
+    if (_terminalResetRequested) {
+      if (!wakelockWasHeld) await _releaseWakelock();
+      return false;
+    }
     if (!running) {
       final result = await PlatformAlarmService.instance.startForegroundService(
         title: 'Usernode',
@@ -150,6 +165,11 @@ class AndroidForegroundTaskController {
       }
     }
 
+    if (_terminalResetRequested) {
+      if (!wakelockWasHeld) await _releaseWakelock();
+      await PlatformAlarmService.instance.stopForegroundService();
+      return false;
+    }
     _startPollTimer();
     return true;
   }
@@ -193,6 +213,7 @@ class AndroidForegroundTaskController {
     String? alarmKey,
     bool allowWhileSleeping = false,
   }) async {
+    if (_terminalResetRequested) return;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Ignoring alarm-fired monitoring start while app sleep is active',
@@ -240,11 +261,13 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<void> resetForAppRestart() async {
-    if (!Platform.isAndroid) return;
+  /// Permanently stops this process-local monitor from admitting work during
+  /// terminal reset. In-flight polling is not awaited; the incarnation fence
+  /// rejects any late native scheduling and the Rust façade rejects starts.
+  void closeForTerminalReset() {
+    _terminalResetRequested = true;
     _pollTimer?.cancel();
     _pollTimer = null;
-    await _activePoll;
     _activePoll = null;
     _initialized = false;
     _wakelockHeld = false;
@@ -258,7 +281,9 @@ class AndroidForegroundTaskController {
   Future<bool> _ensureNodeRunning() async {
     try {
       final started = await RustBackendService.instance.startNode();
+      if (_terminalResetRequested) return false;
       await RustBackendService.instance.resumeNode();
+      if (_terminalResetRequested) return false;
       _log.info('Node start result: $started');
       return started;
     } catch (e, st) {
@@ -268,6 +293,7 @@ class AndroidForegroundTaskController {
   }
 
   Future<void> _pollVrf() async {
+    if (_terminalResetRequested) return;
     try {
       final info = await RustBackendService.instance.getEpochInfo();
       if (info == null) {
@@ -441,6 +467,12 @@ class AndroidForegroundTaskController {
     int? targetSlotTimeMs,
     bool stopMonitoringAfterSchedule = false,
   }) async {
+    if (_terminalResetRequested) {
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'terminal_reset',
+      );
+    }
     if (await _shouldHoldForOtherProducerBlock()) {
       final height = _awaitingOtherProducerState?.height;
       _log.info(
@@ -451,9 +483,21 @@ class AndroidForegroundTaskController {
         failureReason: 'holding_for_other_producer_block',
       );
     }
+    if (_terminalResetRequested) {
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'terminal_reset',
+      );
+    }
 
     final clockDriftMs =
         await RustBackendService.instance.resolveNodeClockDriftMs();
+    if (_terminalResetRequested) {
+      return const ForegroundResumeAlarmScheduleResult(
+        success: false,
+        failureReason: 'terminal_reset',
+      );
+    }
     if (clockDriftMs == null) {
       _log.warn('Skipping resume alarm: node clock drift unavailable');
       return const ForegroundResumeAlarmScheduleResult(

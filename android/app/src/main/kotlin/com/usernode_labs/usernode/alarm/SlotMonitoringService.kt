@@ -32,6 +32,7 @@ class SlotMonitoringService : Service() {
     }
 
     private var currentGlobalSlot: Int? = null
+    private var currentApplicationIncarnation: String? = null
     private var isPersistentMode = false
 
     override fun onCreate() {
@@ -49,13 +50,20 @@ class SlotMonitoringService : Service() {
         // happens on crash
         if (intent == null) {
             Log.w(TAG, "[SlotMonitoringService] Received null intent in onStartCommand")
-
-            startMonitoring(0, false)
-            return START_STICKY
+            stopSelf()
+            return START_NOT_STICKY
         }
 
         when (intent.action) {
             ACTION_START_MONITORING -> {
+                val applicationIncarnation = intent.getStringExtra(
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                )
+                if (!ApplicationIncarnationStore(this).matches(applicationIncarnation)) {
+                    Log.w(TAG, "Ignoring stale START_MONITORING command")
+                    stopIfNotServingCurrentIncarnation(startId)
+                    return START_NOT_STICKY
+                }
                 val globalSlot = readGlobalSlotExtra(intent) ?: 0
                 val alarmId = intent.getStringExtra("alarmId")
                 val nodeRunning = intent.getBooleanExtra("nodeRunning", false)
@@ -63,15 +71,28 @@ class SlotMonitoringService : Service() {
                 Log.d(TAG, "[SlotMonitoringService] START_MONITORING - GlobalSlot: $globalSlot, AlarmId: $alarmId, nodeRunning=$nodeRunning")
 
                 // Allow alarmId-only wake (e.g., fg_resume) by using 0 as placeholder
-                startMonitoring(globalSlot, nodeRunning, alarmTimeMs)
+                startMonitoring(
+                    globalSlot,
+                    nodeRunning,
+                    alarmTimeMs,
+                    applicationIncarnation!!,
+                )
             }
             ACTION_STOP_MONITORING -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_MONITORING action received")
                 stopMonitoring()
             }
             ACTION_START_PERSISTENT -> {
+                val applicationIncarnation = intent.getStringExtra(
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                )
+                if (!ApplicationIncarnationStore(this).matches(applicationIncarnation)) {
+                    Log.w(TAG, "Ignoring stale START_PERSISTENT command")
+                    stopIfNotServingCurrentIncarnation(startId)
+                    return START_NOT_STICKY
+                }
                 Log.d(TAG, "[SlotMonitoringService] START_PERSISTENT action received")
-                startPersistentMode()
+                startPersistentMode(applicationIncarnation!!)
             }
             ACTION_STOP_PERSISTENT -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_PERSISTENT action received")
@@ -86,8 +107,20 @@ class SlotMonitoringService : Service() {
         return START_STICKY
     }
 
-    private fun startMonitoring(globalSlot: Int, nodeRunning: Boolean, alarmTimeMs: Long = -1L) {
+    private fun stopIfNotServingCurrentIncarnation(startId: Int) {
+        if (!ApplicationIncarnationStore(this).matches(currentApplicationIncarnation)) {
+            stopSelf(startId)
+        }
+    }
+
+    private fun startMonitoring(
+        globalSlot: Int,
+        nodeRunning: Boolean,
+        alarmTimeMs: Long = -1L,
+        applicationIncarnation: String,
+    ) {
         currentGlobalSlot = globalSlot
+        currentApplicationIncarnation = applicationIncarnation
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting foreground monitoring for global slot $globalSlot")
 
         val scheduledTime = AlarmTimeFormatter.formatScheduledTime(alarmTimeMs)
@@ -114,7 +147,11 @@ class SlotMonitoringService : Service() {
 
             // Send event to Flutter
             Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_started event to Flutter")
-            val eventData = mapOf("globalSlot" to globalSlot)
+            val eventData = mapOf(
+                "globalSlot" to globalSlot,
+                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                    applicationIncarnation,
+            )
             val handler = AlarmMethodChannelHandler.getInstance()
             if (handler != null && handler.isActivityAttached()) {
                 handler.sendEventToFlutter("android_foreground_service_started", eventData)
@@ -142,7 +179,11 @@ class SlotMonitoringService : Service() {
 
             // Send event to Flutter
             Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_stopped event to Flutter")
-            val eventData = mapOf("globalSlot" to globalSlotBeingStopped)
+            val eventData = mapOf(
+                "globalSlot" to globalSlotBeingStopped,
+                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                    currentApplicationIncarnation,
+            )
             val handler = AlarmMethodChannelHandler.getInstance()
             if (handler != null && handler.isActivityAttached()) {
                 handler.sendEventToFlutter("android_foreground_service_stopped", eventData)
@@ -158,6 +199,7 @@ class SlotMonitoringService : Service() {
         }
 
         currentGlobalSlot = null
+        currentApplicationIncarnation = null
 
         try {
             stopSelf()
@@ -186,9 +228,10 @@ class SlotMonitoringService : Service() {
         }?.takeIf { it >= 0 }
     }
 
-    private fun startPersistentMode() {
+    private fun startPersistentMode(applicationIncarnation: String) {
         isPersistentMode = true
         isPersistentModeActive = true
+        currentApplicationIncarnation = applicationIncarnation
         Log.i(TAG, "[SlotMonitoringService] ✓ Starting persistent foreground mode")
 
         val notification = createNotification(
@@ -206,13 +249,19 @@ class SlotMonitoringService : Service() {
             if (handler != null && handler.isActivityAttached()) {
                 handler.sendEventToFlutter(
                     "android_persistent_foreground_started",
-                    mapOf<String, Any?>()
+                    mapOf(
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                            applicationIncarnation,
+                    )
                 )
             } else {
                 BackgroundAlarmEngine.sendAlarmEvent(
                     applicationContext,
                     "android_persistent_foreground_started",
-                    emptyMap()
+                    mapOf(
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                            applicationIncarnation,
+                    )
                 )
             }
         } catch (e: Exception) {
@@ -238,18 +287,25 @@ class SlotMonitoringService : Service() {
             if (handler != null && handler.isActivityAttached()) {
                 handler.sendEventToFlutter(
                     "android_persistent_foreground_stopped",
-                    mapOf<String, Any?>()
+                    mapOf(
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                            currentApplicationIncarnation,
+                    )
                 )
             } else {
                 BackgroundAlarmEngine.sendAlarmEvent(
                     applicationContext,
                     "android_persistent_foreground_stopped",
-                    emptyMap()
+                    mapOf(
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                            currentApplicationIncarnation,
+                    )
                 )
             }
         } catch (e: Exception) {
             Log.e(TAG, "[SlotMonitoringService] Error stopping persistent foreground", e)
         }
+        currentApplicationIncarnation = null
 
         try {
             stopSelf()

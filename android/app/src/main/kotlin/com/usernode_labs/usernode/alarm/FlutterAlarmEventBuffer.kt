@@ -52,6 +52,14 @@ class FlutterAlarmEventBuffer(
     @Synchronized
     fun pendingCount(): Int = pendingEvents.size
 
+    @Synchronized
+    fun clear() {
+        while (pendingEvents.isNotEmpty()) {
+            pendingEvents.removeFirst().completion?.invoke(false)
+        }
+        flutterReady = false
+    }
+
     private fun drainLocked(): List<FlutterAlarmEvent> {
         if (pendingEvents.isEmpty()) {
             return emptyList()

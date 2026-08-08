@@ -50,11 +50,9 @@ Future<void> clearGuestParticipantId() async {
 /// Install [participantId] into an explicit account [bucket] after the
 /// reconcile confirmed the account belongs to that participant, and clean up
 /// the guest-bucket staging copy — but ONLY when the staged value still
-/// matches [participantId]. If another user logged in mid-reconcile, the
-/// staged value is THEIR id and must be left for their own reconcile.
-///
-/// Idempotent and retry-safe: the destination write happens before the
-/// staged copy is removed.
+/// matches [participantId]. The equality check makes recovery tolerant of
+/// unrelated or corrupt guest-bucket residue; it is not an account handoff.
+/// The destination write happens before cleanup, so retries are safe.
 Future<void> installParticipantIdInBucket({
   required int participantId,
   required String bucket,

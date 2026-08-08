@@ -23,17 +23,30 @@ class AppLifecycleLogger with WidgetsBindingObserver {
   bool _isHandlingResume = false;
 
   static void register() {
-    _instance ??= AppLifecycleLogger();
-    WidgetsBinding.instance.addObserver(_instance!);
+    if (_instance != null) return;
+
+    final instance = AppLifecycleLogger();
+    _instance = instance;
+    WidgetsBinding.instance.addObserver(instance);
     _log.debug('Lifecycle observer registered');
   }
 
   static void unregister() {
-    if (_instance != null) {
-      WidgetsBinding.instance.removeObserver(_instance!);
-      _log.debug('Lifecycle observer removed');
-    }
+    final instance = _instance;
+    if (instance == null) return;
+
+    WidgetsBinding.instance.removeObserver(instance);
+    _instance = null;
+    _log.debug('Lifecycle observer removed');
   }
+
+  static void closeForTerminalReset() {
+    onForegroundResume = null;
+    unregister();
+  }
+
+  @visibleForTesting
+  static bool get isRegistered => _instance != null;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {

@@ -66,13 +66,12 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// /api/v4/mobile/auth/from-session). The legacy `user` payload is checked
   /// for mismatch only; native derives the participant from authenticated
   /// `/api/v4/mobile/me` so token and participant cannot diverge.
-  /// Initial login stays in this runtime and resolves as soon as the bearer
-  /// and participant are installed. Account reconciliation continues behind
-  /// that authenticated boundary; only wallet and node methods wait for
-  /// [IdentityPhase.ready]. Replacing an authenticated participant
-  /// acknowledges the accepted runtime cutover before this WebView is
-  /// removed. Neither path starts the node — lifecycle remains
-  /// platform-controlled.
+  /// Initial login and a same-participant bearer renewal stay in this runtime
+  /// and resolve as soon as the bearer and participant are installed. Account
+  /// reconciliation continues behind that authenticated boundary; only wallet
+  /// and node methods wait for [IdentityPhase.ready]. Replacing an
+  /// authenticated participant enters the terminal reset boundary. No path
+  /// starts the node — lifecycle remains platform-controlled.
   Future<void> _handleCompleteLogin(
       String id, Map<String, dynamic> payload) async {
     if (!await _requireTrustedChromeOrigin(id, 'completeLogin')) return;
@@ -136,10 +135,10 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
         await _rejectStaleIdentityScope(id, 'completeLogin');
         return;
       }
-      // Calling the controller admits the transition and synchronously closes
-      // the old identity gate because the queue was settled above. This WebView
-      // is terminal from here: consume the transition locally without later
-      // touching ref or JavaScript, then acknowledge the accepted restart.
+      // A different authenticated participant is unsupported in-process.
+      // Start the terminal transition, then answer the initiating page without
+      // touching Riverpod again.
+      _sessionHandoffGate.closeForTerminalReset();
       final transition = controller.completeLogin(
         session,
         expectedIdentity: current,
@@ -179,7 +178,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       await _rejectStaleIdentityScope(id, 'completeLogin');
       return;
     }
-    var responseIdentity = ref.read(identityProvider);
+    final responseIdentity = ref.read(identityProvider);
     if (responseIdentity.epoch != expectedEpoch ||
         responseIdentity.participantId != session.participant.id) {
       await _rejectStaleIdentityScope(id, 'completeLogin');
@@ -321,6 +320,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     // Start the terminal transition before resolving. Its completion is
     // deliberately detached: every late path is log-only because the runtime
     // owns this WebView once logout has been admitted.
+    _sessionHandoffGate.closeForTerminalReset();
     final transition = controller.logout(expectedIdentity: identity);
     unawaited(transition.then<void>(
       (loggedOut) {

@@ -217,25 +217,16 @@ class NodeLifecycleCoordinator {
     });
   }
 
-  /// Stops admitting work and blocks until the node and every production
-  /// support path have been disarmed.
-  Future<void> hardStopForSessionBoundary({required String reason}) {
+  /// Permanently closes lifecycle admission for this application process.
+  ///
+  /// Terminal reset owns the actual best-effort cancellation and shutdown.
+  /// This method is intentionally synchronous: logout/reset never waits for
+  /// graceful Rust retirement, and admission is never reopened in-process.
+  void closeForTerminalReset() {
     _acceptingRuntimeWork = false;
     _hasAccount = false;
     _intent = PlatformNodeIntent.unset;
-
-    // FIXME(#514): Cancellation cannot distinguish an OS callback dispatched
-    // before teardown but delivered after the next runtime starts. Add a
-    // native generation fence only if that edge case becomes observable.
-    return _serialized(() async {
-      await _tearDownRuntime(reason: reason);
-      if (!_isAndroid()) await _cancelAllAlarms();
-    });
-  }
-
-  /// Reopens admission after the retired runtime has been fully drained.
-  void resumeAfterSessionBoundary() {
-    _acceptingRuntimeWork = true;
+    _disableWatchdogRecovery();
   }
 
   // ── Reconcile ─────────────────────────────────────────────────────────

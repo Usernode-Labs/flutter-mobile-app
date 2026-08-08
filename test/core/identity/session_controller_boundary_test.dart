@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
-import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -17,20 +17,49 @@ class _NoopLogoutRepository extends AuthRepository {
 }
 
 class _BlockingLogoutRepository extends AuthRepository {
-  _BlockingLogoutRepository(this.tokenStore);
-
-  final AuthTokenStore tokenStore;
   final revokedTokens = <String>[];
-  final tokensObservedAtRevoke = <String?>[];
   final started = Completer<void>();
   final release = Completer<void>();
 
   @override
   Future<void> logout(String sessionToken) async {
     revokedTokens.add(sessionToken);
-    tokensObservedAtRevoke.add(await tokenStore.read());
     if (!started.isCompleted) started.complete();
     await release.future;
+  }
+}
+
+class _TerminalResetProbe {
+  _TerminalResetProbe(this.tokenStore);
+
+  final AuthTokenStore tokenStore;
+  final reasons = <String>[];
+  final phasesAtEntry = <IdentityPhase>[];
+  final tokensBeforeWipe = <String?>[];
+  final hadNextLaunchWriter = <bool>[];
+  final nextLaunchMarkers = <bool?>[];
+  final nextLaunchParticipantIds = <int?>[];
+
+  Future<void> call({
+    required String reason,
+    Future<void> Function()? prepareNextLaunch,
+  }) async {
+    reasons.add(reason);
+    phasesAtEntry.add(IdentitySnapshots.current.phase);
+    tokensBeforeWipe.add(await tokenStore.read());
+    hadNextLaunchWriter.add(prepareNextLaunch != null);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await tokenStore.clear();
+    expect(await tokenStore.read(), isNull);
+    await prepareNextLaunch?.call();
+    nextLaunchMarkers.add(
+      prefs.getBool('testnet:account:reconcile_pending'),
+    );
+    nextLaunchParticipantIds.add(
+      prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
+    );
   }
 }
 
@@ -44,7 +73,8 @@ AuthSession _session(String token, int participantId) => AuthSession(
     );
 
 SessionController _controller(
-  AuthTokenStore tokenStore, {
+  AuthTokenStore tokenStore,
+  _TerminalResetProbe reset, {
   AuthRepository? repository,
 }) =>
     SessionController(
@@ -52,42 +82,84 @@ SessionController _controller(
       guestFlag: AuthGuestFlag(),
       repository: repository ?? _NoopLogoutRepository(),
       suspendNode: () async {},
+      terminalReset: reset.call,
     );
+
+void _seedReadyIdentity({
+  String token = 'token-a',
+  int participantId = 1,
+}) {
+  const address = 'ut1readyaccount';
+  final bucket = NetworkPrefs.bucketForAddress(address);
+  FlutterSecureStorage.setMockInitialValues({
+    'auth:v3:session_token': token,
+  });
+  SharedPreferences.setMockInitialValues({
+    'testnet:accounts:index': jsonEncode([
+      {
+        'id': 'account-a',
+        'name': 'Node Account',
+        'createdAt': '2026-01-01T00:00:00.000',
+        'derivationPath': 'imported',
+        'hdIndex': 0,
+        'address': address,
+        'publicKey': 'utpk1$address',
+        'backupConfirmed': true,
+        'isDemo': false,
+      }
+    ]),
+    'testnet:accounts:activeId': 'account-a',
+    'testnet:acct:$bucket:leaderboard:participant_id': participantId,
+    'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
+  });
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  final boundary = SessionRuntimeBoundary.instance;
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
     IdentitySnapshots.reset();
     NetworkPrefs.setActiveBucket(null, guest: true);
-    boundary.resetForTesting();
   });
 
-  tearDown(boundary.resetForTesting);
-
-  test('initial login stays in place and same participant rotates its token',
+  test('initial login resets first and writes only the next-launch session',
       () async {
-    var replacements = 0;
-    boundary.register((_, persistSession) async {
-      replacements += 1;
-      await persistSession();
+    SharedPreferences.setMockInitialValues({
+      'auth:v3:guest': true,
+      'old_incarnation_preference': 'must disappear',
     });
-
     final tokenStore = AuthTokenStore();
-    final controller = _controller(tokenStore);
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
     addTearDown(controller.dispose);
     await controller.restore();
+    expect(controller.state.phase, IdentityPhase.guest);
 
-    expect(await controller.completeLogin(_session('token-a', 1)), isTrue);
-    await controller.reconcileSucceeded(
-      epoch: controller.state.epoch,
-      accountId: 'account-a',
-      address: 'address-a',
-      participantId: 1,
-    );
+    expect(await controller.completeLogin(_session('token-b', 2)), isTrue);
+
+    expect(reset.reasons, ['initial_login']);
+    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
+    expect(reset.tokensBeforeWipe, [null]);
+    expect(reset.hadNextLaunchWriter, [isTrue]);
+    expect(reset.nextLaunchMarkers, [isTrue]);
+    expect(reset.nextLaunchParticipantIds, [2]);
+    expect(await tokenStore.read(), 'token-b');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('old_incarnation_preference'), isNull);
+    expect(prefs.getBool('auth:v3:guest'), isNull);
+    expect(controller.state.phase, IdentityPhase.transitioning);
+    expect(await controller.completeLogin(_session('token-c', 3)), isFalse);
+  });
+
+  test('same participant rotates its bearer without resetting', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
+    addTearDown(controller.dispose);
+    await controller.restore();
     final ready = controller.state;
 
     expect(
@@ -97,119 +169,127 @@ void main() {
       ),
       isTrue,
     );
-    expect(replacements, 0);
+
+    expect(reset.reasons, isEmpty);
     expect(controller.state.sameScopeAs(ready), isTrue);
     expect(await tokenStore.read(), 'token-a-renewed');
   });
 
-  test('same-participant rotation stores the new token before revoking old',
+  test('different participant is discarded and forces current-user reset',
       () async {
+    _seedReadyIdentity();
     final tokenStore = AuthTokenStore();
-    final repository = _BlockingLogoutRepository(tokenStore);
-    final controller = _controller(tokenStore, repository: repository);
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
     addTearDown(controller.dispose);
     await controller.restore();
-    await controller.completeLogin(_session('token-a', 1));
-    await controller.reconcileSucceeded(
-      epoch: controller.state.epoch,
-      accountId: 'account-a',
-      address: 'address-a',
-      participantId: 1,
+
+    expect(
+      await controller.completeLogin(
+        _session('token-b', 2),
+        expectedIdentity: controller.state,
+      ),
+      isFalse,
     );
 
-    final rotation = controller.completeLogin(
-      _session('token-a-renewed', 1),
-      expectedIdentity: controller.state,
+    expect(reset.reasons, ['different_participant_login']);
+    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
+    expect(reset.tokensBeforeWipe, ['token-a']);
+    expect(reset.hadNextLaunchWriter, [isFalse]);
+    expect(await tokenStore.read(), isNull);
+    expect(controller.state.phase, IdentityPhase.transitioning);
+  });
+
+  test('logout reset does not wait for remote revocation or publish successor',
+      () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final repository = _BlockingLogoutRepository();
+    final controller = _controller(
+      tokenStore,
+      reset,
+      repository: repository,
     );
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    expect(await controller.logout(expectedIdentity: controller.state), isTrue);
+
+    expect(reset.reasons, ['logout']);
+    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
+    expect(await tokenStore.read(), isNull);
+    expect(controller.state.phase, IdentityPhase.transitioning);
     await repository.started.future;
-
     expect(repository.revokedTokens, ['token-a']);
-    expect(repository.tokensObservedAtRevoke, ['token-a-renewed']);
+
+    final coldReset = _TerminalResetProbe(tokenStore);
+    final coldController = _controller(tokenStore, coldReset);
+    addTearDown(coldController.dispose);
+    await coldController.restore();
+    expect(coldController.state.phase, IdentityPhase.unauthenticated);
+    expect(coldReset.reasons, isEmpty);
+    final coldPrefs = await SharedPreferences.getInstance();
+    expect(coldPrefs.getString('testnet:accounts:index'), isNull);
+    expect(coldPrefs.getString('testnet:accounts:activeId'), isNull);
+
     repository.release.complete();
-    expect(await rotation, isTrue);
   });
 
-  test('participant replacement writes the new token only after cleanup',
+  test('authenticated-to-guest is a terminal reset with no guest successor',
       () async {
+    _seedReadyIdentity();
     final tokenStore = AuthTokenStore();
-    final controller = _controller(tokenStore);
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
     addTearDown(controller.dispose);
     await controller.restore();
-    await controller.completeLogin(_session('token-a', 1));
-    await controller.reconcileSucceeded(
+
+    await controller.continueAsGuest();
+
+    expect(reset.reasons, ['authenticated_to_guest']);
+    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
+    expect(reset.hadNextLaunchWriter, [isFalse]);
+    expect(await tokenStore.read(), isNull);
+    expect(controller.state.phase, IdentityPhase.transitioning);
+  });
+
+  test('an exact authenticated 401 enters the terminal logout reset', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
+    addTearDown(controller.dispose);
+    await controller.restore();
+    final credential = AuthCredentialLease(
       epoch: controller.state.epoch,
-      accountId: 'account-a',
-      address: 'address-a',
-      participantId: 1,
+      token: 'token-a',
     );
 
-    final cleanupStarted = Completer<void>();
-    final releaseCleanup = Completer<void>();
-    boundary.register((change, persistSession) async {
-      expect(change, SessionRuntimeChange.participantReplacement);
-      controller.retireForRuntimeRestart();
-      cleanupStarted.complete();
-      await releaseCleanup.future;
-      await persistSession();
-    });
+    await controller.onUnauthorized(credential: credential);
 
-    final replacement = controller.completeLogin(
-      _session('token-b', 2),
-      expectedIdentity: controller.state,
-    );
-    await cleanupStarted.future;
-
+    expect(reset.reasons, ['logout']);
+    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
     expect(await tokenStore.read(), isNull);
-    expect(await controller.completeLogin(_session('token-c', 3)), isFalse);
-
-    releaseCleanup.complete();
-    expect(await replacement, isTrue);
-    expect(await tokenStore.read(), 'token-b');
+    expect(controller.state.phase, IdentityPhase.transitioning);
   });
 
-  test('logout is durable before cleanup and waits for replacement', () async {
+  test('a missing current credential enters the terminal logout reset',
+      () async {
+    _seedReadyIdentity();
     final tokenStore = AuthTokenStore();
-    final controller = _controller(tokenStore);
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
     addTearDown(controller.dispose);
     await controller.restore();
-    await controller.completeLogin(_session('token-a', 1));
+    final epoch = controller.state.epoch;
+    await tokenStore.clear();
 
-    final cleanupStarted = Completer<void>();
-    final releaseCleanup = Completer<void>();
-    boundary.register((change, persistSession) async {
-      expect(change, SessionRuntimeChange.logout);
-      controller.retireForRuntimeRestart();
-      cleanupStarted.complete();
-      await releaseCleanup.future;
-      await persistSession();
-    });
+    await controller.onCredentialMissing(epoch: epoch);
 
-    final logout = controller.logout(expectedIdentity: controller.state);
-    await cleanupStarted.future;
-    expect(await tokenStore.read(), isNull);
-
-    releaseCleanup.complete();
-    expect(await logout, isTrue);
-  });
-
-  test('headless logout uses the hard-stop hook', () async {
-    var ordinarySuspends = 0;
-    var hardStops = 0;
-    final controller = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: _NoopLogoutRepository(),
-      suspendNode: () async => ordinarySuspends += 1,
-      hardStopRuntime: () async => hardStops += 1,
-    );
-    addTearDown(controller.dispose);
-
-    await controller.restore();
-    await controller.completeLogin(_session('token-a', 1));
-    expect(await controller.logout(), isTrue);
-
-    expect(ordinarySuspends, 1);
-    expect(hardStops, 1);
-    expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(reset.reasons, ['logout']);
+    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
+    expect(reset.tokensBeforeWipe, [null]);
+    expect(controller.state.phase, IdentityPhase.transitioning);
   });
 }

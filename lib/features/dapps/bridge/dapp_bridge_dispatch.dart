@@ -143,12 +143,12 @@ mixin _BridgeDispatch
 
       // This check lives in the central channel dispatch so a child frame
       // calling the injected Usernode channel directly cannot bypass the
-      // page-side relay's handoff gate.
+      // page-side relay's admission gate.
       if (_sessionHandoffGate.blocks(method)) {
         await _resolveJsPromise(
           id: id,
           value: null,
-          error: '$method is unavailable during session handoff',
+          error: '$method is unavailable during an identity transition',
         );
         return;
       }
@@ -164,10 +164,10 @@ mixin _BridgeDispatch
       }
 
       if (method == 'enterAnonymousSession') {
-        _admitAnonymousSession();
+        final admitted = _admitAnonymousSession();
         await _resolveJsPromise(
           id: id,
-          value: const {'admitted': true},
+          value: {'admitted': admitted},
           error: null,
         );
         return;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,6 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
-import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
@@ -41,29 +41,37 @@ class _RecordingSeasonsService extends LeaderboardApiService {
 }
 
 Future<SessionController> _readyIdentityController() async {
+  const address = 'address-a';
+  final bucket = NetworkPrefs.bucketForAddress(address);
+  FlutterSecureStorage.setMockInitialValues({
+    'auth:v3:session_token': 'token-a',
+  });
+  SharedPreferences.setMockInitialValues({
+    'testnet:accounts:index': jsonEncode([
+      {
+        'id': 'account-a',
+        'name': 'Node Account',
+        'createdAt': '2026-01-01T00:00:00.000',
+        'derivationPath': 'imported',
+        'hdIndex': 0,
+        'address': address,
+        'publicKey': 'utpk1$address',
+        'backupConfirmed': true,
+        'isDemo': false,
+      },
+    ]),
+    'testnet:accounts:activeId': 'account-a',
+    'testnet:acct:$bucket:leaderboard:participant_id': 7,
+    'testnet:acct:$bucket:identity:provisioned_season': 1,
+    'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
+  });
   final controller = SessionController(
     tokenStore: AuthTokenStore(),
     guestFlag: AuthGuestFlag(),
     repository: AuthRepository(),
     suspendNode: () async {},
   );
-  await controller.completeLogin(
-    const AuthSession(
-      token: 'token-a',
-      participant: Participant(
-        id: 7,
-        email: 'a@example.test',
-        emailConfirmed: true,
-      ),
-    ),
-  );
-  await controller.reconcileSucceeded(
-    epoch: IdentitySnapshots.current.epoch,
-    accountId: 'account-a',
-    address: 'address-a',
-    participantId: 7,
-    provisionedSeasonId: 1,
-  );
+  await controller.restore();
   return controller;
 }
 
@@ -201,22 +209,20 @@ void main() {
 
   group('leaderboardBootstrapProvider identity lease', () {
     test('does not fetch until the authenticated identity is ready', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        'auth:v3:session_token': 'token-a',
+      });
+      SharedPreferences.setMockInitialValues({
+        'testnet:account:reconcile_pending': true,
+        'testnet:acct:guest:leaderboard:participant_id': 7,
+      });
       final controller = SessionController(
         tokenStore: AuthTokenStore(),
         guestFlag: AuthGuestFlag(),
         repository: AuthRepository(),
         suspendNode: () async {},
       );
-      await controller.completeLogin(
-        const AuthSession(
-          token: 'token-a',
-          participant: Participant(
-            id: 7,
-            email: 'a@example.test',
-            emailConfirmed: true,
-          ),
-        ),
-      );
+      await controller.restore();
       final service = _RecordingSeasonsService();
       final container = ProviderContainer(overrides: [
         identityProvider.overrideWith((ref) => controller),
@@ -264,7 +270,7 @@ void main() {
       addTearDown(bootstrapSubscription.close);
       await service.started.future;
 
-      await controller.continueAsGuest();
+      await controller.beginSeasonRollover(activeSeasonId: 2);
       await container.pump();
       final currentBootstrap =
           container.read(leaderboardBootstrapProvider.future);

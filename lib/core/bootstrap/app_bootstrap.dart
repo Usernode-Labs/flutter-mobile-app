@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
@@ -134,6 +135,7 @@ class AppBootstrap {
     // sign-in's account reconcile was interrupted — in which case the node
     // start below is refused until the reconcile completes.
     await container.read(identityProvider.notifier).restore();
+    final bootIdentity = container.read(identityProvider);
     final hasAnyAccounts = await repo.hasAny();
     final activeId = repo.getActiveId();
 
@@ -174,7 +176,7 @@ class AppBootstrap {
     final backendBootstrap = _bootstrapBackendAsync(
       log: log,
       container: container,
-      hasAnyAccounts: hasAnyAccounts,
+      producerEligible: bootIdentity.phase == IdentityPhase.ready,
     );
 
     return AppBootstrapResult(
@@ -310,7 +312,7 @@ class AppBootstrap {
   static Future<void> _bootstrapBackendAsync({
     required TaggedLogger log,
     required ProviderContainer container,
-    required bool hasAnyAccounts,
+    required bool producerEligible,
   }) async {
     try {
       log.debug('Bootstrap begin');
@@ -332,11 +334,9 @@ class AppBootstrap {
       if (!nodeWasRunning) {
         log.info('Backend not running, initializing...');
         await RustBackendService.instance.init();
-        await PlatformAlarmService.instance.markReadyForNativeEvents();
         log.info('FRB initialized; node start deferred to the platform');
       } else {
         log.info('Backend already running, skipping start');
-        await PlatformAlarmService.instance.markReadyForNativeEvents();
         await ObservabilityReportingService.instance.reportNodeInitialized(
           resetStaticContext: false,
         );
@@ -350,10 +350,15 @@ class AppBootstrap {
       // while headless recovery paths (boot receiver, WorkManager watchdog,
       // force-stop recovery) can still start it through the audit gate.
       await NodeLifecycleCoordinator.instance.reportColdBoot(
-        hasAccount: hasAnyAccounts,
+        hasAccount: producerEligible,
         reason: 'bootstrap',
       );
-      if (Platform.isAndroid && hasAnyAccounts) {
+      // Native exact events are released only after the recovered identity has
+      // either enabled signed-in producer recovery or left it closed. This
+      // preserves the event that launched a headless engine without ever
+      // defaulting recovery open for guest/unknown identities.
+      await PlatformAlarmService.instance.markReadyForNativeEvents();
+      if (Platform.isAndroid && producerEligible) {
         // Force-stop detection is bootstrap-specific: it inspects the native
         // "was force-stopped" launch flag, and on detection kicks a recovery
         // audit that may start the node headless to restore production.

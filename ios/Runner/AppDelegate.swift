@@ -2,6 +2,55 @@ import UIKit
 import Flutter
 import BackgroundTasks
 import UserNotifications
+import WebKit
+
+final class ApplicationIncarnationStore {
+  static let shared = ApplicationIncarnationStore()
+  static let eventKey = "applicationIncarnation"
+  private static let defaultsKey = "application_incarnation"
+  private let lock = NSLock()
+  private var terminalResetRequested = false
+
+  private init() {}
+
+  func ensure() -> String? {
+    lock.lock()
+    defer { lock.unlock() }
+    guard !terminalResetRequested else { return nil }
+    if let current = storedCurrent() { return current }
+    let created = UUID().uuidString
+    UserDefaults.standard.set(created, forKey: Self.defaultsKey)
+    return created
+  }
+
+  func current() -> String? {
+    lock.lock()
+    defer { lock.unlock() }
+    guard !terminalResetRequested else { return nil }
+    return storedCurrent()
+  }
+
+  private func storedCurrent() -> String? {
+    guard let value = UserDefaults.standard.string(forKey: Self.defaultsKey),
+          !value.isEmpty else {
+      return nil
+    }
+    return value
+  }
+
+  func matches(_ captured: String?) -> Bool {
+    guard let captured, let current = current() else { return false }
+    return captured == current
+  }
+
+  func invalidate() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    terminalResetRequested = true
+    UserDefaults.standard.removeObject(forKey: Self.defaultsKey)
+    return UserDefaults.standard.synchronize() && storedCurrent() == nil
+  }
+}
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -13,7 +62,7 @@ import UserNotifications
   private let bgTaskScheduler = BGTaskSchedulerManager()
   private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
-  // Singleton access for sending events from BGTaskSchedulerManager
+  // Singleton access for notification scheduling callbacks.
   static var shared: AppDelegate?
 
   override func application(
@@ -58,18 +107,18 @@ import UserNotifications
       print("[AppDelegate] ⚠ Warning - Could not access FlutterViewController")
     }
 
-    // Register BGTaskScheduler tasks (MUST be done during app launch)
-    // Apple requires this to happen before didFinishLaunchingWithOptions returns
+    // Register a no-op legacy BGTask handler during launch. New versions do
+    // not submit BGTasks, but old installed requests still need a safe drain.
     if #available(iOS 13.0, *) {
-      print("[AppDelegate] Registering BGTasks (iOS 13+)...")
+      print("[AppDelegate] Registering legacy BGTask drain (iOS 13+)...")
       let success = bgTaskScheduler.registerBGTasks()
       if success {
-        print("[AppDelegate] ✓ BGTasks registered successfully during app launch")
+        print("[AppDelegate] ✓ Legacy BGTask drain registered during app launch")
       } else {
-        print("[AppDelegate] ✗ WARNING - Failed to register BGTasks")
+        print("[AppDelegate] ✗ WARNING - Failed to register legacy BGTask drain")
       }
     } else {
-      print("[AppDelegate] Skipping BGTask registration (iOS < 13)")
+      print("[AppDelegate] Skipping legacy BGTask drain (iOS < 13)")
     }
 
     // Enable background fetch
@@ -181,14 +230,29 @@ import UserNotifications
     print("[AppDelegate] Method channel call received: \(call.method)")
 
     switch call.method {
+    case "ensureApplicationIncarnation":
+      result(ApplicationIncarnationStore.shared.ensure())
+
+    case "invalidateApplicationIncarnation":
+      result(ApplicationIncarnationStore.shared.invalidate())
+
+    case "clearWebSessionData":
+      clearWebSessionData(result: result)
+
+    case "clearNativeResetState":
+      result(clearNativeResetState())
+
+    case "enterTerminalReset":
+      // iOS does not expose a supported self-termination API. Dart has already
+      // replaced the functional app with the inert reset-complete surface.
+      result(nil)
+
     case "registerBGTasks":
       print("[AppDelegate] registerBGTasks called via MethodChannel")
       if #available(iOS 13.0, *) {
-        // NOTE: BGTasks are already registered in didFinishLaunchingWithOptions
-        // This method is kept for backward compatibility but does nothing
-        // Calling registerBGTasks() again would violate Apple's requirement
-        // that it must be called before app launch completes
-        print("[AppDelegate] BGTasks already registered during app launch, returning true")
+        // The legacy drain is already registered in didFinishLaunching.
+        // This compatibility method intentionally does no additional work.
+        print("[AppDelegate] Legacy BGTask drain already registered, returning true")
         result(true)
       } else {
         print("[AppDelegate] BGTasks unavailable (iOS < 13)")
@@ -220,26 +284,36 @@ import UserNotifications
       }
 
     case "scheduleIOSBGTask":
-      print("[AppDelegate] scheduleIOSBGTask called")
+      print("[AppDelegate] Legacy scheduleIOSBGTask API called for notification")
       guard let args = call.arguments as? [String: Any],
             let alarmId = args["alarmId"] as? String,
             let delayMs = (args["delayMs"] as? NSNumber)?.int64Value,
-            let slotNumber = (args["slotNumber"] as? NSNumber)?.intValue else {
+            let slotNumber = (args["globalSlot"] as? NSNumber)?.intValue,
+            let applicationIncarnation =
+              args[ApplicationIncarnationStore.eventKey] as? String,
+            ApplicationIncarnationStore.shared.matches(applicationIncarnation) else {
         print("[AppDelegate] ✗ Invalid arguments for scheduleIOSBGTask")
         result(FlutterError(code: "INVALID_ARGS", message: "Missing arguments", details: nil))
         return
       }
-      print("[AppDelegate] Scheduling BGTask - Slot: \(slotNumber), AlarmId: \(alarmId)")
+      print("[AppDelegate] Scheduling slot notification - Slot: \(slotNumber), AlarmId: \(alarmId)")
       if #available(iOS 13.0, *) {
-        let success = bgTaskScheduler.scheduleBGTask(
+        bgTaskScheduler.scheduleBGTask(
           alarmId: alarmId,
           delayMs: delayMs,
-          slotNumber: slotNumber
-        )
-        print("[AppDelegate] BGTask scheduling result: \(success)")
-        result(success)
+          slotNumber: slotNumber,
+          applicationIncarnation: applicationIncarnation
+        ) { success in
+          DispatchQueue.main.async {
+            print(
+              "[AppDelegate] Slot notification scheduling result - " +
+              "AlarmId: \(alarmId), Slot: \(slotNumber), Success: \(success)"
+            )
+            result(success)
+          }
+        }
       } else {
-        print("[AppDelegate] BGTask scheduling failed (iOS < 13)")
+        print("[AppDelegate] Slot notification scheduling failed (iOS < 13)")
         result(false)
       }
 
@@ -289,6 +363,36 @@ import UserNotifications
       print("[AppDelegate] ⚠ Unknown method: \(call.method)")
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func clearWebSessionData(result: @escaping FlutterResult) {
+    let dataStore = WKWebsiteDataStore.default()
+    dataStore.removeData(
+      ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
+      modifiedSince: .distantPast
+    ) {
+      DispatchQueue.main.async {
+        result(true)
+      }
+    }
+  }
+
+  private func clearNativeResetState() -> Bool {
+    if #available(iOS 13.0, *) {
+      bgTaskScheduler.cancelAllBGTasks()
+    }
+    endTransientBackgroundTask()
+    let center = UNUserNotificationCenter.current()
+    center.removeAllPendingNotificationRequests()
+    center.removeAllDeliveredNotifications()
+    var durableStateCleared = homeShortcutsChannel.clearForTerminalReset()
+
+    let defaults = UserDefaults.standard
+    for key in defaults.dictionaryRepresentation().keys {
+      defaults.removeObject(forKey: key)
+    }
+    durableStateCleared = defaults.synchronize() && durableStateCleared
+    return durableStateCleared
   }
 
   private func beginTransientBackgroundTask(result: @escaping FlutterResult) {
@@ -382,6 +486,13 @@ import UserNotifications
 
   // Send block production event to Flutter
   func sendEventToFlutter(eventType: String, eventData: [String: Any] = [:]) {
+    if requiresApplicationIncarnation(eventType),
+       !ApplicationIncarnationStore.shared.matches(
+         eventData[ApplicationIncarnationStore.eventKey] as? String
+       ) {
+      print("[AppDelegate] Ignoring stale event '\(eventType)'")
+      return
+    }
     guard let channel = alarmChannel else {
       print("[AppDelegate] ⚠ Cannot send event '\(eventType)' - alarm channel not initialized")
       return
@@ -395,6 +506,12 @@ import UserNotifications
     ]
 
     channel.invokeMethod("onBlockProductionEvent", arguments: args)
+  }
+
+  private func requiresApplicationIncarnation(_ eventType: String) -> Bool {
+    guard eventType.hasPrefix("ios_") else { return false }
+    return eventType != "ios_notification_permission_granted" &&
+      eventType != "ios_notification_permission_denied"
   }
 }
 
@@ -426,10 +543,20 @@ extension AppDelegate {
       )
       return
     }
+    guard let applicationIncarnation =
+            content.userInfo[ApplicationIncarnationStore.eventKey] as? String,
+          ApplicationIncarnationStore.shared.matches(applicationIncarnation) else {
+      print("[AppDelegate] Suppressing stale slot notification")
+      completionHandler([])
+      return
+    }
 
     // Send ios_notification_delivered event to Flutter
     print("[AppDelegate] Sending ios_notification_delivered event to Flutter")
-    let eventData: [String: Any] = ["slotNumber": slotNumber]
+    let eventData: [String: Any] = [
+      "slotNumber": slotNumber,
+      ApplicationIncarnationStore.eventKey: applicationIncarnation
+    ]
     DispatchQueue.main.async {
       self.sendEventToFlutter(eventType: "ios_notification_delivered", eventData: eventData)
     }
@@ -471,7 +598,11 @@ extension AppDelegate {
 
     // Send ios_notification_tapped event to Flutter
     print("[AppDelegate] Sending ios_notification_tapped event to Flutter")
-    let eventData: [String: Any] = ["slotNumber": slotNumber]
+    let eventData: [String: Any] = [
+      "slotNumber": slotNumber,
+      ApplicationIncarnationStore.eventKey:
+        content.userInfo[ApplicationIncarnationStore.eventKey] as? String ?? ""
+    ]
     DispatchQueue.main.async {
       self.sendEventToFlutter(eventType: "ios_notification_tapped", eventData: eventData)
     }

@@ -32,6 +32,7 @@ class SessionHandoffGate {
   bool _walletBlocked;
   int? _participantId;
   int? _epoch;
+  bool _terminallyClosed = false;
 
   bool get isAuthenticatedBlocked => _authenticatedBlocked;
   bool get isWalletBlocked => _walletBlocked;
@@ -44,6 +45,7 @@ class SessionHandoffGate {
   }
 
   bool admitAuthenticated(Identity identity) {
+    if (_terminallyClosed) return false;
     final participantId = identity.participantId;
     if (!identity.isAuthenticated || participantId == null) return false;
     _authenticatedBlocked = false;
@@ -54,6 +56,7 @@ class SessionHandoffGate {
   }
 
   bool admitWallet(Identity identity) {
+    if (_terminallyClosed) return false;
     if (!authenticates(identity) || identity.phase != IdentityPhase.ready) {
       return false;
     }
@@ -65,11 +68,13 @@ class SessionHandoffGate {
     if (authenticates(identity)) _walletBlocked = true;
   }
 
-  void admitAnonymous() {
+  bool admitAnonymous() {
+    if (_terminallyClosed) return false;
     _authenticatedBlocked = false;
     _walletBlocked = false;
     _participantId = null;
     _epoch = null;
+    return true;
   }
 
   bool authenticates(Identity identity) =>
@@ -77,6 +82,14 @@ class SessionHandoffGate {
       identity.isAuthenticated &&
       identity.participantId == _participantId &&
       identity.epoch == _epoch;
+
+  void closeForTerminalReset() {
+    _terminallyClosed = true;
+    _authenticatedBlocked = true;
+    _walletBlocked = true;
+    _participantId = null;
+    _epoch = null;
+  }
 
   bool blocks(String method) =>
       (_authenticatedBlocked && authenticatedScopedMethods.contains(method)) ||

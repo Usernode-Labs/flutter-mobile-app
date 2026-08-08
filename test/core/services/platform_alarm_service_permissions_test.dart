@@ -234,4 +234,62 @@ void main() {
       });
     });
   });
+
+  group('application incarnation event fence', () {
+    test('rejects a stale scheduled event before invoking Dart work', () async {
+      await setUpService();
+      service.setApplicationIncarnationForTesting('current');
+      var callbackCalls = 0;
+      service.setNativeEventCallback((_, __) async {
+        callbackCalls += 1;
+        return true;
+      });
+
+      expect(
+        await service.dispatchNativeEventForTesting(
+          'android_alarm_fired',
+          const {'applicationIncarnation': 'old'},
+        ),
+        isFalse,
+      );
+      expect(callbackCalls, 0);
+
+      expect(
+        await service.dispatchNativeEventForTesting(
+          'android_alarm_fired',
+          const {'applicationIncarnation': 'current'},
+        ),
+        isTrue,
+      );
+      expect(callbackCalls, 1);
+    });
+
+    test('permission events remain unscoped and terminal reset rejects work',
+        () async {
+      await setUpService();
+      service.setApplicationIncarnationForTesting('current');
+      var callbackCalls = 0;
+      service.setNativeEventCallback((_, __) async {
+        callbackCalls += 1;
+        return true;
+      });
+
+      expect(
+        await service.dispatchNativeEventForTesting(
+          'android_exact_alarm_permission_granted',
+          const {},
+        ),
+        isTrue,
+      );
+      service.beginTerminalReset();
+      expect(
+        await service.dispatchNativeEventForTesting(
+          'android_alarm_fired',
+          const {'applicationIncarnation': 'current'},
+        ),
+        isFalse,
+      );
+      expect(callbackCalls, 1);
+    });
+  });
 }

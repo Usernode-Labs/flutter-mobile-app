@@ -44,6 +44,13 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun handleSlotAlarm(context: Context, intent: Intent) {
+        val applicationIncarnation = intent.getStringExtra(
+            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+        )
+        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+            Log.w(TAG, "Ignoring slot alarm for stale application incarnation")
+            return
+        }
         val alarmId = intent.getStringExtra("alarmId")
         val globalSlot = readGlobalSlotExtra(intent)
         val scheduledTimeMs = intent.getLongExtra("alarmTimeMs", -1L)
@@ -91,7 +98,10 @@ class AlarmReceiver : BroadcastReceiver() {
 
         // Take the native wakelock before handing control to Flutter so the
         // inactivity sleep path cannot win a race against alarm recovery.
-        NativeWakeLockManager.acquire(context)
+        if (!NativeWakeLockManager.acquire(context, applicationIncarnation!!)) {
+            Log.w(TAG, "Could not acquire wakelock for current application incarnation")
+            return
+        }
 
         val eventData = mutableMapOf<String, Any?>(
             "alarmId" to alarmId,
@@ -101,7 +111,9 @@ class AlarmReceiver : BroadcastReceiver() {
             "latencyMs" to latencyMs,
             "batteryLevel" to 0,
             "networkState" to "unknown",
-            "nodeRunning" to nodeRunning
+            "nodeRunning" to nodeRunning,
+            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                applicationIncarnation,
         )
         nativeScheduledAtMs?.let { eventData["nativeScheduledAtMs"] = it }
         scheduledElapsedRealtimeMs?.let { eventData["scheduledElapsedRealtimeMs"] = it }
@@ -135,6 +147,10 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("globalSlot", globalSlot)
             putExtra("nodeRunning", nodeRunning)
             putExtra("alarmTimeMs", scheduledTimeMs)
+            putExtra(
+                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                applicationIncarnation,
+            )
             nativeScheduledAtMs?.let { putExtra("nativeScheduledAtMs", it) }
             scheduledElapsedRealtimeMs?.let { putExtra("scheduledElapsedRealtimeMs", it) }
             nativeTriggerAtMs?.let { putExtra("nativeTriggerAtMs", it) }
@@ -164,16 +180,30 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.i(TAG, "Ignoring boot recovery because block production watchdog is disabled")
             return
         }
+        val applicationIncarnation =
+            ApplicationIncarnationStore(context).current() ?: run {
+                Log.i(TAG, "Ignoring boot recovery without an application incarnation")
+                return
+            }
 
         Log.i(TAG, "Device boot completed - starting monitoring")
-        AlarmWatchdogScheduler.ensurePeriodic(context, "boot_completed")
-        AlarmWatchdogScheduler.enqueueOneTime(context, "boot_completed")
-        sendAuditRecoveryEvent(context, "boot_completed")
+        AlarmWatchdogScheduler.ensurePeriodic(
+            context,
+            "boot_completed",
+            applicationIncarnation,
+        )
+        AlarmWatchdogScheduler.enqueueOneTime(
+            context,
+            "boot_completed",
+            applicationIncarnation,
+        )
+        sendAuditRecoveryEvent(context, "boot_completed", applicationIncarnation)
         startMonitoringService(
             context = context,
             alarmId = "boot_completed",
             globalSlot = 0,
-            nodeRunning = false
+            nodeRunning = false,
+            applicationIncarnation = applicationIncarnation,
         )
     }
 
@@ -182,16 +212,30 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.i(TAG, "Ignoring package update recovery because block production watchdog is disabled")
             return
         }
+        val applicationIncarnation =
+            ApplicationIncarnationStore(context).current() ?: run {
+                Log.i(TAG, "Ignoring package recovery without an application incarnation")
+                return
+            }
 
         Log.i(TAG, "App updated - starting monitoring")
-        AlarmWatchdogScheduler.ensurePeriodic(context, "package_replaced")
-        AlarmWatchdogScheduler.enqueueOneTime(context, "package_replaced")
-        sendAuditRecoveryEvent(context, "package_replaced")
+        AlarmWatchdogScheduler.ensurePeriodic(
+            context,
+            "package_replaced",
+            applicationIncarnation,
+        )
+        AlarmWatchdogScheduler.enqueueOneTime(
+            context,
+            "package_replaced",
+            applicationIncarnation,
+        )
+        sendAuditRecoveryEvent(context, "package_replaced", applicationIncarnation)
         startMonitoringService(
             context = context,
             alarmId = "package_replaced",
             globalSlot = 0,
-            nodeRunning = false
+            nodeRunning = false,
+            applicationIncarnation = applicationIncarnation,
         )
     }
 
@@ -208,9 +252,21 @@ class AlarmReceiver : BroadcastReceiver() {
         } else {
             "android_exact_alarm_permission_denied"
         }
-        if (granted && AlarmWatchdogScheduler.isEnabled(context)) {
-            AlarmWatchdogScheduler.ensurePeriodic(context, "exact_alarm_permission_granted")
-            AlarmWatchdogScheduler.enqueueOneTime(context, "exact_alarm_permission_granted")
+        val applicationIncarnation = ApplicationIncarnationStore(context).current()
+        if (granted &&
+            applicationIncarnation != null &&
+            AlarmWatchdogScheduler.isEnabled(context)
+        ) {
+            AlarmWatchdogScheduler.ensurePeriodic(
+                context,
+                "exact_alarm_permission_granted",
+                applicationIncarnation,
+            )
+            AlarmWatchdogScheduler.enqueueOneTime(
+                context,
+                "exact_alarm_permission_granted",
+                applicationIncarnation,
+            )
         }
         sendFlutterEvent(
             context = context,
@@ -222,13 +278,19 @@ class AlarmReceiver : BroadcastReceiver() {
         )
     }
 
-    private fun sendAuditRecoveryEvent(context: Context, reason: String) {
+    private fun sendAuditRecoveryEvent(
+        context: Context,
+        reason: String,
+        applicationIncarnation: String,
+    ) {
         sendFlutterEvent(
             context = context,
             eventType = "android_alarm_recovery_requested",
             eventData = mapOf(
                 "reason" to reason,
-                "source" to "alarm_receiver"
+                "source" to "alarm_receiver",
+                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                    applicationIncarnation,
             )
         )
     }
@@ -251,13 +313,18 @@ class AlarmReceiver : BroadcastReceiver() {
         context: Context,
         alarmId: String,
         globalSlot: Int,
-        nodeRunning: Boolean
+        nodeRunning: Boolean,
+        applicationIncarnation: String,
     ) {
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
             putExtra("globalSlot", globalSlot)
             putExtra("nodeRunning", nodeRunning)
+            putExtra(
+                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                applicationIncarnation,
+            )
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

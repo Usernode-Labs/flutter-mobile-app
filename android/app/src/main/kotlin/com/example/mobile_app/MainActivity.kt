@@ -13,6 +13,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
+import com.usernode_labs.usernode.alarm.ApplicationIncarnationStore
 import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
 import com.usernode_labs.usernode.shortcuts.HomeShortcutsHandler
@@ -193,14 +194,25 @@ class MainActivity: FlutterActivity() {
         val replacementActivityAttached = AlarmMethodChannelHandler.getInstance()
             ?.isActivityAttached() == true
         if (SlotMonitoringService.isForegroundServiceActive && !replacementActivityAttached) {
-            // Activity destroyed => keep a background engine alive for the running foreground service.
-            BackgroundAlarmEngine.createAndCacheNewEngine(
-                context = applicationContext,
-                reason = "activity_destroyed_foreground_service",
-                registerPlugins = true
-            )
-        } else if (replacementActivityAttached) {
-            Log.i(TAG, "Skipping headless engine because a replacement Activity is attached")
+            // A foreground service may outlive the UI engine. Re-enter Dart
+            // only through an exact event; engine creation alone grants no
+            // lifecycle work and terminal reset leaves no current token.
+            val applicationIncarnation =
+                ApplicationIncarnationStore(applicationContext).current()
+            if (applicationIncarnation != null) {
+                BackgroundAlarmEngine.sendAlarmEvent(
+                    applicationContext,
+                    "android_alarm_recovery_requested",
+                    mapOf(
+                        "reason" to "activity_destroyed_foreground_service",
+                        "source" to "main_activity",
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                            applicationIncarnation,
+                    ),
+                )
+            }
+        } else if (SlotMonitoringService.isForegroundServiceActive) {
+            Log.i(TAG, "Skipping headless recovery because a replacement Activity is attached")
         }
     }
 }

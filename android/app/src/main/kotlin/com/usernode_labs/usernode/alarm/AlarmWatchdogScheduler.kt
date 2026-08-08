@@ -33,7 +33,15 @@ object AlarmWatchdogScheduler {
     private const val ONE_TIME_REASON_KEY = "one_time_reason"
     private const val CANCELLED_AT_MS_KEY = "cancelled_at_ms"
 
-    fun ensurePeriodic(context: Context, reason: String): Boolean {
+    fun ensurePeriodic(
+        context: Context,
+        reason: String,
+        applicationIncarnation: String,
+    ): Boolean {
+        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+            Log.w(TAG, "Ignoring periodic watchdog for stale application incarnation")
+            return false
+        }
         return try {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -45,7 +53,13 @@ object AlarmWatchdogScheduler {
                 15,
                 TimeUnit.MINUTES
             )
-                .setInputData(workDataOf("reason" to reason))
+                .setInputData(
+                    workDataOf(
+                        "reason" to reason,
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                            applicationIncarnation,
+                    ),
+                )
                 .setConstraints(constraints)
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
@@ -58,7 +72,7 @@ object AlarmWatchdogScheduler {
             WorkManager.getInstance(context.applicationContext)
                 .enqueueUniquePeriodicWork(
                     PERIODIC_WORK_NAME,
-                    ExistingPeriodicWorkPolicy.KEEP,
+                    ExistingPeriodicWorkPolicy.UPDATE,
                     request
                 )
             prefs(context)
@@ -75,7 +89,15 @@ object AlarmWatchdogScheduler {
         }
     }
 
-    fun enqueueOneTime(context: Context, reason: String): Boolean {
+    fun enqueueOneTime(
+        context: Context,
+        reason: String,
+        applicationIncarnation: String,
+    ): Boolean {
+        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+            Log.w(TAG, "Ignoring one-time watchdog for stale application incarnation")
+            return false
+        }
         if (!isEnabled(context)) {
             Log.i(TAG, "Ignoring one-time watchdog request while disabled (reason=$reason)")
             return false
@@ -86,7 +108,13 @@ object AlarmWatchdogScheduler {
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
             val request = OneTimeWorkRequestBuilder<AlarmWatchdogWorker>()
-                .setInputData(workDataOf("reason" to reason))
+                .setInputData(
+                    workDataOf(
+                        "reason" to reason,
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                            applicationIncarnation,
+                    ),
+                )
                 .setConstraints(constraints)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .addTag(WATCHDOG_TAG)
@@ -116,13 +144,17 @@ object AlarmWatchdogScheduler {
             val workManager = WorkManager.getInstance(context.applicationContext)
             workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
             workManager.cancelUniqueWork(ONE_TIME_WORK_NAME)
-            prefs(context)
+            val cancellationPersisted = prefs(context)
                 .edit()
                 .putBoolean(PERIODIC_CONFIGURED_KEY, false)
                 .putLong(CANCELLED_AT_MS_KEY, System.currentTimeMillis())
-                .apply()
-            Log.i(TAG, "Cancelled alarm watchdog work")
-            true
+                .commit()
+            Log.i(
+                TAG,
+                "Requested alarm watchdog cancellation " +
+                    "(disabledStatePersisted=$cancellationPersisted)"
+            )
+            cancellationPersisted
         } catch (e: Exception) {
             Log.e(TAG, "Failed to cancel alarm watchdog work", e)
             false

@@ -1210,6 +1210,18 @@ abstract class AppLocalizations {
   /// **'Done'**
   String get widgetInstructionsDone;
 
+  /// Title of the inert terminal screen shown after application reset
+  ///
+  /// In en, this message translates to:
+  /// **'Reset complete'**
+  String get appResetCompleteTitle;
+
+  /// Instruction on the inert terminal screen shown after application reset
+  ///
+  /// In en, this message translates to:
+  /// **'Close and reopen Usernode to continue.'**
+  String get appResetCompleteBody;
+
   /// First-launch gate of the full-screen SV shell: shown while the Social Vibecoding webapp loads for the first time on this install
   ///
   /// In en, this message translates to:

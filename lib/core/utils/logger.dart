@@ -41,6 +41,7 @@ class LoggingService {
   static LoggingService get instance => _instance ?? _createDefault();
 
   final Logger _logger;
+  bool _terminallyClosed = false;
 
   // Global log level from config
   static final Level _globalLevel = _parseLevel(AppConfig.logLevel);
@@ -92,6 +93,7 @@ class LoggingService {
     StackTrace? stackTrace,
     Map<String, dynamic>? context,
   }) {
+    if (_terminallyClosed) return;
     final formatted = _decorate(message, tag, context);
     _logger.e(formatted, error: error, stackTrace: stackTrace);
 
@@ -116,6 +118,7 @@ class LoggingService {
     String? tag,
     Map<String, dynamic>? context,
   }) {
+    if (_terminallyClosed) return;
     // Console/file logging
     if (level.index >= _globalLevel.index) {
       final formatted = _decorate(message, tag, context);
@@ -143,6 +146,12 @@ class LoggingService {
         level: _levelToSentryLevel(level),
       );
     }
+  }
+
+  Future<void> closeForTerminalReset() async {
+    if (_terminallyClosed) return;
+    _terminallyClosed = true;
+    await _logger.close();
   }
 
   String _decorate(String message, String? tag, Map<String, dynamic>? context) {

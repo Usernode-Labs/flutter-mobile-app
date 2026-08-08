@@ -253,23 +253,34 @@ class AlarmDebugState {
 /// Abstract interface for platform-specific alarm/wake-up scheduling
 ///
 /// Android: Uses AlarmManager with exact alarms and Foreground Service
-/// iOS: Uses BGProcessingTask and local notifications
+/// iOS: Uses incarnation-scoped local notifications. The registered BGTask
+/// handler only drains requests left by older app versions.
 class PlatformAlarmService {
   static final PlatformAlarmService instance = PlatformAlarmService._();
   PlatformAlarmService._({ObservabilityReportingService? observability})
       : _observability =
-            observability ?? ObservabilityReportingService.instance;
+            observability ?? ObservabilityReportingService.instance,
+        _isAndroid = Platform.isAndroid,
+        _isIOS = Platform.isIOS;
 
   @visibleForTesting
   PlatformAlarmService.test({
     required ObservabilityReportingService observability,
-  }) : _observability = observability;
+    TargetPlatform? platform,
+  })  : _observability = observability,
+        _isAndroid = platform == TargetPlatform.android,
+        _isIOS = platform == TargetPlatform.iOS;
 
   static const MethodChannel _channel = MethodChannel('com.usernode.app/alarm');
+  static const applicationIncarnationKey = 'applicationIncarnation';
   final ObservabilityReportingService _observability;
+  final bool _isAndroid;
+  final bool _isIOS;
 
   bool _initialized = false;
+  bool _terminalResetRequested = false;
   bool _permissionsGranted = false;
+  String? _applicationIncarnation;
   String? _lastAlarmFiredEventKey;
   DateTime? _lastAlarmFiredEventAt;
 
@@ -283,6 +294,7 @@ class PlatformAlarmService {
 
   /// Initialize the platform alarm service
   Future<bool> initialize() async {
+    if (_terminalResetRequested) return false;
     if (_initialized) return true;
 
     try {
@@ -292,10 +304,22 @@ class PlatformAlarmService {
       // Set up method call handler for platform->Flutter calls
       _channel.setMethodCallHandler(_handleMethodCall);
 
-      if (Platform.isAndroid) {
+      if (_isAndroid) {
         await _initializeAndroid();
-      } else if (Platform.isIOS) {
+      } else if (_isIOS) {
         await _initializeIOS();
+      }
+
+      if (_terminalResetRequested) return false;
+
+      if (_isAndroid || _isIOS) {
+        final incarnation =
+            await _channel.invokeMethod<String>('ensureApplicationIncarnation');
+        if (_terminalResetRequested) return false;
+        if (incarnation == null || incarnation.isEmpty) {
+          throw StateError('Native application incarnation is unavailable');
+        }
+        _applicationIncarnation = incarnation;
       }
 
       _initialized = true;
@@ -341,16 +365,28 @@ class PlatformAlarmService {
         return false;
       }
 
+      final data = eventData ?? <String, dynamic>{};
+      if (_requiresApplicationIncarnation(eventType) &&
+          (_terminalResetRequested ||
+              _applicationIncarnation == null ||
+              data[applicationIncarnationKey] != _applicationIncarnation)) {
+        _log.warn(
+          'Rejected native event for a stale application incarnation: '
+          '$eventType',
+        );
+        return false;
+      }
+
       _log.debug('Native event received: $eventType');
 
-      _recordNativeAlarmFiredEvent(eventType, eventData ?? {});
+      _recordNativeAlarmFiredEvent(eventType, data);
 
       if (_onNativeEvent == null) {
         _log.warn('No native event callback registered for event: $eventType');
         return false;
       }
 
-      return await _onNativeEvent!(eventType, eventData ?? {});
+      return await _onNativeEvent!(eventType, data);
     } catch (e, st) {
       _log.error(
         'Error handling native event: $e',
@@ -359,6 +395,21 @@ class PlatformAlarmService {
       );
       return false;
     }
+  }
+
+  bool _requiresApplicationIncarnation(String eventType) {
+    if (eventType.startsWith('android_')) {
+      return eventType != 'android_post_notifications_permission_granted' &&
+          eventType != 'android_post_notifications_permission_denied' &&
+          eventType != 'android_exact_alarm_permission_granted' &&
+          eventType != 'android_exact_alarm_permission_denied' &&
+          eventType != 'android_battery_optimization_disabled';
+    }
+    if (eventType.startsWith('ios_')) {
+      return eventType != 'ios_notification_permission_granted' &&
+          eventType != 'ios_notification_permission_denied';
+    }
+    return false;
   }
 
   void _recordNativeAlarmFiredEvent(
@@ -428,6 +479,22 @@ class PlatformAlarmService {
     _recordNativeAlarmFiredEvent(eventType, eventData);
   }
 
+  @visibleForTesting
+  void setApplicationIncarnationForTesting(String? value) {
+    _applicationIncarnation = value;
+  }
+
+  @visibleForTesting
+  Future<bool> dispatchNativeEventForTesting(
+    String eventType,
+    Map<String, dynamic> eventData,
+  ) async {
+    return await _handleNativeEvent({
+      'eventType': eventType,
+      'eventData': eventData,
+    });
+  }
+
   String _alarmPurposeForNativeEvent(String eventType, String? alarmId) {
     if (alarmId != null) return _alarmPurpose(alarmId, const {});
     if (eventType == 'ios_bgtask_executed') return 'ios_background_task';
@@ -469,10 +536,11 @@ class PlatformAlarmService {
   }
 
   Future<void> markReadyForNativeEvents() async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid || _terminalResetRequested) return;
 
     try {
       await _channel.invokeMethod<bool>('markFlutterReadyForAlarmEvents');
+      if (_terminalResetRequested) return;
       _log.debug('Marked Flutter alarm channel ready on native side');
     } on PlatformException catch (e) {
       _log.warn(
@@ -509,14 +577,13 @@ class PlatformAlarmService {
     }
   }
 
-  /// Initialize iOS-specific background task capabilities
+  /// Initialize iOS notification scheduling and the legacy task drain.
   Future<void> _initializeIOS() async {
     try {
-      // BGTasks are already registered in AppDelegate.didFinishLaunchingWithOptions
-      // Apple requires BGTaskScheduler.register() to be called BEFORE app launch completes
-      // Calling it again here would violate this requirement and cause main thread blocking
+      // AppDelegate registers a no-op handler during launch solely to drain
+      // requests submitted by older versions. New schedules are notifications.
       _log.info(
-          'iOS background tasks already registered during app launch (AppDelegate)');
+          'iOS notification scheduling initialized; legacy task drain registered');
 
       // Just mark as ready - no need to call native code again
       _permissionsGranted = true;
@@ -929,7 +996,8 @@ class PlatformAlarmService {
 
   Future<bool> ensureAlarmWatchdogScheduled({required String reason}) async {
     if (!Platform.isAndroid) return false;
-    if (!_initialized) {
+    final incarnation = _applicationIncarnation;
+    if (!_initialized || _terminalResetRequested || incarnation == null) {
       _log.debug('Cannot schedule alarm watchdog: service not initialized');
       return false;
     }
@@ -937,7 +1005,10 @@ class PlatformAlarmService {
     try {
       final success = await _channel.invokeMethod<bool>(
             'ensureAlarmWatchdogScheduled',
-            {'reason': reason},
+            {
+              'reason': reason,
+              applicationIncarnationKey: incarnation,
+            },
           ) ??
           false;
       _observability.reportBlockProductionAlarmAuditEvent(
@@ -970,7 +1041,8 @@ class PlatformAlarmService {
 
   Future<bool> requestAlarmWatchdogRun({required String reason}) async {
     if (!Platform.isAndroid) return false;
-    if (!_initialized) {
+    final incarnation = _applicationIncarnation;
+    if (!_initialized || _terminalResetRequested || incarnation == null) {
       _log.debug('Cannot request alarm watchdog run: service not initialized');
       return false;
     }
@@ -978,7 +1050,10 @@ class PlatformAlarmService {
     try {
       final success = await _channel.invokeMethod<bool>(
             'requestAlarmWatchdogRun',
-            {'reason': reason},
+            {
+              'reason': reason,
+              applicationIncarnationKey: incarnation,
+            },
           ) ??
           false;
       _observability.reportBlockProductionAlarmAuditEvent(
@@ -1000,7 +1075,7 @@ class PlatformAlarmService {
   }
 
   Future<bool> cancelAlarmWatchdog() async {
-    if (!Platform.isAndroid) return false;
+    if (!_isAndroid) return false;
     if (!_initialized) return false;
 
     try {
@@ -1068,7 +1143,7 @@ class PlatformAlarmService {
   /// Schedule an exact alarm using a resolved delay.
   ///
   /// Android: Schedules exact alarm + starts Foreground Service
-  /// iOS: Schedules BGProcessingTask + local notification
+  /// iOS: Schedules an incarnation-scoped local notification
   Future<bool> scheduleAlarm({
     required String alarmId,
     required int globalSlot,
@@ -1076,6 +1151,7 @@ class PlatformAlarmService {
     Map<String, dynamic>? data,
   }) async {
     final alarmData = Map<String, dynamic>.from(data ?? const {});
+    final incarnation = _applicationIncarnation;
     final requestedDelayMs = delayMs;
     final normalizedDelayMs = delayMs < 0 ? 0 : delayMs;
     final scheduledAtMs = DateTime.now().millisecondsSinceEpoch;
@@ -1129,7 +1205,7 @@ class PlatformAlarmService {
       );
     }
 
-    if (!_initialized) {
+    if (!_initialized || _terminalResetRequested || incarnation == null) {
       _log.warn('Cannot schedule alarm: service not initialized');
       recordScheduleResult(
         success: false,
@@ -1137,6 +1213,8 @@ class PlatformAlarmService {
       );
       return false;
     }
+
+    alarmData[applicationIncarnationKey] = incarnation;
 
     if (!_permissionsGranted) {
       _log.warn('Cannot schedule alarm: permissions not granted');
@@ -1152,6 +1230,7 @@ class PlatformAlarmService {
         'alarmId': alarmId,
         'globalSlot': resolvedGlobalSlot ?? globalSlot,
         'delayMs': normalizedDelayMs,
+        applicationIncarnationKey: incarnation,
         'data': alarmData,
       };
 
@@ -1286,7 +1365,7 @@ class PlatformAlarmService {
     }
   }
 
-  /// Schedule iOS background task and notification
+  /// Schedule an iOS local notification through the legacy channel API.
   Future<bool> _scheduleIOSAlarm(Map<String, dynamic> params) async {
     try {
       final success =
@@ -1295,14 +1374,14 @@ class PlatformAlarmService {
 
       if (success) {
         _log.info(
-            'iOS BGTask scheduled for global slot ${params['globalSlot']}');
+            'iOS slot notification scheduled for global slot ${params['globalSlot']}');
       } else {
-        _log.warn('Failed to schedule iOS BGTask');
+        _log.warn('Failed to schedule iOS slot notification');
       }
 
       return success;
     } on PlatformException catch (e) {
-      _log.error('Error scheduling iOS BGTask: ${e.message}');
+      _log.error('Error scheduling iOS slot notification: ${e.message}');
       return false;
     }
   }
@@ -1369,12 +1448,15 @@ class PlatformAlarmService {
       _log.debug('Foreground service is Android-only');
       return false;
     }
+    final incarnation = _applicationIncarnation;
+    if (_terminalResetRequested || incarnation == null) return false;
 
     try {
       final params = {
         'title': title,
         'message': message,
         'globalSlot': globalSlot,
+        applicationIncarnationKey: incarnation,
       };
 
       final success =
@@ -1397,7 +1479,7 @@ class PlatformAlarmService {
 
   /// Stop foreground service (Android only)
   Future<bool> stopForegroundService() async {
-    if (!Platform.isAndroid) {
+    if (!_isAndroid) {
       _log.debug('Foreground service is Android-only');
       return false;
     }
@@ -1430,10 +1512,14 @@ class PlatformAlarmService {
       _log.debug('Persistent foreground service is Android-only');
       return false;
     }
+    final incarnation = _applicationIncarnation;
+    if (_terminalResetRequested || incarnation == null) return false;
 
     try {
-      final success = await _channel
-              .invokeMethod<bool>('startPersistentForegroundService') ??
+      final success = await _channel.invokeMethod<bool>(
+            'startPersistentForegroundService',
+            {applicationIncarnationKey: incarnation},
+          ) ??
           false;
 
       if (success) {
@@ -1452,7 +1538,7 @@ class PlatformAlarmService {
 
   /// Stop persistent foreground service (Android only)
   Future<bool> stopPersistentForegroundService() async {
-    if (!Platform.isAndroid) {
+    if (!_isAndroid) {
       _log.debug('Persistent foreground service is Android-only');
       return false;
     }
@@ -1573,8 +1659,15 @@ class PlatformAlarmService {
   /// `NoActivityException`.
   Future<bool> acquireWakelock() async {
     if (!Platform.isAndroid) return false;
+    final incarnation = _applicationIncarnation;
+    if (_terminalResetRequested || incarnation == null) return false;
     try {
-      await _channel.invokeMethod('acquireWakelock');
+      final acquired = await _channel.invokeMethod<bool>(
+            'acquireWakelock',
+            {applicationIncarnationKey: incarnation},
+          ) ??
+          false;
+      if (!acquired) return false;
       _recordRuntimeContextChanged('keep_alive_changed');
       _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       return true;
@@ -1586,7 +1679,7 @@ class PlatformAlarmService {
 
   /// Release the native Android PARTIAL_WAKE_LOCK.
   Future<bool> releaseWakelock() async {
-    if (!Platform.isAndroid) return false;
+    if (!_isAndroid) return false;
     try {
       await _channel.invokeMethod('releaseWakelock');
       _recordRuntimeContextChanged('keep_alive_changed');
@@ -1598,27 +1691,52 @@ class PlatformAlarmService {
     }
   }
 
-  Future<bool> restartActivity() async {
-    if (!Platform.isAndroid) {
-      _log.debug('Activity restart is Android-only');
-      return false;
-    }
+  Future<bool> invalidateApplicationIncarnation() async {
+    _applicationIncarnation = null;
+    if (!_isAndroid && !_isIOS) return true;
+    return await _channel.invokeMethod<bool>(
+          'invalidateApplicationIncarnation',
+        ) ??
+        false;
+  }
 
-    try {
-      final restarted =
-          await _channel.invokeMethod<bool>('restartActivity') ?? false;
+  Future<bool> clearWebSessionData() async {
+    if (!_isAndroid && !_isIOS) return true;
+    return await _channel
+            .invokeMethod<bool>('clearWebSessionData')
+            .timeout(const Duration(seconds: 5)) ??
+        false;
+  }
 
-      if (restarted) {
-        _log.info('Requested Android activity restart');
-      } else {
-        _log.warn('Android activity restart was not performed');
-      }
+  Future<bool> clearNativeResetState() async {
+    if (!_isAndroid && !_isIOS) return true;
+    return await _channel.invokeMethod<bool>('clearNativeResetState') ?? false;
+  }
 
-      return restarted;
-    } on PlatformException catch (e) {
-      _log.error('Error restarting activity: ${e.message}');
-      return false;
-    }
+  Future<void> enterTerminalReset({
+    required bool clearApplicationData,
+  }) async {
+    if (!_isAndroid && !_isIOS) return;
+    await _channel.invokeMethod<void>('enterTerminalReset', {
+      'clearApplicationData': clearApplicationData,
+    });
+  }
+
+  /// Closes scheduling/event admission synchronously while leaving native
+  /// cancellation callable for the remainder of terminal reset.
+  void beginTerminalReset() {
+    _terminalResetRequested = true;
+    _applicationIncarnation = null;
+    _onBootReschedule = null;
+    _onNativeEvent = null;
+  }
+
+  /// Clears Dart callbacks while retaining the channel handler so late native
+  /// events are still explicitly rejected by the invalidated incarnation.
+  void closeForTerminalReset() {
+    beginTerminalReset();
+    _initialized = false;
+    _permissionsGranted = false;
   }
 
   /// Get background task execution statistics (Android only)
@@ -1670,13 +1788,6 @@ class PlatformAlarmService {
         force: true,
       ),
     );
-  }
-
-  void resetForAppRestart() {
-    _initialized = false;
-    _permissionsGranted = false;
-    _onBootReschedule = null;
-    _onNativeEvent = null;
   }
 }
 

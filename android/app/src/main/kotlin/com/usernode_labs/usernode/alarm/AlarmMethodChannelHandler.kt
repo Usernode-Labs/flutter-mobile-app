@@ -4,14 +4,19 @@ import android.Manifest
 import android.app.Activity
 import android.app.ActivityManager
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
+import android.webkit.CookieManager
+import android.webkit.WebStorage
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
@@ -40,6 +45,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private val alarmManager: AlarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val alarmScheduler: AlarmScheduler = AlarmScheduler(appContext, alarmManager)
     private val foregroundServiceManager: ForegroundServiceManager = ForegroundServiceManager(appContext)
+    private val applicationIncarnationStore = ApplicationIncarnationStore(appContext)
     private val powerManager: PowerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
 
     private var methodChannel: MethodChannel? = null
@@ -134,6 +140,16 @@ class AlarmMethodChannelHandler(context: Context) {
         eventData: Map<String, Any?>,
         completion: ((Boolean) -> Unit)? = null,
     ) {
+        if (requiresApplicationIncarnation(eventType)) {
+            val captured = eventData[
+                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION
+            ] as? String
+            if (!applicationIncarnationStore.matches(captured)) {
+                Log.w(TAG, "Dropping stale native event: $eventType")
+                completion?.invoke(false)
+                return
+            }
+        }
         val event = flutterAlarmEventBuffer.enqueueOrDispatch(eventType, eventData, completion)
         if (event == null) {
             Log.d(TAG, "Queued event for Flutter: $eventType")
@@ -145,6 +161,24 @@ class AlarmMethodChannelHandler(context: Context) {
 
     fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "ensureApplicationIncarnation" -> {
+                result.success(applicationIncarnationStore.ensure())
+            }
+            "invalidateApplicationIncarnation" -> {
+                result.success(applicationIncarnationStore.invalidate())
+            }
+            "clearWebSessionData" -> {
+                clearWebSessionData(result)
+            }
+            "clearNativeResetState" -> {
+                result.success(clearNativeResetState())
+            }
+            "enterTerminalReset" -> {
+                val clearApplicationData =
+                    call.argument<Boolean>("clearApplicationData") ?: true
+                result.success(null)
+                enterTerminalReset(clearApplicationData)
+            }
             "hasExactAlarmPermission" -> {
                 result.success(hasExactAlarmPermission())
             }
@@ -161,6 +195,11 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(requestBatteryOptimizationExemption())
             }
             "scheduleExactAlarm" -> {
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
                 val alarmId = call.argument<String>("alarmId")
                 val delayMs = call.argument<Number>("delayMs")?.toLong()
                 val globalSlot = call.argument<Number>("globalSlot")?.toInt()
@@ -213,6 +252,11 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(alarmScheduler.getAlarmDebugState(alarmId))
             }
             "startForegroundService" -> {
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
                 val title = call.argument<String>("title")
                 val message = call.argument<String>("message")
                 val globalSlot = call.argument<Number>("globalSlot")?.toInt()
@@ -226,7 +270,8 @@ class AlarmMethodChannelHandler(context: Context) {
                 val success = foregroundServiceManager.startForegroundService(
                     title = title,
                     message = message,
-                    globalSlot = globalSlot
+                    globalSlot = globalSlot,
+                    applicationIncarnation = applicationIncarnation,
                 )
                 result.success(success)
             }
@@ -235,9 +280,18 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(success)
             }
             "startPersistentForegroundService" -> {
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
                 Log.d(TAG, "Starting persistent foreground service")
                 val intent = Intent(appContext, SlotMonitoringService::class.java).apply {
                     action = SlotMonitoringService.ACTION_START_PERSISTENT
+                    putExtra(
+                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                        applicationIncarnation,
+                    )
                 }
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -295,8 +349,11 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(true)
             }
             "acquireWakelock" -> {
-                NativeWakeLockManager.acquire(appContext)
-                result.success(true)
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                result.success(
+                    applicationIncarnation != null &&
+                        NativeWakeLockManager.acquire(appContext, applicationIncarnation)
+                )
             }
             "releaseWakelock" -> {
                 NativeWakeLockManager.release()
@@ -311,19 +368,38 @@ class AlarmMethodChannelHandler(context: Context) {
             "markFlutterReadyForAlarmEvents" -> {
                 result.success(markFlutterReadyForAlarmEvents())
             }
-            "restartActivity" -> {
-                result.success(restartActivity())
-            }
             "wasForceStoppedOnStartup" -> {
                 result.success(wasForceStoppedOnStartup())
             }
             "ensureAlarmWatchdogScheduled" -> {
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
                 val reason = call.argument<String>("reason") ?: "dart"
-                result.success(AlarmWatchdogScheduler.ensurePeriodic(appContext, reason))
+                result.success(
+                    AlarmWatchdogScheduler.ensurePeriodic(
+                        appContext,
+                        reason,
+                        applicationIncarnation,
+                    )
+                )
             }
             "requestAlarmWatchdogRun" -> {
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
                 val reason = call.argument<String>("reason") ?: "dart"
-                result.success(AlarmWatchdogScheduler.enqueueOneTime(appContext, reason))
+                result.success(
+                    AlarmWatchdogScheduler.enqueueOneTime(
+                        appContext,
+                        reason,
+                        applicationIncarnation,
+                    )
+                )
             }
             "cancelAlarmWatchdog" -> {
                 result.success(AlarmWatchdogScheduler.cancel(appContext))
@@ -347,28 +423,70 @@ class AlarmMethodChannelHandler(context: Context) {
         }
     }
 
-    private fun restartActivity(): Boolean {
-        val activity = activityRef?.get()
-        if (activity == null) {
-            Log.w(TAG, "Cannot restart activity - no Activity attached")
-            return false
-        }
+    private fun currentIncarnationFromCall(call: MethodCall): String? {
+        val captured = call.argument<String>(
+            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+        )
+        if (applicationIncarnationStore.matches(captured)) return captured
+        Log.w(TAG, "Rejected ${call.method} for stale application incarnation")
+        return null
+    }
 
-        return try {
-            val launchIntent = appContext.packageManager.getLaunchIntentForPackage(appContext.packageName)
-            if (launchIntent == null) {
-                Log.e(TAG, "Cannot restart activity - no launch intent available")
-                return false
+    private fun requiresApplicationIncarnation(eventType: String): Boolean {
+        if (!eventType.startsWith("android_")) return false
+        return eventType != "android_post_notifications_permission_granted" &&
+            eventType != "android_post_notifications_permission_denied" &&
+            eventType != "android_exact_alarm_permission_granted" &&
+            eventType != "android_exact_alarm_permission_denied" &&
+            eventType != "android_battery_optimization_disabled"
+    }
+
+    private fun clearWebSessionData(result: MethodChannel.Result) {
+        try {
+            WebStorage.getInstance().deleteAllData()
+            val cookies = CookieManager.getInstance()
+            cookies.removeAllCookies {
+                cookies.flush()
+                result.success(true)
             }
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to clear WebView session data", error)
+            result.success(false)
+        }
+    }
 
-            BackgroundAlarmEngine.destroyCachedEngine("app_reset_restart")
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            appContext.startActivity(launchIntent)
-            activity.finishAffinity()
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to restart activity", e)
-            false
+    private fun clearNativeResetState(): Boolean {
+        var durableStateCleared = alarmScheduler.cancelAllAlarms("terminal_reset")
+        durableStateCleared =
+            AlarmWatchdogScheduler.cancel(appContext) && durableStateCleared
+        durableStateCleared =
+            foregroundServiceManager.stopForegroundService() && durableStateCleared
+        appContext.stopService(Intent(appContext, SlotMonitoringService::class.java))
+        NativeWakeLockManager.release()
+        (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .cancelAll()
+        for (name in listOf("alarm_prefs", "alarm_watchdog_prefs", "background_task_stats")) {
+            durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit() && durableStateCleared
+        }
+        durableStateCleared = applicationIncarnationStore.clear() && durableStateCleared
+        flutterAlarmEventBuffer.clear()
+        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
+        return durableStateCleared
+    }
+
+    private fun enterTerminalReset(clearApplicationData: Boolean) {
+        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
+        activityRef?.get()?.finishAffinity()
+        Handler(Looper.getMainLooper()).post {
+            if (clearApplicationData) {
+                val activityManager =
+                    appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                if (activityManager.clearApplicationUserData()) return@post
+            }
+            android.os.Process.killProcess(android.os.Process.myPid())
         }
     }
 

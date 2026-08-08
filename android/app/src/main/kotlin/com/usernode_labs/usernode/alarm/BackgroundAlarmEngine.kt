@@ -27,7 +27,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 object BackgroundAlarmEngine {
     private const val TAG = "usernode/BackgroundAlarmEngine"
     private const val CHANNEL = "com.usernode.app/alarm"
-    private const val RETRY_DELAY_MS = 2000L
     private const val WATCHDOG_DELIVERY_TIMEOUT_MS = 2L * 60L * 1000L
 
     /**
@@ -179,8 +178,18 @@ object BackgroundAlarmEngine {
         eventData: Map<String, Any?>,
         completion: ((Boolean) -> Unit)?,
     ) {
+        if (!eventMatchesCurrentIncarnation(context, eventType, eventData)) {
+            Log.w(TAG, "Ignoring stale alarm event before engine creation: $eventType")
+            completion?.invoke(false)
+            return
+        }
         val posted = mainHandler.post {
             try {
+                if (!eventMatchesCurrentIncarnation(context, eventType, eventData)) {
+                    Log.w(TAG, "Ignoring stale queued alarm event: $eventType")
+                    completion?.invoke(false)
+                    return@post
+                }
                 // Check if activity is attached - if so, engine is already up so no need to create background one.
                 val handler = AlarmMethodChannelHandler.getInstance()
                 if (handler != null && handler.isActivityAttached()) {
@@ -191,6 +200,18 @@ object BackgroundAlarmEngine {
                     } catch (e: Exception) {
                         Log.w(TAG, "Failed to send event via Activity channel, falling back to background engine", e)
                     }
+                }
+
+                // UI-only permission signals carry no lifecycle authority.
+                // They may update an attached UI engine, but must never create
+                // a headless engine on their own.
+                val captured = eventData[
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION
+                ] as? String
+                if (!ApplicationIncarnationStore(context).matches(captured)) {
+                    Log.d(TAG, "Dropping unscoped event without an attached Activity: $eventType")
+                    completion?.invoke(false)
+                    return@post
                 }
 
                 // Activity not attached => create a background engine
@@ -211,34 +232,23 @@ object BackgroundAlarmEngine {
         }
     }
 
-    private fun scheduleRetry(context: Context, args: Map<String, Any?>) {
-        mainHandler.postDelayed({
-            try {
-                // Check if activity is attached - if so, use the handler's method channel instead
-                val handler = AlarmMethodChannelHandler.getInstance()
-                if (handler != null && handler.isActivityAttached()) {
-                    Log.i(TAG, "Activity is attached, retrying alarm event via Activity's method channel")
-                    val eventType = args["eventType"] as? String ?: "unknown"
-                    val eventData = args["eventData"] as? Map<String, Any?> ?: emptyMap()
-                    handler.sendEventToFlutter(eventType, eventData)
-                    return@postDelayed
-                }
-
-                // Activity not attached => use background engine
-                getCachedEngine()
-                    ?: createAndCacheNewEngine(
-                        context = context,
-                        reason = "alarm_event_retry",
-                        registerPlugins = true,
-                    )
-                val eventType = args["eventType"] as? String ?: "unknown"
-                val eventData = args["eventData"] as? Map<String, Any?> ?: emptyMap()
-                Log.i(TAG, "Retrying alarm event delivery via background engine")
-                AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
-                    .sendEventToFlutter(eventType, eventData)
-            } catch (e: Exception) {
-                Log.e(TAG, "Retry failed for alarm event delivery", e)
-            }
-        }, RETRY_DELAY_MS)
+    private fun eventMatchesCurrentIncarnation(
+        context: Context,
+        eventType: String,
+        eventData: Map<String, Any?>,
+    ): Boolean {
+        if (!eventType.startsWith("android_") ||
+            eventType == "android_post_notifications_permission_granted" ||
+            eventType == "android_post_notifications_permission_denied" ||
+            eventType == "android_exact_alarm_permission_granted" ||
+            eventType == "android_exact_alarm_permission_denied" ||
+            eventType == "android_battery_optimization_disabled"
+        ) {
+            return true
+        }
+        val captured = eventData[
+            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION
+        ] as? String
+        return ApplicationIncarnationStore(context).matches(captured)
     }
 }

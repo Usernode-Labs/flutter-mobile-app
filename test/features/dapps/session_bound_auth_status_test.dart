@@ -98,12 +98,27 @@ void main() {
       () {
     final gate = SessionHandoffGate()..begin();
 
-    gate.admitAnonymous();
+    expect(gate.admitAnonymous(), isTrue);
 
     expect(gate.isAuthenticatedBlocked, isFalse);
     expect(gate.isWalletBlocked, isFalse);
     expect(gate.authenticates(ready), isFalse);
     expect(gate.blocks('getWalletState'), isFalse);
+  });
+
+  test('terminal reset closes admission permanently', () {
+    final gate = SessionHandoffGate()..admitAuthenticated(ready);
+
+    gate.closeForTerminalReset();
+
+    expect(gate.admitAnonymous(), isFalse);
+    expect(gate.admitAuthenticated(ready), isFalse);
+    expect(gate.admitWallet(ready), isFalse);
+    expect(gate.authenticates(ready), isFalse);
+    expect(gate.isAuthenticatedBlocked, isTrue);
+    expect(gate.isWalletBlocked, isTrue);
+    expect(gate.blocks('getWalletState'), isTrue);
+    expect(gate.blocks('getSocialPushState'), isTrue);
   });
 
   test('status carries the participant and identity epoch', () {

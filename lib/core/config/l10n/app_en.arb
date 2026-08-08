@@ -845,6 +845,14 @@
   "@widgetInstructionsDone": {
     "description": "Dismiss button of the iOS widget-setup instructions screen"
   },
+  "appResetCompleteTitle": "Reset complete",
+  "@appResetCompleteTitle": {
+    "description": "Title of the inert terminal screen shown after application reset"
+  },
+  "appResetCompleteBody": "Close and reopen Usernode to continue.",
+  "@appResetCompleteBody": {
+    "description": "Instruction on the inert terminal screen shown after application reset"
+  },
   "svShellConnectingTitle": "Connecting to Usernode…",
   "@svShellConnectingTitle": {
     "description": "First-launch gate of the full-screen SV shell: shown while the Social Vibecoding webapp loads for the first time on this install"

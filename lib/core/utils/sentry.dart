@@ -215,14 +215,21 @@ class SentryUtil {
     String? username,
     String? email,
   }) async {
-    await Sentry.configureScope((scope) {
-      scope.setUser(SentryUser(id: id, username: username, email: email));
-    });
+    if (!_enabled) return;
+    await Sentry.configureScope(
+      (scope) =>
+          scope.setUser(SentryUser(id: id, username: username, email: email)),
+    );
   }
 
   static Future<void> clearUser() async {
-    await Sentry.configureScope((scope) {
-      scope.setUser(null);
-    });
+    await Sentry.configureScope((scope) => scope.setUser(null));
+  }
+
+  static Future<void> closeForTerminalReset() async {
+    _enabled = false;
+    _breadcrumbsEnabled = false;
+    _performanceTrackingEnabled = false;
+    await Sentry.configureScope((scope) => scope.clear());
   }
 }

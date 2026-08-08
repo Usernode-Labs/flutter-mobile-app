@@ -13,12 +13,10 @@ import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
-import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
-import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
@@ -168,12 +166,22 @@ AuthSession _session(String token, {int participantId = 99}) => AuthSession(
       ),
     );
 
-/// Signs in through the real [SessionController], leaving the identity in the
-/// reconciling phase exactly as the app would (marker set, participant id
-/// staged in the guest bucket, epoch bumped).
+/// Stages the only payload retained by a successful terminal login, then
+/// rebuilds the identity provider to model the next cold launch.
 Future<void> _login(ProviderContainer c, {String token = 'sess-1'}) async {
-  c.read(identityProvider);
-  await c.read(identityProvider.notifier).completeLogin(_session(token));
+  await c.read(identityProvider.notifier).restore();
+  final session = _session(token);
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setBool('testnet:account:reconcile_pending', true);
+  await prefs.setInt(
+    'testnet:acct:guest:leaderboard:participant_id',
+    session.participant.id,
+  );
+  await prefs.remove('auth:v3:guest');
+  await AuthTokenStore().write(session.token);
+  c.invalidate(identityProvider);
+  await c.read(identityProvider.notifier).restore();
+  expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
 }
 
 /// Overrides the reconciler with a no-op node binding (the default touches
@@ -190,33 +198,6 @@ Override _reconcilerOverride({
       ),
     );
 
-AuthRepository _logoutRepository() => AuthRepository(
-      baseUrl: 'https://test.example.com/api/v4/mobile/auth',
-      httpClient: MockClient(
-        (_) async => http.Response(
-          jsonEncode({'success': true}),
-          200,
-          headers: {'content-type': 'application/json'},
-        ),
-      ),
-    );
-
-Completer<void> _registerDrainingRuntimeBoundary(
-  ProviderContainer container,
-  NodeAccountReconciler reconciler,
-) {
-  final completed = Completer<void>();
-  SessionRuntimeBoundary.instance.register((_, persistSession) async {
-    // Mirrors AppRuntimeRoot: retire the old controller, drain its account
-    // work, then let the active transition finish persistence.
-    container.read(identityProvider.notifier).retireForRuntimeRestart();
-    await reconciler.drain();
-    await persistSession();
-    completed.complete();
-  });
-  return completed;
-}
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -229,13 +210,11 @@ void main() {
     await NetworkPrefs.init();
     NetworkPrefs.setActiveBucket(null, guest: true);
     IdentitySnapshots.reset();
-    SessionRuntimeBoundary.instance.resetForTesting();
   });
 
   tearDown(() {
     NetworkPrefs.setActiveBucket(null, guest: true);
     IdentitySnapshots.reset();
-    SessionRuntimeBoundary.instance.resetForTesting();
   });
 
   test('does nothing when the identity is not reconciling', () async {
@@ -261,9 +240,9 @@ void main() {
   test(
       'activates the existing local account matching the provisioned address '
       'and settles the identity to ready', () async {
-    // Device state after user A logged out and user B signs in: BOTH
-    // accounts exist locally, A's is still active. hasAny() alone would
-    // keep running under A's identity.
+    // Legacy/corrupt registry state contains two accounts and points at the
+    // wrong one. Reconcile must select the backend-provisioned address;
+    // account presence alone is not ownership proof.
     SharedPreferences.setMockInitialValues({
       'testnet:accounts:index': jsonEncode([
         _accountJson('acc_0_a', _addressA),
@@ -502,284 +481,6 @@ void main() {
     expect(results, [true, true]);
   });
 
-  test('drain waits for node binding and stale work cannot commit afterward',
-      () async {
-    SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
-        _accountJson('acc_1_b', _addressB),
-      ]),
-      'testnet:accounts:activeId': 'acc_1_b',
-    });
-    await NetworkPrefs.init();
-
-    final provisionCalls = <int>[];
-    final nodeBindingStarted = Completer<void>();
-    final releaseNodeBinding = Completer<void>();
-    addTearDown(() {
-      if (!releaseNodeBinding.isCompleted) releaseNodeBinding.complete();
-    });
-    late Identity currentIdentity;
-    final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
-          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
-      _reconcilerOverride(
-        ensureNodeIdentity: () async {
-          nodeBindingStarted.complete();
-          await releaseNodeBinding.future;
-        },
-        currentIdentity: () => currentIdentity,
-      ),
-    ]);
-    addTearDown(container.dispose);
-
-    await _login(container);
-    currentIdentity = container.read(identityProvider);
-
-    final reconciler = container.read(nodeAccountReconcilerProvider);
-    final reconcile = reconciler.reconcile();
-    await nodeBindingStarted.future;
-
-    var drainCompleted = false;
-    final drain = reconciler.drain().then((_) => drainCompleted = true);
-    await Future<void>.delayed(Duration.zero);
-    expect(drainCompleted, isFalse);
-
-    currentIdentity = currentIdentity.copyWith(
-      epoch: currentIdentity.epoch + 1,
-      phase: IdentityPhase.transitioning,
-    );
-    releaseNodeBinding.complete();
-    await drain;
-    expect(await reconcile, isFalse);
-    expect(drainCompleted, isTrue);
-    expect(provisionCalls, hasLength(1));
-    expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
-  });
-
-  test('a provisioning 401 does not deadlock the runtime drain', () async {
-    late ProviderContainer container;
-    final provisionService = LeaderboardApiService(
-      baseUrl: 'https://test.example.com/api/v4/mobile',
-      tokenProvider: AuthTokenStore().read,
-      onUnauthorized: (credential) => container
-          .read(identityProvider.notifier)
-          .onUnauthorized(credential: credential),
-      onCredentialMissing: (epoch) =>
-          container.read(identityProvider.notifier).onCredentialMissing(
-                epoch: epoch,
-              ),
-      httpClient: MockClient(
-        (_) async => http.Response(
-          jsonEncode({'success': false, 'error': 'Unauthenticated.'}),
-          401,
-          headers: {'content-type': 'application/json'},
-        ),
-      ),
-    );
-    container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(provisionService),
-      authRepositoryProvider.overrideWithValue(_logoutRepository()),
-      _reconcilerOverride(),
-    ]);
-    addTearDown(() {
-      container.dispose();
-      provisionService.dispose();
-    });
-
-    await _login(container);
-    final reconciler = container.read(nodeAccountReconcilerProvider);
-    final boundaryCompleted =
-        _registerDrainingRuntimeBoundary(container, reconciler);
-
-    final reconcileFailure = expectLater(
-      reconciler.reconcile(),
-      throwsA(
-        isA<LeaderboardApiException>().having(
-          (error) => error.statusCode,
-          'statusCode',
-          401,
-        ),
-      ),
-    );
-    await boundaryCompleted.future.timeout(const Duration(seconds: 2));
-    await reconcileFailure;
-
-    expect(await AuthTokenStore().read(), isNull);
-  });
-
-  test('an authority-refresh 401 does not deadlock the runtime drain',
-      () async {
-    SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
-        _accountJson('acc_1_b', _addressB),
-      ]),
-      'testnet:accounts:activeId': 'acc_1_b',
-    });
-    await NetworkPrefs.init();
-
-    late ProviderContainer container;
-    final authority = _authorityService(activeSeasonId: 7);
-    final me = AccountApiService(
-      baseUrl: 'https://test.example.com/api/v4/mobile',
-      tokenProvider: AuthTokenStore().read,
-      onUnauthorized: (credential) => container
-          .read(identityProvider.notifier)
-          .onUnauthorized(credential: credential),
-      onCredentialMissing: (epoch) =>
-          container.read(identityProvider.notifier).onCredentialMissing(
-                epoch: epoch,
-              ),
-      httpClient: MockClient(
-        (_) async => http.Response(
-          jsonEncode({'success': false, 'error': 'Unauthenticated.'}),
-          401,
-          headers: {'content-type': 'application/json'},
-        ),
-      ),
-    );
-    container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(authority),
-      accountApiServiceProvider.overrideWithValue(me),
-      authRepositoryProvider.overrideWithValue(_logoutRepository()),
-      _reconcilerOverride(),
-    ]);
-    addTearDown(() {
-      container.dispose();
-      authority.dispose();
-      me.dispose();
-    });
-
-    await _login(container);
-    final reconciler = container.read(nodeAccountReconcilerProvider);
-    expect(await reconciler.reconcile(), isTrue);
-    final boundaryCompleted =
-        _registerDrainingRuntimeBoundary(container, reconciler);
-
-    final refreshFailure = expectLater(
-      reconciler.refreshAuthoritativeState(),
-      throwsA(
-        isA<AccountApiException>().having(
-          (error) => error.statusCode,
-          'statusCode',
-          401,
-        ),
-      ),
-    );
-    await boundaryCompleted.future.timeout(const Duration(seconds: 2));
-    await refreshFailure;
-
-    expect(await AuthTokenStore().read(), isNull);
-  });
-
-  test(
-      'an identity change while provisioning is in flight discards the '
-      'response and keeps the reconcile-pending marker', () async {
-    // B's provisioning is slow; C signs in while it's in flight. B's
-    // response must not activate B's wallet or clear C's recovery marker.
-    SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
-        _accountJson('acc_0_a', _addressA),
-        _accountJson('acc_1_b', _addressB),
-      ]),
-      'testnet:accounts:activeId': 'acc_0_a',
-    });
-    await NetworkPrefs.init();
-
-    late ProviderContainer container;
-    final client = MockClient((request) async {
-      // The identity changes while the provision round-trip is in flight.
-      await container
-          .read(identityProvider.notifier)
-          .completeLogin(_session('sess-c', participantId: 100));
-      return http.Response(
-        jsonEncode({
-          'success': true,
-          'data': {
-            'address': _addressB,
-            'public_key': 'utpk1$_addressB',
-            'secret_key': 'utsk1secret',
-            'newly_allocated': false,
-          },
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
-    });
-    container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(LeaderboardApiService(
-        baseUrl: 'https://test.example.com/api/v4/mobile',
-        httpClient: client,
-        tokenProvider: AuthTokenStore().read,
-      )),
-      _reconcilerOverride(),
-    ]);
-    addTearDown(container.dispose);
-
-    await _login(container);
-
-    final committed =
-        await container.read(nodeAccountReconcilerProvider).reconcile();
-
-    expect(committed, isFalse);
-    final prefs = await SharedPreferences.getInstance();
-    // No mutation: A's account is still active, marker still set so the new
-    // identity's own reconcile repairs state.
-    expect(prefs.getString('testnet:accounts:activeId'), 'acc_0_a');
-    expect(prefs.getBool(markerKey), isTrue);
-    expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
-    // C's staged participant id was not consumed by B's stale run.
-    expect(prefs.getInt(guestPidKey), 100);
-  });
-
-  test('a caller under a newer epoch does not join a stale in-flight run',
-      () async {
-    SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
-        _accountJson('acc_1_b', _addressB),
-      ]),
-      'testnet:accounts:activeId': 'acc_1_b',
-    });
-    await NetworkPrefs.init();
-
-    final provisionCalls = <int>[];
-    final firstCallStarted = Completer<void>();
-    final releaseFirstCall = Completer<void>();
-    addTearDown(() {
-      if (!releaseFirstCall.isCompleted) releaseFirstCall.complete();
-    });
-    final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(
-        _provisionService(
-          _addressB,
-          provisionCalls,
-          firstCallStarted: firstCallStarted,
-          releaseFirstCall: releaseFirstCall.future,
-        ),
-      ),
-      _reconcilerOverride(),
-    ]);
-    addTearDown(container.dispose);
-
-    await _login(container);
-
-    final reconciler = container.read(nodeAccountReconcilerProvider);
-    final first = reconciler.reconcile();
-    await firstCallStarted.future;
-    // A new sign-in bumps the epoch while the first run is in flight: the
-    // next caller must get its own provision round-trip, not the stale
-    // run's result.
-    await container
-        .read(identityProvider.notifier)
-        .completeLogin(_session('sess-2', participantId: 100));
-    final second = reconciler.reconcile();
-    releaseFirstCall.complete();
-    final results = await Future.wait([first, second]);
-
-    expect(provisionCalls.length, 2);
-    // The stale run was discarded; the fresh run committed.
-    expect(results, [false, true]);
-  });
-
   test(
       'a failed node re-bind keeps the identity reconciling and the marker '
       'set so the next boot repairs the runtime identity', () async {
@@ -978,8 +679,7 @@ void main() {
     );
   });
 
-  test('delayed ready refresh is drained and cannot write after its epoch',
-      () async {
+  test('delayed ready refresh cannot write after its epoch', () async {
     SharedPreferences.setMockInitialValues({
       'testnet:accounts:index': jsonEncode([
         _accountJson('acc_1_b', _addressB),
@@ -1018,19 +718,12 @@ void main() {
 
     final refresh = reconciler.refreshAuthoritativeState();
     await requestStarted.future;
-    var drained = false;
-    final drain = reconciler.drain().then((_) => drained = true);
-    await Future<void>.delayed(Duration.zero);
-    expect(drained, isFalse);
-
     currentIdentity = currentIdentity.copyWith(
       epoch: currentIdentity.epoch + 1,
       phase: IdentityPhase.transitioning,
     );
     releaseRequest.complete();
     expect(await refresh, isFalse);
-    await drain;
-    expect(drained, isTrue);
     expect(await loadBlockProductionReleased(), isFalse);
   });
 }

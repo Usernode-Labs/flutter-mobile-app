@@ -319,9 +319,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get buildInfoDebug => 'Debug';
 
   @override
-  String get navDapps => 'dApps';
-
-  @override
   String get retry => 'Retry';
 
   @override

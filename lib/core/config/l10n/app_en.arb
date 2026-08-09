@@ -437,10 +437,6 @@
   "@buildInfoDebug": {
     "description": "Debug label in build info"
   },
-  "navDapps": "dApps",
-  "@navDapps": {
-    "description": "Navigation bar label for dapps tab"
-  },
   "retry": "Retry",
   "@retry": {
     "description": "Retry button label"

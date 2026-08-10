@@ -104,6 +104,10 @@ class AlarmMethodChannelHandler(context: Context) {
         return activityRef?.get() != null
     }
 
+    fun isActivityAttached(activity: Activity): Boolean {
+        return activityRef?.get() === activity
+    }
+
     /// Set the method channel for bidirectional communication
     fun setMethodChannel(channel: MethodChannel) {
         methodChannel = channel

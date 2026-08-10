@@ -181,20 +181,26 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onDestroy() {
-        if (::alarmHandler.isInitialized) {
+        val ownsAlarmChannel = ::alarmHandler.isInitialized &&
+            alarmHandler.isActivityAttached(this)
+        if (ownsAlarmChannel) {
             alarmHandler.clearMethodChannel("ui_activity_onDestroy")
             alarmHandler.detachActivity(this)
         }
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
         super.onDestroy()
         Log.i(TAG, "destroyed - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");
-        if (SlotMonitoringService.isForegroundServiceActive) {
+        val replacementActivityAttached = AlarmMethodChannelHandler.getInstance()
+            ?.isActivityAttached() == true
+        if (SlotMonitoringService.isForegroundServiceActive && !replacementActivityAttached) {
             // Activity destroyed => keep a background engine alive for the running foreground service.
             BackgroundAlarmEngine.createAndCacheNewEngine(
                 context = applicationContext,
                 reason = "activity_destroyed_foreground_service",
                 registerPlugins = true
             )
+        } else if (replacementActivityAttached) {
+            Log.i(TAG, "Skipping headless engine because a replacement Activity is attached")
         }
     }
 }

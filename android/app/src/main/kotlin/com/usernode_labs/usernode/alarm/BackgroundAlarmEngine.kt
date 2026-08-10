@@ -9,7 +9,6 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.embedding.engine.dart.DartExecutor
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugins.GeneratedPluginRegistrant
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -100,10 +99,16 @@ object BackgroundAlarmEngine {
         destroyCachedEngine("before_create:$reason")
 
         Log.i(TAG, "Creating new FlutterEngine (reason=$reason)")
-        val flutterEngine = FlutterEngine(context.applicationContext)
+        // Headless engines must not auto-register plugins: the generated
+        // registrant includes WebViewFlutterPlugin, whose process-wide Pigeon
+        // channels can replace the visible UI engine's WebView handlers.
+        val flutterEngine = FlutterEngine(
+            context.applicationContext,
+            null,
+            false,
+        )
         if (registerPlugins) {
-            // Register plugins so MethodChannel handlers are available in background contexts.
-            GeneratedPluginRegistrant.registerWith(flutterEngine)
+            HeadlessPluginRegistrant.registerWith(flutterEngine)
         }
         // Set up method channel handler BEFORE executing Dart entrypoint
         // This ensures the handler is registered when Dart code starts running

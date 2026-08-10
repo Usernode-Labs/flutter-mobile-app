@@ -1,38 +1,85 @@
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 
-/// Closes admission to bridge methods that expose or mutate session-owned
-/// wallet state while the web session is handed off to native.
+/// Separates authenticated services from wallet-owned services while the web
+/// session is handed off to native.
 ///
-/// This is intentionally only an admission gate. Calls already admitted are
-/// not cancelled or generation-fenced; that more complex edge case is tracked
-/// separately.
+/// A validated bearer is enough for Social push, but wallet reads, signing and
+/// node control stay closed until account reconciliation confirms the wallet
+/// belongs to the same participant and identity epoch.
 class SessionHandoffGate {
   SessionHandoffGate({bool initiallyBlocked = false})
-      : _blocked = initiallyBlocked;
+      : _authenticatedBlocked = initiallyBlocked,
+        _walletBlocked = initiallyBlocked;
 
-  static const sessionScopedMethods = <String>{
+  static const walletScopedMethods = <String>{
     'getNodeAddress',
     'sendTransaction',
     'signMessage',
     'txObserved',
     'getWalletState',
     'getTransactionRecords',
+  };
+
+  static const authenticatedScopedMethods = <String>{
     'getSocialPushState',
     'setSocialPushEnabled',
     'claimPendingSocialNotification',
     'ackPendingSocialNotification',
   };
 
-  bool _blocked;
+  bool _authenticatedBlocked;
+  bool _walletBlocked;
+  int? _participantId;
+  int? _epoch;
 
-  bool get isBlocked => _blocked;
+  bool get isAuthenticatedBlocked => _authenticatedBlocked;
+  bool get isWalletBlocked => _walletBlocked;
 
-  void begin() => _blocked = true;
+  void begin() {
+    _authenticatedBlocked = true;
+    _walletBlocked = true;
+    _participantId = null;
+    _epoch = null;
+  }
 
-  void admit() => _blocked = false;
+  bool admitAuthenticated(Identity identity) {
+    final participantId = identity.participantId;
+    if (!identity.isAuthenticated || participantId == null) return false;
+    _authenticatedBlocked = false;
+    _walletBlocked = true;
+    _participantId = participantId;
+    _epoch = identity.epoch;
+    return true;
+  }
+
+  bool admitWallet(Identity identity) {
+    if (!authenticates(identity) || identity.phase != IdentityPhase.ready) {
+      return false;
+    }
+    _walletBlocked = false;
+    return true;
+  }
+
+  void restrictWallet(Identity identity) {
+    if (authenticates(identity)) _walletBlocked = true;
+  }
+
+  void admitAnonymous() {
+    _authenticatedBlocked = false;
+    _walletBlocked = false;
+    _participantId = null;
+    _epoch = null;
+  }
+
+  bool authenticates(Identity identity) =>
+      !_authenticatedBlocked &&
+      identity.isAuthenticated &&
+      identity.participantId == _participantId &&
+      identity.epoch == _epoch;
 
   bool blocks(String method) =>
-      _blocked && sessionScopedMethods.contains(method);
+      (_authenticatedBlocked && authenticatedScopedMethods.contains(method)) ||
+      (_walletBlocked && walletScopedMethods.contains(method));
 }
 
 Map<String, dynamic> sessionBoundAuthStatus(

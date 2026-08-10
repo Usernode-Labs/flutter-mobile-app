@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/features/social_notifications/social_push_binding.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_api.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_messaging.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_payload.dart';
@@ -13,6 +14,28 @@ const _projectId = 'usernode-test';
 const _installationId = '123e4567-e89b-42d3-a456-426614174000';
 
 void main() {
+  test('push binding needs authentication, not wallet readiness', () {
+    const reconciling = Identity(
+      epoch: 3,
+      phase: IdentityPhase.reconciling,
+      participantId: 42,
+    );
+
+    expect(canAttachSocialPushSession(reconciling), isTrue);
+    expect(
+      canAttachSocialPushSession(
+        reconciling.copyWith(clearParticipantId: true),
+      ),
+      isFalse,
+    );
+    expect(
+      canAttachSocialPushSession(
+        reconciling.copyWith(phase: IdentityPhase.unauthenticated),
+      ),
+      isFalse,
+    );
+  });
+
   test('ordinary startup preserves the token while identity restores',
       () async {
     final rig = _rig(optedIn: true);

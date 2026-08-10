@@ -66,10 +66,13 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// /api/v4/mobile/auth/from-session). The legacy `user` payload is checked
   /// for mismatch only; native derives the participant from authenticated
   /// `/api/v4/mobile/me` so token and participant cannot diverge.
-  /// Initial login stays in this runtime and resolves the settled auth
-  /// snapshot. Replacing an authenticated participant acknowledges the
-  /// accepted runtime cutover before this WebView is removed. Neither path
-  /// starts the node — lifecycle remains platform-controlled.
+  /// Initial login stays in this runtime and resolves as soon as the bearer
+  /// and participant are installed. Account reconciliation continues behind
+  /// that authenticated boundary; only wallet and node methods wait for
+  /// [IdentityPhase.ready]. Replacing an authenticated participant
+  /// acknowledges the accepted runtime cutover before this WebView is
+  /// removed. Neither path starts the node — lifecycle remains
+  /// platform-controlled.
   Future<void> _handleCompleteLogin(
       String id, Map<String, dynamic> payload) async {
     if (!await _requireTrustedChromeOrigin(id, 'completeLogin')) return;
@@ -182,45 +185,13 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       await _rejectStaleIdentityScope(id, 'completeLogin');
       return;
     }
-    if (sameParticipant) {
-      _admitSessionHandoff();
-      final response = _authStatusSnapshotFor(responseIdentity);
-      await _resolveJsPromise(
-        id: id,
-        value: response,
-        error: null,
-      );
-      return;
-    }
-    // The identity driver also reacts to the reconciling publish; the
-    // reconciler coalesces per epoch so this direct call just gives the
-    // page a Future that settles when provisioning is done.
-    try {
-      await ref.read(nodeAccountReconcilerProvider).reconcile();
-    } catch (e) {
-      if (!mounted) return;
-      responseIdentity = ref.read(identityProvider);
-      if (responseIdentity.epoch != expectedEpoch ||
-          responseIdentity.participantId != session.participant.id) {
-        await _rejectStaleIdentityScope(id, 'completeLogin');
-        return;
-      }
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Wallet provisioning failed: $e',
-      );
-      return;
-    }
-    if (!mounted) return;
-    responseIdentity = ref.read(identityProvider);
-    if (responseIdentity.epoch != expectedEpoch ||
-        responseIdentity.participantId != session.participant.id ||
-        responseIdentity.phase != IdentityPhase.ready) {
+    if (!_admitAuthenticatedSession(responseIdentity)) {
       await _rejectStaleIdentityScope(id, 'completeLogin');
       return;
     }
-    _admitSessionHandoff();
+    if (responseIdentity.phase == IdentityPhase.ready) {
+      _admitWalletSession(responseIdentity);
+    }
     final response = _authStatusSnapshotFor(responseIdentity);
     await _resolveJsPromise(id: id, value: response, error: null);
   }

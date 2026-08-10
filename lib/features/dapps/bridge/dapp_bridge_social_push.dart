@@ -54,7 +54,7 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     final revision = service.foregroundInvalidationRevision;
     if (revision <= _lastSocialPushForegroundRevision ||
         !widget.chromeless ||
-        _sessionHandoffGate.isBlocked) {
+        _sessionHandoffGate.isAuthenticatedBlocked) {
       return;
     }
     final capability = _privilegedBridgePolicy.bootstrapCapability();
@@ -75,7 +75,7 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
         '"usernode:social-push-foreground"));',
       );
       if (mounted &&
-          !_sessionHandoffGate.isBlocked &&
+          !_sessionHandoffGate.isAuthenticatedBlocked &&
           _privilegedBridgePolicy.authorizes(capability)) {
         _lastSocialPushForegroundRevision = revision;
       }
@@ -104,6 +104,14 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
   Future<void> _handleGetSocialPushState(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'getSocialPushState')) return;
     final identity = ref.read(identityProvider);
+    if (!_sessionHandoffGate.authenticates(identity)) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'An authenticated session is required',
+      );
+      return;
+    }
     final state = await SocialPushService.instance.refreshState();
     if (!_identityScopeIsCurrent(identity)) {
       await _rejectStaleIdentityScope(id, 'getSocialPushState');
@@ -122,11 +130,11 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
   ) async {
     if (!await _requireTrustedChromeOrigin(id, 'setSocialPushEnabled')) return;
     final identity = ref.read(identityProvider);
-    if (identity.phase != IdentityPhase.ready) {
+    if (!_sessionHandoffGate.authenticates(identity)) {
       await _resolveJsPromise(
         id: id,
         value: null,
-        error: 'A ready authenticated session is required',
+        error: 'An authenticated session is required',
       );
       return;
     }
@@ -161,11 +169,11 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     }
     final identity = ref.read(identityProvider);
     final userId = identity.participantId;
-    if (identity.phase != IdentityPhase.ready || userId == null) {
+    if (!_sessionHandoffGate.authenticates(identity) || userId == null) {
       await _resolveJsPromise(
         id: id,
         value: null,
-        error: 'A ready authenticated session is required',
+        error: 'An authenticated session is required',
       );
       return;
     }
@@ -194,11 +202,11 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     }
     final identity = ref.read(identityProvider);
     final userId = identity.participantId;
-    if (identity.phase != IdentityPhase.ready || userId == null) {
+    if (!_sessionHandoffGate.authenticates(identity) || userId == null) {
       await _resolveJsPromise(
         id: id,
         value: null,
-        error: 'A ready authenticated session is required',
+        error: 'An authenticated session is required',
       );
       return;
     }

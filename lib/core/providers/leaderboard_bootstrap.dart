@@ -95,7 +95,6 @@ class LeaderboardBootstrap {
 /// Throttled to at most once every 5 seconds.
 DateTime? _lastRefreshAt;
 
-
 Future<void> refreshAllLeaderboardData(Ref ref) async {
   final now = DateTime.now();
   if (_lastRefreshAt != null &&

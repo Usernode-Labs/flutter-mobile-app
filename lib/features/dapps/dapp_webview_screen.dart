@@ -270,6 +270,7 @@ abstract class _DappWebViewScreenStateBase
 
 class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     with
+        WidgetsBindingObserver,
         _BridgeTxRecords,
         _BridgeAuthNode,
         _BridgeWallet,
@@ -451,6 +452,17 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     _loadTxRecords();
     _loadDappTxIds();
     unawaited(_ensureNodeForStandaloneDappEntry());
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    // The identity itself may not change while the WebView is backgrounded.
+    // Re-emit authoritative native state so a page whose secure handoff
+    // previously failed can retry after the app returns to the foreground.
+    _dispatchAuthStatusEvent();
+    _dispatchPendingSocialPushEvents();
   }
 
   /// Presents the OS file picker for a WebView `<input type="file">` tap
@@ -511,6 +523,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _privilegedBridgePolicy.revoke();
     _disposeSocialPushEvents();
     _confirmPoller?.cancel();

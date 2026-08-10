@@ -67,5 +67,4 @@ void main() {
       expect(await service.getCachedBalance('acct'), isNull);
     });
   });
-
 }

@@ -61,4 +61,3 @@ final dappBySlugProvider = Provider.family<DappItem?, String>((ref, slug) {
   }
   return null;
 });
-

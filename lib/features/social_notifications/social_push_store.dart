@@ -115,7 +115,7 @@ class SocialPushRecord {
 
   factory SocialPushRecord.fresh() => SocialPushRecord(
         installationId: _randomUuid(),
-        optedIn: false,
+        optedIn: true,
         mutationRevision: 0,
       );
 
@@ -158,7 +158,11 @@ class SocialPushRecord {
     final pending = PendingSocialNotification.fromJson(value['pending']);
     return SocialPushRecord(
       installationId: installationId,
-      optedIn: optedIn,
+      // Version 1 originally persisted an implicit false before the user had
+      // made any choice. A zero mutation revision distinguishes that default
+      // from an explicit opt-out, so existing installations inherit the new
+      // default without overriding a saved user preference.
+      optedIn: mutationRevision == 0 ? true : optedIn,
       mutationRevision: mutationRevision,
       pending: pending == null || pending.isExpired(now) ? null : pending,
     );

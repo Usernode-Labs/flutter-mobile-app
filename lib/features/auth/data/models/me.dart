@@ -48,4 +48,3 @@ class Me {
         x: json['x'] as String?,
       );
 }
-

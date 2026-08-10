@@ -434,5 +434,4 @@ void main() {
       expect(kProduceBlocksSubCategory, 'PRODUCE_BLOCKS_CHALLENGE');
     });
   });
-
 }

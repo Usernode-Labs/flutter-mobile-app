@@ -184,6 +184,37 @@ class LeaderboardApiService {
     return WalletProvisionResult.fromJson(data as Map<String, dynamic>);
   }
 
+  /// Reads delegation state for an account owned by the authenticated user.
+  /// Returns null when the account is unknown or belongs to another user.
+  Future<DelegationStatus?> getDelegation({
+    required String walletAddress,
+  }) async {
+    try {
+      final data = await _get(
+        '/delegation',
+        queryParams: {'wallet_address': walletAddress},
+        expectedStatuses: const {404},
+      );
+      return DelegationStatus.fromJson(data as Map<String, dynamic>);
+    } on LeaderboardApiException catch (error) {
+      if (error.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Sets delegation state for an account owned by the authenticated user.
+  Future<DelegationStatus> setDelegation({
+    required String walletAddress,
+    required bool delegated,
+  }) async {
+    _ensureWritesEnabled();
+    final data = await _post(
+      '/delegation',
+      body: {'wallet_address': walletAddress, 'delegated': delegated},
+    );
+    return DelegationStatus.fromJson(data as Map<String, dynamic>);
+  }
+
   void dispose() => _http.close();
 
   // ---------------------------------------------------------------------------

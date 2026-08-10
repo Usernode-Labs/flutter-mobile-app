@@ -6,26 +6,31 @@ import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart'
 
 void main() {
   group('NodeLifecycleCoordinator desired-state derivation', () {
-    // (hasAccount, intent, sleeping) → (runDesired, recoveryDesired)
-    const cases = <(bool, PlatformNodeIntent, bool, bool, bool)>[
+    // (hasAccount, intent, sleeping, delegated) →
+    // (runDesired, recoveryDesired)
+    const cases = <(bool, PlatformNodeIntent, bool, bool, bool, bool)>[
       // No account: nothing is ever desired, regardless of intent.
-      (false, PlatformNodeIntent.unset, false, false, false),
-      (false, PlatformNodeIntent.start, false, false, false),
-      (false, PlatformNodeIntent.stop, false, false, false),
+      (false, PlatformNodeIntent.unset, false, false, false, false),
+      (false, PlatformNodeIntent.start, false, false, false, false),
+      (false, PlatformNodeIntent.stop, false, false, false, false),
       // Account, no platform request yet: recovery armed, no active start.
-      (true, PlatformNodeIntent.unset, false, false, true),
-      (true, PlatformNodeIntent.unset, true, false, true),
+      (true, PlatformNodeIntent.unset, false, false, false, true),
+      (true, PlatformNodeIntent.unset, true, false, false, true),
       // Account + explicit start: run, unless sleeping (recovery stays armed
       // either way — alarm handlers do their own sleep gating).
-      (true, PlatformNodeIntent.start, false, true, true),
-      (true, PlatformNodeIntent.start, true, false, true),
+      (true, PlatformNodeIntent.start, false, false, true, true),
+      (true, PlatformNodeIntent.start, true, false, false, true),
+      // Delegation preserves node runtime intent but disables producer recovery.
+      (true, PlatformNodeIntent.start, false, true, true, false),
       // Account + explicit stop: nothing desired.
-      (true, PlatformNodeIntent.stop, false, false, false),
+      (true, PlatformNodeIntent.stop, false, false, false, false),
     ];
 
-    for (final (hasAccount, intent, sleeping, wantRun, wantRecovery) in cases) {
+    for (final (hasAccount, intent, sleeping, delegated, wantRun, wantRecovery)
+        in cases) {
       test(
           'hasAccount=$hasAccount intent=${intent.name} sleeping=$sleeping '
+          'delegated=$delegated '
           '→ run=$wantRun recovery=$wantRecovery', () {
         expect(
           NodeLifecycleCoordinator.runDesired(
@@ -39,6 +44,7 @@ void main() {
           NodeLifecycleCoordinator.recoveryDesired(
             hasAccount: hasAccount,
             intent: intent,
+            delegated: delegated,
           ),
           wantRecovery,
         );
@@ -54,6 +60,7 @@ void main() {
       bool startResult = true,
       bool nodeRunning = false,
       bool sleeping = false,
+      bool delegated = false,
       Future<bool> Function()? startBackend,
     }) {
       calls = [];
@@ -63,6 +70,7 @@ void main() {
               calls.add('startBackend');
               return startResult;
             },
+        restartBackend: () async => calls.add('restartBackend'),
         stopBackend: () async => calls.add('stopBackend'),
         isNodeRunning: () => nodeRunning,
         isSleeping: () => sleeping,
@@ -76,6 +84,7 @@ void main() {
         cancelAllAlarms: () async => calls.add('cancelAllAlarms'),
         cancelAlarmWatchdog: () async => calls.add('cancelWatchdog'),
         isAndroid: () => android,
+        isDelegated: () async => delegated,
       );
     }
 
@@ -116,6 +125,58 @@ void main() {
 
       expect(started, isTrue);
       expect(calls, ['startBackend']);
+    });
+
+    test('delegated Android start keeps node running without producer support',
+        () async {
+      final coordinator = build(android: true, delegated: true);
+
+      final started = await coordinator.startNode(reason: 'platform_start');
+
+      expect(started, isTrue);
+      expect(calls, [
+        'startBackend',
+        'disableRecovery',
+        'stopMonitoring:platform_start',
+        'cancelAllAlarms',
+        'cancelWatchdog',
+      ]);
+    });
+
+    test('delegation change rebuilds a running node and disarms production',
+        () async {
+      final coordinator = build(
+        android: true,
+        nodeRunning: true,
+        delegated: true,
+      );
+      await coordinator.reportColdBoot(hasAccount: true);
+      calls.clear();
+
+      await coordinator.reconfigureForDelegationChange();
+
+      expect(calls, [
+        'restartBackend',
+        'disableRecovery',
+        'stopMonitoring:delegation_changed',
+        'cancelAllAlarms',
+        'cancelWatchdog',
+      ]);
+    });
+
+    test('delegation change does not start a stopped node', () async {
+      final coordinator = build(android: true, delegated: true);
+      await coordinator.reportColdBoot(hasAccount: true);
+      calls.clear();
+
+      await coordinator.reconfigureForDelegationChange();
+
+      expect(calls, [
+        'disableRecovery',
+        'stopMonitoring:delegation_changed',
+        'cancelAllAlarms',
+        'cancelWatchdog',
+      ]);
     });
 
     test(

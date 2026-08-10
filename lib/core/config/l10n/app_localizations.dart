@@ -1221,6 +1221,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Can\'t reach Usernode. Check your connection and try again.'**
   String get svShellOfflineMessage;
+
+  /// Title of the native staking manager opened from Wallet
+  ///
+  /// In en, this message translates to:
+  /// **'Staking mode'**
+  String get stakingManagerTitle;
+
+  /// Introductory copy on the delegation review step
+  ///
+  /// In en, this message translates to:
+  /// **'Delegate your stake to the server. Your node keeps running, but the server stakes on your behalf.'**
+  String get stakingDelegateIntro;
+
+  /// Friendly name of the single supported delegation target
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get stakingServerName;
+
+  /// Description of delegation's effect on this node
+  ///
+  /// In en, this message translates to:
+  /// **'Your node stops producing blocks. While delegated, you receive half the block-production points you would earn by producing blocks directly on this phone.'**
+  String get stakingDelegateEffect;
+
+  /// Reassurance below the delegation review
+  ///
+  /// In en, this message translates to:
+  /// **'You can switch back to staking yourself at any time.'**
+  String get stakingDelegateNote;
+
+  /// Action that commits delegation
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm delegation'**
+  String get stakingDelegateConfirm;
+
+  /// Loading label while delegation is being committed
+  ///
+  /// In en, this message translates to:
+  /// **'Delegating…'**
+  String get stakingDelegating;
+
+  /// Error shown when delegation cannot be committed
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t submit the delegation. Check your connection and try again.'**
+  String get stakingDelegateError;
+
+  /// Title shown for active delegation
+  ///
+  /// In en, this message translates to:
+  /// **'Delegation active'**
+  String get stakingDelegationActiveTitle;
+
+  /// Body shown for active delegation
+  ///
+  /// In en, this message translates to:
+  /// **'Your stake is delegated to {validator}. You receive half the block-production points you would earn by producing blocks directly on this phone.'**
+  String stakingDelegationActiveBody(String validator);
+
+  /// Dismisses the staking manager after delegation
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get stakingDone;
+
+  /// Title of the undelegation confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Stop delegating?'**
+  String get stakingUndelegateTitle;
+
+  /// Body of the undelegation confirmation
+  ///
+  /// In en, this message translates to:
+  /// **'Your stake returns to this phone. Your node will produce blocks directly and earn the full block-production points.'**
+  String get stakingUndelegateBody;
+
+  /// Action that commits undelegation
+  ///
+  /// In en, this message translates to:
+  /// **'Stop delegating'**
+  String get stakingUndelegateConfirm;
+
+  /// Error shown when undelegation cannot be committed
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t stop delegating. Check your connection and try again.'**
+  String get stakingUndelegateError;
 }
 
 class _AppLocalizationsDelegate

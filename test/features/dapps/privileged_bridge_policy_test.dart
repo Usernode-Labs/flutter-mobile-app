@@ -35,6 +35,7 @@ void main() {
       'openNativeScreen',
       'getProfileInfo',
       'getSettingsState',
+      'manageStaking',
       'setNodeSleepEnabled',
       'setDebugMode',
       'setFacematchStrict',

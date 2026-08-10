@@ -852,5 +852,68 @@
   "svShellOfflineMessage": "Can't reach Usernode. Check your connection and try again.",
   "@svShellOfflineMessage": {
     "description": "First-launch gate of the full-screen SV shell: shown when the first-ever load of the Social Vibecoding webapp fails"
+  },
+  "stakingManagerTitle": "Staking mode",
+  "@stakingManagerTitle": {
+    "description": "Title of the native staking manager opened from Wallet"
+  },
+  "stakingDelegateIntro": "Delegate your stake to the server. Your node keeps running, but the server stakes on your behalf.",
+  "@stakingDelegateIntro": {
+    "description": "Introductory copy on the delegation review step"
+  },
+  "stakingServerName": "Server",
+  "@stakingServerName": {
+    "description": "Friendly name of the single supported delegation target"
+  },
+  "stakingDelegateEffect": "Your node stops producing blocks. While delegated, you receive half the block-production points you would earn by producing blocks directly on this phone.",
+  "@stakingDelegateEffect": {
+    "description": "Description of delegation's effect on this node"
+  },
+  "stakingDelegateNote": "You can switch back to staking yourself at any time.",
+  "@stakingDelegateNote": {
+    "description": "Reassurance below the delegation review"
+  },
+  "stakingDelegateConfirm": "Confirm delegation",
+  "@stakingDelegateConfirm": {
+    "description": "Action that commits delegation"
+  },
+  "stakingDelegating": "Delegating…",
+  "@stakingDelegating": {
+    "description": "Loading label while delegation is being committed"
+  },
+  "stakingDelegateError": "Couldn't submit the delegation. Check your connection and try again.",
+  "@stakingDelegateError": {
+    "description": "Error shown when delegation cannot be committed"
+  },
+  "stakingDelegationActiveTitle": "Delegation active",
+  "@stakingDelegationActiveTitle": {
+    "description": "Title shown for active delegation"
+  },
+  "stakingDelegationActiveBody": "Your stake is delegated to {validator}. You receive half the block-production points you would earn by producing blocks directly on this phone.",
+  "@stakingDelegationActiveBody": {
+    "description": "Body shown for active delegation",
+    "placeholders": {
+      "validator": {"type": "String"}
+    }
+  },
+  "stakingDone": "Done",
+  "@stakingDone": {
+    "description": "Dismisses the staking manager after delegation"
+  },
+  "stakingUndelegateTitle": "Stop delegating?",
+  "@stakingUndelegateTitle": {
+    "description": "Title of the undelegation confirmation"
+  },
+  "stakingUndelegateBody": "Your stake returns to this phone. Your node will produce blocks directly and earn the full block-production points.",
+  "@stakingUndelegateBody": {
+    "description": "Body of the undelegation confirmation"
+  },
+  "stakingUndelegateConfirm": "Stop delegating",
+  "@stakingUndelegateConfirm": {
+    "description": "Action that commits undelegation"
+  },
+  "stakingUndelegateError": "Couldn't stop delegating. Check your connection and try again.",
+  "@stakingUndelegateError": {
+    "description": "Error shown when undelegation cannot be committed"
   }
 }

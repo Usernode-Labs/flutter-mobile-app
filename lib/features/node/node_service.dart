@@ -27,6 +27,7 @@ import 'package:crypto_mobile_app/src/rust/node/builder.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/staking_preference_store.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/models/backend_rpc_response.dart';
 import 'package:path_provider/path_provider.dart';
@@ -512,6 +513,9 @@ class RustBackendService {
       // Load network configuration from URLs (with retry)
       await _configureNetworkFromUrls(builder);
 
+      final delegated =
+          !viewOnly && await StakingPreferenceStore.active().isDelegated();
+
       // A guest session is treated as view-only: the node still runs and syncs,
       // but never produces blocks — a returning operator's leftover keys must
       // not operate while browsing as a guest.
@@ -519,6 +523,8 @@ class RustBackendService {
         _log.info(guestSession
             ? 'Guest session; node runs non-producing (no block producer)'
             : 'VIEW_ONLY enabled; skipping block producer configuration');
+      } else if (delegated) {
+        _log.info('Stake is delegated; node runs without a block producer');
       } else if (Platform.isIOS) {
         // Block production is disabled entirely on iOS: the platform cannot
         // keep the app alive reliably enough to honor won slots (no alarms,

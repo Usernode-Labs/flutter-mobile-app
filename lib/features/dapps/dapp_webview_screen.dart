@@ -38,6 +38,7 @@ import 'package:crypto_mobile_app/features/social_notifications/social_push_stor
 import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/core/providers/staking_provider.dart';
 import 'package:crypto_mobile_app/features/zkpassport/zk_challenge_reset.dart'
     show resetChallengeState;
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart'

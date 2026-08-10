@@ -25,6 +25,7 @@ class PrivilegedBridgePolicy {
     'openNativeScreen',
     'getProfileInfo',
     'getSettingsState',
+    'manageStaking',
     'setNodeSleepEnabled',
     'setDebugMode',
     'setFacematchStrict',

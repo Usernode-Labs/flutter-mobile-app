@@ -17,6 +17,7 @@ class SessionHandoffGate {
     'signMessage',
     'txObserved',
     'getWalletState',
+    'manageStaking',
     'getTransactionRecords',
   };
 

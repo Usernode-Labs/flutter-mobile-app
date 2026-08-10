@@ -16,6 +16,7 @@ import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benc
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_run_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/http_debug_logs_screen.dart';
+import 'package:crypto_mobile_app/features/wallet/presentation/staking_delegation_screen.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -46,6 +47,9 @@ class AppRoutes {
   static const deviceBenchmarkResultDetail =
       '/settings/device-benchmark/result';
   static const httpDebugLogs = '/settings/http-debug-logs';
+
+  // Native wallet trust surface opened by the SV Wallet sheet.
+  static const walletStaking = '/wallet/staking';
 
   static String dappDetailFor(String slug) => '/dapps/$slug';
   static String dappPinnedFor(String id) => '/dapps/pinned/$id';
@@ -115,6 +119,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.httpDebugLogs,
         builder: (context, state) => const HttpDebugLogsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.walletStaking,
+        builder: (context, state) => const StakingDelegationScreen(),
       ),
       GoRoute(
         path: AppRoutes.zkIdentityDetail,

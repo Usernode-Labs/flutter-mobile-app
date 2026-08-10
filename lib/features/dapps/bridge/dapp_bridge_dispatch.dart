@@ -34,6 +34,7 @@ mixin _BridgeDispatch
     'getNodeStatus',
     'nodeStatusEvents',
     'getWalletState',
+    'manageStaking',
     'getTransactionRecords',
     'openNativeScreen',
     'getProfileInfo',
@@ -247,6 +248,10 @@ mixin _BridgeDispatch
 
         if (method == 'getWalletState') {
           await _handleGetWalletState(id);
+        }
+
+        if (method == 'manageStaking') {
+          await _handleManageStaking(id);
         }
 
         if (method == 'getTransactionRecords') {

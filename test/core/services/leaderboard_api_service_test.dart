@@ -528,6 +528,93 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
+  // Delegation
+  // -------------------------------------------------------------------------
+
+  group('delegation', () {
+    test('reads delegation state for the requested wallet', () async {
+      Uri? capturedUri;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: _mockClient(
+          200,
+          _envelope({
+            'delegated': true,
+            'delegated_since': '2026-08-10T12:00:00Z',
+          }),
+          onRequest: (request) => capturedUri = request.url,
+        ),
+      );
+
+      final result = await service.getDelegation(walletAddress: 'ut1-wallet');
+
+      expect(result?.delegated, isTrue);
+      expect(result?.delegatedSince, '2026-08-10T12:00:00Z');
+      expect(capturedUri?.path, '/api/v3/mobile/delegation');
+      expect(capturedUri?.queryParameters['wallet_address'], 'ut1-wallet');
+    });
+
+    test('returns null when the wallet is unknown', () async {
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: _mockClient(404, {'error': 'Unknown account address.'}),
+        maxGetRetries: 0,
+      );
+
+      expect(
+        await service.getDelegation(walletAddress: 'ut1-missing'),
+        isNull,
+      );
+    });
+
+    test('sets delegation using session ownership rather than participant id',
+        () async {
+      http.Request? capturedRequest;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: _mockClient(
+          200,
+          _envelope({'delegated': true}),
+          onRequest: (request) => capturedRequest = request,
+        ),
+        writesEnabled: true,
+      );
+
+      final result = await service.setDelegation(
+        walletAddress: 'ut1-wallet',
+        delegated: true,
+      );
+
+      final body = jsonDecode(capturedRequest!.body) as Map<String, dynamic>;
+      expect(result.delegated, isTrue);
+      expect(capturedRequest?.method, 'POST');
+      expect(body, {'wallet_address': 'ut1-wallet', 'delegated': true});
+      expect(body, isNot(contains('participant_id')));
+    });
+
+    test('view-only mode rejects delegation writes before transport', () async {
+      var requests = 0;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: MockClient((request) async {
+          requests++;
+          return http.Response('{}', 200);
+        }),
+        writesEnabled: false,
+      );
+
+      await expectLater(
+        () => service.setDelegation(
+          walletAddress: 'ut1-wallet',
+          delegated: true,
+        ),
+        throwsA(isA<LeaderboardApiException>()),
+      );
+      expect(requests, 0);
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Auth (session token) behavior
   // -------------------------------------------------------------------------
 

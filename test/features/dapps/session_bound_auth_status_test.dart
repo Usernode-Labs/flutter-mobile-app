@@ -38,6 +38,7 @@ void main() {
       'signMessage',
       'txObserved',
       'getWalletState',
+      'manageStaking',
       'getTransactionRecords',
     });
     expect(SessionHandoffGate.authenticatedScopedMethods, {

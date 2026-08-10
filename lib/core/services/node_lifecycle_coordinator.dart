@@ -4,6 +4,7 @@ import 'package:crypto_mobile_app/core/services/android_foreground_task_controll
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/services/staking_preference_store.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 /// What the platform (SV chrome) has most recently asked of the node runtime
@@ -50,6 +51,7 @@ enum PlatformNodeIntent { unset, start, stop }
 class NodeLifecycleCoordinator {
   NodeLifecycleCoordinator({
     Future<bool> Function()? startBackend,
+    Future<void> Function()? restartBackend,
     Future<void> Function()? stopBackend,
     bool Function()? isNodeRunning,
     bool Function()? isSleeping,
@@ -61,8 +63,11 @@ class NodeLifecycleCoordinator {
     Future<void> Function()? cancelAllAlarms,
     Future<void> Function()? cancelAlarmWatchdog,
     bool Function()? isAndroid,
+    Future<bool> Function()? isDelegated,
   })  : _startBackend =
             startBackend ?? (() => RustBackendService.instance.startNode()),
+        _restartBackend =
+            restartBackend ?? (() => RustBackendService.instance.restartNode()),
         _stopBackend =
             stopBackend ?? (() => RustBackendService.instance.stopNode()),
         _isNodeRunning =
@@ -89,11 +94,14 @@ class NodeLifecycleCoordinator {
         _cancelAlarmWatchdog = cancelAlarmWatchdog ??
             (() => PlatformAlarmService.instance.cancelAlarmWatchdog()),
         _isAndroid = isAndroid ??
-            (() => defaultTargetPlatform == TargetPlatform.android);
+            (() => defaultTargetPlatform == TargetPlatform.android),
+        _isDelegated = isDelegated ??
+            (() => StakingPreferenceStore.active().isDelegated());
 
   static NodeLifecycleCoordinator instance = NodeLifecycleCoordinator();
 
   final Future<bool> Function() _startBackend;
+  final Future<void> Function() _restartBackend;
   final Future<void> Function() _stopBackend;
   final bool Function() _isNodeRunning;
   final bool Function() _isSleeping;
@@ -105,6 +113,7 @@ class NodeLifecycleCoordinator {
   final Future<void> Function() _cancelAllAlarms;
   final Future<void> Function() _cancelAlarmWatchdog;
   final bool Function() _isAndroid;
+  final Future<bool> Function() _isDelegated;
 
   // ── Facts ────────────────────────────────────────────────────────────
   bool _hasAccount = false;
@@ -139,8 +148,9 @@ class NodeLifecycleCoordinator {
   static bool recoveryDesired({
     required bool hasAccount,
     required PlatformNodeIntent intent,
+    required bool delegated,
   }) =>
-      hasAccount && intent != PlatformNodeIntent.stop;
+      hasAccount && intent != PlatformNodeIntent.stop && !delegated;
 
   // ── Entry points: report facts, then reconcile ───────────────────────
 
@@ -194,6 +204,19 @@ class NodeLifecycleCoordinator {
     });
   }
 
+  /// Rebuilds a running node so its producer configuration reflects the
+  /// newly persisted delegation state, then reconciles Android production
+  /// support. A stopped node stays stopped and reads the preference next time.
+  Future<void> reconfigureForDelegationChange({
+    String reason = 'delegation_changed',
+  }) {
+    if (!_acceptingRuntimeWork) return Future.value();
+    return _serialized(() async {
+      if (_isNodeRunning()) await _restartBackend();
+      await _reconcile(reason: reason);
+    });
+  }
+
   /// Stops admitting work and blocks until the node and every production
   /// support path have been disarmed.
   Future<void> hardStopForSessionBoundary({required String reason}) {
@@ -221,15 +244,20 @@ class NodeLifecycleCoordinator {
     if (!_acceptingRuntimeWork) {
       return _isNodeRunning();
     }
-    final wantRecovery =
-        recoveryDesired(hasAccount: _hasAccount, intent: _intent);
+    final delegated = await _isDelegated();
+    final nodeAllowed = _hasAccount && _intent != PlatformNodeIntent.stop;
+    final wantRecovery = recoveryDesired(
+      hasAccount: _hasAccount,
+      intent: _intent,
+      delegated: delegated,
+    );
     final wantRun = runDesired(
       hasAccount: _hasAccount,
       intent: _intent,
       sleeping: _isSleeping(),
     );
 
-    if (!wantRecovery) {
+    if (!nodeAllowed) {
       // Deliberate stop or no account: full teardown. Recovery is disabled
       // first so no audit re-arms alarms mid-teardown; alarms are cancelled
       // after the runtime is down. Every step is idempotent.
@@ -246,6 +274,16 @@ class NodeLifecycleCoordinator {
     }
 
     if (!_isAndroid()) return running;
+
+    if (!wantRecovery) {
+      // Delegation disables only block-production support. The node remains
+      // available for syncing, relaying, and wallet transactions.
+      _disableWatchdogRecovery();
+      await _stopMonitoring(reason: reason);
+      await _cancelAllAlarms();
+      await _cancelAlarmWatchdog();
+      return running;
+    }
 
     if (running) {
       // Enable BEFORE onNodeStarted so the controller's own re-arm check

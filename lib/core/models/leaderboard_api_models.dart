@@ -966,3 +966,22 @@ List<ChallengeProgress> _parseChallengeProgressList(dynamic raw) {
           .toList() ??
       const [];
 }
+// ---------------------------------------------------------------------------
+// Delegation
+// ---------------------------------------------------------------------------
+
+/// Backend-tracked delegation state for the authenticated user's wallet.
+class DelegationStatus {
+  const DelegationStatus({required this.delegated, this.delegatedSince});
+
+  final bool delegated;
+
+  /// ISO-8601 start of the open delegation period, or null when inactive.
+  final String? delegatedSince;
+
+  factory DelegationStatus.fromJson(Map<String, dynamic> json) =>
+      DelegationStatus(
+        delegated: json['delegated'] == true,
+        delegatedSince: _nonEmptyString(json['delegated_since']),
+      );
+}

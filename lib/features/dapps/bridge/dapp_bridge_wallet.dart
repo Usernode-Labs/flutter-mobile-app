@@ -19,12 +19,23 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
           'tokenAmount': null,
           'tokenSymbol': null,
           'lastUpdatedMs': null,
+          'staking': null,
         },
         error: null,
       );
       return;
     }
     final address = identity.address;
+    // The bridge snapshot must not expose the controller's optimistic default
+    // before the identity-scoped preference/backend state has hydrated.
+    try {
+      await ref
+          .read(stakingProvider.notifier)
+          .ready
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {
+      // Wallet data remains usable if delegation reconciliation is offline.
+    }
     // First read lazily initializes the provider; wait briefly for the
     // initial load so a fresh page doesn't always see nulls, but never
     // hang the page's promise on a slow node.
@@ -46,7 +57,39 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
         'tokenAmount': balance?.tokenAmount,
         'tokenSymbol': balance?.tokenSymbol,
         'lastUpdatedMs': balance?.lastUpdated?.millisecondsSinceEpoch,
+        'staking': ref.read(stakingProvider).toBridgeJson(),
       },
+      error: null,
+    );
+  }
+
+  Future<void> _handleManageStaking(String id) async {
+    final identity = _bridgeWalletIdentity();
+    if (identity == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Delegation requires a ready authenticated wallet.',
+      );
+      return;
+    }
+
+    await context.push(AppRoutes.walletStaking);
+
+    if (!mounted ||
+        !identity.sameScopeAs(IdentitySnapshots.current) ||
+        _bridgeWalletIdentity() == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The signed-in account changed; refresh wallet state.',
+      );
+      return;
+    }
+
+    await _resolveJsPromise(
+      id: id,
+      value: ref.read(stakingProvider).toBridgeJson(),
       error: null,
     );
   }

@@ -632,4 +632,57 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get svShellOfflineMessage =>
       'Can\'t reach Usernode. Check your connection and try again.';
+
+  @override
+  String get stakingManagerTitle => 'Staking mode';
+
+  @override
+  String get stakingDelegateIntro =>
+      'Delegate your stake to the server. Your node keeps running, but the server stakes on your behalf.';
+
+  @override
+  String get stakingServerName => 'Server';
+
+  @override
+  String get stakingDelegateEffect =>
+      'Your node stops producing blocks. While delegated, you receive half the block-production points you would earn by producing blocks directly on this phone.';
+
+  @override
+  String get stakingDelegateNote =>
+      'You can switch back to staking yourself at any time.';
+
+  @override
+  String get stakingDelegateConfirm => 'Confirm delegation';
+
+  @override
+  String get stakingDelegating => 'Delegating…';
+
+  @override
+  String get stakingDelegateError =>
+      'Couldn\'t submit the delegation. Check your connection and try again.';
+
+  @override
+  String get stakingDelegationActiveTitle => 'Delegation active';
+
+  @override
+  String stakingDelegationActiveBody(String validator) {
+    return 'Your stake is delegated to $validator. You receive half the block-production points you would earn by producing blocks directly on this phone.';
+  }
+
+  @override
+  String get stakingDone => 'Done';
+
+  @override
+  String get stakingUndelegateTitle => 'Stop delegating?';
+
+  @override
+  String get stakingUndelegateBody =>
+      'Your stake returns to this phone. Your node will produce blocks directly and earn the full block-production points.';
+
+  @override
+  String get stakingUndelegateConfirm => 'Stop delegating';
+
+  @override
+  String get stakingUndelegateError =>
+      'Couldn\'t stop delegating. Check your connection and try again.';
 }

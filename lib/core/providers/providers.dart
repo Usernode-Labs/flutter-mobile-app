@@ -95,4 +95,3 @@ final debugModeProvider =
 /// Exposes the in-memory HTTP debug log buffer to the viewer UI.
 final httpDebugLogStoreProvider =
     Provider<HttpDebugLogStore>((ref) => HttpDebugLogStore.instance);
-

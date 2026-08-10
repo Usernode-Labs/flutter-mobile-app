@@ -966,4 +966,3 @@ List<ChallengeProgress> _parseChallengeProgressList(dynamic raw) {
           .toList() ??
       const [];
 }
-

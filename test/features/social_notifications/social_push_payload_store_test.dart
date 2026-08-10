@@ -113,12 +113,43 @@ void main() {
   });
 
   test('fresh records use UUIDv4 installation ids', () {
+    final record = SocialPushRecord.fresh();
+
+    expect(record.optedIn, isTrue);
     expect(
-      SocialPushRecord.fresh().installationId,
+      record.installationId,
       matches(RegExp(
         r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
       )),
     );
+  });
+
+  test('unmodified legacy records adopt the enabled-by-default preference', () {
+    final decoded = SocialPushRecord.fromJson(
+      {
+        'schema': SocialPushRecord.schema,
+        'installationId': '123e4567-e89b-42d3-a456-426614174000',
+        'optedIn': false,
+        'mutationRevision': 0,
+      },
+      DateTime.utc(2026, 8, 10),
+    );
+
+    expect(decoded?.optedIn, isTrue);
+  });
+
+  test('an explicit legacy opt-out remains disabled', () {
+    final decoded = SocialPushRecord.fromJson(
+      {
+        'schema': SocialPushRecord.schema,
+        'installationId': '123e4567-e89b-42d3-a456-426614174000',
+        'optedIn': false,
+        'mutationRevision': 4,
+      },
+      DateTime.utc(2026, 8, 10),
+    );
+
+    expect(decoded?.optedIn, isFalse);
   });
 
   test('Android backup rules exclude the shared secure-storage file', () async {

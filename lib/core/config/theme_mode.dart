@@ -23,5 +23,4 @@ class ThemeModeStorage {
       return ThemeMode.system;
     }
   }
-
 }

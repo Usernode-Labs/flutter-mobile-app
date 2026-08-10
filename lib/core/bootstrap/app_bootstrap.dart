@@ -305,7 +305,6 @@ class AppBootstrap {
         'event_id': ctx.eventId,
       });
     }
-
   }
 
   static Future<void> _bootstrapBackendAsync({

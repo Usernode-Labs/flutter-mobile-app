@@ -32,6 +32,11 @@ final _mountedResetProbeProvider = Provider<_ResetGraphProbe>((ref) {
   return probe;
 });
 
+class _NoopLogoutRepository extends AuthRepository {
+  @override
+  Future<void> logout(String sessionToken) async {}
+}
+
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   const alarmChannel = MethodChannel('com.usernode.app/alarm');
@@ -142,7 +147,7 @@ void main() {
   });
 
   testWidgets(
-      'initial login erases the old incarnation and leaves only cold-launch auth input',
+      'initial login stays live and logout erases the complete incarnation',
       (tester) async {
     final graphProbe = _ResetGraphProbe();
     final container = ProviderContainer(overrides: [
@@ -170,7 +175,7 @@ void main() {
     final controller = SessionController(
       tokenStore: AuthTokenStore(),
       guestFlag: AuthGuestFlag(),
-      repository: AuthRepository(),
+      repository: _NoopLogoutRepository(),
       suspendNode: () async {},
       terminalReset: ({required reason, prepareNextLaunch}) =>
           resetService.resetAndTerminate(
@@ -182,7 +187,7 @@ void main() {
     await controller.restore();
     expect(controller.state.phase, IdentityPhase.guest);
 
-    final applied = await tester.runAsync(
+    final loggedIn = await tester.runAsync(
       () => controller.completeLogin(
         const AuthSession(
           token: 'new-session',
@@ -196,7 +201,30 @@ void main() {
     );
     await tester.pump();
 
-    expect(applied, isTrue);
+    expect(loggedIn, isTrue);
+    expect(controller.state.phase, IdentityPhase.reconciling);
+    expect(controller.state.participantId, 2);
+    expect(find.text('functional graph'), findsOneWidget);
+    expect(graphProbe.mounted, isTrue);
+    expect(nativeCalls, isEmpty);
+    expect(SentryUtil.enabled, isTrue);
+    expect(AppLifecycleLogger.isRegistered, isTrue);
+    final prefsBeforeLogout = await SharedPreferences.getInstance();
+    expect(prefsBeforeLogout.getString('old_preference'), 'must disappear');
+    expect(
+      await const FlutterSecureStorage().readAll(),
+      {
+        'auth:v3:session_token': 'new-session',
+        'old_secret': 'must disappear',
+      },
+    );
+
+    final loggedOut = await tester.runAsync(
+      () => controller.logout(expectedIdentity: controller.state),
+    );
+    await tester.pump();
+
+    expect(loggedOut, isTrue);
     expect(controller.state.phase, IdentityPhase.transitioning);
     expect(find.text('Reset complete'), findsOneWidget);
     expect(graphProbe.mounted, isFalse);
@@ -220,7 +248,7 @@ void main() {
     );
     expect(
       nativeCalls.last.arguments,
-      {'clearApplicationData': false},
+      {'clearApplicationData': true},
     );
     expect(nativeIncarnation, isNull);
 
@@ -235,15 +263,12 @@ void main() {
     expect(prefs.getString('old_preference'), isNull);
     expect(prefs.getString('testnet:accounts:activeId'), isNull);
     expect(prefs.getBool('auth:v3:guest'), isNull);
-    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isNull);
     expect(
       prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
-      2,
+      isNull,
     );
-    expect(
-      await const FlutterSecureStorage().readAll(),
-      {'auth:v3:session_token': 'new-session'},
-    );
+    expect(await const FlutterSecureStorage().readAll(), isEmpty);
     for (final directory in appDirectories.values) {
       expect(directory.listSync(), isEmpty);
     }
@@ -304,8 +329,8 @@ void main() {
     );
     addTearDown(coldController.dispose);
     await coldController.restore();
-    expect(coldController.state.phase, IdentityPhase.reconciling);
-    expect(coldController.state.participantId, 2);
+    expect(coldController.state.phase, IdentityPhase.unauthenticated);
+    expect(coldController.state.participantId, isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

@@ -37,8 +37,6 @@ class _TerminalResetProbe {
   final phasesAtEntry = <IdentityPhase>[];
   final tokensBeforeWipe = <String?>[];
   final hadNextLaunchWriter = <bool>[];
-  final nextLaunchMarkers = <bool?>[];
-  final nextLaunchParticipantIds = <int?>[];
 
   Future<void> call({
     required String reason,
@@ -54,12 +52,6 @@ class _TerminalResetProbe {
     await tokenStore.clear();
     expect(await tokenStore.read(), isNull);
     await prepareNextLaunch?.call();
-    nextLaunchMarkers.add(
-      prefs.getBool('testnet:account:reconcile_pending'),
-    );
-    nextLaunchParticipantIds.add(
-      prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
-    );
   }
 }
 
@@ -124,11 +116,11 @@ void main() {
     NetworkPrefs.setActiveBucket(null, guest: true);
   });
 
-  test('initial login resets first and writes only the next-launch session',
+  test('initial login stays in-process and enters account reconciliation',
       () async {
     SharedPreferences.setMockInitialValues({
       'auth:v3:guest': true,
-      'old_incarnation_preference': 'must disappear',
+      'existing_preference': 'must remain',
     });
     final tokenStore = AuthTokenStore();
     final reset = _TerminalResetProbe(tokenStore);
@@ -139,18 +131,30 @@ void main() {
 
     expect(await controller.completeLogin(_session('token-b', 2)), isTrue);
 
-    expect(reset.reasons, ['initial_login']);
-    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
-    expect(reset.tokensBeforeWipe, [null]);
-    expect(reset.hadNextLaunchWriter, [isTrue]);
-    expect(reset.nextLaunchMarkers, [isTrue]);
-    expect(reset.nextLaunchParticipantIds, [2]);
+    expect(reset.reasons, isEmpty);
     expect(await tokenStore.read(), 'token-b');
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('old_incarnation_preference'), isNull);
+    expect(prefs.getString('existing_preference'), 'must remain');
     expect(prefs.getBool('auth:v3:guest'), isNull);
-    expect(controller.state.phase, IdentityPhase.transitioning);
-    expect(await controller.completeLogin(_session('token-c', 3)), isFalse);
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
+    expect(
+      prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
+      2,
+    );
+    expect(controller.state.phase, IdentityPhase.reconciling);
+    expect(controller.state.participantId, 2);
+
+    final reconciling = controller.state;
+    expect(
+      await controller.completeLogin(
+        _session('token-c', 2),
+        expectedIdentity: reconciling,
+      ),
+      isTrue,
+    );
+    expect(controller.state.sameScopeAs(reconciling), isTrue);
+    expect(await tokenStore.read(), 'token-c');
+    expect(reset.reasons, isEmpty);
   });
 
   test('same participant rotates its bearer without resetting', () async {

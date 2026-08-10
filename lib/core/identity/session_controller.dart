@@ -351,10 +351,9 @@ class SessionController extends StateNotifier<Identity> {
 
   /// Accepts an authoritative authenticated session.
   ///
-  /// A renewed credential for the current participant is rotated in place.
-  /// Every other accepted login is a terminal application reset: an initial
-  /// login writes only the new cold-launch payload after the wipe, while a
-  /// direct different-participant login is discarded rather than switched.
+  /// Initial login and a renewed credential for the current participant are
+  /// applied in place. A direct different-participant login is discarded and
+  /// forces the current authenticated incarnation through its terminal reset.
   Future<bool> completeLogin(
     AuthSession session, {
     Identity? expectedIdentity,
@@ -390,22 +389,29 @@ class SessionController extends StateNotifier<Identity> {
           phase: IdentityPhase.transitioning,
         ));
 
-        _retired = true;
-        if (current.isAuthenticated) {
-          unawaited(_logoutStoredTokenBestEffort());
-          unawaited(_logoutBestEffort(session.token));
-          await _terminalReset(reason: 'different_participant_login');
-          return false;
+        if (!current.isAuthenticated) {
+          // Guests and unauthenticated sessions own no node runtime. Keep the
+          // web session that established this login alive while the new
+          // account is reconciled, then let the platform request its start.
+          await _persistLoginTarget(session);
+          await _suspendNode();
+          _publish(Identity(
+            epoch: epoch,
+            phase: IdentityPhase.reconciling,
+            participantId: participantId,
+          ));
+          return true;
         }
 
-        await _terminalReset(
-          reason: 'initial_login',
-          prepareNextLaunch: () => _persistLoginTarget(session),
-        );
-        return true;
+        _retired = true;
+        unawaited(_logoutStoredTokenBestEffort());
+        unawaited(_logoutBestEffort(session.token));
+        await _terminalReset(reason: 'different_participant_login');
+        return false;
       }, whenRetired: () => false);
 
   Future<void> _persistLoginTarget(AuthSession session) async {
+    await _tokenStore.clear();
     // Marker + staged id BEFORE the token write are the crash-recovery
     // payload. A boot-restorable token therefore always restores through the
     // authoritative account reconcile until ownership is committed.

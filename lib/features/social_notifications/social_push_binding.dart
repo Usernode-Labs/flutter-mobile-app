@@ -8,8 +8,13 @@ import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 
 import 'social_push_service.dart';
 
-/// Keeps the process-level push service attached to the exact ready identity
-/// owned by this ProviderContainer. The service never retains Ref/container.
+bool canAttachSocialPushSession(Identity identity) =>
+    identity.isAuthenticated && identity.participantId != null;
+
+/// Keeps the process-level push service attached to the exact authenticated
+/// identity owned by this ProviderContainer. Wallet reconciliation is not a
+/// push prerequisite; participant id plus the bearer define the recipient.
+/// The service never retains Ref/container.
 final socialPushBindingProvider = Provider<void>((ref) {
   final service = SocialPushService.instance;
   final owner = Object();
@@ -25,12 +30,9 @@ final socialPushBindingProvider = Provider<void>((ref) {
     );
   }
 
-  void attachReadyIdentity() {
+  void attachAuthenticatedIdentity() {
     final identity = ref.read(identityProvider);
-    if (identity.phase != IdentityPhase.ready ||
-        identity.participantId == null) {
-      return;
-    }
+    if (!canAttachSocialPushSession(identity)) return;
     final expectedGeneration = ++generation;
     unawaited(() async {
       String? token;
@@ -78,7 +80,8 @@ final socialPushBindingProvider = Provider<void>((ref) {
     (previous, next) {
       switch (next.phase) {
         case IdentityPhase.ready:
-          attachReadyIdentity();
+        case IdentityPhase.reconciling:
+          attachAuthenticatedIdentity();
         case IdentityPhase.transitioning:
           if (previous?.isAuthenticated == true) {
             detach(rotateProviderToken: true);
@@ -87,9 +90,7 @@ final socialPushBindingProvider = Provider<void>((ref) {
         case IdentityPhase.guest:
           detach(rotateProviderToken: true);
         case IdentityPhase.unknown:
-        case IdentityPhase.reconciling:
-          // Initial login and same-user season reconciliation keep a tapped
-          // notification until a ready identity can validate its binding.
+          // Restore has not identified an authenticated participant yet.
           break;
       }
     },
@@ -97,11 +98,11 @@ final socialPushBindingProvider = Provider<void>((ref) {
   );
 
   final tokenChanges = AuthTokenStore.changes.listen((_) {
-    if (!disposed && ref.read(identityProvider).phase == IdentityPhase.ready) {
+    if (!disposed && ref.read(identityProvider).isAuthenticated) {
       // The store emits only after the old bearer has been replaced/cleared.
       // Close its service lease before the async read of the new value.
       detach(rotateProviderToken: false);
-      attachReadyIdentity();
+      attachAuthenticatedIdentity();
     }
   });
 

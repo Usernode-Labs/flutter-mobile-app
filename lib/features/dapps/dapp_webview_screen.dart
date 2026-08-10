@@ -29,8 +29,6 @@ import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
     show authRepositoryProvider, authStatusProvider, identityProvider;
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart'
     show accountReconciliationStatusProvider, identityDriverProvider;
-import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart'
-    show nodeAccountReconcilerProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
@@ -146,8 +144,17 @@ abstract class _DappWebViewScreenStateBase
 
   void _dispatchPendingSocialPushEvents();
 
-  void _admitSessionHandoff() {
-    _sessionHandoffGate.admit();
+  bool _admitAuthenticatedSession(Identity identity) {
+    if (!_sessionHandoffGate.admitAuthenticated(identity)) return false;
+    _dispatchPendingSocialPushEvents();
+    return true;
+  }
+
+  bool _admitWalletSession(Identity identity) =>
+      _sessionHandoffGate.admitWallet(identity);
+
+  void _admitAnonymousSession() {
+    _sessionHandoffGate.admitAnonymous();
     _dispatchPendingSocialPushEvents();
   }
 
@@ -437,7 +444,12 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         // identity was still reconciling — retry the node ensure once it
         // settles to ready.
         if (next.phase == IdentityPhase.ready) {
+          _admitWalletSession(next);
           unawaited(_ensureNodeForStandaloneDappEntry());
+        } else if (next.phase == IdentityPhase.reconciling) {
+          _sessionHandoffGate.restrictWallet(next);
+        } else if (!next.isAuthenticated) {
+          _sessionHandoffGate.begin();
         }
       },
     );

@@ -14,7 +14,8 @@ void main() {
   test('session handoff gate starts open for anonymous wallet sign-in', () {
     final gate = SessionHandoffGate();
 
-    expect(gate.isBlocked, isFalse);
+    expect(gate.isAuthenticatedBlocked, isFalse);
+    expect(gate.isWalletBlocked, isFalse);
     expect(gate.blocks('getNodeAddress'), isFalse);
     expect(gate.blocks('signMessage'), isFalse);
   });
@@ -22,39 +23,85 @@ void main() {
   test('session handoff gate can start blocked for the chromeless shell', () {
     final gate = SessionHandoffGate(initiallyBlocked: true);
 
-    expect(gate.isBlocked, isTrue);
+    expect(gate.isAuthenticatedBlocked, isTrue);
+    expect(gate.isWalletBlocked, isTrue);
     expect(gate.blocks('getNodeAddress'), isTrue);
     expect(gate.blocks('signMessage'), isTrue);
   });
 
-  test('session handoff blocks the exact session-scoped dispatch set', () {
+  test('session handoff blocks authenticated and wallet dispatch sets', () {
     final gate = SessionHandoffGate()..begin();
 
-    expect(SessionHandoffGate.sessionScopedMethods, {
+    expect(SessionHandoffGate.walletScopedMethods, {
       'getNodeAddress',
       'sendTransaction',
       'signMessage',
       'txObserved',
       'getWalletState',
       'getTransactionRecords',
+    });
+    expect(SessionHandoffGate.authenticatedScopedMethods, {
       'getSocialPushState',
       'setSocialPushEnabled',
       'claimPendingSocialNotification',
       'ackPendingSocialNotification',
     });
-    for (final method in SessionHandoffGate.sessionScopedMethods) {
+    for (final method in {
+      ...SessionHandoffGate.walletScopedMethods,
+      ...SessionHandoffGate.authenticatedScopedMethods,
+    }) {
       expect(gate.blocks(method), isTrue, reason: method);
     }
     expect(gate.blocks('completeLogin'), isFalse);
     expect(gate.blocks('getAuthStatus'), isFalse);
   });
 
-  test('confirmed authenticated or anonymous admission reopens dispatch', () {
+  test('authenticated admission opens push while wallet stays closed', () {
+    final gate = SessionHandoffGate()..begin();
+    final reconciling = ready.copyWith(
+      phase: IdentityPhase.reconciling,
+      clearAccount: true,
+    );
+
+    expect(gate.admitAuthenticated(reconciling), isTrue);
+
+    expect(gate.isAuthenticatedBlocked, isFalse);
+    expect(gate.isWalletBlocked, isTrue);
+    expect(gate.authenticates(reconciling), isTrue);
+    expect(gate.blocks('getSocialPushState'), isFalse);
+    expect(gate.blocks('getWalletState'), isTrue);
+    expect(gate.admitWallet(reconciling), isFalse);
+  });
+
+  test('wallet admission waits for the same participant and epoch to settle',
+      () {
+    final gate = SessionHandoffGate()..begin();
+    final reconciling = ready.copyWith(
+      phase: IdentityPhase.reconciling,
+      clearAccount: true,
+    );
+    gate.admitAuthenticated(reconciling);
+
+    expect(gate.admitWallet(ready), isTrue);
+    expect(gate.blocks('getWalletState'), isFalse);
+
+    gate.restrictWallet(reconciling);
+    expect(gate.blocks('getWalletState'), isTrue);
+    expect(
+      gate.admitWallet(ready.copyWith(epoch: ready.epoch + 1)),
+      isFalse,
+    );
+  });
+
+  test('anonymous admission reopens local dispatch without an auth binding',
+      () {
     final gate = SessionHandoffGate()..begin();
 
-    gate.admit();
+    gate.admitAnonymous();
 
-    expect(gate.isBlocked, isFalse);
+    expect(gate.isAuthenticatedBlocked, isFalse);
+    expect(gate.isWalletBlocked, isFalse);
+    expect(gate.authenticates(ready), isFalse);
     expect(gate.blocks('getWalletState'), isFalse);
   });
 

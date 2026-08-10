@@ -163,7 +163,7 @@ mixin _BridgeDispatch
       }
 
       if (method == 'enterAnonymousSession') {
-        _admitSessionHandoff();
+        _admitAnonymousSession();
         await _resolveJsPromise(
           id: id,
           value: const {'admitted': true},

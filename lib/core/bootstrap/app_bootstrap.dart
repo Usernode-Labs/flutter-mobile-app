@@ -135,7 +135,6 @@ class AppBootstrap {
     // sign-in's account reconcile was interrupted — in which case the node
     // start below is refused until the reconcile completes.
     await container.read(identityProvider.notifier).restore();
-    final bootIdentity = container.read(identityProvider);
     final hasAnyAccounts = await repo.hasAny();
     final activeId = repo.getActiveId();
 
@@ -176,7 +175,6 @@ class AppBootstrap {
     final backendBootstrap = _bootstrapBackendAsync(
       log: log,
       container: container,
-      producerEligible: bootIdentity.phase == IdentityPhase.ready,
     );
 
     return AppBootstrapResult(
@@ -312,7 +310,6 @@ class AppBootstrap {
   static Future<void> _bootstrapBackendAsync({
     required TaggedLogger log,
     required ProviderContainer container,
-    required bool producerEligible,
   }) async {
     try {
       log.debug('Bootstrap begin');
@@ -341,6 +338,16 @@ class AppBootstrap {
           resetStaticContext: false,
         );
       }
+
+      // The UI remains live while backend initialization is in flight. Read
+      // identity only now so an initial login that settled meanwhile cannot be
+      // overwritten by its stale boot-time eligibility.
+      final currentIdentity = container.read(identityProvider);
+      final producerEligible = currentIdentity.phase == IdentityPhase.ready;
+      log.debug('Reporting current cold-boot eligibility', context: {
+        'identity_phase': currentIdentity.phase.name,
+        'producer_eligible': producerEligible,
+      });
 
       // Report cold-boot facts to the lifecycle coordinator, which
       // reconciles the Android block-production wiring (watchdog recovery,

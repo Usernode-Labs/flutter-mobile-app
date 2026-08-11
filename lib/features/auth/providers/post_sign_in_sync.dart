@@ -65,8 +65,9 @@ Timer _defaultRetryTimer(Duration duration, void Function() callback) =>
 ///
 /// Node lifecycle is platform-controlled (thin-shell migration): SV chrome
 /// requests start/stop over bridge v4 once the identity settles. The driver
-/// no longer starts the node itself — neither for guests (the guest keyless
-/// start is gone) nor after reconcile.
+/// does not start the node itself. Guest-node admission is currently disabled;
+/// its keyless construction support remains dormant for a future explicit
+/// product mode.
 ///
 /// Failures are logged and reported, never rethrown: this is opportunistic
 /// repair, and each unit has its own recovery path (the persisted
@@ -115,8 +116,9 @@ class IdentityDriver {
     _latestIdentity = next;
     final refreshIdentity = _refreshIdentity;
     if (refreshIdentity != null && !next.sameScopeAs(refreshIdentity)) {
-      // Do not cancel the old request; the reconciler drains/serializes it.
-      // Only release this coalescing slot so a new epoch cannot join it.
+      // The request itself is not cancellable. Exact identity checks discard
+      // its result; release this coalescing slot so a new season epoch cannot
+      // join it.
       _refreshRun = null;
       _refreshIdentity = null;
     }

@@ -130,18 +130,29 @@ class SocialPushService {
 
   Future<void> _initializeOnce() async {
     try {
-      _record = await _persistence.load();
+      final loaded = await _persistence.load();
+      if (_resetting) {
+        await _persistence.clear();
+        return;
+      }
+      _record = loaded;
       if (_tapCaptureBlocked && _record!.pending != null) {
         _record = _record!.copyWith(clearPending: true);
       }
       final recordBeingSaved = _record!;
-      await _persistence.save(recordBeingSaved);
+      if (!await _persistRecord(recordBeingSaved)) return;
       // A rotating account boundary can synchronously replace [_record]
       // while this first write is in flight. Only acknowledge the write when
       // it persisted the record that is still authoritative; otherwise the
       // queued boundary must rewrite its cleared record.
       _recordPersisted = identical(_record, recordBeingSaved);
     } catch (error) {
+      if (_resetting) {
+        try {
+          await _persistence.clear();
+        } catch (_) {}
+        return;
+      }
       _record = SocialPushRecord.fresh();
       _recordPersisted = false;
       _registrationStatus = SocialPushRegistrationStatus.error;
@@ -175,6 +186,10 @@ class SocialPushService {
         '[SocialPush] Firebase unavailable (${error.runtimeType})',
       );
       _emitState();
+      return;
+    }
+    if (_resetting) {
+      await _disableInitializedProviderState();
       return;
     }
     if (projectId != expectedFirebaseProjectId) {
@@ -269,6 +284,7 @@ class SocialPushService {
   /// Attaches the exact ready bearer owned by the active provider container.
   /// Calling this with a renewed same-user bearer simply queues another PUT.
   void attachSession(Object owner, SocialPushSession session) {
+    if (_resetting) return;
     final previousSession = _session;
     final crossUserBoundary =
         previousSession != null && previousSession.userId != session.userId;
@@ -284,7 +300,6 @@ class SocialPushService {
     if (_registeredSession?.sameCredentialAs(session) != true) {
       _clearRegisteredSignature();
     }
-    _resetting = false;
     if (boundaryGeneration != null) {
       _deliveryActive = false;
       _registrationStatus = _statusWithoutRegistration();
@@ -393,35 +408,32 @@ class SocialPushService {
     });
   }
 
-  /// Runs before SharedPreferences is cleared by an in-process app reset.
-  /// The new runtime persists this fresh installation before reconciling.
-  Future<void> resetForAppReset() async {
-    final previousSession = _session;
+  /// Fences process-local push delivery for a terminal application reset.
+  ///
+  /// Persistent push state is erased by the reset service's secure-storage
+  /// wipe. Network unregister/rotation is intentionally not awaited because
+  /// remote cleanup may never delay the local terminal boundary.
+  void closeForTerminalReset() {
     _fenceTapCaptureAtAccountBoundary();
     _sessionOwner = null;
     _session = null;
     _clearRegisteredSignature();
     _resetting = true;
-    var installedFreshState = false;
+    _installFreshResetState();
+    _runDetached(_finishTerminalResetCleanup(), 'terminal push cleanup');
+  }
+
+  Future<void> _finishTerminalResetCleanup() async {
+    await _openedSubscription?.cancel();
+    await _foregroundSubscription?.cancel();
+    await _tokenSubscription?.cancel();
+    _openedSubscription = null;
+    _foregroundSubscription = null;
+    _tokenSubscription = null;
     try {
-      await initialize();
-      await _enqueue(() async {
-        try {
-          await _rotateProviderTokenNow();
-          if (previousSession != null) {
-            await _unregisterNow(previousSession);
-          }
-          await _persistence.clear();
-        } finally {
-          _installFreshResetState();
-          installedFreshState = true;
-        }
-      });
-    } finally {
-      if (!installedFreshState) {
-        _installFreshResetState();
-      }
-    }
+      await _persistence.clear();
+    } catch (_) {}
+    await _disableInitializedProviderState();
   }
 
   void _installFreshResetState() {
@@ -727,7 +739,7 @@ class SocialPushService {
         receivedAt: _now().toUtc(),
       ),
     );
-    await _persistence.save(candidate);
+    if (!await _persistRecord(candidate)) return;
     if (_tapCaptureBlocked || captureGeneration != _tapCaptureGeneration) {
       // A synchronous account boundary invalidated this capture while the
       // write was in flight. Its queued fence rewrites the cleared record.
@@ -843,15 +855,28 @@ class SocialPushService {
 
   Future<void> _ensureRecordPersisted() async {
     if (_recordPersisted) return;
-    await _persistence.save(_record!);
+    if (!await _persistRecord(_record!)) return;
     _recordPersisted = true;
   }
 
   Future<void> _replaceRecord(SocialPushRecord record) async {
-    await _persistence.save(record);
+    if (!await _persistRecord(record)) return;
     _record = record;
     _recordPersisted = true;
     _emitState();
+  }
+
+  Future<bool> _persistRecord(SocialPushRecord record) async {
+    if (_resetting) {
+      await _persistence.clear();
+      return false;
+    }
+    await _persistence.save(record);
+    if (_resetting) {
+      await _persistence.clear();
+      return false;
+    }
+    return true;
   }
 
   SocialPushRegistrationStatus _statusWithoutRegistration() {

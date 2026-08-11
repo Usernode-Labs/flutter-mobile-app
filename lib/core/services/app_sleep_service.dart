@@ -137,6 +137,7 @@ class AppSleepService extends ChangeNotifier {
   DateTime? _lastRecordedInteractionAt;
   bool _initialized = false;
   bool _isEnabled;
+  bool _terminalResetRequested = false;
   bool _resumeNodeOnWake = false;
   bool _resumeEpochMonitoringOnWake = false;
   bool _awaitingInactivityAfterWakelockRelease = false;
@@ -155,6 +156,7 @@ class AppSleepService extends ChangeNotifier {
   bool get isAwake => !_snapshot.isSleeping;
 
   Future<void> initializeForInteractiveApp() async {
+    if (_terminalResetRequested) return;
     if (_useStateStore) {
       await AppSleepStateStore.load();
       _isEnabled = AppSleepStateStore.isEnabled;
@@ -184,39 +186,8 @@ class AppSleepService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Stops and drains process-level sleep work before replacing the
-  /// interactive runtime.
-  ///
-  /// This service is a process singleton rather than container-owned, so
-  /// disposing the old [ProviderContainer] is not sufficient by itself.
-  Future<void> stopForRuntimeRestart() async {
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    _scheduledWakeTimer?.cancel();
-    _scheduledWakeTimer = null;
-    _wakelockMonitorTimer?.cancel();
-    _wakelockMonitorTimer = null;
-
-    await _activeWakelockPoll;
-    await _transition;
-
-    _transition = Future.value();
-    _initialized = false;
-    _lastRecordedInteractionAt = null;
-    _resumeNodeOnWake = false;
-    _resumeEpochMonitoringOnWake = false;
-    _awaitingInactivityAfterWakelockRelease = false;
-    _lastObservedWakelockHeld = null;
-    _snapshot = AppSleepSnapshot(
-      isSleeping: false,
-      lifecycleState:
-          WidgetsBinding.instance.lifecycleState ?? AppLifecycleState.resumed,
-      lastInteractionAt: DateTime.now(),
-    );
-    await _persistSleeping(false);
-  }
-
   Future<void> handleLifecycleStateChanged(AppLifecycleState state) async {
+    if (_terminalResetRequested) return;
     _snapshot = _snapshot.copyWith(lifecycleState: state);
     _rescheduleIdleTimer();
     notifyListeners();
@@ -253,6 +224,7 @@ class AppSleepService extends ChangeNotifier {
   }
 
   void recordUserInteraction({String source = 'pointer'}) {
+    if (_terminalResetRequested) return;
     if (!_isEnabled && !isSleeping) {
       return;
     }
@@ -286,16 +258,19 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> setEnabled(bool value) {
+    if (_terminalResetRequested) return Future<void>.value();
     _transition = _transition.then((_) => _setEnabledInternal(value));
     return _transition;
   }
 
   Future<void> sleep({required AppSleepReason reason}) {
+    if (_terminalResetRequested) return Future<void>.value();
     _transition = _transition.then((_) => _sleepInternal(reason));
     return _transition;
   }
 
   Future<void> wake({required String reason}) {
+    if (_terminalResetRequested) return Future<void>.value();
     _transition = _transition.then((_) => _wakeInternal(reason));
     return _transition;
   }
@@ -454,7 +429,8 @@ class AppSleepService extends ChangeNotifier {
     _idleTimer?.cancel();
     _idleTimer = null;
 
-    if (!_isEnabled ||
+    if (_terminalResetRequested ||
+        !_isEnabled ||
         _snapshot.lifecycleState != AppLifecycleState.resumed ||
         isSleeping ||
         (_useWakelockTransitionFlow &&
@@ -706,6 +682,7 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> _persistSleeping(bool value) async {
+    if (_terminalResetRequested) return;
     if (_persistSleepingOverride != null) {
       await _persistSleepingOverride(value);
       return;
@@ -715,12 +692,30 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> _persistEnabled(bool value) async {
+    if (_terminalResetRequested) return;
     if (_persistEnabledOverride != null) {
       await _persistEnabledOverride(value);
       return;
     }
 
     await AppSleepStateStore.setEnabled(value);
+  }
+
+  /// Permanently cancels process-local sleep/wake work for terminal reset.
+  /// No transition is drained because reset deliberately does not wait for
+  /// runtime retirement.
+  void closeForTerminalReset() {
+    _terminalResetRequested = true;
+    _isEnabled = false;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _scheduledWakeTimer?.cancel();
+    _scheduledWakeTimer = null;
+    _wakelockMonitorTimer?.cancel();
+    _wakelockMonitorTimer = null;
+    _resumeNodeOnWake = false;
+    _resumeEpochMonitoringOnWake = false;
+    _awaitingInactivityAfterWakelockRelease = false;
   }
 
   @override

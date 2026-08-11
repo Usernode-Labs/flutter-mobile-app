@@ -1,6 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -11,6 +9,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
+import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
@@ -166,59 +165,16 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     );
 
     if (result != null && result != currentNetwork && mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('network:type', result);
-      _showRestartDialog(result);
+      await AppResetService.instance.resetAndTerminate(
+        reason: 'network_change',
+        prepareNextLaunch: () async {
+          final emptyPrefs = await SharedPreferences.getInstance();
+          if (!await emptyPrefs.setString('network:type', result)) {
+            throw StateError('Could not persist the selected network');
+          }
+        },
+      );
     }
-  }
-
-  String _networkLabel(String network) {
-    switch (network) {
-      case 'internal':
-        return 'Internal';
-      case 'custom':
-        return 'Custom';
-      case 'testnet':
-      default:
-        return 'Testnet';
-    }
-  }
-
-  Future<void> _showRestartDialog(String network) async {
-    final l10n = AppLocalizations.of(context);
-    final networkName = _networkLabel(network);
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.networkRestartRequired),
-        content: Text(
-          defaultTargetPlatform == TargetPlatform.iOS
-              ? l10n.networkSwitchedRestartIos(networkName)
-              : l10n.networkSwitchedRestartAndroid(networkName),
-        ),
-        actions: [
-          if (defaultTargetPlatform == TargetPlatform.iOS)
-            Button(
-              label: l10n.commonOk,
-              size: ButtonSize.small,
-              onTap: () {
-                Navigator.of(ctx).pop();
-              },
-            )
-          else
-            Button(
-              label: l10n.networkCloseApp,
-              size: ButtonSize.small,
-              variant: ButtonVariant.primary,
-              onTap: () {
-                Navigator.of(ctx).pop();
-                SystemNavigator.pop();
-              },
-            ),
-        ],
-      ),
-    );
   }
 
   @override

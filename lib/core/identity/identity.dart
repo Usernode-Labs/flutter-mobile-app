@@ -14,7 +14,7 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 ///   this phase — the active local account may still belong to a previously
 ///   signed-in user.
 /// - [ready]: the identity is fully settled — account activated, bucket
-///   resolved, participant id installed, node runtime bound.
+///   resolved, and participant id installed. Node admission may now open.
 enum IdentityPhase {
   /// Boot: nothing resolved yet.
   unknown,
@@ -25,7 +25,7 @@ enum IdentityPhase {
   /// No session and no explicit guest choice.
   unauthenticated,
 
-  /// Explicit guest session (guest bucket, view-only node).
+  /// Explicit guest session. Guest node ownership is not currently exposed.
   guest,
 
   /// Authenticated, but the account reconcile has not confirmed ownership.
@@ -97,15 +97,13 @@ class Identity {
       phase != IdentityPhase.reconciling &&
       phase != IdentityPhase.unknown;
 
-  /// Node starts are refused while the identity is unsettled: the runtime
-  /// would capture the active account's key, which may belong to a previous
-  /// user. Only the reconciler (which is establishing that binding) may
-  /// override.
-  // FIXME(follow-up): Explicitly reject IdentityPhase.unknown; queued recovery
-  // can otherwise start the previous account before restore settles.
-  bool get allowsNodeStart =>
-      phase != IdentityPhase.transitioning &&
-      phase != IdentityPhase.reconciling;
+  /// Current product eligibility for owning an active node runtime.
+  ///
+  /// The keyless/view-only construction remains available below this gate for
+  /// a future explicit guest-node feature. Until its key and operating mode
+  /// are decided, only a signed-in identity whose account binding is fully
+  /// reconciled may start or resume a node.
+  bool get allowsNodeStart => phase == IdentityPhase.ready;
 
   /// Signing (dApp bridge, Send flow) requires an identity that OWNS an
   /// account: a confirmed authenticated identity, or the local-only

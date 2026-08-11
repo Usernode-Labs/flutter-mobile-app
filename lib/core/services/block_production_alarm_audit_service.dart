@@ -218,13 +218,15 @@ class BlockProductionAlarmAuditService {
   String? _pendingRecoveryReason;
   var _recoveryRetryAttempt = 0;
   var _recoveryRetryGeneration = 0;
-  bool _watchdogRecoveryEnabled = true;
+  bool _watchdogRecoveryEnabled = false;
+  bool _terminalResetRequested = false;
   var _watchdogLifecycleGeneration = 0;
 
   /// Returns true when this call actually re-armed recovery (i.e. it was
   /// disabled), so callers can trigger a follow-up audit only on a real
   /// disabled → enabled transition.
   bool enableWatchdogRecovery() {
+    if (_terminalResetRequested) return false;
     if (_watchdogRecoveryEnabled) return false;
     _watchdogRecoveryEnabled = true;
     _watchdogLifecycleGeneration += 1;
@@ -233,6 +235,16 @@ class BlockProductionAlarmAuditService {
 
   void disableWatchdogRecovery() {
     if (!_watchdogRecoveryEnabled) return;
+    _watchdogRecoveryEnabled = false;
+    _watchdogLifecycleGeneration += 1;
+    _pendingRecoveryReason = null;
+    _recoveryRetryAttempt = 0;
+    _recoveryRetryGeneration += 1;
+  }
+
+  void closeForTerminalReset() {
+    if (_terminalResetRequested) return;
+    _terminalResetRequested = true;
     _watchdogRecoveryEnabled = false;
     _watchdogLifecycleGeneration += 1;
     _pendingRecoveryReason = null;

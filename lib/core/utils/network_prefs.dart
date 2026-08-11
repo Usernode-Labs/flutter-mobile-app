@@ -42,6 +42,14 @@ class NetworkPrefs {
     return _cachedNetwork!;
   }
 
+  /// Drops process-local routing state after the durable preference wipe.
+  /// The next cold launch therefore starts from the same default network and
+  /// guest bucket that an empty preference store represents.
+  static void resetForApplicationReset() {
+    _cachedNetwork = null;
+    _activeBucket = guestBucket;
+  }
+
   /// Prefix a key with the current network name.
   /// Global keys (network:type, app:theme_mode) are not prefixed.
   static String prefixKey(String key) {

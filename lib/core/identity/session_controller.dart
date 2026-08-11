@@ -7,8 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
-import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
+import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -18,7 +17,12 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/SessionController');
 
-/// Work was submitted to a controller whose runtime has been replaced.
+typedef SessionTerminalReset = Future<void> Function({
+  required String reason,
+  Future<void> Function()? prepareNextLaunch,
+});
+
+/// Work was submitted after this controller entered a terminal boundary.
 class SessionControllerRetiredException implements Exception {
   const SessionControllerRetiredException();
 
@@ -73,15 +77,12 @@ class SessionController extends StateNotifier<Identity> {
     required AuthGuestFlag guestFlag,
     required AuthRepository repository,
     Future<void> Function()? suspendNode,
-    Future<void> Function()? hardStopRuntime,
-    SessionRuntimeBoundary? runtimeBoundary,
+    SessionTerminalReset? terminalReset,
   })  : _tokenStore = tokenStore,
         _guestFlag = guestFlag,
         _repository = repository,
         _suspendNode = suspendNode ?? _defaultSuspendNode,
-        _hardStopRuntime =
-            hardStopRuntime ?? suspendNode ?? _defaultHardStopRuntime,
-        _runtimeBoundary = runtimeBoundary ?? SessionRuntimeBoundary.instance,
+        _terminalReset = terminalReset ?? _defaultTerminalReset,
         super(Identity.unknown(epoch: IdentitySnapshots.current.epoch)) {
     IdentitySnapshots.publish(state);
   }
@@ -96,20 +97,23 @@ class SessionController extends StateNotifier<Identity> {
   final AuthTokenStore _tokenStore;
   final AuthGuestFlag _guestFlag;
   final AuthRepository _repository;
-  final SessionRuntimeBoundary _runtimeBoundary;
 
   /// Stops a running node when a transition makes account ownership unknown.
   /// Injectable for tests; the default touches the Rust backend (a no-op
   /// when the node was never started).
   final Future<void> Function() _suspendNode;
-  final Future<void> Function() _hardStopRuntime;
+  final SessionTerminalReset _terminalReset;
 
   static Future<void> _defaultSuspendNode() =>
       RustBackendService.instance.stopNode();
 
-  static Future<void> _defaultHardStopRuntime() =>
-      NodeLifecycleCoordinator.instance.hardStopForSessionBoundary(
-        reason: 'session_identity_boundary',
+  static Future<void> _defaultTerminalReset({
+    required String reason,
+    Future<void> Function()? prepareNextLaunch,
+  }) =>
+      AppResetService.instance.resetAndTerminate(
+        reason: reason,
+        prepareNextLaunch: prepareNextLaunch,
       );
 
   Future<void>? _restoreFuture;
@@ -125,10 +129,6 @@ class SessionController extends StateNotifier<Identity> {
   /// persisted side (e.g. the reconciler's authenticated provision call
   /// reading the just-written session token) awaits this first.
   Future<void> get transitionsSettled => _queueTail;
-
-  /// Stops this runtime from accepting new identity work. The hard transition
-  /// that retired it is already active and is allowed to finish persistence.
-  void retireForRuntimeRestart() => _retired = true;
 
   /// Runs [body] after every previously queued transition has finished, so
   /// transitions never interleave. When idle, [body] starts synchronously so
@@ -351,18 +351,15 @@ class SessionController extends StateNotifier<Identity> {
 
   /// Accepts an authoritative authenticated session.
   ///
-  /// A renewed credential for the current participant is rotated in place:
-  /// the identity epoch, account binding, node, and surrounding runtime stay
-  /// untouched. An initial login reconciles in the initiating runtime so a
-  /// WebView can await and answer its handoff request. Replacing one
-  /// authenticated participant with another crosses the process-level hard
-  /// boundary before the new durable session target is written.
+  /// Initial login and a renewed credential for the current participant are
+  /// applied in place. A direct different-participant login is discarded and
+  /// forces the current authenticated incarnation through its terminal reset.
   Future<bool> completeLogin(
     AuthSession session, {
     Identity? expectedIdentity,
   }) =>
       _transition(() async {
-        // The web handoff may wait for JavaScript acknowledgement before it
+        // The web login may wait for JavaScript acknowledgement before it
         // reaches this queue. It is authoritative only for the exact identity
         // scope that initiated that acknowledgement.
         if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
@@ -381,21 +378,21 @@ class SessionController extends StateNotifier<Identity> {
           if (replacedToken != null &&
               replacedToken.isNotEmpty &&
               replacedToken != session.token) {
-            await _logoutBestEffort(replacedToken);
+            unawaited(_logoutBestEffort(replacedToken));
           }
           return true;
         }
 
-        final replacingParticipant = current.isAuthenticated;
         final epoch = current.epoch + 1;
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.transitioning,
         ));
 
-        if (!replacingParticipant) {
-          // No authenticated runtime is being displaced. Keep the initiating
-          // interactive shell alive so it can finish the login handshake.
+        if (!current.isAuthenticated) {
+          // Guests and unauthenticated sessions own no node runtime. Keep the
+          // web session that established this login alive while the new
+          // account is reconciled, then let the platform request its start.
           await _persistLoginTarget(session);
           await _suspendNode();
           _publish(Identity(
@@ -406,35 +403,15 @@ class SessionController extends StateNotifier<Identity> {
           return true;
         }
 
-        final replacedToken = await _tokenStore.read();
-        // Remove the old boot target before tearing its runtime down. The new
-        // credential is written only after cleanup has completed.
-        await _tokenStore.clear();
-        return _runtimeBoundary.replace<bool>(
-          change: SessionRuntimeChange.participantReplacement,
-          transition: (replacingRuntime) async {
-            if (!replacingRuntime) await _hardStopRuntime();
-
-            await _logoutBestEffort(replacedToken);
-            await _persistLoginTarget(session, clearTokenFirst: false);
-
-            if (!replacingRuntime) {
-              _publish(Identity(
-                epoch: epoch,
-                phase: IdentityPhase.reconciling,
-                participantId: participantId,
-              ));
-            }
-            return true;
-          },
-        );
+        _retired = true;
+        unawaited(_logoutStoredTokenBestEffort());
+        unawaited(_logoutBestEffort(session.token));
+        await _terminalReset(reason: 'different_participant_login');
+        return false;
       }, whenRetired: () => false);
 
-  Future<void> _persistLoginTarget(
-    AuthSession session, {
-    bool clearTokenFirst = true,
-  }) async {
-    if (clearTokenFirst) await _tokenStore.clear();
+  Future<void> _persistLoginTarget(AuthSession session) async {
+    await _tokenStore.clear();
     // Marker + staged id BEFORE the token write are the crash-recovery
     // payload. A boot-restorable token therefore always restores through the
     // authoritative account reconcile until ownership is committed.
@@ -445,10 +422,21 @@ class SessionController extends StateNotifier<Identity> {
   }
 
   Future<void> continueAsGuest() => _transition(() async {
+        if (state.isAuthenticated) {
+          final epoch = state.epoch + 1;
+          _publish(Identity(
+            epoch: epoch,
+            phase: IdentityPhase.transitioning,
+          ));
+          _retired = true;
+          unawaited(_logoutStoredTokenBestEffort());
+          await _terminalReset(reason: 'authenticated_to_guest');
+          return;
+        }
         final epoch = state.epoch + 1;
-        // Close signing/node gates before waiting for the existing producer to
-        // stop. Publishing guest first would allow a new guest node start to
-        // race the shutdown of the previous account's runtime.
+        // Close signing/node gates before waiting for any leftover producer to
+        // stop. This remains safe if explicit guest-node admission is added in
+        // the future; today guest starts are refused at the backend boundary.
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.transitioning,
@@ -503,42 +491,30 @@ class SessionController extends StateNotifier<Identity> {
           epoch: epoch,
           phase: IdentityPhase.transitioning,
         ));
-        token ??= await _tokenStore.read();
-
-        // Make logout durable before cleanup. If the process dies while the
-        // old runtime is stopping, the next launch still restores signed out.
-        await _tokenStore.clear();
-        await _guestFlag.clear();
-        await clearGuestParticipantId();
-        await _clearReconcileMarker();
-
-        return _runtimeBoundary.replace<bool>(
-          change: SessionRuntimeChange.logout,
-          transition: (replacingRuntime) async {
-            if (!replacingRuntime) {
-              await _hardStopRuntime();
-              final active =
-                  await (await AccountsRepository.create()).getActive();
-              _publish(Identity(
-                epoch: epoch,
-                phase: IdentityPhase.unauthenticated,
-                accountId: active?.id,
-                address: active?.address,
-              ));
-            }
-
-            await _logoutBestEffort(token);
-            return true;
-          },
-        );
+        _retired = true;
+        if (token != null && token.isNotEmpty) {
+          unawaited(_logoutBestEffort(token));
+        } else if (!requireMissingToken) {
+          unawaited(_logoutStoredTokenBestEffort());
+        }
+        await _terminalReset(reason: 'logout');
+        return true;
       }, whenRetired: () => false);
+
+  Future<void> _logoutStoredTokenBestEffort() async {
+    try {
+      await _logoutBestEffort(await _tokenStore.read());
+    } catch (e) {
+      _log.warn('Could not read token for best-effort server logout: $e');
+    }
+  }
 
   Future<void> _logoutBestEffort(String? token) async {
     if (token == null || token.isEmpty) return;
     try {
       await _repository.logout(token);
     } catch (e) {
-      _log.warn('Server-side logout failed (token cleared anyway): $e');
+      _log.warn('Server-side logout failed (local reset still proceeds): $e');
     }
   }
 

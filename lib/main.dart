@@ -2,22 +2,12 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/identity/session_controller.dart';
-import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
-import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
-import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
-import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
-import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/services/session_runtime_boundary.dart';
-import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
-import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_binding.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
@@ -32,6 +22,7 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
+import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -67,8 +58,8 @@ Future<void> _runAppBody({required String logTag}) async {
     DeviceOrientation.portraitDown,
   ]);
 
-  // Start terminated-app tap capture before the replaceable ProviderContainer
-  // and WebView runtime are constructed. The durable pending-tap state is
+  // Start terminated-app tap capture before the sole ProviderContainer and
+  // WebView runtime are constructed. The durable pending-tap state is
   // replayed when the trusted page is ready, so native Firebase calls must not
   // delay the first frame.
   unawaited(
@@ -80,8 +71,8 @@ Future<void> _runAppBody({required String logTag}) async {
       },
     ),
   );
-  AppResetService.instance.registerPersistentResetHandler(
-    SocialPushService.instance.resetForAppReset,
+  AppResetService.instance.registerLocalResetHandler(
+    SocialPushService.instance.closeForTerminalReset,
   );
 
   final boot = await AppBootstrap.initNonUi(logTag: logTag);
@@ -96,7 +87,6 @@ Future<void> _runAppBody({required String logTag}) async {
   log.info('Running app UI');
   runApp(AppRuntimeRoot(
     initialContainer: boot.container,
-    initialBackendBootstrap: boot.backendBootstrap,
   ));
 }
 
@@ -111,7 +101,8 @@ Future<void> headlessMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await AppSleepStateStore.load();
-    await PlatformAlarmService.instance.initialize();
+    final alarmServiceReady = await PlatformAlarmService.instance.initialize();
+    if (!alarmServiceReady) return;
     final nativeWakelockHeld =
         await PlatformAlarmService.instance.isWakelockHeld();
     final watchdogDeliveryInProgress =
@@ -131,6 +122,7 @@ Future<void> headlessMain() async {
     );
     final log = boot.log;
     final container = boot.container;
+    await boot.backendBootstrap;
 
     log.debug('hasAnyAccounts: ${boot.hasAnyAccounts}');
 
@@ -175,12 +167,6 @@ Future<void> _startHeadlessServices(
     // Initialize backend lifecycle provider manually
     container.read(backendLifecycleProvider);
 
-    if (Platform.isAndroid) {
-      BlockProductionAlarmAuditService.instance.auditBestEffort(
-        reason: 'headless_start',
-      );
-    }
-
     log.info('Headless services started successfully');
   } catch (e, st) {
     log.error('Error starting headless services: $e', error: e, stackTrace: st);
@@ -188,22 +174,16 @@ Future<void> _startHeadlessServices(
   }
 }
 
-typedef RuntimeBootstrapFactory = Future<ProviderContainer> Function();
-
 class AppRuntimeRoot extends StatefulWidget {
   const AppRuntimeRoot({
     super.key,
     required this.initialContainer,
-    this.initialBackendBootstrap,
-    this.replacementFactory,
-    this.shutdownRuntime,
+    this.resetService,
     this.child = const CryptoMobileApp(),
   });
 
   final ProviderContainer initialContainer;
-  final Future<void>? initialBackendBootstrap;
-  final RuntimeBootstrapFactory? replacementFactory;
-  final Future<void> Function()? shutdownRuntime;
+  final AppResetService? resetService;
   final Widget child;
 
   @override
@@ -212,173 +192,96 @@ class AppRuntimeRoot extends StatefulWidget {
 
 class _AppRuntimeRootState extends State<AppRuntimeRoot> {
   ProviderContainer? _container;
-  Object? _restartError;
-  late Future<void> _backendBootstrap;
+  bool _terminalReset = false;
 
   @override
   void initState() {
     super.initState();
     _container = widget.initialContainer;
-    _backendBootstrap = widget.initialBackendBootstrap ?? Future<void>.value();
-    AppResetService.instance.registerInProcessRestartHandler(_restartInProcess);
-    SessionRuntimeBoundary.instance.register(_replaceSessionRuntime);
+    (widget.resetService ?? AppResetService.instance)
+        .registerTerminalResetHandler(_enterTerminalReset);
   }
 
   @override
   void dispose() {
-    AppResetService.instance.unregisterInProcessRestartHandler();
-    SessionRuntimeBoundary.instance.unregister();
+    (widget.resetService ?? AppResetService.instance)
+        .unregisterTerminalResetHandler();
     _container?.dispose();
     super.dispose();
   }
 
-  Future<void> _restartInProcess() async {
-    final boot = await AppBootstrap.initNonUi(
-      logTag: 'usernode/BootstrapRestart',
-      installErrorHandlers: false,
-    );
-
+  void _enterTerminalReset() {
+    if (_terminalReset) return;
+    final oldContainer = _container;
     if (!mounted) {
-      boot.container.dispose();
+      oldContainer?.dispose();
+      _container = null;
+      _terminalReset = true;
       return;
     }
-
-    final oldContainer = _container;
     setState(() {
-      _container = boot.container;
-      _backendBootstrap = boot.backendBootstrap;
-      _restartError = null;
+      _container = null;
+      _terminalReset = true;
     });
     oldContainer?.dispose();
   }
 
-  Future<void> _replaceSessionRuntime(
-    SessionRuntimeChange change,
-    Future<void> Function() persistSession,
-  ) async {
-    if (AppResetService.instance.isResetInProgress) {
-      throw StateError('Cannot change sessions while app reset is in progress');
-    }
-
-    final oldContainer = _container;
-    if (oldContainer == null) {
-      throw StateError('There is no app runtime to replace');
-    }
-    final oldBackendBootstrap = _backendBootstrap;
-    if (oldContainer.exists(identityProvider)) {
-      oldContainer.read(identityProvider.notifier).retireForRuntimeRestart();
-    }
-
-    AppLifecycleLogger.onForegroundResume = null;
-    if (mounted) {
-      setState(() {
-        _container = null;
-        _restartError = null;
-      });
-    }
-
-    var oldDisposed = false;
-    try {
-      // Finish any bootstrap work before stopping global services. This keeps
-      // cleanup strictly sequential and avoids a start racing the hard stop.
-      await _shutdownRuntime(
-        oldBackendBootstrap,
-        container: oldContainer,
-        reason: 'session_${change.name}',
-      );
-      if (mounted) await WidgetsBinding.instance.endOfFrame;
-      oldContainer.dispose();
-      oldDisposed = true;
-
-      await persistSession();
-      if (!mounted) return;
-
-      final replacement = await _createReplacementRuntime();
-      if (!mounted) {
-        replacement.dispose();
-        return;
-      }
-
-      setState(() {
-        _container = replacement;
-        _backendBootstrap = Future<void>.value();
-        _restartError = null;
-      });
-      LoggingService.instance.info(
-        'App runtime replaced after ${change.name}',
-      );
-    } catch (error, stackTrace) {
-      if (!oldDisposed) oldContainer.dispose();
-      LoggingService.instance.error(
-        'App runtime replacement failed after ${change.name}',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      if (mounted) setState(() => _restartError = error);
-      rethrow;
-    }
-  }
-
-  Future<void> _shutdownRuntime(
-    Future<void> backendBootstrap, {
-    required ProviderContainer container,
-    required String reason,
-  }) async {
-    await backendBootstrap;
-    await container.read(nodeAccountReconcilerProvider).drain();
-    if (widget.shutdownRuntime != null) {
-      await widget.shutdownRuntime!.call();
-      return;
-    }
-
-    await NodeLifecycleCoordinator.instance
-        .hardStopForSessionBoundary(reason: reason);
-    AppLifecycleLogger.unregister();
-    await AppSleepService.instance.stopForRuntimeRestart();
-    await ObservabilityReportingService.instance
-        .stopMobileContextSnapshotReporting();
-    EpochSlotSchedulerService.instance.dispose();
-    await AndroidForegroundTaskController.instance.resetForAppRestart();
-    await RustBackendService.instance.resetForAppRestart();
-    PlatformAlarmService.instance.resetForAppRestart();
-    MetricsCollectorService.instance.reset();
-  }
-
-  Future<ProviderContainer> _createReplacementRuntime() async {
-    NodeLifecycleCoordinator.instance.resumeAfterSessionBoundary();
-    final factory = widget.replacementFactory;
-    if (factory != null) return factory();
-
-    final boot = await AppBootstrap.initNonUi(
-      logTag: 'usernode/SessionRestart',
-      installErrorHandlers: false,
-      applyBootstrapIdentity: false,
-    );
-    await boot.backendBootstrap;
-    return boot.container;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final container = _container;
-    if (container == null) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(
-            child: _restartError == null
-                ? const CircularProgressIndicator()
-                : const Text(
-                    'Could not restart the app. Please close and reopen it.',
-                    textAlign: TextAlign.center,
-                  ),
-          ),
-        ),
-      );
-    }
+    if (_terminalReset) return const _TerminalResetApp();
+    final container = _container!;
     return UncontrolledProviderScope(
       container: container,
       child: widget.child,
+    );
+  }
+}
+
+class _TerminalResetApp extends StatelessWidget {
+  const _TerminalResetApp();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: CryptoMobileApp._lightTheme,
+      darkTheme: CryptoMobileApp._darkTheme,
+      themeMode: ThemeMode.system,
+      debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: Builder(builder: (context) {
+        final spacing = Theme.of(context).extension<AppSpacing>()!;
+        final textTheme = Theme.of(context).textTheme;
+        final l10n = AppLocalizations.of(context);
+        return Scaffold(
+          body: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: spacing.space16,
+                  vertical: spacing.space32,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: spacing.space12,
+                  children: [
+                    Text(
+                      l10n.appResetCompleteTitle,
+                      style: textTheme.titleLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    Text(
+                      l10n.appResetCompleteBody,
+                      style: textTheme.bodyLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
@@ -423,8 +326,8 @@ class CryptoMobileApp extends ConsumerWidget {
     ref.watch(seasonRolloverSyncProvider);
 
     // Feed the process-lifetime push service only the current ready identity
-    // and exact bearer. Replacing this container replaces the adapter, not the
-    // Firebase listeners or durable pending tap.
+    // and exact bearer. Disposing the app graph detaches this adapter; the
+    // terminal reset fence separately closes the process-lifetime service.
     ref.watch(socialPushBindingProvider);
 
     return MaterialApp.router(

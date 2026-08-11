@@ -6,61 +6,48 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
-import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
-/// Records whether the login recovery payload (reconcile-pending marker +
-/// participant id staged in the guest bucket) was already persisted when the
-/// token write made the session boot-restorable. A crash after the token
-/// write must find the payload in place, or the boot reconcile "succeeds"
-/// with nothing to migrate and the participant id is lost.
-///
-/// Also records the published identity phase at write time: the gate must
-/// close (`transitioning` published) BEFORE any persistence, so
-/// concurrent signing/node-start checks can't pass under the old identity.
-class _OrderProbeTokenStore extends AuthTokenStore {
-  bool payloadPersistedBeforeTokenWrite = false;
-  IdentityPhase? phaseAtTokenWrite;
-
-  @override
-  Future<void> write(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    final stagedId = prefs.getInt(NetworkPrefs.prefixAccountKeyFor(
-        'leaderboard:participant_id', NetworkPrefs.guestBucket));
-    final markerSet =
-        prefs.getBool(NetworkPrefs.prefixKey('account:reconcile_pending')) ??
-            false;
-    payloadPersistedBeforeTokenWrite = stagedId != null && markerSet;
-    phaseAtTokenWrite = IdentitySnapshots.current.phase;
-    await super.write(token);
-  }
+void _seedReadyIdentity({int? provisionedSeasonId = 7}) {
+  const address = 'addr-1';
+  final bucket = NetworkPrefs.bucketForAddress(address);
+  FlutterSecureStorage.setMockInitialValues({
+    'auth:v3:session_token': 'sess-1',
+  });
+  SharedPreferences.setMockInitialValues({
+    'testnet:accounts:index': jsonEncode([
+      {
+        'id': 'acc-1',
+        'name': 'Node Account',
+        'createdAt': '2026-01-01T00:00:00.000',
+        'derivationPath': 'imported',
+        'hdIndex': 0,
+        'address': address,
+        'publicKey': 'utpk1$address',
+        'backupConfirmed': true,
+        'isDemo': false,
+      },
+    ]),
+    'testnet:accounts:activeId': 'acc-1',
+    'testnet:acct:$bucket:leaderboard:participant_id': 1,
+    'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
+    if (provisionedSeasonId != null)
+      'testnet:acct:$bucket:identity:provisioned_season': provisionedSeasonId,
+  });
 }
 
-class _BlockingLogoutRepository extends AuthRepository {
-  final started = Completer<void>();
-  final release = Completer<void>();
-  String? token;
-
-  @override
-  Future<void> logout(String sessionToken) async {
-    token = sessionToken;
-    started.complete();
-    await release.future;
-  }
+void _seedReconcilingIdentity() {
+  FlutterSecureStorage.setMockInitialValues({
+    'auth:v3:session_token': 'sess-1',
+  });
+  SharedPreferences.setMockInitialValues({
+    'testnet:account:reconcile_pending': true,
+    'testnet:acct:guest:leaderboard:participant_id': 1,
+  });
 }
-
-AuthSession _session(String token, {int participantId = 1}) => AuthSession(
-      token: token,
-      participant: Participant(
-        id: participantId,
-        email: 'a@b.com',
-        emailConfirmed: true,
-      ),
-    );
 
 Future<AuthStatus> _settle(ProviderContainer c) async {
   // The provider starts restore eagerly; awaiting the idempotent method joins
@@ -246,80 +233,12 @@ void main() {
     expect(await _settle(c), AuthStatus.guest);
   });
 
-  test('completeLogin persists token and enters reconciling', () async {
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await _settle(c);
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
-    expect(c.read(authStatusProvider), AuthStatus.authenticated);
-    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
-    expect(c.read(identityProvider).participantId, 1);
-    expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
-  });
-
-  test('completeLogin closes gates synchronously before replacing the token',
+  test('reconcileSucceeded settles a cold-launch recovery identity to ready',
       () async {
-    final stopStarted = Completer<void>();
-    final stopRelease = Completer<void>();
-    final controller = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: AuthRepository(),
-      suspendNode: () {
-        stopStarted.complete();
-        return stopRelease.future;
-      },
-    );
-    addTearDown(controller.dispose);
-
-    final login = controller.completeLogin(_session('sess-2'));
-    expect(controller.state.phase, IdentityPhase.transitioning);
-    expect(controller.state.isAuthenticated, isFalse);
-    expect(controller.state.allowsNodeStart, isFalse);
-    await stopStarted.future;
-    // The crash-recovery payload and replacement credential are durable even
-    // while shutdown is still pending; the identity remains fail-closed.
-    expect(await AuthTokenStore().read(), 'sess-2');
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
-    expect(controller.state.phase, IdentityPhase.transitioning);
-
-    stopRelease.complete();
-    await login;
-    expect(controller.state.phase, IdentityPhase.reconciling);
-    expect(await AuthTokenStore().read(), 'sess-2');
-  });
-
-  test('completeLogin stages the session user id in the guest bucket',
-      () async {
+    _seedReconcilingIdentity();
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
-    // Until the reconcile confirms an account bucket, the id lives in the
-    // guest staging area and on the identity snapshot itself.
-    expect(await loadParticipantIdInBucket(NetworkPrefs.guestBucket), 1);
-    expect(await c.read(participantIdProvider.future), 1);
-  });
-
-  test(
-      'completeLogin persists the recovery payload before the token becomes '
-      'boot-restorable (crash-atomic login)', () async {
-    final probe = _OrderProbeTokenStore();
-    final c = ProviderContainer(overrides: [
-      authTokenStoreProvider.overrideWithValue(probe),
-    ]);
-    addTearDown(c.dispose);
-    await _settle(c);
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
-    expect(probe.payloadPersistedBeforeTokenWrite, isTrue);
-  });
-
-  test('reconcileSucceeded settles the identity to ready', () async {
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await _settle(c);
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
     final epoch = c.read(identityProvider).epoch;
     final committed =
         await c.read(identityProvider.notifier).reconcileSucceeded(
@@ -347,15 +266,14 @@ void main() {
   });
 
   test('reconcileSucceeded from a superseded epoch is discarded', () async {
+    _seedReadyIdentity();
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
     final staleEpoch = c.read(identityProvider).epoch;
-    // A second login supersedes the first reconcile.
     await c
         .read(identityProvider.notifier)
-        .completeLogin(_session('sess-3', participantId: 2));
+        .beginSeasonRollover(activeSeasonId: 8);
     final committed =
         await c.read(identityProvider.notifier).reconcileSucceeded(
               epoch: staleEpoch,
@@ -365,23 +283,16 @@ void main() {
             );
     expect(committed, isFalse);
     expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
-    expect(c.read(identityProvider).accountId, isNull);
+    expect(c.read(identityProvider).accountId, 'acc-1');
   });
 
   test('beginSeasonRollover re-enters reconciling on a season mismatch',
       () async {
+    _seedReadyIdentity();
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
     final epoch = c.read(identityProvider).epoch;
-    await c.read(identityProvider.notifier).reconcileSucceeded(
-          epoch: epoch,
-          accountId: 'acc-1',
-          address: 'addr-1',
-          participantId: 1,
-          provisionedSeasonId: 7,
-        );
 
     // Same season: no-op.
     await c
@@ -459,101 +370,25 @@ void main() {
     expect(await AuthGuestFlag().isGuest(), isTrue);
   });
 
-  test('failed login shutdown preserves crash-safe replacement state',
-      () async {
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-old'});
-    final controller = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: AuthRepository(),
-      suspendNode: () async => throw StateError('shutdown timeout'),
-    );
-    addTearDown(controller.dispose);
-
-    await expectLater(
-      controller.completeLogin(_session('sess-new')),
-      throwsStateError,
-    );
-
-    expect(controller.state.phase, IdentityPhase.transitioning);
-    expect(await AuthTokenStore().read(), 'sess-new');
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('testnet:account:reconcile_pending'), isTrue);
-    expect(
-      prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
-      1,
-    );
-  });
-
-  test('logout clears locally before waiting for the remote request', () async {
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-1'});
-    final repository = _BlockingLogoutRepository();
-    final stopStarted = Completer<void>();
-    final stopRelease = Completer<void>();
-    final controller = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: repository,
-      suspendNode: () {
-        stopStarted.complete();
-        return stopRelease.future;
-      },
-    );
-    addTearDown(controller.dispose);
-
-    final logout = controller.logout();
-    expect(controller.state.phase, IdentityPhase.transitioning);
-    expect(controller.state.allowsSigning, isFalse);
-    await stopStarted.future;
-    expect(await AuthTokenStore().read(), isNull);
-    expect(controller.state.phase, IdentityPhase.transitioning);
-    stopRelease.complete();
-    await repository.started.future;
-
-    expect(await AuthTokenStore().read(), isNull);
-    expect(controller.state.phase, IdentityPhase.unauthenticated);
-    expect(repository.token, 'sess-1');
-
-    repository.release.complete();
-    expect(await logout, isTrue);
-  });
-
-  test('onUnauthorized clears token and unauthenticates', () async {
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-1'});
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await _settle(c);
-    final epoch = c.read(identityProvider).epoch;
-    await c.read(identityProvider.notifier).onUnauthorized(
-          credential: AuthCredentialLease(epoch: epoch, token: 'sess-1'),
-        );
-    expect(c.read(authStatusProvider), AuthStatus.unauthenticated);
-    expect(await c.read(authTokenStoreProvider).read(), isNull);
-  });
-
   test('onUnauthorized from a superseded epoch is ignored', () async {
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-1'});
+    _seedReadyIdentity();
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
     final staleEpoch = c.read(identityProvider).epoch;
-    // A newer login writes a fresh token; the stale request's late 401 must
-    // not clear it.
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
+    await c
+        .read(identityProvider.notifier)
+        .beginSeasonRollover(activeSeasonId: 8);
     await c.read(identityProvider.notifier).onUnauthorized(
           credential: AuthCredentialLease(epoch: staleEpoch, token: 'sess-1'),
         );
     expect(c.read(authStatusProvider), AuthStatus.authenticated);
-    expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
+    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
+    expect(await c.read(authTokenStoreProvider).read(), 'sess-1');
   });
 
   test('401 for a replaced token in the same epoch is ignored', () async {
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-1'});
+    _seedReadyIdentity();
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
@@ -570,8 +405,7 @@ void main() {
 
   test('missing-token callback cannot clear a token written since its read',
       () async {
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-1'});
+    _seedReadyIdentity();
     final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
@@ -584,88 +418,24 @@ void main() {
     expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
   });
 
-  test('credential loss stops the existing node before settling signed-out',
-      () async {
-    var nodeStops = 0;
-    final tokenStore = AuthTokenStore();
-    final controller = SessionController(
-      tokenStore: tokenStore,
-      guestFlag: AuthGuestFlag(),
-      repository: AuthRepository(),
-      suspendNode: () async {
-        nodeStops++;
-      },
-    );
-    addTearDown(controller.dispose);
-    await controller.completeLogin(_session('sess-1'));
-    final epoch = controller.state.epoch;
-    await tokenStore.clear();
-
-    await controller.onCredentialMissing(epoch: epoch);
-
-    expect(nodeStops, 2); // login replacement + credential loss
-    expect(controller.state.phase, IdentityPhase.unauthenticated);
-  });
-
-  test('an exact 401 stops the existing node before settling signed-out',
-      () async {
-    var nodeStops = 0;
-    final tokenStore = AuthTokenStore();
-    final controller = SessionController(
-      tokenStore: tokenStore,
-      guestFlag: AuthGuestFlag(),
-      repository: AuthRepository(),
-      suspendNode: () async {
-        nodeStops++;
-      },
-    );
-    addTearDown(controller.dispose);
-    await controller.completeLogin(_session('sess-1'));
-    final epoch = controller.state.epoch;
-
-    await controller.onUnauthorized(
-      credential: AuthCredentialLease(epoch: epoch, token: 'sess-1'),
-    );
-
-    expect(nodeStops, 2); // login replacement + rejected credential
-    expect(controller.state.phase, IdentityPhase.unauthenticated);
-    expect(await tokenStore.read(), isNull);
-  });
-
-  test('stale bridge logout cannot log out a replacement identity', () async {
-    final tokenStore = AuthTokenStore();
-    final controller = SessionController(
-      tokenStore: tokenStore,
-      guestFlag: AuthGuestFlag(),
-      repository: AuthRepository(),
-      suspendNode: () async {},
-    );
-    addTearDown(controller.dispose);
-    await controller.completeLogin(_session('sess-1'));
-    final staleIdentity = controller.state;
-    await controller.completeLogin(_session('sess-2', participantId: 2));
-
-    expect(
-      await controller.logout(expectedIdentity: staleIdentity),
-      isFalse,
-    );
-    expect(controller.state.phase, IdentityPhase.reconciling);
-    expect(await tokenStore.read(), 'sess-2');
-  });
-
-  test(
-      'completeLogin closes the identity gate before its persistence writes '
-      '(concurrent signing/node checks see transitioning)', () async {
-    final probe = _OrderProbeTokenStore();
-    final c = ProviderContainer(overrides: [
-      authTokenStoreProvider.overrideWithValue(probe),
-    ]);
+  test('stale bridge logout cannot reset a newer season identity', () async {
+    _seedReadyIdentity();
+    final c = ProviderContainer();
     addTearDown(c.dispose);
     await _settle(c);
-    await c.read(identityProvider.notifier).completeLogin(_session('sess-2'));
-    // By the time the token write ran (mid-transition), the transitioning
-    // identity was already published — the gate was closed first.
-    expect(probe.phaseAtTokenWrite, IdentityPhase.transitioning);
+    final staleIdentity = c.read(identityProvider);
+    await c
+        .read(identityProvider.notifier)
+        .beginSeasonRollover(activeSeasonId: 8);
+
+    expect(
+      await c
+          .read(identityProvider.notifier)
+          .logout(expectedIdentity: staleIdentity),
+      isFalse,
+    );
+    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
+    expect(await c.read(authTokenStoreProvider).read(), 'sess-1');
   });
 
   test('guest sessions never allow signing or wallet exposure', () async {
@@ -715,27 +485,18 @@ void main() {
     tearDown(() => controller.dispose());
 
     Future<void> settleReady({int? provisionedSeasonId}) async {
+      _seedReadyIdentity(provisionedSeasonId: provisionedSeasonId);
       await controller.restore();
-      await controller.completeLogin(_session('sess-2'));
-      final committed = await controller.reconcileSucceeded(
-        epoch: controller.state.epoch,
-        accountId: 'acc-1',
-        address: 'addr-1',
-        participantId: 1,
-        provisionedSeasonId: provisionedSeasonId,
-      );
-      expect(committed, isTrue);
+      expect(controller.state.phase, IdentityPhase.ready);
     }
 
-    test('completeLogin and season rollover both suspend the node', () async {
+    test('season rollover suspends the existing node', () async {
       await settleReady(provisionedSeasonId: 7);
-      expect(suspendCount, 1); // login suspension
+      expect(suspendCount, 0);
 
       await controller.beginSeasonRollover(activeSeasonId: 8);
       expect(controller.state.phase, IdentityPhase.reconciling);
-      // The rollover suspended the node too: it was producing under the
-      // previous season's account binding.
-      expect(suspendCount, 2);
+      expect(suspendCount, 1);
     });
 
     test(

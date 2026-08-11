@@ -466,8 +466,8 @@ class LeaderboardApiService {
 
   void _detachSessionInvalidation(Future<void>? invalidation) {
     if (invalidation == null) return;
-    // Reconcile/refresh callers are drained by session teardown. Keeping the
-    // teardown Future out of this request Future avoids a self-deadlock.
+    // A 401 invalidation may enter the terminal application boundary. Keep it
+    // out of this request Future so the request cannot await its own teardown.
     unawaited(invalidation.catchError((Object error, StackTrace stackTrace) {
       _log.warn('Session invalidation failed: $error');
     }));

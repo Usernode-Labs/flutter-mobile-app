@@ -15,6 +15,14 @@ class AlarmWatchdogWorker(
     }
 
     override suspend fun doWork(): Result {
+        val applicationIncarnation = inputData.getString(
+            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+        )
+        val incarnationStore = ApplicationIncarnationStore(applicationContext)
+        if (!incarnationStore.matches(applicationIncarnation)) {
+            Log.i(TAG, "Ignoring watchdog work for stale application incarnation")
+            return Result.success()
+        }
         if (!AlarmWatchdogScheduler.isEnabled(applicationContext)) {
             Log.i(TAG, "Alarm watchdog is disabled; ignoring queued work")
             return Result.success()
@@ -39,10 +47,15 @@ class AlarmWatchdogWorker(
                 mapOf(
                     "reason" to reason,
                     "startedAtMs" to startedAtMs,
-                    "runAttemptCount" to attempt
+                    "runAttemptCount" to attempt,
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                        applicationIncarnation,
                 )
             )
             if (acknowledged) {
+                Result.success()
+            } else if (!incarnationStore.matches(applicationIncarnation)) {
+                Log.i(TAG, "Application incarnation changed while watchdog ran")
                 Result.success()
             } else if (!AlarmWatchdogScheduler.isEnabled(applicationContext)) {
                 Log.i(TAG, "Alarm watchdog was disabled while running; skipping retry")
@@ -55,7 +68,11 @@ class AlarmWatchdogWorker(
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to deliver alarm watchdog event", e)
-            Result.retry()
+            if (incarnationStore.matches(applicationIncarnation)) {
+                Result.retry()
+            } else {
+                Result.success()
+            }
         }
     }
 }

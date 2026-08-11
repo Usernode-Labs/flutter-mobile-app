@@ -16,13 +16,25 @@ object NativeWakeLockManager {
 
     @Volatile
     private var wakeLock: PowerManager.WakeLock? = null
+    @Volatile
+    private var capturedApplicationIncarnation: String? = null
 
     @Synchronized
-    fun acquire(context: Context) {
+    fun acquire(context: Context, applicationIncarnation: String): Boolean {
+        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+            Log.w(TAG, "Refusing wakelock for stale application incarnation")
+            return false
+        }
         val existing = wakeLock
-        if (existing?.isHeld == true) return
+        if (existing?.isHeld == true &&
+            capturedApplicationIncarnation == applicationIncarnation
+        ) {
+            return true
+        }
+        if (existing?.isHeld == true) release()
 
         val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
+        capturedApplicationIncarnation = applicationIncarnation
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG).apply {
             setReferenceCounted(false)
             try {
@@ -33,6 +45,7 @@ object NativeWakeLockManager {
                 Log.e(TAG, "Failed to acquire PARTIAL_WAKE_LOCK", e)
             }
         }
+        return wakeLock?.isHeld == true
     }
 
     @Synchronized
@@ -49,6 +62,7 @@ object NativeWakeLockManager {
             Log.e(TAG, "Failed to release PARTIAL_WAKE_LOCK", e)
         } finally {
             wakeLock = null
+            capturedApplicationIncarnation = null
         }
     }
 
@@ -59,11 +73,14 @@ object NativeWakeLockManager {
         try {
             AlarmMethodChannelHandler.getInstance()?.sendEventToFlutter(
                 if (isHeld) "android_native_wakelock_acquired" else "android_native_wakelock_released",
-                mapOf("wakelockHeld" to isHeld)
+                mapOf(
+                    "wakelockHeld" to isHeld,
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
+                        capturedApplicationIncarnation,
+                )
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to send wakelock state change to Flutter", e)
         }
     }
 }
-

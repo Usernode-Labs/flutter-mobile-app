@@ -40,9 +40,9 @@ final nodeAccountReconcilerProvider = Provider<NodeAccountReconciler>(
 /// (sign-in, interrupted-reconcile boot restore, season rollover) and
 /// commits the result through [SessionController.reconcileSucceeded], which
 /// re-validates the epoch inside the controller's serialized transition
-/// queue. A run whose epoch was superseded (logout, another sign-in) aborts
-/// before mutating shared state; the new identity's own reconcile repairs
-/// whatever the stale run left behind.
+/// queue. A same-user season rollover can supersede an older run; terminal
+/// reset closes the gate and discards the entire process instead of handing
+/// that work to another identity.
 class NodeAccountReconciler {
   NodeAccountReconciler(
     this._ref, {
@@ -64,26 +64,6 @@ class NodeAccountReconciler {
   int? _inFlightEpoch;
   Future<bool>? _refreshInFlight;
   int? _refreshInFlightEpoch;
-
-  /// Waits for the reconcile already admitted by this runtime to settle.
-  ///
-  /// Session replacement closes the identity gate before calling this, so no
-  /// newer reconcile can be admitted while the old provider graph is draining.
-  /// A reconcile failure must not prevent logout from continuing its cleanup.
-  Future<void> drain() async {
-    final work = <Future<bool>>[
-      if (_inFlight case final inFlight?) inFlight,
-      if (_refreshInFlight case final refreshInFlight?) refreshInFlight,
-    ];
-    for (final future in work) {
-      try {
-        await future;
-      } catch (_) {
-        // The initiating driver/caller owns the failure. Draining must still
-        // allow hard logout to continue with the local cleanup.
-      }
-    }
-  }
 
   /// Refreshes backend-authoritative facts for an already-ready identity.
   ///
@@ -190,10 +170,9 @@ class NodeAccountReconciler {
   /// can race; two parallel imports of the same account would duplicate
   /// registry entries).
   ///
-  /// A caller under a NEWER epoch (the user signed out / another user signed
-  /// in while a run was in flight) never joins the stale run — its result
-  /// would belong to the wrong session. It waits the stale run out, then
-  /// starts a fresh one.
+  /// A caller under a newer same-user season epoch never joins the stale run.
+  /// It waits the stale run out, then starts a fresh one. Account changes are
+  /// terminal application resets and do not reach this path in-process.
   ///
   /// Returns `true` when the reconcile committed (identity became ready).
   /// Returns `false` when there was nothing to do (identity not in the

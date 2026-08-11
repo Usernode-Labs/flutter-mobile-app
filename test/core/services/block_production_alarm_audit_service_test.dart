@@ -13,6 +13,29 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('BlockProductionAlarmAuditService', () {
+    test('starts closed until producer recovery is explicitly enabled',
+        () async {
+      final harness = _AuditHarness(recoveryEnabled: false);
+
+      final result = await harness.service.audit(reason: 'cold_start');
+
+      expect(result.skippedReason, 'watchdog_disabled');
+      expect(harness.service.enableWatchdogRecovery(), isTrue);
+      expect(harness.service.enableWatchdogRecovery(), isFalse);
+    });
+
+    test('terminal reset cannot be reopened', () async {
+      final harness = _AuditHarness();
+
+      harness.service.closeForTerminalReset();
+
+      expect(harness.service.enableWatchdogRecovery(), isFalse);
+      final result = await harness.service.audit(reason: 'late_callback');
+      expect(result.skippedReason, 'watchdog_disabled');
+      expect(harness.foregroundResumeSchedules, isEmpty);
+      expect(harness.watchdogScheduleReasons, isEmpty);
+    });
+
     test('skips when exact alarm permission is missing', () async {
       final harness = _AuditHarness(exactAlarmPermission: false);
 
@@ -184,7 +207,7 @@ void main() {
         'and re-arms audits', () async {
       final harness = _AuditHarness();
 
-      // Already enabled (the default): no transition.
+      // Producer scenarios in this harness explicitly enable recovery.
       expect(harness.service.enableWatchdogRecovery(), isFalse);
 
       harness.service.disableWatchdogRecovery();
@@ -456,6 +479,7 @@ class _AuditHarness {
     this.foregroundResumeScheduleSucceeds = true,
     this.epochEndTimeMs = 30000,
     this.ensureNodeRunningCompleter,
+    this.recoveryEnabled = true,
   })  : presentAlarms = presentAlarms ?? <String>{},
         debugStates = debugStates ?? const <String, AlarmDebugState>{} {
     service = BlockProductionAlarmAuditService.test(
@@ -532,6 +556,9 @@ class _AuditHarness {
       },
       loadWatchdogState: () async => watchdogState,
     );
+    if (recoveryEnabled) {
+      service.enableWatchdogRecovery();
+    }
   }
 
   static const foregroundResumeLead = Duration(milliseconds: 1000);
@@ -553,6 +580,7 @@ class _AuditHarness {
   final bool foregroundResumeScheduleSucceeds;
   final int? epochEndTimeMs;
   final Completer<bool>? ensureNodeRunningCompleter;
+  final bool recoveryEnabled;
   final records = <_CapturedObservabilityRecord>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];
   final monitoringReasons = <String>[];

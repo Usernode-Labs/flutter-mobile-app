@@ -35,6 +35,12 @@ class AlarmScheduler(
         data: Map<String, Any>
     ): Boolean {
         try {
+            val applicationIncarnation =
+                data[ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION] as? String
+            if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+                Log.w(TAG, "Refusing alarm for stale application incarnation")
+                return false
+            }
             Log.d(TAG, "[AlarmScheduler] Attempting to schedule alarm - ID: $alarmId, GlobalSlot: $globalSlot, Delay: $delayMs")
 
             val currentTime = System.currentTimeMillis()

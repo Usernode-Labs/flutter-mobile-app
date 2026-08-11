@@ -627,6 +627,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get widgetInstructionsDone => 'Done';
 
   @override
+  String get appResetCompleteTitle => 'Reset complete';
+
+  @override
+  String get appResetCompleteBody => 'Close and reopen Usernode to continue.';
+
+  @override
   String get svShellConnectingTitle => 'Connecting to Usernode…';
 
   @override

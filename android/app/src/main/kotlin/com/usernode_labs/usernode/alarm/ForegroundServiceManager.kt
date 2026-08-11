@@ -10,13 +10,22 @@ class ForegroundServiceManager(private val context: Context) {
         private const val TAG = "usernode/ForegroundServiceMgr"
     }
 
-    fun startForegroundService(title: String, message: String, globalSlot: Int): Boolean {
+    fun startForegroundService(
+        title: String,
+        message: String,
+        globalSlot: Int,
+        applicationIncarnation: String,
+    ): Boolean {
         return try {
             val intent = Intent(context, SlotMonitoringService::class.java).apply {
                 action = SlotMonitoringService.ACTION_START_MONITORING
                 putExtra("globalSlot", globalSlot)
                 putExtra("title", title)
                 putExtra("message", message)
+                putExtra(
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                    applicationIncarnation,
+                )
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

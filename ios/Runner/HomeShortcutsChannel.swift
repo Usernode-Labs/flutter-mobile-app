@@ -13,6 +13,30 @@ class HomeShortcutsChannel {
   static let appGroupId = "group.org.usernode.app"
   static let pinnedDappsKey = "pinned_dapps"
 
+  func clearForTerminalReset() -> Bool {
+    var cleared = true
+    if let defaults = UserDefaults(suiteName: HomeShortcutsChannel.appGroupId) {
+      defaults.removePersistentDomain(forName: HomeShortcutsChannel.appGroupId)
+      cleared = defaults.synchronize() &&
+        (defaults.persistentDomain(forName: HomeShortcutsChannel.appGroupId)?.isEmpty ?? true)
+    }
+    if let container = FileManager.default.containerURL(
+      forSecurityApplicationGroupIdentifier: HomeShortcutsChannel.appGroupId
+    ) {
+      let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
+      if FileManager.default.fileExists(atPath: iconsDir.path) {
+        do {
+          try FileManager.default.removeItem(at: iconsDir)
+        } catch {
+          print("[HomeShortcuts] Failed to clear widget icons: \(error)")
+          cleared = false
+        }
+      }
+    }
+    WidgetCenter.shared.reloadAllTimelines()
+    return cleared
+  }
+
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "syncPinnedDapps":

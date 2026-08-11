@@ -154,9 +154,10 @@ abstract class _DappWebViewScreenStateBase
   bool _admitWalletSession(Identity identity) =>
       _sessionHandoffGate.admitWallet(identity);
 
-  void _admitAnonymousSession() {
-    _sessionHandoffGate.admitAnonymous();
+  bool _admitAnonymousSession() {
+    if (!_sessionHandoffGate.admitAnonymous()) return false;
     _dispatchPendingSocialPushEvents();
+    return true;
   }
 
   final TextEditingController _urlController = TextEditingController();

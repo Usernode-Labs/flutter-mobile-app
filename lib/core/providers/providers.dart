@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
@@ -21,9 +22,9 @@ final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
 });
 
 // Backend lifecycle manager. Node STARTS are platform-controlled (SV chrome
-// requests them over bridge v4) — this provider only guarantees teardown:
-// when the last local account disappears, the node must not keep running
-// (and producing/signing) under a key that no longer belongs to anyone.
+// requests them over bridge v4). Account presence alone is not authority: only
+// a signed-in, ready identity may arm recovery. Guest/keyless node support is
+// deliberately dormant until its product mode is defined.
 final backendLifecycleProvider = Provider<void>((ref) {
   ref.listen<AsyncValue<bool>>(
     hasAnyAccountProvider,
@@ -32,16 +33,21 @@ final backendLifecycleProvider = Provider<void>((ref) {
       final nextHasAccount = next.value ?? false;
 
       if (prevHasAccount != nextHasAccount) {
-        // Removal tears down the runtime + Android production support;
-        // addition arms watchdog recovery without starting the node (the
-        // platform requests the start explicitly once identity settles).
+        final identity = ref.read(identityProvider);
+        final producerEligible = nextHasAccount && identity.allowsNodeStart;
+
+        // Removal tears down the runtime + Android production support. An
+        // addition arms watchdog recovery only after identity ownership is
+        // ready; the platform still requests the node start explicitly.
         _log.trace(
           'Account presence changed ($prevHasAccount → $nextHasAccount) - '
-          'reconciling node lifecycle',
+          'producer eligibility: $producerEligible',
         );
         await NodeLifecycleCoordinator.instance.reportAccountsChanged(
-          hasAccount: nextHasAccount,
-          reason: nextHasAccount ? 'account_added' : 'account_removed',
+          hasAccount: producerEligible,
+          reason: producerEligible
+              ? 'ready_account_added'
+              : 'account_removed_or_identity_ineligible',
         );
       }
     },

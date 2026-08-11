@@ -309,42 +309,33 @@ void main() {
       ]);
     });
 
-    test('hard session stop closes admission and tears everything down',
-        () async {
+    test('terminal reset closes admission synchronously without graceful stop',
+        () {
       final coordinator = build(android: true);
 
-      await coordinator.hardStopForSessionBoundary(reason: 'logout');
+      coordinator.closeForTerminalReset();
 
-      expect(calls, [
-        'disableRecovery',
-        'stopMonitoring:logout',
-        'stopBackend',
-        'cancelAllAlarms',
-        'cancelWatchdog',
-      ]);
+      expect(calls, ['disableRecovery']);
       expect(coordinator.acceptingRuntimeWork, isFalse);
+      expect(coordinator.hasAccount, isFalse);
+      expect(coordinator.intent, PlatformNodeIntent.unset);
     });
 
-    test('closed session rejects starts until replacement admission opens',
-        () async {
+    test('terminal reset admission never reopens in this process', () async {
       final coordinator = build(android: true);
-      await coordinator.hardStopForSessionBoundary(reason: 'logout');
+      coordinator.closeForTerminalReset();
       calls.clear();
 
       expect(await coordinator.startNode(reason: 'stale_bridge'), isFalse);
+      await coordinator.stopNode(reason: 'stale_stop');
+      expect(
+        await coordinator.reportColdBoot(hasAccount: true),
+        isFalse,
+      );
       expect(calls, isEmpty);
-
-      coordinator.resumeAfterSessionBoundary();
-      expect(await coordinator.startNode(reason: 'fresh_bridge'), isTrue);
-      expect(calls, [
-        'startBackend',
-        'enableRecovery',
-        'audit:fresh_bridge',
-        'onNodeStarted',
-      ]);
     });
 
-    test('hard stop supersedes an in-flight start before it can wire recovery',
+    test('terminal reset supersedes an in-flight start before recovery wiring',
         () async {
       final startEntered = Completer<void>();
       final allowStart = Completer<void>();
@@ -360,19 +351,14 @@ void main() {
 
       final start = coordinator.startNode(reason: 'platform_start');
       await startEntered.future;
-      final stop = coordinator.hardStopForSessionBoundary(reason: 'logout');
+      coordinator.closeForTerminalReset();
       allowStart.complete();
 
       await start;
-      await stop;
 
       expect(calls, [
         'startBackend',
         'disableRecovery',
-        'stopMonitoring:logout',
-        'stopBackend',
-        'cancelAllAlarms',
-        'cancelWatchdog',
       ]);
     });
   });

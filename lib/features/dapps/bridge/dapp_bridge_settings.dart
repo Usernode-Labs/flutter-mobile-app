@@ -62,6 +62,10 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       return;
     }
     if (!mounted) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'openNativeScreen')) {
+      return;
+    }
+    if (!mounted) return;
     context.push(route);
     await _resolveJsPromise(id: id, value: true, error: null);
   }
@@ -188,6 +192,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     if (!await _requireTrustedChromeOrigin(id, 'setNodeSleepEnabled')) return;
     final enabled = await _requireBoolArg(id, payload, 'enabled');
     if (enabled == null) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'setNodeSleepEnabled')) {
+      return;
+    }
     await AppSleepService.instance.setEnabled(enabled);
     await _resolveJsPromise(
       id: id,
@@ -201,6 +208,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     if (!await _requireTrustedChromeOrigin(id, 'setDebugMode')) return;
     final enabled = await _requireBoolArg(id, payload, 'enabled');
     if (enabled == null) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'setDebugMode')) return;
     await ref.read(debugModeProvider.notifier).set(enabled);
     await _resolveJsPromise(
       id: id,
@@ -214,6 +222,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     if (!await _requireTrustedChromeOrigin(id, 'setFacematchStrict')) return;
     final enabled = await _requireBoolArg(id, payload, 'enabled');
     if (enabled == null) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'setFacematchStrict')) {
+      return;
+    }
     await ref.read(zkPassportFlowControllerProvider).setFacematchStrict(
           enabled,
         );
@@ -228,6 +239,10 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// Confirmation happens web-side; this is the commit.
   Future<void> _handleResetZkChallenge(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'resetZkChallenge')) return;
+    if (!mounted) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'resetZkChallenge')) {
+      return;
+    }
     if (!mounted) return;
     final reset = await resetChallengeState(ref, context);
     if (!reset) {
@@ -244,6 +259,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
 
   Future<void> _handleRequestPermissions(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'requestPermissions')) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'requestPermissions')) {
+      return;
+    }
     final granted = await PlatformAlarmService.instance.requestPermissions();
     final state = await _settingsStateSnapshot();
     await _resolveJsPromise(
@@ -255,6 +273,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
 
   Future<void> _handleOpenBatterySettings(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'openBatterySettings')) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'openBatterySettings')) {
+      return;
+    }
     await PlatformAlarmService.instance.openBatteryOptimizationSettings();
     await _resolveJsPromise(id: id, value: true, error: null);
   }
@@ -265,6 +286,12 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   Future<void> _handleRequestNotificationPermission(String id) async {
     if (!await _requireTrustedChromeOrigin(
         id, 'requestNotificationPermission')) {
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'requestNotificationPermission',
+    )) {
       return;
     }
     final granted =
@@ -283,6 +310,12 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     if (!await _requireTrustedChromeOrigin(id, 'requestAlarmPermissions')) {
       return;
     }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'requestAlarmPermissions',
+    )) {
+      return;
+    }
     final granted =
         await PlatformAlarmService.instance.requestAlarmPermissions();
     final state = await _settingsStateSnapshot();
@@ -297,6 +330,12 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// OS permission dialog is exhausted (denied on iOS, or twice on Android).
   Future<void> _handleOpenNotificationSettings(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'openNotificationSettings')) {
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'openNotificationSettings',
+    )) {
       return;
     }
     final opened =

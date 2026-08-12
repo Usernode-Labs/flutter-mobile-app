@@ -30,6 +30,7 @@ import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart'
     show accountReconciliationStatusProvider, identityDriverProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
+import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
@@ -126,7 +127,9 @@ abstract class _DappWebViewScreenStateBase
   late final WebViewController _controller;
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
   late final SessionHandoffGate _sessionHandoffGate;
+  late final BridgeAdmissionCoordinator _bridgeAdmissionCoordinator;
   int _progress = 0;
+  PrivilegedBridgeLease? _readyMainFrameLease;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
   /// the WebView can invoke after this screen is disposed — read through it
@@ -144,6 +147,102 @@ abstract class _DappWebViewScreenStateBase
   static const _jsChannelName = 'Usernode';
 
   void _dispatchPendingSocialPushEvents();
+  void _recordReadySocialPushReplay(
+    PrivilegedBridgeLease lease,
+    int foregroundRevision,
+  );
+  Map<String, dynamic> _nodeStatusSnapshot();
+  Map<String, dynamic> _authStatusSnapshot();
+
+  String _readyMainFrameReplayScript({
+    required SocialPushService service,
+    required int foregroundRevision,
+    required bool canReplayForeground,
+  }) {
+    final script = StringBuffer()
+      ..write('window.dispatchEvent(new CustomEvent(')
+      ..write(jsonEncode('usernode:node-status'))
+      ..write(', { detail: ${jsonEncode(_nodeStatusSnapshot())} }));')
+      ..write('window.dispatchEvent(new CustomEvent(')
+      ..write(jsonEncode('usernode:auth-status'))
+      ..write(', { detail: ${jsonEncode(_authStatusSnapshot())} }));')
+      ..write('window.dispatchEvent(new CustomEvent(')
+      ..write(jsonEncode('usernode:social-push-native-state-changed'))
+      ..write('));');
+    if (service.hasPendingTap) {
+      script
+        ..write('window.dispatchEvent(new CustomEvent(')
+        ..write(jsonEncode('usernode:social-push-pending'))
+        ..write('));');
+    }
+    if (foregroundRevision > 0 && canReplayForeground) {
+      script
+        ..write('window.dispatchEvent(new CustomEvent(')
+        ..write(jsonEncode('usernode:social-push-foreground'))
+        ..write('));');
+    }
+    return script.toString();
+  }
+
+  Future<bool> _seedReadyMainFrame(PrivilegedBridgeLease lease) async {
+    // The trusted shell calls markPrivilegedBridgeReady only after installing
+    // its native-event listeners. The handler binds this lease to that exact
+    // realm before replaying state, without relying on WebView finish callbacks.
+    final service = SocialPushService.instance;
+    final foregroundRevision = service.foregroundInvalidationRevision;
+    final canReplayForeground = !_sessionHandoffGate.isAuthenticatedBlocked;
+    final delivered = await _privilegedBridgePolicy.runInLease(
+      lease,
+      _readyMainFrameReplayScript(
+        service: service,
+        foregroundRevision: foregroundRevision,
+        canReplayForeground: canReplayForeground,
+      ),
+    );
+    if (!delivered || !mounted) return false;
+    _readyMainFrameLease = lease;
+    _recordReadySocialPushReplay(
+      lease,
+      canReplayForeground ? foregroundRevision : 0,
+    );
+
+    // Auth/node/push state can advance while the first guarded evaluation is
+    // awaiting the WebView. Snapshot it again only after installing this lease
+    // and require that authoritative replay to land before acknowledging page
+    // readiness. Live transitions that follow are queued behind this script in
+    // the same exact realm.
+    final latestForegroundRevision = service.foregroundInvalidationRevision;
+    final latestCanReplayForeground =
+        !_sessionHandoffGate.isAuthenticatedBlocked;
+    final replayed = await _privilegedBridgePolicy.runInLease(
+      lease,
+      _readyMainFrameReplayScript(
+        service: service,
+        foregroundRevision: latestForegroundRevision,
+        canReplayForeground: latestCanReplayForeground,
+      ),
+    );
+    if (!replayed || !mounted || _readyMainFrameLease?.marker != lease.marker) {
+      if (_readyMainFrameLease?.marker == lease.marker) {
+        _readyMainFrameLease = null;
+      }
+      return false;
+    }
+    _recordReadySocialPushReplay(
+      lease,
+      latestCanReplayForeground ? latestForegroundRevision : 0,
+    );
+    // Retained taps or a foreground revision may have arrived during the
+    // second evaluation. Their dispatchers are idempotent/coalesced.
+    _dispatchPendingSocialPushEvents();
+    return true;
+  }
+
+  Future<bool> _runInReadyMainFrame(String javaScriptBody) async {
+    final lease = _readyMainFrameLease;
+    if (lease == null) return false;
+    return _privilegedBridgePolicy.runInLease(lease, javaScriptBody);
+  }
 
   bool _admitAuthenticatedSession(Identity identity) {
     if (!_sessionHandoffGate.admitAuthenticated(identity)) return false;
@@ -193,7 +292,7 @@ abstract class _DappWebViewScreenStateBase
   /// mutate app-level native state, so only the trusted SV origin may call
   /// them. Rejects the JS promise and returns false for anyone else.
   Future<bool> _requireTrustedChromeOrigin(String id, String method) async {
-    if (_privilegedBridgePolicy.hasActiveCapability) return true;
+    if (_activePrivilegedBridgeLease != null) return true;
     await _resolveJsPromise(
       id: id,
       value: null,
@@ -247,6 +346,16 @@ abstract class _DappWebViewScreenStateBase
     required Object? value,
     required String? error,
   }) async {
+    final lease = _activePrivilegedBridgeLease;
+    if (lease != null) {
+      await _privilegedBridgePolicy.resolve(
+        lease: lease,
+        id: id,
+        value: value,
+        error: error,
+      );
+      return;
+    }
     final js = 'window.__usernodeResolve(${jsonEncode(id)},'
         ' ${jsonEncode(value)}, ${jsonEncode(error)});';
     try {
@@ -256,11 +365,10 @@ abstract class _DappWebViewScreenStateBase
     }
   }
 
-  /// True while the centralized bridge policy has an active trusted
-  /// main-frame capability. The dispatch gate separately requires callers to
-  /// present that capability, so ambient WebView URL state is never enough.
+  /// The central dispatch has already probed and authorized this exact realm.
+  /// Shortcut handlers share that realm-bound lease through the current Zone.
   Future<bool> _isTrustedShortcutOrigin() async {
-    return _privilegedBridgePolicy.hasActiveCapability;
+    return _activePrivilegedBridgeLease != null;
   }
 
   /// Shared deny-path for the shortcut management handlers. Returns
@@ -275,6 +383,35 @@ abstract class _DappWebViewScreenStateBase
     );
     return false;
   }
+
+  Future<bool> _revalidatePrivilegedBridgeLease(
+    String id,
+    String method,
+  ) async {
+    final lease = _activePrivilegedBridgeLease;
+    if (lease != null && await _privilegedBridgePolicy.revalidates(lease)) {
+      return true;
+    }
+    await _resolveJsPromise(
+      id: id,
+      value: null,
+      error: '$method was cancelled because the page changed',
+    );
+    return false;
+  }
+
+  /// Privileged admissions resolve into their exact authorizing realm;
+  /// ordinary dapp methods retain the existing top-frame response path.
+  Future<void> _resolveBridgePromise({
+    required String id,
+    required Object? value,
+    required String? error,
+  }) async {
+    await _resolveJsPromise(id: id, value: value, error: error);
+  }
+
+  PrivilegedBridgeLease? get _activePrivilegedBridgeLease =>
+      PrivilegedBridgeRequestContext.currentLease;
 }
 
 class _DappWebViewScreenState extends _DappWebViewScreenStateBase
@@ -298,11 +435,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     super.initState();
     _sessionHandoffGate = SessionHandoffGate(
       initiallyBlocked: widget.chromeless,
-    );
-    _privilegedBridgePolicy = PrivilegedBridgePolicy(
-      trustedOrigin: Uri.tryParse(AppConfig.dappsTabUrl),
-      allowLocalDevelopment:
-          kDebugMode && AppConfig.enableLocalPrivilegedBridge,
     );
     // iOS: opt this webview into App-Bound Domains (WKAppBoundDomains in
     // Info.plist). This unlocks Service Workers — SV's offline PWA mode —
@@ -350,19 +482,8 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       )
       ..setNavigationDelegate(
         NavigationDelegate(
-          onNavigationRequest: (request) {
-            if (request.isMainFrame) {
-              _privilegedBridgePolicy.beginMainFrameNavigation(
-                Uri.tryParse(request.url),
-              );
-            }
-            return NavigationDecision.navigate;
-          },
           onPageStarted: (_) {
-            // A provisional navigation has begun, but the previous document
-            // can still be the JavaScript realm receiving bridge responses.
-            // Keep it fenced until the new trusted document finishes loading.
-            _privilegedBridgePolicy.revoke();
+            _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
             if (!mounted) return;
             // A full page load wipes any JS state, so the channel-owns-title
             // latch has to be cleared too — the new page hasn't told us
@@ -382,25 +503,14 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             }
           },
           onPageFinished: (url) {
-            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
             if (!mounted) return;
             setState(() => _progress = 100);
             _reportFirstLoadResult(true);
             _refreshPageTitle();
             _refreshCanGoBack();
             _logServiceWorkerStateForDebug();
-            // Seed the freshly loaded page with the current node status so
-            // SV chrome renders the pill immediately (no first-poll gap).
-            _dispatchNodeStatusEvent();
-            // Same for the identity phase (bridge v4 boot orchestration).
-            _dispatchAuthStatusEvent();
-            _dispatchPendingSocialPushEvents();
           },
           onUrlChange: (change) {
-            final url = change.url;
-            if (url != null) {
-              _privilegedBridgePolicy.observeMainFrameUrl(Uri.tryParse(url));
-            }
             // SPA pushState navigation — title typically changes too.
             _refreshPageTitle();
             _refreshCanGoBack();
@@ -411,13 +521,24 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             // Sub-resource failures (an image, a beacon) don't mean the
             // page failed; only main-frame errors flunk the first-load gate.
             if (error.isForMainFrame != false) {
-              _privilegedBridgePolicy.revoke();
               _reportFirstLoadResult(false);
             }
           },
         ),
-      )
-      ..loadRequest(parseDappUrl(widget.url));
+      );
+    _privilegedBridgePolicy = PrivilegedBridgePolicy(
+      trustedOrigin: Uri.tryParse(AppConfig.dappsTabUrl),
+      allowLocalDevelopment:
+          kDebugMode && AppConfig.enableLocalPrivilegedBridge,
+      evaluateTopFrame: _controller.runJavaScriptReturningResult,
+    );
+    _bridgeAdmissionCoordinator = BridgeAdmissionCoordinator(
+      policy: _privilegedBridgePolicy,
+      sessionGate: _sessionHandoffGate,
+      admitAnonymousSession: _admitAnonymousSession,
+      markRealmReady: _seedReadyMainFrame,
+    );
+    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
     // Android WebView shows no OS file chooser for <input type="file">
     // unless the host app registers one (WebChromeClient.onShowFileChooser)
     // — without this, upload controls in dapps (including cross-origin
@@ -544,7 +665,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _privilegedBridgePolicy.revoke();
+    _bridgeAdmissionCoordinator.dispose();
+    _readyMainFrameLease = null;
+    _privilegedBridgePolicy.dispose();
     _disposeSocialPushEvents();
     _confirmPoller?.cancel();
     _urlController.dispose();

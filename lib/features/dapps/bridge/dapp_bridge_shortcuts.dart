@@ -150,6 +150,12 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
       if (iconUri != null) iconBytes = await _downloadShortcutIcon(iconUri);
     }
 
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'addHomeScreenShortcut',
+    )) {
+      return;
+    }
     final pinned = await _providers.read(pinnedDappsProvider.notifier).pin(
           name: name,
           url: url.toString(),
@@ -286,6 +292,12 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
       await _resolveJsPromise(id: id, value: null, error: 'id is required');
       return;
     }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'removeHomeScreenShortcut',
+    )) {
+      return;
+    }
     await _providers.read(pinnedDappsProvider.notifier).unpin(shortcutId);
     // Drop the icon PNG too, otherwise it lingers in the App Group store
     // forever and a later re-pin of the same URL would show the stale image.
@@ -312,6 +324,12 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
         value: null,
         error: 'ids must be a list of shortcut ids',
       );
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'reorderHomeScreenShortcuts',
+    )) {
       return;
     }
     final ids = [for (final v in rawIds) v.toString()];

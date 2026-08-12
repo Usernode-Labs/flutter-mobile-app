@@ -107,6 +107,24 @@ void main() {
     expect(subject.authorizes(capability), isTrue);
   });
 
+  test('an exact-current URL request preserves until a document load starts',
+      () {
+    final subject = policy();
+    final current = Uri.parse('$trustedUrl#settings');
+    subject.activateMainFrame(current);
+    final capability = subject.bootstrapCapability();
+
+    // A same-value anchor is a no-op and may produce no page lifecycle events.
+    subject.beginMainFrameNavigation(current);
+    expect(subject.bootstrapCapability(), capability);
+    expect(subject.authorizes(capability), isTrue);
+
+    // If the identical request was a reload, page-start provides the fence.
+    subject.revoke();
+    expect(subject.bootstrapCapability(), isNull);
+    expect(subject.authorizes(capability), isFalse);
+  });
+
   test('a document load after a fragment-shaped request rotates capability',
       () {
     final subject = policy();
@@ -131,12 +149,10 @@ void main() {
     expect(subject.authorizes(replacement), isTrue);
   });
 
-  test('same-origin path, query, and reload requests still revoke immediately',
-      () {
+  test('same-origin path and query requests still revoke immediately', () {
     final destinations = [
       Uri.parse('${trustedUrl}settings'),
       Uri.parse('$trustedUrl?screen=settings'),
-      Uri.parse('$trustedUrl#home'),
     ];
 
     for (final destination in destinations) {

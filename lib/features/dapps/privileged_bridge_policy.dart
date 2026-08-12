@@ -62,17 +62,17 @@ class PrivilegedBridgePolicy {
   /// Revokes the current page before a requested main-frame navigation can
   /// begin. The next document must bootstrap a fresh capability.
   ///
-  /// WKWebView also reports a same-document fragment change as a main-frame
-  /// navigation request. That does not replace the JavaScript realm holding
-  /// the capability, so preserve it only when the fragment is the sole URL
-  /// difference. Every other request fails closed until a trusted document
-  /// finishes loading and is activated.
+  /// WKWebView also reports same-document and no-op fragment navigations as
+  /// main-frame requests. Neither replaces the JavaScript realm holding the
+  /// capability, so tentatively preserve it whenever origin, path, and query
+  /// still identify the active document. A real reload or replacement is
+  /// distinguished by `onPageStarted`, which revokes before content arrives.
   void beginMainFrameNavigation(Uri? destination) {
     final active = _activeMainFrame;
     if (active != null &&
         destination != null &&
         _allows(destination) &&
-        _sameDocumentExceptFragment(active, destination)) {
+        _sameDocumentLocation(active, destination)) {
       _activeMainFrame = destination;
       return;
     }
@@ -141,11 +141,8 @@ class PrivilegedBridgePolicy {
   static bool _sameOrigin(Uri a, Uri b) =>
       a.scheme == b.scheme && a.host == b.host && a.port == b.port;
 
-  static bool _sameDocumentExceptFragment(Uri a, Uri b) =>
-      _sameOrigin(a, b) &&
-      a.path == b.path &&
-      a.query == b.query &&
-      a.fragment != b.fragment;
+  static bool _sameDocumentLocation(Uri a, Uri b) =>
+      _sameOrigin(a, b) && a.path == b.path && a.query == b.query;
 
   static bool _isLocalDevelopmentHost(String host) {
     final normalized = host.toLowerCase();

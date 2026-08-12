@@ -9,6 +9,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// `usernode:node-status` CustomEvent, so SV renders both identically.
   /// `status` is the chrome-level pill state (hysteresis applied):
   /// synced | syncing | connecting | offline.
+  @override
   Map<String, dynamic> _nodeStatusSnapshot() {
     final chrome = ref.read(topStatusChromeNodeStatusProvider);
     final node = ref.read(nodeStatusProvider).valueOrNull;
@@ -23,14 +24,16 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
 
   /// Pushes the current node status into the page as a
   /// `usernode:node-status` CustomEvent, so SV's header pill can update
-  /// without polling. Fired on chrome pill-state transitions and once per
-  /// page load (see initState / onPageFinished).
+  /// without polling. Fired on chrome pill-state transitions and replayed
+  /// after the page explicitly confirms that its native-event listeners exist.
   void _dispatchNodeStatusEvent() {
     final detail = jsonEncode(_nodeStatusSnapshot());
-    _controller
-        .runJavaScript('window.dispatchEvent(new CustomEvent('
-            '"usernode:node-status", { detail: $detail }));')
-        .catchError((_) {});
+    unawaited(
+      _runInReadyMainFrame(
+        'window.dispatchEvent(new CustomEvent('
+        '"usernode:node-status", { detail: $detail }));',
+      ),
+    );
   }
 
   /// One JSON shape shared by the `getAuthStatus` reply and the pushed
@@ -38,6 +41,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// identity phase name (unknown | transitioning | unauthenticated |
   /// guest | reconciling | ready); `participantId` and `epoch` bind every
   /// ready address to the exact native session SV must echo into `startNode`.
+  @override
   Map<String, dynamic> _authStatusSnapshot() {
     return _authStatusSnapshotFor(ref.read(identityProvider));
   }
@@ -55,10 +59,12 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// progress and knows when to request a node start.
   void _dispatchAuthStatusEvent() {
     final detail = jsonEncode(_authStatusSnapshot());
-    _controller
-        .runJavaScript('window.dispatchEvent(new CustomEvent('
-            '"usernode:auth-status", { detail: $detail }));')
-        .catchError((_) {});
+    unawaited(
+      _runInReadyMainFrame(
+        'window.dispatchEvent(new CustomEvent('
+        '"usernode:auth-status", { detail: $detail }));',
+      ),
+    );
   }
 
   /// `completeLogin` (bridge v4): the platform hands over the mobile bearer
@@ -98,6 +104,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       );
       return;
     }
+    if (!await _revalidatePrivilegedBridgeLease(id, 'completeLogin')) return;
     final current = ref.read(identityProvider);
     AuthSession session;
     try {
@@ -135,6 +142,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
         await _rejectStaleIdentityScope(id, 'completeLogin');
         return;
       }
+      if (!await _revalidatePrivilegedBridgeLease(id, 'completeLogin')) return;
       // A different authenticated participant is unsupported in-process.
       // Start the terminal transition, then answer the initiating page without
       // touching Riverpod again.
@@ -169,6 +177,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     final sameParticipant = current.isAuthenticated &&
         current.participantId == session.participant.id;
     final expectedEpoch = sameParticipant ? current.epoch : current.epoch + 1;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'completeLogin')) return;
     final applied = await controller.completeLogin(
       session,
       expectedIdentity: current,
@@ -244,6 +253,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       );
       return;
     }
+    if (!await _revalidatePrivilegedBridgeLease(id, 'startNode')) return;
     final fresh =
         await ref.read(identityDriverProvider).ensureFreshBeforeNodeStart();
     if (!mounted) return;
@@ -272,6 +282,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     }
     // The coordinator owns the Android block-production wiring (watchdog
     // recovery, audit, foreground service) atomically with the start.
+    if (!await _revalidatePrivilegedBridgeLease(id, 'startNode')) return;
     final started = await NodeLifecycleCoordinator.instance.startNode(
       reason: 'platform_start',
     );
@@ -295,6 +306,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// stopping an already-stopped node resolves normally.
   Future<void> _handleStopNode(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'stopNode')) return;
+    if (!await _revalidatePrivilegedBridgeLease(id, 'stopNode')) return;
     await NodeLifecycleCoordinator.instance.stopNode(reason: 'platform_stop');
     await _resolveJsPromise(id: id, value: {'stopped': true}, error: null);
   }
@@ -312,7 +324,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   Future<void> _handleLogout(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
     if (!mounted) return;
-    _sessionHandoffGate.begin();
+    if (!await _revalidatePrivilegedBridgeLease(id, 'logout')) return;
     final controller = ref.read(identityProvider.notifier);
     await controller.transitionsSettled;
     if (!mounted) return;
@@ -320,6 +332,7 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     // Start the terminal transition before resolving. Its completion is
     // deliberately detached: every late path is log-only because the runtime
     // owns this WebView once logout has been admitted.
+    if (!await _revalidatePrivilegedBridgeLease(id, 'logout')) return;
     _sessionHandoffGate.closeForTerminalReset();
     final transition = controller.logout(expectedIdentity: identity);
     unawaited(transition.then<void>(

@@ -7,6 +7,7 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
   StreamSubscription<SocialPushState>? _socialPushStateSubscription;
   StreamSubscription<void>? _socialPushTapSubscription;
   StreamSubscription<void>? _socialPushForegroundSubscription;
+  String? _lastSocialPushForegroundRealmMarker;
   int _lastSocialPushForegroundRevision = 0;
   bool _socialPushForegroundDispatchInFlight = false;
   bool _socialPushForegroundReplayRequested = false;
@@ -27,22 +28,40 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
   }
 
   void _dispatchSocialPushEvent(String eventName) {
-    if (!widget.chromeless || !_privilegedBridgePolicy.hasActiveCapability) {
-      return;
-    }
-    _controller
-        .runJavaScript(
-          'window.dispatchEvent(new CustomEvent("$eventName"));',
-        )
-        .catchError((_) {});
+    if (!widget.chromeless) return;
+    unawaited(_dispatchSocialPushEventIfTrusted(eventName));
+  }
+
+  Future<void> _dispatchSocialPushEventIfTrusted(String eventName) async {
+    await _runInReadyMainFrame(
+      'window.dispatchEvent(new CustomEvent(${jsonEncode(eventName)}));',
+    );
   }
 
   @override
   void _dispatchPendingSocialPushEvents() {
+    // Read the authoritative native state again for every newly-ready or
+    // BFCache-restored realm. Its JavaScript cache may have gone stale while a
+    // different document was active.
+    _dispatchSocialPushEvent('usernode:social-push-native-state-changed');
     if (SocialPushService.instance.hasPendingTap) {
       _dispatchSocialPushEvent('usernode:social-push-pending');
     }
     _dispatchPendingSocialPushForegroundEvent();
+  }
+
+  @override
+  void _recordReadySocialPushReplay(
+    PrivilegedBridgeLease lease,
+    int foregroundRevision,
+  ) {
+    if (foregroundRevision <= 0) return;
+    if (_lastSocialPushForegroundRealmMarker == lease.marker &&
+        foregroundRevision <= _lastSocialPushForegroundRevision) {
+      return;
+    }
+    _lastSocialPushForegroundRealmMarker = lease.marker;
+    _lastSocialPushForegroundRevision = foregroundRevision;
   }
 
   void _dispatchPendingSocialPushForegroundEvent() {
@@ -52,31 +71,42 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     }
     final service = SocialPushService.instance;
     final revision = service.foregroundInvalidationRevision;
-    if (revision <= _lastSocialPushForegroundRevision ||
+    final readyLease = _readyMainFrameLease;
+    final deliveredRevision = readyLease != null &&
+            readyLease.marker == _lastSocialPushForegroundRealmMarker
+        ? _lastSocialPushForegroundRevision
+        : 0;
+    if (revision <= deliveredRevision ||
         !widget.chromeless ||
+        readyLease == null ||
         _sessionHandoffGate.isAuthenticatedBlocked) {
       return;
     }
-    final capability = _privilegedBridgePolicy.bootstrapCapability();
-    if (capability == null) return;
-
     _socialPushForegroundDispatchInFlight = true;
     _socialPushForegroundReplayRequested = false;
-    unawaited(_dispatchSocialPushForegroundEvent(capability, revision));
+    unawaited(
+      _dispatchSocialPushForegroundEvent(
+        readyLease,
+        revision,
+      ),
+    );
   }
 
   Future<void> _dispatchSocialPushForegroundEvent(
-    String capability,
+    PrivilegedBridgeLease readyLease,
     int revision,
   ) async {
     try {
-      await _controller.runJavaScript(
+      final delivered = await _privilegedBridgePolicy.runInLease(
+        readyLease,
         'window.dispatchEvent(new CustomEvent('
         '"usernode:social-push-foreground"));',
       );
-      if (mounted &&
-          !_sessionHandoffGate.isAuthenticatedBlocked &&
-          _privilegedBridgePolicy.authorizes(capability)) {
+      if (delivered &&
+          mounted &&
+          readyLease.marker == _readyMainFrameLease?.marker &&
+          !_sessionHandoffGate.isAuthenticatedBlocked) {
+        _lastSocialPushForegroundRealmMarker = readyLease.marker;
         _lastSocialPushForegroundRevision = revision;
       }
     } catch (_) {
@@ -148,6 +178,9 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
       );
       return;
     }
+    if (!await _revalidatePrivilegedBridgeLease(id, 'setSocialPushEnabled')) {
+      return;
+    }
     final state = await SocialPushService.instance.setEnabled(enabled);
     if (!_identityScopeIsCurrent(identity)) {
       await _rejectStaleIdentityScope(id, 'setSocialPushEnabled');
@@ -175,6 +208,12 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
         value: null,
         error: 'An authenticated session is required',
       );
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'claimPendingSocialNotification',
+    )) {
       return;
     }
     final notificationId = await SocialPushService.instance
@@ -224,6 +263,12 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
         value: null,
         error: 'args.notificationId must be a positive integer',
       );
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'ackPendingSocialNotification',
+    )) {
       return;
     }
     final acknowledged =

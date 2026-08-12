@@ -74,6 +74,8 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       return;
     }
 
+    if (!await _revalidatePrivilegedBridgeLease(id, 'manageStaking')) return;
+    if (!mounted) return;
     await context.push(AppRoutes.walletStaking);
 
     if (!mounted ||

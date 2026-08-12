@@ -107,6 +107,30 @@ void main() {
     expect(subject.authorizes(capability), isTrue);
   });
 
+  test('a document load after a fragment-shaped request rotates capability',
+      () {
+    final subject = policy();
+    subject.activateMainFrame(Uri.parse('$trustedUrl#home'));
+    final previous = subject.bootstrapCapability();
+
+    // The request alone is indistinguishable from a same-document hash change,
+    // so it tentatively preserves the current JavaScript realm.
+    subject.beginMainFrameNavigation(Uri.parse('$trustedUrl#settings'));
+    expect(subject.authorizes(previous), isTrue);
+
+    // A page-start callback proves this is a real document load. Native fences
+    // the provisional interval, then trusts the replacement only on finish.
+    subject.revoke();
+    expect(subject.authorizes(previous), isFalse);
+    expect(subject.bootstrapCapability(), isNull);
+
+    subject.activateMainFrame(Uri.parse('$trustedUrl#settings'));
+    final replacement = subject.bootstrapCapability();
+    expect(replacement, 'capability-2');
+    expect(subject.authorizes(previous), isFalse);
+    expect(subject.authorizes(replacement), isTrue);
+  });
+
   test('same-origin path, query, and reload requests still revoke immediately',
       () {
     final destinations = [

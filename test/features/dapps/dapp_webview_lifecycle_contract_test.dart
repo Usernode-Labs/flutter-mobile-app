@@ -63,7 +63,7 @@ void main() {
     expect(completeLogin, isNot(contains('Wallet provisioning failed')));
   });
 
-  test('trusted bridge activates before page scripts and preserves hash routes',
+  test('trusted bridge fences provisional loads and preserves hash routes',
       () async {
     final source = await File(
       'lib/features/dapps/dapp_webview_screen.dart',
@@ -89,13 +89,12 @@ void main() {
     );
     expect(
       pageStarted,
-      contains('_privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));'),
+      contains('_privilegedBridgePolicy.revoke();'),
     );
+    expect(pageStarted, isNot(contains('activateMainFrame')));
     expect(
       pageFinished,
-      contains(
-          '_privilegedBridgePolicy.observeMainFrameUrl(Uri.tryParse(url));'),
+      contains('_privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));'),
     );
-    expect(pageFinished, isNot(contains('activateMainFrame')));
   });
 }

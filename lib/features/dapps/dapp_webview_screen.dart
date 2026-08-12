@@ -358,8 +358,11 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             }
             return NavigationDecision.navigate;
           },
-          onPageStarted: (url) {
-            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
+          onPageStarted: (_) {
+            // A provisional navigation has begun, but the previous document
+            // can still be the JavaScript realm receiving bridge responses.
+            // Keep it fenced until the new trusted document finishes loading.
+            _privilegedBridgePolicy.revoke();
             if (!mounted) return;
             // A full page load wipes any JS state, so the channel-owns-title
             // latch has to be cleared too — the new page hasn't told us
@@ -379,7 +382,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             }
           },
           onPageFinished: (url) {
-            _privilegedBridgePolicy.observeMainFrameUrl(Uri.tryParse(url));
+            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
             if (!mounted) return;
             setState(() => _progress = 100);
             _reportFirstLoadResult(true);

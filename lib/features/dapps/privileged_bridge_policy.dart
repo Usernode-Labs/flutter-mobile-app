@@ -66,7 +66,7 @@ class PrivilegedBridgePolicy {
   /// navigation request. That does not replace the JavaScript realm holding
   /// the capability, so preserve it only when the fragment is the sole URL
   /// difference. Every other request fails closed until a trusted document
-  /// starts loading.
+  /// finishes loading and is activated.
   void beginMainFrameNavigation(Uri? destination) {
     final active = _activeMainFrame;
     if (active != null &&
@@ -79,8 +79,8 @@ class PrivilegedBridgePolicy {
     revoke();
   }
 
-  /// Activates the document that has actually started loading, but only when
-  /// its origin is in the release-safe allowlist.
+  /// Activates the document that has finished loading, but only when its
+  /// origin is in the release-safe allowlist.
   void activateMainFrame(Uri? uri) {
     revoke();
     if (uri == null || !_allows(uri)) return;

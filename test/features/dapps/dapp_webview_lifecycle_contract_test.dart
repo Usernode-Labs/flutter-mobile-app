@@ -3,6 +3,25 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('bridge info exposes the installed Flutter version without privilege',
+      () async {
+    final dispatch = await File(
+      'lib/features/dapps/bridge/dapp_bridge_dispatch.dart',
+    ).readAsString();
+    final settings = await File(
+      'lib/features/dapps/bridge/dapp_bridge_settings.dart',
+    ).readAsString();
+    final bridgeInfo = dispatch.substring(
+      dispatch.indexOf("if (method == 'getBridgeInfo')"),
+      dispatch.indexOf("if (method == 'getNodeStatus')"),
+    );
+
+    expect(bridgeInfo, contains('...await _mobileAppBuildInfo()'));
+    expect(settings, contains('PackageInfo.fromPlatform()'));
+    expect(settings, contains("'appVersion': packageInfo.version"));
+    expect(settings, contains("'buildNumber': packageInfo.buildNumber"));
+  });
+
   test('resuming the app replays authoritative state into the WebView',
       () async {
     final source = await File(

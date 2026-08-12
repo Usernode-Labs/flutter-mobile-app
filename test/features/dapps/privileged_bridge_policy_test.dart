@@ -23,6 +23,7 @@ void main() {
     expect(capability, 'capability-1');
     expect(subject.authorizes(capability), isTrue);
     expect(subject.requiresCapability('completeLogin'), isTrue);
+    expect(subject.requiresCapability('getBridgeInfo'), isFalse);
     expect(subject.requiresCapability('sendTransaction'), isFalse);
   });
 

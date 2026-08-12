@@ -233,6 +233,10 @@ mixin _BridgeDispatch
             value: {
               'version': _bridgeVersion,
               'capabilities': _bridgeCapabilities,
+              // Public release identifiers belong in this unprivileged probe:
+              // SV staging cannot bootstrap the production-origin capability,
+              // but still needs to show which Flutter binary hosts the page.
+              ...await _mobileAppBuildInfo(),
             },
             error: null,
           );

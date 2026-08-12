@@ -1,9 +1,9 @@
 part of '../dapp_webview_screen.dart';
 
-/// Settings/profile/misc bridge methods (trusted SV chrome only):
-/// `openExternal`, `openNativeScreen`, `getProfileInfo`, the settings
-/// state snapshot and its setters, zk-challenge reset, and the
-/// Android permission flows.
+/// Settings/profile/misc bridge methods. Native settings, account state, and
+/// actions stay behind trusted SV chrome; the installed app's public release
+/// identifiers are also shared with `getBridgeInfo` so staging can display
+/// which Flutter binary hosts it.
 mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// `openExternal` JS-channel method: opens the given http(s) URL in the
   /// system browser. Non-web schemes are rejected so pages can't silently
@@ -85,6 +85,26 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     );
   }
 
+  /// Public, device-local build metadata. `getBridgeInfo` includes these two
+  /// fields so the Social Vibecoding shell can identify the installed Flutter
+  /// binary even on a staging origin, where privileged settings access is
+  /// intentionally unavailable. App version/build are public release
+  /// identifiers; no account, wallet, or device state is exposed here.
+  Future<Map<String, String?>> _mobileAppBuildInfo() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      return {
+        'appVersion': packageInfo.version,
+        'buildNumber': packageInfo.buildNumber,
+      };
+    } catch (_) {
+      return const {
+        'appVersion': null,
+        'buildNumber': null,
+      };
+    }
+  }
+
   /// One JSON shape shared by `getSettingsState` and every settings setter
   /// (each setter resolves with the refreshed state so SV re-renders from a
   /// single source of truth). Mirrors what the native settings screen shows.
@@ -112,10 +132,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       debugPrint('[Usernode JS-channel] permission probe failed: $e');
     }
 
-    PackageInfo? packageInfo;
-    try {
-      packageInfo = await PackageInfo.fromPlatform();
-    } catch (_) {}
+    final mobileAppBuildInfo = await _mobileAppBuildInfo();
 
     String? nodeVersion;
     String? commitHash;
@@ -135,8 +152,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
 
     return {
       'buildInfo': {
-        'appVersion': packageInfo?.version,
-        'buildNumber': packageInfo?.buildNumber,
+        ...mobileAppBuildInfo,
         'nodeVersion': nodeVersion,
         'commitHash': commitHash,
         'branch': branch,

@@ -61,10 +61,26 @@ class PrivilegedBridgePolicy {
 
   /// Revokes the current page before a requested main-frame navigation can
   /// begin. The next document must bootstrap a fresh capability.
-  void beginMainFrameNavigation() => revoke();
+  ///
+  /// WKWebView also reports same-document and no-op fragment navigations as
+  /// main-frame requests. Neither replaces the JavaScript realm holding the
+  /// capability, so tentatively preserve it whenever origin, path, and query
+  /// still identify the active document. A real reload or replacement is
+  /// distinguished by `onPageStarted`, which revokes before content arrives.
+  void beginMainFrameNavigation(Uri? destination) {
+    final active = _activeMainFrame;
+    if (active != null &&
+        destination != null &&
+        _allows(destination) &&
+        _sameDocumentLocation(active, destination)) {
+      _activeMainFrame = destination;
+      return;
+    }
+    revoke();
+  }
 
-  /// Activates the document that has actually started loading, but only when
-  /// its origin is in the release-safe allowlist.
+  /// Activates the document that has finished loading, but only when its
+  /// origin is in the release-safe allowlist.
   void activateMainFrame(Uri? uri) {
     revoke();
     if (uri == null || !_allows(uri)) return;
@@ -124,6 +140,9 @@ class PrivilegedBridgePolicy {
 
   static bool _sameOrigin(Uri a, Uri b) =>
       a.scheme == b.scheme && a.host == b.host && a.port == b.port;
+
+  static bool _sameDocumentLocation(Uri a, Uri b) =>
+      _sameOrigin(a, b) && a.path == b.path && a.query == b.query;
 
   static bool _isLocalDevelopmentHost(String host) {
     final normalized = host.toLowerCase();

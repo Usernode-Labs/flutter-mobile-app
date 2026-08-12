@@ -62,4 +62,39 @@ void main() {
     expect(completeLogin, isNot(contains('nodeAccountReconcilerProvider')));
     expect(completeLogin, isNot(contains('Wallet provisioning failed')));
   });
+
+  test('trusted bridge fences provisional loads and preserves hash routes',
+      () async {
+    final source = await File(
+      'lib/features/dapps/dapp_webview_screen.dart',
+    ).readAsString();
+    final navigationStart = source.indexOf('NavigationDelegate(');
+    final navigationEnd = source.indexOf('        ),', navigationStart);
+    final navigation = source.substring(navigationStart, navigationEnd);
+    final pageStarted = navigation.substring(
+      navigation.indexOf('onPageStarted:'),
+      navigation.indexOf('onProgress:'),
+    );
+    final pageFinished = navigation.substring(
+      navigation.indexOf('onPageFinished:'),
+      navigation.indexOf('onUrlChange:'),
+    );
+
+    expect(
+      navigation,
+      contains(
+        '_privilegedBridgePolicy.beginMainFrameNavigation(\n'
+        '                Uri.tryParse(request.url),',
+      ),
+    );
+    expect(
+      pageStarted,
+      contains('_privilegedBridgePolicy.revoke();'),
+    );
+    expect(pageStarted, isNot(contains('activateMainFrame')));
+    expect(
+      pageFinished,
+      contains('_privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));'),
+    );
+  });
 }

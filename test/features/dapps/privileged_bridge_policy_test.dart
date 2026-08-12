@@ -84,7 +84,7 @@ void main() {
     subject.activateMainFrame(Uri.parse(trustedUrl));
     final first = subject.bootstrapCapability();
 
-    subject.beginMainFrameNavigation();
+    subject.beginMainFrameNavigation(Uri.parse('${trustedUrl}next'));
     expect(subject.authorizes(first), isFalse);
     expect(subject.bootstrapCapability(), isNull);
 
@@ -95,12 +95,99 @@ void main() {
     expect(subject.authorizes(second), isTrue);
   });
 
+  test('fragment-only navigation preserves the active document capability', () {
+    final subject = policy();
+    subject.activateMainFrame(Uri.parse('$trustedUrl#home'));
+    final capability = subject.bootstrapCapability();
+
+    subject.beginMainFrameNavigation(Uri.parse('$trustedUrl#settings'));
+    subject.observeMainFrameUrl(Uri.parse('$trustedUrl#settings'));
+
+    expect(subject.bootstrapCapability(), capability);
+    expect(subject.authorizes(capability), isTrue);
+  });
+
+  test('an exact-current URL request preserves until a document load starts',
+      () {
+    final subject = policy();
+    final current = Uri.parse('$trustedUrl#settings');
+    subject.activateMainFrame(current);
+    final capability = subject.bootstrapCapability();
+
+    // A same-value anchor is a no-op and may produce no page lifecycle events.
+    subject.beginMainFrameNavigation(current);
+    expect(subject.bootstrapCapability(), capability);
+    expect(subject.authorizes(capability), isTrue);
+
+    // If the identical request was a reload, page-start provides the fence.
+    subject.revoke();
+    expect(subject.bootstrapCapability(), isNull);
+    expect(subject.authorizes(capability), isFalse);
+  });
+
+  test('a document load after a fragment-shaped request rotates capability',
+      () {
+    final subject = policy();
+    subject.activateMainFrame(Uri.parse('$trustedUrl#home'));
+    final previous = subject.bootstrapCapability();
+
+    // The request alone is indistinguishable from a same-document hash change,
+    // so it tentatively preserves the current JavaScript realm.
+    subject.beginMainFrameNavigation(Uri.parse('$trustedUrl#settings'));
+    expect(subject.authorizes(previous), isTrue);
+
+    // A page-start callback proves this is a real document load. Native fences
+    // the provisional interval, then trusts the replacement only on finish.
+    subject.revoke();
+    expect(subject.authorizes(previous), isFalse);
+    expect(subject.bootstrapCapability(), isNull);
+
+    subject.activateMainFrame(Uri.parse('$trustedUrl#settings'));
+    final replacement = subject.bootstrapCapability();
+    expect(replacement, 'capability-2');
+    expect(subject.authorizes(previous), isFalse);
+    expect(subject.authorizes(replacement), isTrue);
+  });
+
+  test('same-origin path and query requests still revoke immediately', () {
+    final destinations = [
+      Uri.parse('${trustedUrl}settings'),
+      Uri.parse('$trustedUrl?screen=settings'),
+    ];
+
+    for (final destination in destinations) {
+      final subject = policy();
+      subject.activateMainFrame(Uri.parse('$trustedUrl#home'));
+      final capability = subject.bootstrapCapability();
+
+      subject.beginMainFrameNavigation(destination);
+
+      expect(subject.bootstrapCapability(), isNull,
+          reason: '$destination must start a new capability lifecycle');
+      expect(subject.authorizes(capability), isFalse);
+    }
+  });
+
   test('leaving the trusted origin revokes privileged access', () {
     final subject = policy();
     subject.activateMainFrame(Uri.parse(trustedUrl));
     final capability = subject.bootstrapCapability();
 
     subject.observeMainFrameUrl(Uri.parse('https://untrusted.example/app'));
+
+    expect(subject.authorizes(capability), isFalse);
+    expect(subject.bootstrapCapability(), isNull);
+  });
+
+  test('a requested cross-origin navigation revokes before the page changes',
+      () {
+    final subject = policy();
+    subject.activateMainFrame(Uri.parse('$trustedUrl#settings'));
+    final capability = subject.bootstrapCapability();
+
+    subject.beginMainFrameNavigation(
+      Uri.parse('https://untrusted.example/#settings'),
+    );
 
     expect(subject.authorizes(capability), isFalse);
     expect(subject.bootstrapCapability(), isNull);

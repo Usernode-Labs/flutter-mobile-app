@@ -352,11 +352,17 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         NavigationDelegate(
           onNavigationRequest: (request) {
             if (request.isMainFrame) {
-              _privilegedBridgePolicy.beginMainFrameNavigation();
+              _privilegedBridgePolicy.beginMainFrameNavigation(
+                Uri.tryParse(request.url),
+              );
             }
             return NavigationDecision.navigate;
           },
-          onPageStarted: (url) {
+          onPageStarted: (_) {
+            // A provisional navigation has begun, but the previous document
+            // can still be the JavaScript realm receiving bridge responses.
+            // Keep it fenced until the new trusted document finishes loading.
+            _privilegedBridgePolicy.revoke();
             if (!mounted) return;
             // A full page load wipes any JS state, so the channel-owns-title
             // latch has to be cleared too — the new page hasn't told us

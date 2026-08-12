@@ -352,11 +352,14 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         NavigationDelegate(
           onNavigationRequest: (request) {
             if (request.isMainFrame) {
-              _privilegedBridgePolicy.beginMainFrameNavigation();
+              _privilegedBridgePolicy.beginMainFrameNavigation(
+                Uri.tryParse(request.url),
+              );
             }
             return NavigationDecision.navigate;
           },
           onPageStarted: (url) {
+            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
             if (!mounted) return;
             // A full page load wipes any JS state, so the channel-owns-title
             // latch has to be cleared too — the new page hasn't told us
@@ -376,7 +379,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             }
           },
           onPageFinished: (url) {
-            _privilegedBridgePolicy.activateMainFrame(Uri.tryParse(url));
+            _privilegedBridgePolicy.observeMainFrameUrl(Uri.tryParse(url));
             if (!mounted) return;
             setState(() => _progress = 100);
             _reportFirstLoadResult(true);

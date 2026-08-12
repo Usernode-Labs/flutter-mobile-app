@@ -93,6 +93,7 @@ class PrivilegedBridgePolicy {
     'removeHomeScreenShortcut',
     'reorderHomeScreenShortcuts',
     'openNativeScreen',
+    'captureScreenshot',
     'getProfileInfo',
     'getSettingsState',
     'manageStaking',

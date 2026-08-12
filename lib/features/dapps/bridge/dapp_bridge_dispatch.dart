@@ -11,12 +11,13 @@ mixin _BridgeDispatch
         _BridgeWallet,
         _BridgeShortcuts,
         _BridgeSettings,
-        _BridgeSocialPush {
+        _BridgeSocialPush,
+        _BridgeCapture {
   /// Bridge protocol version. Bump only on breaking changes; additive
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
   static const int _bridgeVersion = 4;
-  static const List<String> _bridgeCapabilities = [
+  static final List<String> _bridgeCapabilities = [
     'getNodeAddress',
     'sendTransaction',
     'signMessage',
@@ -28,6 +29,7 @@ mixin _BridgeDispatch
     'reorderHomeScreenShortcuts',
     'openExternal',
     'getBridgeInfo',
+    if (NativeScreenCapture.isSupportedPlatform) 'captureScreenshot',
     // Privileged envelopes bootstrap a realm-scoped capability through the
     // private `getPrivilegedBridgeCapability` method. Native separately checks
     // the executing top-frame origin on every privileged call.
@@ -257,6 +259,10 @@ mixin _BridgeDispatch
         value: await _bridgeInfoValue(),
         error: null,
       );
+    }
+
+    if (method == 'captureScreenshot') {
+      await _handleCaptureScreenshot(id);
     }
 
     if (method == 'getNodeStatus') {

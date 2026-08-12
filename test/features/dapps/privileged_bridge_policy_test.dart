@@ -47,6 +47,7 @@ void main() {
       'removeHomeScreenShortcut',
       'reorderHomeScreenShortcuts',
       'openNativeScreen',
+      'captureScreenshot',
       'getProfileInfo',
       'getSettingsState',
       'manageStaking',

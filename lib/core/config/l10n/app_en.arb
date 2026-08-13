@@ -853,6 +853,54 @@
   "@appResetCompleteBody": {
     "description": "Instruction on the inert terminal screen shown after application reset"
   },
+  "appResetLogoutTitle": "Signed out",
+  "@appResetLogoutTitle": {
+    "description": "Terminal reset screen title after a user-initiated logout"
+  },
+  "appResetLogoutBody": "You signed out, and your local data was cleared. Close and reopen Usernode to continue.",
+  "@appResetLogoutBody": {
+    "description": "Terminal reset screen body after a user-initiated logout"
+  },
+  "appResetSessionExpiredTitle": "Session expired",
+  "@appResetSessionExpiredTitle": {
+    "description": "Terminal reset screen title after the backend rejected the session token"
+  },
+  "appResetSessionExpiredBody": "Your session is no longer valid, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.",
+  "@appResetSessionExpiredBody": {
+    "description": "Terminal reset screen body after the backend rejected the session token"
+  },
+  "appResetCredentialMissingTitle": "Signed out",
+  "@appResetCredentialMissingTitle": {
+    "description": "Terminal reset screen title after the stored sign-in credential could not be read"
+  },
+  "appResetCredentialMissingBody": "Your saved sign-in could not be read, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.",
+  "@appResetCredentialMissingBody": {
+    "description": "Terminal reset screen body after the stored sign-in credential could not be read"
+  },
+  "appResetAccountChangedTitle": "Account changed",
+  "@appResetAccountChangedTitle": {
+    "description": "Terminal reset screen title after signing in with a different account"
+  },
+  "appResetAccountChangedBody": "You signed in with a different account, so the previous account's local data was cleared. Close and reopen Usernode to continue.",
+  "@appResetAccountChangedBody": {
+    "description": "Terminal reset screen body after signing in with a different account"
+  },
+  "appResetGuestTitle": "Switched to guest",
+  "@appResetGuestTitle": {
+    "description": "Terminal reset screen title after switching from an account to guest mode"
+  },
+  "appResetGuestBody": "You switched to guest mode, and your account's local data was cleared. Close and reopen Usernode to continue.",
+  "@appResetGuestBody": {
+    "description": "Terminal reset screen body after switching from an account to guest mode"
+  },
+  "appResetNetworkChangeTitle": "Network changed",
+  "@appResetNetworkChangeTitle": {
+    "description": "Terminal reset screen title after selecting a different network in diagnostics"
+  },
+  "appResetNetworkChangeBody": "Usernode will start on the selected network. Close and reopen Usernode to continue.",
+  "@appResetNetworkChangeBody": {
+    "description": "Terminal reset screen body after selecting a different network in diagnostics"
+  },
   "svShellConnectingTitle": "Connecting to Usernode…",
   "@svShellConnectingTitle": {
     "description": "First-launch gate of the full-screen SV shell: shown while the Social Vibecoding webapp loads for the first time on this install"

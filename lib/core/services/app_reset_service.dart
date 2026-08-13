@@ -20,7 +20,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 typedef NextLaunchWriter = Future<void> Function();
-typedef TerminalResetHandler = void Function();
+typedef TerminalResetHandler = void Function(String reason);
 typedef ResetDirectoryResolver = Future<List<Directory>> Function();
 
 /// Owns the one-way application reset boundary.
@@ -67,7 +67,8 @@ class AppResetService {
   bool get isResetInProgress => _activeReset != null;
 
   @visibleForTesting
-  void enterTerminalSurfaceForTesting() => _terminalResetHandler?.call();
+  void enterTerminalSurfaceForTesting([String reason = 'unknown']) =>
+      _terminalResetHandler?.call(reason);
 
   /// Irreversibly resets this application incarnation.
   ///
@@ -130,7 +131,7 @@ class AppResetService {
     // repopulating storage after the wipe.
     Object? resetError;
     StackTrace? resetStackTrace;
-    if (!_enterTerminalSurface()) {
+    if (!_enterTerminalSurface(reason)) {
       resetError = StateError('The functional app graph was not disposed');
       resetStackTrace = StackTrace.current;
     }
@@ -328,14 +329,14 @@ class AppResetService {
     }
   }
 
-  bool _enterTerminalSurface() {
+  bool _enterTerminalSurface(String reason) {
     final handler = _terminalResetHandler;
     if (handler == null) {
       _log.error('No terminal reset surface is registered');
       return false;
     }
     try {
-      handler();
+      handler(reason);
       return true;
     } catch (error, stackTrace) {
       _log.error(

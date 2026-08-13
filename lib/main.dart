@@ -193,6 +193,7 @@ class AppRuntimeRoot extends StatefulWidget {
 class _AppRuntimeRootState extends State<AppRuntimeRoot> {
   ProviderContainer? _container;
   bool _terminalReset = false;
+  String _terminalResetReason = 'unknown';
 
   @override
   void initState() {
@@ -210,25 +211,27 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
     super.dispose();
   }
 
-  void _enterTerminalReset() {
+  void _enterTerminalReset(String reason) {
     if (_terminalReset) return;
     final oldContainer = _container;
     if (!mounted) {
       oldContainer?.dispose();
       _container = null;
       _terminalReset = true;
+      _terminalResetReason = reason;
       return;
     }
     setState(() {
       _container = null;
       _terminalReset = true;
+      _terminalResetReason = reason;
     });
     oldContainer?.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_terminalReset) return const _TerminalResetApp();
+    if (_terminalReset) return _TerminalResetApp(reason: _terminalResetReason);
     final container = _container!;
     return UncontrolledProviderScope(
       container: container,
@@ -238,7 +241,36 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
 }
 
 class _TerminalResetApp extends StatelessWidget {
-  const _TerminalResetApp();
+  const _TerminalResetApp({required this.reason});
+
+  /// The [AppResetService] reset reason. Unrecognized values fall back to the
+  /// generic reset wording.
+  final String reason;
+
+  (String, String) _wording(AppLocalizations l10n) => switch (reason) {
+        'logout' => (l10n.appResetLogoutTitle, l10n.appResetLogoutBody),
+        'session_expired' => (
+            l10n.appResetSessionExpiredTitle,
+            l10n.appResetSessionExpiredBody,
+          ),
+        'session_credential_missing' => (
+            l10n.appResetCredentialMissingTitle,
+            l10n.appResetCredentialMissingBody,
+          ),
+        'different_participant_login' => (
+            l10n.appResetAccountChangedTitle,
+            l10n.appResetAccountChangedBody,
+          ),
+        'authenticated_to_guest' => (
+            l10n.appResetGuestTitle,
+            l10n.appResetGuestBody,
+          ),
+        'network_change' => (
+            l10n.appResetNetworkChangeTitle,
+            l10n.appResetNetworkChangeBody,
+          ),
+        _ => (l10n.appResetCompleteTitle, l10n.appResetCompleteBody),
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -253,6 +285,7 @@ class _TerminalResetApp extends StatelessWidget {
         final spacing = Theme.of(context).extension<AppSpacing>()!;
         final textTheme = Theme.of(context).textTheme;
         final l10n = AppLocalizations.of(context);
+        final (title, body) = _wording(l10n);
         return Scaffold(
           body: SafeArea(
             child: Center(
@@ -266,12 +299,12 @@ class _TerminalResetApp extends StatelessWidget {
                   spacing: spacing.space12,
                   children: [
                     Text(
-                      l10n.appResetCompleteTitle,
+                      title,
                       style: textTheme.titleLarge,
                       textAlign: TextAlign.center,
                     ),
                     Text(
-                      l10n.appResetCompleteBody,
+                      body,
                       style: textTheme.bodyLarge,
                       textAlign: TextAlign.center,
                     ),

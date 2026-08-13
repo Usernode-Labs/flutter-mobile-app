@@ -226,7 +226,7 @@ void main() {
 
     expect(loggedOut, isTrue);
     expect(controller.state.phase, IdentityPhase.transitioning);
-    expect(find.text('Reset complete'), findsOneWidget);
+    expect(find.text('Signed out'), findsOneWidget);
     expect(graphProbe.mounted, isFalse);
     expect(graphProbe.mountCount, 1);
     expect(AppLifecycleLogger.isRegistered, isFalse);

@@ -1222,6 +1222,78 @@ abstract class AppLocalizations {
   /// **'Close and reopen Usernode to continue.'**
   String get appResetCompleteBody;
 
+  /// Terminal reset screen title after a user-initiated logout
+  ///
+  /// In en, this message translates to:
+  /// **'Signed out'**
+  String get appResetLogoutTitle;
+
+  /// Terminal reset screen body after a user-initiated logout
+  ///
+  /// In en, this message translates to:
+  /// **'You signed out, and your local data was cleared. Close and reopen Usernode to continue.'**
+  String get appResetLogoutBody;
+
+  /// Terminal reset screen title after the backend rejected the session token
+  ///
+  /// In en, this message translates to:
+  /// **'Session expired'**
+  String get appResetSessionExpiredTitle;
+
+  /// Terminal reset screen body after the backend rejected the session token
+  ///
+  /// In en, this message translates to:
+  /// **'Your session is no longer valid, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.'**
+  String get appResetSessionExpiredBody;
+
+  /// Terminal reset screen title after the stored sign-in credential could not be read
+  ///
+  /// In en, this message translates to:
+  /// **'Signed out'**
+  String get appResetCredentialMissingTitle;
+
+  /// Terminal reset screen body after the stored sign-in credential could not be read
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved sign-in could not be read, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.'**
+  String get appResetCredentialMissingBody;
+
+  /// Terminal reset screen title after signing in with a different account
+  ///
+  /// In en, this message translates to:
+  /// **'Account changed'**
+  String get appResetAccountChangedTitle;
+
+  /// Terminal reset screen body after signing in with a different account
+  ///
+  /// In en, this message translates to:
+  /// **'You signed in with a different account, so the previous account\'s local data was cleared. Close and reopen Usernode to continue.'**
+  String get appResetAccountChangedBody;
+
+  /// Terminal reset screen title after switching from an account to guest mode
+  ///
+  /// In en, this message translates to:
+  /// **'Switched to guest'**
+  String get appResetGuestTitle;
+
+  /// Terminal reset screen body after switching from an account to guest mode
+  ///
+  /// In en, this message translates to:
+  /// **'You switched to guest mode, and your account\'s local data was cleared. Close and reopen Usernode to continue.'**
+  String get appResetGuestBody;
+
+  /// Terminal reset screen title after selecting a different network in diagnostics
+  ///
+  /// In en, this message translates to:
+  /// **'Network changed'**
+  String get appResetNetworkChangeTitle;
+
+  /// Terminal reset screen body after selecting a different network in diagnostics
+  ///
+  /// In en, this message translates to:
+  /// **'Usernode will start on the selected network. Close and reopen Usernode to continue.'**
+  String get appResetNetworkChangeBody;
+
   /// First-launch gate of the full-screen SV shell: shown while the Social Vibecoding webapp loads for the first time on this install
   ///
   /// In en, this message translates to:

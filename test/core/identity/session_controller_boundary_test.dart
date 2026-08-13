@@ -272,7 +272,7 @@ void main() {
 
     await controller.onUnauthorized(credential: credential);
 
-    expect(reset.reasons, ['logout']);
+    expect(reset.reasons, ['session_expired']);
     expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
     expect(await tokenStore.read(), isNull);
     expect(controller.state.phase, IdentityPhase.transitioning);
@@ -291,7 +291,7 @@ void main() {
 
     await controller.onCredentialMissing(epoch: epoch);
 
-    expect(reset.reasons, ['logout']);
+    expect(reset.reasons, ['session_credential_missing']);
     expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
     expect(reset.tokensBeforeWipe, [null]);
     expect(controller.state.phase, IdentityPhase.transitioning);

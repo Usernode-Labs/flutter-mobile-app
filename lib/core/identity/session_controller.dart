@@ -464,6 +464,7 @@ class SessionController extends StateNotifier<Identity> {
     Identity? expectedIdentity,
     String? expectedToken,
     bool requireMissingToken = false,
+    String reason = 'logout',
   }) =>
       _transition(() async {
         // Async bridge callbacks may have been authorized by a prior identity.
@@ -497,7 +498,7 @@ class SessionController extends StateNotifier<Identity> {
         } else if (!requireMissingToken) {
           unawaited(_logoutStoredTokenBestEffort());
         }
-        await _terminalReset(reason: 'logout');
+        await _terminalReset(reason: reason);
         return true;
       }, whenRetired: () => false);
 
@@ -543,6 +544,7 @@ class SessionController extends StateNotifier<Identity> {
     final loggedOut = await _logout(
       expectedIdentity: identity,
       expectedToken: credential.token,
+      reason: 'session_expired',
     );
     if (!loggedOut) {
       _log.warn('Ignoring 401 for a credential that is no longer current');
@@ -558,6 +560,7 @@ class SessionController extends StateNotifier<Identity> {
     await _logout(
       expectedIdentity: identity,
       requireMissingToken: true,
+      reason: 'session_credential_missing',
     );
   }
 

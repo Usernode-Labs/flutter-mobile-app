@@ -57,7 +57,9 @@ final class ApplicationIncarnationStore {
   private static let socialNotificationSource = "usernode_social"
   private static let socialNotificationCategory = "USERNODE_SOCIAL"
   private let alarmChannelName = "com.usernode.app/alarm"
+  private let screenshotChannelName = "com.usernode.app/screenshot"
   private var alarmChannel: FlutterMethodChannel?
+  private var screenshotChannel: FlutterMethodChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
   private let bgTaskScheduler = BGTaskSchedulerManager()
   private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
@@ -103,6 +105,19 @@ final class ApplicationIncarnationStore {
         self?.homeShortcutsChannel.handle(call, result: result)
       }
       print("[AppDelegate] Method channel '\(HomeShortcutsChannel.channelName)' configured")
+
+      screenshotChannel = FlutterMethodChannel(
+        name: screenshotChannelName,
+        binaryMessenger: flutterViewController.binaryMessenger
+      )
+      screenshotChannel?.setMethodCallHandler { [weak self] (call, result) in
+        guard call.method == "capture" else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        self?.captureCurrentScreen(result: result)
+      }
+      print("[AppDelegate] Method channel '\(screenshotChannelName)' configured")
     } else {
       print("[AppDelegate] ⚠ Warning - Could not access FlutterViewController")
     }
@@ -375,6 +390,68 @@ final class ApplicationIncarnationStore {
         result(true)
       }
     }
+  }
+
+  /// Captures the visible app window after the feedback dialog has hidden.
+  private func captureCurrentScreen(result: @escaping FlutterResult) {
+    DispatchQueue.main.async { [weak self] in
+      guard let self, let window = self.window, !window.bounds.isEmpty else {
+        result(FlutterError(
+          code: "capture_unavailable",
+          message: "The app window is not ready.",
+          details: nil
+        ))
+        return
+      }
+
+      let format = UIGraphicsImageRendererFormat.default()
+      format.opaque = true
+      let renderer = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
+      let image = renderer.image { context in
+        if !window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) {
+          window.layer.render(in: context.cgContext)
+        }
+      }
+
+      guard let data = self.encodeScreenshot(image) else {
+        result(FlutterError(
+          code: "capture_too_large",
+          message: "The screenshot is larger than 4 MB.",
+          details: nil
+        ))
+        return
+      }
+      result(FlutterStandardTypedData(bytes: data))
+    }
+  }
+
+  /// JPEG quality steps first, then bounded downscaling to meet 4 MB.
+  private func encodeScreenshot(_ source: UIImage) -> Data? {
+    let maxBytes = 4 * 1024 * 1024
+    let qualities: [CGFloat] = [0.85, 0.70, 0.55]
+    var current = source
+
+    for pass in 0..<5 {
+      for quality in qualities {
+        if let data = current.jpegData(compressionQuality: quality),
+           data.count <= maxBytes {
+          return data
+        }
+      }
+
+      if pass == 4 { break }
+      let nextSize = CGSize(
+        width: max(1, current.size.width * 0.75),
+        height: max(1, current.size.height * 0.75)
+      )
+      let format = UIGraphicsImageRendererFormat.default()
+      format.opaque = true
+      format.scale = current.scale
+      current = UIGraphicsImageRenderer(size: nextSize, format: format).image { _ in
+        current.draw(in: CGRect(origin: .zero, size: nextSize))
+      }
+    }
+    return nil
   }
 
   private func clearNativeResetState() -> Bool {

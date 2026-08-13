@@ -31,6 +31,7 @@ import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart
     show accountReconciliationStatusProvider, identityDriverProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
+import 'package:crypto_mobile_app/features/dapps/native_screen_capture.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
@@ -66,6 +67,7 @@ part 'bridge/dapp_bridge_wallet.dart';
 part 'bridge/dapp_bridge_shortcuts.dart';
 part 'bridge/dapp_bridge_settings.dart';
 part 'bridge/dapp_bridge_social_push.dart';
+part 'bridge/dapp_bridge_capture.dart';
 part 'bridge/dapp_bridge_dispatch.dart';
 
 extension on WebViewController {
@@ -423,6 +425,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         _BridgeShortcuts,
         _BridgeSettings,
         _BridgeSocialPush,
+        _BridgeCapture,
         _BridgeDispatch {
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)

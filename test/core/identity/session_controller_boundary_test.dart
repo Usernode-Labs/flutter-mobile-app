@@ -16,6 +16,22 @@ class _NoopLogoutRepository extends AuthRepository {
   Future<void> logout(String sessionToken) async {}
 }
 
+class _SessionAuthorityRepository extends _NoopLogoutRepository {
+  _SessionAuthorityRepository(this._resolve);
+
+  final Future<AuthSession> Function(String token) _resolve;
+  final resolvedTokens = <String>[];
+
+  @override
+  Future<AuthSession> resolveBearerSession(
+    String token, {
+    int? legacyParticipantId,
+  }) {
+    resolvedTokens.add(token);
+    return _resolve(token);
+  }
+}
+
 class _BlockingLogoutRepository extends AuthRepository {
   final revokedTokens = <String>[];
   final started = Completer<void>();
@@ -262,7 +278,17 @@ void main() {
     _seedReadyIdentity();
     final tokenStore = AuthTokenStore();
     final reset = _TerminalResetProbe(tokenStore);
-    final controller = _controller(tokenStore, reset);
+    final repository = _SessionAuthorityRepository(
+      (_) async => throw AuthException(
+        AuthErrorKind.invalidCredentials,
+        'Unauthenticated.',
+      ),
+    );
+    final controller = _controller(
+      tokenStore,
+      reset,
+      repository: repository,
+    );
     addTearDown(controller.dispose);
     await controller.restore();
     final credential = AuthCredentialLease(
@@ -272,10 +298,70 @@ void main() {
 
     await controller.onUnauthorized(credential: credential);
 
+    expect(repository.resolvedTokens, ['token-a']);
     expect(reset.reasons, ['session_expired']);
     expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
     expect(await tokenStore.read(), isNull);
     expect(controller.state.phase, IdentityPhase.transitioning);
+  });
+
+  test('an endpoint 401 is ignored when the session authority accepts it',
+      () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final repository = _SessionAuthorityRepository(
+      (token) async => _session(token, 1),
+    );
+    final controller = _controller(
+      tokenStore,
+      reset,
+      repository: repository,
+    );
+    addTearDown(controller.dispose);
+    await controller.restore();
+    final credential = AuthCredentialLease(
+      epoch: controller.state.epoch,
+      token: 'token-a',
+    );
+
+    await controller.onUnauthorized(credential: credential);
+
+    expect(repository.resolvedTokens, ['token-a']);
+    expect(reset.reasons, isEmpty);
+    expect(await tokenStore.read(), 'token-a');
+    expect(controller.state.phase, IdentityPhase.ready);
+  });
+
+  test('an endpoint 401 is ignored when session validation is unavailable',
+      () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final repository = _SessionAuthorityRepository(
+      (_) async => throw AuthException(
+        AuthErrorKind.network,
+        'Session service unavailable.',
+      ),
+    );
+    final controller = _controller(
+      tokenStore,
+      reset,
+      repository: repository,
+    );
+    addTearDown(controller.dispose);
+    await controller.restore();
+    final credential = AuthCredentialLease(
+      epoch: controller.state.epoch,
+      token: 'token-a',
+    );
+
+    await controller.onUnauthorized(credential: credential);
+
+    expect(repository.resolvedTokens, ['token-a']);
+    expect(reset.reasons, isEmpty);
+    expect(await tokenStore.read(), 'token-a');
+    expect(controller.state.phase, IdentityPhase.ready);
   });
 
   test('a missing current credential enters the terminal logout reset',

@@ -30,6 +30,8 @@ class SessionControllerRetiredException implements Exception {
   String toString() => 'SessionControllerRetiredException()';
 }
 
+enum _SessionValidation { valid, invalid, unavailable }
+
 final authRepositoryProvider =
     Provider<AuthRepository>((ref) => AuthRepository());
 
@@ -519,8 +521,45 @@ class SessionController extends StateNotifier<Identity> {
     }
   }
 
+  /// Checks a reported 401 against the endpoint that owns mobile sessions.
+  /// A transient failure to perform that check is not evidence that the
+  /// credential is invalid, so it must preserve the current identity.
+  Future<_SessionValidation> _validateSessionCredential(
+    Identity identity,
+    String token,
+  ) async {
+    try {
+      final session = await _repository.resolveBearerSession(token);
+      final participantId = identity.participantId;
+      if (participantId != null && session.participant.id != participantId) {
+        _log.warn(
+          'Session authority resolved the current credential to participant '
+          '${session.participant.id}, expected $participantId',
+        );
+        return _SessionValidation.invalid;
+      }
+      return _SessionValidation.valid;
+    } on AuthException catch (error) {
+      if (error.kind == AuthErrorKind.invalidCredentials) {
+        return _SessionValidation.invalid;
+      }
+      _log.warn(
+        'Could not confirm a reported 401 with the session authority; '
+        'preserving the current session: $error',
+      );
+      return _SessionValidation.unavailable;
+    } catch (error) {
+      _log.warn(
+        'Could not confirm a reported 401 with the session authority; '
+        'preserving the current session: $error',
+      );
+      return _SessionValidation.unavailable;
+    }
+  }
+
   /// A request carrying [credential] came back 401. It may invalidate only
-  /// that exact identity epoch and token.
+  /// that exact identity epoch and token, and only after the session authority
+  /// independently rejects the credential.
   Future<void> onUnauthorized({
     required AuthCredentialLease credential,
   }) async {
@@ -540,6 +579,26 @@ class SessionController extends StateNotifier<Identity> {
       }, whenRetired: () {});
       return;
     }
+
+    final currentToken = await _tokenStore.read();
+    if (_retired ||
+        !mounted ||
+        !state.sameScopeAs(identity) ||
+        currentToken != credential.token) {
+      _log.warn('Ignoring 401 for a credential that is no longer current');
+      return;
+    }
+
+    final validation =
+        await _validateSessionCredential(identity, credential.token);
+    if (validation == _SessionValidation.valid) {
+      _log.warn(
+        'Ignoring 401 because the session authority still accepts the '
+        'current credential',
+      );
+      return;
+    }
+    if (validation == _SessionValidation.unavailable) return;
 
     final loggedOut = await _logout(
       expectedIdentity: identity,

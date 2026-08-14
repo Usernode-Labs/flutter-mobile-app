@@ -329,12 +329,17 @@ void main() {
     );
   });
 
-  test('accepts WK List and Android JSON-array evaluation results', () async {
+  test('uses a scalar realm result on WKWebView and Android WebView', () async {
     final iosFrame = frame();
-    final androidFrame = frame()..jsonEncodeResult = true;
+    final androidFrame = frame()..androidResultEncoding = true;
 
     expect(await policy(iosFrame).bootstrapLease(), isNotNull);
     expect(await policy(androidFrame).bootstrapLease(), isNotNull);
+    expect(iosFrame.lastProbeScript, isNot(contains('return [')));
+    expect(
+      iosFrame.lastProbeScript,
+      contains("return marker.length + ':' + marker + href"),
+    );
   });
 
   test('page-controlled JSON serializer is never used by the probe', () async {
@@ -394,6 +399,11 @@ void main() {
       '',
       'not json',
       '{}',
+      '(\n    "$trustedUrl",\n    "marker"\n)',
+      '0:$trustedUrl',
+      '6:short',
+      '999:marker$trustedUrl',
+      jsonEncode('broken envelope'),
       <Object?>[],
       <Object?>[trustedUrl],
       <Object?>[trustedUrl, ''],
@@ -471,7 +481,7 @@ final class _FakeTopFrame {
 
   String href;
   String? marker;
-  bool jsonEncodeResult = false;
+  bool androidResultEncoding = false;
   bool neverComplete = false;
   bool rejectJsonStringify = false;
   bool supportsExplicitReadiness = true;
@@ -489,13 +499,13 @@ final class _FakeTopFrame {
     if (failure case final error?) throw error;
     if (!identical(forcedResult, _unset)) return forcedResult;
 
-    if (script.contains('return [window.location.href, window[markerKey]]')) {
+    if (script.contains('Object.defineProperty(window, markerKey')) {
       lastProbeScript = script;
       if (rejectJsonStringify && script.contains('JSON.stringify')) {
         throw StateError('page replaced JSON.stringify');
       }
       marker ??= _extractDefinedValue(script);
-      final result = currentProbeResult();
+      final result = currentProbeResult(script);
       final gate = probeGates.isEmpty ? null : probeGates.removeAt(0);
       if (neverComplete) return Completer<Object?>().future;
       if (gate != null) await gate.future;
@@ -505,7 +515,7 @@ final class _FakeTopFrame {
     if (script.contains('__usernodeExplicitReadinessClient')) {
       final expectedMarker = _extractExpectedMarker(script);
       if (marker != expectedMarker) return null;
-      return jsonEncodeResult
+      return androidResultEncoding
           ? jsonEncode(supportsExplicitReadiness)
           : supportsExplicitReadiness;
     }
@@ -522,12 +532,26 @@ final class _FakeTopFrame {
     } else if (delivered) {
       guardedRuns++;
     }
-    return jsonEncodeResult ? jsonEncode(delivered) : delivered;
+    return androidResultEncoding ? jsonEncode(delivered) : delivered;
   }
 
-  Object currentProbeResult() {
-    final value = <Object?>[href, marker];
-    return jsonEncodeResult ? jsonEncode(value) : value;
+  Object currentProbeResult(String script) {
+    final currentMarker = marker;
+    if (currentMarker == null) throw StateError('missing realm marker');
+    if (script.contains('return [window.location.href, window[markerKey]]')) {
+      if (androidResultEncoding) {
+        return jsonEncode(<Object?>[href, currentMarker]);
+      }
+      // webview_flutter_wkwebview returns Foundation's description for an
+      // NSArray because its native adapter directly supports only scalar
+      // strings and numbers. This deliberately is not JSON.
+      return '(\n    "$href",\n    "$currentMarker"\n)';
+    }
+    if (!script.contains("return marker.length + ':' + marker + href")) {
+      throw StateError('unknown realm probe result shape');
+    }
+    final value = '${currentMarker.length}:$currentMarker$href';
+    return androidResultEncoding ? jsonEncode(value) : value;
   }
 
   void replaceDocument({required String href}) {

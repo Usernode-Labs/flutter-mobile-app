@@ -289,7 +289,13 @@ class PrivilegedBridgePolicy {
           enumerable: false
         });
       }
-      return [window.location.href, window[markerKey]];
+      const marker = window[markerKey];
+      const href = window.location.href;
+      // Keep the result scalar. WKWebView's Flutter adapter converts arrays
+      // to Foundation's human-readable description, which is not JSON. A
+      // length prefix keeps both fields in one atomic realm evaluation without
+      // relying on the page-controlled JSON serializer.
+      return marker.length + ':' + marker + href;
     })()
   ''';
 
@@ -331,18 +337,37 @@ class PrivilegedBridgePolicy {
   ''';
 
   static _TopFrameRealm? _decodeRealm(Object? value) {
-    Object? decoded = value;
-    if (decoded is String) {
+    if (value is! String || value.isEmpty) return null;
+    var encoded = value;
+
+    // Android WebView returns a JavaScript string as a JSON string literal;
+    // WKWebView returns the scalar itself. Accept those two platform shapes
+    // while rejecting structured or human-readable platform descriptions.
+    if (encoded.startsWith('"')) {
       try {
-        decoded = jsonDecode(decoded);
+        final decoded = jsonDecode(encoded);
+        if (decoded is! String) return null;
+        encoded = decoded;
       } catch (_) {
         return null;
       }
     }
-    if (decoded is! List || decoded.length != 2) return null;
-    final href = decoded[0];
-    final marker = decoded[1];
-    if (href is! String || marker is! String || marker.isEmpty) return null;
+
+    final separator = encoded.indexOf(':');
+    if (separator <= 0) return null;
+    final markerLengthText = encoded.substring(0, separator);
+    if (!RegExp(r'^\d+$').hasMatch(markerLengthText)) return null;
+    final markerLength = int.tryParse(markerLengthText);
+    final markerStart = separator + 1;
+    final remainingLength = encoded.length - markerStart;
+    if (markerLength == null ||
+        markerLength <= 0 ||
+        markerLength >= remainingLength) {
+      return null;
+    }
+    final hrefStart = markerStart + markerLength;
+    final marker = encoded.substring(markerStart, hrefStart);
+    final href = encoded.substring(hrefStart);
     final uri = Uri.tryParse(href);
     if (uri == null) return null;
     return _TopFrameRealm(uri, marker);

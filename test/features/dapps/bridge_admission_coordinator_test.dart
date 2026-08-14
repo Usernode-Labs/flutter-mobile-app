@@ -324,10 +324,11 @@ final class _AdmissionTopFrame {
   }
 
   Future<Object?> evaluate(String script) async {
-    if (script.contains('return [window.location.href, window[markerKey]]')) {
+    if (script.contains('Object.defineProperty(window, markerKey')) {
       probeCount++;
       marker ??= _extractDefinedValue(script);
-      final result = <Object?>[href, marker];
+      final currentMarker = marker!;
+      final result = '${currentMarker.length}:$currentMarker$href';
       final gate = nextProbeGate;
       nextProbeGate = null;
       final started = _probeStarted;

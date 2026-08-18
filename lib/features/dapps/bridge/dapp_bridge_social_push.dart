@@ -27,8 +27,10 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     );
   }
 
+  // Every DappWebViewScreen instance hosts the SV shell now (the legacy
+  // standalone browser is gone), so social-push events dispatch
+  // unconditionally; the trusted-realm lease still gates delivery.
   void _dispatchSocialPushEvent(String eventName) {
-    if (!widget.chromeless) return;
     unawaited(_dispatchSocialPushEventIfTrusted(eventName));
   }
 
@@ -77,7 +79,6 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
         ? _lastSocialPushForegroundRevision
         : 0;
     if (revision <= deliveredRevision ||
-        !widget.chromeless ||
         readyLease == null ||
         _sessionHandoffGate.isAuthenticatedBlocked) {
       return;

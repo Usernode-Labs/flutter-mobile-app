@@ -35,13 +35,18 @@ enum PinnedDappsStore {
     return page == 1 ? 1 : 0
   }
 
-  static func icon(for id: String) -> UIImage? {
+  /// Loads one appearance slot of a pinned dapp's icon: `<id>.png` is the
+  /// light/default asset, `<id>.dark.png` the optional dark one (see
+  /// `HomeShortcutsChannel.swift`). Entries pinned before dark icons
+  /// existed simply have no dark file — callers fall back to the light
+  /// asset, which is the entire backward-compatibility story.
+  static func icon(for id: String, dark: Bool = false) -> UIImage? {
     guard let container = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: appGroupId
     ) else { return nil }
     let url = container
       .appendingPathComponent("pinned_icons", isDirectory: true)
-      .appendingPathComponent("\(id).png")
+      .appendingPathComponent(dark ? "\(id).dark.png" : "\(id).png")
     return UIImage(contentsOfFile: url.path)
   }
 }
@@ -169,13 +174,29 @@ private enum TileColors {
 }
 
 struct DappIconView: View {
+  @Environment(\.colorScheme) private var colorScheme
   let dapp: PinnedDapp
   let iconSize: CGFloat
   var nameFont: Font = .caption2
 
+  /// Per-appearance icon selection, resolved INSIDE the view body (via this
+  /// computed property) rather than when the TimelineEntry is built. That
+  /// placement is load-bearing: WidgetKit renders a snapshot of this view
+  /// for each appearance from the same entry and swaps them when the system
+  /// flips light/dark — no app launch, no timeline reload. An entry holding
+  /// one pre-resolved image could never flip. The icon keeps its alpha and
+  /// composites onto the widget background (SV's appearance-neutral tiles
+  /// depend on that — never flatten onto an opaque plate).
+  private var resolvedIcon: UIImage? {
+    if colorScheme == .dark, let dark = PinnedDappsStore.icon(for: dapp.id, dark: true) {
+      return dark
+    }
+    return PinnedDappsStore.icon(for: dapp.id)
+  }
+
   var body: some View {
     VStack(spacing: 4) {
-      if let icon = PinnedDappsStore.icon(for: dapp.id) {
+      if let icon = resolvedIcon {
         Image(uiImage: icon)
           .resizable()
           .aspectRatio(contentMode: .fill)

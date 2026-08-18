@@ -1,16 +1,16 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/diagnostics_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
-import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
-import 'package:crypto_mobile_app/features/dapps/providers/dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
-import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
@@ -51,12 +51,41 @@ class AppRoutes {
   // Native wallet trust surface opened by the SV Wallet sheet.
   static const walletStaking = '/wallet/staking';
 
-  static String dappDetailFor(String slug) => '/dapps/$slug';
   static String dappPinnedFor(String id) => '/dapps/pinned/$id';
 
   // ZK Identity (native: runs NFC/hardware flows)
   static const zkIdentityDetail = '/challenges/zk-identity';
   static const zkIdentityFlow = '/challenges/zk-identity/flow';
+}
+
+/// Remaps a pinned dapp's URL into the SV-shell home route when the URL
+/// lives on the trusted SV origin, or returns null when it should open in
+/// the standalone dapp browser instead.
+///
+/// SV pins its apps as `https://<sv-origin>/#app/<slug>` — a hash route of
+/// the platform SPA. Opening that in the standalone browser shows the
+/// pre-thin-shell UI (native app bar over a second SV boot). Folding it
+/// into `/home?sv=<fragment>` reuses the same shell (and, when the app is
+/// warm, the same *running* webview) that every other surface uses.
+/// Non-SV origins keep the standalone browser: that's what it's for.
+String? svShellRouteForPinnedDappUrl({
+  required String pinnedUrl,
+  required String dappsTabUrl,
+}) {
+  final pinned = Uri.tryParse(pinnedUrl.trim());
+  final trusted = Uri.tryParse(dappsTabUrl.trim());
+  if (pinned == null || trusted == null) return null;
+  if (pinned.host.isEmpty || trusted.host.isEmpty) return null;
+  // Same origin boundary as the bridge's shortcut trust gate: exact
+  // scheme + host + port match.
+  if (pinned.scheme != trusted.scheme ||
+      pinned.host != trusted.host ||
+      pinned.port != trusted.port) {
+    return null;
+  }
+  final fragment = pinned.fragment;
+  if (fragment.isEmpty) return AppRoutes.home;
+  return '${AppRoutes.home}?sv=${Uri.encodeQueryComponent(fragment)}';
 }
 
 // Create a stable navigator key outside the provider
@@ -151,119 +180,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // this path has an extra segment (`/dapps/pinned/<id>` vs
         // `/dapps/<slug>`).
         path: AppRoutes.dappPinned,
-        builder: (context, state) {
+        // Widget tiles / launcher shortcuts deep-link here. SV pins its
+        // apps as `<sv-origin>/#app/<slug>` hash routes (it has since the
+        // pinning feature shipped, and the bridge only accepts pins from
+        // the trusted SV origin), so every entry remaps into the SV shell —
+        // a widget tap opens the app in the platform UI, same chrome and
+        // transitions as tapping it on the SV home. Unknown ids and
+        // malformed entries just land on the shell home.
+        redirect: (context, state) async {
           final id = state.pathParameters['id'];
-          return Consumer(
-            builder: (context, ref, _) {
-              final pinnedAsync = ref.watch(pinnedDappsProvider);
-              return pinnedAsync.when(
-                loading: () => const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                ),
-                error: (error, _) => Scaffold(
-                  appBar: AppBar(),
-                  body: Center(
-                    child: Text('Failed to load pinned dApp: $error'),
-                  ),
-                ),
-                data: (_) {
-                  final dapp =
-                      id == null ? null : ref.watch(pinnedDappByIdProvider(id));
-                  if (dapp == null) {
-                    return Scaffold(
-                      appBar: AppBar(),
-                      body: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('dApp not found'),
-                            Button(
-                              label: 'Back',
-                              size: ButtonSize.small,
-                              onTap: () {
-                                if (context.canPop()) {
-                                  context.pop();
-                                } else {
-                                  context.go(AppRoutes.home);
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  // Keyed by URL: navigating pinned dapp A -> pinned dapp
-                  // B reuses this same route with a new param, and without
-                  // a key the old webview state (still showing A) is kept.
-                  return DappWebViewScreen(
-                    key: ValueKey('pinned:${dapp.url}'),
-                    url: dapp.url,
-                    name: dapp.name,
-                  );
-                },
-              );
-            },
-          );
+          if (id == null) return AppRoutes.home;
+          try {
+            final dapps = await ref.read(pinnedDappsProvider.future);
+            final dapp = dapps.where((d) => d.id == id).firstOrNull;
+            if (dapp == null) return AppRoutes.home;
+            return svShellRouteForPinnedDappUrl(
+                  pinnedUrl: dapp.url,
+                  dappsTabUrl: AppConfig.dappsTabUrl,
+                ) ??
+                AppRoutes.home;
+          } catch (e) {
+            _log.warn('Pinned dapp shell remap failed: $e');
+            return AppRoutes.home;
+          }
         },
       ),
       GoRoute(
+        // Legacy `usernode://app/dapps/<slug>` deep links. Nothing mints
+        // these anymore (the native dapps list and backend CTA dispatcher
+        // are retired), but the allowlist still admits them — hand the
+        // slug to the SV shell's own `#app/<slug>` route, which owns
+        // not-found handling for slugs it doesn't know.
         path: AppRoutes.dappDetail,
-        builder: (context, state) {
+        redirect: (context, state) {
           final slug = state.pathParameters['slug'];
-          return Consumer(
-            builder: (context, ref, _) {
-              final dappsAsync = ref.watch(dappsProvider);
-              return dappsAsync.when(
-                loading: () => const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                ),
-                error: (error, _) => Scaffold(
-                  appBar: AppBar(),
-                  body: Center(
-                    child: Text('Failed to load dApp: $error'),
-                  ),
-                ),
-                data: (_) {
-                  final dapp =
-                      slug == null ? null : ref.watch(dappBySlugProvider(slug));
-                  if (dapp == null) {
-                    return Scaffold(
-                      appBar: AppBar(),
-                      body: Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('dApp not found'),
-                            Button(
-                              label: 'Back',
-                              size: ButtonSize.small,
-                              onTap: () {
-                                if (context.canPop()) {
-                                  context.pop();
-                                } else {
-                                  context.go(AppRoutes.home);
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  // Keyed for the same reason as the pinned route above:
-                  // switching between dapp slugs must rebuild the webview.
-                  return DappWebViewScreen(
-                    key: ValueKey('dapp:${dapp.url}'),
-                    url: dapp.url,
-                    name: dapp.name,
-                  );
-                },
-              );
-            },
-          );
+          if (slug == null || slug.isEmpty) return AppRoutes.home;
+          final fragment = Uri.encodeQueryComponent('app/$slug');
+          return '${AppRoutes.home}?sv=$fragment';
         },
       ),
     ],

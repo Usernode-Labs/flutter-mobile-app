@@ -354,36 +354,4 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       error: null,
     );
   }
-
-  /// Standalone dapp surfaces (widget/shortcut deep links to
-  /// `/dapps/pinned/<id>`, `/dapps/<slug>` routes) can be entered on a cold
-  /// start without the SV shell ever loading — and the shell is the only
-  /// thing that requests a node start over bridge v4. Sends from every dapp
-  /// surface go through the local node's wallet RPC, so without this a
-  /// shell-bypassing entry leaves the node stopped and every send failing
-  /// with "Node RPC unavailable". Mirrors the bridge `startNode` handler:
-  /// identity-gated (startNode itself refuses unsettled identities), and
-  /// block production stays gated by bp_released inside NodeService, so
-  /// this cannot start producing for an unreleased user.
-  ///
-  /// No-op for the SV shell instance ([DappWebViewScreen.chromeless]) —
-  /// the platform owns node lifecycle there — and while app sleep is
-  /// active (the sleep service owns the node then).
-  Future<void> _ensureNodeForStandaloneDappEntry() async {
-    if (widget.chromeless) return;
-    if (!mounted) return;
-    if (RustBackendService.instance.isRunning) return;
-    if (AppSleepStateStore.isSleeping) return;
-    final identity = ref.read(identityProvider);
-    if (identity.phase != IdentityPhase.ready) return;
-    if (!await ref.read(identityDriverProvider).ensureFreshBeforeNodeStart()) {
-      return;
-    }
-    if (!mounted || !identity.sameScopeAs(ref.read(identityProvider))) return;
-    // Same Android block-production wiring as the bridge startNode handler,
-    // via the shared coordinator.
-    await NodeLifecycleCoordinator.instance.startNode(
-      reason: 'standalone_dapp_entry',
-    );
-  }
 }

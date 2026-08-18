@@ -17,7 +17,7 @@ mixin _BridgeDispatch
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
   static const int _bridgeVersion = 4;
-  static final List<String> _bridgeCapabilities = [
+  static final List<String> _staticBridgeCapabilities = [
     'getNodeAddress',
     'sendTransaction',
     'signMessage',
@@ -74,6 +74,21 @@ mixin _BridgeDispatch
     'ackPendingSocialNotification',
   ];
 
+  /// Platform-aware capability list. Additive, feature-named entries only
+  /// (same convention as `completeLogin` etc.) — no `_bridgeVersion` bump.
+  ///
+  /// `homeScreenShortcutDarkIcon` — `addHomeScreenShortcut` accepts an
+  /// optional `icon_url_dark` and the WidgetKit tiles select it per system
+  /// appearance; `getHomeScreenShortcuts` items carry `has_icon_dark`.
+  /// iOS-only: the flag means "sending a dark icon has a visible effect",
+  /// and Android's pinned launcher shortcuts are static bitmaps that can
+  /// never flip, so advertising there would make the page ship an asset
+  /// that is silently dropped.
+  List<String> get _bridgeCapabilities => [
+        ..._staticBridgeCapabilities,
+        if (HomeShortcutsChannel.isIOS) 'homeScreenShortcutDarkIcon',
+      ];
+
   /// Routes every `Usernode` JS-channel message to its domain handler.
   /// Body moved verbatim from the former inline `onMessageReceived`
   /// closure in initState.
@@ -86,39 +101,11 @@ mixin _BridgeDispatch
       if (method == null) return;
 
       // `titleChanged` is a fire-and-forget signal from the page that
-      // `document.title` has been updated outside of a real navigation
-      // (e.g. an SPA route change without a pushState, or a deferred
-      // title set after data finishes loading). webview_flutter's
-      // onUrlChange-based `_refreshPageTitle` only catches title
-      // changes that happen at navigation moments; without this
-      // channel, the AppBar's `_pageTitle` lags one navigation
-      // behind the page's actual title. Unlike the other methods
-      // here, there's no pending JS promise to resolve, so we don't
-      // require `id`.
-      if (method == 'titleChanged') {
-        // Use `.toString()` rather than `as String?` so we don't
-        // throw on unexpected payload shapes (the cast surfaced as
-        // a silent setState-skip when the value happened to come
-        // back as a non-String).
-        final raw = payload['value']?.toString().trim();
-        final newTitle = (raw == null || raw.isEmpty) ? null : raw;
-        debugPrint(
-          '[Usernode JS-channel] titleChanged value="$newTitle" '
-          'current="$_pageTitle" mounted=$mounted',
-        );
-        if (!mounted) return;
-        // Pin to the channel as the source of truth for this page
-        // load. Without this, the very next pushState-driven
-        // onUrlChange will run `_refreshPageTitle`, see WKWebView's
-        // stale getTitle() value (the *previous* screen's title)
-        // and clobber the value we're about to set with setState
-        // below — visible as `titleChanged value="dApps"` followed
-        // by `build _pageTitle="whiteboard"` in the logs.
-        _titleFromChannel = true;
-        if (newTitle == _pageTitle) return;
-        setState(() => _pageTitle = newTitle);
-        return;
-      }
+      // `document.title` has been updated. It used to drive the legacy
+      // browser AppBar's title; with that chrome removed nothing native
+      // renders the title, but pages (SV's App.setHeaderTitle) still post
+      // it — accept and ignore for protocol compatibility.
+      if (method == 'titleChanged') return;
 
       if (id == null) return;
 

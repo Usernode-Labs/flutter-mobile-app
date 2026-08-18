@@ -96,12 +96,16 @@ class _SvShellScreenState extends State<SvShellScreen> {
       return _buildGateScreen(context, failed: false);
     }
 
+    // Keyed by attempt only — NOT by URL. A widget/shortcut deep link
+    // arriving while the shell is alive updates `initialHash` (new
+    // `?sv=` param on /home), and the webview handles that in
+    // didUpdateWidget as a soft `location.hash` navigation on the running
+    // SPA. Keying by URL here would tear the shell down and cold-boot SV
+    // for every widget tap instead.
     final webview = DappWebViewScreen(
-      key: ValueKey('sv-shell:$_attempt:$_shellUrl'),
+      key: ValueKey('sv-shell:$_attempt'),
       url: _shellUrl,
       name: 'Usernode',
-      embedded: true,
-      chromeless: true,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,
     );
 

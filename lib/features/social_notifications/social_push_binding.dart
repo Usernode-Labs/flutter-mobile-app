@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 
+import 'social_push_api.dart';
 import 'social_push_service.dart';
 
 bool canAttachSocialPushSession(Identity identity) =>
@@ -21,12 +22,17 @@ final socialPushBindingProvider = Provider<void>((ref) {
   var generation = 0;
   var disposed = false;
 
-  void detach({required bool rotateProviderToken}) {
+  void detach({
+    required bool rotateProviderToken,
+    SocialPushUnregisterReason unregisterReason =
+        SocialPushUnregisterReason.identityBoundary,
+  }) {
     generation += 1;
     service.detachSession(
       owner,
       rotateProviderToken: rotateProviderToken,
       ifAlreadyUnbound: true,
+      unregisterReason: unregisterReason,
     );
   }
 
@@ -84,11 +90,20 @@ final socialPushBindingProvider = Provider<void>((ref) {
           attachAuthenticatedIdentity();
         case IdentityPhase.transitioning:
           if (previous?.isAuthenticated == true) {
-            detach(rotateProviderToken: true);
+            // Transitioning intentionally hides its destination. The service
+            // cannot safely guess whether this becomes logout, guest, a 401,
+            // or a participant replacement, so use the closed fallback.
+            detach(
+              rotateProviderToken: true,
+              unregisterReason: SocialPushUnregisterReason.identityBoundary,
+            );
           }
         case IdentityPhase.unauthenticated:
         case IdentityPhase.guest:
-          detach(rotateProviderToken: true);
+          detach(
+            rotateProviderToken: true,
+            unregisterReason: SocialPushUnregisterReason.signedOut,
+          );
         case IdentityPhase.unknown:
           // Restore has not identified an authenticated participant yet.
           break;

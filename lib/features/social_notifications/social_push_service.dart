@@ -14,6 +14,22 @@ typedef SocialPushUnauthorized = Future<void> Function(
   AuthCredentialLease credential,
 );
 
+typedef SocialPushRetryTimerFactory = Timer Function(
+  Duration delay,
+  void Function() callback,
+);
+
+const _defaultRegistrationRetryDelays = <Duration>[
+  Duration(seconds: 1),
+  Duration(seconds: 2),
+  Duration(seconds: 4),
+  Duration(seconds: 8),
+  Duration(seconds: 16),
+];
+
+Timer _defaultRetryTimer(Duration delay, void Function() callback) =>
+    Timer(delay, callback);
+
 class SocialPushSession {
   const SocialPushSession({
     required this.userId,
@@ -49,10 +65,15 @@ class SocialPushService {
     required this.expectedFirebaseProjectId,
     required this.platform,
     DateTime Function()? now,
+    SocialPushRetryTimerFactory? createRetryTimer,
+    List<Duration> registrationRetryDelays = _defaultRegistrationRetryDelays,
   })  : _messaging = messaging,
         _persistence = persistence,
         _api = api,
-        _now = now ?? DateTime.now;
+        _now = now ?? DateTime.now,
+        _createRetryTimer = createRetryTimer ?? _defaultRetryTimer,
+        _registrationRetryDelays =
+            List<Duration>.unmodifiable(registrationRetryDelays);
 
   static final SocialPushService instance = SocialPushService(
     messaging: FirebaseSocialPushMessaging(),
@@ -75,6 +96,8 @@ class SocialPushService {
   final SocialPushPersistence _persistence;
   final SocialPushRegistrationApi _api;
   final DateTime Function() _now;
+  final SocialPushRetryTimerFactory _createRetryTimer;
+  final List<Duration> _registrationRetryDelays;
   final String environment;
   final String expectedFirebaseProjectId;
   final String? platform;
@@ -111,6 +134,13 @@ class SocialPushService {
   bool _tapCaptureBlocked = false;
   int? _providerRotationBoundaryGeneration;
   bool _providerTokenCleanupPending = false;
+  bool _providerAutoInitDisabled = false;
+  bool _providerTokenDeletedBeforeDisable = false;
+  bool _providerTokenDeletedAfterDisable = false;
+  Timer? _registrationRetryTimer;
+  int _registrationRetryAttempt = 0;
+  int _registrationRetryGeneration = 0;
+  bool _disposed = false;
   SocialPushState? _lastEmittedState;
 
   Stream<SocialPushState> get stateEvents => _stateEvents.stream;
@@ -220,7 +250,17 @@ class SocialPushService {
       onError: (_, __) {},
     );
     _tokenSubscription = _messaging.tokenRefreshes.listen(
-      (_) => reconcileBestEffort(),
+      (_) {
+        // A refresh means Firebase has provider state again even when an
+        // earlier delete completed. Re-read the token through the serialized
+        // reconcile instead of trusting the stream value across a session
+        // boundary.
+        _providerAutoInitDisabled = false;
+        _providerTokenDeletedBeforeDisable = false;
+        _providerTokenDeletedAfterDisable = false;
+        _cancelRegistrationRetry(resetAttempts: true);
+        reconcileBestEffort();
+      },
       onError: (_, __) {},
     );
 
@@ -265,20 +305,41 @@ class SocialPushService {
     await _disableInitializedProviderState();
   }
 
-  Future<bool> _disableInitializedProviderState() async {
-    try {
-      await _messaging.setAutoInitEnabled(false);
-    } catch (_) {
-      // A missing or mismatched configuration is never allowed to register;
-      // cleanup is best effort because native Firebase may itself be invalid.
+  Future<bool> _disableInitializedProviderState({bool force = false}) async {
+    if (force) {
+      _providerAutoInitDisabled = false;
+      _providerTokenDeletedBeforeDisable = false;
+      _providerTokenDeletedAfterDisable = false;
     }
-    try {
-      await _messaging.deleteToken();
-      return true;
-    } catch (_) {
-      // Try both shutdown mechanisms independently: either one may still work.
-      return false;
+    if (!_providerAutoInitDisabled) {
+      try {
+        await _messaging.setAutoInitEnabled(false);
+        _providerAutoInitDisabled = true;
+      } catch (_) {
+        // A missing or mismatched configuration is never allowed to register;
+        // cleanup is best effort because native Firebase may itself be invalid.
+      }
     }
+    if (!_providerAutoInitDisabled && !_providerTokenDeletedBeforeDisable) {
+      // Delete successfully once while auto-init is unconfirmed to close the
+      // immediate delivery window. Firebase may regenerate until auto-init is
+      // actually disabled, so this cannot count as the final deletion.
+      try {
+        await _messaging.deleteToken();
+        _providerTokenDeletedBeforeDisable = true;
+      } catch (_) {
+        // Neither shutdown operation completed; retry both next reconcile.
+      }
+    }
+    if (_providerAutoInitDisabled && !_providerTokenDeletedAfterDisable) {
+      try {
+        await _messaging.deleteToken();
+        _providerTokenDeletedAfterDisable = true;
+      } catch (_) {
+        // Auto-init is already off, so this final deletion is safe to retry.
+      }
+    }
+    return _providerAutoInitDisabled && _providerTokenDeletedAfterDisable;
   }
 
   /// Attaches the exact ready bearer owned by the active provider container.
@@ -292,6 +353,7 @@ class SocialPushService {
         crossUserBoundary ? _beginRotatingAccountBoundary() : null;
     final unchanged =
         _sessionOwner == owner && _session?.sameCredentialAs(session) == true;
+    if (!unchanged) _cancelRegistrationRetry(resetAttempts: true);
     _sessionOwner = owner;
     _session = session;
     if (_cleanedSession?.sameCredentialAs(session) != true) {
@@ -304,7 +366,12 @@ class SocialPushService {
       _deliveryActive = false;
       _registrationStatus = _statusWithoutRegistration();
       _emitState();
-      _scheduleAccountBoundary(boundaryGeneration);
+      _scheduleAccountBoundary(
+        boundaryGeneration,
+        forceProviderRotation: true,
+        sessionToUnregister: previousSession,
+        unregisterReason: SocialPushUnregisterReason.accountChanged,
+      );
     } else if (!unchanged) {
       reconcileBestEffort();
     }
@@ -317,11 +384,14 @@ class SocialPushService {
     Object owner, {
     required bool rotateProviderToken,
     bool ifAlreadyUnbound = false,
+    SocialPushUnregisterReason unregisterReason =
+        SocialPushUnregisterReason.identityBoundary,
   }) {
     if (_sessionOwner != owner &&
         !(_sessionOwner == null && ifAlreadyUnbound)) {
       return;
     }
+    _cancelRegistrationRetry(resetAttempts: true);
     final previousSession = _session;
     final boundaryGeneration =
         rotateProviderToken ? _beginRotatingAccountBoundary() : null;
@@ -335,29 +405,35 @@ class SocialPushService {
     if (boundaryGeneration != null) {
       _scheduleAccountBoundary(
         boundaryGeneration,
+        forceProviderRotation: previousSession != null,
         sessionToUnregister: previousSession,
+        unregisterReason: unregisterReason,
       );
     }
   }
 
   Future<SocialPushState> refreshState() async {
+    _cancelRegistrationRetry(resetAttempts: true);
     await initialize();
     await _enqueue(_reconcileNow);
     return currentState;
   }
 
   Future<SocialPushState> setEnabled(bool enabled) async {
+    _cancelRegistrationRetry(resetAttempts: true);
     await initialize();
     await _enqueue(() => _setEnabledNow(enabled));
     return currentState;
   }
 
   Future<void> reconcile() async {
+    _cancelRegistrationRetry(resetAttempts: true);
     await initialize();
     await _enqueue(_reconcileNow);
   }
 
   void reconcileBestEffort() {
+    _cancelRegistrationRetry(resetAttempts: true);
     _runDetached(reconcile(), 'reconcile');
   }
 
@@ -414,6 +490,7 @@ class SocialPushService {
   /// wipe. Network unregister/rotation is intentionally not awaited because
   /// remote cleanup may never delay the local terminal boundary.
   void closeForTerminalReset() {
+    _cancelRegistrationRetry(resetAttempts: true);
     _fenceTapCaptureAtAccountBoundary();
     _sessionOwner = null;
     _session = null;
@@ -433,7 +510,7 @@ class SocialPushService {
     try {
       await _persistence.clear();
     } catch (_) {}
-    await _disableInitializedProviderState();
+    await _disableInitializedProviderState(force: true);
   }
 
   void _installFreshResetState() {
@@ -450,6 +527,7 @@ class SocialPushService {
 
   Future<void> _setEnabledNow(bool enabled) async {
     if (_resetting) return;
+    _cancelRegistrationRetry(resetAttempts: true);
     await _ensureRecordPersisted();
     final record = _record!;
     if (!enabled) {
@@ -464,7 +542,12 @@ class SocialPushService {
       _emitState();
       await _rotateProviderTokenNow();
       if (session != null && _session?.sameCredentialAs(session) == true) {
-        if (await _unregisterNow(session)) _cleanedSession = session;
+        if (await _unregisterNow(
+          session,
+          reason: SocialPushUnregisterReason.notificationsDisabled,
+        )) {
+          _cleanedSession = session;
+        }
       }
       _registrationStatus = SocialPushRegistrationStatus.disabled;
       _emitState();
@@ -485,19 +568,28 @@ class SocialPushService {
     } catch (_) {
       _registrationStatus = SocialPushRegistrationStatus.error;
       _emitState();
+      _scheduleRegistrationRetry(
+        _session,
+        requireAuthorizedPermission: false,
+      );
       return;
     }
     await _reconcileNow(refreshPermission: false);
   }
 
   Future<void> _reconcileNow({bool refreshPermission = true}) async {
-    if (_resetting || _providerRotationBoundaryGeneration != null) return;
+    if (_disposed ||
+        _resetting ||
+        _providerRotationBoundaryGeneration != null) {
+      return;
+    }
     await _ensureRecordPersisted();
     if (_session != null && _tapCaptureBlocked) {
       _tapCaptureBlocked = false;
     }
     final record = _record!;
     if (!_available) {
+      _cancelRegistrationRetry(resetAttempts: true);
       _registrationStatus = record.optedIn
           ? SocialPushRegistrationStatus.error
           : SocialPushRegistrationStatus.disabled;
@@ -513,11 +605,16 @@ class SocialPushService {
         _registrationStatus = SocialPushRegistrationStatus.error;
         _deliveryActive = false;
         _emitState();
+        _scheduleRegistrationRetry(
+          _session,
+          requireAuthorizedPermission: false,
+        );
         return;
       }
     }
 
     if (!record.optedIn) {
+      _cancelRegistrationRetry(resetAttempts: true);
       _registrationStatus = SocialPushRegistrationStatus.disabled;
       _deliveryActive = false;
       _emitState();
@@ -526,12 +623,16 @@ class SocialPushService {
       if (record.mutationRevision > 0 &&
           session != null &&
           _cleanedSession?.sameCredentialAs(session) != true &&
-          await _unregisterNow(session)) {
+          await _unregisterNow(
+            session,
+            reason: SocialPushUnregisterReason.notificationsDisabled,
+          )) {
         _cleanedSession = session;
       }
       return;
     }
     if (_permission == SocialPushPermission.denied) {
+      _cancelRegistrationRetry(resetAttempts: true);
       _registrationStatus = SocialPushRegistrationStatus.permissionDenied;
       _deliveryActive = false;
       _emitState();
@@ -541,12 +642,16 @@ class SocialPushService {
           session != null &&
           _session?.sameCredentialAs(session) == true &&
           _cleanedSession?.sameCredentialAs(session) != true &&
-          await _unregisterNow(session)) {
+          await _unregisterNow(
+            session,
+            reason: SocialPushUnregisterReason.permissionDenied,
+          )) {
         _cleanedSession = session;
       }
       return;
     }
     if (_permission == SocialPushPermission.notDetermined) {
+      _cancelRegistrationRetry(resetAttempts: true);
       // Never show the OS prompt outside setEnabled(true)'s user gesture.
       _registrationStatus = SocialPushRegistrationStatus.unregistered;
       _deliveryActive = false;
@@ -557,6 +662,7 @@ class SocialPushService {
 
     final session = _session;
     if (session == null) {
+      _cancelRegistrationRetry(resetAttempts: true);
       _registrationStatus = SocialPushRegistrationStatus.unregistered;
       _deliveryActive = false;
       _emitState();
@@ -570,10 +676,14 @@ class SocialPushService {
 
     try {
       await _messaging.setAutoInitEnabled(true);
+      _providerAutoInitDisabled = false;
+      _providerTokenDeletedBeforeDisable = false;
+      _providerTokenDeletedAfterDisable = false;
       if (platform == 'ios' && await _messaging.getApnsToken() == null) {
         _registrationStatus = SocialPushRegistrationStatus.unregistered;
         _deliveryActive = false;
         _emitState();
+        _scheduleRegistrationRetry(session);
         return;
       }
       final token = await _messaging.getToken();
@@ -581,6 +691,7 @@ class SocialPushService {
         _registrationStatus = SocialPushRegistrationStatus.unregistered;
         _deliveryActive = false;
         _emitState();
+        _scheduleRegistrationRetry(session);
         return;
       }
       if (_session?.sameCredentialAs(session) != true) return;
@@ -594,6 +705,7 @@ class SocialPushService {
       );
       if (_session?.sameCredentialAs(session) != true) return;
       if (status.registered && signatureMatches) {
+        _cancelRegistrationRetry(resetAttempts: true);
         _registrationStatus = SocialPushRegistrationStatus.registered;
         _deliveryActive = status.deliveryActive;
         _emitState();
@@ -609,6 +721,7 @@ class SocialPushService {
       _registeredPermission = _permission;
       _cleanedSession = null;
       _providerTokenCleanupPending = false;
+      _cancelRegistrationRetry(resetAttempts: true);
       _registrationStatus = SocialPushRegistrationStatus.registered;
       _deliveryActive = reply.deliveryActive;
     } on SocialPushApiException catch (error) {
@@ -623,15 +736,104 @@ class SocialPushService {
         _clearRegisteredSignature();
         _registrationStatus = SocialPushRegistrationStatus.error;
         _deliveryActive = false;
+        if (_isTransientRegistrationError(error)) {
+          _scheduleRegistrationRetry(session);
+        } else {
+          _cancelRegistrationRetry(resetAttempts: true);
+        }
       }
     } catch (_) {
       if (_session?.sameCredentialAs(session) == true) {
         _clearRegisteredSignature();
         _registrationStatus = SocialPushRegistrationStatus.error;
         _deliveryActive = false;
+        _scheduleRegistrationRetry(session);
       }
     }
     _emitState();
+  }
+
+  bool _isRegistrationRetryContextValid(
+    SocialPushSession? expectedSession, {
+    required bool requireAuthorizedPermission,
+  }) {
+    if (expectedSession == null ||
+        _disposed ||
+        _resetting ||
+        !_available ||
+        _providerRotationBoundaryGeneration != null ||
+        _record?.optedIn != true) {
+      return false;
+    }
+    if (requireAuthorizedPermission &&
+        _permission != SocialPushPermission.authorized &&
+        _permission != SocialPushPermission.provisional) {
+      return false;
+    }
+    return _session?.sameCredentialAs(expectedSession) == true;
+  }
+
+  bool _isTransientRegistrationError(SocialPushApiException error) =>
+      error.statusCode == 0 ||
+      error.statusCode == 408 ||
+      error.statusCode == 425 ||
+      error.statusCode == 429 ||
+      error.statusCode >= 500;
+
+  void _scheduleRegistrationRetry(
+    SocialPushSession? expectedSession, {
+    bool requireAuthorizedPermission = true,
+  }) {
+    if (!_isRegistrationRetryContextValid(
+      expectedSession,
+      requireAuthorizedPermission: requireAuthorizedPermission,
+    )) {
+      _cancelRegistrationRetry(resetAttempts: true);
+      return;
+    }
+    if (_registrationRetryTimer != null ||
+        _registrationRetryAttempt >= _registrationRetryDelays.length) {
+      return;
+    }
+
+    final generation = ++_registrationRetryGeneration;
+    final delay = _registrationRetryDelays[_registrationRetryAttempt++];
+    late final Timer timer;
+    timer = _createRetryTimer(delay, () {
+      if (generation != _registrationRetryGeneration ||
+          !identical(_registrationRetryTimer, timer)) {
+        return;
+      }
+      _registrationRetryTimer = null;
+      if (!_isRegistrationRetryContextValid(
+        expectedSession,
+        requireAuthorizedPermission: requireAuthorizedPermission,
+      )) {
+        _cancelRegistrationRetry(resetAttempts: true);
+        return;
+      }
+      _runDetached(
+        _enqueue(() async {
+          if (generation != _registrationRetryGeneration ||
+              !_isRegistrationRetryContextValid(
+                expectedSession,
+                requireAuthorizedPermission: requireAuthorizedPermission,
+              )) {
+            return;
+          }
+          await _reconcileNow();
+        }),
+        'registration retry',
+      );
+    });
+    _registrationRetryTimer = timer;
+  }
+
+  void _cancelRegistrationRetry({required bool resetAttempts}) {
+    _registrationRetryGeneration += 1;
+    _registrationRetryTimer?.cancel();
+    _registrationRetryTimer = null;
+    if (resetAttempts) _registrationRetryAttempt = 0;
   }
 
   Future<SocialPushRegistrationReply?> _registerNow(
@@ -659,9 +861,16 @@ class SocialPushService {
     }
   }
 
-  Future<bool> _unregisterNow(SocialPushSession session) async {
+  Future<bool> _unregisterNow(
+    SocialPushSession session, {
+    required SocialPushUnregisterReason reason,
+  }) async {
     try {
-      await _unregisterAttempt(session, retryConflict: true);
+      await _unregisterAttempt(
+        session,
+        reason: reason,
+        retryConflict: true,
+      );
       return true;
     } on SocialPushApiException catch (error) {
       if (error.statusCode == 401 &&
@@ -682,6 +891,7 @@ class SocialPushService {
 
   Future<void> _unregisterAttempt(
     SocialPushSession session, {
+    required SocialPushUnregisterReason reason,
     required bool retryConflict,
   }) async {
     final revision = await _nextMutationRevision();
@@ -690,22 +900,31 @@ class SocialPushService {
         bearer: session.credential.token,
         installationId: _record!.installationId,
         mutationRevision: revision,
+        reason: reason,
       );
     } on SocialPushApiException catch (error) {
       if (retryConflict &&
           error.statusCode == 409 &&
           await _adoptLatestRevision(error.latestMutationRevision)) {
-        return _unregisterAttempt(session, retryConflict: false);
+        return _unregisterAttempt(
+          session,
+          reason: reason,
+          retryConflict: false,
+        );
       }
       rethrow;
     }
   }
 
-  Future<void> _rotateProviderTokenNow({bool updateStatus = true}) async {
+  Future<void> _rotateProviderTokenNow({
+    bool updateStatus = true,
+    bool force = false,
+  }) async {
     _clearRegisteredSignature();
     if (platform != null) {
-      final tokenDeleted = await _disableInitializedProviderState();
-      if (tokenDeleted) _providerTokenCleanupPending = false;
+      final shutdownComplete =
+          await _disableInitializedProviderState(force: force);
+      if (shutdownComplete) _providerTokenCleanupPending = false;
     }
     if (updateStatus) {
       _deliveryActive = false;
@@ -771,14 +990,19 @@ class SocialPushService {
 
   void _scheduleAccountBoundary(
     int boundaryGeneration, {
+    required bool forceProviderRotation,
     SocialPushSession? sessionToUnregister,
+    SocialPushUnregisterReason unregisterReason =
+        SocialPushUnregisterReason.identityBoundary,
   }) {
     _runDetached(
       initialize().then(
         (_) => _enqueue(
           () => _completeAccountBoundaryNow(
             boundaryGeneration,
+            forceProviderRotation: forceProviderRotation,
             sessionToUnregister: sessionToUnregister,
+            unregisterReason: unregisterReason,
           ),
         ),
       ),
@@ -788,7 +1012,9 @@ class SocialPushService {
 
   Future<void> _completeAccountBoundaryNow(
     int boundaryGeneration, {
+    required bool forceProviderRotation,
     SocialPushSession? sessionToUnregister,
+    required SocialPushUnregisterReason unregisterReason,
   }) async {
     var pendingClearPersisted = false;
     try {
@@ -800,9 +1026,12 @@ class SocialPushService {
         '(${error.runtimeType})',
       );
     }
-    await _rotateProviderTokenNow();
+    await _rotateProviderTokenNow(force: forceProviderRotation);
     if (sessionToUnregister != null && (_record?.mutationRevision ?? 0) > 0) {
-      await _unregisterNow(sessionToUnregister);
+      await _unregisterNow(
+        sessionToUnregister,
+        reason: unregisterReason,
+      );
     }
     if (_providerRotationBoundaryGeneration != boundaryGeneration) return;
     _providerRotationBoundaryGeneration = null;
@@ -934,6 +1163,8 @@ class SocialPushService {
 
   @visibleForTesting
   Future<void> dispose() async {
+    _disposed = true;
+    _cancelRegistrationRetry(resetAttempts: true);
     await _openedSubscription?.cancel();
     await _foregroundSubscription?.cancel();
     await _tokenSubscription?.cancel();

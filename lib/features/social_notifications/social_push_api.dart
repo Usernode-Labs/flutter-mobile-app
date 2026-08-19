@@ -13,6 +13,20 @@ class SocialPushRegistrationReply {
   final bool deliveryActive;
 }
 
+enum SocialPushUnregisterReason {
+  notificationsDisabled('notifications_disabled'),
+  permissionDenied('permission_denied'),
+  signedOut('signed_out'),
+  accountChanged('account_changed'),
+  identityBoundary('identity_boundary'),
+  terminalReset('terminal_reset'),
+  configurationUnavailable('configuration_unavailable');
+
+  const SocialPushUnregisterReason(this.wireName);
+
+  final String wireName;
+}
+
 class SocialPushApiException implements Exception {
   const SocialPushApiException({
     required this.statusCode,
@@ -48,6 +62,7 @@ abstract interface class SocialPushRegistrationApi {
     required String bearer,
     required String installationId,
     required int mutationRevision,
+    required SocialPushUnregisterReason reason,
   });
 }
 
@@ -134,6 +149,7 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
     required String bearer,
     required String installationId,
     required int mutationRevision,
+    required SocialPushUnregisterReason reason,
   }) async {
     final response = await _send(
       'DELETE',
@@ -141,6 +157,7 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
       body: {
         'installation_id': installationId,
         'mutation_revision': '$mutationRevision',
+        'reason': reason.wireName,
       },
     );
     final json = _successJson(response);

@@ -139,6 +139,7 @@ void main() {
       bearer: _bearer,
       installationId: _installationId,
       mutationRevision: 43,
+      reason: SocialPushUnregisterReason.notificationsDisabled,
     );
 
     expect(captured.method, 'DELETE');
@@ -147,6 +148,7 @@ void main() {
     expect(jsonDecode(captured.body), {
       'installation_id': _installationId,
       'mutation_revision': '43',
+      'reason': 'notifications_disabled',
     });
   });
 
@@ -247,6 +249,7 @@ void main() {
         bearer: _bearer,
         installationId: _installationId,
         mutationRevision: 43,
+        reason: SocialPushUnregisterReason.permissionDenied,
       ),
       throwsA(
         isA<SocialPushApiException>()
@@ -292,6 +295,7 @@ void main() {
             bearer: _bearer,
             installationId: _installationId,
             mutationRevision: 42,
+            reason: SocialPushUnregisterReason.identityBoundary,
           ),
     ];
     for (final operation in operations) {

@@ -28,6 +28,40 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
+  group('shortcutDarkIconUpdateFor', () {
+    test('omission and null keep an existing dark icon', () {
+      expect(
+        shortcutDarkIconUpdateFor(fieldPresent: false, value: null),
+        ShortcutDarkIconUpdate.keep,
+      );
+      expect(
+        shortcutDarkIconUpdateFor(fieldPresent: true, value: null),
+        ShortcutDarkIconUpdate.keep,
+      );
+    });
+
+    test('empty string clears and non-empty string replaces', () {
+      expect(
+        shortcutDarkIconUpdateFor(fieldPresent: true, value: '  '),
+        ShortcutDarkIconUpdate.clear,
+      );
+      expect(
+        shortcutDarkIconUpdateFor(
+          fieldPresent: true,
+          value: 'https://example.org/dark.png',
+        ),
+        ShortcutDarkIconUpdate.replace,
+      );
+    });
+
+    test('invalid non-string input keeps the stored slot', () {
+      expect(
+        shortcutDarkIconUpdateFor(fieldPresent: true, value: 42),
+        ShortcutDarkIconUpdate.keep,
+      );
+    });
+  });
+
   group('saveWidgetIcon', () {
     test('defaults to the light slot (dark: false)', () async {
       nextResult = true;

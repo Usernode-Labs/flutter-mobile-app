@@ -23,6 +23,8 @@
 		0AE10015000000000000C0DE /* HomeShortcutsChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */; };
 		0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10020000000000000C0DE /* PinnedDappIntents.swift */; };
 		0AE10022000000000000C0DE /* PinnedDappIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10020000000000000C0DE /* PinnedDappIntents.swift */; };
+		0AE10026000000000000C0DE /* ShortcutIconFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10028000000000000C0DE /* ShortcutIconFile.swift */; };
+		0AE10027000000000000C0DE /* ShortcutIconFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10028000000000000C0DE /* ShortcutIconFile.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -99,6 +101,7 @@
 		0AE10006000000000000C0DE /* UsernodeWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = UsernodeWidgets.entitlements; sourceTree = "<group>"; };
 		0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeShortcutsChannel.swift; sourceTree = "<group>"; };
 		0AE10020000000000000C0DE /* PinnedDappIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedDappIntents.swift; sourceTree = "<group>"; };
+		0AE10028000000000000C0DE /* ShortcutIconFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutIconFile.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -195,6 +198,7 @@
 				F1A2B3C4D5E6F7890A1B2C3E /* BGTaskSchedulerManager.swift */,
 				0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */,
 				0AE10020000000000000C0DE /* PinnedDappIntents.swift */,
+				0AE10028000000000000C0DE /* ShortcutIconFile.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -508,6 +512,7 @@
 				F1A2B3C4D5E6F7890A1B2C3D /* BGTaskSchedulerManager.swift in Sources */,
 				0AE10015000000000000C0DE /* HomeShortcutsChannel.swift in Sources */,
 				0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */,
+				0AE10026000000000000C0DE /* ShortcutIconFile.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -519,6 +524,7 @@
 				0AE10007000000000000C0DE /* UsernodeWidgetsBundle.swift in Sources */,
 				0AE10008000000000000C0DE /* UsernodeDappsWidget.swift in Sources */,
 				0AE10022000000000000C0DE /* PinnedDappIntents.swift in Sources */,
+				0AE10027000000000000C0DE /* ShortcutIconFile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

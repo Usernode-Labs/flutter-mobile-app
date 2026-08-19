@@ -1,6 +1,21 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+enum ShortcutDarkIconUpdate { keep, clear, replace }
+
+/// Interprets the optional bridge field without conflating omission with an
+/// explicit request to clear an already-persisted dark icon.
+ShortcutDarkIconUpdate shortcutDarkIconUpdateFor({
+  required bool fieldPresent,
+  required Object? value,
+}) {
+  if (!fieldPresent || value == null) return ShortcutDarkIconUpdate.keep;
+  if (value is! String) return ShortcutDarkIconUpdate.keep;
+  return value.trim().isEmpty
+      ? ShortcutDarkIconUpdate.clear
+      : ShortcutDarkIconUpdate.replace;
+}
+
 /// Dart side of the `com.usernode.app/home_shortcuts` platform channel.
 ///
 /// Android implements pinned homescreen shortcuts
@@ -13,8 +28,9 @@ import 'package:flutter/services.dart';
 /// answer instead of throwing, so the webview bridge can always resolve its
 /// JS promise.
 class HomeShortcutsChannel {
-  static const MethodChannel _channel =
-      MethodChannel('com.usernode.app/home_shortcuts');
+  static const MethodChannel _channel = MethodChannel(
+    'com.usernode.app/home_shortcuts',
+  );
 
   static bool get isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -62,8 +78,9 @@ class HomeShortcutsChannel {
   static Future<bool> syncPinnedDapps(String json) async {
     if (!isIOS) return false;
     try {
-      return await _channel
-              .invokeMethod<bool>('syncPinnedDapps', {'json': json}) ??
+      return await _channel.invokeMethod<bool>('syncPinnedDapps', {
+            'json': json,
+          }) ??
           false;
     } catch (e) {
       debugPrint('[HomeShortcuts] syncPinnedDapps failed: $e');
@@ -100,8 +117,10 @@ class HomeShortcutsChannel {
   /// reuses the deterministic id — can't resurrect a stale icon). With
   /// [darkOnly] it clears just the dark slot, reverting the entry to
   /// single-asset. No-op off iOS.
-  static Future<bool> deleteWidgetIcon(String id,
-      {bool darkOnly = false}) async {
+  static Future<bool> deleteWidgetIcon(
+    String id, {
+    bool darkOnly = false,
+  }) async {
     if (!isIOS) return false;
     try {
       return await _channel.invokeMethod<bool>('deleteWidgetIcon', {

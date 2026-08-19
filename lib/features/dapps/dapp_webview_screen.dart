@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart'
 import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
 import 'package:crypto_mobile_app/core/providers/wallet_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
@@ -80,18 +81,31 @@ extension on WebViewController {
   }
 }
 
-/// Full-screen chromeless webview hosting the SV platform (app-as-SV-chrome):
-/// the web page owns its own header, native code contributes only the JS
-/// bridge, system-back handling, and the tx confirmation chrome. The legacy
-/// standalone dapp browser (native app bar, URL editor, receipts sheet) was
-/// removed once every entry point — including widget/shortcut deep links —
-/// routed into the SV shell.
+/// Full-screen chromeless webview hosting the SV platform (app-as-SV-chrome),
+/// plus the compatibility fallback for pinned URLs that cannot be remapped
+/// into SV's fragment router. Native code contributes the JS bridge,
+/// system-back handling, and transaction-confirmation chrome.
 class DappWebViewScreen extends ConsumerStatefulWidget {
   final String url;
 
   /// Display name used in native confirmation chrome (e.g. the signMessage
   /// sheet subtitle).
   final String name;
+
+  /// Opaque token identifying an explicit navigation request. It lets a warm
+  /// shell distinguish a repeat shortcut tap from an unrelated rebuild with
+  /// unchanged widget properties.
+  final Object? navigationRequest;
+
+  /// Whether iOS restricts this webview to WKAppBoundDomains. The SV shell
+  /// needs this for service workers; compatibility fallback pins must disable
+  /// it so their exact non-SV URL can load.
+  final bool appBoundDomainsOnly;
+
+  /// Restores the compatibility browser contract for pins that cannot be
+  /// folded into the SV shell: visible home chrome, an admitted ordinary
+  /// dapp session, and standalone node lifecycle handling.
+  final bool standalone;
 
   /// Fired exactly once with the outcome of the first main-frame load:
   /// `true` on the first successful [onPageFinished], `false` if a
@@ -103,6 +117,9 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
     super.key,
     required this.url,
     required this.name,
+    this.navigationRequest,
+    this.appBoundDomainsOnly = true,
+    this.standalone = false,
     this.onFirstLoadResult,
   });
 
@@ -275,7 +292,10 @@ abstract class _DappWebViewScreenStateBase
   /// Extracts a required bool from `payload.args[key]`; rejects the promise
   /// and returns null when missing or mistyped.
   Future<bool?> _requireBoolArg(
-      String id, Map<String, dynamic> payload, String key) async {
+    String id,
+    Map<String, dynamic> payload,
+    String key,
+  ) async {
     final args = payload['args'];
     final value = args is Map<String, dynamic> ? args[key] : null;
     if (value is bool) return value;
@@ -384,6 +404,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         _BridgeSocialPush,
         _BridgeCapture,
         _BridgeDispatch {
+  int _widgetNavigationRevision = 0;
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
   // corrupts WKWebView's gesture recognizer when a translucent modal barrier
@@ -393,11 +414,8 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void initState() {
     super.initState();
-    // Every remaining DappWebViewScreen instance hosts the SV shell (the
-    // legacy standalone browser is gone), so the session gate always starts
-    // blocked until the handoff admits the current participant.
     _sessionHandoffGate = SessionHandoffGate(
-      initiallyBlocked: true,
+      initiallyBlocked: !widget.standalone,
     );
     // iOS: opt this webview into App-Bound Domains (WKAppBoundDomains in
     // Info.plist). This unlocks Service Workers — SV's offline PWA mode —
@@ -407,7 +425,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     final PlatformWebViewControllerCreationParams creationParams;
     if (WebViewPlatform.instance is WebKitWebViewPlatform) {
       creationParams = WebKitWebViewControllerCreationParams(
-        limitsNavigationsToAppBoundDomains: true,
+        limitsNavigationsToAppBoundDomains: widget.appBoundDomainsOnly,
       );
     } else {
       creationParams = const PlatformWebViewControllerCreationParams();
@@ -496,35 +514,31 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // Push identity phase transitions into the page (bridge v4) so SV
     // chrome can render login/provisioning progress and request node
     // start once the identity settles.
-    ref.listenManual(
-      identityProvider,
-      (previous, next) {
-        if (previous?.phase == next.phase &&
-            previous?.address == next.address &&
-            previous?.participantId == next.participantId &&
-            previous?.epoch == next.epoch) {
-          return;
-        }
-        _dispatchAuthStatusEvent();
-        if (next.phase == IdentityPhase.ready) {
-          _admitWalletSession(next);
-        } else if (next.phase == IdentityPhase.reconciling) {
-          _sessionHandoffGate.restrictWallet(next);
-        } else if (!next.isAuthenticated) {
-          _sessionHandoffGate.begin();
-        }
-      },
-    );
-    ref.listenManual(
-      accountReconciliationStatusProvider,
-      (previous, next) {
-        if (previous == next) return;
-        _dispatchAuthStatusEvent();
-      },
-    );
+    ref.listenManual(identityProvider, (previous, next) {
+      if (previous?.phase == next.phase &&
+          previous?.address == next.address &&
+          previous?.participantId == next.participantId &&
+          previous?.epoch == next.epoch) {
+        return;
+      }
+      _dispatchAuthStatusEvent();
+      if (next.phase == IdentityPhase.ready) {
+        _admitWalletSession(next);
+        unawaited(_ensureNodeForStandaloneDappEntry());
+      } else if (next.phase == IdentityPhase.reconciling) {
+        _sessionHandoffGate.restrictWallet(next);
+      } else if (!next.isAuthenticated) {
+        _sessionHandoffGate.begin();
+      }
+    });
+    ref.listenManual(accountReconciliationStatusProvider, (previous, next) {
+      if (previous == next) return;
+      _dispatchAuthStatusEvent();
+    });
     _listenForSocialPushEvents();
     _loadTxRecords();
     _loadDappTxIds();
+    unawaited(_ensureNodeForStandaloneDappEntry());
     WidgetsBinding.instance.addObserver(this);
   }
 
@@ -551,24 +565,49 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void didUpdateWidget(covariant DappWebViewScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.url == widget.url) return;
-    final next = parseDappUrl(widget.url);
-    final prev = parseDappUrl(oldWidget.url);
-    final sameDocument =
-        next.replace(fragment: '') == prev.replace(fragment: '');
-    if (sameDocument) {
-      _controller
-          .runJavaScript('window.location.hash = ${jsonEncode(next.fragment)};')
-          .catchError((_) {});
-    } else {
-      _controller.loadRequest(next);
+    if (oldWidget.url == widget.url &&
+        oldWidget.navigationRequest == widget.navigationRequest) {
+      return;
     }
+    final revision = ++_widgetNavigationRevision;
+    unawaited(_applyWidgetNavigation(revision));
+  }
+
+  Future<void> _applyWidgetNavigation(int revision) async {
+    final next = parseDappUrl(widget.url);
+    Uri? current;
+    try {
+      final rawCurrent = await _controller.currentUrl();
+      current = rawCurrent == null ? null : Uri.tryParse(rawCurrent);
+    } catch (_) {
+      current = null;
+    }
+    if (!mounted || revision != _widgetNavigationRevision) return;
+    if (current != null && isSameWebDocument(current, next)) {
+      final fragment = jsonEncode(next.fragment);
+      await _controller.runJavaScript('''
+        (function () {
+          var nextHash = $fragment;
+          if (window.location.hash.substring(1) === nextHash) {
+            window.dispatchEvent(new HashChangeEvent('hashchange', {
+              oldURL: window.location.href,
+              newURL: window.location.href
+            }));
+          } else {
+            window.location.hash = nextHash;
+          }
+        })();
+      ''').catchError((_) {});
+      return;
+    }
+    await _controller.loadRequest(next);
   }
 
   /// Presents the OS file picker for a WebView `<input type="file">` tap
   /// and returns the chosen file URIs (empty list = user cancelled).
   Future<List<String>> _showAndroidFileSelector(
-      FileSelectorParams params) async {
+    FileSelectorParams params,
+  ) async {
     try {
       final result = await FilePicker.pickFiles(
         allowMultiple: params.mode == FileSelectorMode.openMultiple,
@@ -618,7 +657,8 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     super.didChangeDependencies();
     _providersContainer ??= ProviderScope.containerOf(context, listen: false);
     _controller.setBackgroundColor(
-        Theme.of(context).colorScheme.surfaceContainerLowest);
+      Theme.of(context).colorScheme.surfaceContainerLowest,
+    );
   }
 
   @override
@@ -676,14 +716,24 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       },
       child: Scaffold(
         backgroundColor: colors.surfaceContainerLowest,
-        // The page owns its own header, so no Flutter bar at all — just
-        // keep the webview out from under the OS status bar.
+        appBar: widget.standalone
+            ? AppBar(
+                leading: IconButton(
+                  tooltip: 'Home',
+                  onPressed: _leaveStandaloneBrowser,
+                  icon: const Icon(Symbols.home_sharp),
+                ),
+                title: Text(widget.name),
+              )
+            : null,
         body: ColoredBox(
           color: colors.surfaceContainerLowest,
-          child: SafeArea(
-            bottom: false,
-            child: WebViewWidget(controller: _controller),
-          ),
+          child: widget.standalone
+              ? WebViewWidget(controller: _controller)
+              : SafeArea(
+                  bottom: false,
+                  child: WebViewWidget(controller: _controller),
+                ),
         ),
       ),
     );
@@ -699,6 +749,19 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       await _controller.goBack();
       return;
     }
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
+  void _leaveStandaloneBrowser() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
   }
 }

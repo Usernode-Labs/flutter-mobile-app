@@ -10,6 +10,8 @@ import 'package:crypto_mobile_app/features/settings/screens/diagnostics_screen.d
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
+import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
+import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_screen.dart';
@@ -76,13 +78,15 @@ String? svShellRouteForPinnedDappUrl({
   final trusted = Uri.tryParse(dappsTabUrl.trim());
   if (pinned == null || trusted == null) return null;
   if (pinned.host.isEmpty || trusted.host.isEmpty) return null;
-  // Same origin boundary as the bridge's shortcut trust gate: exact
-  // scheme + host + port match.
-  if (pinned.scheme != trusted.scheme ||
-      pinned.host != trusted.host ||
-      pinned.port != trusted.port) {
+  if (!isSameWebOrigin(pinned, trusted)) {
     return null;
   }
+  // The SV remap is a fragment-router optimization, not a general URL
+  // rewrite. Preserve path/query-routed pins by opening their exact URL in
+  // the standalone fallback instead of silently sending them to shell home.
+  final pinnedPath = pinned.path.isEmpty ? '/' : pinned.path;
+  final trustedPath = trusted.path.isEmpty ? '/' : trusted.path;
+  if (pinnedPath != trustedPath || pinned.query != trusted.query) return null;
   final fragment = pinned.fragment;
   if (fragment.isEmpty) return AppRoutes.home;
   return '${AppRoutes.home}?sv=${Uri.encodeQueryComponent(fragment)}';
@@ -90,6 +94,17 @@ String? svShellRouteForPinnedDappUrl({
 
 // Create a stable navigator key outside the provider
 final _navigatorKey = GlobalKey<NavigatorState>(debugLabel: 'mainNavigator');
+int _pinnedLaunchRevision = 0;
+
+String _withPinnedLaunchRevision(String route) {
+  final uri = Uri.parse(route);
+  return uri.replace(
+    queryParameters: {
+      ...uri.queryParameters,
+      'launch': (++_pinnedLaunchRevision).toString(),
+    },
+  ).toString();
+}
 
 /// Getter to expose the navigator key for external navigation
 /// This is used by the notification tap handler to navigate from outside the widget tree
@@ -118,13 +133,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // Home is the full-bleed SV webview (app-as-SV-chrome). `?sv=<hash>`
         // carries a target SV hash route for deep-link remaps (e.g.
         // /home?sv=challenges from usernode://app/challenges links).
-        builder: (context, state) =>
-            SvShellScreen(initialHash: state.uri.queryParameters['sv']),
+        builder: (context, state) => SvShellScreen(
+          initialHash: state.uri.queryParameters['sv'],
+          navigationRequest: state.uri.queryParameters['launch'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.home,
-        builder: (context, state) =>
-            SvShellScreen(initialHash: state.uri.queryParameters['sv']),
+        builder: (context, state) => SvShellScreen(
+          initialHash: state.uri.queryParameters['sv'],
+          navigationRequest: state.uri.queryParameters['launch'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.diagnostics,
@@ -180,13 +199,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         // this path has an extra segment (`/dapps/pinned/<id>` vs
         // `/dapps/<slug>`).
         path: AppRoutes.dappPinned,
-        // Widget tiles / launcher shortcuts deep-link here. SV pins its
-        // apps as `<sv-origin>/#app/<slug>` hash routes (it has since the
-        // pinning feature shipped, and the bridge only accepts pins from
-        // the trusted SV origin), so every entry remaps into the SV shell —
-        // a widget tap opens the app in the platform UI, same chrome and
-        // transitions as tapping it on the SV home. Unknown ids and
-        // malformed entries just land on the shell home.
+        // Widget tiles / launcher shortcuts deep-link here. Trusted SV
+        // fragment pins remap into the warm shell; legacy/non-SV and
+        // path/query-routed pins retain the standalone webview fallback.
         redirect: (context, state) async {
           final id = state.pathParameters['id'];
           if (id == null) return AppRoutes.home;
@@ -194,16 +209,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             final dapps = await ref.read(pinnedDappsProvider.future);
             final dapp = dapps.where((d) => d.id == id).firstOrNull;
             if (dapp == null) return AppRoutes.home;
-            return svShellRouteForPinnedDappUrl(
-                  pinnedUrl: dapp.url,
-                  dappsTabUrl: AppConfig.dappsTabUrl,
-                ) ??
-                AppRoutes.home;
+            final shellRoute = svShellRouteForPinnedDappUrl(
+              pinnedUrl: dapp.url,
+              dappsTabUrl: AppConfig.dappsTabUrl,
+            );
+            if (shellRoute == null) return null;
+            // A distinct final location makes a repeat tap observable even
+            // when it targets the same pin as the previous launch.
+            return _withPinnedLaunchRevision(shellRoute);
           } catch (e) {
             _log.warn('Pinned dapp shell remap failed: $e');
             return AppRoutes.home;
           }
         },
+        builder: (context, state) =>
+            _PinnedDappFallbackScreen(id: state.pathParameters['id']),
       ),
       GoRoute(
         // Legacy `usernode://app/dapps/<slug>` deep links. Nothing mints
@@ -244,3 +264,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
   );
 });
+
+class _PinnedDappFallbackScreen extends ConsumerWidget {
+  const _PinnedDappFallbackScreen({required this.id});
+
+  final String? id;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(pinnedDappsProvider).when(
+          loading: () =>
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          error: (_, __) => const SizedBox.shrink(),
+          data: (dapps) {
+            final dapp = dapps.where((d) => d.id == id).firstOrNull;
+            if (dapp == null) return const SizedBox.shrink();
+            final dappUri = Uri.tryParse(dapp.url);
+            final svUri = Uri.tryParse(AppConfig.dappsTabUrl);
+            final usesAppBoundOrigin = dappUri != null &&
+                svUri != null &&
+                isSameWebOrigin(dappUri, svUri);
+            return DappWebViewScreen(
+              key: ValueKey('pinned:${dapp.url}'),
+              url: dapp.url,
+              name: dapp.name,
+              appBoundDomainsOnly: usesAppBoundOrigin,
+              standalone: true,
+            );
+          },
+        );
+  }
+}

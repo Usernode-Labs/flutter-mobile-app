@@ -20,11 +20,15 @@ import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 /// (after which the service worker owns offline), a native connecting
 /// screen covers the webview. Later launches enter the shell immediately.
 class SvShellScreen extends StatefulWidget {
-  const SvShellScreen({super.key, this.initialHash});
+  const SvShellScreen({super.key, this.initialHash, this.navigationRequest});
 
   /// Optional SV hash route to land on (e.g. `challenges`, `leaderboard`)
   /// — used by the deep-link remap of the retired native tabs.
   final String? initialHash;
+
+  /// Changes for each external shortcut launch, including repeat launches of
+  /// the same target, so the live webview can re-assert the requested route.
+  final String? navigationRequest;
 
   static const _gatePrefsKey = 'sv_shell_first_load_ok';
 
@@ -106,6 +110,7 @@ class _SvShellScreenState extends State<SvShellScreen> {
       key: ValueKey('sv-shell:$_attempt'),
       url: _shellUrl,
       name: 'Usernode',
+      navigationRequest: widget.navigationRequest,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,
     );
 

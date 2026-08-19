@@ -14,3 +14,18 @@ Uri parseDappUrl(String raw) {
 
   return uri;
 }
+
+/// Whether two web URLs belong to the same origin.
+///
+/// [Uri.port] normalizes default ports, so `https://example.com` and
+/// `https://example.com:443` compare equal while different explicit ports do
+/// not. Callers remain responsible for any policy around allowed schemes.
+bool isSameWebOrigin(Uri a, Uri b) =>
+    a.scheme == b.scheme && a.host == b.host && a.port == b.port;
+
+/// Whether navigating from [current] to [next] only changes the fragment.
+bool isSameWebDocument(Uri current, Uri next) =>
+    isSameWebOrigin(current, next) &&
+    (current.path.isEmpty ? '/' : current.path) ==
+        (next.path.isEmpty ? '/' : next.path) &&
+    current.query == next.query;

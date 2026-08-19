@@ -32,6 +32,30 @@ void main() {
       );
     });
 
+    test('root slash and empty root path are equivalent', () {
+      expect(
+        svShellRouteForPinnedDappUrl(
+          pinnedUrl: '$sv/#app/echo',
+          dappsTabUrl: '$sv/',
+        ),
+        '/home?sv=app%2Fecho',
+      );
+    });
+
+    test('SV pins with path or query keep the standalone fallback', () {
+      for (final pinnedUrl in [
+        '$sv/app/echo',
+        '$sv/?view=echo',
+        '$sv/app/echo?view=full#details',
+      ]) {
+        expect(
+          svShellRouteForPinnedDappUrl(pinnedUrl: pinnedUrl, dappsTabUrl: sv),
+          isNull,
+          reason: pinnedUrl,
+        );
+      }
+    });
+
     test('non-SV origins keep the standalone dapp browser', () {
       expect(
         svShellRouteForPinnedDappUrl(
@@ -75,10 +99,7 @@ void main() {
         isNull,
       );
       expect(
-        svShellRouteForPinnedDappUrl(
-          pinnedUrl: 'not a url',
-          dappsTabUrl: sv,
-        ),
+        svShellRouteForPinnedDappUrl(pinnedUrl: 'not a url', dappsTabUrl: sv),
         isNull,
       );
     });

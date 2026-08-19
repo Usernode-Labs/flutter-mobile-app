@@ -18,6 +18,9 @@ struct PinnedDapp: Codable, Identifiable {
 enum PinnedDappsStore {
   static let appGroupId = "group.org.usernode.app"
   static let pinnedDappsKey = "pinned_dapps"
+  static let containerURL = FileManager.default.containerURL(
+    forSecurityApplicationGroupIdentifier: appGroupId
+  )
   /// Which half of the pinned list the small (2x2) widget shows: 0 for
   /// dapps 1-4, 1 for dapps 5-8. Flipped by the page-dots tap.
   static let smallPageKey = "widget_small_page"
@@ -41,12 +44,10 @@ enum PinnedDappsStore {
   /// existed simply have no dark file — callers fall back to the light
   /// asset, which is the entire backward-compatibility story.
   static func icon(for id: String, dark: Bool = false) -> UIImage? {
-    guard let container = FileManager.default.containerURL(
-      forSecurityApplicationGroupIdentifier: appGroupId
-    ) else { return nil }
+    guard let container = containerURL else { return nil }
     let url = container
-      .appendingPathComponent("pinned_icons", isDirectory: true)
-      .appendingPathComponent(dark ? "\(id).dark.png" : "\(id).png")
+      .appendingPathComponent(ShortcutIconFile.directoryName, isDirectory: true)
+      .appendingPathComponent(ShortcutIconFile.name(id: id, dark: dark))
     return UIImage(contentsOfFile: url.path)
   }
 }

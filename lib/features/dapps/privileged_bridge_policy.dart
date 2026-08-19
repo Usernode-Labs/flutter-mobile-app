@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
+import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
+
 /// Authority granted to one executing top-frame JavaScript realm.
 ///
 /// The native response path must present this lease again. Delivery then checks
@@ -49,10 +51,7 @@ final class PrivilegedBridgeRequestContext {
     required PrivilegedBridgeLease? lease,
     required Future<T> Function() body,
   }) =>
-      runZoned(
-        body,
-        zoneValues: <Object?, Object?>{_leaseKey: lease},
-      );
+      runZoned(body, zoneValues: <Object?, Object?>{_leaseKey: lease});
 }
 
 /// Owns the privileged WebView bridge boundary for one WebView instance.
@@ -181,10 +180,7 @@ class PrivilegedBridgePolicy {
   /// Runs a native-to-page body only if [lease]'s exact realm is still the
   /// executing top frame. Unlike [runInTrustedTopFrame], this never admits a
   /// replacement trusted document, which is useful for readiness-bound events.
-  Future<bool> runInLease(
-    PrivilegedBridgeLease lease,
-    String javaScriptBody,
-  ) =>
+  Future<bool> runInLease(PrivilegedBridgeLease lease, String javaScriptBody) =>
       _runInMarker(lease.marker, javaScriptBody);
 
   Future<bool> _runInMarker(String marker, String javaScriptBody) async {
@@ -258,10 +254,7 @@ class PrivilegedBridgePolicy {
     final capability = base64UrlEncode(
       hmac.convert(utf8.encode('privileged:$marker')).bytes,
     ).replaceAll('=', '');
-    return PrivilegedBridgeLease._(
-      marker: marker,
-      capability: capability,
-    );
+    return PrivilegedBridgeLease._(marker: marker, capability: capability);
   }
 
   PrivilegedBridgeAuthorization _authorizationFor(
@@ -407,7 +400,7 @@ class PrivilegedBridgePolicy {
     return uri.scheme == 'https' &&
         trusted != null &&
         trusted.scheme == 'https' &&
-        _sameOrigin(uri, trusted);
+        isSameWebOrigin(uri, trusted);
   }
 
   String _newSecret() {
@@ -425,9 +418,6 @@ class PrivilegedBridgePolicy {
 
   static bool _isWebUri(Uri uri) =>
       uri.host.isNotEmpty && (uri.scheme == 'https' || uri.scheme == 'http');
-
-  static bool _sameOrigin(Uri a, Uri b) =>
-      a.scheme == b.scheme && a.host == b.host && a.port == b.port;
 
   static bool _isLocalDevelopmentHost(String host) {
     final normalized = host.toLowerCase();

@@ -23,7 +23,7 @@ class HomeShortcutsChannel {
     if let container = FileManager.default.containerURL(
       forSecurityApplicationGroupIdentifier: HomeShortcutsChannel.appGroupId
     ) {
-      let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
+      let iconsDir = container.appendingPathComponent(ShortcutIconFile.directoryName, isDirectory: true)
       if FileManager.default.fileExists(atPath: iconsDir.path) {
         do {
           try FileManager.default.removeItem(at: iconsDir)
@@ -70,16 +70,6 @@ class HomeShortcutsChannel {
     result(true)
   }
 
-  /// The icon store holds up to two PNGs per pinned dapp: `<id>.png` is the
-  /// light/default asset (its name and meaning predate dark icons and must
-  /// stay stable for entries users already have), `<id>.dark.png` is the
-  /// optional dark-appearance asset the widget prefers in dark mode. The
-  /// `.dark` suffix is appended here, after the hex-digest validation, so
-  /// the id can never smuggle a path.
-  private static func iconFileName(id: String, dark: Bool) -> String {
-    dark ? "\(id).dark.png" : "\(id).png"
-  }
-
   private func saveWidgetIcon(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     guard let args = call.arguments as? [String: Any],
           let id = args["id"] as? String,
@@ -101,11 +91,11 @@ class HomeShortcutsChannel {
       return
     }
 
-    let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
+    let iconsDir = container.appendingPathComponent(ShortcutIconFile.directoryName, isDirectory: true)
     do {
       try FileManager.default.createDirectory(at: iconsDir, withIntermediateDirectories: true)
       try bytes.data.write(
-        to: iconsDir.appendingPathComponent(Self.iconFileName(id: id, dark: dark)),
+        to: iconsDir.appendingPathComponent(ShortcutIconFile.name(id: id, dark: dark)),
         options: .atomic
       )
       result(true)
@@ -139,10 +129,10 @@ class HomeShortcutsChannel {
       result(false)
       return
     }
-    let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
+    let iconsDir = container.appendingPathComponent(ShortcutIconFile.directoryName, isDirectory: true)
     let fileNames = darkOnly
-      ? [Self.iconFileName(id: id, dark: true)]
-      : [Self.iconFileName(id: id, dark: false), Self.iconFileName(id: id, dark: true)]
+      ? [ShortcutIconFile.name(id: id, dark: true)]
+      : [ShortcutIconFile.name(id: id, dark: false), ShortcutIconFile.name(id: id, dark: true)]
     do {
       for fileName in fileNames {
         let iconURL = iconsDir.appendingPathComponent(fileName)
@@ -169,7 +159,7 @@ class HomeShortcutsChannel {
       result([String]())
       return
     }
-    let iconsDir = container.appendingPathComponent("pinned_icons", isDirectory: true)
+    let iconsDir = container.appendingPathComponent(ShortcutIconFile.directoryName, isDirectory: true)
     let files = (try? FileManager.default.contentsOfDirectory(atPath: iconsDir.path)) ?? []
     result(files.filter { $0.hasSuffix(".png") }.map { String($0.dropLast(4)) })
   }

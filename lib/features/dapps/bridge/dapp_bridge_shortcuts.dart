@@ -65,6 +65,16 @@ Future<Uint8List?> _downloadShortcutIcon(Uri iconUri) async {
   }
 }
 
+Future<({Uint8List? bytes, Uri? sourceUri})> _resolveShortcutIconBytes(
+  Object? raw,
+) async {
+  final inlineBytes = _decodeDataUriIcon(raw);
+  if (inlineBytes != null) return (bytes: inlineBytes, sourceUri: null);
+  final sourceUri = _parseShortcutUrl(raw);
+  if (sourceUri == null) return (bytes: null, sourceUri: null);
+  return (bytes: await _downloadShortcutIcon(sourceUri), sourceUri: sourceUri);
+}
+
 const _maxShortcutNameLength = 48;
 const _maxShortcutIconBytes = 2 * 1024 * 1024;
 
@@ -100,7 +110,9 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
   }
 
   Future<void> _handleAddHomeScreenShortcut(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     // Trust gate instead of a confirmation screen: the dapps-tab home
     // (social vibecoding) curates its own "add to widget/homescreen" UX,
     // so requests from it are auto-approved; every other page is denied
@@ -142,40 +154,33 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
       return;
     }
 
-    final rawIcon = args['icon_url'];
-    Uint8List? iconBytes = _decodeDataUriIcon(rawIcon);
-    Uri? iconUri;
-    if (iconBytes == null) {
-      iconUri = _parseShortcutUrl(rawIcon);
-      if (iconUri != null) iconBytes = await _downloadShortcutIcon(iconUri);
-    }
-
     // Optional dark-appearance asset (`icon_url_dark`, additive — see the
     // `homeScreenShortcutDarkIcon` capability). Same accepted shapes and
-    // same decode/download path as `icon_url`: data URI or https URL.
-    // Absent/null/empty means "single-asset entry" and clears any stored
-    // dark slot below, so the page can revert an entry by omitting it.
+    // same decode/download path as `icon_url`: data URI or https URL. An
+    // omitted/null field keeps the stored slot for idempotent older clients;
+    // an explicitly empty string is the clear sentinel.
     final rawIconDark = args['icon_url_dark'];
-    final darkIconSupplied =
-        rawIconDark is String && rawIconDark.trim().isNotEmpty;
-    Uint8List? darkIconBytes;
-    if (darkIconSupplied) {
-      darkIconBytes = _decodeDataUriIcon(rawIconDark);
-      if (darkIconBytes == null) {
-        final darkIconUri = _parseShortcutUrl(rawIconDark);
-        if (darkIconUri != null) {
-          darkIconBytes = await _downloadShortcutIcon(darkIconUri);
-        }
-      }
-    }
+    final darkIconUpdate = shortcutDarkIconUpdateFor(
+      fieldPresent: args.containsKey('icon_url_dark'),
+      value: rawIconDark,
+    );
+    final clearDarkIcon = darkIconUpdate == ShortcutDarkIconUpdate.clear;
+    final replaceDarkIcon = HomeShortcutsChannel.isIOS &&
+        darkIconUpdate == ShortcutDarkIconUpdate.replace;
+    // Independent light/dark fetches run concurrently. Android never resolves
+    // the iOS-only dark asset, whose bytes its launcher API cannot consume.
+    final (icon, darkIcon) = await (
+      _resolveShortcutIconBytes(args['icon_url']),
+      _resolveShortcutIconBytes(replaceDarkIcon ? rawIconDark : null),
+    ).wait;
+    final iconBytes = icon.bytes;
+    final iconUri = icon.sourceUri;
+    final darkIconBytes = darkIcon.bytes;
 
     // Re-check the privileged lease after the icon downloads: they are the
     // long awaits during which a navigation can invalidate the realm, and
     // this is the last gate before the registry mutation.
-    if (!await _revalidatePrivilegedBridgeLease(
-      id,
-      'addHomeScreenShortcut',
-    )) {
+    if (!await _revalidatePrivilegedBridgeLease(id, 'addHomeScreenShortcut')) {
       return;
     }
     final pinned = await _providers.read(pinnedDappsProvider.notifier).pin(
@@ -218,12 +223,10 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
         darkIconBytes,
         dark: true,
       );
-    } else if (!darkIconSupplied) {
-      // Re-add without `icon_url_dark`: revert to single-asset. When the
-      // field WAS supplied but the fetch failed, keep whatever dark asset
-      // is already stored — a transient network miss must not destroy a
-      // good icon (`has_icon_dark` keeps reporting the stored state, so
-      // the page can still heal it later).
+    } else if (clearDarkIcon) {
+      // Empty string explicitly reverts to a single-asset entry. Omission,
+      // null, invalid input, and transient fetch failures retain the current
+      // dark asset.
       await HomeShortcutsChannel.deleteWidgetIcon(pinned.id, darkOnly: true);
     }
     // Report the real sync result rather than a hardcoded true: if the App
@@ -262,15 +265,17 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
   Future<bool> _syncPinnedToWidget() async {
     if (!HomeShortcutsChannel.isIOS) return true;
     final dapps = await _providers.read(pinnedDappsProvider.future);
-    return HomeShortcutsChannel.syncPinnedDapps(jsonEncode([
-      for (final d in dapps)
-        {
-          'id': d.id,
-          'name': d.name,
-          'deepLink': 'usernode://app${AppRoutes.dappPinnedFor(d.id)}',
-          'pinnedAtMs': d.pinnedAtMs,
-        },
-    ]));
+    return HomeShortcutsChannel.syncPinnedDapps(
+      jsonEncode([
+        for (final d in dapps)
+          {
+            'id': d.id,
+            'name': d.name,
+            'deepLink': 'usernode://app${AppRoutes.dappPinnedFor(d.id)}',
+            'pinnedAtMs': d.pinnedAtMs,
+          },
+      ]),
+    );
   }
 
   /// Registry snapshot for the page: ids, names, urls and pin order. The
@@ -326,7 +331,9 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
   /// On Android this only clears the registry — launchers offer no
   /// programmatic un-pin, so the callers there never expose remove.
   Future<void> _handleRemoveHomeScreenShortcut(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     if (!await _guardTrustedShortcutOrigin(id)) return;
     final args = payload['args'];
     final shortcutId =
@@ -357,7 +364,9 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
   /// iOS widget. Unknown ids are ignored and missing ids are appended, so
   /// a stale caller can never drop entries (see PinnedDappsNotifier).
   Future<void> _handleReorderHomeScreenShortcuts(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     if (!await _guardTrustedShortcutOrigin(id)) return;
     final args = payload['args'];
     final rawIds = args is Map<String, dynamic> ? args['ids'] : null;
@@ -468,14 +477,14 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
         },
         transitionsBuilder: (_, animation, __, child) {
           return SlideTransition(
-            position: Tween(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-              reverseCurve: Curves.easeInCubic,
-            )),
+            position:
+                Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
+              CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+                reverseCurve: Curves.easeInCubic,
+              ),
+            ),
             child: child,
           );
         },

@@ -79,7 +79,9 @@ mixin _BridgeDispatch
   ///
   /// `homeScreenShortcutDarkIcon` — `addHomeScreenShortcut` accepts an
   /// optional `icon_url_dark` and the WidgetKit tiles select it per system
-  /// appearance; `getHomeScreenShortcuts` items carry `has_icon_dark`.
+  /// appearance; omission/null retains an existing dark asset, while an
+  /// empty string clears it. `getHomeScreenShortcuts` items carry
+  /// `has_icon_dark`.
   /// iOS-only: the flag means "sending a dark icon has a visible effect",
   /// and Android's pinned launcher shortcuts are static bitmaps that can
   /// never flip, so advertising there would make the page ship an asset
@@ -176,13 +178,11 @@ mixin _BridgeDispatch
     try {
       await _dispatchBridgeHandler(method, id, payload);
     } catch (e, st) {
-      debugPrint('[Usernode JS-channel] handler error method=$method id=$id: '
-          '$e\n$st');
-      await _resolveBridgePromise(
-        id: id,
-        value: null,
-        error: 'Internal error',
+      debugPrint(
+        '[Usernode JS-channel] handler error method=$method id=$id: '
+        '$e\n$st',
       );
+      await _resolveBridgePromise(id: id, value: null, error: 'Internal error');
     }
   }
 

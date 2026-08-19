@@ -318,6 +318,23 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     await _resolveJsPromise(id: id, value: _authStatusSnapshot(), error: null);
   }
 
+  /// Ensures a cold-started standalone pin has the local wallet RPC it used
+  /// before the SV-shell migration. The SV shell owns its own node lifecycle.
+  Future<void> _ensureNodeForStandaloneDappEntry() async {
+    if (!widget.standalone || !mounted) return;
+    if (RustBackendService.instance.isRunning) return;
+    if (AppSleepStateStore.isSleeping) return;
+    final identity = ref.read(identityProvider);
+    if (identity.phase != IdentityPhase.ready) return;
+    if (!await ref.read(identityDriverProvider).ensureFreshBeforeNodeStart()) {
+      return;
+    }
+    if (!mounted || !identity.sameScopeAs(ref.read(identityProvider))) return;
+    await NodeLifecycleCoordinator.instance.startNode(
+      reason: 'standalone_dapp_entry',
+    );
+  }
+
   /// `logout`: web-side confirm/cache fence, then native commit. The terminal
   /// acknowledgement is delivered after the controller admits the terminal
   /// transition; the caller must not require follow-up JS work.

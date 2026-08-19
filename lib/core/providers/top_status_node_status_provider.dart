@@ -3,9 +3,25 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
-import 'package:crypto_mobile_app/design_system/design_system.dart'
-    show TopStatusNodeStatus;
 import 'package:crypto_mobile_app/features/node/models/sync_status.dart';
+
+/// Coarse node status surfaced to SV chrome (the web header pill) via the
+/// bridge's node-status events. Previously defined by the retired
+/// `TopStatusAppBar` design-system widget; the enum outlived the widget
+/// because the status *values* are part of the bridge contract.
+enum TopStatusNodeStatus {
+  /// Node is connected and synced.
+  synced,
+
+  /// Node is connecting to peers.
+  connecting,
+
+  /// Node is connected and catching up.
+  syncing,
+
+  /// Node is offline.
+  offline,
+}
 
 /// Maps a domain sync state to the shared top-status visual state.
 TopStatusNodeStatus topStatusNodeStatusFromConnectionState(

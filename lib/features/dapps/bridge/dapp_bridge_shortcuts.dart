@@ -150,6 +150,28 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
       if (iconUri != null) iconBytes = await _downloadShortcutIcon(iconUri);
     }
 
+    // Optional dark-appearance asset (`icon_url_dark`, additive — see the
+    // `homeScreenShortcutDarkIcon` capability). Same accepted shapes and
+    // same decode/download path as `icon_url`: data URI or https URL.
+    // Absent/null/empty means "single-asset entry" and clears any stored
+    // dark slot below, so the page can revert an entry by omitting it.
+    final rawIconDark = args['icon_url_dark'];
+    final darkIconSupplied =
+        rawIconDark is String && rawIconDark.trim().isNotEmpty;
+    Uint8List? darkIconBytes;
+    if (darkIconSupplied) {
+      darkIconBytes = _decodeDataUriIcon(rawIconDark);
+      if (darkIconBytes == null) {
+        final darkIconUri = _parseShortcutUrl(rawIconDark);
+        if (darkIconUri != null) {
+          darkIconBytes = await _downloadShortcutIcon(darkIconUri);
+        }
+      }
+    }
+
+    // Re-check the privileged lease after the icon downloads: they are the
+    // long awaits during which a navigation can invalidate the realm, and
+    // this is the last gate before the registry mutation.
     if (!await _revalidatePrivilegedBridgeLease(
       id,
       'addHomeScreenShortcut',
@@ -189,6 +211,20 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
     // isn't on the homescreen yet.
     if (iconBytes != null) {
       await HomeShortcutsChannel.saveWidgetIcon(pinned.id, iconBytes);
+    }
+    if (darkIconBytes != null) {
+      await HomeShortcutsChannel.saveWidgetIcon(
+        pinned.id,
+        darkIconBytes,
+        dark: true,
+      );
+    } else if (!darkIconSupplied) {
+      // Re-add without `icon_url_dark`: revert to single-asset. When the
+      // field WAS supplied but the fetch failed, keep whatever dark asset
+      // is already stored — a transient network miss must not destroy a
+      // good icon (`has_icon_dark` keeps reporting the stored state, so
+      // the page can still heal it later).
+      await HomeShortcutsChannel.deleteWidgetIcon(pinned.id, darkOnly: true);
     }
     // Report the real sync result rather than a hardcoded true: if the App
     // Group is unavailable the native side returns false and nothing reaches
@@ -242,20 +278,21 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
   /// matching `#app/<slug>` deep links to its app cards). This is launcher
   /// metadata the page's own user created; no secrets involved.
   ///
-  /// `has_icon` (iOS only) flags entries whose PNG made it into the App
-  /// Group icon store. Entries pinned before the page sent icons — or
-  /// whose icon download failed — report false, and the dapps home heals
-  /// them by re-calling addHomeScreenShortcut (re-pinning is idempotent:
-  /// same URL, same id).
+  /// `has_icon` / `has_icon_dark` (iOS only) flag entries whose PNG made it
+  /// into the App Group icon store, per appearance slot. Entries pinned
+  /// before the page sent icons — or whose icon download failed — report
+  /// false, and the dapps home heals them by re-calling
+  /// addHomeScreenShortcut (re-pinning is idempotent: same URL, same id).
+  /// `has_icon_dark` false is also the normal state for entries pinned
+  /// before dark icons existed — that's how the page tells "needs both
+  /// faces re-sent" from "already dual-asset" without re-sending the grid.
   Future<void> _handleGetHomeScreenShortcuts(String id) async {
     if (!await _guardTrustedShortcutOrigin(id)) return;
     // These three reads are independent — fetch them concurrently rather than
     // paying a prefs read plus two platform round-trips in series.
     final (dapps, iconIds, support) = await (
       _providers.read(pinnedDappsProvider.future),
-      HomeShortcutsChannel.isIOS
-          ? HomeShortcutsChannel.listWidgetIconIds()
-          : Future.value(const <String>{}),
+      HomeShortcutsChannel.listWidgetIconIds(),
       _shortcutSupport(),
     ).wait;
     await _resolveJsPromise(
@@ -269,7 +306,13 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
               'name': d.name,
               'url': d.url,
               'pinnedAtMs': d.pinnedAtMs,
-              'has_icon': !HomeShortcutsChannel.isIOS || iconIds.contains(d.id),
+              // Off iOS both report true — same convention as `has_icon`
+              // always had: "true" means "nothing for the page to heal",
+              // and Android's launcher shortcuts have no icon store.
+              'has_icon':
+                  !HomeShortcutsChannel.isIOS || iconIds.light.contains(d.id),
+              'has_icon_dark':
+                  !HomeShortcutsChannel.isIOS || iconIds.dark.contains(d.id),
             },
         ],
       },

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
@@ -375,6 +376,11 @@ class SessionController extends StateNotifier<Identity> {
           // Keep the same epoch: leases carrying the previous token are still
           // rejected by their exact-token check, while unrelated state does
           // not rebuild merely because the bearer was renewed.
+          // The namespace is refreshed here too: it is stable per user, so a
+          // renewal only ever rewrites the same value — except on an install
+          // upgraded from a server that did not issue one yet, which is
+          // exactly when it needs recording.
+          await saveIdentityNamespace(session.participant.identityHash);
           final replacedToken = await _tokenStore.read();
           await _tokenStore.write(session.token);
           if (replacedToken != null &&
@@ -418,6 +424,12 @@ class SessionController extends StateNotifier<Identity> {
     // payload. A boot-restorable token therefore always restores through the
     // authoritative account reconcile until ownership is committed.
     await _writeReconcileMarker();
+    // The storage namespace belongs to that payload: the reconcile resolves
+    // the account registry through it, so a boot-restorable token must never
+    // be able to reach the PREVIOUS user's registry. Boot restore is
+    // network-free and cannot re-derive it, which is why it is persisted here
+    // rather than read from `/me` on demand.
+    await saveIdentityNamespace(session.participant.identityHash);
     await stageParticipantIdInGuestBucket(session.participant.id);
     await _guestFlag.clear();
     await _tokenStore.write(session.token);

@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -80,11 +81,14 @@ class SessionController extends StateNotifier<Identity> {
     required AuthGuestFlag guestFlag,
     required AuthRepository repository,
     Future<void> Function()? suspendNode,
+    Future<bool> Function()? clearWebSessionData,
     SessionTerminalReset? terminalReset,
   })  : _tokenStore = tokenStore,
         _guestFlag = guestFlag,
         _repository = repository,
         _suspendNode = suspendNode ?? _defaultSuspendNode,
+        _clearWebSessionData =
+            clearWebSessionData ?? _defaultClearWebSessionData,
         _terminalReset = terminalReset ?? _defaultTerminalReset,
         super(Identity.unknown(epoch: IdentitySnapshots.current.epoch)) {
     IdentitySnapshots.publish(state);
@@ -105,10 +109,19 @@ class SessionController extends StateNotifier<Identity> {
   /// Injectable for tests; the default touches the Rust backend (a no-op
   /// when the node was never started).
   final Future<void> Function() _suspendNode;
+
+  /// Clears the WKWebView/WebView cookie + storage jar backing the platform
+  /// shell. A sign-out that left it in place would reload straight back into
+  /// an authenticated page. Injectable for tests; the default crosses the
+  /// native method channel.
+  final Future<bool> Function() _clearWebSessionData;
   final SessionTerminalReset _terminalReset;
 
   static Future<void> _defaultSuspendNode() =>
       RustBackendService.instance.stopNode();
+
+  static Future<bool> _defaultClearWebSessionData() =>
+      PlatformAlarmService.instance.clearWebSessionData();
 
   static Future<void> _defaultTerminalReset({
     required String reason,
@@ -471,8 +484,96 @@ class SessionController extends StateNotifier<Identity> {
         ));
       });
 
-  Future<bool> logout({Identity? expectedIdentity}) =>
-      _logout(expectedIdentity: expectedIdentity);
+  /// Voluntary sign-out. The one identity boundary that is NOT terminal.
+  ///
+  /// Every other boundary tears the incarnation down and asks the platform to
+  /// die, which iOS cannot do — leaving the user on the inert "close and
+  /// reopen" surface. A deliberate sign-out has no such need: the process, its
+  /// process-global services and the user's local accounts all survive, and
+  /// the shell reloads into the platform's own login page (login is
+  /// platform-owned; there is no native login screen to route to).
+  ///
+  /// What must not survive is the session. The bearer is cleared locally
+  /// whether or not the server accepts the revocation, the web session backing
+  /// the shell is cleared so the next page load cannot silently
+  /// re-authenticate, and session-scoped prefs are dropped so the next login
+  /// reconciles from scratch.
+  ///
+  /// Account-scoped state (the wallet, its bucket-scoped prefs, a pending ZK
+  /// completion) is deliberately KEPT: it belongs to that user's on-chain
+  /// account rather than to the session, and it is already segregated both by
+  /// bucket and by the storage namespace. The same user signing back in finds
+  /// it; a different user never resolves it.
+  Future<bool> logout({Identity? expectedIdentity}) => _transition(() async {
+        // Async bridge callbacks may have been authorized by a prior identity.
+        if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
+          return false;
+        }
+        final current = state;
+        if (!current.isAuthenticated) return false;
+
+        final epoch = current.epoch + 1;
+        // Close every account-sensitive gate before the first await, so an
+        // in-flight signer or node start sees the closed gate rather than a
+        // half-dismantled session.
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.transitioning,
+        ));
+
+        // Local revocation is what actually ends the session on this device,
+        // so it must not be conditional on the server answering.
+        String? token;
+        try {
+          token = await _tokenStore.read();
+        } catch (error) {
+          _log.warn('Could not read the bearer before sign-out: $error');
+        }
+        await _tokenStore.clear();
+        unawaited(_logoutBestEffort(token));
+
+        await _suspendNode();
+        await _clearSessionScopedState();
+        await _clearWebSession();
+
+        // Mirror what a cold boot with no session resolves to, so sign-out and
+        // the next launch agree: local-only mode, following whatever account
+        // the (now un-namespaced) registry still exposes.
+        final active = await (await AccountsRepository.create()).getActive();
+        _publish(Identity(
+          epoch: epoch,
+          phase: IdentityPhase.unauthenticated,
+          accountId: active?.id,
+          address: active?.address,
+        ));
+        return true;
+      }, whenRetired: () => false);
+
+  /// Drops everything belonging to the SESSION rather than to the user's
+  /// account. Account-scoped (bucket-prefixed) state stays — see [logout].
+  Future<void> _clearSessionScopedState() async {
+    await _guestFlag.clear();
+    // A leftover marker would make the next boot believe a login was
+    // interrupted and route a session-less app into reconciliation.
+    await _clearReconcileMarker();
+    // I4: the guest bucket must never hold a signed-out user's id.
+    await clearGuestParticipantId();
+    // Without this the signed-out user's account registry stays resolvable,
+    // and the next user to sign in would adopt their accounts.
+    await clearIdentityNamespace();
+  }
+
+  Future<void> _clearWebSession() async {
+    try {
+      // The shell's login page only appears if the web session backing it is
+      // gone too; otherwise the reloaded page silently re-authenticates.
+      if (!await _clearWebSessionData()) {
+        _log.warn('Native web-session clear reported failure');
+      }
+    } catch (error) {
+      _log.warn('Could not clear the web session: $error');
+    }
+  }
 
   Future<bool> _logout({
     Identity? expectedIdentity,

@@ -86,16 +86,32 @@ AuthSession _session(String token, int participantId) => AuthSession(
       ),
     );
 
+/// Counts the side effects a sign-out must perform on the live runtime.
+class _RuntimeProbe {
+  var suspendedNodes = 0;
+  var clearedWebSessions = 0;
+
+  Future<void> suspendNode() async => suspendedNodes += 1;
+
+  Future<bool> clearWebSessionData() async {
+    clearedWebSessions += 1;
+    return true;
+  }
+}
+
 SessionController _controller(
   AuthTokenStore tokenStore,
   _TerminalResetProbe reset, {
   AuthRepository? repository,
+  _RuntimeProbe? runtime,
 }) =>
     SessionController(
       tokenStore: tokenStore,
       guestFlag: AuthGuestFlag(),
       repository: repository ?? _NoopLogoutRepository(),
-      suspendNode: () async {},
+      suspendNode: runtime == null ? () async {} : runtime.suspendNode,
+      clearWebSessionData:
+          runtime == null ? () async => true : runtime.clearWebSessionData,
       terminalReset: reset.call,
     );
 
@@ -123,6 +139,7 @@ void _seedReadyIdentity({
       }
     ]),
     'testnet:accounts:activeId': 'account-a',
+    'testnet:identity:namespace': _namespaceFor(participantId),
     'testnet:acct:$bucket:leaderboard:participant_id': participantId,
     'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
   });
@@ -230,40 +247,103 @@ void main() {
     expect(controller.state.phase, IdentityPhase.transitioning);
   });
 
-  test('logout reset does not wait for remote revocation or publish successor',
+  test('signing out ends the session in-process, without a terminal reset',
       () async {
     _seedReadyIdentity();
     final tokenStore = AuthTokenStore();
     final reset = _TerminalResetProbe(tokenStore);
+    final runtime = _RuntimeProbe();
     final repository = _BlockingLogoutRepository();
     final controller = _controller(
       tokenStore,
       reset,
       repository: repository,
+      runtime: runtime,
     );
     addTearDown(controller.dispose);
     await controller.restore();
 
     expect(await controller.logout(expectedIdentity: controller.state), isTrue);
 
-    expect(reset.reasons, ['logout']);
-    expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
+    // The whole point: no wipe, no inert surface, no dead process.
+    expect(reset.reasons, isEmpty);
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+
+    // The session is gone locally whether or not the server ever answers —
+    // the revocation below is still blocked at this point.
     expect(await tokenStore.read(), isNull);
-    expect(controller.state.phase, IdentityPhase.transitioning);
+    expect(runtime.suspendedNodes, 1,
+        reason: 'the node was bound to the signed-out account');
+    expect(runtime.clearedWebSessions, 1,
+        reason: 'the shell would otherwise reload into an authenticated page');
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('testnet:identity:namespace'), isNull);
+    expect(prefs.getBool('testnet:account:reconcile_pending'), isNull);
+    expect(
+      prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
+      isNull,
+    );
+
+    // The wallet survives, addressable again by the same user's next login.
+    expect(
+      prefs.getString('testnet:user:${_namespaceFor(1)}:accounts:index'),
+      isNotNull,
+    );
+
     await repository.started.future;
     expect(repository.revokedTokens, ['token-a']);
+    repository.release.complete();
+  });
+
+  test('a signed-out install boots to local-only mode, wallet still stored',
+      () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final controller = _controller(tokenStore, _TerminalResetProbe(tokenStore));
+    addTearDown(controller.dispose);
+    await controller.restore();
+    expect(await controller.logout(expectedIdentity: controller.state), isTrue);
 
     final coldReset = _TerminalResetProbe(tokenStore);
     final coldController = _controller(tokenStore, coldReset);
     addTearDown(coldController.dispose);
     await coldController.restore();
+
     expect(coldController.state.phase, IdentityPhase.unauthenticated);
     expect(coldReset.reasons, isEmpty);
+    // Signed out, the registry is not addressable — the namespace that
+    // resolves it went with the session.
+    expect(coldController.state.accountId, isNull);
     final coldPrefs = await SharedPreferences.getInstance();
     expect(coldPrefs.getString('testnet:accounts:index'), isNull);
-    expect(coldPrefs.getString('testnet:accounts:activeId'), isNull);
+    expect(
+      coldPrefs.getString('testnet:user:${_namespaceFor(1)}:accounts:index'),
+      isNotNull,
+      reason: 'the accounts themselves are kept, just not resolvable',
+    );
+  });
 
-    repository.release.complete();
+  test('signing out twice cannot double-fire, and a guest sign-out is a no-op',
+      () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final runtime = _RuntimeProbe();
+    final controller = _controller(tokenStore, reset, runtime: runtime);
+    addTearDown(controller.dispose);
+    await controller.restore();
+    final identity = controller.state;
+
+    expect(await controller.logout(expectedIdentity: identity), isTrue);
+    // The second call carries the now-superseded identity, exactly as a
+    // duplicate bridge callback would.
+    expect(await controller.logout(expectedIdentity: identity), isFalse);
+    // And an unscoped call finds nothing left to sign out of.
+    expect(await controller.logout(), isFalse);
+
+    expect(runtime.clearedWebSessions, 1);
+    expect(reset.reasons, isEmpty);
   });
 
   test('authenticated-to-guest is a terminal reset with no guest successor',

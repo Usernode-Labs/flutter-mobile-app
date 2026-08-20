@@ -47,7 +47,8 @@ transition into `ready` retries any pending ZK completion.
 | Identity snapshot (`Identity`) | `identityProvider` / `IdentitySnapshots` (in-memory) | Republished on every transition |
 | Session token | Secure storage (`AuthTokenStore`) | Cleared on logout/401 |
 | Reconcile-pending marker | Network-prefixed pref, owned by `SessionController` | Login → reconcile commit |
-| Account registry (index + active id) | `AccountsRepository` (`lib/core/providers/accounts_provider.dart`), network-prefixed prefs + secure storage | **Persists across logout** |
+| Account registry (index + active id) | `AccountsRepository` (`lib/core/providers/accounts_provider.dart`), prefs keyed `<network>:user:<identity hash>:accounts:*` + secure storage | **Persists across sign-out**, addressable again only by the same user (I16) |
+| Storage namespace (`identity_hash`) | Network-prefixed pref, owned by `SessionController` (`lib/core/identity/identity_namespace_store.dart`) | Login → sign-out |
 | Active storage bucket (`guest` or `sha256(address)[..16]`) | `NetworkPrefs.activeBucket` (`lib/core/utils/network_prefs.dart`), in-memory | Recomputed on every identity transition |
 | Participant id | Account-bucket-scoped pref (`lib/core/identity/participant_id_store.dart`) | Staged in guest bucket at login, installed on reconcile |
 | Provisioned season id | Account-bucket-scoped pref, owned by `SessionController` | Written at reconcile commit |
@@ -303,6 +304,35 @@ validation and re-check it after that await; profile data comes only from the
 captured snapshot, and a stale callback cannot log out its successor.
 *Enforced by:* `LogShareController` / `LogShareService`, and
 `DappWebViewScreen._handleGetProfileInfo` / `_handleLogout`.
+
+**I16 — Voluntary sign-out is scoped; every other boundary is terminal.**
+`SessionController.logout` does not reset the app. iOS exposes no supported
+self-termination API, so a terminal logout left the user on the inert
+"close and reopen" surface with no way back to the login page. Sign-out
+therefore keeps the process, its one-way process-global fences, and the
+user's local accounts, and ends only the session: the bearer is cleared
+LOCALLY whether or not the server accepts the revocation, the WebView
+session jar is cleared so the reloaded shell cannot silently
+re-authenticate, the node is suspended, and the session-scoped prefs (guest
+flag, reconcile marker, staged guest-bucket participant id, storage
+namespace) are dropped. The shell then cold-boots itself — login is
+platform-owned, so there is no native screen to route to, and the web side
+(`NativeChrome.commitNativeLogout`) performs no continuation work of its
+own. Account-scoped state is deliberately kept: it belongs to the user's
+on-chain account, and it is segregated both by bucket and by the storage
+namespace, so the same user signing back in finds their wallet while a
+different user never resolves it. Everything the app cannot continue from —
+`session_expired`, `session_credential_missing`,
+`different_participant_login`, `network_change`, `authenticated_to_guest` —
+still takes the terminal path, because the fences those close have no
+reopen path.
+*Enforced by:* `SessionController.logout` /
+`_clearSessionScopedState`, `SessionHandoffGate.closeForSignOut`
+(`lib/features/dapps/session_bound_auth_status.dart`), the reload listener
+in `SvShellScreen`, and `DappBridgeAuthNode._handleLogout`, which now awaits
+the transition before acknowledging; regression tests in
+`test/core/identity/login_logout_terminal_reset_test.dart` (the surviving
+incarnation) and `test/core/identity/session_controller_boundary_test.dart`.
 
 ## Known residual risks (accepted for now)
 

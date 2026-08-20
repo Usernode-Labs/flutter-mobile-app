@@ -85,6 +85,14 @@ class SessionHandoffGate {
 
   void closeForTerminalReset() {
     _terminallyClosed = true;
+    closeForSignOut();
+  }
+
+  /// A voluntary sign-out ends the SESSION, not the runtime: this WebView is
+  /// reloaded rather than replaced, so the same gate has to be able to admit
+  /// the next login. Everything [closeForTerminalReset] does except the
+  /// one-way latch.
+  void closeForSignOut() {
     _authenticatedBlocked = true;
     _walletBlocked = true;
     _participantId = null;

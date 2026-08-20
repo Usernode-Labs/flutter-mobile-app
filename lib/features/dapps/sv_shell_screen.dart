@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +8,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 
 /// Full-screen SV shell (app-as-SV-chrome migration, flag `shell.sv`).
@@ -19,7 +21,7 @@ import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 /// First-launch gate: until one SV load has ever succeeded on this install
 /// (after which the service worker owns offline), a native connecting
 /// screen covers the webview. Later launches enter the shell immediately.
-class SvShellScreen extends StatefulWidget {
+class SvShellScreen extends ConsumerStatefulWidget {
   const SvShellScreen({super.key, this.initialHash, this.navigationRequest});
 
   /// Optional SV hash route to land on (e.g. `challenges`, `leaderboard`)
@@ -33,10 +35,10 @@ class SvShellScreen extends StatefulWidget {
   static const _gatePrefsKey = 'sv_shell_first_load_ok';
 
   @override
-  State<SvShellScreen> createState() => _SvShellScreenState();
+  ConsumerState<SvShellScreen> createState() => _SvShellScreenState();
 }
 
-class _SvShellScreenState extends State<SvShellScreen> {
+class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   /// null while SharedPreferences loads; then whether SV has ever
   /// successfully rendered on this install.
   bool? _gatePassed;
@@ -84,6 +86,18 @@ class _SvShellScreenState extends State<SvShellScreen> {
     });
   }
 
+  /// Cold-boots the shell after the session ended in this runtime. Reuses the
+  /// retry counter — the webview is keyed by it — so the document is rebuilt
+  /// from scratch rather than soft-navigated: only a fresh load picks up the
+  /// cleared web session and renders the platform's login page.
+  void _reloadForSessionEnd() {
+    if (!mounted) return;
+    setState(() {
+      _attempt++;
+      _loadOk = null;
+    });
+  }
+
   String get _shellUrl {
     final base = AppConfig.dappsTabUrl.trim();
     final hash = widget.initialHash;
@@ -93,6 +107,19 @@ class _SvShellScreenState extends State<SvShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // A sign-out now ends the session in-process — the runtime is no longer
+    // torn down for it. The web side's contract is that native replaces this
+    // document (`NativeChrome.commitNativeLogout` performs no continuation
+    // work), so the shell cold-boots itself here. The credential and the web
+    // session are already gone by the time this fires, so the fresh load
+    // renders the platform's login page.
+    ref.listen<AuthStatus>(authStatusProvider, (previous, next) {
+      if (previous == AuthStatus.authenticated &&
+          next != AuthStatus.authenticated) {
+        _reloadForSessionEnd();
+      }
+    });
+
     final gatePassed = _gatePassed;
     if (gatePassed == null) {
       // Prefs still loading (a frame or two) — plain connecting screen,

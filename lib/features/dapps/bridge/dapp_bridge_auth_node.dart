@@ -335,9 +335,14 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     );
   }
 
-  /// `logout`: web-side confirm/cache fence, then native commit. The terminal
-  /// acknowledgement is delivered after the controller admits the terminal
-  /// transition; the caller must not require follow-up JS work.
+  /// `logout`: web-side confirm/cache fence, then native commit.
+  ///
+  /// Sign-out is no longer terminal — the runtime survives and reloads this
+  /// WebView into the platform's login page — so unlike the terminal
+  /// boundaries this one is AWAITED before the acknowledgement: the web side's
+  /// contract (`NativeChrome.commitNativeLogout`) is that native replaces the
+  /// document and it performs no continuation work, so the credential and the
+  /// web session must already be gone by the time the promise resolves.
   Future<void> _handleLogout(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
     if (!mounted) return;
@@ -346,28 +351,25 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     await controller.transitionsSettled;
     if (!mounted) return;
     final identity = ref.read(identityProvider);
-    // Start the terminal transition before resolving. Its completion is
-    // deliberately detached: every late path is log-only because the runtime
-    // owns this WebView once logout has been admitted.
     if (!await _revalidatePrivilegedBridgeLease(id, 'logout')) return;
-    _sessionHandoffGate.closeForTerminalReset();
-    final transition = controller.logout(expectedIdentity: identity);
-    unawaited(transition.then<void>(
-      (loggedOut) {
-        if (!loggedOut) {
-          debugPrint('[Usernode JS-channel] terminal logout was rejected');
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        debugPrint(
-          '[Usernode JS-channel] terminal logout failed: '
-          '$error\n$stackTrace',
-        );
-      },
-    ));
+    // Not the terminal latch: the same gate has to admit the next login in
+    // this runtime.
+    _sessionHandoffGate.closeForSignOut();
+
+    var loggedOut = false;
+    try {
+      loggedOut = await controller.logout(expectedIdentity: identity);
+    } catch (error, stackTrace) {
+      debugPrint('[Usernode JS-channel] logout failed: $error\n$stackTrace');
+    }
+    if (!loggedOut) {
+      debugPrint('[Usernode JS-channel] logout was rejected');
+    }
+    // Answered either way: a rejected logout means the identity moved on
+    // underneath this page, and the shell's own reload resolves it.
     await _resolveJsPromise(
       id: id,
-      value: true,
+      value: loggedOut,
       error: null,
     );
   }

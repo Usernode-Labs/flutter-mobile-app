@@ -217,6 +217,26 @@ class NodeLifecycleCoordinator {
     });
   }
 
+  /// Stands the whole producer lifecycle down for an identity boundary that
+  /// the process SURVIVES (voluntary sign-out, and the guest/login handoffs
+  /// that make account ownership unknown).
+  ///
+  /// Resets the facts to what a fresh process starts from — no account, no
+  /// platform request — and reconciles, which runs the same full teardown a
+  /// deliberate stop does: watchdog recovery disabled, Android monitoring and
+  /// the foreground service stopped, the backend stopped, and every scheduled
+  /// alarm plus the alarm watchdog cancelled. Unlike
+  /// [closeForTerminalReset] admission is NOT latched shut: the next login
+  /// reports its account and asks for a start again.
+  Future<void> standDown({required String reason}) {
+    if (!_acceptingRuntimeWork) return Future.value();
+    _hasAccount = false;
+    _intent = PlatformNodeIntent.unset;
+    return _serialized(() async {
+      await _reconcile(reason: reason);
+    });
+  }
+
   /// Permanently closes lifecycle admission for this application process.
   ///
   /// Terminal reset owns the actual best-effort cancellation and shutdown.

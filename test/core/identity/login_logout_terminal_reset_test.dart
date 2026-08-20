@@ -95,6 +95,10 @@ void main() {
           case 'clearNativeResetState':
             nativeIncarnation = null;
             return true;
+          case 'rotateApplicationIncarnation':
+            return nativeIncarnation = 'incarnation-${++incarnationSerial}';
+          case 'clearSessionNotifications':
+            return true;
           case 'stopPersistentForegroundService':
           case 'stopForegroundService':
           case 'releaseWakelock':
@@ -358,6 +362,7 @@ void main() {
     nativeCalls.clear();
 
     var clearedWebSessions = 0;
+    var clearedNotifications = 0;
     final controller = SessionController(
       tokenStore: AuthTokenStore(),
       guestFlag: AuthGuestFlag(),
@@ -366,6 +371,11 @@ void main() {
       clearWebSessionData: () async {
         clearedWebSessions += 1;
         return true;
+      },
+      rotateNativeGeneration: platformAlarms.rotateApplicationIncarnation,
+      clearSessionNotifications: () async {
+        clearedNotifications += 1;
+        return platformAlarms.clearSessionNotifications();
       },
       terminalReset: ({required reason, prepareNextLaunch}) async {
         fail('A voluntary sign-out must not reset the app: $reason');
@@ -400,6 +410,12 @@ void main() {
     expect(signedOut, isTrue);
     expect(controller.state.phase, IdentityPhase.unauthenticated);
     expect(clearedWebSessions, 1);
+    expect(clearedNotifications, 1);
+    expect(
+      prefsAfterSignOut(await SharedPreferences.getInstance()),
+      isNull,
+      reason: 'the crash fence is cleared once the boundary settles',
+    );
 
     // The runtime is untouched: same provider graph, same services, same
     // native incarnation. That is the whole difference from a terminal reset —
@@ -415,11 +431,40 @@ void main() {
       acceptingRuntimeWorkBefore,
       reason: 'a sign-out must not close the runtime admission fence',
     );
-    expect(nativeIncarnation, oldIncarnation);
     expect(nativeCalls.map((call) => call.method),
         isNot(contains('enterTerminalReset')));
     expect(nativeCalls.map((call) => call.method),
         isNot(contains('invalidateApplicationIncarnation')));
+
+    // The native generation IS retired, reversibly: durable work scheduled by
+    // the signed-out session (alarms, the watchdog, headless recovery) no
+    // longer matches, while this surviving process keeps scheduling under the
+    // successor token.
+    final rotatedIncarnation = nativeIncarnation!;
+    expect(rotatedIncarnation, isNot(oldIncarnation));
+    var acceptedEvents = 0;
+    platformAlarms.setNativeEventCallback((_, __) async {
+      acceptedEvents += 1;
+      return true;
+    });
+    expect(
+      await platformAlarms.dispatchNativeEventForTesting(
+        'android_alarm_fired',
+        {PlatformAlarmService.applicationIncarnationKey: oldIncarnation},
+      ),
+      isFalse,
+      reason: 'an alarm armed by the signed-out session must not be admitted',
+    );
+    expect(acceptedEvents, 0);
+    expect(
+      await platformAlarms.dispatchNativeEventForTesting(
+        'android_alarm_fired',
+        {PlatformAlarmService.applicationIncarnationKey: rotatedIncarnation},
+      ),
+      isTrue,
+      reason: 'the surviving process may still schedule and be woken',
+    );
+    expect(acceptedEvents, 1);
 
     // Unrelated local state survives; the credential does not.
     final prefs = await SharedPreferences.getInstance();
@@ -437,6 +482,10 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
+
+/// The durable "a sign-out started and has not finished" fence.
+Object? prefsAfterSignOut(SharedPreferences prefs) =>
+    prefs.getBool('testnet:identity:signout_pending');
 
 class _ResetGraphView extends ConsumerWidget {
   const _ResetGraphView();

@@ -108,6 +108,12 @@ final zkPassportRuntimeSessionRepositoryProvider =
   return ZkPassportRuntimeSessionRepository();
 });
 
+/// The zkPassport rows are bucket-scoped, but these providers cache their
+/// VALUES in a ProviderContainer that now survives a sign-out — they watch
+/// only the stable repository providers. `resetSessionScopedProcessState`
+/// therefore discards the whole group at the sign-out boundary; without that,
+/// the successor is rendered as the retired user's completed registration,
+/// proof nullifier and facematch metadata included.
 final zkPassportSettingsProvider =
     FutureProvider<ZkPassportSettings>((ref) async {
   final repo = ref.watch(zkPassportSettingsRepositoryProvider);
@@ -521,7 +527,7 @@ class ZkPassportPipelineController
         );
         _stopServerPollingWorker();
         _runtimeSession = null;
-        await _runtimeRepo.clear();
+        await _runtimeRepo.clear(bucket: persisted.launchBucket);
         state = ZkPassportPipelineState.idle();
         return;
       }
@@ -562,7 +568,7 @@ class ZkPassportPipelineController
       );
       _stopServerPollingWorker();
       _runtimeSession = null;
-      await _runtimeRepo.clear();
+      await _runtimeRepo.clear(bucket: persisted.launchBucket);
       state = ZkPassportPipelineState.idle();
     } catch (e, st) {
       _log.warn(
@@ -747,7 +753,7 @@ class ZkPassportPipelineController
       return false;
     }
     _stopServerPollingWorker();
-    await _runtimeRepo.clear();
+    await _runtimeRepo.clear(bucket: _runtimeSession?.launchBucket);
     _runtimeSession = null;
     _setState(
       status: ZkPassportPipelineStatus.idle,
@@ -788,6 +794,17 @@ class ZkPassportPipelineController
       launchBucket: sameSession ? current.launchBucket : null,
       launchParticipantId: sameSession ? current.launchParticipantId : null,
     );
+    // Phase writes happen after long Rust/RPC awaits. Re-check the launch
+    // identity here (not only at resume) so a sign-out or user switch mid-proof
+    // cannot land the retired user's row — the write is dropped and the caller
+    // is left to finalize against a session that is no longer current.
+    if (_checkLaunchIdentity(next) == _LaunchIdentityCheck.mismatch) {
+      _log.warn(
+        'Dropping a zkPassport runtime write for a superseded identity',
+        context: {'requestId': next.requestId, 'phase': next.phase.name},
+      );
+      return;
+    }
     _runtimeSession = next;
     await _runtimeRepo.save(next);
   }
@@ -833,7 +850,7 @@ class ZkPassportPipelineController
       outerPublicInputsHex: outerPublicInputsHex,
       resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
     );
-    await _runtimeRepo.clear();
+    await _runtimeRepo.clear(bucket: _runtimeSession?.launchBucket);
     _runtimeSession = null;
   }
 

@@ -105,6 +105,35 @@ class AccountsRepository {
     await _prefs.remove(legacyActiveIdKey);
   }
 
+  /// Removes the shared, unnamespaced registry keys.
+  ///
+  /// Only ever correct at a session boundary that has established the
+  /// registry cannot be attributed to one user: `identityHash` is nullable by
+  /// design and normalization maps malformed values to null, and this class
+  /// then falls back to the bare `<network>:accounts:*` keys, which every
+  /// null-namespace identity resolves alike. Retaining those across a sign-out
+  /// would republish the signed-out user's wallet as a locally-signable
+  /// account and hand it to whoever signs in next.
+  ///
+  /// The key material in secure storage is deliberately left alone: without an
+  /// index nothing resolves it, and destroying a user's keys is not this
+  /// boundary's call to make.
+  ///
+  /// Returns whether anything was removed.
+  static Future<bool> retireUnnamespacedRegistry() async {
+    final prefs = await SharedPreferences.getInstance();
+    final network = await NetworkPrefs.getNetwork();
+    final indexKey = NetworkPrefs.prefixKeyWith(_kIndexKeyBase, network);
+    final activeIdKey = NetworkPrefs.prefixKeyWith(_kActiveIdKeyBase, network);
+    if (prefs.getString(indexKey) == null &&
+        prefs.getString(activeIdKey) == null) {
+      return false;
+    }
+    await prefs.remove(indexKey);
+    await prefs.remove(activeIdKey);
+    return true;
+  }
+
   Future<bool> hasAny() async {
     final items = await list();
     final result = items.isNotEmpty;

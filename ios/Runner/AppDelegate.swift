@@ -50,6 +50,25 @@ final class ApplicationIncarnationStore {
     UserDefaults.standard.removeObject(forKey: Self.defaultsKey)
     return UserDefaults.standard.synchronize() && storedCurrent() == nil
   }
+
+  /// Retires the current token and issues a fresh one.
+  ///
+  /// The reversible twin of `invalidate()`, for the one boundary that keeps
+  /// the process alive: a scoped sign-out. Work scheduled by the retired
+  /// session no longer `matches`, while this process keeps scheduling under
+  /// the returned token. Returns nil once a terminal reset has latched the
+  /// store shut.
+  func rotate() -> String? {
+    lock.lock()
+    defer { lock.unlock() }
+    guard !terminalResetRequested else { return nil }
+    let created = UUID().uuidString
+    UserDefaults.standard.set(created, forKey: Self.defaultsKey)
+    guard UserDefaults.standard.synchronize(), storedCurrent() == created else {
+      return nil
+    }
+    return created
+  }
 }
 
 @main
@@ -251,6 +270,12 @@ final class ApplicationIncarnationStore {
     case "invalidateApplicationIncarnation":
       result(ApplicationIncarnationStore.shared.invalidate())
 
+    case "rotateApplicationIncarnation":
+      result(ApplicationIncarnationStore.shared.rotate())
+
+    case "clearSessionNotifications":
+      clearSessionNotifications(result: result)
+
     case "clearWebSessionData":
       clearWebSessionData(result: result)
 
@@ -378,6 +403,26 @@ final class ApplicationIncarnationStore {
       print("[AppDelegate] ⚠ Unknown method: \(call.method)")
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// Removes this app's delivered notifications and the pending requests
+  /// behind them. A scoped sign-out keeps the process, so nothing else takes
+  /// the retired session's Social/slot text off the lock screen.
+  private func clearSessionNotifications(result: @escaping FlutterResult) {
+    let center = UNUserNotificationCenter.current()
+    center.removeAllPendingNotificationRequests()
+    center.removeAllDeliveredNotifications()
+    // Removing the delivered notifications does not clear the badge they
+    // raised, so the retired session's unread count would survive on the
+    // home screen.
+    if #available(iOS 16.0, *) {
+      center.setBadgeCount(0)
+    } else {
+      DispatchQueue.main.async {
+        UIApplication.shared.applicationIconBadgeNumber = 0
+      }
+    }
+    result(true)
   }
 
   private func clearWebSessionData(result: @escaping FlutterResult) {

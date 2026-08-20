@@ -8,7 +8,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
-import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 
 /// Full-screen SV shell (app-as-SV-chrome migration, flag `shell.sv`).
@@ -86,10 +85,18 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     });
   }
 
-  /// Cold-boots the shell after the session ended in this runtime. Reuses the
+  /// Cold-boots the shell after a voluntary sign-out has SETTLED. Reuses the
   /// retry counter — the webview is keyed by it — so the document is rebuilt
   /// from scratch rather than soft-navigated: only a fresh load picks up the
   /// cleared web session and renders the platform's login page.
+  ///
+  /// Driven by [DappWebViewScreen.onSessionEnded], which the shared WebView
+  /// owner fires off the settled sign-out signal. It deliberately does NOT
+  /// watch `authenticated -> anything else`: sign-out publishes
+  /// `transitioning` synchronously before its first await, and a replacement
+  /// document created on that edge would race the cookie/storage deletion
+  /// that makes the next load render a login page — and would also fire for
+  /// terminal boundaries, which have no successor to build.
   void _reloadForSessionEnd() {
     if (!mounted) return;
     setState(() {
@@ -107,19 +114,6 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // A sign-out now ends the session in-process — the runtime is no longer
-    // torn down for it. The web side's contract is that native replaces this
-    // document (`NativeChrome.commitNativeLogout` performs no continuation
-    // work), so the shell cold-boots itself here. The credential and the web
-    // session are already gone by the time this fires, so the fresh load
-    // renders the platform's login page.
-    ref.listen<AuthStatus>(authStatusProvider, (previous, next) {
-      if (previous == AuthStatus.authenticated &&
-          next != AuthStatus.authenticated) {
-        _reloadForSessionEnd();
-      }
-    });
-
     final gatePassed = _gatePassed;
     if (gatePassed == null) {
       // Prefs still loading (a frame or two) — plain connecting screen,
@@ -138,6 +132,7 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
       url: _shellUrl,
       name: 'Usernode',
       navigationRequest: widget.navigationRequest,
+      onSessionEnded: _reloadForSessionEnd,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,
     );
 

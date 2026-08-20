@@ -7,15 +7,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_scope_reset.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
+import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
+import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
+import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 
 final _log = LoggingService.instance.withTag('usernode/SessionController');
 
@@ -42,6 +45,19 @@ final authTokenStoreProvider =
 
 final authGuestFlagProvider = Provider<AuthGuestFlag>((ref) => AuthGuestFlag());
 
+/// Bumped exactly once per COMPLETED voluntary sign-out — after the bearer,
+/// the node runtime, the native generation, the session prefs and the WebView
+/// session jar are all gone.
+///
+/// Document replacement is driven from THIS edge rather than from
+/// `authenticated -> anything else`: `logout` publishes
+/// [IdentityPhase.transitioning] synchronously before its first await (so
+/// in-flight work sees a closed gate), and that publication maps to
+/// [AuthStatus.unknown] — a WebView replaced on it would race the very
+/// cookie/storage deletion that makes the next load render a login page.
+/// Terminal boundaries never reach this signal at all.
+final signOutCompletionProvider = StateProvider<int>((ref) => 0);
+
 /// The single source of truth for the app's current [Identity].
 ///
 /// All identity transitions go through [SessionController]; everything else
@@ -54,6 +70,11 @@ final identityProvider = StateNotifierProvider<SessionController, Identity>(
       tokenStore: ref.watch(authTokenStoreProvider),
       guestFlag: ref.watch(authGuestFlagProvider),
       repository: ref.watch(authRepositoryProvider),
+      resetSessionScopedProcessState: () => resetSessionScopedProcessState(ref),
+      onSignOutCompleted: () {
+        final signal = ref.read(signOutCompletionProvider.notifier);
+        signal.state = signal.state + 1;
+      },
     );
     unawaited(controller.restore());
     return controller;
@@ -82,6 +103,10 @@ class SessionController extends StateNotifier<Identity> {
     required AuthRepository repository,
     Future<void> Function()? suspendNode,
     Future<bool> Function()? clearWebSessionData,
+    Future<bool> Function()? rotateNativeGeneration,
+    Future<bool> Function()? clearSessionNotifications,
+    Future<void> Function()? resetSessionScopedProcessState,
+    void Function()? onSignOutCompleted,
     SessionTerminalReset? terminalReset,
   })  : _tokenStore = tokenStore,
         _guestFlag = guestFlag,
@@ -89,12 +114,19 @@ class SessionController extends StateNotifier<Identity> {
         _suspendNode = suspendNode ?? _defaultSuspendNode,
         _clearWebSessionData =
             clearWebSessionData ?? _defaultClearWebSessionData,
+        _rotateNativeGeneration =
+            rotateNativeGeneration ?? _defaultRotateNativeGeneration,
+        _clearSessionNotifications =
+            clearSessionNotifications ?? _defaultClearSessionNotifications,
+        _resetSessionScopedProcessState = resetSessionScopedProcessState,
+        _onSignOutCompleted = onSignOutCompleted,
         _terminalReset = terminalReset ?? _defaultTerminalReset,
         super(Identity.unknown(epoch: IdentitySnapshots.current.epoch)) {
     IdentitySnapshots.publish(state);
   }
 
   static const _kReconcilePendingKeyBase = 'account:reconcile_pending';
+  static const _kSignOutPendingKeyBase = 'identity:signout_pending';
   static const _kProvisionedSeasonKeyBase = 'identity:provisioned_season';
   static const _kLifecycleOwnershipConfirmedKeyBase =
       'identity:lifecycle_ownership_confirmed';
@@ -115,13 +147,51 @@ class SessionController extends StateNotifier<Identity> {
   /// an authenticated page. Injectable for tests; the default crosses the
   /// native method channel.
   final Future<bool> Function() _clearWebSessionData;
+
+  /// Retires the native application-incarnation token and issues a fresh one.
+  /// Durable native work (alarms, the watchdog, headless recovery events)
+  /// captured the retired token, so rotating it is what stops a background
+  /// engine from restarting a producer for the signed-out account. Injectable
+  /// for tests; the default crosses the native method channel.
+  final Future<bool> Function() _rotateNativeGeneration;
+
+  /// Removes notifications the retired session has already posted.
+  final Future<bool> Function() _clearSessionNotifications;
+
+  /// Drops identity-agnostic PROCESS state that outlives a scoped sign-out
+  /// (in-memory debug buffers, provider caches that captured the retired
+  /// identity). Null in unit tests that own no provider graph.
+  final Future<void> Function()? _resetSessionScopedProcessState;
+
+  /// Fired once a voluntary sign-out has fully settled — see
+  /// [signOutCompletionProvider].
+  final void Function()? _onSignOutCompleted;
+
   final SessionTerminalReset _terminalReset;
 
-  static Future<void> _defaultSuspendNode() =>
-      RustBackendService.instance.stopNode();
+  static Future<void> _defaultSuspendNode() async {
+    // Not `RustBackendService.stopNode()`: that leaves the coordinator's
+    // intent/account facts, Android monitoring, the foreground service and
+    // wakelock, watchdog recovery and every scheduled alarm armed, so a
+    // headless recovery event could still restart production for the identity
+    // this boundary is retiring.
+    await NodeLifecycleCoordinator.instance
+        .standDown(reason: 'identity_boundary');
+    await EpochSlotSchedulerService.instance.closeForSignOut();
+    // The sleep service is deliberately outside the coordinator (it owns a
+    // richer state machine), and its resume flags were captured while the
+    // retired identity's node was running.
+    AppSleepService.instance.closeForSignOut();
+  }
 
   static Future<bool> _defaultClearWebSessionData() =>
       PlatformAlarmService.instance.clearWebSessionData();
+
+  static Future<bool> _defaultRotateNativeGeneration() =>
+      PlatformAlarmService.instance.rotateApplicationIncarnation();
+
+  static Future<bool> _defaultClearSessionNotifications() =>
+      PlatformAlarmService.instance.clearSessionNotifications();
 
   static Future<void> _defaultTerminalReset({
     required String reason,
@@ -222,6 +292,32 @@ class SessionController extends StateNotifier<Identity> {
     await prefs.remove(_reconcileMarkerKey);
   }
 
+  String get _signOutFenceKey =>
+      NetworkPrefs.prefixKey(_kSignOutPendingKeyBase);
+
+  /// Durable "a sign-out started and has not finished" fence.
+  ///
+  /// Written BEFORE the bearer is cleared, so token retirement and namespace
+  /// retirement are crash-atomic as a pair. Without it, a crash (or a
+  /// throwing/blocked node suspend) in the window between the two leaves a
+  /// cold boot with no token but a still-resolvable namespaced registry —
+  /// which [restore] would publish as [IdentityPhase.unauthenticated] with an
+  /// active account, a state [Identity.allowsSigning] explicitly admits.
+  Future<void> _writeSignOutFence() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_signOutFenceKey, true);
+  }
+
+  Future<bool> _readSignOutFence() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_signOutFenceKey) ?? false;
+  }
+
+  Future<void> _clearSignOutFence() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_signOutFenceKey);
+  }
+
   Future<void> _writeProvisionedSeason(String bucket, int? seasonId) async {
     final prefs = await SharedPreferences.getInstance();
     final key =
@@ -286,6 +382,22 @@ class SessionController extends StateNotifier<Identity> {
   /// marker) or an account/bucket mismatch routes through
   /// [IdentityPhase.reconciling].
   Future<void> restore() => _restoreFuture ??= _transition(() async {
+        // Honoured BEFORE any account lookup: a sign-out that died between
+        // retiring the bearer and retiring the namespace would otherwise
+        // resolve the previous user's active account here and publish it as
+        // a locally-signable identity.
+        if (await _readSignOutFence()) {
+          _log.warn('Completing a sign-out interrupted before it settled');
+          _publish(Identity(
+            epoch: state.epoch + 1,
+            phase: IdentityPhase.transitioning,
+          ));
+          if (!await _endSessionScope()) {
+            _retired = true;
+            await _terminalReset(reason: 'signout_cleanup_unconfirmed');
+            return;
+          }
+        }
         final token = await _tokenStore.read();
         if (token != null && token.isNotEmpty) {
           await _restoreAuthenticated();
@@ -493,17 +605,18 @@ class SessionController extends StateNotifier<Identity> {
   /// the shell reloads into the platform's own login page (login is
   /// platform-owned; there is no native login screen to route to).
   ///
-  /// What must not survive is the session. The bearer is cleared locally
-  /// whether or not the server accepts the revocation, the web session backing
-  /// the shell is cleared so the next page load cannot silently
-  /// re-authenticate, and session-scoped prefs are dropped so the next login
-  /// reconciles from scratch.
+  /// What must not survive is the session — and because the process does,
+  /// every boundary terminal reset used to supply by erasing everything has to
+  /// be closed here explicitly. [_endSessionScope] owns that list and its
+  /// crash-safe order; a mandatory purge it cannot confirm escalates to the
+  /// terminal reset instead of being acknowledged.
   ///
   /// Account-scoped state (the wallet, its bucket-scoped prefs, a pending ZK
   /// completion) is deliberately KEPT: it belongs to that user's on-chain
   /// account rather than to the session, and it is already segregated both by
   /// bucket and by the storage namespace. The same user signing back in finds
-  /// it; a different user never resolves it.
+  /// it; a different user never resolves it — provided a valid namespace
+  /// proves that segregation, which [_clearSessionScopedState] enforces.
   Future<bool> logout({Identity? expectedIdentity}) => _transition(() async {
         // Async bridge callbacks may have been authorized by a prior identity.
         if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
@@ -529,12 +642,18 @@ class SessionController extends StateNotifier<Identity> {
         } catch (error) {
           _log.warn('Could not read the bearer before sign-out: $error');
         }
-        await _tokenStore.clear();
+
         unawaited(_logoutBestEffort(token));
 
-        await _suspendNode();
-        await _clearSessionScopedState();
-        await _clearWebSession();
+        if (!await _endSessionScope()) {
+          // A MANDATORY purge could not be confirmed. The session must still
+          // end, and the only boundary that is guaranteed to close what is
+          // left is the terminal one — so take it rather than acknowledging a
+          // sign-out whose fences are still open.
+          _retired = true;
+          await _terminalReset(reason: 'signout_cleanup_unconfirmed');
+          return false;
+        }
 
         // Mirror what a cold boot with no session resolves to, so sign-out and
         // the next launch agree: local-only mode, following whatever account
@@ -546,8 +665,48 @@ class SessionController extends StateNotifier<Identity> {
           accountId: active?.id,
           address: active?.address,
         ));
+        _onSignOutCompleted?.call();
         return true;
       }, whenRetired: () => false);
+
+  /// Everything a sign-out has to make true, in the one order that survives a
+  /// crash at any point. Factored out because [restore] repairs an
+  /// interrupted sign-out by running exactly the same boundary.
+  ///
+  /// Returns false when a mandatory purge could not be confirmed; the caller
+  /// then escalates rather than reporting success.
+  Future<bool> _endSessionScope() async {
+    // Durable BEFORE the bearer disappears: from here on, a cold boot that
+    // finds this fence completes the sign-out instead of resolving the
+    // half-retired session.
+    await _writeSignOutFence();
+    await _tokenStore.clear();
+
+    // Retire the native generation before the runtime teardown, so an alarm,
+    // watchdog tick or headless recovery event that lands DURING the teardown
+    // is already rejected as stale instead of racing it back into a producer
+    // start. Unconfirmed rotation leaves that race open, so it fails closed.
+    if (!await _rotateNativeGeneration()) {
+      _log.error('Could not retire the native generation for sign-out');
+      return false;
+    }
+    await _suspendNode();
+    await _clearSessionScopedState();
+    if (!await _clearWebSession()) return false;
+    await _resetSessionScopedProcessState?.call();
+    // Tray/lock-screen text is not a fail-closed boundary — it leaks no
+    // authority — but it is the retired session's content, so it is cleared
+    // here rather than left for the next user to read.
+    try {
+      if (!await _clearSessionNotifications()) {
+        _log.warn('Native session-notification clear reported failure');
+      }
+    } catch (error) {
+      _log.warn('Could not clear session notifications: $error');
+    }
+    await _clearSignOutFence();
+    return true;
+  }
 
   /// Drops everything belonging to the SESSION rather than to the user's
   /// account. Account-scoped (bucket-prefixed) state stays — see [logout].
@@ -558,21 +717,45 @@ class SessionController extends StateNotifier<Identity> {
     await _clearReconcileMarker();
     // I4: the guest bucket must never hold a signed-out user's id.
     await clearGuestParticipantId();
+    // Retention is safe only where a namespace PROVES segregation. A session
+    // whose payload carried no valid `identity_hash` left its accounts on the
+    // shared, unnamespaced keys: keeping those would republish this user's
+    // wallet as a signable local-only account (I15/`allowsSigning`) and hand
+    // it to the next user whose payload also lacks a hash.
+    await _retireUnsegregatedRegistry();
     // Without this the signed-out user's account registry stays resolvable,
     // and the next user to sign in would adopt their accounts.
     await clearIdentityNamespace();
   }
 
-  Future<void> _clearWebSession() async {
-    try {
-      // The shell's login page only appears if the web session backing it is
-      // gone too; otherwise the reloaded page silently re-authenticates.
-      if (!await _clearWebSessionData()) {
-        _log.warn('Native web-session clear reported failure');
-      }
-    } catch (error) {
-      _log.warn('Could not clear the web session: $error');
+  Future<void> _retireUnsegregatedRegistry() async {
+    if (await loadIdentityNamespace() != null) return;
+    if (await AccountsRepository.retireUnnamespacedRegistry()) {
+      _log.warn(
+        'Retired an unnamespaced account registry at sign-out: the session '
+        'carried no identity namespace, so the registry could not be proven '
+        'to belong to this user alone',
+      );
     }
+  }
+
+  /// The WebView session jar is a security boundary, not a nicety: a retained
+  /// cookie/storage set silently re-authenticates the next page load. Every
+  /// failure mode (a `false` reply, a timeout, a throw) is therefore retried
+  /// once and then reported as unconfirmed rather than warned about.
+  Future<bool> _clearWebSession() async {
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      try {
+        if (await _clearWebSessionData()) return true;
+        _log.warn('Native web-session clear reported failure '
+            '(attempt $attempt)');
+      } catch (error) {
+        _log.warn('Could not clear the web session (attempt $attempt): '
+            '$error');
+      }
+    }
+    _log.error('Web session could not be confirmed clear');
+    return false;
   }
 
   Future<bool> _logout({

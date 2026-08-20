@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 /// Base class for leaderboard data providers.
@@ -48,9 +49,21 @@ abstract class LeaderboardNotifier<T> extends AsyncNotifier<T?> {
   ///
   /// On success, updates [state] to the fresh value. On failure, preserves
   /// the last-good value (no `AsyncError` transition) so the UI stays stable.
+  ///
+  /// Leaderboard data is account/bucket scoped, and this runs outside the
+  /// `build` that registered the identity watches — a slow response for the
+  /// previous identity would otherwise be published after a sign-out or a
+  /// user switch. The captured snapshot is therefore re-checked after the
+  /// await, and a superseded result is dropped rather than published.
   Future<void> silentRefresh() async {
+    final identity = IdentitySnapshots.current;
     try {
-      state = AsyncData(await fetch());
+      final value = await fetch();
+      if (!identity.sameScopeAs(IdentitySnapshots.current)) {
+        _log.debug('$runtimeType refresh superseded by an identity change');
+        return;
+      }
+      state = AsyncData(value);
     } catch (e) {
       _log.warn('$runtimeType refresh failed: $e');
     }

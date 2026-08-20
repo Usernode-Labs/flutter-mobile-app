@@ -137,5 +137,11 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
     // ShortcutManagerCompat / IconCompat for homescreen pinned shortcuts.
     implementation 'androidx.core:core-ktx:1.13.1'
+    // WebStorageCompat.deleteBrowsingData: the only WebView deletion API that
+    // covers the network cache and installed service workers and reports
+    // completion. Sign-out treats the session jar as a security boundary, so
+    // the framework's callback-less deleteAllData() cannot back it.
+    // Version matches what webview_flutter_android already resolves.
+    implementation 'androidx.webkit:webkit:1.15.0'
     testImplementation 'junit:junit:4.13.2'
 }

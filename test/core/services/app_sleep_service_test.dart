@@ -5,6 +5,39 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('a scoped sign-out stands the wake machinery down reversibly',
+      (tester) async {
+    final sleepReasons = <AppSleepReason>[];
+    final service = AppSleepService.forTest(
+      idleTimeout: const Duration(seconds: 1),
+      wakelockMonitorInterval: const Duration(seconds: 1),
+      onSleep: (reason) async => sleepReasons.add(reason),
+      onWake: (_) async {},
+      persistSleepState: (_) async {},
+      isWakelockHeld: () async => false,
+      useWakelockTransitionFlow: false,
+    );
+    addTearDown(service.dispose);
+
+    await service.initializeForInteractiveApp();
+
+    // The sleep service sits outside the node coordinator by design, so the
+    // sign-out teardown has to stand it down explicitly: its timers and resume
+    // flags were armed while the signed-out user's node was running.
+    service.closeForSignOut();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+
+    expect(sleepReasons, isEmpty, reason: 'the idle timer was cancelled');
+    // Reversible, unlike closeForTerminalReset: the user's automatic-sleep
+    // preference belongs to the device, and the next session re-arms.
+    expect(service.isEnabled, isTrue);
+    service.recordUserInteraction();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(sleepReasons, [AppSleepReason.idleTimeout]);
+  });
+
   testWidgets('does not sleep before wakelock release transition',
       (tester) async {
     final sleepReasons = <AppSleepReason>[];

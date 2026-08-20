@@ -1700,6 +1700,58 @@ class PlatformAlarmService {
         false;
   }
 
+  /// Retires the current native incarnation token and issues a fresh one, so
+  /// every alarm, watchdog and headless event scheduled by the previous
+  /// SESSION is rejected while this process keeps scheduling under the new
+  /// token.
+  ///
+  /// The reversible twin of [invalidateApplicationIncarnation]: sign-out is
+  /// scoped, so the fence has to close behind the retired session without
+  /// latching the process shut. Returns false when the rotation could not be
+  /// confirmed — callers must then treat the boundary as failed rather than
+  /// acknowledging a sign-out whose durable work is still armed.
+  Future<bool> rotateApplicationIncarnation() async {
+    if (_terminalResetRequested) return false;
+    if (!_isAndroid && !_isIOS) return true;
+    // Stop scheduling under the retired token before asking for the new one:
+    // a concurrent schedule that reads this field must never re-arm work with
+    // an incarnation the native side is about to retire.
+    _applicationIncarnation = null;
+    final String? rotated;
+    try {
+      rotated = await _channel
+          .invokeMethod<String>('rotateApplicationIncarnation')
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      _log.error('Error rotating the application incarnation: $e');
+      return false;
+    }
+    if (rotated == null || rotated.isEmpty) {
+      _log.error('Native application incarnation rotation returned no token');
+      return false;
+    }
+    if (_terminalResetRequested) return false;
+    _applicationIncarnation = rotated;
+    return true;
+  }
+
+  /// Removes notifications this app has already posted (and, on iOS, the
+  /// pending requests behind them). Called at a scoped sign-out so the
+  /// retired session's Social/slot text cannot stay on the lock screen for
+  /// whoever signs in next.
+  Future<bool> clearSessionNotifications() async {
+    if (!_isAndroid && !_isIOS) return true;
+    try {
+      return await _channel
+              .invokeMethod<bool>('clearSessionNotifications')
+              .timeout(const Duration(seconds: 5)) ??
+          false;
+    } catch (e) {
+      _log.error('Error clearing session notifications: $e');
+      return false;
+    }
+  }
+
   Future<bool> clearWebSessionData() async {
     if (!_isAndroid && !_isIOS) return true;
     return await _channel

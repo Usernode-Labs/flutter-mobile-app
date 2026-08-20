@@ -88,15 +88,53 @@ AuthSession _session(String token, int participantId) => AuthSession(
 
 /// Counts the side effects a sign-out must perform on the live runtime.
 class _RuntimeProbe {
+  _RuntimeProbe({
+    this.webSessionClear = _clearedOk,
+    this.suspendNodeBehaviour,
+    this.rotateNativeGenerationResult = true,
+    this.sessionNotificationsResult = true,
+  });
+
+  static Future<bool> _clearedOk() async => true;
+
+  /// The native reply a WebView session clear should produce. Reachable
+  /// production values are `true`, `false`, a throw, and a timeout.
+  final Future<bool> Function() webSessionClear;
+  final Future<void> Function()? suspendNodeBehaviour;
+  final bool rotateNativeGenerationResult;
+  final bool sessionNotificationsResult;
+
   var suspendedNodes = 0;
   var clearedWebSessions = 0;
+  var rotatedNativeGenerations = 0;
+  var clearedNotifications = 0;
+  var resetProcessState = 0;
+  var signOutCompletions = 0;
 
-  Future<void> suspendNode() async => suspendedNodes += 1;
+  Future<void> suspendNode() async {
+    suspendedNodes += 1;
+    final behaviour = suspendNodeBehaviour;
+    if (behaviour != null) await behaviour();
+  }
 
   Future<bool> clearWebSessionData() async {
     clearedWebSessions += 1;
-    return true;
+    return webSessionClear();
   }
+
+  Future<bool> rotateNativeGeneration() async {
+    rotatedNativeGenerations += 1;
+    return rotateNativeGenerationResult;
+  }
+
+  Future<bool> clearSessionNotifications() async {
+    clearedNotifications += 1;
+    return sessionNotificationsResult;
+  }
+
+  Future<void> resetSessionScopedProcessState() async => resetProcessState += 1;
+
+  void onSignOutCompleted() => signOutCompletions += 1;
 }
 
 SessionController _controller(
@@ -112,6 +150,13 @@ SessionController _controller(
       suspendNode: runtime == null ? () async {} : runtime.suspendNode,
       clearWebSessionData:
           runtime == null ? () async => true : runtime.clearWebSessionData,
+      rotateNativeGeneration:
+          runtime == null ? () async => true : runtime.rotateNativeGeneration,
+      clearSessionNotifications: runtime == null
+          ? () async => true
+          : runtime.clearSessionNotifications,
+      resetSessionScopedProcessState: runtime?.resetSessionScopedProcessState,
+      onSignOutCompleted: runtime?.onSignOutCompleted,
       terminalReset: reset.call,
     );
 
@@ -452,6 +497,231 @@ void main() {
     expect(reset.reasons, isEmpty);
     expect(await tokenStore.read(), 'token-a');
     expect(controller.state.phase, IdentityPhase.ready);
+  });
+
+  test('a sign-out clears every session-scoped runtime fence', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final runtime = _RuntimeProbe();
+    final controller = _controller(tokenStore, reset, runtime: runtime);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    expect(await controller.logout(expectedIdentity: controller.state), isTrue);
+
+    expect(reset.reasons, isEmpty);
+    // The native generation is retired BEFORE the runtime teardown, so an
+    // alarm or headless recovery event landing during it is already stale.
+    expect(runtime.rotatedNativeGenerations, 1);
+    expect(runtime.suspendedNodes, 1);
+    expect(runtime.clearedNotifications, 1);
+    expect(runtime.resetProcessState, 1);
+    expect(runtime.signOutCompletions, 1,
+        reason: 'the settled-sign-out signal drives document replacement');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('testnet:identity:signout_pending'), isNull);
+  });
+
+  test('a failed notification clear does not block the sign-out', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final runtime = _RuntimeProbe(sessionNotificationsResult: false);
+    final controller = _controller(tokenStore, reset, runtime: runtime);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    expect(await controller.logout(expectedIdentity: controller.state), isTrue);
+
+    // Tray text leaks the retired session's content, not its authority, so it
+    // is warned about rather than escalated into a device-wide wipe.
+    expect(runtime.clearedNotifications, 1);
+    expect(reset.reasons, isEmpty);
+    expect(runtime.signOutCompletions, 1);
+  });
+
+  test('an unconfirmed native generation retirement is not acknowledged',
+      () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final runtime = _RuntimeProbe(rotateNativeGenerationResult: false);
+    final controller = _controller(tokenStore, reset, runtime: runtime);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    expect(
+        await controller.logout(expectedIdentity: controller.state), isFalse);
+
+    // Leaving the previous generation live is exactly the producer race the
+    // terminal boundary existed to close, so this fails closed into it.
+    expect(reset.reasons, ['signout_cleanup_unconfirmed']);
+    expect(runtime.signOutCompletions, 0);
+    expect(await tokenStore.read(), isNull);
+  });
+
+  group('a mandatory web-session purge cannot fail open', () {
+    Future<void> expectTerminal(Future<bool> Function() webSessionClear) async {
+      _seedReadyIdentity();
+      final tokenStore = AuthTokenStore();
+      final reset = _TerminalResetProbe(tokenStore);
+      final runtime = _RuntimeProbe(webSessionClear: webSessionClear);
+      final controller = _controller(tokenStore, reset, runtime: runtime);
+      addTearDown(controller.dispose);
+      await controller.restore();
+
+      expect(
+          await controller.logout(expectedIdentity: controller.state), isFalse);
+
+      // A retained cookie/storage jar silently re-authenticates the next page
+      // load, so an unconfirmed clear must not resolve `loggedOut` — it is
+      // retried, then escalated to the boundary that does wipe the jar.
+      expect(runtime.clearedWebSessions, 2, reason: 'retried once');
+      expect(reset.reasons, ['signout_cleanup_unconfirmed']);
+      expect(runtime.signOutCompletions, 0);
+      expect(await tokenStore.read(), isNull);
+    }
+
+    test('a false reply escalates', () => expectTerminal(() async => false));
+
+    test('a throw escalates',
+        () => expectTerminal(() async => throw StateError('channel down')));
+
+    test('a timeout escalates', () async {
+      await expectTerminal(
+        () => Future<bool>.delayed(const Duration(seconds: 5), () => true)
+            .timeout(
+          const Duration(milliseconds: 10),
+        ),
+      );
+    });
+  });
+
+  test(
+      'a sign-out interrupted before the namespace is retired repairs itself '
+      'on the next boot', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    // The node suspend sits between the bearer clear and the namespace clear.
+    // A throw here is the same window a process death would open.
+    final runtime = _RuntimeProbe(
+      suspendNodeBehaviour: () async => throw StateError('node stuck'),
+    );
+    final controller = _controller(tokenStore, reset, runtime: runtime);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    await expectLater(
+      controller.logout(expectedIdentity: controller.state),
+      throwsA(isA<StateError>()),
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(await tokenStore.read(), isNull, reason: 'the bearer is gone');
+    expect(prefs.getString('testnet:identity:namespace'), isNotNull,
+        reason: 'the namespace retirement never ran');
+    expect(prefs.getBool('testnet:identity:signout_pending'), isTrue);
+
+    // Without the fence this cold boot would resolve the interrupted user's
+    // active account and publish it as a locally-signable identity.
+    final coldReset = _TerminalResetProbe(tokenStore);
+    final coldRuntime = _RuntimeProbe();
+    final coldController =
+        _controller(tokenStore, coldReset, runtime: coldRuntime);
+    addTearDown(coldController.dispose);
+    await coldController.restore();
+
+    expect(coldReset.reasons, isEmpty);
+    expect(coldController.state.phase, IdentityPhase.unauthenticated);
+    expect(coldController.state.accountId, isNull);
+    expect(coldController.state.address, isNull);
+    expect(coldController.state.allowsSigning, isFalse);
+    final coldPrefs = await SharedPreferences.getInstance();
+    expect(coldPrefs.getString('testnet:identity:namespace'), isNull);
+    expect(coldPrefs.getBool('testnet:identity:signout_pending'), isNull);
+  });
+
+  test('an interrupted sign-out is completed even when the bearer survived it',
+      () async {
+    // The fence is durable BEFORE the bearer clear, so a crash in that first
+    // window leaves the token, the namespace AND the fence behind.
+    FlutterSecureStorage.setMockInitialValues({
+      'auth:v3:session_token': 'token-a',
+    });
+    SharedPreferences.setMockInitialValues({
+      'testnet:identity:namespace': _namespaceFor(1),
+      'testnet:identity:signout_pending': true,
+    });
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final runtime = _RuntimeProbe();
+    final controller = _controller(tokenStore, reset, runtime: runtime);
+    addTearDown(controller.dispose);
+
+    await controller.restore();
+
+    expect(reset.reasons, isEmpty);
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(await tokenStore.read(), isNull,
+        reason: 'a fenced sign-out is completed, not resumed as a session');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('testnet:identity:namespace'), isNull);
+    expect(prefs.getBool('testnet:identity:signout_pending'), isNull);
+  });
+
+  test('a registry with no identity namespace is retired rather than retained',
+      () async {
+    // A session whose payload carried no (or a malformed) `identity_hash`
+    // leaves its accounts on the shared, unnamespaced keys.
+    _seedReadyIdentity();
+    final seeded = await SharedPreferences.getInstance();
+    final index = seeded.getString('testnet:accounts:index');
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': index!,
+      'testnet:accounts:activeId': 'account-a',
+      'testnet:acct:${NetworkPrefs.bucketForAddress('ut1readyaccount')}:'
+          'identity:lifecycle_ownership_confirmed': true,
+      'testnet:acct:${NetworkPrefs.bucketForAddress('ut1readyaccount')}:'
+          'leaderboard:participant_id': 1,
+    });
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
+    addTearDown(controller.dispose);
+    await controller.restore();
+    expect(controller.state.phase, IdentityPhase.ready);
+
+    expect(await controller.logout(expectedIdentity: controller.state), isTrue);
+
+    // Retaining it would republish this user's wallet as a signable
+    // local-only account and hand it to the next null-namespace identity.
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('testnet:accounts:index'), isNull);
+    expect(prefs.getString('testnet:accounts:activeId'), isNull);
+    expect(controller.state.accountId, isNull);
+    expect(controller.state.allowsSigning, isFalse);
+    expect(reset.reasons, isEmpty);
+  });
+
+  test('a namespaced registry is kept across a sign-out', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    expect(await controller.logout(expectedIdentity: controller.state), isTrue);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString('testnet:user:${_namespaceFor(1)}:accounts:index'),
+      isNotNull,
+      reason: 'segregation is proven, so the wallet survives',
+    );
+    expect(controller.state.allowsSigning, isFalse);
   });
 
   test('a missing current credential enters the terminal logout reset',

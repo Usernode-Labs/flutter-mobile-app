@@ -704,6 +704,27 @@ class AppSleepService extends ChangeNotifier {
   /// Permanently cancels process-local sleep/wake work for terminal reset.
   /// No transition is drained because reset deliberately does not wait for
   /// runtime retirement.
+  /// Quiesces the wake/sleep machinery for a scoped sign-out.
+  ///
+  /// The reversible twin of [closeForTerminalReset]: everything it does
+  /// except the one-way latch and the user's automatic-sleep preference,
+  /// which belongs to the device rather than to the retired session. The
+  /// resume flags are the reason this is needed — they were captured while
+  /// the signed-out user's node was running, and would otherwise restart the
+  /// node and epoch monitoring on the next wake.
+  void closeForSignOut() {
+    if (_terminalResetRequested) return;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _scheduledWakeTimer?.cancel();
+    _scheduledWakeTimer = null;
+    _wakelockMonitorTimer?.cancel();
+    _wakelockMonitorTimer = null;
+    _resumeNodeOnWake = false;
+    _resumeEpochMonitoringOnWake = false;
+    _awaitingInactivityAfterWakelockRelease = false;
+  }
+
   void closeForTerminalReset() {
     _terminalResetRequested = true;
     _isEnabled = false;

@@ -169,8 +169,55 @@ mixin _BridgeTxRecords on _DappWebViewScreenStateBase {
   static const _maxPersistedIds = 200;
   static const _maxTxRecords = 500;
 
-  String get _dappTxIdsPrefsKey => 'dapp_tx_ids:${widget.url}';
-  String get _txRecordsPrefsKey => 'tx_records:${widget.url}';
+  /// The identity bucket these receipts belong to, captured when the store was
+  /// bound (see [_bindTxRecordsToActiveIdentity]) rather than resolved per
+  /// access — a save that lands after a sign-out must still address the
+  /// records it loaded.
+  String? _recordsBucket;
+
+  static const _dappTxIdsKeyBase = 'dapp_tx_ids';
+  static const _txRecordsKeyBase = 'tx_records';
+
+  /// Receipts carry sender, recipient, amount, memo, status and timing, so
+  /// they are account-scoped state, not per-URL state. Keying them by URL
+  /// alone (as they were) meant every replacement WebView on the same URL
+  /// loaded them, and `getTransactionRecords` handed the previous user's
+  /// transfers to whoever signed in next.
+  String _recordsKey(String base) => NetworkPrefs.prefixAccountKeyFor(
+        '$base:${widget.url}',
+        _recordsBucket ?? NetworkPrefs.activeBucket,
+      );
+
+  String get _dappTxIdsPrefsKey => _recordsKey(_dappTxIdsKeyBase);
+  String get _txRecordsPrefsKey => _recordsKey(_txRecordsKeyBase);
+
+  /// Points the in-memory receipt maps at the bucket that owns the app right
+  /// now, reloading from scratch when the identity changed. Called on mount
+  /// and from the identity listener, so a sign-out empties the maps before the
+  /// next identity can read them out of memory.
+  Future<void> _bindTxRecordsToActiveIdentity() async {
+    final bucket = NetworkPrefs.activeBucket;
+    if (_recordsBucket == bucket) return;
+    _recordsBucket = bucket;
+    _confirmPoller?.cancel();
+    _confirmPoller = null;
+    _dappTxIds.clear();
+    _txRecords.clear();
+    await _removeUnbucketedRecords();
+    await _loadDappTxIds();
+    await _loadTxRecords();
+    if (mounted) setState(() {});
+  }
+
+  /// Drops the pre-bucket keys. They belong to a user this app can no longer
+  /// identify, so they are removed rather than adopted by whoever opens the
+  /// dapp first.
+  Future<void> _removeUnbucketedRecords() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final base in const [_dappTxIdsKeyBase, _txRecordsKeyBase]) {
+      await prefs.remove('$base:${widget.url}');
+    }
+  }
 
   Future<void> _loadDappTxIds() async {
     final prefs = await SharedPreferences.getInstance();

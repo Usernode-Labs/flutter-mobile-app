@@ -611,6 +611,15 @@ class EpochSlotSchedulerService {
     }
   }
 
+  /// Stands the scheduler down for a scoped sign-out: monitoring stops and
+  /// every slot alarm the retired session scheduled is cancelled, but the
+  /// scheduler stays initialized so the next session can schedule again.
+  Future<void> closeForSignOut() async {
+    if (_terminalResetRequested) return;
+    stopEpochMonitoring();
+    await cancelAllSlots();
+  }
+
   /// Permanently closes the scheduler for this application process.
   void closeForTerminalReset() {
     _terminalResetRequested = true;

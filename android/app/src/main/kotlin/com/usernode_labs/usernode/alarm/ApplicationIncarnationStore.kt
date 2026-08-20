@@ -38,6 +38,24 @@ class ApplicationIncarnationStore(context: Context) {
         return captured != null && current != null && captured == current
     }
 
+    /**
+     * Retires the current token and issues a fresh one.
+     *
+     * The reversible twin of [invalidate], for the one boundary that keeps the
+     * process alive: a scoped sign-out. Durable work scheduled by the retired
+     * session no longer [matches], while this process can keep scheduling
+     * under the returned token. Returns null once a terminal reset has latched
+     * the store shut.
+     */
+    fun rotate(): String? = synchronized(lock) {
+        if (terminalResetRequested) return@synchronized null
+        UUID.randomUUID().toString().also { created ->
+            check(prefs.edit().putString(TOKEN_KEY, created).commit()) {
+                "Could not persist the rotated application incarnation"
+            }
+        }
+    }
+
     fun invalidate(): Boolean = synchronized(lock) {
         terminalResetRequested = true
         prefs.edit().remove(TOKEN_KEY).commit()

@@ -1,9 +1,12 @@
+import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
+
 class Participant {
   const Participant({
     required this.id,
     required this.email,
     required this.emailConfirmed,
     this.displayName,
+    this.identityHash,
   });
 
   final int id;
@@ -11,12 +14,20 @@ class Participant {
   final bool emailConfirmed;
   final String? displayName;
 
+  /// The server-issued namespace this user's local storage is prefixed with
+  /// (`sha256(id + email)`, 16 hex characters). Stable for the life of the
+  /// account, so two users sharing a device never read each other's local
+  /// accounts. Null against a server that predates the field — the app then
+  /// keeps using the unnamespaced legacy keys.
+  final String? identityHash;
+
   factory Participant.fromJson(Map<String, dynamic> json) => Participant(
         id: (json['id'] as num).toInt(),
         // Username-only platform accounts legitimately have no email.
         email: json['email']?.toString() ?? '',
         emailConfirmed: json['email_confirmed'] == true,
         displayName: json['display_name'] as String?,
+        identityHash: normalizeIdentityHash(json['identity_hash']),
       );
 }
 

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
+import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -35,18 +36,73 @@ class AccountsRepository {
   final SharedPreferences _prefs;
   final String _network;
 
-  // Network-prefixed keys
-  String get _kIndexKey => NetworkPrefs.prefixKeyWith(_kIndexKeyBase, _network);
-  String get _kActiveIdKey =>
-      NetworkPrefs.prefixKeyWith(_kActiveIdKeyBase, _network);
+  /// The signed-in user's storage namespace, or null before any session
+  /// exists. The registry cannot be bucket-scoped — the bucket is derived from
+  /// an account's address and the registry is what resolves which account that
+  /// is — so this server-issued, address-independent namespace is what keeps
+  /// two users on one device from reading each other's accounts.
+  final String? _identityNamespace;
 
-  AccountsRepository._(this._secure, this._prefs, this._network);
+  // Network-prefixed keys, additionally namespaced to the signed-in user once
+  // one is known.
+  String get _kIndexKey => _userKey(_kIndexKeyBase);
+  String get _kActiveIdKey => _userKey(_kActiveIdKeyBase);
+
+  String _userKey(String base) => NetworkPrefs.prefixKeyWith(
+        _identityNamespace == null ? base : 'user:$_identityNamespace:$base',
+        _network,
+      );
+
+  AccountsRepository._(
+    this._secure,
+    this._prefs,
+    this._network,
+    this._identityNamespace,
+  );
 
   static Future<AccountsRepository> create() async {
     final prefs = await SharedPreferences.getInstance();
     const secure = FlutterSecureStorage();
     final network = await NetworkPrefs.getNetwork();
-    return AccountsRepository._(secure, prefs, network);
+    final repository = AccountsRepository._(
+      secure,
+      prefs,
+      network,
+      readIdentityNamespaceIn(prefs, network),
+    );
+    await repository._adoptLegacyRegistry();
+    return repository;
+  }
+
+  /// Claims the pre-namespace registry for the signed-in user, once.
+  ///
+  /// Installs that predate the namespace hold their accounts under the bare
+  /// network-prefixed keys. The first authenticated read moves them into that
+  /// user's namespace and removes the legacy copy — leaving it behind would
+  /// hand the same accounts to whoever signs in next, which is exactly the
+  /// segregation the namespace exists to provide.
+  ///
+  /// The destination is written before the source is removed, so an
+  /// interrupted migration leaves the accounts readable under one key or the
+  /// other, never neither.
+  Future<void> _adoptLegacyRegistry() async {
+    if (_identityNamespace == null) return;
+    if (_prefs.getString(_kIndexKey) != null) return;
+    final legacyIndexKey = NetworkPrefs.prefixKeyWith(_kIndexKeyBase, _network);
+    final legacyIndex = _prefs.getString(legacyIndexKey);
+    if (legacyIndex == null) return;
+
+    final legacyActiveIdKey =
+        NetworkPrefs.prefixKeyWith(_kActiveIdKeyBase, _network);
+    final legacyActiveId = _prefs.getString(legacyActiveIdKey);
+    _log.info('Adopting the pre-namespace account registry for this user');
+
+    await _prefs.setString(_kIndexKey, legacyIndex);
+    if (legacyActiveId != null) {
+      await _prefs.setString(_kActiveIdKey, legacyActiveId);
+    }
+    await _prefs.remove(legacyIndexKey);
+    await _prefs.remove(legacyActiveIdKey);
   }
 
   Future<bool> hasAny() async {

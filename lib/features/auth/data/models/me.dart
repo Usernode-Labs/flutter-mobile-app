@@ -1,3 +1,5 @@
+import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
+
 /// The authenticated participant profile returned by `GET /api/v3/mobile/me`.
 class Me {
   const Me({
@@ -11,6 +13,7 @@ class Me {
     this.bpReleased = false,
     this.github,
     this.x,
+    this.identityHash,
   });
 
   final int id;
@@ -34,6 +37,11 @@ class Me {
   final String? github;
   final String? x;
 
+  /// The server-issued namespace this user's local storage is prefixed with.
+  /// See [Participant.identityHash] and
+  /// `lib/core/identity/identity_namespace_store.dart`.
+  final String? identityHash;
+
   factory Me.fromJson(Map<String, dynamic> json) => Me(
         id: (json['id'] as num).toInt(),
         // Username-only platform accounts legitimately have no email.
@@ -46,5 +54,6 @@ class Me {
         bpReleased: json['bp_released'] == true,
         github: json['github'] as String?,
         x: json['x'] as String?,
+        identityHash: normalizeIdentityHash(json['identity_hash']),
       );
 }

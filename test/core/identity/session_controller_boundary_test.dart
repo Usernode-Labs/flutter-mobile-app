@@ -71,12 +71,18 @@ class _TerminalResetProbe {
   }
 }
 
+/// A 16-hex namespace shaped like the server's `identity_hash`, distinct per
+/// participant.
+String _namespaceFor(int participantId) =>
+    participantId.toString().padLeft(16, 'a');
+
 AuthSession _session(String token, int participantId) => AuthSession(
       token: token,
       participant: Participant(
         id: participantId,
         email: '$participantId@example.com',
         emailConfirmed: true,
+        identityHash: _namespaceFor(participantId),
       ),
     );
 
@@ -157,6 +163,10 @@ void main() {
       prefs.getInt('testnet:acct:guest:leaderboard:participant_id'),
       2,
     );
+    // The storage namespace is part of the crash-recovery payload: a
+    // boot-restorable token must resolve THIS user's account registry, never
+    // the previous one's.
+    expect(prefs.getString('testnet:identity:namespace'), _namespaceFor(2));
     expect(controller.state.phase, IdentityPhase.reconciling);
     expect(controller.state.participantId, 2);
 

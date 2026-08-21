@@ -23,6 +23,12 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
+# JNI uses conventional symbol lookup, so the declaring class and native
+# method names must remain stable in minified builds.
+-keepclasseswithmembernames class com.usernode_labs.usernode.session.SessionAuthorityNative {
+    native <methods>;
+}
+
 # Ignore missing Play Core classes (not used in this app)
 -dontwarn com.google.android.play.core.**
 -dontwarn io.flutter.embedding.engine.deferredcomponents.PlayStoreDeferredComponentManager

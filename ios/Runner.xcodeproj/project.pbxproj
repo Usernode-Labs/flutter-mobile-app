@@ -25,6 +25,7 @@
 		0AE10022000000000000C0DE /* PinnedDappIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10020000000000000C0DE /* PinnedDappIntents.swift */; };
 		0AE10026000000000000C0DE /* ShortcutIconFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10028000000000000C0DE /* ShortcutIconFile.swift */; };
 		0AE10027000000000000C0DE /* ShortcutIconFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10028000000000000C0DE /* ShortcutIconFile.swift */; };
+		0AE1002A000000000000C0DE /* SessionAuthorityNative.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10029000000000000C0DE /* SessionAuthorityNative.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,6 +103,7 @@
 		0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeShortcutsChannel.swift; sourceTree = "<group>"; };
 		0AE10020000000000000C0DE /* PinnedDappIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedDappIntents.swift; sourceTree = "<group>"; };
 		0AE10028000000000000C0DE /* ShortcutIconFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutIconFile.swift; sourceTree = "<group>"; };
+		0AE10029000000000000C0DE /* SessionAuthorityNative.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionAuthorityNative.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -199,6 +201,7 @@
 				0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */,
 				0AE10020000000000000C0DE /* PinnedDappIntents.swift */,
 				0AE10028000000000000C0DE /* ShortcutIconFile.swift */,
+				0AE10029000000000000C0DE /* SessionAuthorityNative.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -513,6 +516,7 @@
 				0AE10015000000000000C0DE /* HomeShortcutsChannel.swift in Sources */,
 				0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */,
 				0AE10026000000000000C0DE /* ShortcutIconFile.swift in Sources */,
+				0AE1002A000000000000C0DE /* SessionAuthorityNative.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -19,6 +19,16 @@ typedef ObservabilityRecordFn = FlutterObservabilityRecordResult Function({
   String? payloadJson,
 });
 
+typedef SessionAuthorityAdmissionJsonFn = String Function({
+  required String directory,
+});
+
+typedef SessionAuthorityBootstrapLoggedOutFn = String Function({
+  required String directory,
+  required String network,
+  required String sessionId,
+});
+
 @Tags(['frb', 'smoke'])
 void main() {
   group('FRB compile contract (no-load)', () {
@@ -36,6 +46,18 @@ void main() {
 
     test('observabilityRecord has expected signature', () {
       ObservabilityRecordFn f = observabilityRecord;
+      expect(f, isNotNull);
+    });
+
+    test('session authority admission is a synchronous Rust-owned read', () {
+      SessionAuthorityAdmissionJsonFn f = sessionAuthorityAdmissionJson;
+      expect(f, isNotNull);
+    });
+
+    test('session authority bootstrap is a synchronous Rust-owned mutation',
+        () {
+      SessionAuthorityBootstrapLoggedOutFn f =
+          sessionAuthorityBootstrapLoggedOut;
       expect(f, isNotNull);
     });
   });

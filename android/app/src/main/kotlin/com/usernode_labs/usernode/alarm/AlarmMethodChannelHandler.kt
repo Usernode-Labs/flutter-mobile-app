@@ -179,6 +179,9 @@ class AlarmMethodChannelHandler(context: Context) {
             "clearWebSessionData" -> {
                 clearWebSessionData(result)
             }
+            "clearLegacySessionAuthority" -> {
+                result.success(clearLegacySessionAuthority())
+            }
             "clearNativeResetState" -> {
                 result.success(clearNativeResetState())
             }
@@ -522,6 +525,37 @@ class AlarmMethodChannelHandler(context: Context) {
             Log.e(TAG, "Failed to clear session notifications", error)
             false
         }
+    }
+
+    /**
+     * Repeats the one-time pre-journal cleanup without touching user data.
+     *
+     * Unlike terminal reset this deliberately preserves account preferences,
+     * background audit counters and every app-owned file. Journal absence is
+     * the retry marker, so each operation must be safe to replay.
+     */
+    private fun clearLegacySessionAuthority(): Boolean {
+        var durableStateCleared =
+            alarmScheduler.cancelAllAlarms("legacy_authority_migration")
+        durableStateCleared =
+            AlarmWatchdogScheduler.cancel(appContext) && durableStateCleared
+        durableStateCleared =
+            foregroundServiceManager.stopForegroundService() && durableStateCleared
+        appContext.stopService(Intent(appContext, SlotMonitoringService::class.java))
+        NativeWakeLockManager.release()
+        (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .cancelAll()
+        for (name in listOf("alarm_prefs", "alarm_watchdog_prefs")) {
+            durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit() && durableStateCleared
+        }
+        durableStateCleared =
+            applicationIncarnationStore.clear() && durableStateCleared
+        flutterAlarmEventBuffer.clear()
+        BackgroundAlarmEngine.destroyCachedEngine("legacy_authority_migration")
+        return durableStateCleared
     }
 
     private fun clearNativeResetState(): Boolean {

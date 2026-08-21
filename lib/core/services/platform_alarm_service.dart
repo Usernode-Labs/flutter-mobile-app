@@ -1773,6 +1773,18 @@ class PlatformAlarmService {
         false;
   }
 
+  /// Replays the authority-only native cleanup used while the Rust journal is
+  /// absent. This is callable before [initialize] so initialization cannot
+  /// mint a legacy application-incarnation token ahead of the new journal.
+  Future<bool> clearLegacySessionAuthority() async {
+    _applicationIncarnation = null;
+    if (!_isAndroid && !_isIOS) return true;
+    return await _channel
+            .invokeMethod<bool>('clearLegacySessionAuthority')
+            .timeout(const Duration(seconds: 5)) ??
+        false;
+  }
+
   Future<bool> clearNativeResetState() async {
     if (!_isAndroid && !_isIOS) return true;
     return await _channel.invokeMethod<bool>('clearNativeResetState') ?? false;

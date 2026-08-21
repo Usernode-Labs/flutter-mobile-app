@@ -51,6 +51,16 @@ final class ApplicationIncarnationStore {
     return UserDefaults.standard.synchronize() && storedCurrent() == nil
   }
 
+  /// Removes the legacy token without latching this process into terminal
+  /// reset. The pre-journal bootstrap may be retried and the compatibility
+  /// token can be reissued later while the new authority path is cut over.
+  func clearForMigration() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    UserDefaults.standard.removeObject(forKey: Self.defaultsKey)
+    return UserDefaults.standard.synchronize() && storedCurrent() == nil
+  }
+
   /// Retires the current token and issues a fresh one.
   ///
   /// The reversible twin of `invalidate()`, for the one boundary that keeps
@@ -279,6 +289,9 @@ final class ApplicationIncarnationStore {
     case "clearWebSessionData":
       clearWebSessionData(result: result)
 
+    case "clearLegacySessionAuthority":
+      result(clearLegacySessionAuthority())
+
     case "clearNativeResetState":
       result(clearNativeResetState())
 
@@ -497,6 +510,19 @@ final class ApplicationIncarnationStore {
       }
     }
     return nil
+  }
+
+  /// Clears only pre-journal native authority. Account preferences, app-group
+  /// shortcuts, audit counters and files are intentionally retained.
+  private func clearLegacySessionAuthority() -> Bool {
+    if #available(iOS 13.0, *) {
+      bgTaskScheduler.cancelAllBGTasks()
+    }
+    endTransientBackgroundTask()
+    let center = UNUserNotificationCenter.current()
+    center.removeAllPendingNotificationRequests()
+    center.removeAllDeliveredNotifications()
+    return ApplicationIncarnationStore.shared.clearForMigration()
   }
 
   private func clearNativeResetState() -> Bool {

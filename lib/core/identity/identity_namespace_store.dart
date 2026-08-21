@@ -50,17 +50,22 @@ String? readIdentityNamespaceIn(SharedPreferences prefs, String network) =>
 /// inside the login transition, before the session token becomes
 /// boot-restorable, so a crash can never leave a restorable session pointing
 /// at the previous user's registry.
-Future<void> saveIdentityNamespace(String? identityHash) async {
+/// Returns whether the namespace is now exactly [identityHash]. Verified by
+/// re-reading rather than trusting the write result: this value decides which
+/// user's account registry resolves, so a silently dropped write must be
+/// visible to the caller instead of being assumed.
+Future<bool> saveIdentityNamespace(String? identityHash) async {
   final prefs = await SharedPreferences.getInstance();
   final normalized = normalizeIdentityHash(identityHash);
-  if (normalized == null) {
-    await prefs.remove(_key());
-    return;
-  }
+  if (normalized == null) return clearIdentityNamespace();
   await prefs.setString(_key(), normalized);
+  return normalizeIdentityHash(prefs.getString(_key())) == normalized;
 }
 
-Future<void> clearIdentityNamespace() async {
+/// Returns whether the namespace is now absent. See [saveIdentityNamespace]
+/// for why this is verified rather than assumed.
+Future<bool> clearIdentityNamespace() async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.remove(_key());
+  return prefs.getString(_key()) == null;
 }

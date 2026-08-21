@@ -19,6 +19,45 @@ HttpLogEntry _entry({
 }
 
 void main() {
+  group('identity-boundary generation', () {
+    setUp(HttpDebugLogStore.instance.clear);
+
+    test('an exchange that began before the boundary is not recorded after it',
+        () {
+      final store = HttpDebugLogStore.instance;
+      // `LoggingHttpClient.send` appends only after awaiting transport AND
+      // body bytes, so a slow response for the signed-out user can land well
+      // after the buffer was cleared — and repopulate it for the next user.
+      final captured = store.generation;
+      store.add(_entry(url: 'https://api.example.com/a'));
+      expect(store.entries, hasLength(1));
+
+      store.clearForIdentityBoundary();
+      store.add(_entry(url: 'https://api.example.com/slow'),
+          generation: captured);
+
+      expect(store.entries, isEmpty);
+      expect(store.entriesAdded(0), isEmpty);
+    });
+
+    test('an exchange that began after the boundary is recorded', () {
+      final store = HttpDebugLogStore.instance;
+      store.clearForIdentityBoundary();
+      final captured = store.generation;
+
+      store.add(_entry(url: 'https://api.example.com/b'), generation: captured);
+
+      expect(store.entries, hasLength(1));
+    });
+
+    test('a producer that passes no generation is unaffected', () {
+      final store = HttpDebugLogStore.instance;
+      store.clearForIdentityBoundary();
+      store.add(_entry(url: 'https://api.example.com/c'));
+      expect(store.entries, hasLength(1));
+    });
+  });
+
   group('redactHeaders', () {
     test('masks sensitive headers case-insensitively, keeps the rest', () {
       final redacted = redactHeaders({

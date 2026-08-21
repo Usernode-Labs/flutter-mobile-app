@@ -59,11 +59,16 @@ class NodeLifecycleCoordinator {
     void Function()? disableWatchdogRecovery,
     void Function({required String reason})? auditBestEffort,
     Future<void> Function()? onNodeStarted,
-    Future<void> Function({required String reason})? stopMonitoring,
+    Future<void> Function({
+      required String reason,
+      bool destroyBackgroundEngine,
+    })? stopMonitoring,
     Future<void> Function()? cancelAllAlarms,
     Future<void> Function()? cancelAlarmWatchdog,
     bool Function()? isAndroid,
     Future<bool> Function()? isDelegated,
+    void Function()? retireProducerLeases,
+    Future<void> Function()? settleAudit,
   })  : _startBackend =
             startBackend ?? (() => RustBackendService.instance.startNode()),
         _restartBackend =
@@ -86,9 +91,14 @@ class NodeLifecycleCoordinator {
         _onNodeStarted = onNodeStarted ??
             (() => AndroidForegroundTaskController.instance.onNodeStarted()),
         _stopMonitoring = stopMonitoring ??
-            (({required String reason}) => AndroidForegroundTaskController
-                .instance
-                .stopMonitoring(reason: reason)),
+            (({
+              required String reason,
+              bool destroyBackgroundEngine = true,
+            }) =>
+                AndroidForegroundTaskController.instance.stopMonitoring(
+                  reason: reason,
+                  destroyBackgroundEngine: destroyBackgroundEngine,
+                )),
         _cancelAllAlarms = cancelAllAlarms ??
             (() => PlatformAlarmService.instance.cancelAllAlarms()),
         _cancelAlarmWatchdog = cancelAlarmWatchdog ??
@@ -96,7 +106,12 @@ class NodeLifecycleCoordinator {
         _isAndroid = isAndroid ??
             (() => defaultTargetPlatform == TargetPlatform.android),
         _isDelegated = isDelegated ??
-            (() => StakingPreferenceStore.active().isDelegated());
+            (() => StakingPreferenceStore.active().isDelegated()),
+        _retireProducerLeases = retireProducerLeases ??
+            (() => AndroidForegroundTaskController.instance
+                .retireMonitoringSession()),
+        _settleAudit = settleAudit ??
+            (() => BlockProductionAlarmAuditService.instance.settle());
 
   static NodeLifecycleCoordinator instance = NodeLifecycleCoordinator();
 
@@ -109,11 +124,23 @@ class NodeLifecycleCoordinator {
   final void Function() _disableWatchdogRecovery;
   final void Function({required String reason}) _auditBestEffort;
   final Future<void> Function() _onNodeStarted;
-  final Future<void> Function({required String reason}) _stopMonitoring;
+  final Future<void> Function({
+    required String reason,
+    bool destroyBackgroundEngine,
+  }) _stopMonitoring;
   final Future<void> Function() _cancelAllAlarms;
   final Future<void> Function() _cancelAlarmWatchdog;
   final bool Function() _isAndroid;
   final Future<bool> Function() _isDelegated;
+
+  /// Retires in-flight producer leases synchronously, so a continuation
+  /// already past its admission check stops short of its remaining effects.
+  final void Function() _retireProducerLeases;
+
+  /// Waits for an in-flight watchdog audit to finish. The audit re-checks the
+  /// lifecycle generation before each of its own effects, but the teardown
+  /// must not cancel alarms while one is still mid-schedule.
+  final Future<void> Function() _settleAudit;
 
   // ── Facts ────────────────────────────────────────────────────────────
   bool _hasAccount = false;
@@ -232,8 +259,15 @@ class NodeLifecycleCoordinator {
     if (!_acceptingRuntimeWork) return Future.value();
     _hasAccount = false;
     _intent = PlatformNodeIntent.unset;
+    // Synchronous, before any await: work already admitted under the retired
+    // identity must find its lease invalid at its next effect point rather
+    // than racing the teardown below.
+    _retireProducerLeases();
     return _serialized(() async {
-      await _reconcile(reason: reason);
+      // Never destroys the background engine: this boundary can run inside it
+      // (a headless boot repairing an interrupted sign-out), and the native
+      // stop would otherwise tear down its own caller mid-teardown.
+      await _tearDownRuntime(reason: reason, destroyBackgroundEngine: false);
     });
   }
 
@@ -246,6 +280,7 @@ class NodeLifecycleCoordinator {
     _acceptingRuntimeWork = false;
     _hasAccount = false;
     _intent = PlatformNodeIntent.unset;
+    _retireProducerLeases();
     _disableWatchdogRecovery();
   }
 
@@ -317,10 +352,21 @@ class NodeLifecycleCoordinator {
     return running;
   }
 
-  Future<void> _tearDownRuntime({required String reason}) async {
+  Future<void> _tearDownRuntime({
+    required String reason,
+    bool destroyBackgroundEngine = true,
+  }) async {
     if (_isAndroid()) {
+      // Recovery first: disabling it bumps the audit's lifecycle generation,
+      // so an audit already running fails its own re-checks from here on.
       _disableWatchdogRecovery();
-      await _stopMonitoring(reason: reason);
+      await _stopMonitoring(
+        reason: reason,
+        destroyBackgroundEngine: destroyBackgroundEngine,
+      );
+      // Drain before the cancellations, so a mid-flight audit cannot schedule
+      // an alarm after they have run.
+      await _settleAudit();
     }
     await _stopBackend();
     if (_isAndroid()) {

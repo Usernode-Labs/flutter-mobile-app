@@ -191,6 +191,17 @@ mixin _BridgeTxRecords on _DappWebViewScreenStateBase {
   String get _dappTxIdsPrefsKey => _recordsKey(_dappTxIdsKeyBase);
   String get _txRecordsPrefsKey => _recordsKey(_txRecordsKeyBase);
 
+  /// The bucket a transaction operation must write its receipt to.
+  ///
+  /// Captured at the START of the operation, because [_recordsBucket] is
+  /// mutable shared state: a send awaits user confirmation and then an RPC, and
+  /// a sign-out during either rebinds the owner to guest/the successor. A
+  /// receipt carries sender, recipient, amount and memo, so it follows the
+  /// identity that made the transaction, not whoever owns the screen when the
+  /// RPC returns.
+  String get _activeRecordsBucket =>
+      _recordsBucket ?? NetworkPrefs.activeBucket;
+
   /// Points the in-memory receipt maps at the bucket that owns the app right
   /// now, reloading from scratch when the identity changed. Called on mount
   /// and from the identity listener, so a sign-out empties the maps before the
@@ -229,7 +240,7 @@ mixin _BridgeTxRecords on _DappWebViewScreenStateBase {
     } catch (_) {}
   }
 
-  Future<void> _saveDappTxIds() async {
+  Future<void> _saveDappTxIds({String? bucket}) async {
     final prefs = await SharedPreferences.getInstance();
     if (_dappTxIds.length > _maxPersistedIds) {
       final sorted =
@@ -244,7 +255,13 @@ mixin _BridgeTxRecords on _DappWebViewScreenStateBase {
         ..clear()
         ..addAll(kept);
     }
-    await prefs.setString(_dappTxIdsPrefsKey, jsonEncode(_dappTxIds.toList()));
+    await prefs.setString(
+      bucket == null
+          ? _dappTxIdsPrefsKey
+          : NetworkPrefs.prefixAccountKeyFor(
+              '$_dappTxIdsKeyBase:${widget.url}', bucket),
+      jsonEncode(_dappTxIds.toList()),
+    );
   }
 
   Future<void> _loadTxRecords() async {
@@ -260,7 +277,7 @@ mixin _BridgeTxRecords on _DappWebViewScreenStateBase {
     } catch (_) {}
   }
 
-  Future<void> _saveTxRecords() async {
+  Future<void> _saveTxRecords({String? bucket}) async {
     final prefs = await SharedPreferences.getInstance();
     final entries = _txRecords.entries.toList()
       ..sort((a, b) => b.value.sentAt.compareTo(a.value.sentAt));
@@ -275,7 +292,13 @@ mixin _BridgeTxRecords on _DappWebViewScreenStateBase {
       _txRecords.removeWhere((k, _) => !kept.contains(k));
     }
 
-    await prefs.setString(_txRecordsPrefsKey, jsonEncode(map));
+    await prefs.setString(
+      bucket == null
+          ? _txRecordsPrefsKey
+          : NetworkPrefs.prefixAccountKeyFor(
+              '$_txRecordsKeyBase:${widget.url}', bucket),
+      jsonEncode(map),
+    );
   }
 
   // Stamp a tx with the wall-clock time the dapp's bridge first observed
@@ -336,11 +359,52 @@ mixin _BridgeTxRecords on _DappWebViewScreenStateBase {
     await _saveTxRecords();
   }
 
-  void _addRecord(_TxRecord record) {
-    _dappTxIds.add(record.id);
-    _txRecords[record.id] = record;
-    _saveDappTxIds();
-    _saveTxRecords();
+  /// Persists [record] into [bucket] — the bucket captured when the operation
+  /// STARTED (see [_activeRecordsBucket]).
+  ///
+  /// The in-memory maps are only updated when that bucket is still the bound
+  /// one; otherwise the receipt is written to its owner's bucket and left out
+  /// of the successor's view.
+  void _addRecord(_TxRecord record, {required String bucket}) {
+    final stillBound = bucket == (_recordsBucket ?? NetworkPrefs.activeBucket);
+    if (stillBound) {
+      _dappTxIds.add(record.id);
+      _txRecords[record.id] = record;
+      _saveDappTxIds(bucket: bucket);
+      _saveTxRecords(bucket: bucket);
+      return;
+    }
+    unawaited(_appendRecordToRetiredBucket(record, bucket));
+  }
+
+  /// Writes a receipt whose owner is no longer the bound identity, without
+  /// letting it touch the live maps.
+  Future<void> _appendRecordToRetiredBucket(
+    _TxRecord record,
+    String bucket,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    final idsKey = NetworkPrefs.prefixAccountKeyFor(
+        '$_dappTxIdsKeyBase:${widget.url}', bucket);
+    final recordsKey = NetworkPrefs.prefixAccountKeyFor(
+        '$_txRecordsKeyBase:${widget.url}', bucket);
+    try {
+      final ids = <String>{
+        ...((jsonDecode(prefs.getString(idsKey) ?? '[]') as List<dynamic>)
+            .cast<String>()),
+        record.id,
+      };
+      final records = <String, dynamic>{
+        ...((jsonDecode(prefs.getString(recordsKey) ?? '{}')
+            as Map<String, dynamic>)),
+        record.id: record.toJson(),
+      };
+      await prefs.setString(idsKey, jsonEncode(ids.toList()));
+      await prefs.setString(recordsKey, jsonEncode(records));
+    } catch (_) {
+      // A receipt is a convenience record; a corrupt store must not fail the
+      // transaction that produced it.
+    }
   }
 
   /// Returns this webview's persisted dapp-transaction receipts (the same

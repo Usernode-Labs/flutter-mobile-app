@@ -222,6 +222,22 @@ class ZkPassportFlowController {
       }
     }
 
+    // WHO is launching, captured before the first await. Everything below
+    // reads this identity's wallet and binds a server session to its public
+    // key, but the calls in between (session start, launch) are unbounded
+    // network time — a sign-out plus a new login inside that window would
+    // otherwise have `markLaunchStarted` stamp the SUCCESSOR's identity onto
+    // A's server session, and every later scope check would then accept the
+    // wrong owner.
+    final launchIdentity = IdentitySnapshots.current;
+    if (!launchIdentity.allowsSigning) {
+      return const ZkPassportLaunchResult(
+        started: false,
+        requestId: null,
+        message: 'No signed-in account available.',
+      );
+    }
+
     final accounts = await AccountsRepository.create();
     final active = await accounts.getActive();
     if (active == null) {
@@ -229,6 +245,14 @@ class ZkPassportFlowController {
         started: false,
         requestId: null,
         message: 'No active account available.',
+      );
+    }
+    if (!launchIdentity.sameScopeAs(IdentitySnapshots.current) ||
+        active.address != launchIdentity.address) {
+      return const ZkPassportLaunchResult(
+        started: false,
+        requestId: null,
+        message: 'The signed-in account changed; please try again.',
       );
     }
     final userPublicKey = active.publicKey;
@@ -298,10 +322,26 @@ class ZkPassportFlowController {
       );
     }
 
+    // Effect point: the server session above is bound to `launchIdentity`'s
+    // wallet and public key, so it is persisted under THAT identity or not at
+    // all.
+    if (!launchIdentity.sameScopeAs(IdentitySnapshots.current)) {
+      _log.warn(
+        'Discarding a zkPassport session whose launching identity was '
+        'replaced while the session server was answering',
+        context: {'requestId': requestId},
+      );
+      return const ZkPassportLaunchResult(
+        started: false,
+        requestId: null,
+        message: 'The signed-in account changed; please try again.',
+      );
+    }
     await pipelineController.markLaunchStarted(
       requestId: requestId,
       facematchStrict: facematchStrict,
       userPublicKey: userPublicKey,
+      launchIdentity: launchIdentity,
     );
 
     final launchService = _ref.read(zkPassportLaunchServiceProvider);
@@ -509,6 +549,9 @@ class ZkPassportPipelineController
   Future<void> _resetRuntimeSessionOnStartup() async {
     try {
       final persisted = await _runtimeRepo.load();
+      // The container can be rebuilt (or torn down) while this startup read is
+      // in flight — an identity boundary invalidates this provider.
+      if (!mounted) return;
       if (persisted == null) {
         _stopServerPollingWorker();
         _runtimeSession = null;
@@ -639,14 +682,24 @@ class ZkPassportPipelineController
     await _retryPendingCompletion();
   }
 
+  /// [launchIdentity] is the identity that OWNS this session — the one whose
+  /// wallet and public key the caller bound the server session to, captured
+  /// before its first await. It must be passed rather than re-read here: by
+  /// the time the session server answers, the ambient identity may already be
+  /// a successor, and stamping that one on would make every later scope check
+  /// accept the wrong owner.
   Future<void> markLaunchStarted({
     required String requestId,
     required bool facematchStrict,
     required String? userPublicKey,
+    required Identity launchIdentity,
   }) async {
     await _startupResetFuture;
     if (_inFlight) {
       throw StateError('cannot replace an in-flight zkPassport proof');
+    }
+    if (!launchIdentity.sameScopeAs(IdentitySnapshots.current)) {
+      throw StateError('zkPassport launch identity was replaced');
     }
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final requestNonce = _newRequestNonce();
@@ -655,7 +708,6 @@ class ZkPassportPipelineController
     // against these before acting, so a session launched by user A is never
     // resumed, stored, or completed under user B — including across an app
     // restart, which the durable bucket + participant id survive.
-    final launchIdentity = IdentitySnapshots.current;
     final session = ZkPassportRuntimeSession(
       requestId: requestId,
       facematchStrict: facematchStrict,

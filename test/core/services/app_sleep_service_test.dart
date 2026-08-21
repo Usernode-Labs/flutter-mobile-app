@@ -1,9 +1,53 @@
+import 'dart:async';
+
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('a scoped sign-out drops queued transitions and drains the running one',
+      () async {
+    final ran = <String>[];
+    final sleepEntered = Completer<void>();
+    final releaseSleep = Completer<void>();
+    final service = AppSleepService.forTest(
+      idleTimeout: const Duration(minutes: 5),
+      onSleep: (reason) async {
+        ran.add('sleep:${reason.name}');
+        if (!sleepEntered.isCompleted) sleepEntered.complete();
+        await releaseSleep.future;
+      },
+      onWake: (reason) async => ran.add('wake:$reason'),
+      persistSleepState: (_) async {},
+      isWakelockHeld: () async => false,
+      useWakelockTransitionFlow: false,
+    );
+    addTearDown(service.dispose);
+
+    // One transition running, one queued behind it. A wake is the dangerous
+    // one: it re-acquires the wakelock and restarts monitoring.
+    final running = service.sleep(reason: AppSleepReason.idleTimeout);
+    await sleepEntered.future;
+    final queued = service.wake(reason: 'queued');
+
+    var closed = false;
+    final close = service.closeForSignOut().then((_) => closed = true);
+    await Future<void>.delayed(Duration.zero);
+    expect(closed, isFalse,
+        reason: 'the boundary must not report done mid-transition');
+
+    releaseSleep.complete();
+    await running;
+    await queued;
+    await close;
+
+    expect(closed, isTrue);
+    // The queued entry captured the pre-boundary generation and is dropped;
+    // only the one already executing ran.
+    expect(ran, ['sleep:idleTimeout']);
+  });
 
   testWidgets('a scoped sign-out stands the wake machinery down reversibly',
       (tester) async {
@@ -24,7 +68,7 @@ void main() {
     // The sleep service sits outside the node coordinator by design, so the
     // sign-out teardown has to stand it down explicitly: its timers and resume
     // flags were armed while the signed-out user's node was running.
-    service.closeForSignOut();
+    await tester.runAsync(service.closeForSignOut);
     await tester.pump(const Duration(seconds: 5));
     await tester.pump();
 

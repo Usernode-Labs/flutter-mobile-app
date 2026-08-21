@@ -1478,15 +1478,28 @@ class PlatformAlarmService {
   }
 
   /// Stop foreground service (Android only)
-  Future<bool> stopForegroundService() async {
+  ///
+  /// Native `ForegroundServiceManager.stopForegroundService()` destroys the
+  /// cached headless Flutter engine synchronously, BEFORE the method result is
+  /// delivered. When this call originates from Dart running inside that engine
+  /// — a headless boot repairing an interrupted sign-out, for instance — the
+  /// await would never resume and the rest of the boundary would never run.
+  /// Such callers pass [destroyBackgroundEngine] false; the engine is retired
+  /// by the next alarm or activity open instead.
+  Future<bool> stopForegroundService({
+    bool destroyBackgroundEngine = true,
+  }) async {
     if (!_isAndroid) {
       _log.debug('Foreground service is Android-only');
       return false;
     }
 
     try {
-      final success =
-          await _channel.invokeMethod<bool>('stopForegroundService') ?? false;
+      final success = await _channel.invokeMethod<bool>(
+            'stopForegroundService',
+            {'destroyBackgroundEngine': destroyBackgroundEngine},
+          ) ??
+          false;
 
       if (success) {
         _log.info('Foreground service stopped');

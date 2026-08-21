@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
@@ -181,6 +182,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopLogoutRepository(),
       suspendNode: () async {},
+      signOutFence: InMemorySignOutFence(),
       terminalReset: ({required reason, prepareNextLaunch}) =>
           resetService.resetAndTerminate(
         reason: reason,
@@ -327,6 +329,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: AuthRepository(),
       suspendNode: () async {},
+      signOutFence: InMemorySignOutFence(),
       terminalReset: ({required reason, prepareNextLaunch}) async {
         fail('Cold launch unexpectedly requested another reset: $reason');
       },
@@ -363,6 +366,7 @@ void main() {
 
     var clearedWebSessions = 0;
     var clearedNotifications = 0;
+    final signOutFence = InMemorySignOutFence();
     final controller = SessionController(
       tokenStore: AuthTokenStore(),
       guestFlag: AuthGuestFlag(),
@@ -372,6 +376,7 @@ void main() {
         clearedWebSessions += 1;
         return true;
       },
+      signOutFence: signOutFence,
       rotateNativeGeneration: platformAlarms.rotateApplicationIncarnation,
       clearSessionNotifications: () async {
         clearedNotifications += 1;
@@ -412,10 +417,11 @@ void main() {
     expect(clearedWebSessions, 1);
     expect(clearedNotifications, 1);
     expect(
-      prefsAfterSignOut(await SharedPreferences.getInstance()),
-      isNull,
-      reason: 'the crash fence is cleared once the boundary settles',
+      signOutFence.raised,
+      isFalse,
+      reason: 'the crash fence is lowered once the boundary settles',
     );
+    expect(signOutFence.raiseCount, 1);
 
     // The runtime is untouched: same provider graph, same services, same
     // native incarnation. That is the whole difference from a terminal reset —
@@ -482,10 +488,6 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
-
-/// The durable "a sign-out started and has not finished" fence.
-Object? prefsAfterSignOut(SharedPreferences prefs) =>
-    prefs.getBool('testnet:identity:signout_pending');
 
 class _ResetGraphView extends ConsumerWidget {
   const _ResetGraphView();

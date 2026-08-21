@@ -285,7 +285,13 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(success)
             }
             "stopForegroundService" -> {
-                val success = foregroundServiceManager.stopForegroundService()
+                // Defaults to true so every existing caller keeps the old
+                // behaviour; a headless caller that would otherwise destroy its
+                // own engine before this result lands passes false.
+                val destroyBackgroundEngine =
+                    call.argument<Boolean>("destroyBackgroundEngine") ?: true
+                val success =
+                    foregroundServiceManager.stopForegroundService(destroyBackgroundEngine)
                 result.success(success)
             }
             "startPersistentForegroundService" -> {

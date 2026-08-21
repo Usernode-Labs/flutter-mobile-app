@@ -79,12 +79,18 @@ void main() {
         auditBestEffort: ({required String reason}) =>
             calls.add('audit:$reason'),
         onNodeStarted: () async => calls.add('onNodeStarted'),
-        stopMonitoring: ({required String reason}) async =>
-            calls.add('stopMonitoring:$reason'),
+        stopMonitoring: ({
+          required String reason,
+          bool destroyBackgroundEngine = true,
+        }) async =>
+            calls.add('stopMonitoring:$reason'
+                '${destroyBackgroundEngine ? '' : ':keepEngine'}'),
         cancelAllAlarms: () async => calls.add('cancelAllAlarms'),
         cancelAlarmWatchdog: () async => calls.add('cancelWatchdog'),
         isAndroid: () => android,
         isDelegated: () async => delegated,
+        retireProducerLeases: () => calls.add('retireProducerLeases'),
+        settleAudit: () async => calls.add('settleAudit'),
       );
     }
 
@@ -189,6 +195,7 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:platform_stop',
+        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -241,6 +248,7 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:boot',
+        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -273,6 +281,7 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:account_removed',
+        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -322,8 +331,14 @@ void main() {
       // alarm and the alarm watchdog — a `RustBackendService.stopNode()` would
       // have left all but one of these armed for the retired account.
       expect(calls, [
+        // Producer leases are retired synchronously before any of this, so a
+        // continuation already past its admission check stops short.
+        'retireProducerLeases',
         'disableRecovery',
-        'stopMonitoring:identity_boundary',
+        // Never destroys the cached headless engine: this boundary can be
+        // running inside it.
+        'stopMonitoring:identity_boundary:keepEngine',
+        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -393,7 +408,7 @@ void main() {
 
       coordinator.closeForTerminalReset();
 
-      expect(calls, ['disableRecovery']);
+      expect(calls, ['retireProducerLeases', 'disableRecovery']);
       expect(coordinator.acceptingRuntimeWork, isFalse);
       expect(coordinator.hasAccount, isFalse);
       expect(coordinator.intent, PlatformNodeIntent.unset);
@@ -436,6 +451,7 @@ void main() {
 
       expect(calls, [
         'startBackend',
+        'retireProducerLeases',
         'disableRecovery',
       ]);
     });

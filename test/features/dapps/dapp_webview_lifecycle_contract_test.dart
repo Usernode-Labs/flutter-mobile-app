@@ -105,6 +105,36 @@ void main() {
     expect(webview, contains('unawaited(_bindTxRecordsToActiveIdentity());'));
   });
 
+  test('a transaction receipt follows the identity that made it', () async {
+    final wallet = await File(
+      'lib/features/dapps/bridge/dapp_bridge_wallet.dart',
+    ).readAsString();
+    final records = await File(
+      'lib/features/dapps/bridge/dapp_bridge_records.dart',
+    ).readAsString();
+
+    // `_recordsBucket` is rebound on every identity edge, and a send waits on
+    // an unbounded confirmation dialog and then an RPC — reading the owner
+    // after those awaits files A's transfer under guest or under B.
+    final send = wallet.substring(
+      wallet.indexOf('final recordsBucket = _activeRecordsBucket;'),
+    );
+    expect(
+      wallet.indexOf('final recordsBucket = _activeRecordsBucket;'),
+      lessThan(wallet.indexOf('_requestTransactionConfirmation(')),
+    );
+    expect('bucket: recordsBucket'.allMatches(send).length, 3,
+        reason: 'denied, view-only and sent receipts all carry the owner');
+    // Only poll for confirmations while that owner still owns the screen.
+    expect(send, contains('recordsBucket == _activeRecordsBucket'));
+
+    expect(
+        records,
+        contains('void _addRecord(_TxRecord record, '
+            '{required String bucket})'));
+    expect(records, contains('Future<void> _appendRecordToRetiredBucket('));
+  });
+
   test('login admits authenticated services without awaiting a wallet',
       () async {
     final source = await File(

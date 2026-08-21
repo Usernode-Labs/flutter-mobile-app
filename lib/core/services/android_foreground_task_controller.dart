@@ -31,6 +31,16 @@ class AndroidForegroundTaskController {
   Future<void>? _activePoll;
   bool _initialized = false;
   bool _terminalResetRequested = false;
+
+  /// Reversible producer-session fence.
+  ///
+  /// [_terminalResetRequested] is one-way, so it cannot serve an identity
+  /// boundary the process survives. Long operations here capture this at entry
+  /// and re-check it before every effect, so a continuation admitted under the
+  /// signed-out account cannot re-arm monitoring, re-acquire the wakelock, or
+  /// schedule an alarm under the freshly rotated native incarnation after the
+  /// boundary has torn everything down.
+  int _monitoringGeneration = 0;
   bool _wakelockHeld = false;
   AccountPublicKey? _cachedOurPubKey;
   ({int height, DateTime since})? _awaitingOtherProducerState;
@@ -90,12 +100,28 @@ class AndroidForegroundTaskController {
     await startMonitoring(reason: 'node_started');
   }
 
+  /// Retires every producer lease taken so far, so continuations already past
+  /// their admission check stop short of their remaining effects. Reversible:
+  /// the next [startMonitoring] takes a lease on the new generation.
+  void retireMonitoringSession() {
+    _monitoringGeneration += 1;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _alarmRecoveryInFlightKey = null;
+  }
+
+  /// Whether the lease captured as [generation] has been superseded, by the
+  /// one-way terminal fence or by a reversible identity boundary.
+  bool _superseded(int generation) =>
+      _terminalResetRequested || generation != _monitoringGeneration;
+
   Future<bool> startMonitoring({
     String reason = 'manual',
     bool allowWhileSleeping = false,
   }) async {
     if (!Platform.isAndroid) return false;
     if (_terminalResetRequested) return false;
+    final generation = _monitoringGeneration;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Skipping Android monitoring start while app sleep is active',
@@ -104,11 +130,11 @@ class AndroidForegroundTaskController {
       return false;
     }
     await initialize();
-    if (_terminalResetRequested) return false;
+    if (_superseded(generation)) return false;
 
     // Ensure the Rust node is running before polling VRF or scheduling alarms.
     final nodeOk = await _ensureNodeRunning();
-    if (_terminalResetRequested) return false;
+    if (_superseded(generation)) return false;
     if (!nodeOk) {
       _log.error('Cannot start monitoring: node failed to start');
       return false;
@@ -124,6 +150,7 @@ class AndroidForegroundTaskController {
     // fg_resume alarm and WorkManager watchdog get rescheduled now — the
     // audit that rode in on the triggering native event raced this start
     // and was likely skipped as watchdog_disabled.
+    if (_superseded(generation)) return false;
     final rearmed =
         BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
     if (rearmed) {
@@ -134,7 +161,7 @@ class AndroidForegroundTaskController {
 
     final wakelockWasHeld = _wakelockHeld;
     final wakelockAcquired = await _acquireWakelock();
-    if (_terminalResetRequested) {
+    if (_superseded(generation)) {
       if (wakelockAcquired) await _releaseWakelock();
       return false;
     }
@@ -145,7 +172,7 @@ class AndroidForegroundTaskController {
 
     final running =
         await PlatformAlarmService.instance.isForegroundServiceRunning();
-    if (_terminalResetRequested) {
+    if (_superseded(generation)) {
       if (!wakelockWasHeld) await _releaseWakelock();
       return false;
     }
@@ -165,7 +192,7 @@ class AndroidForegroundTaskController {
       }
     }
 
-    if (_terminalResetRequested) {
+    if (_superseded(generation)) {
       if (!wakelockWasHeld) await _releaseWakelock();
       await PlatformAlarmService.instance.stopForegroundService();
       return false;
@@ -174,10 +201,23 @@ class AndroidForegroundTaskController {
     return true;
   }
 
-  Future<void> stopMonitoring({String reason = 'stopped'}) async {
+  /// Stops the Android production support.
+  ///
+  /// [destroyBackgroundEngine] must be false when the caller may itself be
+  /// running inside the cached headless engine: native
+  /// `ForegroundServiceManager.stopForegroundService()` destroys that engine
+  /// synchronously, before the method result is delivered, so a headless
+  /// caller would kill its own continuation mid-boundary.
+  Future<void> stopMonitoring({
+    String reason = 'stopped',
+    bool destroyBackgroundEngine = true,
+  }) async {
     if (!Platform.isAndroid) return;
-    _pollTimer?.cancel();
-    _pollTimer = null;
+    // Retire in-flight leases BEFORE the teardown, then drain: a poll or start
+    // already past its admission check must not schedule an alarm or re-acquire
+    // the wakelock after the cancellations below have run.
+    retireMonitoringSession();
+    await _drainActivePoll();
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
     final isAppMinimized = lifecycleState == AppLifecycleState.paused ||
         lifecycleState == AppLifecycleState.detached;
@@ -188,7 +228,22 @@ class AndroidForegroundTaskController {
           'Activity is resumed; skipping node pause on stopMonitoring ($reason)');
     }
     await _releaseWakelock();
-    await PlatformAlarmService.instance.stopForegroundService();
+    await PlatformAlarmService.instance.stopForegroundService(
+      destroyBackgroundEngine: destroyBackgroundEngine,
+    );
+  }
+
+  /// Waits for an in-flight VRF poll to finish its effects. Bounded: a poll
+  /// blocked on an unresponsive node must not stall the identity boundary,
+  /// and its remaining effects are refused by the retired lease anyway.
+  Future<void> _drainActivePoll() async {
+    final poll = _activePoll;
+    if (poll == null) return;
+    try {
+      await poll.timeout(const Duration(seconds: 5));
+    } catch (error) {
+      _log.warn('In-flight VRF poll did not settle before teardown: $error');
+    }
   }
 
   void _startPollTimer() {
@@ -201,7 +256,7 @@ class AndroidForegroundTaskController {
 
   void _startPoll() {
     if (_activePoll != null) return;
-    final poll = _pollVrf();
+    final poll = _pollVrf(_monitoringGeneration);
     _activePoll = poll;
     unawaited(poll.whenComplete(() {
       if (identical(_activePoll, poll)) _activePoll = null;
@@ -214,6 +269,7 @@ class AndroidForegroundTaskController {
     bool allowWhileSleeping = false,
   }) async {
     if (_terminalResetRequested) return;
+    final generation = _monitoringGeneration;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Ignoring alarm-fired monitoring start while app sleep is active',
@@ -246,6 +302,7 @@ class AndroidForegroundTaskController {
       _alarmRecoveryInFlightKey = alarmKey;
     }
 
+    if (_superseded(generation)) return;
     _log.info('Alarm fired, restarting foreground task ($reason)');
     try {
       await startMonitoring(
@@ -266,6 +323,7 @@ class AndroidForegroundTaskController {
   /// rejects any late native scheduling and the Rust façade rejects starts.
   void closeForTerminalReset() {
     _terminalResetRequested = true;
+    _monitoringGeneration += 1;
     _pollTimer?.cancel();
     _pollTimer = null;
     _activePoll = null;
@@ -292,17 +350,21 @@ class AndroidForegroundTaskController {
     }
   }
 
-  Future<void> _pollVrf() async {
-    if (_terminalResetRequested) return;
+  Future<void> _pollVrf(int generation) async {
+    if (_superseded(generation)) return;
     try {
       final info = await RustBackendService.instance.getEpochInfo();
       if (info == null) {
         _log.warn('VRF poll: epoch info unavailable');
         return;
       }
+      // Each node round-trip below is unbounded; the alarm scheduling at the
+      // end is an effect, so the lease is re-checked before reaching it.
+      if (_superseded(generation)) return;
 
       final clockDriftMs =
           await RustBackendService.instance.resolveNodeClockDriftMs();
+      if (_superseded(generation)) return;
       if (clockDriftMs == null) {
         _log.warn('VRF poll: node clock drift unavailable');
         return;
@@ -324,6 +386,7 @@ class AndroidForegroundTaskController {
         final diffMs = localSlotTimeMs - nowMs;
 
         if (diffMs > foregroundResumeLead.inMilliseconds) {
+          if (_superseded(generation)) return;
           await _scheduleResume(
             rustSlotTimeMs - foregroundResumeLead.inMilliseconds,
             'next_won_slot:${nextWon.globalSlot}',
@@ -346,6 +409,7 @@ class AndroidForegroundTaskController {
       }
 
       final epochEndRustTimeMs = await resolveEpochEndTimeMs(info.currentEpoch);
+      if (_superseded(generation)) return;
       if (epochEndRustTimeMs == null) {
         _log.warn('VRF poll: could not compute epoch end');
         return;
@@ -358,6 +422,7 @@ class AndroidForegroundTaskController {
       );
       final untilEndMs = localEpochEndTimeMs - nowMs;
       if (untilEndMs > foregroundResumeLead.inMilliseconds) {
+        if (_superseded(generation)) return;
         await _scheduleResume(
           epochEndRustTimeMs - foregroundResumeLead.inMilliseconds,
           'epoch_end_${info.currentEpoch}',

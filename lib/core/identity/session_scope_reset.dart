@@ -4,6 +4,7 @@ import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/log_share_provider.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
 /// Drops the PROCESS state that a scoped sign-out leaves behind.
@@ -41,14 +42,19 @@ Future<void> resetSessionScopedProcessState(Ref ref) async {
   // stable repository providers, so their cached values would survive the
   // identity change: the successor would be rendered as the retired user's
   // completed registration, proof nullifier and facematch metadata included.
-  //
-  // The pipeline controller is deliberately NOT discarded here: its polling
-  // worker already re-validates the launch identity on every tick and finalizes
-  // a superseded session itself, and invalidating a provider that was never
-  // read would construct it just to tear it down.
   ref.invalidate(zkPassportSettingsProvider);
   ref.invalidate(zkPassportIsRegisteredProvider);
   ref.invalidate(zkPassportRegistrationProvider);
+
+  // Presentation state needs the same treatment, and it has no worker of its
+  // own to notice an identity change. A pipeline that already reached a
+  // terminal phase holds A's result message, request id, timings and public
+  // inputs, and the flow screen renders them directly — there is no polling
+  // tick left to fail a launch-identity check. The step controller and the
+  // challenge-active flag are the same story one layer up.
+  ref.invalidate(zkPassportPipelineProvider);
+  ref.invalidate(zkIdentityStepControllerProvider);
+  ref.invalidate(zkIdentityChallengeActiveProvider);
 
   // Error reports raised after this point (and every breadcrumb the successor
   // generates) would otherwise still carry the signed-out account as their

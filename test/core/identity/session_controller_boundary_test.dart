@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -142,6 +143,7 @@ SessionController _controller(
   _TerminalResetProbe reset, {
   AuthRepository? repository,
   _RuntimeProbe? runtime,
+  SignOutFence? signOutFence,
 }) =>
     SessionController(
       tokenStore: tokenStore,
@@ -157,6 +159,8 @@ SessionController _controller(
           : runtime.clearSessionNotifications,
       resetSessionScopedProcessState: runtime?.resetSessionScopedProcessState,
       onSignOutCompleted: runtime?.onSignOutCompleted,
+      // The real fence is file-backed; these tests own no app directory.
+      signOutFence: signOutFence ?? InMemorySignOutFence(),
       terminalReset: reset.call,
     );
 
@@ -504,7 +508,13 @@ void main() {
     final tokenStore = AuthTokenStore();
     final reset = _TerminalResetProbe(tokenStore);
     final runtime = _RuntimeProbe();
-    final controller = _controller(tokenStore, reset, runtime: runtime);
+    final fence = InMemorySignOutFence();
+    final controller = _controller(
+      tokenStore,
+      reset,
+      runtime: runtime,
+      signOutFence: fence,
+    );
     addTearDown(controller.dispose);
     await controller.restore();
 
@@ -519,8 +529,59 @@ void main() {
     expect(runtime.resetProcessState, 1);
     expect(runtime.signOutCompletions, 1,
         reason: 'the settled-sign-out signal drives document replacement');
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('testnet:identity:signout_pending'), isNull);
+    expect(fence.raiseCount, 1);
+    expect(fence.raised, isFalse,
+        reason: 'the crash fence is lowered once the boundary settles');
+  });
+
+  test('an undurable crash fence is not acknowledged as a sign-out', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    final runtime = _RuntimeProbe();
+    final fence = InMemorySignOutFence(raiseSucceeds: false);
+    final controller = _controller(
+      tokenStore,
+      reset,
+      runtime: runtime,
+      signOutFence: fence,
+    );
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    expect(
+        await controller.logout(expectedIdentity: controller.state), isFalse);
+
+    // Without a durable fence, bearer and namespace retirement stop being
+    // crash-atomic, so the bearer is not touched here at all — the boundary
+    // escalates to the one that erases both.
+    expect(reset.reasons, ['signout_cleanup_unconfirmed']);
+    expect(runtime.rotatedNativeGenerations, 0);
+    expect(runtime.suspendedNodes, 0);
+    expect(runtime.signOutCompletions, 0);
+  });
+
+  test('a throwing mandatory step escalates in THIS process', () async {
+    _seedReadyIdentity();
+    final tokenStore = AuthTokenStore();
+    final reset = _TerminalResetProbe(tokenStore);
+    // `RustBackendService.stopNode()` deliberately throws when process-global
+    // shutdown cannot be confirmed; every prefs/native call can throw too.
+    final runtime = _RuntimeProbe(
+      suspendNodeBehaviour: () async => throw StateError('node stuck'),
+    );
+    final controller = _controller(tokenStore, reset, runtime: runtime);
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    expect(
+        await controller.logout(expectedIdentity: controller.state), isFalse);
+
+    // Not left to a hypothetical next boot: an uncaught throw would strand the
+    // identity in `transitioning` with no completion, no document replacement
+    // and no reset.
+    expect(reset.reasons, ['signout_cleanup_unconfirmed']);
+    expect(runtime.signOutCompletions, 0);
   });
 
   test('a failed notification clear does not block the sign-out', () async {
@@ -604,32 +665,49 @@ void main() {
     _seedReadyIdentity();
     final tokenStore = AuthTokenStore();
     final reset = _TerminalResetProbe(tokenStore);
-    // The node suspend sits between the bearer clear and the namespace clear.
-    // A throw here is the same window a process death would open.
-    final runtime = _RuntimeProbe(
-      suspendNodeBehaviour: () async => throw StateError('node stuck'),
+    final fence = InMemorySignOutFence();
+    // The native generation rotation sits between the bearer clear and the
+    // namespace retirement — the same window a process death would open.
+    final runtime = _RuntimeProbe(rotateNativeGenerationResult: false);
+    // Terminal reset is what a real unconfirmed boundary escalates to; this
+    // probe stops short of wiping so the interrupted on-disk state stays
+    // observable for the cold-boot half of the test.
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopLogoutRepository(),
+      suspendNode: runtime.suspendNode,
+      clearWebSessionData: runtime.clearWebSessionData,
+      rotateNativeGeneration: runtime.rotateNativeGeneration,
+      clearSessionNotifications: runtime.clearSessionNotifications,
+      signOutFence: fence,
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        reset.reasons.add(reason);
+      },
     );
-    final controller = _controller(tokenStore, reset, runtime: runtime);
     addTearDown(controller.dispose);
     await controller.restore();
 
-    await expectLater(
-      controller.logout(expectedIdentity: controller.state),
-      throwsA(isA<StateError>()),
-    );
+    expect(
+        await controller.logout(expectedIdentity: controller.state), isFalse);
 
     final prefs = await SharedPreferences.getInstance();
+    expect(reset.reasons, ['signout_cleanup_unconfirmed']);
     expect(await tokenStore.read(), isNull, reason: 'the bearer is gone');
     expect(prefs.getString('testnet:identity:namespace'), isNotNull,
         reason: 'the namespace retirement never ran');
-    expect(prefs.getBool('testnet:identity:signout_pending'), isTrue);
+    expect(fence.raised, isTrue, reason: 'the fence outlives the failure');
 
     // Without the fence this cold boot would resolve the interrupted user's
     // active account and publish it as a locally-signable identity.
     final coldReset = _TerminalResetProbe(tokenStore);
     final coldRuntime = _RuntimeProbe();
-    final coldController =
-        _controller(tokenStore, coldReset, runtime: coldRuntime);
+    final coldController = _controller(
+      tokenStore,
+      coldReset,
+      runtime: coldRuntime,
+      signOutFence: fence,
+    );
     addTearDown(coldController.dispose);
     await coldController.restore();
 
@@ -640,7 +718,7 @@ void main() {
     expect(coldController.state.allowsSigning, isFalse);
     final coldPrefs = await SharedPreferences.getInstance();
     expect(coldPrefs.getString('testnet:identity:namespace'), isNull);
-    expect(coldPrefs.getBool('testnet:identity:signout_pending'), isNull);
+    expect(fence.raised, isFalse);
   });
 
   test('an interrupted sign-out is completed even when the bearer survived it',
@@ -652,12 +730,17 @@ void main() {
     });
     SharedPreferences.setMockInitialValues({
       'testnet:identity:namespace': _namespaceFor(1),
-      'testnet:identity:signout_pending': true,
     });
     final tokenStore = AuthTokenStore();
     final reset = _TerminalResetProbe(tokenStore);
     final runtime = _RuntimeProbe();
-    final controller = _controller(tokenStore, reset, runtime: runtime);
+    final fence = InMemorySignOutFence(raised: true);
+    final controller = _controller(
+      tokenStore,
+      reset,
+      runtime: runtime,
+      signOutFence: fence,
+    );
     addTearDown(controller.dispose);
 
     await controller.restore();
@@ -668,7 +751,7 @@ void main() {
         reason: 'a fenced sign-out is completed, not resumed as a session');
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('testnet:identity:namespace'), isNull);
-    expect(prefs.getBool('testnet:identity:signout_pending'), isNull);
+    expect(fence.raised, isFalse);
   });
 
   test('a registry with no identity namespace is retired rather than retained',

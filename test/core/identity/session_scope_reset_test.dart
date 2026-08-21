@@ -8,6 +8,7 @@ import 'package:crypto_mobile_app/core/providers/log_share_provider.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,6 +135,31 @@ void main() {
       ZkPassportSettings.defaults.facematchStrict,
       reason: 'the retired identity\'s zkPassport view must not be replayed',
     );
+  });
+
+  test('zkPassport presentation state does not outlive the session', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    final pipeline = container.read(zkPassportPipelineProvider.notifier);
+    // A pipeline that already finished has no polling worker left to notice an
+    // identity change, so its terminal state — result message, request id,
+    // timings, public inputs — is rendered straight into the successor's flow
+    // screen.
+    await pipeline.reportImmediateFailure(message: 'user-a proof failed');
+    container.read(zkIdentityChallengeActiveProvider.notifier).state = true;
+    expect(container.read(zkPassportPipelineProvider).message,
+        'user-a proof failed');
+
+    await resetSessionScopedProcessState(container.read(_refProvider));
+
+    expect(container.read(zkPassportPipelineProvider).message, isEmpty);
+    expect(
+      container.read(zkPassportPipelineProvider).status,
+      ZkPassportPipelineStatus.idle,
+    );
+    expect(container.read(zkIdentityChallengeActiveProvider), isFalse);
   });
 
   test('telemetry stops attributing the successor to the retired account',

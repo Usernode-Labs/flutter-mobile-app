@@ -75,6 +75,40 @@ void main() {
     expect(iosRotate, isNot(contains('terminalResetRequested = true')));
   });
 
+  test('the sign-out stop path does not destroy its own caller', () {
+    // `BackgroundAlarmEngine.destroyCachedEngine` runs synchronously on the
+    // main looper, BEFORE the method result is sent. A headless boot repairing
+    // an interrupted sign-out calls this from inside that very engine, so
+    // destroying it would strand the boundary mid-teardown: no backend stop, no
+    // namespace or WebView cleanup, no fence removal.
+    final manager = File(
+      'android/app/src/main/kotlin/com/usernode_labs/usernode/alarm/'
+      'ForegroundServiceManager.kt',
+    ).readAsStringSync();
+    expect(
+      manager,
+      contains('fun stopForegroundService(destroyBackgroundEngine: Boolean'),
+    );
+    expect(
+      manager,
+      contains('if (destroyBackgroundEngine) {\n'
+          '                BackgroundAlarmEngine.destroyCachedEngine'),
+    );
+    expect(
+      androidHandler,
+      contains('call.argument<Boolean>("destroyBackgroundEngine") ?: true'),
+    );
+
+    final coordinator = File(
+      'lib/core/services/node_lifecycle_coordinator.dart',
+    ).readAsStringSync();
+    final standDown = coordinator.substring(
+      coordinator.indexOf('Future<void> standDown({required String reason})'),
+      coordinator.indexOf('/// Permanently closes lifecycle admission'),
+    );
+    expect(standDown, contains('destroyBackgroundEngine: false'));
+  });
+
   test('the retired session leaves nothing on the tray or lock screen', () {
     expect(androidHandler, contains('"clearSessionNotifications" ->'));
     expect(

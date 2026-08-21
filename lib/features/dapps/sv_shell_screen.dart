@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,7 +20,7 @@ import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 /// First-launch gate: until one SV load has ever succeeded on this install
 /// (after which the service worker owns offline), a native connecting
 /// screen covers the webview. Later launches enter the shell immediately.
-class SvShellScreen extends StatefulWidget {
+class SvShellScreen extends ConsumerStatefulWidget {
   const SvShellScreen({super.key, this.initialHash, this.navigationRequest});
 
   /// Optional SV hash route to land on (e.g. `challenges`, `leaderboard`)
@@ -33,10 +34,10 @@ class SvShellScreen extends StatefulWidget {
   static const _gatePrefsKey = 'sv_shell_first_load_ok';
 
   @override
-  State<SvShellScreen> createState() => _SvShellScreenState();
+  ConsumerState<SvShellScreen> createState() => _SvShellScreenState();
 }
 
-class _SvShellScreenState extends State<SvShellScreen> {
+class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   /// null while SharedPreferences loads; then whether SV has ever
   /// successfully rendered on this install.
   bool? _gatePassed;
@@ -84,6 +85,26 @@ class _SvShellScreenState extends State<SvShellScreen> {
     });
   }
 
+  /// Cold-boots the shell after a voluntary sign-out has SETTLED. Reuses the
+  /// retry counter — the webview is keyed by it — so the document is rebuilt
+  /// from scratch rather than soft-navigated: only a fresh load picks up the
+  /// cleared web session and renders the platform's login page.
+  ///
+  /// Driven by [DappWebViewScreen.onSessionEnded], which the shared WebView
+  /// owner fires off the settled sign-out signal. It deliberately does NOT
+  /// watch `authenticated -> anything else`: sign-out publishes
+  /// `transitioning` synchronously before its first await, and a replacement
+  /// document created on that edge would race the cookie/storage deletion
+  /// that makes the next load render a login page — and would also fire for
+  /// terminal boundaries, which have no successor to build.
+  void _reloadForSessionEnd() {
+    if (!mounted) return;
+    setState(() {
+      _attempt++;
+      _loadOk = null;
+    });
+  }
+
   String get _shellUrl {
     final base = AppConfig.dappsTabUrl.trim();
     final hash = widget.initialHash;
@@ -111,6 +132,7 @@ class _SvShellScreenState extends State<SvShellScreen> {
       url: _shellUrl,
       name: 'Usernode',
       navigationRequest: widget.navigationRequest,
+      onSessionEnded: _reloadForSessionEnd,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,
     );
 

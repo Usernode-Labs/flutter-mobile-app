@@ -30,6 +30,10 @@ class LoggingHttpClient extends http.BaseClient {
     // Only plain (non-streamed/non-multipart) requests expose a readable body.
     final requestBody = request is http.Request ? request.body : null;
     final sw = Stopwatch()..start();
+    // Captured BEFORE the transport await: this exchange belongs to whoever is
+    // signed in now, and a sign-out during it must drop the result rather than
+    // repopulate the cleared buffer for the next user.
+    final generation = HttpDebugLogStore.instance.generation;
 
     try {
       final response = await _inner.send(request);
@@ -53,6 +57,7 @@ class LoggingHttpClient extends http.BaseClient {
           responseBody:
               truncateBody(redactSensitiveBodyFields(_decodeBody(bytes))),
         ),
+        generation: generation,
       );
 
       return http.StreamedResponse(
@@ -77,6 +82,7 @@ class LoggingHttpClient extends http.BaseClient {
           requestBody: truncateBody(redactSensitiveBodyFields(requestBody)),
           error: e.toString(),
         ),
+        generation: generation,
       );
       rethrow;
     }

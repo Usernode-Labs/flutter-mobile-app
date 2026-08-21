@@ -121,6 +121,28 @@ void main() {
     expect(gate.blocks('getSocialPushState'), isTrue);
   });
 
+  test('a sign-out closes admission without latching the gate', () {
+    final gate = SessionHandoffGate()..admitAuthenticated(ready);
+
+    gate.closeForSignOut();
+
+    // Everything the terminal close blocks...
+    expect(gate.authenticates(ready), isFalse);
+    expect(gate.isAuthenticatedBlocked, isTrue);
+    expect(gate.isWalletBlocked, isTrue);
+    expect(gate.blocks('getWalletState'), isTrue);
+    expect(gate.blocks('getSocialPushState'), isTrue);
+
+    // ...except the one-way latch: this runtime survives a sign-out, so the
+    // same gate has to be able to admit the next login all the way back up to
+    // wallet scope.
+    expect(gate.admitAnonymous(), isTrue);
+    expect(gate.admitAuthenticated(ready), isTrue);
+    expect(gate.admitWallet(ready), isTrue);
+    expect(gate.authenticates(ready), isTrue);
+    expect(gate.blocks('getWalletState'), isFalse);
+  });
+
   test('status carries the participant and identity epoch', () {
     expect(sessionBoundAuthStatus(ready, reconciliationStatus: 'settled'), {
       'phase': 'ready',

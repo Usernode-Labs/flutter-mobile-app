@@ -393,9 +393,22 @@ class ZkPassportSettingsRepository {
 class ZkPassportRuntimeSessionRepository {
   static const _kRuntimeSessionKeyBase = 'zkpassport:runtime_session_v1';
 
+  /// Resolves the row's key.
+  ///
+  /// [bucket] is the session's captured LAUNCH bucket. Every runtime write
+  /// happens after a long Rust/RPC await, by which time the ambient bucket
+  /// may already belong to a guest or to the next signed-in user — recomputing
+  /// it per call is how a proof launched by A ends up written into B's bucket,
+  /// or how finalization clears the wrong row. Only [load], which is looking
+  /// for whatever row belongs to the CURRENT identity, may resolve it
+  /// ambiently.
+  String _key(String? bucket) => bucket == null
+      ? NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase)
+      : NetworkPrefs.prefixAccountKeyFor(_kRuntimeSessionKeyBase, bucket);
+
   Future<ZkPassportRuntimeSession?> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase);
+    final key = _key(null);
     final raw = prefs.getString(key);
     if (raw == null || raw.trim().isEmpty) {
       return null;
@@ -418,21 +431,22 @@ class ZkPassportRuntimeSessionRepository {
     }
   }
 
+  /// Writes the row into the session's launch bucket (see [_key]). Sessions
+  /// persisted by older app versions carry no launch bucket and fall back to
+  /// the ambient one.
   Future<void> save(ZkPassportRuntimeSession session) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase);
     await _checkedSetString(
       prefs,
-      key,
+      _key(session.launchBucket),
       jsonEncode(session.toJson()),
       operation: 'store zkPassport runtime session',
     );
   }
 
-  Future<void> clear() async {
+  Future<void> clear({String? bucket}) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = NetworkPrefs.prefixAccountKey(_kRuntimeSessionKeyBase);
-    await prefs.remove(key);
+    await prefs.remove(_key(bucket));
   }
 }
 

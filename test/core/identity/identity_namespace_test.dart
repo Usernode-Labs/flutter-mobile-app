@@ -204,6 +204,63 @@ void main() {
       expect(prefs.getString('testnet:accounts:index'), isNotNull,
           reason: 'someone else may still own the legacy rows');
     });
+
+    test('an adoption interrupted before its source was removed is finished',
+        () async {
+      final prefs = await SharedPreferences.getInstance();
+      // The state a crash between "destination written" and "source removed"
+      // leaves: BOTH copies, plus the marker naming who was adopting.
+      await prefs.setString(
+        'testnet:accounts:index',
+        _indexJson('acct-mine', 'ut1mine'),
+      );
+      await prefs.setString('testnet:accounts:activeId', 'acct-mine');
+      await prefs.setString(
+        'testnet:user:$_alice:accounts:index',
+        _indexJson('acct-mine', 'ut1mine'),
+      );
+      await prefs.setString('testnet:accounts:adopting', _alice);
+      await saveIdentityNamespace(_alice);
+
+      final repo = await AccountsRepository.create();
+
+      expect((await repo.list()).single.id, 'acct-mine');
+      // The marker is what tells this duplicate apart from bare rows that
+      // were never this user's — without it the leftover copy stays
+      // resolvable by the next identity that has no namespace at all.
+      expect(prefs.getString('testnet:accounts:index'), isNull);
+      expect(prefs.getString('testnet:accounts:activeId'), isNull);
+      expect(prefs.getString('testnet:accounts:adopting'), isNull);
+    });
+
+    test('a sign-out retires bare rows even when the namespace is valid',
+        () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'testnet:user:$_alice:accounts:index',
+        _indexJson('acct-owned', 'ut1owned'),
+      );
+      // Reachable two ways: a same-participant renewal that only just
+      // acquired an `identity_hash`, and an adoption that was interrupted
+      // without leaving a marker.
+      await prefs.setString(
+        'testnet:accounts:index',
+        _indexJson('acct-bare', 'ut1bare'),
+      );
+      await prefs.setString('testnet:accounts:activeId', 'acct-bare');
+      await saveIdentityNamespace(_alice);
+
+      expect(await AccountsRepository.retireUnnamespacedRegistry(), isTrue);
+
+      // A non-null namespace does NOT prove the bare keys are absent, so the
+      // retirement is unconditional; the namespaced registry is untouched.
+      expect(prefs.getString('testnet:accounts:index'), isNull);
+      expect(prefs.getString('testnet:accounts:activeId'), isNull);
+      expect(
+        prefs.getString('testnet:user:$_alice:accounts:index'),
+        isNotNull,
+      );
+    });
   });
 
   group('namespace store', () {

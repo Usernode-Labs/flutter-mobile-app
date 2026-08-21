@@ -25,10 +25,18 @@ typedef ResetDirectoryResolver = Future<List<Directory>> Function();
 
 /// Owns the one-way application reset boundary.
 ///
-/// A reset never constructs a successor runtime in this process. Logout wipes
-/// everything and asks Android to clear application data; successful initial
-/// login or a network change may write only its explicit cold-launch input
-/// after the same wipe and then terminate without a second clear-data call.
+/// A reset never constructs a successor runtime in this process: it wipes
+/// everything and asks Android to clear application data (iOS has no supported
+/// self-termination API, so it parks on the inert reset surface and asks the
+/// user to relaunch). Successful initial login or a network change may write
+/// only its explicit cold-launch input after the same wipe and then terminate
+/// without a second clear-data call.
+///
+/// Voluntary sign-out does NOT come here — it is scoped and in-process; see
+/// [SessionController.logout]. Every reason that reaches this class is one the
+/// app cannot continue from: an expired or unreadable credential, a different
+/// participant replacing the current one, a network change, or the
+/// authenticated-to-guest switch.
 class AppResetService {
   AppResetService._({
     ResetDirectoryResolver? resetDirectories,

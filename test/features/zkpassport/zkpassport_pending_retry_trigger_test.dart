@@ -35,6 +35,15 @@ Future<void> _pumpUntil(bool Function() condition) async {
   }
 }
 
+Identity _ready({required int participantId, required String address}) =>
+    Identity(
+      epoch: 3,
+      phase: IdentityPhase.ready,
+      participantId: participantId,
+      accountId: 'account-$participantId',
+      address: address,
+    );
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -45,6 +54,72 @@ void main() {
   });
 
   tearDown(IdentitySnapshots.reset);
+
+  test(
+      'a launch is stamped with the identity that started it, not the one '
+      'that happens to be current when the server answers', () async {
+    const address = 'ut1-account-a';
+    NetworkPrefs.setActiveBucket(address, guest: false);
+    final launcher = _ready(participantId: 7, address: address);
+    IdentitySnapshots.publish(launcher);
+
+    final container = ProviderContainer(overrides: [
+      // Reading the pipeline otherwise pulls in the challenges graph, which
+      // builds `identityProvider` and republishes over the snapshot above.
+      zkIdentityChallengeIdProvider.overrideWithValue(null),
+    ]);
+    addTearDown(container.dispose);
+    final pipeline = container.read(zkPassportPipelineProvider.notifier);
+
+    // The session server call is unbounded network time; a sign-out plus a new
+    // login inside it would otherwise have this stamp the SUCCESSOR onto A's
+    // session, and every later scope check would then accept the wrong owner.
+    IdentitySnapshots.publish(_ready(participantId: 8, address: 'ut1-b'));
+
+    await expectLater(
+      pipeline.markLaunchStarted(
+        requestId: 'request-a',
+        facematchStrict: true,
+        userPublicKey: 'utpk1-a',
+        launchIdentity: launcher,
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    // Nothing was persisted for either identity.
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getKeys().where((k) => k.contains('runtime_session')),
+      isEmpty,
+    );
+  });
+
+  test('a launch whose identity is unchanged is accepted', () async {
+    const address = 'ut1-account-a';
+    NetworkPrefs.setActiveBucket(address, guest: false);
+    final launcher = _ready(participantId: 7, address: address);
+    IdentitySnapshots.publish(launcher);
+
+    final container = ProviderContainer(overrides: [
+      zkIdentityChallengeIdProvider.overrideWithValue(null),
+    ]);
+    addTearDown(container.dispose);
+    final pipeline = container.read(zkPassportPipelineProvider.notifier);
+
+    await pipeline.markLaunchStarted(
+      requestId: 'request-a',
+      facematchStrict: true,
+      userPublicKey: 'utpk1-a',
+      launchIdentity: launcher,
+    );
+
+    expect(
+      container.read(zkPassportPipelineProvider).requestId,
+      'request-a',
+    );
+    // Which bucket the stamped session is written to is covered by
+    // `zkpassport_repositories_test.dart`.
+  });
 
   test('challenge id becoming available retriggers a deferred outbox retry',
       () async {

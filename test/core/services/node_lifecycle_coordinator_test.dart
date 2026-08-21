@@ -79,12 +79,18 @@ void main() {
         auditBestEffort: ({required String reason}) =>
             calls.add('audit:$reason'),
         onNodeStarted: () async => calls.add('onNodeStarted'),
-        stopMonitoring: ({required String reason}) async =>
-            calls.add('stopMonitoring:$reason'),
+        stopMonitoring: ({
+          required String reason,
+          bool destroyBackgroundEngine = true,
+        }) async =>
+            calls.add('stopMonitoring:$reason'
+                '${destroyBackgroundEngine ? '' : ':keepEngine'}'),
         cancelAllAlarms: () async => calls.add('cancelAllAlarms'),
         cancelAlarmWatchdog: () async => calls.add('cancelWatchdog'),
         isAndroid: () => android,
         isDelegated: () async => delegated,
+        retireProducerLeases: () => calls.add('retireProducerLeases'),
+        settleAudit: () async => calls.add('settleAudit'),
       );
     }
 
@@ -189,6 +195,7 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:platform_stop',
+        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -241,6 +248,7 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:boot',
+        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -273,6 +281,7 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:account_removed',
+        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -309,13 +318,97 @@ void main() {
       ]);
     });
 
+    test(
+        'standing down for an identity boundary tears the whole producer '
+        'lifecycle down, not just the backend', () async {
+      final coordinator = build(android: true, nodeRunning: true);
+      await coordinator.startNode(reason: 'platform_start');
+      calls.clear();
+
+      await coordinator.standDown(reason: 'identity_boundary');
+
+      // Watchdog recovery, Android monitoring, the backend, every scheduled
+      // alarm and the alarm watchdog — a `RustBackendService.stopNode()` would
+      // have left all but one of these armed for the retired account.
+      expect(calls, [
+        // Producer leases are retired synchronously before any of this, so a
+        // continuation already past its admission check stops short.
+        'retireProducerLeases',
+        'disableRecovery',
+        // Never destroys the cached headless engine: this boundary can be
+        // running inside it.
+        'stopMonitoring:identity_boundary:keepEngine',
+        'settleAudit',
+        'stopBackend',
+        'cancelAllAlarms',
+        'cancelWatchdog',
+      ]);
+      expect(coordinator.hasAccount, isFalse);
+      expect(coordinator.intent, PlatformNodeIntent.unset);
+    });
+
+    test('a stand-down leaves admission open for the next session', () async {
+      final coordinator = build(android: true);
+      await coordinator.standDown(reason: 'identity_boundary');
+      calls.clear();
+
+      expect(coordinator.acceptingRuntimeWork, isTrue);
+      expect(await coordinator.startNode(reason: 'next_login'), isTrue);
+      expect(calls, contains('startBackend'));
+    });
+
+    test('a headless recovery event cannot re-arm a stood-down runtime',
+        () async {
+      final coordinator = build(android: true, nodeRunning: true);
+      await coordinator.startNode(reason: 'platform_start');
+      await coordinator.standDown(reason: 'identity_boundary');
+      calls.clear();
+
+      // The account-presence signal a background/headless path reports is not
+      // an explicit platform start, so nothing comes back up and recovery
+      // stays disarmed for the retired account.
+      await coordinator.reportAccountsChanged(hasAccount: false);
+      await coordinator.reportColdBoot(hasAccount: false);
+
+      expect(calls, isNot(contains('startBackend')));
+      expect(calls, isNot(contains('enableRecovery')));
+    });
+
+    test('a stand-down supersedes an in-flight start', () async {
+      final startEntered = Completer<void>();
+      final allowStart = Completer<void>();
+      final coordinator = build(
+        android: true,
+        startBackend: () async {
+          calls.add('startBackend');
+          startEntered.complete();
+          await allowStart.future;
+          return true;
+        },
+      );
+
+      final start = coordinator.startNode(reason: 'platform_start');
+      await startEntered.future;
+      final stood = coordinator.standDown(reason: 'identity_boundary');
+      allowStart.complete();
+      await start;
+      await stood;
+
+      // The stand-down is serialized behind the start, so the teardown runs
+      // last and the runtime ends down.
+      expect(calls.last, 'cancelWatchdog');
+      expect(calls, contains('stopBackend'));
+      expect(coordinator.hasAccount, isFalse);
+      expect(coordinator.intent, PlatformNodeIntent.unset);
+    });
+
     test('terminal reset closes admission synchronously without graceful stop',
         () {
       final coordinator = build(android: true);
 
       coordinator.closeForTerminalReset();
 
-      expect(calls, ['disableRecovery']);
+      expect(calls, ['retireProducerLeases', 'disableRecovery']);
       expect(coordinator.acceptingRuntimeWork, isFalse);
       expect(coordinator.hasAccount, isFalse);
       expect(coordinator.intent, PlatformNodeIntent.unset);
@@ -358,6 +451,7 @@ void main() {
 
       expect(calls, [
         'startBackend',
+        'retireProducerLeases',
         'disableRecovery',
       ]);
     });

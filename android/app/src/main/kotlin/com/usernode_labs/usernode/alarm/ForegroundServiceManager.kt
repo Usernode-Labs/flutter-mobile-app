@@ -42,14 +42,29 @@ class ForegroundServiceManager(private val context: Context) {
         }
     }
 
-    fun stopForegroundService(): Boolean {
+    /**
+     * Stops the slot-monitoring foreground service.
+     *
+     * [destroyBackgroundEngine] must be false when the caller may be the cached
+     * headless engine itself: [BackgroundAlarmEngine.destroyCachedEngine] runs
+     * synchronously on the main looper, so it would tear down the very engine
+     * whose Dart continuation is waiting for this call's result. A scoped
+     * sign-out repaired from a headless boot is exactly that case; the engine is
+     * retired by the next alarm or activity open instead.
+     */
+    @JvmOverloads
+    fun stopForegroundService(destroyBackgroundEngine: Boolean = true): Boolean {
         return try {
             val intent = Intent(context, SlotMonitoringService::class.java).apply {
                 action = SlotMonitoringService.ACTION_STOP_MONITORING
             }
 
             context.stopService(intent)
-            BackgroundAlarmEngine.destroyCachedEngine("stopForegroundService")
+            if (destroyBackgroundEngine) {
+                BackgroundAlarmEngine.destroyCachedEngine("stopForegroundService")
+            } else {
+                Log.i(TAG, "Keeping the cached engine alive for the calling boundary")
+            }
 
             Log.i(TAG, "Stopped foreground service")
             true

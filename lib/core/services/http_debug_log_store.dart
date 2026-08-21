@@ -205,6 +205,16 @@ class HttpDebugLogStore extends ChangeNotifier {
   final List<HttpLogEntry> _entries = [];
   int _totalBytes = 0;
 
+  /// Session generation. Bumped by [clearForIdentityBoundary]; producers
+  /// capture it when a request STARTS and hand it back to [add], so an
+  /// exchange that began under the retired identity cannot repopulate the
+  /// buffer after the boundary — `LoggingHttpClient.send` appends only after
+  /// awaiting transport and body bytes, which a slow response can outlive.
+  int _generation = 0;
+
+  /// Capture this when a request begins; pass it to [add] when it completes.
+  int get generation => _generation;
+
   /// Monotonic count of every entry ever [add]ed, unaffected by eviction.
   /// Used as a stable cursor for incremental log sharing: callers remember a
   /// value of [totalAdded] and later ask for [entriesAdded] since it.
@@ -230,7 +240,12 @@ class HttpDebugLogStore extends ChangeNotifier {
     return _entries.sublist(from);
   }
 
-  void add(HttpLogEntry entry) {
+  /// Records [entry]. [generation] is the value of [this.generation] captured
+  /// when the exchange began; an entry from a superseded generation is
+  /// dropped. Omitting it records unconditionally, for producers that are not
+  /// identity-scoped.
+  void add(HttpLogEntry entry, {int? generation}) {
+    if (generation != null && generation != _generation) return;
     _entries.add(entry);
     _totalAdded++;
     _totalBytes += entry.approxBytes;
@@ -247,6 +262,14 @@ class HttpDebugLogStore extends ChangeNotifier {
     _entries.clear();
     _totalBytes = 0;
     notifyListeners();
+  }
+
+  /// Clears the buffer AND retires the current generation, so exchanges
+  /// already in flight for the outgoing identity are rejected when they
+  /// complete instead of refilling an emptied buffer.
+  void clearForIdentityBoundary() {
+    _generation++;
+    clear();
   }
 
   /// Whole buffer rendered as text, newest first, for copy/share.

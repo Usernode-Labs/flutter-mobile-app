@@ -164,6 +164,12 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       return;
     }
 
+    // The receipt's owner, captured before the confirmation dialog (unbounded
+    // user time) and the RPC below. `_recordsBucket` is rebound on every
+    // identity edge, so reading it after those awaits could file A's transfer
+    // under guest or under B.
+    final recordsBucket = _activeRecordsBucket;
+
     final userConfirmed = await _requestTransactionConfirmation(
       from: fromAddress,
       to: destinationPubkey,
@@ -174,15 +180,17 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
     );
 
     if (!userConfirmed) {
-      _addRecord(_TxRecord(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        sentAt: DateTime.now(),
-        from: fromAddress,
-        to: destinationPubkey,
-        amount: amount,
-        memo: memoString,
-        status: _TxStatus.denied,
-      ));
+      _addRecord(
+          _TxRecord(
+            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+            sentAt: DateTime.now(),
+            from: fromAddress,
+            to: destinationPubkey,
+            amount: amount,
+            memo: memoString,
+            status: _TxStatus.denied,
+          ),
+          bucket: recordsBucket);
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -193,16 +201,18 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
 
     if (AppConfig.viewOnly) {
       const errorMessage = 'Transactions are disabled in view-only mode.';
-      _addRecord(_TxRecord(
-        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-        sentAt: DateTime.now(),
-        from: fromAddress,
-        to: destinationPubkey,
-        amount: amount,
-        memo: memoString,
-        status: _TxStatus.error,
-        errorMessage: errorMessage,
-      ));
+      _addRecord(
+          _TxRecord(
+            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+            sentAt: DateTime.now(),
+            from: fromAddress,
+            to: destinationPubkey,
+            amount: amount,
+            memo: memoString,
+            status: _TxStatus.error,
+            errorMessage: errorMessage,
+          ),
+          bucket: recordsBucket);
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -248,18 +258,22 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
     final isQueued = resp?.queued ?? false;
     final recordId =
         resp?.txId ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
-    _addRecord(_TxRecord(
-      id: recordId,
-      sentAt: DateTime.now(),
-      from: fromAddress,
-      to: destinationPubkey,
-      amount: amount,
-      memo: memoString,
-      status: isQueued ? _TxStatus.queued : _TxStatus.error,
-      errorMessage: rpcError,
-    ));
+    _addRecord(
+        _TxRecord(
+          id: recordId,
+          sentAt: DateTime.now(),
+          from: fromAddress,
+          to: destinationPubkey,
+          amount: amount,
+          memo: memoString,
+          status: isQueued ? _TxStatus.queued : _TxStatus.error,
+          errorMessage: rpcError,
+        ),
+        bucket: recordsBucket);
 
-    if (isQueued && resp?.txId != null) {
+    if (isQueued &&
+        resp?.txId != null &&
+        recordsBucket == _activeRecordsBucket) {
       _ensureConfirmPoller();
     }
 

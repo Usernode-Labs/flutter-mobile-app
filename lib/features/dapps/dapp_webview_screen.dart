@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
@@ -23,7 +24,11 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart'
     show AuthSession;
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
-    show authRepositoryProvider, authStatusProvider, identityProvider;
+    show
+        authRepositoryProvider,
+        authStatusProvider,
+        identityProvider,
+        signOutCompletionProvider;
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart'
     show accountReconciliationStatusProvider, identityDriverProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
@@ -107,6 +112,14 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   /// dapp session, and standalone node lifecycle handling.
   final bool standalone;
 
+  /// Invoked when a voluntary sign-out has fully settled, for owners that can
+  /// replace this screen with a colder successor than an in-place document
+  /// load (the SV shell rebuilds the whole webview subtree). When null, this
+  /// screen replaces its own document — the session-end replacement lives with
+  /// the WebView owner so no trusted realm can be left rendering an
+  /// authenticated page.
+  final VoidCallback? onSessionEnded;
+
   /// Fired exactly once with the outcome of the first main-frame load:
   /// `true` on the first successful [onPageFinished], `false` if a
   /// main-frame resource error lands first. Used by the shell's
@@ -120,6 +133,7 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
     this.navigationRequest,
     this.appBoundDomainsOnly = true,
     this.standalone = false,
+    this.onSessionEnded,
     this.onFirstLoadResult,
   });
 
@@ -530,14 +544,31 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       } else if (!next.isAuthenticated) {
         _sessionHandoffGate.begin();
       }
+      // Receipts are account-scoped: drop the previous identity's receipts
+      // from memory and reload this one's before anything can read them back.
+      unawaited(_bindTxRecordsToActiveIdentity());
+    });
+    // A settled sign-out must leave no trusted document rendering the retired
+    // session. This is the shared WebView owner, so it happens here for every
+    // realm — the SV shell just supplies a colder replacement than an in-place
+    // load can be.
+    ref.listenManual<int>(signOutCompletionProvider, (previous, next) {
+      if (previous != null && next <= previous) return;
+      final delegate = widget.onSessionEnded;
+      if (delegate != null) {
+        delegate();
+        return;
+      }
+      if (!mounted) return;
+      _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+      unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
     });
     ref.listenManual(accountReconciliationStatusProvider, (previous, next) {
       if (previous == next) return;
       _dispatchAuthStatusEvent();
     });
     _listenForSocialPushEvents();
-    _loadTxRecords();
-    _loadDappTxIds();
+    unawaited(_bindTxRecordsToActiveIdentity());
     unawaited(_ensureNodeForStandaloneDappEntry());
     WidgetsBinding.instance.addObserver(this);
   }

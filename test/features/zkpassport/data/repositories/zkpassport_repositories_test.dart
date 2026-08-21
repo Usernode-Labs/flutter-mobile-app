@@ -64,6 +64,54 @@ void main() {
       expect(await repo.load(), isNull);
     });
 
+    test('writes follow the launch bucket, not the ambient one', () async {
+      const launchBucket = 'bucket-a';
+      final launched = ZkPassportRuntimeSession(
+        requestId: session().requestId,
+        facematchStrict: session().facematchStrict,
+        phase: session().phase,
+        createdAtMs: session().createdAtMs,
+        lastProgressAtMs: session().lastProgressAtMs,
+        resumeAttemptCount: session().resumeAttemptCount,
+        requestNonce: session().requestNonce,
+        launchBucket: launchBucket,
+        launchParticipantId: 1,
+      );
+      NetworkPrefs.setActiveBucket(null, guest: true);
+
+      // Phase writes land after long Rust/RPC awaits: by then the app may have
+      // signed out (guest bucket) or admitted the next user. Recomputing the
+      // bucket per call is how A's proof ends up in B's bucket.
+      await repo.save(launched);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString(NetworkPrefs.prefixAccountKeyFor(
+            'zkpassport:runtime_session_v1', launchBucket)),
+        isNotNull,
+      );
+      expect(
+        prefs.getString(
+            NetworkPrefs.prefixAccountKey('zkpassport:runtime_session_v1')),
+        isNull,
+        reason: 'the ambient (guest) bucket must not receive the row',
+      );
+      // And finalization clears the row it actually wrote.
+      await repo.clear();
+      expect(
+        prefs.getString(NetworkPrefs.prefixAccountKeyFor(
+            'zkpassport:runtime_session_v1', launchBucket)),
+        isNotNull,
+        reason: 'an ambient clear must not reach the launch bucket',
+      );
+      await repo.clear(bucket: launchBucket);
+      expect(
+        prefs.getString(NetworkPrefs.prefixAccountKeyFor(
+            'zkpassport:runtime_session_v1', launchBucket)),
+        isNull,
+      );
+    });
+
     test('corrupt json resolves to null (and is cleared)', () async {
       final repo2 = ZkPassportRuntimeSessionRepository();
       await repo2.save(session());

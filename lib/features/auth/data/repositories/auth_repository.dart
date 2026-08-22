@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -27,12 +29,17 @@ class AuthException implements Exception {
 }
 
 class AuthRepository {
-  AuthRepository({http.Client? httpClient, String? baseUrl})
-      : _http = httpClient ?? createAppHttpClient(),
-        _baseUrl = baseUrl ?? AppConfig.authApiBaseUrl;
+  AuthRepository({
+    http.Client? httpClient,
+    String? baseUrl,
+    SessionAuthorityCredentialRequestSender? credentialRequestSender,
+  })  : _http = httpClient ?? createAppHttpClient(),
+        _baseUrl = baseUrl ?? AppConfig.authApiBaseUrl,
+        _credentialRequestSender = credentialRequestSender;
 
   final http.Client _http;
   final String _baseUrl;
+  final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
 
   static const _jsonHeaders = {
     'Content-Type': 'application/json',
@@ -73,9 +80,61 @@ class AuthRepository {
       );
     }
 
-    final decoded = _tryDecode(resp.body);
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw _mapError(resp.statusCode, decoded);
+    final session = _sessionFromMeResponse(resp, token);
+    if (legacyParticipantId != null &&
+        legacyParticipantId != session.participant.id) {
+      throw AuthException(
+        AuthErrorKind.validation,
+        'The supplied user does not match the authenticated bearer.',
+      );
+    }
+    return session;
+  }
+
+  /// Independently confirms a business-endpoint `401` through the dedicated
+  /// exact-lease `/me` path. This never invokes an unauthorized callback.
+  Future<AuthSession> confirmBearerSession(
+    AuthCredentialLease credential, {
+    required String operationId,
+  }) async {
+    final sender = _credentialRequestSender;
+    if (sender == null) {
+      throw AuthException(
+        AuthErrorKind.network,
+        'Credential confirmation transport is unavailable.',
+      );
+    }
+    final mobileBase = _baseUrl.endsWith('/auth')
+        ? _baseUrl.substring(0, _baseUrl.length - 5)
+        : _baseUrl;
+    final request = http.Request('GET', Uri.parse('$mobileBase/me'))
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer ${credential.token}',
+      });
+    late final http.Response response;
+    try {
+      final streamed = await sender(
+        credential: credential,
+        request: request,
+        operationId: operationId,
+      ).timeout(const Duration(seconds: 15));
+      response = await http.Response.fromStream(streamed)
+          .timeout(const Duration(seconds: 15));
+    } catch (error) {
+      _log.warn('credential confirmation failed: $error');
+      throw AuthException(
+        AuthErrorKind.network,
+        'Could not validate the session. Please try again.',
+      );
+    }
+    return _sessionFromMeResponse(response, credential.token);
+  }
+
+  AuthSession _sessionFromMeResponse(http.Response response, String token) {
+    final decoded = _tryDecode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw _mapError(response.statusCode, decoded);
     }
     final data = decoded?['data'];
     if (decoded?['success'] != true || data is! Map<String, dynamic>) {
@@ -84,9 +143,8 @@ class AuthRepository {
         'Unexpected session validation response.',
       );
     }
-    late final AuthSession session;
     try {
-      session = AuthSession(
+      return AuthSession(
         token: token,
         participant: Participant.fromJson(data),
       );
@@ -96,14 +154,6 @@ class AuthRepository {
         'Unexpected session validation response.',
       );
     }
-    if (legacyParticipantId != null &&
-        legacyParticipantId != session.participant.id) {
-      throw AuthException(
-        AuthErrorKind.validation,
-        'The supplied user does not match the authenticated bearer.',
-      );
-    }
-    return session;
   }
 
   Future<Map<String, dynamic>> _post(

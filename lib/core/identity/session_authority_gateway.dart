@@ -3,7 +3,10 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/network/request_written_http_transport.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 
@@ -23,6 +26,27 @@ typedef SessionAuthorityCommandJson = Future<String> Function({
 typedef SessionAuthorityTerminalReporter = void Function(
   Map<String, Object?> details,
 );
+typedef SessionAuthorityAcquireHttpEffect = rust.SessionEffectPermit Function({
+  required String directory,
+  required String sessionId,
+  required String credentialRef,
+  required BigInt credentialGeneration,
+  required String operationId,
+  required String engineId,
+});
+typedef SessionAuthorityEffectPermitAction = void Function({
+  required rust.SessionEffectPermit permit,
+});
+typedef SessionAuthorityRequestWriter = Future<http.StreamedResponse> Function(
+  http.BaseRequest request, {
+  required RequestWrittenCallback onRequestWritten,
+});
+typedef SessionAuthorityCredentialRequestSender = Future<http.StreamedResponse>
+    Function({
+  required AuthCredentialLease credential,
+  required http.BaseRequest request,
+  required String operationId,
+});
 
 /// Thin transport to the single Rust session-authority actor.
 ///
@@ -36,12 +60,23 @@ class SessionAuthorityGateway {
     SessionAuthorityBootstrapJson? bootstrapJson,
     SessionAuthorityCommandJson? commandJson,
     SessionAuthorityTerminalReporter? terminalReporter,
+    SessionAuthorityAcquireHttpEffect? acquireHttpEffect,
+    SessionAuthorityEffectPermitAction? markEffectHandoff,
+    SessionAuthorityEffectPermitAction? releaseEffectPermit,
+    SessionAuthorityRequestWriter? requestWriter,
   })  : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory,
         _admissionJson = admissionJson ?? rust.sessionAuthorityAdmissionJson,
         _bootstrapJson =
             bootstrapJson ?? rust.sessionAuthorityBootstrapLoggedOut,
         _commandJson = commandJson ?? rust.sessionAuthorityCommandJson,
         _terminalReporter = terminalReporter ?? _reportTerminalToProduction,
+        _acquireHttpEffect =
+            acquireHttpEffect ?? rust.sessionAuthorityAcquireHttpEffect,
+        _markEffectHandoff =
+            markEffectHandoff ?? rust.sessionAuthorityEffectPermitMarkHandoff,
+        _releaseEffectPermit =
+            releaseEffectPermit ?? rust.sessionAuthorityEffectPermitRelease,
+        _requestWriter = requestWriter ?? RequestWrittenHttpTransport().send,
         _clientId = _newClientId();
 
   final SessionAuthoritySupportDirectory _supportDirectory;
@@ -49,6 +84,10 @@ class SessionAuthorityGateway {
   final SessionAuthorityBootstrapJson _bootstrapJson;
   final SessionAuthorityCommandJson _commandJson;
   final SessionAuthorityTerminalReporter _terminalReporter;
+  final SessionAuthorityAcquireHttpEffect _acquireHttpEffect;
+  final SessionAuthorityEffectPermitAction _markEffectHandoff;
+  final SessionAuthorityEffectPermitAction _releaseEffectPermit;
+  final SessionAuthorityRequestWriter _requestWriter;
   final String _clientId;
 
   String? _directory;
@@ -138,6 +177,57 @@ class SessionAuthorityGateway {
     return _runVerifiedMutation(permit, mutation);
   }
 
+  /// Sends one exact credential request and releases its process permit at the
+  /// request-written handoff, independently of response completion.
+  Future<http.StreamedResponse> sendCredentialRequest({
+    required AuthCredentialLease credential,
+    required http.BaseRequest request,
+    required String operationId,
+  }) async {
+    final sessionId = _requiredCredentialField(
+      credential.sessionId,
+      'session ID',
+    );
+    final credentialRef = _requiredCredentialField(
+      credential.credentialRef,
+      'reference',
+    );
+    final credentialGeneration = credential.credentialGeneration;
+    if (credentialGeneration == null || credentialGeneration <= 0) {
+      throw const StaleAuthCredentialException();
+    }
+    if (request.headers['authorization'] != 'Bearer ${credential.token}') {
+      throw const StaleAuthCredentialException();
+    }
+
+    final permit = _acquireHttpEffect(
+      directory: await _resolveDirectory(),
+      sessionId: sessionId,
+      credentialRef: credentialRef,
+      credentialGeneration: BigInt.from(credentialGeneration),
+      operationId: operationId,
+      engineId: _clientId,
+    );
+    var released = false;
+    void release() {
+      if (released) return;
+      released = true;
+      _releaseEffectPermit(permit: permit);
+    }
+
+    try {
+      return await _requestWriter(
+        request,
+        onRequestWritten: () {
+          _markEffectHandoff(permit: permit);
+          release();
+        },
+      );
+    } finally {
+      release();
+    }
+  }
+
   Future<bool> _runVerifiedMutation(
     rust.SessionEffectPermit permit,
     Future<bool> Function() mutation,
@@ -145,11 +235,11 @@ class SessionAuthorityGateway {
     try {
       final verified = await mutation();
       if (verified) {
-        rust.sessionAuthorityEffectPermitMarkHandoff(permit: permit);
+        _markEffectHandoff(permit: permit);
       }
       return verified;
     } finally {
-      rust.sessionAuthorityEffectPermitRelease(permit: permit);
+      _releaseEffectPermit(permit: permit);
     }
   }
 
@@ -171,6 +261,14 @@ class SessionAuthorityGateway {
     _directory = resolved;
     return resolved;
   }
+}
+
+String _requiredCredentialField(String? value, String field) {
+  final normalized = value?.trim();
+  if (normalized == null || normalized.isEmpty) {
+    throw const StaleAuthCredentialException();
+  }
+  return normalized;
 }
 
 String _newClientId() {

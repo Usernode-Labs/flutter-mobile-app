@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -111,6 +112,61 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('confirmBearerSession', () {
+    test('uses the exact credential sender for dedicated /me confirmation',
+        () async {
+      late AuthCredentialLease capturedCredential;
+      late http.BaseRequest capturedRequest;
+      late String capturedOperationId;
+      const credential = AuthCredentialLease(
+        epoch: 4,
+        token: 'bearer-a',
+        sessionId: 'session-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 2,
+      );
+      final repository = AuthRepository(
+        httpClient: _client(500, const {}),
+        baseUrl: _base,
+        credentialRequestSender: ({
+          required credential,
+          required request,
+          required operationId,
+        }) async {
+          capturedCredential = credential;
+          capturedRequest = request;
+          capturedOperationId = operationId;
+          return http.StreamedResponse(
+            Stream.value(utf8.encode(jsonEncode({
+              'success': true,
+              'data': {
+                'id': 7,
+                'email': null,
+                'display_name': 'Web User',
+                'email_confirmed': false,
+              },
+            }))),
+            200,
+          );
+        },
+      );
+
+      final session = await repository.confirmBearerSession(
+        credential,
+        operationId: 'confirm-a',
+      );
+
+      expect(capturedCredential, same(credential));
+      expect(capturedOperationId, 'confirm-a');
+      expect(capturedRequest.method, 'GET');
+      expect(capturedRequest.url.toString(),
+          'https://test.example.com/api/v3/mobile/me');
+      expect(capturedRequest.headers['authorization'], 'Bearer bearer-a');
+      expect(session.participant.id, 7);
+      expect(session.token, 'bearer-a');
     });
   });
 }

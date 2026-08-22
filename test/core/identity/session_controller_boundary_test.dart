@@ -22,6 +22,7 @@ class _SessionAuthorityRepository extends _NoopLogoutRepository {
 
   final Future<AuthSession> Function(String token) _resolve;
   final resolvedTokens = <String>[];
+  final confirmedCredentials = <AuthCredentialLease>[];
 
   @override
   Future<AuthSession> resolveBearerSession(
@@ -30,6 +31,15 @@ class _SessionAuthorityRepository extends _NoopLogoutRepository {
   }) {
     resolvedTokens.add(token);
     return _resolve(token);
+  }
+
+  @override
+  Future<AuthSession> confirmBearerSession(
+    AuthCredentialLease credential, {
+    required String operationId,
+  }) {
+    confirmedCredentials.add(credential);
+    return _resolve(credential.token);
   }
 }
 
@@ -437,7 +447,10 @@ void main() {
 
     await controller.onUnauthorized(credential: credential);
 
-    expect(repository.resolvedTokens, ['token-a']);
+    expect(repository.resolvedTokens, isEmpty);
+    expect(repository.confirmedCredentials.map((value) => value.token), [
+      'token-a',
+    ]);
     expect(reset.reasons, ['session_expired']);
     expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
     expect(await tokenStore.read(), isNull);
@@ -466,7 +479,10 @@ void main() {
 
     await controller.onUnauthorized(credential: credential);
 
-    expect(repository.resolvedTokens, ['token-a']);
+    expect(repository.resolvedTokens, isEmpty);
+    expect(repository.confirmedCredentials.map((value) => value.token), [
+      'token-a',
+    ]);
     expect(reset.reasons, isEmpty);
     expect(await tokenStore.read(), 'token-a');
     expect(controller.state.phase, IdentityPhase.ready);
@@ -497,7 +513,10 @@ void main() {
 
     await controller.onUnauthorized(credential: credential);
 
-    expect(repository.resolvedTokens, ['token-a']);
+    expect(repository.resolvedTokens, isEmpty);
+    expect(repository.confirmedCredentials.map((value) => value.token), [
+      'token-a',
+    ]);
     expect(reset.reasons, isEmpty);
     expect(await tokenStore.read(), 'token-a');
     expect(controller.state.phase, IdentityPhase.ready);

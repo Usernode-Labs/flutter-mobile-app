@@ -1,8 +1,22 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
+import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+
+final class _FakeSessionEffectPermit implements rust.SessionEffectPermit {
+  var _disposed = false;
+
+  @override
+  void dispose() => _disposed = true;
+
+  @override
+  bool get isDisposed => _disposed;
+}
 
 void main() {
   const revision = <String, dynamic>{
@@ -221,6 +235,96 @@ void main() {
       'network': 'testnet',
       'session_id': 'logged-out-a',
     });
+  });
+
+  test('credential HTTP permit releases before a withheld response', () async {
+    final events = <Object>[];
+    final responseGate = Completer<http.StreamedResponse>();
+    final requestWritten = Completer<void>();
+    late http.BaseRequest capturedRequest;
+    final permit = _FakeSessionEffectPermit();
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/application-support'),
+      admissionJson: ({required directory}) => '{}',
+      bootstrapJson: ({
+        required directory,
+        required network,
+        required sessionId,
+      }) =>
+          '{}',
+      commandJson: ({required directory, required request}) async => '{}',
+      acquireHttpEffect: ({
+        required directory,
+        required sessionId,
+        required credentialRef,
+        required credentialGeneration,
+        required operationId,
+        required engineId,
+      }) {
+        events.add({
+          'kind': 'acquire',
+          'directory': directory,
+          'session_id': sessionId,
+          'credential_ref': credentialRef,
+          'credential_generation': credentialGeneration,
+          'operation_id': operationId,
+        });
+        return permit;
+      },
+      markEffectHandoff: ({required permit}) {
+        events.add('handoff');
+      },
+      releaseEffectPermit: ({required permit}) {
+        events.add('release');
+      },
+      requestWriter: (request, {required onRequestWritten}) async {
+        capturedRequest = request;
+        await Future<void>.sync(onRequestWritten);
+        requestWritten.complete();
+        return responseGate.future;
+      },
+    );
+    const credential = AuthCredentialLease(
+      epoch: 7,
+      token: 'token-a',
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 3,
+    );
+    final request = http.Request(
+      'GET',
+      Uri.parse('https://example.test/api/v3/mobile/me'),
+    )..headers['authorization'] = 'Bearer token-a';
+
+    final responseFuture = gateway.sendCredentialRequest(
+      credential: credential,
+      request: request,
+      operationId: 'confirm-a',
+    );
+    var responseSettled = false;
+    unawaited(responseFuture.then<void>(
+      (_) => responseSettled = true,
+      onError: (_) => responseSettled = true,
+    ));
+    await requestWritten.future;
+
+    expect(capturedRequest, same(request));
+    expect(events, [
+      {
+        'kind': 'acquire',
+        'directory': '/application-support/session-authority',
+        'session_id': 'session-a',
+        'credential_ref': 'credential-a',
+        'credential_generation': BigInt.from(3),
+        'operation_id': 'confirm-a',
+      },
+      'handoff',
+      'release',
+    ]);
+    expect(responseSettled, isFalse);
+
+    responseGate.complete(http.StreamedResponse(const Stream.empty(), 200));
+    expect((await responseFuture).statusCode, 200);
   });
 }
 

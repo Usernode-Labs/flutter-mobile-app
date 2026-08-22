@@ -19,6 +19,8 @@ class _NoopAuthRepository extends AuthRepository {
 }
 
 class _RejectedAuthRepository extends AuthRepository {
+  final confirmedCredentials = <AuthCredentialLease>[];
+
   @override
   Future<AuthSession> resolveBearerSession(
     String token, {
@@ -28,6 +30,18 @@ class _RejectedAuthRepository extends AuthRepository {
         AuthErrorKind.invalidCredentials,
         'Unauthenticated.',
       );
+
+  @override
+  Future<AuthSession> confirmBearerSession(
+    AuthCredentialLease credential, {
+    required String operationId,
+  }) async {
+    confirmedCredentials.add(credential);
+    throw AuthException(
+      AuthErrorKind.invalidCredentials,
+      'Unauthenticated.',
+    );
+  }
 
   @override
   Future<void> logout(String sessionToken) async {}
@@ -828,12 +842,14 @@ void main() {
       'testnet:acct:$bucket:leaderboard:participant_id': 7,
       'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
     });
+    final repository = _RejectedAuthRepository();
     final controller = SessionController(
       tokenStore: tokenStore,
       guestFlag: AuthGuestFlag(),
-      repository: _RejectedAuthRepository(),
+      repository: repository,
       sessionAuthority: authority,
       newAuthorityId: (kind) => switch (kind) {
+        'credential-confirmation' => 'confirm-http-a',
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
         _ => throw StateError('Unexpected id kind $kind'),
@@ -868,6 +884,7 @@ void main() {
     );
 
     expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(repository.confirmedCredentials.single.token, 'token-a');
     expect(authority.commands[1], {
       'command': 'confirm_credential',
       'expected': {

@@ -47,8 +47,12 @@ class SessionControllerRetiredException implements Exception {
 
 enum _SessionValidation { valid, invalid, ownerMismatch, unavailable }
 
-final authRepositoryProvider =
-    Provider<AuthRepository>((ref) => AuthRepository());
+final authRepositoryProvider = Provider<AuthRepository>((ref) {
+  final authority = ref.watch(sessionAuthorityGatewayProvider);
+  return AuthRepository(
+    credentialRequestSender: authority?.sendCredentialRequest,
+  );
+});
 
 final authTokenStoreProvider =
     Provider<AuthTokenStore>((ref) => AuthTokenStore());
@@ -1657,10 +1661,13 @@ class SessionController extends StateNotifier<Identity> {
   /// credential is invalid, so it must preserve the current identity.
   Future<_SessionValidation> _validateSessionCredential(
     Identity identity,
-    String token,
+    AuthCredentialLease credential,
   ) async {
     try {
-      final session = await _repository.resolveBearerSession(token);
+      final session = await _repository.confirmBearerSession(
+        credential,
+        operationId: _newAuthorityId('credential-confirmation'),
+      );
       final participantId = identity.participantId;
       if (participantId != null && session.participant.id != participantId) {
         _log.warn(
@@ -1720,8 +1727,7 @@ class SessionController extends StateNotifier<Identity> {
       return;
     }
 
-    final validation =
-        await _validateSessionCredential(identity, credential.token);
+    final validation = await _validateSessionCredential(identity, credential);
     if (validation == _SessionValidation.valid) {
       _log.warn(
         'Ignoring 401 because the session authority still accepts the '

@@ -105,15 +105,10 @@ class Identity {
   /// reconciled may start or resume a node.
   bool get allowsNodeStart => phase == IdentityPhase.ready;
 
-  /// Signing (dApp bridge, Send flow) requires an identity that OWNS an
-  /// account: a confirmed authenticated identity, or the local-only
-  /// unauthenticated mode where the active account is the device owner's.
-  /// Guests are refused — the active registry account (and its key) may
-  /// belong to a previously signed-in user, and a guest session must never
-  /// operate it. When this is true, [address] is always non-null.
-  bool get allowsSigning =>
-      phase == IdentityPhase.ready ||
-      (phase == IdentityPhase.unauthenticated && address != null);
+  /// Signing (dApp bridge, Send flow) requires an authenticated identity whose
+  /// account ownership has been reconciled. Retained local wallets grant no
+  /// authority while logged out or in guest mode.
+  bool get allowsSigning => phase == IdentityPhase.ready;
 
   /// Exact equality for async work that must not cross identity publication.
   bool sameScopeAs(Identity other) =>

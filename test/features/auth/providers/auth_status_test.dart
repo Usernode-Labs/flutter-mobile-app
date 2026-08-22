@@ -73,6 +73,40 @@ void main() {
     expect(c.read(identityProvider).phase, IdentityPhase.unauthenticated);
   });
 
+  test('logged-out authority cannot resolve a retained local account',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'testnet:accounts:index': jsonEncode([
+        {
+          'id': 'retained-account',
+          'name': 'Retained wallet',
+          'createdAt': '2026-01-01T00:00:00.000',
+          'derivationPath': 'imported',
+          'hdIndex': 0,
+          'address': 'ut1retained',
+          'publicKey': 'utpk1retained',
+          'backupConfirmed': true,
+          'isDemo': false,
+        }
+      ]),
+      'testnet:accounts:activeId': 'retained-account',
+    });
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+
+    await _settle(c);
+
+    final identity = c.read(identityProvider);
+    expect(identity.phase, IdentityPhase.unauthenticated);
+    expect(identity.accountId, isNull);
+    expect(identity.address, isNull);
+    expect(identity.allowsSigning, isFalse);
+    expect(NetworkPrefs.activeBucket, NetworkPrefs.guestBucket);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('testnet:accounts:index'), isNotNull,
+        reason: 'migration locks retained data; it does not delete it');
+  });
+
   test(
       'boots into the reconciling phase when a token is stored but the '
       'account was never confirmed', () async {
@@ -451,7 +485,7 @@ void main() {
     expect(identity.allowsSigning, isFalse);
   });
 
-  test('local-only unauthenticated identity signs only with an account', () {
+  test('logged-out unauthenticated identity never allows signing', () {
     const withAccount = Identity(
       epoch: 1,
       phase: IdentityPhase.unauthenticated,
@@ -460,7 +494,7 @@ void main() {
     );
     const withoutAccount =
         Identity(epoch: 1, phase: IdentityPhase.unauthenticated);
-    expect(withAccount.allowsSigning, isTrue);
+    expect(withAccount.allowsSigning, isFalse);
     expect(withoutAccount.allowsSigning, isFalse);
     expect(
         const Identity(epoch: 1, phase: IdentityPhase.reconciling)

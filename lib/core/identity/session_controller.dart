@@ -395,15 +395,11 @@ class SessionController extends StateNotifier<Identity> {
           ));
           return;
         }
-        // No session: local-only mode. The bucket follows the active local
-        // account (its owner is offline-irrelevant — no token can act as
-        // anyone), matching pre-auth behavior.
-        final active = await (await AccountsRepository.create()).getActive();
+        // No session: retained wallets stay stored but are not addressable
+        // until a login and backend reconciliation prove their owner.
         _publish(Identity(
           epoch: state.epoch + 1,
           phase: IdentityPhase.unauthenticated,
-          accountId: active?.id,
-          address: active?.address,
         ));
       });
 
@@ -639,15 +635,11 @@ class SessionController extends StateNotifier<Identity> {
           return false;
         }
 
-        // Mirror what a cold boot with no session resolves to, so sign-out and
-        // the next launch agree: local-only mode, following whatever account
-        // the (now un-namespaced) registry still exposes.
-        final active = await (await AccountsRepository.create()).getActive();
+        // Mirror a cold boot with no session. Retained account data remains on
+        // disk but is not published as logged-out signing authority.
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.unauthenticated,
-          accountId: active?.id,
-          address: active?.address,
         ));
         _onSignOutCompleted?.call();
         return true;

@@ -29,6 +29,11 @@ typedef SessionAuthorityBootstrapLoggedOutFn = String Function({
   required String sessionId,
 });
 
+typedef SessionAuthorityCommandJsonFn = Future<String> Function({
+  required String directory,
+  required String request,
+});
+
 @Tags(['frb', 'smoke'])
 void main() {
   group('FRB compile contract (no-load)', () {
@@ -58,6 +63,11 @@ void main() {
         () {
       SessionAuthorityBootstrapLoggedOutFn f =
           sessionAuthorityBootstrapLoggedOut;
+      expect(f, isNotNull);
+    });
+
+    test('session authority commands leave the Flutter UI isolate', () {
+      SessionAuthorityCommandJsonFn f = sessionAuthorityCommandJson;
       expect(f, isNotNull);
     });
   });

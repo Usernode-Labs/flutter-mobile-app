@@ -119,10 +119,11 @@ void main() {
     test('clearGuestParticipantId removes a staged id', () async {
       SharedPreferences.setMockInitialValues({_guestKey: 42});
 
-      await clearGuestParticipantId();
+      expect(await clearGuestParticipantId(), isTrue);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(_guestKey), isNull);
+      expect(prefs.containsKey(_guestKey), isFalse);
     });
 
     test('loadParticipantIdInBucket reads an explicit bucket', () async {

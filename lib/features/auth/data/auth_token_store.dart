@@ -23,9 +23,11 @@ class AuthTokenStore {
     _changes.add(null);
   }
 
-  Future<void> clear() async {
+  Future<bool> clear() async {
     await _storage.delete(key: _key);
-    _changes.add(null);
+    final cleared = await _storage.read(key: _key) == null;
+    if (cleared) _changes.add(null);
+    return cleared;
   }
 }
 
@@ -45,5 +47,10 @@ class AuthGuestFlag {
   }
 
   Future<void> setGuest() async => (await _prefs).setBool(_key, true);
-  Future<void> clear() async => (await _prefs).remove(_key);
+  Future<bool> clear() async {
+    final prefs = await _prefs;
+    await prefs.remove(_key);
+    await prefs.reload();
+    return !prefs.containsKey(_key);
+  }
 }

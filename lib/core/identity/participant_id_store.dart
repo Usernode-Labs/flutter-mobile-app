@@ -39,12 +39,15 @@ Future<void> stageParticipantIdInGuestBucket(int id) async {
 
 /// Remove a staged/leftover participant ID from the guest bucket so a guest
 /// session can never resolve a previous authenticated user's ID.
-Future<void> clearGuestParticipantId() async {
+Future<bool> clearGuestParticipantId() async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.remove(
-    NetworkPrefs.prefixAccountKeyFor(
-        _participantIdKey, NetworkPrefs.guestBucket),
+  final key = NetworkPrefs.prefixAccountKeyFor(
+    _participantIdKey,
+    NetworkPrefs.guestBucket,
   );
+  await prefs.remove(key);
+  await prefs.reload();
+  return !prefs.containsKey(key);
 }
 
 /// Install [participantId] into an explicit account [bucket] after the

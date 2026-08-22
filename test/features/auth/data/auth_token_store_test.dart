@@ -34,6 +34,35 @@ class _FailingSecureStorage extends FlutterSecureStorage {
   }
 }
 
+class _StickySecureStorage extends FlutterSecureStorage {
+  _StickySecureStorage(this.value);
+
+  String? value;
+
+  @override
+  Future<String?> read({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async =>
+      value;
+
+  @override
+  Future<void> delete({
+    required String key,
+    IOSOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    MacOsOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -47,7 +76,7 @@ void main() {
     expect(await store.read(), isNull);
     await store.write('sess-1');
     expect(await store.read(), 'sess-1');
-    await store.clear();
+    expect(await store.clear(), isTrue);
     expect(await store.read(), isNull);
   });
 
@@ -76,12 +105,25 @@ void main() {
     expect(changes, 0);
   });
 
+  test('silent secure-storage deletion is not reported as cleared', () async {
+    var changes = 0;
+    final subscription = AuthTokenStore.changes.listen((_) => changes += 1);
+    addTearDown(subscription.cancel);
+    final store = AuthTokenStore(storage: _StickySecureStorage('sess-1'));
+
+    expect(await store.clear(), isFalse);
+    expect(await store.read(), 'sess-1');
+    expect(changes, 0);
+  });
+
   test('guest flag set/read/clear', () async {
     final flag = AuthGuestFlag();
     expect(await flag.isGuest(), false);
     await flag.setGuest();
     expect(await flag.isGuest(), true);
-    await flag.clear();
+    expect(await flag.clear(), isTrue);
     expect(await flag.isGuest(), false);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey('auth:v3:guest'), isFalse);
   });
 }

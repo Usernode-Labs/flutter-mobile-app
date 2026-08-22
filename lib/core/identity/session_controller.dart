@@ -775,8 +775,32 @@ class SessionController extends StateNotifier<Identity> {
       credentialRef: credentialRef,
       credentialGeneration: credentialGeneration,
     );
-    if (credential == null || credential.userNamespace != userNamespace) {
-      throw StateError('Ready session credential ownership is unavailable');
+    if (credential == null) {
+      final unavailable = Identity(
+        epoch: state.epoch,
+        phase: IdentityPhase.ready,
+        accountId: accountId,
+        address: address,
+        sessionId: sessionId,
+        credentialRef: credentialRef,
+        credentialGeneration: credentialGeneration,
+      );
+      _publish(Identity(
+        epoch: state.epoch + 1,
+        phase: IdentityPhase.transitioning,
+        sessionId: sessionId,
+      ));
+      await _logoutWithAuthority(unavailable, signalCompletion: false);
+      return;
+    }
+    if (credential.userNamespace != userNamespace) {
+      _publish(Identity(
+        epoch: state.epoch + 1,
+        phase: IdentityPhase.transitioning,
+        sessionId: sessionId,
+      ));
+      await _authorityTerminalReset('ready_credential_owner_mismatch');
+      return;
     }
     if (!await saveIdentityNamespace(userNamespace)) {
       throw StateError('Ready session namespace could not be restored');
@@ -1176,7 +1200,10 @@ class SessionController extends StateNotifier<Identity> {
         return true;
       }, whenRetired: () => false);
 
-  Future<bool> _logoutWithAuthority(Identity current) async {
+  Future<bool> _logoutWithAuthority(
+    Identity current, {
+    bool signalCompletion = true,
+  }) async {
     final sessionId = _requiredAuthorityField(current.sessionId, 'session');
     final credentialRef =
         _requiredAuthorityField(current.credentialRef, 'credential reference');
@@ -1221,7 +1248,10 @@ class SessionController extends StateNotifier<Identity> {
       await _authorityTerminalReset('retirement_repair_failed');
       return false;
     }
-    await _publishAuthorityLoggedOut(loggedOut, signalCompletion: true);
+    await _publishAuthorityLoggedOut(
+      loggedOut,
+      signalCompletion: signalCompletion,
+    );
     return true;
   }
 
@@ -1618,6 +1648,10 @@ class SessionController extends StateNotifier<Identity> {
     if (_retired || !mounted) return;
     final identity = state;
     if (identity.epoch != epoch || !identity.isAuthenticated) return;
+    if (_sessionAuthority != null) {
+      await logout(expectedIdentity: identity);
+      return;
+    }
     await _logout(
       expectedIdentity: identity,
       requireMissingToken: true,

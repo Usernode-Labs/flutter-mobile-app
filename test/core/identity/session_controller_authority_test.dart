@@ -618,6 +618,107 @@ void main() {
     expect(firstPlatformEffectCommand, greaterThan(1));
   });
 
+  test('cold Ready with no exact credential retires through the journal',
+      () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      ..._successfulRetirementResponses(),
+    ]);
+    final bucket = NetworkPrefs.bucketForAddress('address-a');
+    SharedPreferences.setMockInitialValues({
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+    });
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        _ => throw StateError('Unexpected id kind $kind'),
+      },
+      retireRuntimeAuthority: ({
+        required directory,
+        required sessionId,
+        required transitionId,
+      }) async =>
+          true,
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restore();
+
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(controller.state.sessionId, 'logged-out-b');
+    expect(authority.commands[1]['command'], 'enter_retirement');
+    expect(authority.commands[1]['session_id'], 'session-a');
+  });
+
+  test('a missing current credential uses ordinary durable retirement',
+      () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      ..._successfulRetirementResponses(),
+    ]);
+    final tokenStore = AuthTokenStore();
+    const credential = SessionCredential(
+      sessionId: 'session-a',
+      transitionId: 'login-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 1,
+      token: 'token-a',
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+    );
+    await tokenStore.writeSessionCredential(credential);
+    final bucket = NetworkPrefs.bucketForAddress('address-a');
+    SharedPreferences.setMockInitialValues({
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+    });
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        _ => throw StateError('Unexpected id kind $kind'),
+      },
+      retireRuntimeAuthority: ({
+        required directory,
+        required sessionId,
+        required transitionId,
+      }) async =>
+          true,
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    addTearDown(controller.dispose);
+    await controller.restore();
+    final epoch = controller.state.epoch;
+    expect(await tokenStore.clearSessionCredential(credential), isTrue);
+
+    await controller.onCredentialMissing(epoch: epoch);
+
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(controller.state.sessionId, 'logged-out-b');
+    expect(authority.commands[1]['command'], 'enter_retirement');
+    expect(authority.commands[1]['session_id'], 'session-a');
+  });
+
   test('definitive rejection retires only the exact current credential',
       () async {
     final authority = _ScriptedAuthority([
@@ -770,5 +871,59 @@ List<Map<String, dynamic>> _phaseResponses({
         state: _retiring(nextPhase),
         outcome: 'retirement_advanced',
         outcomeFields: {'phase': nextPhase},
+      ),
+    ];
+
+List<Map<String, dynamic>> _successfulRetirementResponses() => [
+      _response(
+        sequence: 6,
+        state: _retiring('tombstone_work'),
+        outcome: 'retirement_entered',
+        outcomeFields: {'effect_epoch': 2},
+      ),
+      _response(
+        sequence: 6,
+        state: _retiring('tombstone_work'),
+        outcome: 'retirement_tombstone_status',
+        outcomeFields: {'verified': true},
+      ),
+      _response(
+        sequence: 7,
+        state: _retiring('revoke_native_admission'),
+        outcome: 'retirement_advanced',
+        outcomeFields: {'phase': 'revoke_native_admission'},
+      ),
+      ..._phaseResponses(
+        instructionSequence: 8,
+        advanceSequence: 9,
+        phase: 'revoke_native_admission',
+        nextPhase: 'revoke_runtime',
+      ),
+      ..._phaseResponses(
+        instructionSequence: 10,
+        advanceSequence: 11,
+        phase: 'revoke_runtime',
+        nextPhase: 'clear_credential',
+      ),
+      ..._phaseResponses(
+        instructionSequence: 12,
+        advanceSequence: 13,
+        phase: 'clear_credential',
+        nextPhase: 'clear_webview',
+      ),
+      ..._phaseResponses(
+        instructionSequence: 14,
+        advanceSequence: 15,
+        phase: 'clear_webview',
+        nextPhase: 'commit_logged_out',
+      ),
+      _response(
+        sequence: 16,
+        state: {
+          'kind': 'logged_out',
+          'session_id': 'logged-out-b',
+          'mode': 'signed_out',
+        },
+        outcome: 'retirement_logged_out',
       ),
     ];

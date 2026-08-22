@@ -78,6 +78,7 @@ if (keystorePropertiesFile.exists()) {
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         // Add this to exclude i686-linux-android (x86 32-bit)
         ndk {
@@ -144,4 +145,7 @@ dependencies {
     // Version matches what webview_flutter_android already resolves.
     implementation 'androidx.webkit:webkit:1.15.0'
     testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
 }

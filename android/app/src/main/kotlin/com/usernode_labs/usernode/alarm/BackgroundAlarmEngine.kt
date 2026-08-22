@@ -178,6 +178,11 @@ object BackgroundAlarmEngine {
         eventData: Map<String, Any?>,
         completion: ((Boolean) -> Unit)?,
     ) {
+        if (!isEventAdmittedBeforeFlutter(context, eventType, eventData)) {
+            Log.w(TAG, "Ignoring event without current runtime authority: $eventType")
+            completion?.invoke(false)
+            return
+        }
         if (!eventMatchesCurrentIncarnation(context, eventType, eventData)) {
             Log.w(TAG, "Ignoring stale alarm event before engine creation: $eventType")
             completion?.invoke(false)
@@ -185,6 +190,11 @@ object BackgroundAlarmEngine {
         }
         val posted = mainHandler.post {
             try {
+                if (!isEventAdmittedBeforeFlutter(context, eventType, eventData)) {
+                    Log.w(TAG, "Ignoring queued event after authority changed: $eventType")
+                    completion?.invoke(false)
+                    return@post
+                }
                 if (!eventMatchesCurrentIncarnation(context, eventType, eventData)) {
                     Log.w(TAG, "Ignoring stale queued alarm event: $eventType")
                     completion?.invoke(false)
@@ -232,18 +242,18 @@ object BackgroundAlarmEngine {
         }
     }
 
+    internal fun isEventAdmittedBeforeFlutter(
+        context: Context,
+        eventType: String,
+        eventData: Map<String, Any?>,
+    ): Boolean = BackgroundRuntimeEventAuthority.isAdmitted(context, eventType, eventData)
+
     private fun eventMatchesCurrentIncarnation(
         context: Context,
         eventType: String,
         eventData: Map<String, Any?>,
     ): Boolean {
-        if (!eventType.startsWith("android_") ||
-            eventType == "android_post_notifications_permission_granted" ||
-            eventType == "android_post_notifications_permission_denied" ||
-            eventType == "android_exact_alarm_permission_granted" ||
-            eventType == "android_exact_alarm_permission_denied" ||
-            eventType == "android_battery_optimization_disabled"
-        ) {
+        if (!BackgroundRuntimeEventAuthority.requiresRuntimeAuthority(eventType)) {
             return true
         }
         val captured = eventData[

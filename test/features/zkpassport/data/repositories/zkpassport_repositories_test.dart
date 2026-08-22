@@ -40,6 +40,7 @@ void main() {
     final repo = ZkPassportRuntimeSessionRepository();
 
     ZkPassportRuntimeSession session() => const ZkPassportRuntimeSession(
+          appSessionId: 'app-session-a',
           requestId: 'req',
           facematchStrict: true,
           phase: ZkPassportPipelinePhase.waiting,
@@ -67,6 +68,7 @@ void main() {
     test('writes follow the launch bucket, not the ambient one', () async {
       const launchBucket = 'bucket-a';
       final launched = ZkPassportRuntimeSession(
+        appSessionId: session().appSessionId,
         requestId: session().requestId,
         facematchStrict: session().facematchStrict,
         phase: session().phase,
@@ -110,6 +112,21 @@ void main() {
             'zkpassport:runtime_session_v1', launchBucket)),
         isNull,
       );
+    });
+
+    test('legacy row without an app session remains stored but inert',
+        () async {
+      NetworkPrefs.setActiveBucket(null, guest: true);
+      final prefs = await SharedPreferences.getInstance();
+      final key = NetworkPrefs.prefixAccountKey(
+        'zkpassport:runtime_session_v1',
+      );
+      final legacy = session().toJson()..remove('appSessionId');
+      final raw = jsonEncode(legacy);
+      await prefs.setString(key, raw);
+
+      expect(await repo.load(), isNull);
+      expect(prefs.getString(key), raw);
     });
 
     test('corrupt json resolves to null (and is cleared)', () async {
@@ -168,6 +185,7 @@ void main() {
       ZkPassportRequestVersion requestVersion,
     ) async {
       await repo.storePendingCompletion(
+        appSessionId: 'app-session-a',
         participantId: 7,
         challengeId: 42,
         walletAddress: address,
@@ -309,6 +327,7 @@ void main() {
         () async {
       final requestVersion = version('nonce-repair');
       await repo.storePendingCompletion(
+        appSessionId: 'app-session-a',
         participantId: 7,
         challengeId: 42,
         walletAddress: address,
@@ -325,11 +344,31 @@ void main() {
 
       final pending = await repo.getPendingCompletion(bucket: bucket);
       expect(pending, isNotNull);
-      expect(pending!['account_id'], accountId);
+      expect(pending!['app_session_id'], 'app-session-a');
+      expect(pending['account_id'], accountId);
       expect(pending['facematch_verified'], isTrue);
       expect(pending['verify_outer_ms'], 11);
       expect(pending['wrap_outer_ms'], 12);
       expect(pending['verify_wrapped_ms'], 13);
+    });
+
+    test('legacy outbox row without an app session remains stored but inert',
+        () async {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'testnet:acct:$bucket:zkpassport:pending_completion';
+      final raw = jsonEncode({
+        'participant_id': 7,
+        'challenge_id': 42,
+        'wallet_address': address,
+        'session_id': 'request-a',
+        'nullifier_hex': 'nullifier',
+        'account_id': accountId,
+        ...version('nonce-legacy').toJson(),
+      });
+      await prefs.setString(key, raw);
+
+      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect(prefs.getString(key), raw);
     });
 
     test('explicit registration writes ignore a changed ambient bucket',
@@ -361,6 +400,7 @@ void main() {
 
       await expectLater(
         failingRepo.storePendingCompletion(
+          appSessionId: 'app-session-a',
           participantId: 7,
           challengeId: 42,
           walletAddress: address,

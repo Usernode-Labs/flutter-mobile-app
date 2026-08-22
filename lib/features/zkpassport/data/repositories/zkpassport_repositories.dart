@@ -131,6 +131,7 @@ class ZkPassportRegistrationRepository {
   /// retry on the next settled-identity opportunity (cold start, sign-in,
   /// reconcile completion). See [getPendingCompletion] for [bucket] semantics.
   Future<void> storePendingCompletion({
+    required String appSessionId,
     required int participantId,
     required int challengeId,
     required String walletAddress,
@@ -144,6 +145,14 @@ class ZkPassportRegistrationRepository {
     int? verifyWrappedMs,
     String? bucket,
   }) async {
+    final normalizedAppSessionId = appSessionId.trim();
+    if (normalizedAppSessionId.isEmpty) {
+      throw ArgumentError.value(
+        appSessionId,
+        'appSessionId',
+        'must not be empty',
+      );
+    }
     if (sessionId != requestVersion.requestId) {
       throw ArgumentError.value(
         sessionId,
@@ -157,6 +166,7 @@ class ZkPassportRegistrationRepository {
       prefs,
       key,
       jsonEncode({
+        'app_session_id': normalizedAppSessionId,
         'participant_id': participantId,
         'challenge_id': challengeId,
         'wallet_address': walletAddress,
@@ -189,6 +199,12 @@ class ZkPassportRegistrationRepository {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) {
+        final appSessionId = decoded['app_session_id'];
+        if (appSessionId is! String || appSessionId.trim().isEmpty) {
+          // Pre-authority rows are retained for the one-off upgrade but
+          // cannot be resumed without an exact owning session incarnation.
+          return null;
+        }
         final version = ZkPassportRequestVersion.fromJson(decoded);
         if (version != null &&
             _requestOutcome(prefs, version, bucket: bucket) != null) {
@@ -419,6 +435,11 @@ class ZkPassportRuntimeSessionRepository {
         await prefs.remove(key);
         return null;
       }
+      final appSessionId = decoded['appSessionId'];
+      if (appSessionId is! String || appSessionId.trim().isEmpty) {
+        // Retain the pre-authority row in place, but never resume it.
+        return null;
+      }
       final session = ZkPassportRuntimeSession.fromJson(decoded);
       if (session == null) {
         await prefs.remove(key);
@@ -431,10 +452,17 @@ class ZkPassportRuntimeSessionRepository {
     }
   }
 
-  /// Writes the row into the session's launch bucket (see [_key]). Sessions
-  /// persisted by older app versions carry no launch bucket and fall back to
-  /// the ambient one.
+  /// Writes the row into the session's launch bucket (see [_key]). A row
+  /// created by phase-only recovery may have no launch bucket and falls back
+  /// to the ambient one; [appSessionId] still owns it exactly.
   Future<void> save(ZkPassportRuntimeSession session) async {
+    if (session.appSessionId.trim().isEmpty) {
+      throw ArgumentError.value(
+        session.appSessionId,
+        'session.appSessionId',
+        'must not be empty',
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     await _checkedSetString(
       prefs,

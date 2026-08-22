@@ -36,6 +36,7 @@ void main() {
       String? requestNonce = 'nonce-a',
     }) =>
         ZkPassportRuntimeSession(
+          appSessionId: 'app-session-a',
           requestId: requestId,
           facematchStrict: true,
           phase: phase,
@@ -87,6 +88,7 @@ void main() {
 
     test('launch identity fields persist across a round-trip', () {
       const original = ZkPassportRuntimeSession(
+        appSessionId: 'app-session-a',
         requestId: 'req',
         facematchStrict: true,
         phase: ZkPassportPipelinePhase.waiting,
@@ -99,12 +101,13 @@ void main() {
       );
       final parsed = ZkPassportRuntimeSession.fromJson(original.toJson());
       expect(parsed, isNotNull);
-      expect(parsed!.launchEpoch, 4);
+      expect(parsed!.appSessionId, 'app-session-a');
+      expect(parsed.launchEpoch, 4);
       expect(parsed.launchBucket, 'acct_ut1abc');
       expect(parsed.launchParticipantId, 77);
     });
 
-    test('legacy sessions without launch identity parse with nulls', () {
+    test('legacy launch metadata may be absent when app session is exact', () {
       final legacy = session().toJson()
         ..remove('launchEpoch')
         ..remove('launchBucket')
@@ -118,6 +121,10 @@ void main() {
 
     test('fromJson rejects missing/invalid required fields', () {
       final ok = session().toJson();
+      expect(
+        ZkPassportRuntimeSession.fromJson({...ok}..remove('appSessionId')),
+        isNull,
+      );
       expect(ZkPassportRuntimeSession.fromJson({...ok}..remove('requestId')),
           isNull);
       expect(ZkPassportRuntimeSession.fromJson({...ok, 'phase': 'nonsense'}),
@@ -128,6 +135,7 @@ void main() {
 
     test('fromJson parses string numerics and clamps negative resume to 0', () {
       final s = ZkPassportRuntimeSession.fromJson({
+        'appSessionId': 'app-session-a',
         'requestId': 'r',
         'facematchStrict': true,
         'phase': 'waiting',

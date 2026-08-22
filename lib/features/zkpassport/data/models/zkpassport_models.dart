@@ -143,6 +143,7 @@ class ZkPassportPipelineState {
 
 class ZkPassportRuntimeSession {
   const ZkPassportRuntimeSession({
+    required this.appSessionId,
     required this.requestId,
     required this.facematchStrict,
     required this.phase,
@@ -156,6 +157,8 @@ class ZkPassportRuntimeSession {
     this.launchParticipantId,
   });
 
+  /// Exact application-session incarnation that owns this durable work.
+  final String appSessionId;
   final String requestId;
   final bool facematchStrict;
   final ZkPassportPipelinePhase phase;
@@ -165,13 +168,9 @@ class ZkPassportRuntimeSession {
   final String? requestNonce;
   final String? userPublicKey;
 
-  /// Identity that launched this session, captured at launch time and
-  /// persisted with it. Resume/polling/finalization validate the CURRENT
-  /// identity against these before acting: [launchBucket] +
-  /// [launchParticipantId] identify the launching user durably (they
-  /// survive process restarts, unlike [launchEpoch], which is only
-  /// meaningful within the process that wrote it). Null on sessions
-  /// persisted by older app versions — validation fails open for those.
+  /// Diagnostic launch identity captured alongside [appSessionId]. Exact
+  /// ownership is decided by [appSessionId]; these fields retain useful
+  /// account and process-generation context without granting authority.
   final int? launchEpoch;
   final String? launchBucket;
   final int? launchParticipantId;
@@ -193,6 +192,7 @@ class ZkPassportRuntimeSession {
 
   Map<String, dynamic> toJson() {
     return {
+      'appSessionId': appSessionId,
       'requestId': requestId,
       'facematchStrict': facematchStrict,
       'phase': phase.name,
@@ -211,11 +211,15 @@ class ZkPassportRuntimeSession {
   }
 
   static ZkPassportRuntimeSession? fromJson(Map<String, dynamic> json) {
+    final appSessionIdRaw = json['appSessionId'];
     final requestIdRaw = json['requestId'];
     final facematchStrict = json['facematchStrict'] == true;
     final phaseRaw = json['phase'];
     final createdAtRaw = json['createdAtMs'];
     final lastProgressRaw = json['lastProgressAtMs'];
+    if (appSessionIdRaw is! String || appSessionIdRaw.trim().isEmpty) {
+      return null;
+    }
     if (requestIdRaw is! String || requestIdRaw.trim().isEmpty) {
       return null;
     }
@@ -249,6 +253,7 @@ class ZkPassportRuntimeSession {
             : 0);
 
     return ZkPassportRuntimeSession(
+      appSessionId: appSessionIdRaw.trim(),
       requestId: requestIdRaw.trim(),
       facematchStrict: facematchStrict,
       phase: phase,
@@ -264,6 +269,7 @@ class ZkPassportRuntimeSession {
   }
 
   ZkPassportRuntimeSession copyWith({
+    String? appSessionId,
     String? requestId,
     bool? facematchStrict,
     ZkPassportPipelinePhase? phase,
@@ -277,6 +283,7 @@ class ZkPassportRuntimeSession {
     int? launchParticipantId,
   }) {
     return ZkPassportRuntimeSession(
+      appSessionId: appSessionId ?? this.appSessionId,
       requestId: requestId ?? this.requestId,
       facematchStrict: facematchStrict ?? this.facematchStrict,
       phase: phase ?? this.phase,

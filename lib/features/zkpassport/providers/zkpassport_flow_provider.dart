@@ -37,7 +37,7 @@ String _newRequestNonce() {
 /// Result of validating the current identity against a runtime session's
 /// persisted launch identity.
 enum _LaunchIdentityCheck {
-  /// Same user (or a legacy session without launch info) — proceed.
+  /// Exact application-session incarnation — proceed.
   match,
 
   /// The current identity is unsettled (boot restore or reconcile in
@@ -51,6 +51,7 @@ enum _LaunchIdentityCheck {
 
 class _PreparedBackendCompletion {
   const _PreparedBackendCompletion({
+    required this.appSessionId,
     required this.participantId,
     required this.challengeId,
     required this.walletAddress,
@@ -61,6 +62,7 @@ class _PreparedBackendCompletion {
     required this.accountId,
   });
 
+  final String appSessionId;
   final int participantId;
   final int challengeId;
   final String walletAddress;
@@ -491,28 +493,20 @@ class ZkPassportPipelineController
 
   bool get isProofProcessing => _inFlight;
 
-  /// How the CURRENT identity relates to the identity that launched
-  /// [runtime] (see [ZkPassportRuntimeSession.launchBucket]).
-  ///
-  /// The launching USER is identified by bucket + participant id — durable
-  /// across process restarts, unlike the epoch, which is process-local and
-  /// restarts from small values on every boot (so raw epoch equality across
-  /// a restart would be meaningless). Sessions persisted by older app
-  /// versions carry no launch identity and fail open as [match].
+  /// How the CURRENT identity relates to the exact application-session
+  /// incarnation that owns [runtime].
   _LaunchIdentityCheck _checkLaunchIdentity(ZkPassportRuntimeSession runtime) {
-    final launchBucket = runtime.launchBucket;
-    if (launchBucket == null) {
-      return _LaunchIdentityCheck.match; // legacy session — fail open
-    }
     final current = IdentitySnapshots.current;
     if (!current.isSettled) {
       // Boot restore / reconcile still in progress: WHO the app is hasn't
       // been established, so neither acting nor discarding is safe yet.
       return _LaunchIdentityCheck.defer;
     }
-    final sameUser = current.bucket == launchBucket &&
-        current.participantId == runtime.launchParticipantId;
-    return sameUser
+    final currentSessionId = current.sessionId;
+    final sameSession = current.phase == IdentityPhase.ready &&
+        currentSessionId != null &&
+        currentSessionId == runtime.appSessionId;
+    return sameSession
         ? _LaunchIdentityCheck.match
         : _LaunchIdentityCheck.mismatch;
   }
@@ -701,6 +695,10 @@ class ZkPassportPipelineController
     if (!launchIdentity.sameScopeAs(IdentitySnapshots.current)) {
       throw StateError('zkPassport launch identity was replaced');
     }
+    final appSessionId = launchIdentity.sessionId?.trim();
+    if (appSessionId == null || appSessionId.isEmpty) {
+      throw StateError('zkPassport launch has no exact application session');
+    }
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final requestNonce = _newRequestNonce();
     // Persist WHO launched this session. Every later stage (foreground
@@ -709,6 +707,7 @@ class ZkPassportPipelineController
     // resumed, stored, or completed under user B — including across an app
     // restart, which the durable bucket + participant id survive.
     final session = ZkPassportRuntimeSession(
+      appSessionId: appSessionId,
       requestId: requestId,
       facematchStrict: facematchStrict,
       phase: ZkPassportPipelinePhase.launching,
@@ -829,7 +828,16 @@ class ZkPassportPipelineController
     final createdAtMs = sameSession ? current.createdAtMs : nowMs;
     final requestNonce =
         sameSession ? current.requestNonce : _newRequestNonce();
+    final appSessionId = sameSession
+        ? current.appSessionId
+        : IdentitySnapshots.current.sessionId?.trim();
+    if (appSessionId == null || appSessionId.isEmpty) {
+      _log.warn('Dropping a zkPassport runtime write without an exact '
+          'application session');
+      return;
+    }
     final next = ZkPassportRuntimeSession(
+      appSessionId: appSessionId,
       requestId: requestId,
       facematchStrict: sameSession ? current.facematchStrict : false,
       phase: phase,
@@ -1564,7 +1572,8 @@ class ZkPassportPipelineController
         final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
         await persistZkCompletionInOrder(
           persistOutbox: () => repo.storePendingCompletion(
-            participantId: completion!.participantId,
+            appSessionId: completion!.appSessionId,
+            participantId: completion.participantId,
             challengeId: completion.challengeId,
             walletAddress: completion.walletAddress,
             sessionId: completion.sessionId,
@@ -1699,10 +1708,13 @@ class ZkPassportPipelineController
     try {
       final accountId = identity.accountId;
       final walletAddress = identity.address;
+      final appSessionId = identity.sessionId?.trim();
       if (!identity.isAuthenticated ||
           !identity.isSettled ||
           accountId == null ||
-          walletAddress == null) {
+          walletAddress == null ||
+          appSessionId == null ||
+          appSessionId.isEmpty) {
         _log.warn('Skipping backend completion: identity has no confirmed '
             'account scope');
         return null;
@@ -1735,6 +1747,7 @@ class ZkPassportPipelineController
       }
 
       return _PreparedBackendCompletion(
+        appSessionId: appSessionId,
         participantId: participantId,
         challengeId: challengeId,
         walletAddress: walletAddress,
@@ -1972,6 +1985,13 @@ class ZkPassportPipelineController
 
       final pending = await repo.getPendingCompletion(bucket: bucket);
       if (pending == null) return;
+
+      final appSessionId = pending['app_session_id'];
+      if (appSessionId is! String || appSessionId != identity.sessionId) {
+        _log.info('Deferring pending completion owned by another '
+            'application session');
+        return;
+      }
 
       final requestVersion = ZkPassportRequestVersion.fromJson(pending);
       pendingRequestVersion = requestVersion;

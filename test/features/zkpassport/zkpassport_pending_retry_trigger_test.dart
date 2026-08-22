@@ -35,13 +35,19 @@ Future<void> _pumpUntil(bool Function() condition) async {
   }
 }
 
-Identity _ready({required int participantId, required String address}) =>
+Identity _ready({
+  required int participantId,
+  required String address,
+  String? accountId,
+  String? sessionId,
+}) =>
     Identity(
       epoch: 3,
       phase: IdentityPhase.ready,
       participantId: participantId,
-      accountId: 'account-$participantId',
+      accountId: accountId ?? 'account-$participantId',
       address: address,
+      sessionId: sessionId ?? 'app-session-$participantId',
     );
 
 void main() {
@@ -121,6 +127,48 @@ void main() {
     // `zkpassport_repositories_test.dart`.
   });
 
+  test('a same-account successor cannot resume its predecessor runtime row',
+      () async {
+    const address = 'ut1-account-a';
+    const participantId = 7;
+    final bucket = NetworkPrefs.bucketForAddress(address);
+    NetworkPrefs.setActiveBucket(address, guest: false);
+    IdentitySnapshots.publish(_ready(
+      participantId: participantId,
+      address: address,
+      sessionId: 'app-session-b',
+    ));
+
+    final runtimeRepo = ZkPassportRuntimeSessionRepository();
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    await runtimeRepo.save(ZkPassportRuntimeSession(
+      appSessionId: 'app-session-a',
+      requestId: 'request-a',
+      facematchStrict: true,
+      phase: ZkPassportPipelinePhase.waiting,
+      createdAtMs: nowMs,
+      lastProgressAtMs: nowMs,
+      resumeAttemptCount: 0,
+      requestNonce: 'nonce-a',
+      launchBucket: bucket,
+      launchParticipantId: participantId,
+    ));
+
+    final container = ProviderContainer(overrides: [
+      zkIdentityChallengeIdProvider.overrideWithValue(null),
+    ]);
+    addTearDown(container.dispose);
+    final pipeline = container.read(zkPassportPipelineProvider.notifier);
+
+    await pipeline.recoverPendingSessionOnForeground();
+
+    expect(
+      container.read(zkPassportPipelineProvider).status,
+      ZkPassportPipelineStatus.failure,
+    );
+    expect(await runtimeRepo.load(), isNull);
+  });
+
   test('challenge id becoming available retriggers a deferred outbox retry',
       () async {
     const accountId = 'account-a';
@@ -134,16 +182,16 @@ void main() {
     );
     final bucket = NetworkPrefs.bucketForAddress(address);
     NetworkPrefs.setActiveBucket(address, guest: false);
-    IdentitySnapshots.publish(const Identity(
-      epoch: 3,
-      phase: IdentityPhase.ready,
+    IdentitySnapshots.publish(_ready(
       participantId: participantId,
-      accountId: accountId,
       address: address,
+      accountId: accountId,
+      sessionId: 'app-session-a',
     ));
 
     final registrationRepo = ZkPassportRegistrationRepository();
     await registrationRepo.storePendingCompletion(
+      appSessionId: 'app-session-a',
       participantId: participantId,
       challengeId: challengeId,
       walletAddress: address,
@@ -182,6 +230,56 @@ void main() {
     expect(
       await registrationRepo.getPendingCompletion(bucket: bucket),
       isNull,
+    );
+  });
+
+  test('a successor app session cannot retry its predecessor outbox', () async {
+    const address = 'ut1-account-a';
+    const participantId = 7;
+    const challengeId = 42;
+    const version = ZkPassportRequestVersion(
+      requestId: 'request-a',
+      createdAtMs: 100,
+      nonce: 'nonce-a',
+    );
+    final bucket = NetworkPrefs.bucketForAddress(address);
+    NetworkPrefs.setActiveBucket(address, guest: false);
+    IdentitySnapshots.publish(_ready(
+      participantId: participantId,
+      address: address,
+      sessionId: 'app-session-b',
+    ));
+
+    final registrationRepo = ZkPassportRegistrationRepository();
+    await registrationRepo.storePendingCompletion(
+      appSessionId: 'app-session-a',
+      participantId: participantId,
+      challengeId: challengeId,
+      walletAddress: address,
+      sessionId: version.requestId,
+      nullifierHex: 'nullifier-a',
+      requestVersion: version,
+      accountId: 'account-$participantId',
+      bucket: bucket,
+    );
+
+    final api = _RecordingLeaderboardApiService();
+    final container = ProviderContainer(overrides: [
+      zkIdentityChallengeIdProvider.overrideWithValue(challengeId),
+      leaderboardApiServiceProvider.overrideWithValue(api),
+    ]);
+    addTearDown(() {
+      container.dispose();
+      api.dispose();
+    });
+
+    container.read(zkPassportPipelineProvider.notifier);
+    await _pumpUntil(() => api.completionCalls != 0);
+
+    expect(api.completionCalls, 0);
+    expect(
+      await registrationRepo.getPendingCompletion(bucket: bucket),
+      isNotNull,
     );
   });
 }

@@ -116,6 +116,133 @@ void main() {
     expect(changes, 0);
   });
 
+  test('session credentials are read only through their exact durable owner',
+      () async {
+    final store = AuthTokenStore();
+    const credential = SessionCredential(
+      sessionId: 'session-a',
+      transitionId: 'login-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 1,
+      token: 'sess-a',
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+    );
+
+    expect(await store.writeSessionCredential(credential), isTrue);
+    expect(
+      await store.readSessionCredential(
+        sessionId: 'session-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+      ),
+      credential,
+    );
+    expect(
+      await store.readSessionCredential(
+        sessionId: 'session-b',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+      ),
+      isNull,
+    );
+    expect(
+      await store.readSessionCredential(
+        sessionId: 'session-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 2,
+      ),
+      isNull,
+    );
+  });
+
+  test('renewal can stage a successor without overwriting the current bearer',
+      () async {
+    final store = AuthTokenStore();
+    const current = SessionCredential(
+      sessionId: 'session-a',
+      transitionId: 'login-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 1,
+      token: 'sess-a',
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+    );
+    const renewed = SessionCredential(
+      sessionId: 'session-a',
+      credentialRef: 'credential-b',
+      credentialGeneration: 2,
+      token: 'sess-b',
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+    );
+
+    expect(await store.writeSessionCredential(current), isTrue);
+    expect(await store.writeSessionCredential(renewed), isTrue);
+    expect(
+      (await store.readSessionCredential(
+        sessionId: 'session-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+      ))
+          ?.token,
+      'sess-a',
+    );
+    expect(
+      (await store.readSessionCredential(
+        sessionId: 'session-a',
+        credentialRef: 'credential-b',
+        credentialGeneration: 2,
+      ))
+          ?.token,
+      'sess-b',
+    );
+
+    expect(await store.clearSessionCredential(current), isTrue);
+    expect(
+      await store.readSessionCredential(
+        sessionId: 'session-a',
+        credentialRef: 'credential-b',
+        credentialGeneration: 2,
+      ),
+      renewed,
+    );
+  });
+
+  test('stale clear and another session cannot remove the successor bearer',
+      () async {
+    final store = AuthTokenStore();
+    const successor = SessionCredential(
+      sessionId: 'session-b',
+      transitionId: 'login-b',
+      credentialRef: 'credential-b',
+      credentialGeneration: 1,
+      token: 'sess-b',
+      userNamespace: 'bbbbbbbbbbbbbbbb',
+    );
+    expect(await store.writeSessionCredential(successor), isTrue);
+
+    expect(
+      await store.clearSessionCredential(
+        const SessionCredential(
+          sessionId: 'session-b',
+          transitionId: 'login-a',
+          credentialRef: 'credential-b',
+          credentialGeneration: 1,
+          token: 'ignored',
+          userNamespace: 'bbbbbbbbbbbbbbbb',
+        ),
+      ),
+      isFalse,
+    );
+    expect(await store.clearSessionCredentials('session-a'), isTrue);
+    expect(
+      await store.readSessionCredential(
+        sessionId: 'session-b',
+        credentialRef: 'credential-b',
+        credentialGeneration: 1,
+      ),
+      successor,
+    );
+  });
+
   test('guest flag set/read/clear', () async {
     final flag = AuthGuestFlag();
     expect(await flag.isGuest(), false);

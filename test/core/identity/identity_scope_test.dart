@@ -22,6 +22,9 @@ void main() {
       accountId: 'account-a',
       address: 'address-a',
       provisionedSeasonId: 3,
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 1,
     );
 
     expect(identity.sameScopeAs(identity), isTrue);
@@ -33,6 +36,14 @@ void main() {
       isFalse,
     );
     expect(identity.sameScopeAs(identity.copyWith(epoch: 8)), isFalse);
+    expect(
+      identity.sameScopeAs(identity.copyWith(sessionId: 'session-b')),
+      isFalse,
+    );
+    expect(
+      identity.sameScopeAs(identity.copyWith(credentialGeneration: 2)),
+      isFalse,
+    );
   });
 
   test('credential leases never print their token', () {

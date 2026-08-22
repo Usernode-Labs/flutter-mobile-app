@@ -51,6 +51,9 @@ class Identity {
     this.accountId,
     this.address,
     this.provisionedSeasonId,
+    this.sessionId,
+    this.credentialRef,
+    this.credentialGeneration,
   });
 
   const Identity.unknown({this.epoch = 0})
@@ -58,7 +61,10 @@ class Identity {
         participantId = null,
         accountId = null,
         address = null,
-        provisionedSeasonId = null;
+        provisionedSeasonId = null,
+        sessionId = null,
+        credentialRef = null,
+        credentialGeneration = null;
 
   /// Monotonic identity generation. Bumped on every transition that changes
   /// WHO the identity is (initial login, participant replacement, logout,
@@ -81,6 +87,12 @@ class Identity {
   /// The season `/wallet/provision` allocated the account for. Used to
   /// detect season rollovers that require re-provisioning.
   final int? provisionedSeasonId;
+
+  /// Durable process-authority owner. These fields are absent only before the
+  /// journal is restored or on compatibility-only test identities.
+  final String? sessionId;
+  final String? credentialRef;
+  final int? credentialGeneration;
 
   /// The per-identity storage bucket all account-scoped reads/writes resolve
   /// to. Guest bucket until an account is confirmed.
@@ -117,7 +129,10 @@ class Identity {
       participantId == other.participantId &&
       accountId == other.accountId &&
       address == other.address &&
-      provisionedSeasonId == other.provisionedSeasonId;
+      provisionedSeasonId == other.provisionedSeasonId &&
+      sessionId == other.sessionId &&
+      credentialRef == other.credentialRef &&
+      credentialGeneration == other.credentialGeneration;
 
   Identity copyWith({
     int? epoch,
@@ -126,9 +141,13 @@ class Identity {
     String? accountId,
     String? address,
     int? provisionedSeasonId,
+    String? sessionId,
+    String? credentialRef,
+    int? credentialGeneration,
     bool clearAccount = false,
     bool clearParticipantId = false,
     bool clearProvisionedSeasonId = false,
+    bool clearSessionAuthority = false,
   }) {
     return Identity(
       epoch: epoch ?? this.epoch,
@@ -140,13 +159,19 @@ class Identity {
       provisionedSeasonId: clearProvisionedSeasonId
           ? null
           : (provisionedSeasonId ?? this.provisionedSeasonId),
+      sessionId: clearSessionAuthority ? null : (sessionId ?? this.sessionId),
+      credentialRef:
+          clearSessionAuthority ? null : (credentialRef ?? this.credentialRef),
+      credentialGeneration: clearSessionAuthority
+          ? null
+          : (credentialGeneration ?? this.credentialGeneration),
     );
   }
 
   @override
   String toString() => 'Identity(epoch: $epoch, phase: ${phase.name}, '
       'participantId: $participantId, accountId: $accountId, '
-      'seasonId: $provisionedSeasonId)';
+      'seasonId: $provisionedSeasonId, sessionId: $sessionId)';
 }
 
 /// The exact credential attached to one authenticated request.

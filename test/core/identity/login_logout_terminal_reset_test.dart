@@ -342,6 +342,31 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  test('network termination keeps durable application data', () async {
+    resetService.registerTerminalResetHandler((_) {});
+    addTearDown(resetService.unregisterTerminalResetHandler);
+    nativeCalls.clear();
+
+    await resetService.terminatePreservingData(reason: 'network_change');
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('old_preference'), 'must disappear');
+    expect(prefs.getString('testnet:accounts:activeId'), 'old-account');
+    expect(
+      await const FlutterSecureStorage().read(key: 'old_secret'),
+      'must disappear',
+    );
+    for (final directory in appDirectories.values) {
+      expect(await File('${directory.path}/old-data').readAsString(), 'old');
+      expect(
+        await File('${directory.path}/nested/old-data').readAsString(),
+        'old',
+      );
+    }
+    expect(nativeCalls.last.method, 'enterTerminalReset');
+    expect(nativeCalls.last.arguments, {'clearApplicationData': false});
+  });
+
   testWidgets('signing out keeps the incarnation alive and running',
       (tester) async {
     final graphProbe = _ResetGraphProbe();

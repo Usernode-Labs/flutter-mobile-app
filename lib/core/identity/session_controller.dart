@@ -33,6 +33,10 @@ typedef SessionTerminalReset = Future<void> Function({
   Future<void> Function()? prepareNextLaunch,
 });
 
+typedef SessionDataPreservingTermination = Future<void> Function({
+  required String reason,
+});
+
 /// Work was submitted after this controller entered a terminal boundary.
 class SessionControllerRetiredException implements Exception {
   const SessionControllerRetiredException();
@@ -122,6 +126,7 @@ class SessionController extends StateNotifier<Identity> {
     void Function()? onSignOutCompleted,
     SignOutFence? signOutFence,
     SessionTerminalReset? terminalReset,
+    SessionDataPreservingTermination? terminatePreservingData,
     SessionAuthorityGateway? sessionAuthority,
     String Function(String kind)? newAuthorityId,
     RetireRuntimeAuthority? retireRuntimeAuthority,
@@ -139,6 +144,8 @@ class SessionController extends StateNotifier<Identity> {
         _onSignOutCompleted = onSignOutCompleted,
         _signOutFence = signOutFence ?? DurableSignOutFence(),
         _terminalReset = terminalReset ?? _defaultTerminalReset,
+        _terminatePreservingData =
+            terminatePreservingData ?? _defaultTerminatePreservingData,
         _sessionAuthority = sessionAuthority,
         _newAuthorityId = newAuthorityId ?? _defaultNewAuthorityId,
         _retireRuntimeAuthority = retireRuntimeAuthority,
@@ -194,6 +201,7 @@ class SessionController extends StateNotifier<Identity> {
   final SignOutFence _signOutFence;
 
   final SessionTerminalReset _terminalReset;
+  final SessionDataPreservingTermination _terminatePreservingData;
   final SessionAuthorityGateway? _sessionAuthority;
   final String Function(String kind) _newAuthorityId;
   final RetireRuntimeAuthority? _retireRuntimeAuthority;
@@ -240,6 +248,11 @@ class SessionController extends StateNotifier<Identity> {
         prepareNextLaunch: prepareNextLaunch,
       );
 
+  static Future<void> _defaultTerminatePreservingData({
+    required String reason,
+  }) =>
+      AppResetService.instance.terminatePreservingData(reason: reason);
+
   Future<void>? _restoreFuture;
   Future<void> _queueTail = Future.value();
   final Queue<Future<void> Function()> _pendingTransitions = Queue();
@@ -278,8 +291,7 @@ class SessionController extends StateNotifier<Identity> {
     Map<String, dynamic> reply, {
     required String expectedKind,
   }) {
-    final record = _map(reply['record'], 'record');
-    final authorityState = _map(record['state'], 'record.state');
+    final authorityState = _replyStateFromRecord(reply);
     if (authorityState['kind'] != expectedKind) {
       throw StateError(
         'Expected session authority $expectedKind, got '
@@ -288,6 +300,12 @@ class SessionController extends StateNotifier<Identity> {
     }
     return authorityState;
   }
+
+  Map<String, dynamic> _replyStateFromRecord(Map<String, dynamic> reply) =>
+      _map(_map(reply['record'], 'record')['state'], 'record.state');
+
+  String _replyNetwork(Map<String, dynamic> reply) =>
+      _string(_map(reply['record'], 'record')['network'], 'record.network');
 
   /// Runs [body] after every previously queued transition has finished, so
   /// transitions never interleave. When idle, [body] starts synchronously so
@@ -505,11 +523,12 @@ class SessionController extends StateNotifier<Identity> {
         await _authorityTerminalReset('signout_fence_unconfirmable');
         return;
       }
-      final loggedOut = await _repairAuthorityRetirement(reply);
-      if (loggedOut == null) {
+      final completed = await _repairAuthorityRetirement(reply);
+      if (completed == null) {
         await _authorityTerminalReset('retirement_repair_failed');
         return;
       }
+      final loggedOut = _replyState(completed, expectedKind: 'logged_out');
       await _publishAuthorityLoggedOut(loggedOut, signalCompletion: false);
       return;
     }
@@ -1121,10 +1140,143 @@ class SessionController extends StateNotifier<Identity> {
         await clearGuestParticipantId();
         await _clearReconcileMarker();
         await _suspendNode();
+        String? guestSessionId;
+        if (_sessionAuthority != null) {
+          guestSessionId = _newAuthorityId('guest');
+          final reply = await _authorityCommand({
+            'command': 'update_logged_out',
+            'expected': _authorityRevision,
+            'successor_logged_out_session_id': guestSessionId,
+            'mode': 'guest',
+            'network': null,
+          });
+          final loggedOut = _replyState(reply, expectedKind: 'logged_out');
+          if (loggedOut['mode'] != 'guest' ||
+              loggedOut['session_id'] != guestSessionId) {
+            throw StateError('Guest session authority was not committed');
+          }
+        }
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.guest,
+          sessionId: guestSessionId,
         ));
+      });
+
+  /// Commits the selected network in the installation-wide journal before
+  /// ending this process. Account-scoped data is retained for the next launch.
+  Future<void> changeNetwork(String network) => _transition(() async {
+        if (_sessionAuthority == null) {
+          throw StateError('Network change requires session authority');
+        }
+
+        final current = state;
+        _publish(Identity(
+          epoch: current.epoch + 1,
+          phase: IdentityPhase.transitioning,
+          sessionId: current.sessionId,
+        ));
+
+        while (true) {
+          final reply = await _authorityCommand({'command': 'read_record'});
+          final authorityState = _replyStateFromRecord(reply);
+          final kind = authorityState['kind'];
+
+          if (kind == 'terminal_reset_required') {
+            await _authorityTerminalReset(
+              authorityState['reason'] is String
+                  ? authorityState['reason'] as String
+                  : 'session_authority_terminal',
+            );
+            return;
+          }
+
+          if (kind == 'activating') {
+            final rollbackId =
+                authorityState['rollback_logged_out_session_id'] as String? ??
+                    _newAuthorityId('rollback');
+            final cancelled = await _activationEvidence(
+              const {'kind': 'explicit_cancellation'},
+              rollbackLoggedOutSessionId: rollbackId,
+            );
+            await _restoreActivatingAuthority(cancelled);
+            if (_retired) return;
+            continue;
+          }
+
+          if (kind == 'retiring') {
+            if (!await _signOutFence.raise()) {
+              await _authorityTerminalReset('signout_fence_unconfirmable');
+              return;
+            }
+            final completed = await _repairAuthorityRetirement(reply);
+            if (completed == null) {
+              await _authorityTerminalReset('retirement_repair_failed');
+              return;
+            }
+            await _publishAuthorityLoggedOut(
+              _replyState(completed, expectedKind: 'logged_out'),
+              signalCompletion: false,
+            );
+            continue;
+          }
+
+          if (kind == 'ready') {
+            if (!current.isAuthenticated ||
+                current.sessionId != authorityState['session_id']) {
+              await _authorityTerminalReset('network_change_owner_mismatch');
+              return;
+            }
+            if (!await _logoutWithAuthority(
+              current,
+              signalCompletion: false,
+              successorNetwork: network,
+            )) {
+              return;
+            }
+            _retired = true;
+            await _terminatePreservingData(reason: 'network_change');
+            return;
+          }
+
+          if (kind == 'logged_out') {
+            final mode = _string(authorityState['mode'], 'logged_out.mode');
+            if (mode != 'signed_out' && mode != 'guest') {
+              throw StateError('Unknown logged-out mode: $mode');
+            }
+            final successorSessionId = _newAuthorityId('successor');
+            final updated = await _authorityCommand({
+              'command': 'update_logged_out',
+              'expected': _authorityRevision,
+              'successor_logged_out_session_id': successorSessionId,
+              'mode': mode,
+              'network': network,
+            });
+            final loggedOut = _replyState(
+              updated,
+              expectedKind: 'logged_out',
+            );
+            if (loggedOut['session_id'] != successorSessionId ||
+                loggedOut['mode'] != mode ||
+                _replyNetwork(updated) != network) {
+              await _authorityTerminalReset('network_change_commit_mismatch');
+              return;
+            }
+            await NetworkPrefs.adoptAuthorityNetwork(network);
+            _publish(Identity(
+              epoch: state.epoch,
+              phase: mode == 'guest'
+                  ? IdentityPhase.guest
+                  : IdentityPhase.unauthenticated,
+              sessionId: successorSessionId,
+            ));
+            _retired = true;
+            await _terminatePreservingData(reason: 'network_change');
+            return;
+          }
+
+          throw StateError('Network change cannot start from $kind');
+        }
       });
 
   /// Voluntary sign-out. The one identity boundary that is NOT terminal.
@@ -1203,6 +1355,7 @@ class SessionController extends StateNotifier<Identity> {
   Future<bool> _logoutWithAuthority(
     Identity current, {
     bool signalCompletion = true,
+    String? successorNetwork,
   }) async {
     final sessionId = _requiredAuthorityField(current.sessionId, 'session');
     final credentialRef =
@@ -1225,7 +1378,7 @@ class SessionController extends StateNotifier<Identity> {
       'expected': _authorityRevision,
       'session_id': sessionId,
       'successor_logged_out_session_id': successorSessionId,
-      'successor_network': null,
+      'successor_network': successorNetwork,
       'transition_id': transitionId,
     });
     final enteredState = _map(
@@ -1243,10 +1396,19 @@ class SessionController extends StateNotifier<Identity> {
       await _authorityTerminalReset('signout_fence_unconfirmable');
       return false;
     }
-    final loggedOut = await _repairAuthorityRetirement(entry);
-    if (loggedOut == null) {
+    final completed = await _repairAuthorityRetirement(entry);
+    if (completed == null) {
       await _authorityTerminalReset('retirement_repair_failed');
       return false;
+    }
+    final loggedOut = _replyState(completed, expectedKind: 'logged_out');
+    if (successorNetwork != null) {
+      final committedNetwork = _replyNetwork(completed);
+      if (committedNetwork != successorNetwork) {
+        await _authorityTerminalReset('network_change_commit_mismatch');
+        return false;
+      }
+      await NetworkPrefs.adoptAuthorityNetwork(committedNetwork);
     }
     await _publishAuthorityLoggedOut(
       loggedOut,
@@ -1272,7 +1434,8 @@ class SessionController extends StateNotifier<Identity> {
     ).repair(initialResponse);
     if (response == null) return null;
     _adoptAuthorityReply(response);
-    return _replyState(response, expectedKind: 'logged_out');
+    _replyState(response, expectedKind: 'logged_out');
+    return response;
   }
 
   Future<void> _publishAuthorityLoggedOut(
@@ -1633,12 +1796,15 @@ class SessionController extends StateNotifier<Identity> {
           await _authorityTerminalReset('signout_fence_unconfirmable');
           return false;
         }
-        final loggedOut = await _repairAuthorityRetirement(reply);
-        if (loggedOut == null) {
+        final completed = await _repairAuthorityRetirement(reply);
+        if (completed == null) {
           await _authorityTerminalReset('retirement_repair_failed');
           return false;
         }
-        await _publishAuthorityLoggedOut(loggedOut, signalCompletion: true);
+        await _publishAuthorityLoggedOut(
+          _replyState(completed, expectedKind: 'logged_out'),
+          signalCompletion: true,
+        );
         return true;
       }, whenRetired: () => false);
 

@@ -25,18 +25,17 @@ typedef ResetDirectoryResolver = Future<List<Directory>> Function();
 
 /// Owns the one-way application reset boundary.
 ///
-/// A reset never constructs a successor runtime in this process: it wipes
-/// everything and asks Android to clear application data (iOS has no supported
-/// self-termination API, so it parks on the inert reset surface and asks the
-/// user to relaunch). Successful initial login or a network change may write
-/// only its explicit cold-launch input after the same wipe and then terminate
-/// without a second clear-data call.
+/// A terminal boundary never constructs a successor runtime in this process.
+/// Security resets wipe the incarnation; a journal-committed network change
+/// uses [terminatePreservingData] so the next process adopts the new network
+/// without deleting account-scoped application data.
 ///
 /// Voluntary sign-out does NOT come here — it is scoped and in-process; see
 /// [SessionController.logout]. Every reason that reaches this class is one the
 /// app cannot continue from: an expired or unreadable credential, a different
-/// participant replacing the current one, a network change, or the
-/// authenticated-to-guest switch.
+/// participant replacing the current one, or the authenticated-to-guest
+/// switch. Network changes share the one-way process boundary but not the data
+/// wipe.
 class AppResetService {
   AppResetService._({
     ResetDirectoryResolver? resetDirectories,
@@ -98,6 +97,24 @@ class AppResetService {
       reason: reason,
       backendResponse: backendResponse,
       prepareNextLaunch: prepareNextLaunch,
+      erasePersistentState: true,
+    );
+    _activeReset = reset;
+    return reset;
+  }
+
+  /// Ends this process after an already-durable authority transition without
+  /// erasing wallets, preferences, history, or application-support files.
+  Future<void> terminatePreservingData({required String reason}) {
+    final active = _activeReset;
+    if (active != null) {
+      _log.warn('Reset already in progress, joining the terminal boundary');
+      return active;
+    }
+
+    final reset = _runTerminalReset(
+      reason: reason,
+      erasePersistentState: false,
     );
     _activeReset = reset;
     return reset;
@@ -105,6 +122,7 @@ class AppResetService {
 
   Future<void> _runTerminalReset({
     required String reason,
+    required bool erasePersistentState,
     String? backendResponse,
     NextLaunchWriter? prepareNextLaunch,
   }) async {
@@ -114,6 +132,7 @@ class AppResetService {
         'reason': reason,
         if (backendResponse != null) 'backend_response': backendResponse,
         'has_next_launch_input': prepareNextLaunch != null,
+        'erase_persistent_state': erasePersistentState,
       },
     );
 
@@ -170,16 +189,18 @@ class AppResetService {
       LoggingService.instance.closeForTerminalReset,
     );
 
-    try {
-      await _clearPersistentState();
-    } catch (error, stackTrace) {
-      resetError ??= error;
-      resetStackTrace ??= stackTrace;
-      _log.error(
-        'Persistent reset failed; discarding next-launch input',
-        error: error,
-        stackTrace: stackTrace,
-      );
+    if (erasePersistentState) {
+      try {
+        await _clearPersistentState();
+      } catch (error, stackTrace) {
+        resetError ??= error;
+        resetStackTrace ??= stackTrace;
+        _log.error(
+          'Persistent reset failed; discarding next-launch input',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     }
 
     // The old provider graph is gone before the new boot payload exists, so
@@ -205,7 +226,8 @@ class AppResetService {
     await _bestEffort(
       'enter native terminal boundary',
       () => _platformAlarms.enterTerminalReset(
-        clearApplicationData: prepareNextLaunch == null || resetError != null,
+        clearApplicationData: erasePersistentState &&
+            (prepareNextLaunch == null || resetError != null),
       ),
     );
 

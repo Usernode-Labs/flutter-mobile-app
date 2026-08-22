@@ -75,6 +75,7 @@ Map<String, dynamic> _response({
   required int sequence,
   required Map<String, dynamic> state,
   required String outcome,
+  String network = 'testnet',
   Map<String, dynamic> outcomeFields = const {},
 }) =>
     {
@@ -89,15 +90,19 @@ Map<String, dynamic> _response({
       'record': {
         'schema_version': 1,
         'sequence': sequence,
-        'network': 'testnet',
+        'network': network,
         'state': state,
       },
     };
 
-Map<String, dynamic> _loggedOut() => {
+Map<String, dynamic> _loggedOut({
+  String sessionId = 'logged-out-a',
+  String mode = 'signed_out',
+}) =>
+    {
       'kind': 'logged_out',
-      'session_id': 'logged-out-a',
-      'mode': 'signed_out',
+      'session_id': sessionId,
+      'mode': mode,
     };
 
 Map<String, dynamic> _activating({
@@ -139,11 +144,16 @@ Map<String, dynamic> _ready({
       'production_desired': false,
     };
 
-Map<String, dynamic> _retiring(String phase, {int attempts = 0}) => {
+Map<String, dynamic> _retiring(
+  String phase, {
+  int attempts = 0,
+  String? successorNetwork,
+}) =>
+    {
       'kind': 'retiring',
       'session_id': 'session-a',
       'successor_logged_out_session_id': 'logged-out-b',
-      'successor_network': null,
+      'successor_network': successorNetwork,
       'transition_id': 'retire-a',
       'phase': phase,
       'phase_attempts': attempts,
@@ -152,9 +162,10 @@ Map<String, dynamic> _retiring(String phase, {int attempts = 0}) => {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
+    await NetworkPrefs.init();
     IdentitySnapshots.reset();
     NetworkPrefs.setActiveBucket(null, guest: true);
   });
@@ -847,6 +858,286 @@ void main() {
       'transition_id': 'retire-a',
     });
   });
+
+  test('guest choice is committed as a fresh logged-out incarnation', () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 0, state: _loggedOut(), outcome: 'record_read'),
+      _response(
+        sequence: 1,
+        state: _loggedOut(sessionId: 'guest-a', mode: 'guest'),
+        outcome: 'logged_out_updated',
+      ),
+    ]);
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => kind == 'guest' ? 'guest-a' : 'unused',
+      suspendNode: () async {},
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restore();
+    await controller.continueAsGuest();
+
+    expect(controller.state.phase, IdentityPhase.guest);
+    expect(controller.state.sessionId, 'guest-a');
+    expect(authority.commands[1], {
+      'command': 'update_logged_out',
+      'expected': {
+        'sequence': 0,
+        'session_id': 'logged-out-a',
+        'state': 'logged_out',
+        'transition_id': null,
+      },
+      'successor_logged_out_session_id': 'guest-a',
+      'mode': 'guest',
+      'network': null,
+    });
+  });
+
+  test('logged-out network change commits before preserving termination',
+      () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 0, state: _loggedOut(), outcome: 'record_read'),
+      _response(sequence: 0, state: _loggedOut(), outcome: 'record_read'),
+      _response(
+        sequence: 1,
+        state: _loggedOut(sessionId: 'logged-out-b'),
+        outcome: 'logged_out_updated',
+        network: 'internal',
+      ),
+    ]);
+    final terminations = <String>[];
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => kind == 'successor'
+          ? 'logged-out-b'
+          : throw StateError('Unexpected id kind $kind'),
+      suspendNode: () async {},
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminatePreservingData: ({required reason}) async {
+        terminations.add(reason);
+      },
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restore();
+    await controller.changeNetwork('internal');
+
+    expect(authority.commands[1]['command'], 'read_record');
+    expect(authority.commands[2], {
+      'command': 'update_logged_out',
+      'expected': {
+        'sequence': 0,
+        'session_id': 'logged-out-a',
+        'state': 'logged_out',
+        'transition_id': null,
+      },
+      'successor_logged_out_session_id': 'logged-out-b',
+      'mode': 'signed_out',
+      'network': 'internal',
+    });
+    expect(NetworkPrefs.currentNetwork, 'internal');
+    expect(
+      (await SharedPreferences.getInstance())
+          .getString(NetworkPrefs.networkKey),
+      'internal',
+    );
+    expect(terminations, ['network_change']);
+  });
+
+  test('Ready network change adopts the network only in retirement commit',
+      () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      ..._successfulRetirementResponses(successorNetwork: 'internal'),
+    ]);
+    final tokenStore = AuthTokenStore();
+    await tokenStore.writeSessionCredential(
+      const SessionCredential(
+        sessionId: 'session-a',
+        transitionId: 'login-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+        token: 'token-a',
+        userNamespace: 'aaaaaaaaaaaaaaaa',
+      ),
+    );
+    final bucket = NetworkPrefs.bucketForAddress('address-a');
+    SharedPreferences.setMockInitialValues({
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+    });
+    final terminations = <String>[];
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        _ => throw StateError('Unexpected id kind $kind'),
+      },
+      retireRuntimeAuthority: ({
+        required directory,
+        required sessionId,
+        required transitionId,
+      }) async =>
+          true,
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminatePreservingData: ({required reason}) async {
+        terminations.add(reason);
+      },
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restore();
+    await controller.changeNetwork('internal');
+
+    expect(authority.commands[2]['command'], 'enter_retirement');
+    expect(authority.commands[2]['successor_network'], 'internal');
+    expect(NetworkPrefs.currentNetwork, 'internal');
+    expect(terminations, ['network_change']);
+  });
+
+  test('network change explicitly rolls an in-flight activation back first',
+      () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 0, state: _loggedOut(), outcome: 'record_read'),
+      _response(
+        sequence: 1,
+        state: _activating(phase: 'persist_credential'),
+        outcome: 'activation_started',
+      ),
+      _response(
+        sequence: 2,
+        state: _activating(
+          phase: 'bind_namespace',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+        ),
+        outcome: 'activation_advanced',
+      ),
+      _response(
+        sequence: 3,
+        state: _activating(
+          phase: 'reconcile_account',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+        ),
+        outcome: 'activation_advanced',
+      ),
+      _response(
+        sequence: 3,
+        state: _activating(
+          phase: 'reconcile_account',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+        ),
+        outcome: 'record_read',
+      ),
+      _response(
+        sequence: 4,
+        state: _activating(
+          phase: 'rollback_clear',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+          rollbackLoggedOutSessionId: 'logged-out-b',
+        ),
+        outcome: 'activation_rolling_back',
+      ),
+      _response(
+        sequence: 5,
+        state: _activating(
+          phase: 'rollback_commit',
+          rollbackLoggedOutSessionId: 'logged-out-b',
+        ),
+        outcome: 'activation_advanced',
+      ),
+      _response(
+        sequence: 6,
+        state: _loggedOut(sessionId: 'logged-out-b'),
+        outcome: 'activation_logged_out',
+      ),
+      _response(
+        sequence: 6,
+        state: _loggedOut(sessionId: 'logged-out-b'),
+        outcome: 'record_read',
+      ),
+      _response(
+        sequence: 7,
+        state: _loggedOut(sessionId: 'logged-out-c'),
+        outcome: 'logged_out_updated',
+        network: 'internal',
+      ),
+    ]);
+    final ids = <String, String>{
+      'session': 'session-a',
+      'transition': 'login-a',
+      'credential': 'credential-a',
+      'rollback': 'logged-out-b',
+      'successor': 'logged-out-c',
+    };
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => ids[kind]!,
+      suspendNode: () async {},
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminatePreservingData: ({required reason}) async {},
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restore();
+    expect(await controller.completeLogin(_session('token-a')), isTrue);
+    await controller.changeNetwork('internal');
+
+    final cancellation = authority.commands.singleWhere(
+      (command) =>
+          command['command'] == 'recover_activation' &&
+          (command['evidence'] as Map)['kind'] == 'explicit_cancellation',
+    );
+    expect(cancellation['rollback_logged_out_session_id'], 'logged-out-b');
+    expect(authority.commands.last['command'], 'update_logged_out');
+    expect(authority.commands.last['successor_logged_out_session_id'],
+        'logged-out-c');
+  });
 }
 
 List<Map<String, dynamic>> _phaseResponses({
@@ -854,11 +1145,16 @@ List<Map<String, dynamic>> _phaseResponses({
   required int advanceSequence,
   required String phase,
   required String nextPhase,
+  String? successorNetwork,
 }) =>
     [
       _response(
         sequence: instructionSequence,
-        state: _retiring(phase, attempts: 1),
+        state: _retiring(
+          phase,
+          attempts: 1,
+          successorNetwork: successorNetwork,
+        ),
         outcome: 'retirement_invoke',
         outcomeFields: {
           'phase': phase,
@@ -868,28 +1164,43 @@ List<Map<String, dynamic>> _phaseResponses({
       ),
       _response(
         sequence: advanceSequence,
-        state: _retiring(nextPhase),
+        state: _retiring(
+          nextPhase,
+          successorNetwork: successorNetwork,
+        ),
         outcome: 'retirement_advanced',
         outcomeFields: {'phase': nextPhase},
       ),
     ];
 
-List<Map<String, dynamic>> _successfulRetirementResponses() => [
+List<Map<String, dynamic>> _successfulRetirementResponses({
+  String? successorNetwork,
+}) =>
+    [
       _response(
         sequence: 6,
-        state: _retiring('tombstone_work'),
+        state: _retiring(
+          'tombstone_work',
+          successorNetwork: successorNetwork,
+        ),
         outcome: 'retirement_entered',
         outcomeFields: {'effect_epoch': 2},
       ),
       _response(
         sequence: 6,
-        state: _retiring('tombstone_work'),
+        state: _retiring(
+          'tombstone_work',
+          successorNetwork: successorNetwork,
+        ),
         outcome: 'retirement_tombstone_status',
         outcomeFields: {'verified': true},
       ),
       _response(
         sequence: 7,
-        state: _retiring('revoke_native_admission'),
+        state: _retiring(
+          'revoke_native_admission',
+          successorNetwork: successorNetwork,
+        ),
         outcome: 'retirement_advanced',
         outcomeFields: {'phase': 'revoke_native_admission'},
       ),
@@ -898,32 +1209,33 @@ List<Map<String, dynamic>> _successfulRetirementResponses() => [
         advanceSequence: 9,
         phase: 'revoke_native_admission',
         nextPhase: 'revoke_runtime',
+        successorNetwork: successorNetwork,
       ),
       ..._phaseResponses(
         instructionSequence: 10,
         advanceSequence: 11,
         phase: 'revoke_runtime',
         nextPhase: 'clear_credential',
+        successorNetwork: successorNetwork,
       ),
       ..._phaseResponses(
         instructionSequence: 12,
         advanceSequence: 13,
         phase: 'clear_credential',
         nextPhase: 'clear_webview',
+        successorNetwork: successorNetwork,
       ),
       ..._phaseResponses(
         instructionSequence: 14,
         advanceSequence: 15,
         phase: 'clear_webview',
         nextPhase: 'commit_logged_out',
+        successorNetwork: successorNetwork,
       ),
       _response(
         sequence: 16,
-        state: {
-          'kind': 'logged_out',
-          'session_id': 'logged-out-b',
-          'mode': 'signed_out',
-        },
+        state: _loggedOut(sessionId: 'logged-out-b'),
         outcome: 'retirement_logged_out',
+        network: successorNetwork ?? 'testnet',
       ),
     ];

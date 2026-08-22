@@ -39,6 +39,14 @@ AccountApiService _accountService(http.Client client) => AccountApiService(
       httpClient: client,
     );
 
+LeaderboardApiService _leaderboardService(http.Client client) =>
+    LeaderboardApiService(
+      baseUrl: 'https://test.example.com/api/v4/mobile',
+      tokenProvider: AuthTokenStore().read,
+      credentialRequestSender: _throughClient(client),
+      httpClient: client,
+    );
+
 Map<String, dynamic> _accountJson(String id, String address) => {
       'id': id,
       'name': 'Node Account',
@@ -83,52 +91,44 @@ LeaderboardApiService _provisionService(
       headers: {'content-type': 'application/json'},
     );
   });
-  return LeaderboardApiService(
-    baseUrl: 'https://test.example.com/api/v4/mobile',
-    httpClient: client,
-    tokenProvider: AuthTokenStore().read,
-  );
+  return _leaderboardService(client);
 }
 
 LeaderboardApiService _authorityService({required int activeSeasonId}) {
-  return LeaderboardApiService(
-    baseUrl: 'https://test.example.com/api/v4/mobile',
-    tokenProvider: AuthTokenStore().read,
-    httpClient: MockClient((request) async {
-      if (request.url.path.endsWith('/wallet/provision')) {
-        return http.Response(
-          jsonEncode({
-            'success': true,
-            'data': {
-              'address': _addressB,
-              'public_key': 'utpk1$_addressB',
-              'secret_key': 'utsk1secret',
-              'newly_allocated': false,
-              'season_id': 7,
-              'bp_released': false,
-            },
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }
-      expect(request.url.path, endsWith('/seasons'));
+  return _leaderboardService(MockClient((request) async {
+    if (request.url.path.endsWith('/wallet/provision')) {
       return http.Response(
         jsonEncode({
           'success': true,
-          'data': [
-            {
-              'season_id': activeSeasonId,
-              'name': 'Season $activeSeasonId',
-              'is_active': true,
-            },
-          ],
+          'data': {
+            'address': _addressB,
+            'public_key': 'utpk1$_addressB',
+            'secret_key': 'utsk1secret',
+            'newly_allocated': false,
+            'season_id': 7,
+            'bp_released': false,
+          },
         }),
         200,
         headers: {'content-type': 'application/json'},
       );
-    }),
-  );
+    }
+    expect(request.url.path, endsWith('/seasons'));
+    return http.Response(
+      jsonEncode({
+        'success': true,
+        'data': [
+          {
+            'season_id': activeSeasonId,
+            'name': 'Season $activeSeasonId',
+            'is_active': true,
+          },
+        ],
+      }),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
+  }));
 }
 
 AccountApiService _meService({
@@ -534,11 +534,7 @@ void main() {
         ));
     final container = ProviderContainer(overrides: [
       leaderboardApiServiceProvider.overrideWithValue(
-        LeaderboardApiService(
-          baseUrl: 'https://test.example.com/api/v4/mobile',
-          httpClient: client,
-          tokenProvider: AuthTokenStore().read,
-        ),
+        _leaderboardService(client),
       ),
       _reconcilerOverride(),
     ]);

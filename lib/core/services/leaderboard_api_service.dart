@@ -7,6 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart'
+    show sessionAuthorityGatewayProvider;
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
@@ -26,6 +29,7 @@ class LeaderboardApiService {
     int? maxGetRetries,
     Duration? retryBaseDelay,
     Future<String?> Function()? tokenProvider,
+    SessionAuthorityCredentialRequestSender? credentialRequestSender,
     Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
     Future<void> Function(int epoch)? onCredentialMissing,
   })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
@@ -34,6 +38,7 @@ class LeaderboardApiService {
         _maxGetRetries = maxGetRetries ?? 2,
         _retryBaseDelay = retryBaseDelay ?? const Duration(milliseconds: 300),
         _tokenProvider = tokenProvider,
+        _credentialRequestSender = credentialRequestSender,
         _onUnauthorized = onUnauthorized,
         _onCredentialMissing = onCredentialMissing;
 
@@ -46,6 +51,7 @@ class LeaderboardApiService {
   /// tests can construct the service without auth wiring. The callback
   /// receives the exact credential the failing request carried.
   final Future<String?> Function()? _tokenProvider;
+  final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
   final Future<void> Function(AuthCredentialLease credential)? _onUnauthorized;
   final Future<void> Function(int epoch)? _onCredentialMissing;
 
@@ -258,24 +264,24 @@ class LeaderboardApiService {
     );
   }
 
-  Future<T> _sendWithCurrentCredential<T>(
+  Future<http.Response> _sendRequest(
     AuthCredentialLease? credential,
-    Future<T> Function() send,
-  ) async {
-    if (credential == null) return send();
-    final current = IdentitySnapshots.current;
-    if (!credential.matchesIdentity(current) || !current.isAuthenticated) {
-      throw const StaleAuthCredentialException();
+    http.BaseRequest request, {
+    required String operationId,
+  }) async {
+    late final http.StreamedResponse streamed;
+    if (credential == null) {
+      streamed = await _http.send(request);
+    } else {
+      final sender = _credentialRequestSender;
+      if (sender == null) throw const StaleAuthCredentialException();
+      streamed = await sender(
+        credential: credential,
+        request: request,
+        operationId: operationId,
+      );
     }
-    final token = await _tokenProvider?.call();
-    final afterRead = IdentitySnapshots.current;
-    if (!credential.matchesIdentity(afterRead) ||
-        !afterRead.isAuthenticated ||
-        token != credential.token) {
-      throw const StaleAuthCredentialException();
-    }
-    // No await between the final authority check and starting the transport.
-    return send();
+    return http.Response.fromStream(streamed);
   }
 
   Future<dynamic> _get(
@@ -291,9 +297,10 @@ class LeaderboardApiService {
 
     final auth = await _authHeaders(_acceptJson);
     final resp = await _sendWithRetry(
-      () => _sendWithCurrentCredential(
+      () => _sendRequest(
         auth.credential,
-        () => _http.get(url, headers: auth.headers),
+        http.Request('GET', url)..headers.addAll(auth.headers),
+        operationId: 'leaderboard:get:$path',
       ),
     );
     return _parseEnvelope(resp, url,
@@ -304,27 +311,18 @@ class LeaderboardApiService {
     String path, {
     required Map<String, dynamic> body,
     Set<int> expectedStatuses = const {},
-  }) =>
-      _postAbsolute('$_baseUrl$path',
-          body: body, expectedStatuses: expectedStatuses);
-
-  Future<dynamic> _postAbsolute(
-    String absoluteUrl, {
-    required Map<String, dynamic> body,
-    Set<int> expectedStatuses = const {},
   }) async {
-    final url = Uri.parse(absoluteUrl);
+    final url = Uri.parse('$_baseUrl$path');
     _log.trace('POST $url');
 
     final auth = await _authHeaders(_jsonHeaders);
     final resp = await _send(
-      () => _sendWithCurrentCredential(
+      () => _sendRequest(
         auth.credential,
-        () => _http.post(
-          url,
-          headers: auth.headers,
-          body: jsonEncode(body),
-        ),
+        http.Request('POST', url)
+          ..headers.addAll(auth.headers)
+          ..body = jsonEncode(body),
+        operationId: 'leaderboard:post:$path',
       ),
     );
     return _parseEnvelope(resp, url,
@@ -515,6 +513,7 @@ class LeaderboardApiService {
 // ---------------------------------------------------------------------------
 
 final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
+  final authority = ref.watch(sessionAuthorityGatewayProvider);
   final service = LeaderboardApiService(
     tokenProvider: () {
       final identity = ref.read(identityProvider);
@@ -525,6 +524,7 @@ final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
         .onUnauthorized(credential: credential),
     onCredentialMissing: (epoch) =>
         ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
+    credentialRequestSender: authority?.sendCredentialRequest,
   );
   ref.onDispose(service.dispose);
   return service;

@@ -119,6 +119,29 @@ class SessionAuthorityGateway {
       operationId: operationId,
       engineId: _clientId,
     );
+    return _runVerifiedMutation(permit, mutation);
+  }
+
+  /// Runs one resumable-workflow row mutation only while its exact app
+  /// session remains Ready and has no durable revocation tombstone.
+  Future<bool> runWorkflowStoreMutation({
+    required String appSessionId,
+    required String operationId,
+    required Future<bool> Function() mutation,
+  }) async {
+    final permit = rust.sessionAuthorityAcquireWorkflowEffect(
+      directory: await _resolveDirectory(),
+      sessionId: appSessionId,
+      operationId: operationId,
+      engineId: _clientId,
+    );
+    return _runVerifiedMutation(permit, mutation);
+  }
+
+  Future<bool> _runVerifiedMutation(
+    rust.SessionEffectPermit permit,
+    Future<bool> Function() mutation,
+  ) async {
     try {
       final verified = await mutation();
       if (verified) {

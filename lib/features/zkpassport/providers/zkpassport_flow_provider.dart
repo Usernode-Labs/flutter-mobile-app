@@ -7,6 +7,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -97,7 +98,10 @@ final zkPassportSessionServerRepositoryProvider =
 
 final zkPassportRegistrationRepositoryProvider =
     Provider<ZkPassportRegistrationRepository>((ref) {
-  return ZkPassportRegistrationRepository();
+  final authority = ref.watch(sessionAuthorityGatewayProvider);
+  return ZkPassportRegistrationRepository(
+    workflowMutation: authority?.runWorkflowStoreMutation,
+  );
 });
 
 final zkPassportSettingsRepositoryProvider =
@@ -107,7 +111,10 @@ final zkPassportSettingsRepositoryProvider =
 
 final zkPassportRuntimeSessionRepositoryProvider =
     Provider<ZkPassportRuntimeSessionRepository>((ref) {
-  return ZkPassportRuntimeSessionRepository();
+  final authority = ref.watch(sessionAuthorityGatewayProvider);
+  return ZkPassportRuntimeSessionRepository(
+    workflowMutation: authority?.runWorkflowStoreMutation,
+  );
 });
 
 /// The zkPassport rows are bucket-scoped, but these providers cache their

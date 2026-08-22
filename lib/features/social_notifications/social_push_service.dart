@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 
 import 'social_push_api.dart';
 import 'social_push_messaging.dart';
@@ -34,17 +35,22 @@ class SocialPushSession {
   const SocialPushSession({
     required this.userId,
     required this.credential,
+    required this.credentialRequestSender,
     required this.onUnauthorized,
   });
 
   final int userId;
   final AuthCredentialLease credential;
+  final SessionAuthorityCredentialRequestSender credentialRequestSender;
   final SocialPushUnauthorized onUnauthorized;
 
   bool sameCredentialAs(SocialPushSession other) =>
       userId == other.userId &&
       credential.epoch == other.credential.epoch &&
-      credential.token == other.credential.token;
+      credential.token == other.credential.token &&
+      credential.sessionId == other.credential.sessionId &&
+      credential.credentialRef == other.credential.credentialRef &&
+      credential.credentialGeneration == other.credential.credentialGeneration;
 
   @override
   String toString() => 'SocialPushSession('
@@ -700,7 +706,8 @@ class SocialPushService {
               _registeredProviderToken == token &&
               _registeredPermission == _permission;
       final status = await _api.getStatus(
-        bearer: session.credential.token,
+        credential: session.credential,
+        credentialRequestSender: session.credentialRequestSender,
         installationId: _record!.installationId,
       );
       if (_session?.sameCredentialAs(session) != true) return;
@@ -724,6 +731,13 @@ class SocialPushService {
       _cancelRegistrationRetry(resetAttempts: true);
       _registrationStatus = SocialPushRegistrationStatus.registered;
       _deliveryActive = reply.deliveryActive;
+    } on StaleAuthCredentialException {
+      if (_session?.sameCredentialAs(session) == true) {
+        _clearRegisteredSignature();
+        _registrationStatus = SocialPushRegistrationStatus.error;
+        _deliveryActive = false;
+        _cancelRegistrationRetry(resetAttempts: true);
+      }
     } on SocialPushApiException catch (error) {
       if (error.statusCode == 401 &&
           _session?.sameCredentialAs(session) == true) {
@@ -844,7 +858,8 @@ class SocialPushService {
     final revision = await _nextMutationRevision();
     try {
       return await _api.register(
-        bearer: session.credential.token,
+        credential: session.credential,
+        credentialRequestSender: session.credentialRequestSender,
         installationId: _record!.installationId,
         registrationToken: token,
         platform: platform!,
@@ -897,7 +912,8 @@ class SocialPushService {
     final revision = await _nextMutationRevision();
     try {
       await _api.unregister(
-        bearer: session.credential.token,
+        credential: session.credential,
+        credentialRequestSender: session.credentialRequestSender,
         installationId: _record!.installationId,
         mutationRevision: revision,
         reason: reason,

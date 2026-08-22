@@ -3,6 +3,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
+
 class SocialPushRegistrationReply {
   const SocialPushRegistrationReply({
     required this.registered,
@@ -45,12 +48,14 @@ class SocialPushApiException implements Exception {
 
 abstract interface class SocialPushRegistrationApi {
   Future<SocialPushRegistrationReply> getStatus({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
   });
 
   Future<SocialPushRegistrationReply> register({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required String registrationToken,
     required String platform,
@@ -59,7 +64,8 @@ abstract interface class SocialPushRegistrationApi {
   });
 
   Future<void> unregister({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required int mutationRevision,
     required SocialPushUnregisterReason reason,
@@ -71,28 +77,28 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
     required String mobileApiBaseUrl,
     required this.expectedEnvironment,
     required this.expectedFirebaseProjectId,
-    http.Client? client,
     this.timeout = const Duration(seconds: 15),
-  })  : _endpoint = Uri.parse(
+  }) : _endpoint = Uri.parse(
           '${mobileApiBaseUrl.replaceFirst(RegExp(r'/+$'), '')}/'
           'push-registration',
-        ),
-        _client = client ?? http.Client();
+        );
 
   final Uri _endpoint;
-  final http.Client _client;
   final Duration timeout;
   final String expectedEnvironment;
   final String expectedFirebaseProjectId;
 
   @override
   Future<SocialPushRegistrationReply> getStatus({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
   }) async {
     final response = await _send(
       'GET',
-      bearer: bearer,
+      credential: credential,
+      credentialRequestSender: credentialRequestSender,
+      operationId: 'social-push:status',
       endpoint: _endpoint.replace(queryParameters: {
         'installation_id': installationId,
       }),
@@ -113,7 +119,8 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
 
   @override
   Future<SocialPushRegistrationReply> register({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required String registrationToken,
     required String platform,
@@ -122,7 +129,9 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
   }) async {
     final response = await _send(
       'PUT',
-      bearer: bearer,
+      credential: credential,
+      credentialRequestSender: credentialRequestSender,
+      operationId: 'social-push:register:$mutationRevision',
       body: {
         'installation_id': installationId,
         'provider': 'fcm',
@@ -146,14 +155,17 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
 
   @override
   Future<void> unregister({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required int mutationRevision,
     required SocialPushUnregisterReason reason,
   }) async {
     final response = await _send(
       'DELETE',
-      bearer: bearer,
+      credential: credential,
+      credentialRequestSender: credentialRequestSender,
+      operationId: 'social-push:unregister:$mutationRevision',
       body: {
         'installation_id': installationId,
         'mutation_revision': '$mutationRevision',
@@ -175,21 +187,29 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
 
   Future<http.Response> _send(
     String method, {
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
+    required String operationId,
     Uri? endpoint,
     Map<String, Object>? body,
   }) async {
     final request = http.Request(method, endpoint ?? _endpoint)
       ..headers.addAll({
         'Accept': 'application/json',
-        'Authorization': 'Bearer $bearer',
+        'Authorization': 'Bearer ${credential.token}',
         if (body != null) 'Content-Type': 'application/json',
       });
     if (body != null) request.body = jsonEncode(body);
     http.Response response;
     try {
-      final streamed = await _client.send(request).timeout(timeout);
+      final streamed = await credentialRequestSender(
+        credential: credential,
+        request: request,
+        operationId: operationId,
+      ).timeout(timeout);
       response = await http.Response.fromStream(streamed).timeout(timeout);
+    } on StaleAuthCredentialException {
+      rethrow;
     } on TimeoutException {
       throw const SocialPushApiException(statusCode: 0);
     } catch (_) {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_binding.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_api.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_messaging.dart';
@@ -557,6 +558,25 @@ void main() {
     );
   });
 
+  test('authority rejection stops registration without scheduling a retry',
+      () async {
+    final rig = _rig(optedIn: true);
+    addTearDown(rig.dispose);
+    rig.api.onRegister =
+        (_) async => throw const StaleAuthCredentialException();
+    await rig.service.initialize();
+
+    rig.service.attachSession(rig.owner, _session());
+    await rig.settle();
+
+    expect(rig.api.registerCalls, hasLength(1));
+    expect(rig.activeRetryTimers, isEmpty);
+    expect(
+      rig.service.currentState.registrationStatus,
+      SocialPushRegistrationStatus.error,
+    );
+  });
+
   test('successful provider shutdown is idempotent while ineligible', () async {
     final optedOut = _rig();
     final denied = _rig(optedIn: true);
@@ -1068,7 +1088,19 @@ SocialPushSession _session({
 }) =>
     SocialPushSession(
       userId: userId,
-      credential: AuthCredentialLease(epoch: epoch, token: bearer),
+      credential: AuthCredentialLease(
+        epoch: epoch,
+        token: bearer,
+        sessionId: 'session-$userId',
+        credentialRef: 'credential-$userId',
+        credentialGeneration: epoch,
+      ),
+      credentialRequestSender: ({
+        required credential,
+        required request,
+        required operationId,
+      }) async =>
+          throw StateError('The fake API must not invoke the HTTP sender'),
       onUnauthorized: (_) async {},
     );
 
@@ -1367,9 +1399,11 @@ class _FakeApi implements SocialPushRegistrationApi {
 
   @override
   Future<SocialPushRegistrationReply> getStatus({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
   }) async {
+    final bearer = credential.token;
     operations.add('GET');
     trace.add('GET:$bearer');
     statusCalls.add((bearer: bearer, installationId: installationId));
@@ -1381,13 +1415,15 @@ class _FakeApi implements SocialPushRegistrationApi {
 
   @override
   Future<SocialPushRegistrationReply> register({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required String registrationToken,
     required String platform,
     required String permissionStatus,
     required int mutationRevision,
   }) async {
+    final bearer = credential.token;
     final call = (
       bearer: bearer,
       installationId: installationId,
@@ -1413,11 +1449,13 @@ class _FakeApi implements SocialPushRegistrationApi {
 
   @override
   Future<void> unregister({
-    required String bearer,
+    required AuthCredentialLease credential,
+    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required int mutationRevision,
     required SocialPushUnregisterReason reason,
   }) async {
+    final bearer = credential.token;
     operations.add('DELETE');
     trace.add('DELETE:$bearer');
     unregisterCalls.add((

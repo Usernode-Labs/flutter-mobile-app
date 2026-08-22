@@ -18,6 +18,8 @@ bool canAttachSocialPushSession(Identity identity) =>
 /// The service never retains Ref/container.
 final socialPushBindingProvider = Provider<void>((ref) {
   final service = SocialPushService.instance;
+  final credentialRequestSender =
+      ref.watch(sessionAuthorityGatewayProvider)?.sendCredentialRequest;
   final owner = Object();
   var generation = 0;
   var disposed = false;
@@ -38,7 +40,10 @@ final socialPushBindingProvider = Provider<void>((ref) {
 
   void attachAuthenticatedIdentity() {
     final identity = ref.read(identityProvider);
-    if (!canAttachSocialPushSession(identity)) return;
+    if (!canAttachSocialPushSession(identity) ||
+        credentialRequestSender == null) {
+      return;
+    }
     final expectedGeneration = ++generation;
     unawaited(() async {
       String? token;
@@ -74,6 +79,7 @@ final socialPushBindingProvider = Provider<void>((ref) {
             credentialRef: identity.credentialRef,
             credentialGeneration: identity.credentialGeneration,
           ),
+          credentialRequestSender: credentialRequestSender,
           onUnauthorized: (credential) async {
             if (disposed) return;
             await ref

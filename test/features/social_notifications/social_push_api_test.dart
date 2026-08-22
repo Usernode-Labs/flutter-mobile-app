@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -12,13 +13,19 @@ const _registration = 'fcm-registration-secret';
 const _installationId = '5b35e700-267d-4aa1-8702-e6e731a0ed13';
 const _environment = 'production';
 const _firebaseProjectId = 'usernode-test';
+const _credential = AuthCredentialLease(
+  epoch: 7,
+  token: _bearer,
+  sessionId: 'session-a',
+  credentialRef: 'credential-a',
+  credentialGeneration: 3,
+);
 
 Future<SocialPushRegistrationReply> _register(
-  HttpSocialPushRegistrationApi api, {
+  _ApiHarness api, {
   int mutationRevision = 42,
 }) =>
     api.register(
-      bearer: _bearer,
       installationId: _installationId,
       registrationToken: _registration,
       platform: 'ios',
@@ -26,14 +33,146 @@ Future<SocialPushRegistrationReply> _register(
       mutationRevision: mutationRevision,
     );
 
+class _ApiHarness {
+  _ApiHarness({required http.Client client})
+      : _client = client,
+        _api = HttpSocialPushRegistrationApi(
+          mobileApiBaseUrl: _baseUrl,
+          expectedEnvironment: _environment,
+          expectedFirebaseProjectId: _firebaseProjectId,
+        );
+
+  final http.Client _client;
+  final HttpSocialPushRegistrationApi _api;
+
+  Future<SocialPushRegistrationReply> getStatus({
+    required String installationId,
+  }) =>
+      _api.getStatus(
+        credential: _credential,
+        credentialRequestSender: _send,
+        installationId: installationId,
+      );
+
+  Future<SocialPushRegistrationReply> register({
+    required String installationId,
+    required String registrationToken,
+    required String platform,
+    required String permissionStatus,
+    required int mutationRevision,
+  }) =>
+      _api.register(
+        credential: _credential,
+        credentialRequestSender: _send,
+        installationId: installationId,
+        registrationToken: registrationToken,
+        platform: platform,
+        permissionStatus: permissionStatus,
+        mutationRevision: mutationRevision,
+      );
+
+  Future<void> unregister({
+    required String installationId,
+    required int mutationRevision,
+    required SocialPushUnregisterReason reason,
+  }) =>
+      _api.unregister(
+        credential: _credential,
+        credentialRequestSender: _send,
+        installationId: installationId,
+        mutationRevision: mutationRevision,
+        reason: reason,
+      );
+
+  Future<http.StreamedResponse> _send({
+    required AuthCredentialLease credential,
+    required http.BaseRequest request,
+    required String operationId,
+  }) {
+    expect(credential, same(_credential));
+    expect(operationId, isNotEmpty);
+    return _client.send(request);
+  }
+}
+
 void main() {
-  test('PUT sends the exact registration contract and parses its ack',
+  test('PUT submits the exact credential through the authority sender',
       () async {
-    late http.Request captured;
+    late AuthCredentialLease capturedCredential;
+    late http.BaseRequest capturedRequest;
+    late String capturedOperationId;
     final api = HttpSocialPushRegistrationApi(
       mobileApiBaseUrl: _baseUrl,
       expectedEnvironment: _environment,
       expectedFirebaseProjectId: _firebaseProjectId,
+    );
+
+    final reply = await api.register(
+      credential: _credential,
+      credentialRequestSender: ({
+        required credential,
+        required request,
+        required operationId,
+      }) async {
+        capturedCredential = credential;
+        capturedRequest = request;
+        capturedOperationId = operationId;
+        return http.StreamedResponse(
+          Stream.value(utf8.encode(jsonEncode({
+            'success': true,
+            'registered': true,
+            'delivery_active': false,
+            'mutation_revision': '42',
+            'environment': _environment,
+            'firebase_project_id': _firebaseProjectId,
+          }))),
+          200,
+        );
+      },
+      installationId: _installationId,
+      registrationToken: _registration,
+      platform: 'ios',
+      permissionStatus: 'authorized',
+      mutationRevision: 42,
+    );
+
+    expect(capturedCredential.sessionId, 'session-a');
+    expect(capturedCredential.credentialRef, 'credential-a');
+    expect(capturedCredential.credentialGeneration, 3);
+    expect(capturedCredential.token, _bearer);
+    expect(capturedRequest.method, 'PUT');
+    expect(capturedRequest.headers['authorization'], 'Bearer $_bearer');
+    expect(capturedOperationId, 'social-push:register:42');
+    expect(reply.registered, isTrue);
+  });
+
+  test('authority rejection remains distinguishable from transport failure',
+      () async {
+    final api = HttpSocialPushRegistrationApi(
+      mobileApiBaseUrl: _baseUrl,
+      expectedEnvironment: _environment,
+      expectedFirebaseProjectId: _firebaseProjectId,
+    );
+
+    await expectLater(
+      api.getStatus(
+        credential: _credential,
+        credentialRequestSender: ({
+          required credential,
+          required request,
+          required operationId,
+        }) async =>
+            throw const StaleAuthCredentialException(),
+        installationId: _installationId,
+      ),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+  });
+
+  test('PUT sends the exact registration contract and parses its ack',
+      () async {
+    late http.Request captured;
+    final api = _ApiHarness(
       client: MockClient((request) async {
         captured = request;
         return http.Response(
@@ -72,10 +211,7 @@ void main() {
   test('GET sends only the installation query and reads delivery status',
       () async {
     late http.Request captured;
-    final api = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final api = _ApiHarness(
       client: MockClient((request) async {
         captured = request;
         return http.Response(
@@ -92,7 +228,6 @@ void main() {
     );
 
     final reply = await api.getStatus(
-      bearer: _bearer,
       installationId: _installationId,
     );
 
@@ -110,10 +245,7 @@ void main() {
   test('DELETE sends the installation fence and validates its exact ack',
       () async {
     late http.Request captured;
-    final api = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final api = _ApiHarness(
       client: MockClient((request) async {
         captured = request;
         return http.Response(
@@ -136,7 +268,6 @@ void main() {
     );
 
     await api.unregister(
-      bearer: _bearer,
       installationId: _installationId,
       mutationRevision: 43,
       reason: SocialPushUnregisterReason.notificationsDisabled,
@@ -153,10 +284,7 @@ void main() {
   });
 
   test('409 exposes only stable conflict metadata', () async {
-    final api = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final api = _ApiHarness(
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({
@@ -191,10 +319,7 @@ void main() {
 
   test('PUT rejects a successful response without the exact revision ack',
       () async {
-    final api = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final api = _ApiHarness(
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({
@@ -220,10 +345,7 @@ void main() {
   });
 
   test('DELETE rejects a cleanup ack for another installation', () async {
-    final api = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final api = _ApiHarness(
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({
@@ -246,7 +368,6 @@ void main() {
 
     await expectLater(
       api.unregister(
-        bearer: _bearer,
         installationId: _installationId,
         mutationRevision: 43,
         reason: SocialPushUnregisterReason.permissionDenied,
@@ -259,10 +380,7 @@ void main() {
   });
 
   test('PUT, GET, and DELETE reject another deployment identity', () async {
-    final api = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final api = _ApiHarness(
       client: MockClient((request) async {
         final response = <String, Object?>{
           'success': true,
@@ -288,11 +406,9 @@ void main() {
     final operations = <Future<Object?> Function()>[
       () => _register(api),
       () => api.getStatus(
-            bearer: _bearer,
             installationId: _installationId,
           ),
       () => api.unregister(
-            bearer: _bearer,
             installationId: _installationId,
             mutationRevision: 42,
             reason: SocialPushUnregisterReason.identityBoundary,
@@ -310,10 +426,7 @@ void main() {
   });
 
   test('transport and server failures never expose request secrets', () async {
-    final transportApi = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final transportApi = _ApiHarness(
       client: MockClient(
         (_) async => throw Exception('$_bearer $_registration'),
       ),
@@ -329,10 +442,7 @@ void main() {
     expect(transportError.toString(), isNot(contains(_bearer)));
     expect(transportError.toString(), isNot(contains(_registration)));
 
-    final serverApi = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
+    final serverApi = _ApiHarness(
       client: MockClient(
         (_) async => http.Response(
           jsonEncode({

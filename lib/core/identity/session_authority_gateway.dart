@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:path_provider/path_provider.dart';
 
@@ -40,13 +41,15 @@ class SessionAuthorityGateway {
         _bootstrapJson =
             bootstrapJson ?? rust.sessionAuthorityBootstrapLoggedOut,
         _commandJson = commandJson ?? rust.sessionAuthorityCommandJson,
-        _terminalReporter = terminalReporter ?? _reportTerminalToProduction;
+        _terminalReporter = terminalReporter ?? _reportTerminalToProduction,
+        _clientId = _newClientId();
 
   final SessionAuthoritySupportDirectory _supportDirectory;
   final SessionAuthorityAdmissionJson _admissionJson;
   final SessionAuthorityBootstrapJson _bootstrapJson;
   final SessionAuthorityCommandJson _commandJson;
   final SessionAuthorityTerminalReporter _terminalReporter;
+  final String _clientId;
 
   String? _directory;
 
@@ -98,6 +101,35 @@ class SessionAuthorityGateway {
     return response;
   }
 
+  /// Runs one credential-store mutation under the exact Rust-owned Ready
+  /// lease. A true result means secure storage also verified the write, which
+  /// is this sink's irreversible handoff point.
+  Future<bool> runCredentialStoreMutation({
+    required String sessionId,
+    required String credentialRef,
+    required int credentialGeneration,
+    required String operationId,
+    required Future<bool> Function() mutation,
+  }) async {
+    final permit = rust.sessionAuthorityAcquireCredentialEffect(
+      directory: await _resolveDirectory(),
+      sessionId: sessionId,
+      credentialRef: credentialRef,
+      credentialGeneration: BigInt.from(credentialGeneration),
+      operationId: operationId,
+      engineId: _clientId,
+    );
+    try {
+      final verified = await mutation();
+      if (verified) {
+        rust.sessionAuthorityEffectPermitMarkHandoff(permit: permit);
+      }
+      return verified;
+    } finally {
+      rust.sessionAuthorityEffectPermitRelease(permit: permit);
+    }
+  }
+
   void _reportTerminal(Map<String, dynamic> response) {
     final telemetry = response['telemetry'];
     if (telemetry is! Map) return;
@@ -116,6 +148,12 @@ class SessionAuthorityGateway {
     _directory = resolved;
     return resolved;
   }
+}
+
+String _newClientId() {
+  final random = Random.secure();
+  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+  return 'flutter-${base64Url.encode(bytes).replaceAll('=', '')}';
 }
 
 void _reportTerminalToProduction(Map<String, Object?> details) {

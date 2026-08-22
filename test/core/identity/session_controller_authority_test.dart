@@ -49,6 +49,7 @@ class _ScriptedAuthority extends SessionAuthorityGateway {
 
   final List<Map<String, dynamic>> responses;
   final commands = <Map<String, dynamic>>[];
+  final credentialStoreMutations = <Map<String, Object?>>[];
 
   @override
   String get directory => '/application-support/session-authority';
@@ -58,6 +59,23 @@ class _ScriptedAuthority extends SessionAuthorityGateway {
     commands.add(jsonDecode(jsonEncode(request)) as Map<String, dynamic>);
     if (responses.isEmpty) throw StateError('Unexpected authority command');
     return responses.removeAt(0);
+  }
+
+  @override
+  Future<bool> runCredentialStoreMutation({
+    required String sessionId,
+    required String credentialRef,
+    required int credentialGeneration,
+    required String operationId,
+    required Future<bool> Function() mutation,
+  }) async {
+    credentialStoreMutations.add({
+      'session_id': sessionId,
+      'credential_ref': credentialRef,
+      'credential_generation': credentialGeneration,
+      'operation_id': operationId,
+    });
+    return mutation();
   }
 }
 
@@ -286,6 +304,14 @@ void main() {
     expect(controller.state.epoch, epoch);
     expect(controller.state.credentialRef, 'credential-b');
     expect(controller.state.credentialGeneration, 2);
+    expect(authority.credentialStoreMutations, [
+      {
+        'session_id': 'session-a',
+        'credential_ref': 'credential-a',
+        'credential_generation': 1,
+        'operation_id': 'credential-write:credential-b',
+      },
+    ]);
     expect(
       (await tokenStore.readSessionCredential(
         sessionId: 'session-a',

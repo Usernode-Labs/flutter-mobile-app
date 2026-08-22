@@ -992,7 +992,17 @@ class SessionController extends StateNotifier<Identity> {
         token: session.token,
         userNamespace: userNamespace,
       );
-      if (!await _tokenStore.writeSessionCredential(next)) {
+      final authority = _sessionAuthority;
+      final credentialWritten = authority == null
+          ? await _tokenStore.writeSessionCredential(next)
+          : await authority.runCredentialStoreMutation(
+              sessionId: sessionId,
+              credentialRef: currentRef,
+              credentialGeneration: currentGeneration,
+              operationId: 'credential-write:$nextRef',
+              mutation: () => _tokenStore.writeSessionCredential(next),
+            );
+      if (!credentialWritten) {
         throw StateError('Renewed credential could not be verified');
       }
       final reply = await _authorityCommand({

@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart'
+    show sessionAuthorityGatewayProvider;
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
@@ -145,8 +146,6 @@ class LogShareController extends StateNotifier<LogShareState> {
       final outcome = await _service.postLogs(
         body: _buildBody(toSend),
         credential: lease.credential,
-        sendIfCredentialCurrent: (_, send) =>
-            _sendIfActiveCredentialCurrent(lease, send),
       );
       if (!mounted || !await _activeCredentialIsCurrent(lease)) {
         _stopStaleLease(lease);
@@ -220,24 +219,6 @@ class LogShareController extends StateNotifier<LogShareState> {
     return current && _activeIdentityIsCurrent(lease);
   }
 
-  Future<http.Response?> _sendIfActiveCredentialCurrent(
-    _LogShareSessionLease lease,
-    Future<http.Response> Function() send,
-  ) async {
-    if (!_activeIdentityIsCurrent(lease)) return null;
-    String? token;
-    try {
-      token = await _tokenProvider();
-    } catch (_) {
-      return null;
-    }
-    if (!_activeIdentityIsCurrent(lease) || token != lease.credential.token) {
-      return null;
-    }
-    // Start the request in the same continuation as the final lease check.
-    return send();
-  }
-
   void _stopStaleLease(_LogShareSessionLease lease) {
     if (identical(_lease, lease)) stop();
   }
@@ -275,7 +256,6 @@ class LogShareController extends StateNotifier<LogShareState> {
   @override
   void dispose() {
     _stopTimer();
-    _service.dispose();
     super.dispose();
   }
 }
@@ -283,6 +263,7 @@ class LogShareController extends StateNotifier<LogShareState> {
 final logShareControllerProvider =
     StateNotifierProvider<LogShareController, LogShareState>(
   (ref) {
+    final authority = ref.watch(sessionAuthorityGatewayProvider);
     final controller = LogShareController(
       currentIdentity: () => ref.read(identityProvider),
       tokenProvider: () {
@@ -290,6 +271,9 @@ final logShareControllerProvider =
         return ref.read(authTokenStoreProvider).readForIdentity(identity);
       },
       filterProvider: () => ref.read(httpLogFilterProvider),
+      service: LogShareService(
+        credentialRequestSender: authority?.sendCredentialRequest,
+      ),
     );
     ref.listen<Identity>(
       identityProvider,

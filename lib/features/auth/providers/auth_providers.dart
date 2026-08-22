@@ -37,6 +37,7 @@ final authStatusProvider = Provider<AuthStatus>((ref) {
 });
 
 final accountApiServiceProvider = Provider<AccountApiService>((ref) {
+  final authority = ref.watch(sessionAuthorityGatewayProvider);
   final service = AccountApiService(
     tokenProvider: () {
       final identity = ref.read(identityProvider);
@@ -47,6 +48,7 @@ final accountApiServiceProvider = Provider<AccountApiService>((ref) {
         .onUnauthorized(credential: credential),
     onCredentialMissing: (epoch) =>
         ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
+    credentialRequestSender: authority?.sendCredentialRequest,
   );
   ref.onDispose(service.dispose);
   return service;

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -25,17 +26,20 @@ class AccountApiService {
     http.Client? httpClient,
     String? baseUrl,
     Future<String?> Function()? tokenProvider,
+    SessionAuthorityCredentialRequestSender? credentialRequestSender,
     Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
     Future<void> Function(int epoch)? onCredentialMissing,
   })  : _http = httpClient ?? createAppHttpClient(),
         _baseUrl = baseUrl ?? _deriveV3Base(),
         _tokenProvider = tokenProvider,
+        _credentialRequestSender = credentialRequestSender,
         _onUnauthorized = onUnauthorized,
         _onCredentialMissing = onCredentialMissing;
 
   final http.Client _http;
   final String _baseUrl;
   final Future<String?> Function()? _tokenProvider;
+  final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
 
   /// Invoked with the exact identity/token pair carried by a failed request.
   final Future<void> Function(AuthCredentialLease credential)? _onUnauthorized;
@@ -78,24 +82,23 @@ class AccountApiService {
     );
   }
 
-  Future<T> _sendWithCurrentCredential<T>(
+  Future<http.Response> _send(
     AuthCredentialLease? credential,
-    Future<T> Function() send,
+    http.BaseRequest request,
   ) async {
-    if (credential == null) return send();
-    final current = IdentitySnapshots.current;
-    if (!credential.matchesIdentity(current) || !current.isAuthenticated) {
-      throw const StaleAuthCredentialException();
+    late final http.StreamedResponse streamed;
+    if (credential == null) {
+      streamed = await _http.send(request);
+    } else {
+      final sender = _credentialRequestSender;
+      if (sender == null) throw const StaleAuthCredentialException();
+      streamed = await sender(
+        credential: credential,
+        request: request,
+        operationId: 'account:get-me',
+      );
     }
-    final token = await _tokenProvider?.call();
-    final afterRead = IdentitySnapshots.current;
-    if (!credential.matchesIdentity(afterRead) ||
-        !afterRead.isAuthenticated ||
-        token != credential.token) {
-      throw const StaleAuthCredentialException();
-    }
-    // Start the transport in the same continuation as the final check.
-    return send();
+    return http.Response.fromStream(streamed);
   }
 
   /// Fetches the authenticated participant profile (including `level`).
@@ -103,14 +106,16 @@ class AccountApiService {
     final credential = await _credential();
     final url = Uri.parse('$_baseUrl/me');
     _log.trace('GET $url');
+    final request = http.Request('GET', url)
+      ..headers.addAll({
+        'Accept': 'application/json',
+        if (credential != null) 'Authorization': 'Bearer ${credential.token}',
+      });
     http.Response resp;
     try {
-      resp = await _sendWithCurrentCredential(
+      resp = await _send(
         credential,
-        () => _http.get(url, headers: {
-          'Accept': 'application/json',
-          if (credential != null) 'Authorization': 'Bearer ${credential.token}',
-        }),
+        request,
       ).timeout(const Duration(seconds: 15));
     } on StaleAuthCredentialException {
       rethrow;

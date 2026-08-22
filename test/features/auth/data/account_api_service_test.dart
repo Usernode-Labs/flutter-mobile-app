@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 
 const _base = 'https://test.example.com/api/v3/mobile';
@@ -27,8 +28,18 @@ void _publishAuthenticatedIdentity({int epoch = 7}) {
     participantId: 1,
     accountId: 'account-1',
     address: 'address-1',
+    sessionId: 'session-a',
+    credentialRef: 'credential-a',
+    credentialGeneration: 3,
   ));
 }
+
+SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
+      required credential,
+      required request,
+      required operationId,
+    }) =>
+        client.send(request);
 
 void main() {
   setUp(IdentitySnapshots.reset);
@@ -38,15 +49,17 @@ void main() {
     _publishAuthenticatedIdentity();
     Uri? url;
     String? auth;
+    final client = MockClient((req) async {
+      url = req.url;
+      auth = req.headers['authorization'];
+      return http.Response(jsonEncode(_envelope(_meData)), 200,
+          headers: {'content-type': 'application/json'});
+    });
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
-      httpClient: MockClient((req) async {
-        url = req.url;
-        auth = req.headers['authorization'];
-        return http.Response(jsonEncode(_envelope(_meData)), 200,
-            headers: {'content-type': 'application/json'});
-      }),
+      credentialRequestSender: _throughClient(client),
+      httpClient: client,
     );
 
     final me = await service.getMe();
@@ -56,16 +69,63 @@ void main() {
     expect(me.id, 123);
   });
 
+  test('authenticated getMe submits its exact lease to the HTTP sink',
+      () async {
+    _publishAuthenticatedIdentity();
+    late AuthCredentialLease capturedCredential;
+    late http.BaseRequest capturedRequest;
+    late String capturedOperationId;
+    var ordinaryClientUsed = false;
+    final service = AccountApiService(
+      baseUrl: _base,
+      tokenProvider: () async => 'sess-1',
+      credentialRequestSender: ({
+        required credential,
+        required request,
+        required operationId,
+      }) async {
+        capturedCredential = credential;
+        capturedRequest = request;
+        capturedOperationId = operationId;
+        return http.StreamedResponse(
+          Stream.value(utf8.encode(jsonEncode(_envelope(_meData)))),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      },
+      httpClient: MockClient((request) async {
+        ordinaryClientUsed = true;
+        return http.Response('{}', 500);
+      }),
+    );
+
+    final me = await service.getMe();
+
+    expect(capturedCredential.epoch, 7);
+    expect(capturedCredential.token, 'sess-1');
+    expect(capturedCredential.sessionId, 'session-a');
+    expect(capturedCredential.credentialRef, 'credential-a');
+    expect(capturedCredential.credentialGeneration, 3);
+    expect(capturedRequest.method, 'GET');
+    expect(capturedRequest.url.path, '/api/v3/mobile/me');
+    expect(capturedRequest.headers['authorization'], 'Bearer sess-1');
+    expect(capturedOperationId, 'account:get-me');
+    expect(ordinaryClientUsed, isFalse);
+    expect(me.id, 123);
+  });
+
   test('401 invokes onUnauthorized then throws', () async {
     _publishAuthenticatedIdentity();
     AuthCredentialLease? rejectedCredential;
+    final client = MockClient((req) async => http.Response('{}', 401));
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
       onUnauthorized: (credential) async {
         rejectedCredential = credential;
       },
-      httpClient: MockClient((req) async => http.Response('{}', 401)),
+      credentialRequestSender: _throughClient(client),
+      httpClient: client,
     );
 
     await expectLater(
@@ -75,6 +135,9 @@ void main() {
     );
     expect(rejectedCredential?.epoch, 7);
     expect(rejectedCredential?.token, 'sess-1');
+    expect(rejectedCredential?.sessionId, 'session-a');
+    expect(rejectedCredential?.credentialRef, 'credential-a');
+    expect(rejectedCredential?.credentialGeneration, 3);
   });
 
   test('missing token under an authenticated identity is repaired, not sent',
@@ -108,12 +171,14 @@ void main() {
 
   test('non-success envelope throws', () async {
     _publishAuthenticatedIdentity();
+    final client = MockClient((req) async => http.Response(
+        jsonEncode({'success': false}), 200,
+        headers: {'content-type': 'application/json'}));
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
-      httpClient: MockClient((req) async => http.Response(
-          jsonEncode({'success': false}), 200,
-          headers: {'content-type': 'application/json'})),
+      credentialRequestSender: _throughClient(client),
+      httpClient: client,
     );
     await expectLater(service.getMe(), throwsA(isA<AccountApiException>()));
   });
@@ -137,13 +202,13 @@ void main() {
     expect(sent, isFalse);
   });
 
-  test('token replacement before send cancels the request', () async {
+  test('missing authority sender cannot fall back to the ordinary client',
+      () async {
     _publishAuthenticatedIdentity();
-    var reads = 0;
     var sent = false;
     final service = AccountApiService(
       baseUrl: _base,
-      tokenProvider: () async => reads++ == 0 ? 'sess-1' : 'sess-2',
+      tokenProvider: () async => 'sess-1',
       httpClient: MockClient((req) async {
         sent = true;
         return http.Response('{}', 200);

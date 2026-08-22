@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
@@ -23,6 +24,20 @@ import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisio
 
 const _addressA = 'ut1useraaaaaaaa';
 const _addressB = 'ut1userbbbbbbbb';
+
+SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
+      required credential,
+      required request,
+      required operationId,
+    }) =>
+        client.send(request);
+
+AccountApiService _accountService(http.Client client) => AccountApiService(
+      baseUrl: 'https://test.example.com/api/v4/mobile',
+      tokenProvider: AuthTokenStore().read,
+      credentialRequestSender: _throughClient(client),
+      httpClient: client,
+    );
 
 Map<String, dynamic> _accountJson(String id, String address) => {
       'id': id,
@@ -122,39 +137,35 @@ AccountApiService _meService({
   int statusCode = 200,
   String? email = 'fresh@example.com',
 }) {
-  return AccountApiService(
-    baseUrl: 'https://test.example.com/api/v4/mobile',
-    tokenProvider: AuthTokenStore().read,
-    httpClient: MockClient((request) async {
-      expect(request.url.path, endsWith('/me'));
-      if (requestStarted != null && !requestStarted.isCompleted) {
-        requestStarted.complete();
-      }
-      if (releaseRequest != null) await releaseRequest;
-      if (statusCode != 200) {
-        return http.Response(
-          jsonEncode({'success': false, 'error': 'temporarily unavailable'}),
-          statusCode,
-          headers: {'content-type': 'application/json'},
-        );
-      }
+  return _accountService(MockClient((request) async {
+    expect(request.url.path, endsWith('/me'));
+    if (requestStarted != null && !requestStarted.isCompleted) {
+      requestStarted.complete();
+    }
+    if (releaseRequest != null) await releaseRequest;
+    if (statusCode != 200) {
       return http.Response(
-        jsonEncode({
-          'success': true,
-          'data': {
-            'id': 99,
-            'email': email,
-            'email_confirmed': true,
-            'display_name': 'Fresh Profile',
-            'level': 'operator',
-            'bp_released': true,
-          },
-        }),
-        200,
+        jsonEncode({'success': false, 'error': 'temporarily unavailable'}),
+        statusCode,
         headers: {'content-type': 'application/json'},
       );
-    }),
-  );
+    }
+    return http.Response(
+      jsonEncode({
+        'success': true,
+        'data': {
+          'id': 99,
+          'email': email,
+          'email_confirmed': true,
+          'display_name': 'Fresh Profile',
+          'level': 'operator',
+          'bp_released': true,
+        },
+      }),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
+  }));
 }
 
 AuthSession _session(String token, {int participantId = 99}) => AuthSession(
@@ -319,26 +330,22 @@ void main() {
 
     final provisionCalls = <int>[];
     final provisionService = _provisionService(_addressB, provisionCalls);
-    final accountService = AccountApiService(
-      baseUrl: 'https://test.example.com/api/v4/mobile',
-      tokenProvider: AuthTokenStore().read,
-      httpClient: MockClient((request) async {
-        expect(request.url.path, endsWith('/me'));
-        return http.Response(
-          jsonEncode({
-            'success': true,
-            'data': {
-              'id': 99,
-              'email': 'b@example.com',
-              'email_confirmed': true,
-              'level': 'operator',
-            },
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }),
-    );
+    final accountService = _accountService(MockClient((request) async {
+      expect(request.url.path, endsWith('/me'));
+      return http.Response(
+        jsonEncode({
+          'success': true,
+          'data': {
+            'id': 99,
+            'email': 'b@example.com',
+            'email_confirmed': true,
+            'level': 'operator',
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    }));
     addTearDown(provisionService.dispose);
     addTearDown(accountService.dispose);
 
@@ -414,10 +421,8 @@ void main() {
 
     final provisionCalls = <int>[];
     var nodeBinds = 0;
-    final accountService = AccountApiService(
-      baseUrl: 'https://test.example.com/api/v4/mobile',
-      tokenProvider: AuthTokenStore().read,
-      httpClient: MockClient(
+    final accountService = _accountService(
+      MockClient(
         (_) async => http.Response('{"success":false}', 503),
       ),
     );

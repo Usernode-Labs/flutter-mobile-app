@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+
 class AuthTokenStore {
   AuthTokenStore({FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
@@ -19,6 +21,26 @@ class AuthTokenStore {
   static Stream<void> get changes => _changes.stream;
 
   Future<String?> read() => _storage.read(key: _key);
+
+  Future<String?> readForIdentity(Identity identity) async {
+    if (!identity.isAuthenticated) return null;
+    final sessionId = identity.sessionId;
+    final credentialRef = identity.credentialRef;
+    final credentialGeneration = identity.credentialGeneration;
+    if (sessionId == null ||
+        credentialRef == null ||
+        credentialGeneration == null) {
+      // Compatibility-only path for tests and pre-journal sessions. Shipped
+      // bootstrap always installs exact authority before identity restore.
+      return read();
+    }
+    return (await readSessionCredential(
+      sessionId: sessionId,
+      credentialRef: credentialRef,
+      credentialGeneration: credentialGeneration,
+    ))
+        ?.token;
+  }
 
   Future<void> write(String token) async {
     await _storage.write(key: _key, value: token);
@@ -65,6 +87,21 @@ class AuthTokenStore {
       }
     }
     return null;
+  }
+
+  Future<SessionCredential?> readActivationCredential(
+    String sessionId,
+    String transitionId,
+  ) async {
+    final credentials = await _readSessionCredentials(sessionId);
+    if (credentials.isEmpty) return null;
+    final matching = credentials
+        .where((credential) => credential.transitionId == transitionId)
+        .toList(growable: false);
+    if (matching.length != 1 || matching.length != credentials.length) {
+      throw SessionCredentialOwnershipException();
+    }
+    return matching.single;
   }
 
   Future<bool> clearSessionCredential(SessionCredential expected) async {
@@ -141,6 +178,11 @@ class AuthTokenStore {
   }
 
   static String _sessionKey(String sessionId) => 'auth:v4:session:$sessionId';
+}
+
+class SessionCredentialOwnershipException extends StateError {
+  SessionCredentialOwnershipException()
+      : super('Activation credential has a conflicting owner');
 }
 
 class SessionCredential {

@@ -69,7 +69,13 @@ class AccountApiService {
     if (!identity.isAuthenticated) {
       throw const StaleAuthCredentialException();
     }
-    return AuthCredentialLease(epoch: identity.epoch, token: token);
+    return AuthCredentialLease(
+      epoch: identity.epoch,
+      token: token,
+      sessionId: identity.sessionId,
+      credentialRef: identity.credentialRef,
+      credentialGeneration: identity.credentialGeneration,
+    );
   }
 
   Future<T> _sendWithCurrentCredential<T>(
@@ -78,12 +84,12 @@ class AccountApiService {
   ) async {
     if (credential == null) return send();
     final current = IdentitySnapshots.current;
-    if (current.epoch != credential.epoch || !current.isAuthenticated) {
+    if (!credential.matchesIdentity(current) || !current.isAuthenticated) {
       throw const StaleAuthCredentialException();
     }
     final token = await _tokenProvider?.call();
     final afterRead = IdentitySnapshots.current;
-    if (afterRead.epoch != credential.epoch ||
+    if (!credential.matchesIdentity(afterRead) ||
         !afterRead.isAuthenticated ||
         token != credential.token) {
       throw const StaleAuthCredentialException();

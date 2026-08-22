@@ -187,7 +187,13 @@ class LogShareController extends StateNotifier<LogShareState> {
     }
     return _LogShareSessionLease(
       identity: identity,
-      credential: AuthCredentialLease(epoch: identity.epoch, token: token),
+      credential: AuthCredentialLease(
+        epoch: identity.epoch,
+        token: token,
+        sessionId: identity.sessionId,
+        credentialRef: identity.credentialRef,
+        credentialGeneration: identity.credentialGeneration,
+      ),
     );
   }
 
@@ -279,7 +285,10 @@ final logShareControllerProvider =
   (ref) {
     final controller = LogShareController(
       currentIdentity: () => ref.read(identityProvider),
-      tokenProvider: () => ref.read(authTokenStoreProvider).read(),
+      tokenProvider: () {
+        final identity = ref.read(identityProvider);
+        return ref.read(authTokenStoreProvider).readForIdentity(identity);
+      },
       filterProvider: () => ref.read(httpLogFilterProvider),
     );
     ref.listen<Identity>(

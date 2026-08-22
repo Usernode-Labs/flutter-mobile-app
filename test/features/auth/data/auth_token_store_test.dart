@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 
 class _FailingSecureStorage extends FlutterSecureStorage {
@@ -150,6 +151,65 @@ void main() {
         sessionId: 'session-a',
         credentialRef: 'credential-a',
         credentialGeneration: 2,
+      ),
+      isNull,
+    );
+  });
+
+  test('cold activation adopts only one credential from its transition',
+      () async {
+    final store = AuthTokenStore();
+    const credential = SessionCredential(
+      sessionId: 'session-a',
+      transitionId: 'login-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 1,
+      token: 'sess-a',
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+    );
+    expect(
+        await store.readActivationCredential('session-a', 'login-a'), isNull);
+    expect(await store.writeSessionCredential(credential), isTrue);
+    expect(
+      await store.readActivationCredential('session-a', 'login-a'),
+      credential,
+    );
+    expect(
+      () => store.readActivationCredential('session-a', 'login-b'),
+      throwsStateError,
+    );
+  });
+
+  test('authenticated reads resolve only the credential named by identity',
+      () async {
+    final store = AuthTokenStore();
+    const credential = SessionCredential(
+      sessionId: 'session-a',
+      transitionId: 'login-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 1,
+      token: 'sess-a',
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+    );
+    await store.writeSessionCredential(credential);
+    const identity = Identity(
+      epoch: 1,
+      phase: IdentityPhase.reconciling,
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 1,
+    );
+
+    expect(await store.readForIdentity(identity), 'sess-a');
+    expect(
+      await store.readForIdentity(
+        identity.copyWith(credentialGeneration: 2),
+      ),
+      isNull,
+    );
+    expect(
+      await store.readForIdentity(
+        const Identity(epoch: 1, phase: IdentityPhase.unauthenticated),
       ),
       isNull,
     );

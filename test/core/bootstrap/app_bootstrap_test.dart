@@ -3,6 +3,23 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('session authority settles before scheduling and provider construction',
+      () async {
+    final source = await File(
+      'lib/core/bootstrap/app_bootstrap.dart',
+    ).readAsString();
+
+    final authority = source.indexOf('await _ensureSessionAuthorityJournal');
+    final scheduling = source.indexOf(
+      'await PlatformAlarmService.instance.initialize()',
+    );
+    final providerGraph = source.indexOf('ProviderContainer(');
+
+    expect(authority, greaterThanOrEqualTo(0));
+    expect(scheduling, greaterThan(authority));
+    expect(providerGraph, greaterThan(scheduling));
+  });
+
   test('cold-boot eligibility is read after backend initialization', () async {
     final source = await File(
       'lib/core/bootstrap/app_bootstrap.dart',

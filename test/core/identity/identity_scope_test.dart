@@ -47,7 +47,16 @@ void main() {
   });
 
   test('credential leases never print their token', () {
-    const lease = AuthCredentialLease(epoch: 7, token: 'secret-token');
+    const lease = AuthCredentialLease(
+      epoch: 7,
+      token: 'secret-token',
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 3,
+    );
     expect(lease.toString(), isNot(contains('secret-token')));
+    expect(lease.sessionId, 'session-a');
+    expect(lease.credentialRef, 'credential-a');
+    expect(lease.credentialGeneration, 3);
   });
 }

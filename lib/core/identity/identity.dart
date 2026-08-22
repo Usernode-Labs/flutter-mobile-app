@@ -180,13 +180,28 @@ class AuthCredentialLease {
   const AuthCredentialLease({
     required this.epoch,
     required this.token,
+    this.sessionId,
+    this.credentialRef,
+    this.credentialGeneration,
   });
 
   final int epoch;
   final String token;
+  final String? sessionId;
+  final String? credentialRef;
+  final int? credentialGeneration;
+
+  bool matchesIdentity(Identity identity) =>
+      epoch == identity.epoch &&
+      (sessionId == null || sessionId == identity.sessionId) &&
+      (credentialRef == null || credentialRef == identity.credentialRef) &&
+      (credentialGeneration == null ||
+          credentialGeneration == identity.credentialGeneration);
 
   @override
-  String toString() => 'AuthCredentialLease(epoch: $epoch, token: <redacted>)';
+  String toString() => 'AuthCredentialLease(epoch: $epoch, '
+      'sessionId: $sessionId, generation: $credentialGeneration, '
+      'token: <redacted>)';
 }
 
 /// The credential changed while an authenticated request was being prepared.

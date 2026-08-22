@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +9,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/identity/session_retirement_repair.dart';
+import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -23,10 +29,27 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
+
+/// Runs the one-time authority cleanup only while the Rust journal is absent.
+/// Journal absence remains the retry marker after a crash or failed cleanup.
+Future<void> runPreJournalBootstrap({
+  required bool journalMissing,
+  required List<Future<bool> Function()> cleanupSteps,
+  required Future<void> Function() createLoggedOut,
+}) async {
+  if (!journalMissing) return;
+  for (var index = 0; index < cleanupSteps.length; index++) {
+    if (!await cleanupSteps[index]()) {
+      throw StateError('Pre-journal cleanup $index was not confirmed');
+    }
+  }
+  await createLoggedOut();
+}
 
 class AppBootstrapResult {
   final ProviderContainer container;
@@ -71,6 +94,10 @@ class AppBootstrap {
     if (installErrorHandlers) {
       _installGlobalErrorHandlers(log);
     }
+
+    // Must settle before native scheduling can mint legacy admission and
+    // before any provider can instantiate a session-owned surface.
+    final sessionAuthority = await _ensureSessionAuthorityJournal(log);
 
     // Initialize platform alarm service early to capture native events
     await PlatformAlarmService.instance.initialize();
@@ -118,7 +145,9 @@ class AppBootstrap {
     );
 
     // Create provider container
-    final container = ProviderContainer();
+    final container = ProviderContainer(overrides: [
+      sessionAuthorityGatewayProvider.overrideWithValue(sessionAuthority),
+    ]);
 
     // Accounts are needed to decide background behavior and set crash context
     final repo = await AccountsRepository.create();
@@ -207,6 +236,109 @@ class AppBootstrap {
       );
       log.debug('$st');
     }
+  }
+
+  static Future<SessionAuthorityGateway> _ensureSessionAuthorityJournal(
+    TaggedLogger log,
+  ) async {
+    final backend = RustBackendService.instance;
+    await backend.init();
+    final authority = SessionAuthorityGateway();
+    final admission = await authority.admission();
+    final status = admission['status'];
+    if (status == 'terminal') {
+      throw StateError('Session authority is terminal: ${admission['reason']}');
+    }
+
+    if (status == 'missing_journal') {
+      final network = NetworkPrefs.currentNetwork;
+      final sessionId = _newSessionAuthorityId();
+      await runPreJournalBootstrap(
+        journalMissing: true,
+        cleanupSteps: [
+          AuthTokenStore().clear,
+          AuthGuestFlag().clear,
+          clearGuestParticipantId,
+          clearIdentityNamespace,
+          DurableSignOutFence().lower,
+          () async {
+            await backend.stopNode();
+            return true;
+          },
+          PlatformAlarmService.instance.clearLegacySessionAuthority,
+          PlatformAlarmService.instance.clearWebSessionData,
+        ],
+        createLoggedOut: () async {
+          final created = await authority.bootstrapLoggedOut(
+            network: network,
+            sessionId: sessionId,
+          );
+          if (created['status'] != 'logged_out' ||
+              created['session_id'] != sessionId ||
+              created['network'] != network) {
+            throw StateError('Fresh LoggedOut authority was not confirmed');
+          }
+        },
+      );
+      await NetworkPrefs.adoptAuthorityNetwork(network);
+      log.info('Created fresh LoggedOut authority after legacy cleanup');
+      return authority;
+    }
+
+    if (status != 'logged_out' && status != 'ready' && status != 'closed') {
+      throw StateError('Unknown session authority admission: $status');
+    }
+    final read = await authority.command({'command': 'read_record'});
+    final record = _bootstrapMap(read['record'], 'record');
+    final network = record['network'];
+    if (network is! String || network.isEmpty) {
+      throw StateError('Session authority record has no network');
+    }
+    await NetworkPrefs.adoptAuthorityNetwork(network);
+    final state = _bootstrapMap(record['state'], 'record.state');
+    if (state['kind'] == 'retiring') {
+      final fence = DurableSignOutFence();
+      if (!await fence.raise()) {
+        throw StateError('Could not raise retirement compatibility fence');
+      }
+      final completed = await RetirementRepairScope(
+        authority: authority,
+        tokenStore: AuthTokenStore(),
+        guestFlag: AuthGuestFlag(),
+        revokeNativeAdmission:
+            PlatformAlarmService.instance.clearLegacySessionAuthority,
+        clearWebSessionData: PlatformAlarmService.instance.clearWebSessionData,
+      ).repair(read);
+      if (completed == null) {
+        throw StateError('Interrupted retirement requires terminal reset');
+      }
+      final completedRecord =
+          _bootstrapMap(completed['record'], 'retirement.record');
+      final completedState =
+          _bootstrapMap(completedRecord['state'], 'retirement.record.state');
+      if (completedState['kind'] != 'logged_out') {
+        throw StateError('Interrupted retirement did not commit LoggedOut');
+      }
+      final successorNetwork = completedRecord['network'];
+      if (successorNetwork is! String || successorNetwork.isEmpty) {
+        throw StateError('LoggedOut successor has no network');
+      }
+      await NetworkPrefs.adoptAuthorityNetwork(successorNetwork);
+      try {
+        await fence.lower();
+      } catch (_) {
+        // The committed LoggedOut journal is authoritative; a stale
+        // compatibility marker only causes another idempotent repair check.
+      }
+      log.info('Completed interrupted retirement before provider bootstrap');
+    }
+    return authority;
+  }
+
+  static String _newSessionAuthorityId() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    return 'session-${base64Url.encode(bytes).replaceAll('=', '')}';
   }
 
   static Future<void> _applyBootstrapIdentity({
@@ -412,4 +544,9 @@ class AppBootstrap {
       return true;
     };
   }
+}
+
+Map<String, dynamic> _bootstrapMap(Object? value, String field) {
+  if (value is! Map) throw StateError('Session authority $field is not a map');
+  return Map<String, dynamic>.from(value);
 }

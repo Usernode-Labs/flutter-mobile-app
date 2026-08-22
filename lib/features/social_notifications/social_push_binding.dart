@@ -43,7 +43,8 @@ final socialPushBindingProvider = Provider<void>((ref) {
     unawaited(() async {
       String? token;
       try {
-        token = await ref.read(authTokenStoreProvider).read();
+        token =
+            await ref.read(authTokenStoreProvider).readForIdentity(identity);
       } catch (_) {
         // The caller may already have detached a rotated credential. Keep the
         // service fail-closed and let the next lifecycle/token signal retry.
@@ -69,6 +70,9 @@ final socialPushBindingProvider = Provider<void>((ref) {
           credential: AuthCredentialLease(
             epoch: identity.epoch,
             token: token,
+            sessionId: identity.sessionId,
+            credentialRef: identity.credentialRef,
+            credentialGeneration: identity.credentialGeneration,
           ),
           onUnauthorized: (credential) async {
             if (disposed) return;

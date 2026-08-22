@@ -42,6 +42,20 @@ class NetworkPrefs {
     return _cachedNetwork!;
   }
 
+  /// Mirrors the network already committed by the durable session journal.
+  /// Invalid journal values fail closed instead of silently selecting testnet.
+  static Future<void> adoptAuthorityNetwork(String network) async {
+    if (!_allowedNetworks.contains(network)) {
+      throw ArgumentError.value(network, 'network', 'unsupported network');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(networkKey, network);
+    if (prefs.getString(networkKey) != network) {
+      throw StateError('Session authority network could not be persisted');
+    }
+    _cachedNetwork = network;
+  }
+
   /// Drops process-local routing state after the durable preference wipe.
   /// The next cold launch therefore starts from the same default network and
   /// guest bucket that an empty preference store represents.

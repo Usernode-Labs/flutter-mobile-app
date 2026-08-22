@@ -33,6 +33,27 @@ void main() {
       await NetworkPrefs.init();
       expect(NetworkPrefs.currentNetwork, 'custom');
     });
+
+    test('the journal network replaces the compatibility cache exactly',
+        () async {
+      SharedPreferences.setMockInitialValues(
+          {'flutter.${NetworkPrefs.networkKey}': 'testnet'});
+      await NetworkPrefs.init();
+
+      await NetworkPrefs.adoptAuthorityNetwork('internal');
+
+      expect(NetworkPrefs.currentNetwork, 'internal');
+      expect(
+        (await SharedPreferences.getInstance())
+            .getString(NetworkPrefs.networkKey),
+        'internal',
+      );
+      await expectLater(
+        NetworkPrefs.adoptAuthorityNetwork('bogus'),
+        throwsArgumentError,
+      );
+      expect(NetworkPrefs.currentNetwork, 'internal');
+    });
   });
 
   group('key prefixing', () {

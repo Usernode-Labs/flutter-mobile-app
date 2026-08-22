@@ -38,7 +38,10 @@ final authStatusProvider = Provider<AuthStatus>((ref) {
 
 final accountApiServiceProvider = Provider<AccountApiService>((ref) {
   final service = AccountApiService(
-    tokenProvider: () => ref.read(authTokenStoreProvider).read(),
+    tokenProvider: () {
+      final identity = ref.read(identityProvider);
+      return ref.read(authTokenStoreProvider).readForIdentity(identity);
+    },
     onUnauthorized: (credential) => ref
         .read(identityProvider.notifier)
         .onUnauthorized(credential: credential),

@@ -248,6 +248,9 @@ class LeaderboardApiService {
     final credential = AuthCredentialLease(
       epoch: identity.epoch,
       token: token,
+      sessionId: identity.sessionId,
+      credentialRef: identity.credentialRef,
+      credentialGeneration: identity.credentialGeneration,
     );
     return (
       headers: {...base, 'Authorization': 'Bearer $token'},
@@ -261,12 +264,12 @@ class LeaderboardApiService {
   ) async {
     if (credential == null) return send();
     final current = IdentitySnapshots.current;
-    if (current.epoch != credential.epoch || !current.isAuthenticated) {
+    if (!credential.matchesIdentity(current) || !current.isAuthenticated) {
       throw const StaleAuthCredentialException();
     }
     final token = await _tokenProvider?.call();
     final afterRead = IdentitySnapshots.current;
-    if (afterRead.epoch != credential.epoch ||
+    if (!credential.matchesIdentity(afterRead) ||
         !afterRead.isAuthenticated ||
         token != credential.token) {
       throw const StaleAuthCredentialException();
@@ -513,7 +516,10 @@ class LeaderboardApiService {
 
 final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
   final service = LeaderboardApiService(
-    tokenProvider: () => ref.read(authTokenStoreProvider).read(),
+    tokenProvider: () {
+      final identity = ref.read(identityProvider);
+      return ref.read(authTokenStoreProvider).readForIdentity(identity);
+    },
     onUnauthorized: (credential) => ref
         .read(identityProvider.notifier)
         .onUnauthorized(credential: credential),

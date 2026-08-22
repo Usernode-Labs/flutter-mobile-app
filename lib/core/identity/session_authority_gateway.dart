@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
 
+import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 
 typedef SessionAuthoritySupportDirectory = Future<Directory> Function();
@@ -18,6 +19,9 @@ typedef SessionAuthorityCommandJson = Future<String> Function({
   required String directory,
   required String request,
 });
+typedef SessionAuthorityTerminalReporter = void Function(
+  Map<String, Object?> details,
+);
 
 /// Thin transport to the single Rust session-authority actor.
 ///
@@ -30,16 +34,19 @@ class SessionAuthorityGateway {
     SessionAuthorityAdmissionJson? admissionJson,
     SessionAuthorityBootstrapJson? bootstrapJson,
     SessionAuthorityCommandJson? commandJson,
+    SessionAuthorityTerminalReporter? terminalReporter,
   })  : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory,
         _admissionJson = admissionJson ?? rust.sessionAuthorityAdmissionJson,
         _bootstrapJson =
             bootstrapJson ?? rust.sessionAuthorityBootstrapLoggedOut,
-        _commandJson = commandJson ?? rust.sessionAuthorityCommandJson;
+        _commandJson = commandJson ?? rust.sessionAuthorityCommandJson,
+        _terminalReporter = terminalReporter ?? _reportTerminalToProduction;
 
   final SessionAuthoritySupportDirectory _supportDirectory;
   final SessionAuthorityAdmissionJson _admissionJson;
   final SessionAuthorityBootstrapJson _bootstrapJson;
   final SessionAuthorityCommandJson _commandJson;
+  final SessionAuthorityTerminalReporter _terminalReporter;
 
   String? _directory;
 
@@ -74,6 +81,7 @@ class SessionAuthorityGateway {
         request: jsonEncode(request),
       ),
     );
+    _reportTerminal(response);
     if (response['status'] == 'rejected') {
       throw SessionAuthorityRejected(
         reason: response['reason'] is String
@@ -90,6 +98,16 @@ class SessionAuthorityGateway {
     return response;
   }
 
+  void _reportTerminal(Map<String, dynamic> response) {
+    final telemetry = response['telemetry'];
+    if (telemetry is! Map) return;
+    try {
+      _terminalReporter(Map<String, Object?>.from(telemetry));
+    } catch (_) {
+      // Telemetry must never change authority protocol handling.
+    }
+  }
+
   Future<String> _resolveDirectory() async {
     final existing = _directory;
     if (existing != null) return existing;
@@ -98,6 +116,30 @@ class SessionAuthorityGateway {
     _directory = resolved;
     return resolved;
   }
+}
+
+void _reportTerminalToProduction(Map<String, Object?> details) {
+  final reason = details['reason'];
+  final phase = details['phase'];
+  final sink = details['sink'];
+  final platform = details['platform'];
+  if (reason is! String ||
+      phase is! String ||
+      sink is! String ||
+      platform is! String) {
+    return;
+  }
+  ObservabilityReportingService.instance
+      .reportSessionAuthorityTerminalEscalation(
+    reason: reason,
+    phase: phase,
+    sink: sink,
+    platform: platform,
+    operationId: details['operation_id'] as String?,
+    engineId: details['engine_id'] as String?,
+    handedOff: details['handed_off'] as bool?,
+    heldForMs: details['held_for_ms'] as int?,
+  );
 }
 
 class SessionAuthorityRejected implements Exception {

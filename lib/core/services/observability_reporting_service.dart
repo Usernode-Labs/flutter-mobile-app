@@ -47,6 +47,7 @@ class ObservabilityReportingService {
   static const _powerNetworkServiceSnapshotMinimumGap = Duration(minutes: 1);
   static const _batteryUsageSampleWindow = Duration(minutes: 5);
   static const _batteryStateDuplicateWindow = Duration(seconds: 30);
+  static const _sessionAuthorityTerminalRateLimit = Duration(minutes: 5);
   static const _maxPendingEarlyRecords = 16;
 
   final ObservabilityRecordClient _record;
@@ -71,6 +72,7 @@ class ObservabilityReportingService {
   DateTime? _lastBatteryLevelAt;
   BatteryState? _lastBatteryStateEvent;
   DateTime? _lastBatteryStateEventAt;
+  final Map<String, DateTime> _sessionAuthorityTerminalReportedAt = {};
 
   void markNodeInitialized({bool resetStaticContext = false}) {
     _nodeInitialized = true;
@@ -241,6 +243,50 @@ class ObservabilityReportingService {
       event: event,
       details: details,
     );
+  }
+
+  FlutterObservabilityRecordResult reportSessionAuthorityTerminalEscalation({
+    required String reason,
+    required String phase,
+    required String sink,
+    required String platform,
+    String? operationId,
+    String? engineId,
+    bool? handedOff,
+    int? heldForMs,
+  }) {
+    final key = '$reason\u0000$phase\u0000$sink\u0000$platform';
+    final now = DateTime.now();
+    final previous = _sessionAuthorityTerminalReportedAt[key];
+    if (previous != null &&
+        now.difference(previous) < _sessionAuthorityTerminalRateLimit) {
+      return const FlutterObservabilityRecordResult(
+        queued: false,
+        discarded: true,
+        reason: 'rate_limited',
+      );
+    }
+
+    final result = _recordStructured(
+      kind: FlutterObservabilityKind.error,
+      event: 'app_session_authority_terminal_escalation',
+      details: {
+        'reason': reason,
+        'phase': phase,
+        'sink': sink,
+        'platform': platform,
+        if (operationId != null) 'operation_id': operationId,
+        if (engineId != null) 'engine_id': engineId,
+        if (handedOff != null) 'handed_off': handedOff,
+        if (heldForMs != null) 'held_for_ms': heldForMs,
+      },
+      requireNodeInitialized: false,
+      retainUntilNodeInitialized: true,
+    );
+    if (result.queued || !result.discarded) {
+      _sessionAuthorityTerminalReportedAt[key] = now;
+    }
+    return result;
   }
 
   FlutterObservabilityRecordResult reportBlockProductionAlarmScheduled({

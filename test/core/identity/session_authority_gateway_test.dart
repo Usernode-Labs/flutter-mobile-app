@@ -89,6 +89,71 @@ void main() {
     );
   });
 
+  test('terminal drain metadata reaches production telemetry dimensions',
+      () async {
+    final reports = <Map<String, Object?>>[];
+    final terminalRecord = {
+      ...record,
+      'sequence': 8,
+      'state': {
+        'kind': 'terminal_reset_required',
+        'reason': 'effect_drain_timeout',
+        'previous_state': record['state'],
+      },
+    };
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/application-support'),
+      admissionJson: ({required directory}) => '{}',
+      bootstrapJson: ({
+        required directory,
+        required network,
+        required sessionId,
+      }) =>
+          '{}',
+      commandJson: ({required directory, required request}) async =>
+          jsonEncode({
+        'status': 'ok',
+        'outcome': {
+          'kind': 'retirement_drain_terminal',
+          'reason': 'effect_drain_timeout',
+          'oldest': {
+            'sink': 'zk_outbox',
+            'operation_id': 'flush-a',
+            'engine_id': 'ui-a',
+            'handed_off': false,
+            'held_for_ms': 10004,
+          },
+        },
+        'telemetry': {
+          'reason': 'effect_drain_timeout',
+          'phase': 'retirement_entry',
+          'sink': 'zk_outbox',
+          'platform': Platform.operatingSystem,
+          'operation_id': 'flush-a',
+          'engine_id': 'ui-a',
+          'handed_off': false,
+          'held_for_ms': 10004,
+        },
+        'revision': {...revision, 'sequence': 8},
+        'record': terminalRecord,
+      }),
+      terminalReporter: reports.add,
+    );
+
+    await gateway.command({'command': 'enter_retirement'});
+
+    expect(reports.single, {
+      'reason': 'effect_drain_timeout',
+      'phase': 'retirement_entry',
+      'sink': 'zk_outbox',
+      'platform': Platform.operatingSystem,
+      'operation_id': 'flush-a',
+      'engine_id': 'ui-a',
+      'handed_off': false,
+      'held_for_ms': 10004,
+    });
+  });
+
   test('invalid JSON and unknown statuses fail closed', () async {
     for (final response in [
       {'status': 'unexpected'},

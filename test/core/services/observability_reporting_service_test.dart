@@ -294,6 +294,52 @@ void main() {
       ]);
     });
 
+    test('terminal authority escalations are structured and rate limited', () {
+      final records = <_CapturedObservabilityRecord>[];
+      final service = _service(records, nodeInitialized: false);
+
+      final first = service.reportSessionAuthorityTerminalEscalation(
+        reason: 'effect_drain_timeout',
+        phase: 'retirement_entry',
+        sink: 'zk_outbox',
+        platform: 'android',
+        operationId: 'flush-a',
+        engineId: 'ui-a',
+        handedOff: false,
+        heldForMs: 10004,
+      );
+      final duplicate = service.reportSessionAuthorityTerminalEscalation(
+        reason: 'effect_drain_timeout',
+        phase: 'retirement_entry',
+        sink: 'zk_outbox',
+        platform: 'android',
+        operationId: 'flush-a',
+        engineId: 'ui-a',
+        handedOff: false,
+        heldForMs: 10004,
+      );
+
+      expect(first.queued, isTrue);
+      expect(duplicate.discarded, isTrue);
+      expect(duplicate.reason, 'rate_limited');
+      expect(records, hasLength(1));
+      expect(records.single.kind, FlutterObservabilityKind.error);
+      expect(
+        records.single.event,
+        'app_session_authority_terminal_escalation',
+      );
+      expect(records.single.payload, {
+        'reason': 'effect_drain_timeout',
+        'phase': 'retirement_entry',
+        'sink': 'zk_outbox',
+        'platform': 'android',
+        'operation_id': 'flush-a',
+        'engine_id': 'ui-a',
+        'handed_off': false,
+        'held_for_ms': 10004,
+      });
+    });
+
     test('block production alarm scheduling is reported as an event', () {
       final records = <_CapturedObservabilityRecord>[];
       final service = _service(records);

@@ -13,7 +13,6 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
@@ -162,12 +161,6 @@ class AppResetService {
       resetError = StateError('The functional app graph was not disposed');
       resetStackTrace = StackTrace.current;
     }
-
-    // This both fences every direct Rust start/resume path and sends the
-    // existing synchronous shutdown signal. Do it before the first await:
-    // native WebView/cancellation cleanup can take time, and reset deliberately
-    // does not keep Rust alive while that cleanup runs.
-    RustBackendService.instance.signalShutdownForTerminalReset();
 
     await _bestEffort(
       'clear error-reporting state',

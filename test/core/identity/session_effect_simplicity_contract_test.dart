@@ -49,6 +49,8 @@ void main() {
       () {
     final nodeService =
         File('lib/features/node/node_service.dart').readAsStringSync();
+    final appReset =
+        File('lib/core/services/app_reset_service.dart').readAsStringSync();
 
     for (final required in [
       'MobileNode.startAuthoritative',
@@ -63,11 +65,16 @@ void main() {
       'Node.getGlobal',
       'Node.getGlobalControl',
       'runForeverInNewThread',
+      'MobileNode.current',
+      'MobileNode.shutdown',
+      '_terminalResetRequested',
+      'signalShutdownForTerminalReset',
       '_configureWalletSigner',
       'walletSetSignerFromSecret',
     ]) {
       expect(nodeService, isNot(contains(forbidden)));
     }
+    expect(appReset, isNot(contains('signalShutdownForTerminalReset')));
   });
 
   test('sleep shutdown uses its ordinary transition queue without a drain', () {

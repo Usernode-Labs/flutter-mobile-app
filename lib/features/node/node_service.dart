@@ -86,7 +86,6 @@ class RustBackendService {
   Completer<bool>? _startNodeCompleter;
   bool _nodeRunning = false;
   bool _nodePaused = false;
-  bool _terminalResetRequested = false;
   _RuntimeAuthority? _runtimeAuthority;
   int _runtimeOperationSequence = 0;
   String? _instanceId;
@@ -277,10 +276,6 @@ class RustBackendService {
   /// Dart gathers configuration; Rust serializes the journal transition and
   /// process-wide runtime mutation as one authoritative command.
   Future<bool> startNode({int? httpPort}) async {
-    if (_terminalResetRequested) {
-      _log.warn('startNode refused: terminal reset is in progress');
-      return false;
-    }
     final startIdentity = IdentitySnapshots.current;
     if (!startIdentity.allowsNodeStart) {
       _log.warn('startNode refused: identity is '
@@ -542,10 +537,6 @@ class RustBackendService {
   }
 
   Future<void> resumeNode() async {
-    if (_terminalResetRequested) {
-      _log.warn('resumeNode refused: terminal reset is in progress');
-      return;
-    }
     final authority = _runtimeEnvelope('resume');
     if (authority == null) return;
     _log.info('Resuming node');
@@ -585,18 +576,6 @@ class RustBackendService {
     } finally {
       _clearLocalRuntimeState();
     }
-  }
-
-  /// Closes this process-local façade during terminal app teardown.
-  void signalShutdownForTerminalReset() {
-    _terminalResetRequested = true;
-    if (_initialized) {
-      final handle = MobileNode.current();
-      if (handle != null) {
-        unawaited(MobileNode.shutdown(handle: handle));
-      }
-    }
-    _clearLocalRuntimeState();
   }
 
   /// Get the currently selected network type from storage.

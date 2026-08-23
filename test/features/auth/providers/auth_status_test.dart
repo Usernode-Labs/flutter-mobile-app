@@ -11,6 +11,8 @@ import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
+import '../../../helpers/session_authority_test_helpers.dart';
+
 void _seedReadyIdentity({int? provisionedSeasonId = 7}) {
   const address = 'addr-1';
   final bucket = NetworkPrefs.bucketForAddress(address);
@@ -414,7 +416,10 @@ void main() {
         .read(identityProvider.notifier)
         .beginSeasonRollover(activeSeasonId: 8);
     await c.read(identityProvider.notifier).onUnauthorized(
-          credential: AuthCredentialLease(epoch: staleEpoch, token: 'sess-1'),
+          credential: testCredentialLease(
+            epoch: staleEpoch,
+            token: 'sess-1',
+          ),
         );
     expect(c.read(authStatusProvider), AuthStatus.authenticated);
     expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
@@ -430,7 +435,7 @@ void main() {
     await c.read(authTokenStoreProvider).write('sess-2');
 
     await c.read(identityProvider.notifier).onUnauthorized(
-          credential: AuthCredentialLease(epoch: epoch, token: 'sess-1'),
+          credential: testCredentialLease(epoch: epoch, token: 'sess-1'),
         );
 
     expect(c.read(authStatusProvider), AuthStatus.authenticated);
@@ -570,7 +575,7 @@ void main() {
     final epoch = c.read(identityProvider).epoch;
     await c.read(authTokenStoreProvider).write('stray-token');
     await c.read(identityProvider.notifier).onUnauthorized(
-          credential: AuthCredentialLease(epoch: epoch, token: 'stray-token'),
+          credential: testCredentialLease(epoch: epoch, token: 'stray-token'),
         );
     expect(c.read(authStatusProvider), AuthStatus.guest);
   });

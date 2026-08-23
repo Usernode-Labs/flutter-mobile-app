@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 const _baseUrl = 'https://social.example.test/api/v4/mobile///';
 const _endpoint = 'https://social.example.test/api/v4/mobile/push-registration';
 const _bearer = 'mobile-bearer-secret';
@@ -13,7 +15,7 @@ const _registration = 'fcm-registration-secret';
 const _installationId = '5b35e700-267d-4aa1-8702-e6e731a0ed13';
 const _environment = 'production';
 const _firebaseProjectId = 'usernode-test';
-const _credential = AuthCredentialLease(
+final _credential = testCredentialLease(
   epoch: 7,
   token: _bearer,
   sessionId: 'session-a',

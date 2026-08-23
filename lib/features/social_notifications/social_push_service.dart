@@ -372,7 +372,7 @@ class SocialPushService {
   ) {
     if (session == null) return effect();
     return session.pushEffectRunner(
-      sessionId: session.credential.sessionId ?? '',
+      sessionId: session.credential.sessionId,
       operationId: operationId,
       effect: effect,
     );

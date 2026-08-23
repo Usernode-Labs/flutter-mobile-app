@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart'
     show sessionAuthorityGatewayProvider;
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
@@ -186,12 +187,9 @@ class LogShareController extends StateNotifier<LogShareState> {
     }
     return _LogShareSessionLease(
       identity: identity,
-      credential: AuthCredentialLease(
-        epoch: identity.epoch,
+      credential: SessionAuthorityGateway.captureCredential(
+        identity: identity,
         token: token,
-        sessionId: identity.sessionId,
-        credentialRef: identity.credentialRef,
-        credentialGeneration: identity.credentialGeneration,
       ),
     );
   }

@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 void main() {
   test('only a signed-in ready identity may currently start a node', () {
     for (final phase in IdentityPhase.values) {
@@ -47,7 +49,7 @@ void main() {
   });
 
   test('credential leases never print their token', () {
-    const lease = AuthCredentialLease(
+    final lease = testCredentialLease(
       epoch: 7,
       token: 'secret-token',
       sessionId: 'session-a',

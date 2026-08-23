@@ -26,12 +26,15 @@ class AccountApiService {
     http.Client? httpClient,
     String? baseUrl,
     Future<String?> Function()? tokenProvider,
+    SessionAuthorityCredentialIssuer? credentialIssuer,
     SessionAuthorityCredentialRequestSender? credentialRequestSender,
     Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
     Future<void> Function(int epoch)? onCredentialMissing,
   })  : _http = httpClient ?? createAppHttpClient(),
         _baseUrl = baseUrl ?? _deriveV3Base(),
         _tokenProvider = tokenProvider,
+        _credentialIssuer =
+            credentialIssuer ?? SessionAuthorityGateway.captureCredential,
         _credentialRequestSender = credentialRequestSender,
         _onUnauthorized = onUnauthorized,
         _onCredentialMissing = onCredentialMissing;
@@ -39,6 +42,7 @@ class AccountApiService {
   final http.Client _http;
   final String _baseUrl;
   final Future<String?> Function()? _tokenProvider;
+  final SessionAuthorityCredentialIssuer _credentialIssuer;
   final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
 
   /// Invoked with the exact identity/token pair carried by a failed request.
@@ -73,12 +77,9 @@ class AccountApiService {
     if (!identity.isAuthenticated) {
       throw const StaleAuthCredentialException();
     }
-    return AuthCredentialLease(
-      epoch: identity.epoch,
+    return _credentialIssuer(
+      identity: identity,
       token: token,
-      sessionId: identity.sessionId,
-      credentialRef: identity.credentialRef,
-      credentialGeneration: identity.credentialGeneration,
     );
   }
 

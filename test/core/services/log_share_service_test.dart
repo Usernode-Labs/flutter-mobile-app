@@ -7,8 +7,10 @@ import 'package:http/testing.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 const _base = 'https://test.example.com/api/v3/mobile';
-const _credential = AuthCredentialLease(
+final _credential = testCredentialLease(
   epoch: 7,
   token: 'sess-1',
   sessionId: 'session-a',

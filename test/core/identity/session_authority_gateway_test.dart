@@ -8,6 +8,8 @@ import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 final class _FakeSessionEffectPermit implements rust.SessionEffectPermit {
   var _disposed = false;
 
@@ -19,6 +21,53 @@ final class _FakeSessionEffectPermit implements rust.SessionEffectPermit {
 }
 
 void main() {
+  test('credential issuance requires complete authenticated authority', () {
+    const identity = Identity(
+      epoch: 7,
+      phase: IdentityPhase.ready,
+      participantId: 11,
+      accountId: 'account-a',
+      address: 'address-a',
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 3,
+    );
+
+    final credential = SessionAuthorityGateway.captureCredential(
+      identity: identity,
+      token: 'token-a',
+    );
+
+    expect(credential.epoch, 7);
+    expect(credential.token, 'token-a');
+    expect(credential.sessionId, 'session-a');
+    expect(credential.credentialRef, 'credential-a');
+    expect(credential.credentialGeneration, 3);
+
+    for (final invalid in <Identity>[
+      identity.copyWith(phase: IdentityPhase.unauthenticated),
+      identity.copyWith(clearSessionAuthority: true),
+      identity.copyWith(sessionId: ' '),
+      identity.copyWith(credentialRef: ' '),
+      identity.copyWith(credentialGeneration: 0),
+    ]) {
+      expect(
+        () => SessionAuthorityGateway.captureCredential(
+          identity: invalid,
+          token: 'token-a',
+        ),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+    }
+    expect(
+      () => SessionAuthorityGateway.captureCredential(
+        identity: identity,
+        token: ' ',
+      ),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+  });
+
   const revision = <String, dynamic>{
     'sequence': 7,
     'session_id': 'session-a',
@@ -284,7 +333,7 @@ void main() {
         return responseGate.future;
       },
     );
-    const credential = AuthCredentialLease(
+    final credential = testCredentialLease(
       epoch: 7,
       token: 'token-a',
       sessionId: 'session-a',
@@ -367,7 +416,7 @@ void main() {
         return responseGate.future;
       },
     );
-    const credential = AuthCredentialLease(
+    final credential = testCredentialLease(
       epoch: 7,
       token: 'token-a',
       sessionId: 'session-a',
@@ -525,7 +574,7 @@ void main() {
       }) =>
           throw StateError('Rust rejected the stale credential'),
     );
-    const credential = AuthCredentialLease(
+    final credential = testCredentialLease(
       epoch: 7,
       token: 'token-a',
       sessionId: 'session-a',

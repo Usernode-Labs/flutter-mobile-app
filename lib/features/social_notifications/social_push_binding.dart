@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 
@@ -74,12 +75,9 @@ final socialPushBindingProvider = Provider<void>((ref) {
         owner,
         SocialPushSession(
           userId: identity.participantId!,
-          credential: AuthCredentialLease(
-            epoch: identity.epoch,
+          credential: SessionAuthorityGateway.captureCredential(
+            identity: identity,
             token: token,
-            sessionId: identity.sessionId,
-            credentialRef: identity.credentialRef,
-            credentialGeneration: identity.credentialGeneration,
           ),
           credentialRequestSender: credentialRequestSender,
           pushEffectRunner: pushEffectRunner,

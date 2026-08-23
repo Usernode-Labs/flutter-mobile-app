@@ -29,6 +29,7 @@ class LeaderboardApiService {
     int? maxGetRetries,
     Duration? retryBaseDelay,
     Future<String?> Function()? tokenProvider,
+    SessionAuthorityCredentialIssuer? credentialIssuer,
     SessionAuthorityCredentialRequestSender? credentialRequestSender,
     SessionAuthorityWorkflowCredentialRequestSender?
         workflowCredentialRequestSender,
@@ -40,6 +41,8 @@ class LeaderboardApiService {
         _maxGetRetries = maxGetRetries ?? 2,
         _retryBaseDelay = retryBaseDelay ?? const Duration(milliseconds: 300),
         _tokenProvider = tokenProvider,
+        _credentialIssuer =
+            credentialIssuer ?? SessionAuthorityGateway.captureCredential,
         _credentialRequestSender = credentialRequestSender,
         _workflowCredentialRequestSender = workflowCredentialRequestSender,
         _onUnauthorized = onUnauthorized,
@@ -54,6 +57,7 @@ class LeaderboardApiService {
   /// tests can construct the service without auth wiring. The callback
   /// receives the exact credential the failing request carried.
   final Future<String?> Function()? _tokenProvider;
+  final SessionAuthorityCredentialIssuer _credentialIssuer;
   final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
   final SessionAuthorityWorkflowCredentialRequestSender?
       _workflowCredentialRequestSender;
@@ -263,12 +267,9 @@ class LeaderboardApiService {
     if (!identity.isAuthenticated) {
       throw const StaleAuthCredentialException();
     }
-    final credential = AuthCredentialLease(
-      epoch: identity.epoch,
+    final credential = _credentialIssuer(
+      identity: identity,
       token: token,
-      sessionId: identity.sessionId,
-      credentialRef: identity.credentialRef,
-      credentialGeneration: identity.credentialGeneration,
     );
     return (
       headers: {...base, 'Authorization': 'Bearer $token'},

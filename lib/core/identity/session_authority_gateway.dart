@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
@@ -48,6 +49,47 @@ typedef SessionAuthorityEffectPermitAction = void Function({
 typedef SessionAuthorityRequestWriter = Future<http.StreamedResponse> Function(
   http.BaseRequest request, {
   required RequestWrittenCallback onRequestWritten,
+});
+
+/// The exact credential attached to one authenticated request.
+///
+/// Only [SessionAuthorityGateway.captureCredential] can construct this value;
+/// downstream callers may retain it but cannot manufacture a partial lease.
+@immutable
+class AuthCredentialLease {
+  const AuthCredentialLease._({
+    required this.epoch,
+    required this.token,
+    required this.sessionId,
+    required this.credentialRef,
+    required this.credentialGeneration,
+  });
+
+  final int epoch;
+  final String token;
+  final String sessionId;
+  final String credentialRef;
+  final int credentialGeneration;
+
+  bool matchesIdentity(Identity identity) =>
+      epoch == identity.epoch &&
+      // Null authority fields exist only in the isolated compatibility
+      // controller path. Production identities compare the complete tuple.
+      (identity.sessionId == null || sessionId == identity.sessionId) &&
+      (identity.credentialRef == null ||
+          credentialRef == identity.credentialRef) &&
+      (identity.credentialGeneration == null ||
+          credentialGeneration == identity.credentialGeneration);
+
+  @override
+  String toString() => 'AuthCredentialLease(epoch: $epoch, '
+      'sessionId: $sessionId, generation: $credentialGeneration, '
+      'token: <redacted>)';
+}
+
+typedef SessionAuthorityCredentialIssuer = AuthCredentialLease Function({
+  required Identity identity,
+  required String token,
 });
 typedef SessionAuthorityCredentialRequestSender = Future<http.StreamedResponse>
     Function({
@@ -123,6 +165,32 @@ class SessionAuthorityGateway {
   String get directory =>
       _directory ??
       (throw StateError('Session authority directory is not initialized'));
+
+  /// Captures one immutable, complete credential tuple before async work.
+  static AuthCredentialLease captureCredential({
+    required Identity identity,
+    required String token,
+  }) {
+    if (!identity.isAuthenticated) {
+      throw const StaleAuthCredentialException();
+    }
+    final sessionId =
+        _requiredCredentialField(identity.sessionId, 'session ID');
+    final credentialRef =
+        _requiredCredentialField(identity.credentialRef, 'reference');
+    final credentialGeneration = identity.credentialGeneration;
+    if (credentialGeneration == null || credentialGeneration <= 0) {
+      throw const StaleAuthCredentialException();
+    }
+    final exactToken = _requiredCredentialField(token, 'bearer');
+    return AuthCredentialLease._(
+      epoch: identity.epoch,
+      token: exactToken,
+      sessionId: sessionId,
+      credentialRef: credentialRef,
+      credentialGeneration: credentialGeneration,
+    );
+  }
 
   Future<Map<String, dynamic>> admission() async {
     final directory = await _resolveDirectory();
@@ -249,13 +317,10 @@ class SessionAuthorityGateway {
     required String operationId,
     required SessionAuthorityAcquireHttpEffect acquire,
   }) async {
-    final sessionId =
-        _requiredCredentialField(credential.sessionId, 'session ID');
-    final credentialRef =
-        _requiredCredentialField(credential.credentialRef, 'reference');
+    final sessionId = credential.sessionId;
+    final credentialRef = credential.credentialRef;
     final credentialGeneration = credential.credentialGeneration;
-    if (credentialGeneration == null ||
-        credentialGeneration <= 0 ||
+    if (credentialGeneration <= 0 ||
         request.headers['authorization'] != 'Bearer ${credential.token}') {
       throw const StaleAuthCredentialException();
     }

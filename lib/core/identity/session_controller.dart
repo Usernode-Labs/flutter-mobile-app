@@ -1772,16 +1772,10 @@ class SessionController extends StateNotifier<Identity> {
             await _readIdentityToken(identity) != credential.token) {
           return false;
         }
-        final sessionId = _requiredAuthorityField(
-          credential.sessionId,
-          'credential session',
-        );
-        final credentialRef = _requiredAuthorityField(
-          credential.credentialRef,
-          'credential reference',
-        );
+        final sessionId = credential.sessionId;
+        final credentialRef = credential.credentialRef;
         final credentialGeneration = credential.credentialGeneration;
-        if (credentialGeneration == null || credentialGeneration <= 0) {
+        if (credentialGeneration <= 0) {
           throw StateError('Credential lease has no generation');
         }
         _publish(Identity(

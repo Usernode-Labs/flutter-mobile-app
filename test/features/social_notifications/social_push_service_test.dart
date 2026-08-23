@@ -10,6 +10,8 @@ import 'package:crypto_mobile_app/features/social_notifications/social_push_serv
 import 'package:crypto_mobile_app/features/social_notifications/social_push_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 const _environment = 'production';
 const _projectId = 'usernode-test';
 const _installationId = '123e4567-e89b-42d3-a456-426614174000';
@@ -1151,7 +1153,7 @@ SocialPushSession _session({
 }) =>
     SocialPushSession(
       userId: userId,
-      credential: AuthCredentialLease(
+      credential: testCredentialLease(
         epoch: epoch,
         token: bearer,
         sessionId: 'session-$userId',

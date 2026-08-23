@@ -13,6 +13,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 class _NoopAuthRepository extends AuthRepository {
   @override
   Future<void> logout(String sessionToken) async {}
@@ -874,7 +876,7 @@ void main() {
     final identity = controller.state;
 
     await controller.onUnauthorized(
-      credential: AuthCredentialLease(
+      credential: testCredentialLease(
         epoch: identity.epoch,
         token: 'token-a',
         sessionId: identity.sessionId,

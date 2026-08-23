@@ -22,8 +22,16 @@ import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 const _addressA = 'ut1useraaaaaaaa';
 const _addressB = 'ut1userbbbbbbbb';
+
+AuthCredentialLease _compatibilityCredential({
+  required Identity identity,
+  required String token,
+}) =>
+    testCredentialLease(epoch: identity.epoch, token: token);
 
 SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
       required credential,
@@ -35,6 +43,7 @@ SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
 AccountApiService _accountService(http.Client client) => AccountApiService(
       baseUrl: 'https://test.example.com/api/v4/mobile',
       tokenProvider: AuthTokenStore().read,
+      credentialIssuer: _compatibilityCredential,
       credentialRequestSender: _throughClient(client),
       httpClient: client,
     );
@@ -43,6 +52,7 @@ LeaderboardApiService _leaderboardService(http.Client client) =>
     LeaderboardApiService(
       baseUrl: 'https://test.example.com/api/v4/mobile',
       tokenProvider: AuthTokenStore().read,
+      credentialIssuer: _compatibilityCredential,
       credentialRequestSender: _throughClient(client),
       httpClient: client,
     );

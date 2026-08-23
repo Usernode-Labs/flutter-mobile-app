@@ -1,9 +1,10 @@
 import 'dart:convert';
-import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
+
+import '../../../helpers/session_authority_test_helpers.dart';
 
 const _base = 'https://test.example.com/api/v3/mobile/auth';
 
@@ -121,7 +122,7 @@ void main() {
       late AuthCredentialLease capturedCredential;
       late http.BaseRequest capturedRequest;
       late String capturedOperationId;
-      const credential = AuthCredentialLease(
+      final credential = testCredentialLease(
         epoch: 4,
         token: 'bearer-a',
         sessionId: 'session-a',

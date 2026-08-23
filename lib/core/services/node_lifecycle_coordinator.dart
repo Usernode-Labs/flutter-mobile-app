@@ -67,8 +67,6 @@ class NodeLifecycleCoordinator {
     Future<void> Function()? cancelAlarmWatchdog,
     bool Function()? isAndroid,
     Future<bool> Function()? isDelegated,
-    void Function()? retireProducerLeases,
-    Future<void> Function()? settleAudit,
   })  : _startBackend =
             startBackend ?? (() => RustBackendService.instance.startNode()),
         _restartBackend =
@@ -106,12 +104,7 @@ class NodeLifecycleCoordinator {
         _isAndroid = isAndroid ??
             (() => defaultTargetPlatform == TargetPlatform.android),
         _isDelegated = isDelegated ??
-            (() => StakingPreferenceStore.active().isDelegated()),
-        _retireProducerLeases = retireProducerLeases ??
-            (() => AndroidForegroundTaskController.instance
-                .retireMonitoringSession()),
-        _settleAudit = settleAudit ??
-            (() => BlockProductionAlarmAuditService.instance.settle());
+            (() => StakingPreferenceStore.active().isDelegated());
 
   static NodeLifecycleCoordinator instance = NodeLifecycleCoordinator();
 
@@ -133,19 +126,9 @@ class NodeLifecycleCoordinator {
   final bool Function() _isAndroid;
   final Future<bool> Function() _isDelegated;
 
-  /// Retires in-flight producer leases synchronously, so a continuation
-  /// already past its admission check stops short of its remaining effects.
-  final void Function() _retireProducerLeases;
-
-  /// Waits for an in-flight watchdog audit to finish. The audit re-checks the
-  /// lifecycle generation before each of its own effects, but the teardown
-  /// must not cancel alarms while one is still mid-schedule.
-  final Future<void> Function() _settleAudit;
-
   // ── Facts ────────────────────────────────────────────────────────────
   bool _hasAccount = false;
   PlatformNodeIntent _intent = PlatformNodeIntent.unset;
-  bool _acceptingRuntimeWork = true;
 
   // Serializes reconciles so overlapping requests (e.g. a bridge stop racing
   // an account-removed event) can't interleave their start/stop sequences.
@@ -156,9 +139,6 @@ class NodeLifecycleCoordinator {
 
   @visibleForTesting
   bool get hasAccount => _hasAccount;
-
-  @visibleForTesting
-  bool get acceptingRuntimeWork => _acceptingRuntimeWork;
 
   // ── Pure derivation (table-tested) ───────────────────────────────────
 
@@ -186,7 +166,6 @@ class NodeLifecycleCoordinator {
   /// an account-backed session. Returns whether the node is running after
   /// reconciliation.
   Future<bool> startNode({required String reason}) {
-    if (!_acceptingRuntimeWork) return Future.value(false);
     _hasAccount = true;
     _intent = PlatformNodeIntent.start;
     return _serialized(() => _reconcile(reason: reason));
@@ -196,7 +175,6 @@ class NodeLifecycleCoordinator {
   /// all Android production support so nothing wakes a node that was
   /// deliberately stopped.
   Future<void> stopNode({required String reason}) {
-    if (!_acceptingRuntimeWork) return Future.value();
     _intent = PlatformNodeIntent.stop;
     return _serialized(() async {
       await _reconcile(reason: reason);
@@ -211,7 +189,6 @@ class NodeLifecycleCoordinator {
     required bool hasAccount,
     String reason = 'cold_boot',
   }) {
-    if (!_acceptingRuntimeWork) return Future.value(false);
     _hasAccount = hasAccount;
     return _serialized(() => _reconcile(reason: reason));
   }
@@ -223,7 +200,6 @@ class NodeLifecycleCoordinator {
     required bool hasAccount,
     String reason = 'accounts_changed',
   }) {
-    if (!_acceptingRuntimeWork) return Future.value();
     _hasAccount = hasAccount;
     if (!hasAccount) _intent = PlatformNodeIntent.unset;
     return _serialized(() async {
@@ -237,7 +213,6 @@ class NodeLifecycleCoordinator {
   Future<void> reconfigureForDelegationChange({
     String reason = 'delegation_changed',
   }) {
-    if (!_acceptingRuntimeWork) return Future.value();
     return _serialized(() async {
       if (_isNodeRunning()) await _restartBackend();
       await _reconcile(reason: reason);
@@ -252,17 +227,11 @@ class NodeLifecycleCoordinator {
   /// platform request — and reconciles, which runs the same full teardown a
   /// deliberate stop does: watchdog recovery disabled, Android monitoring and
   /// the foreground service stopped, the backend stopped, and every scheduled
-  /// alarm plus the alarm watchdog cancelled. Unlike
-  /// [closeForTerminalReset] admission is NOT latched shut: the next login
-  /// reports its account and asks for a start again.
+  /// alarm plus the alarm watchdog cancelled. The next login reports its
+  /// account and asks for a start again.
   Future<void> standDown({required String reason}) {
-    if (!_acceptingRuntimeWork) return Future.value();
     _hasAccount = false;
     _intent = PlatformNodeIntent.unset;
-    // Synchronous, before any await: work already admitted under the retired
-    // identity must find its lease invalid at its next effect point rather
-    // than racing the teardown below.
-    _retireProducerLeases();
     return _serialized(() async {
       // Never destroys the background engine: this boundary can run inside it
       // (a headless boot repairing an interrupted sign-out), and the native
@@ -271,25 +240,16 @@ class NodeLifecycleCoordinator {
     });
   }
 
-  /// Permanently closes lifecycle admission for this application process.
-  ///
-  /// Terminal reset owns the actual best-effort cancellation and shutdown.
-  /// This method is intentionally synchronous: logout/reset never waits for
-  /// graceful Rust retirement, and admission is never reopened in-process.
+  /// Stops new recovery work while terminal reset disposes the app graph.
   void closeForTerminalReset() {
-    _acceptingRuntimeWork = false;
     _hasAccount = false;
     _intent = PlatformNodeIntent.unset;
-    _retireProducerLeases();
     _disableWatchdogRecovery();
   }
 
   // ── Reconcile ─────────────────────────────────────────────────────────
 
   Future<bool> _reconcile({required String reason}) async {
-    if (!_acceptingRuntimeWork) {
-      return _isNodeRunning();
-    }
     final delegated = await _isDelegated();
     final nodeAllowed = _hasAccount && _intent != PlatformNodeIntent.stop;
     final wantRecovery = recoveryDesired(
@@ -316,7 +276,6 @@ class NodeLifecycleCoordinator {
       // Backend start is idempotent; calling it while running is a no-op
       // that reports the (running) outcome.
       running = await _startBackend();
-      if (!_acceptingRuntimeWork) return running;
     }
 
     if (!_isAndroid()) return running;
@@ -357,16 +316,11 @@ class NodeLifecycleCoordinator {
     bool destroyBackgroundEngine = true,
   }) async {
     if (_isAndroid()) {
-      // Recovery first: disabling it bumps the audit's lifecycle generation,
-      // so an audit already running fails its own re-checks from here on.
       _disableWatchdogRecovery();
       await _stopMonitoring(
         reason: reason,
         destroyBackgroundEngine: destroyBackgroundEngine,
       );
-      // Drain before the cancellations, so a mid-flight audit cannot schedule
-      // an alarm after they have run.
-      await _settleAudit();
     }
     await _stopBackend();
     if (_isAndroid()) {

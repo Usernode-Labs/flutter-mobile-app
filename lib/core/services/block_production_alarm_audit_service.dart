@@ -220,7 +220,6 @@ class BlockProductionAlarmAuditService {
   var _recoveryRetryGeneration = 0;
   bool _watchdogRecoveryEnabled = false;
   bool _terminalResetRequested = false;
-  var _watchdogLifecycleGeneration = 0;
 
   /// Returns true when this call actually re-armed recovery (i.e. it was
   /// disabled), so callers can trigger a follow-up audit only on a real
@@ -229,14 +228,12 @@ class BlockProductionAlarmAuditService {
     if (_terminalResetRequested) return false;
     if (_watchdogRecoveryEnabled) return false;
     _watchdogRecoveryEnabled = true;
-    _watchdogLifecycleGeneration += 1;
     return true;
   }
 
   void disableWatchdogRecovery() {
     if (!_watchdogRecoveryEnabled) return;
     _watchdogRecoveryEnabled = false;
-    _watchdogLifecycleGeneration += 1;
     _pendingRecoveryReason = null;
     _recoveryRetryAttempt = 0;
     _recoveryRetryGeneration += 1;
@@ -246,7 +243,6 @@ class BlockProductionAlarmAuditService {
     if (_terminalResetRequested) return;
     _terminalResetRequested = true;
     _watchdogRecoveryEnabled = false;
-    _watchdogLifecycleGeneration += 1;
     _pendingRecoveryReason = null;
     _recoveryRetryAttempt = 0;
     _recoveryRetryGeneration += 1;
@@ -255,24 +251,6 @@ class BlockProductionAlarmAuditService {
   void auditBestEffort({required String reason}) {
     if (!_watchdogRecoveryEnabled) return;
     _auditBestEffort(reason: reason);
-  }
-
-  /// Waits for an in-flight audit to finish its effects.
-  ///
-  /// Audits are fire-and-forget, so an identity boundary that cancels alarms
-  /// can otherwise land between an audit's last generation check and its
-  /// scheduling call. Bounded: an audit stuck on an unresponsive node must not
-  /// stall the boundary, and its remaining effects are refused by the retired
-  /// lifecycle generation anyway.
-  Future<void> settle() async {
-    final active = _inFlight;
-    if (active == null) return;
-    try {
-      await active.timeout(const Duration(seconds: 10));
-    } catch (error) {
-      _log.warn('In-flight alarm audit did not settle before teardown: '
-          '$error');
-    }
   }
 
   Future<bool> auditForceStopRecoveryIfNeeded() async {
@@ -454,8 +432,7 @@ class BlockProductionAlarmAuditService {
         return _skip(reason, 'unsupported_platform');
       }
 
-      final lifecycleGeneration = _watchdogLifecycleGeneration;
-      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
+      if (!_watchdogRecoveryEnabled) {
         return _skip(
           reason,
           'watchdog_disabled',
@@ -473,8 +450,7 @@ class BlockProductionAlarmAuditService {
       );
 
       if (!exactAlarmPermission) {
-        if (_isWatchdogRecoveryActive(lifecycleGeneration) &&
-            _isNodeRunning()) {
+        if (_isNodeRunning()) {
           await _ensureWatchdogScheduled(reason);
           await _reportWatchdogState(reason);
         }
@@ -491,14 +467,6 @@ class BlockProductionAlarmAuditService {
           reason,
           'node_not_running',
           fgResumeStatus: 'skipped:node_not_running',
-        );
-      }
-
-      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
-        return _skip(
-          reason,
-          'watchdog_disabled',
-          fgResumeStatus: 'skipped:watchdog_disabled',
         );
       }
 
@@ -535,7 +503,6 @@ class BlockProductionAlarmAuditService {
         reason: reason,
         epoch: epoch,
         clockDriftMs: clockDriftMs,
-        lifecycleGeneration: lifecycleGeneration,
       );
 
       _reportCompleted(reason: reason, fgResumeStatus: fgResumeStatus);
@@ -572,16 +539,10 @@ class BlockProductionAlarmAuditService {
     }
   }
 
-  bool _isWatchdogRecoveryActive(int lifecycleGeneration) {
-    return _watchdogRecoveryEnabled &&
-        lifecycleGeneration == _watchdogLifecycleGeneration;
-  }
-
   Future<String> _auditForegroundResume({
     required String reason,
     required AlarmAuditEpochSnapshot epoch,
     required int clockDriftMs,
-    required int lifecycleGeneration,
   }) async {
     final nowMs = _nowMs();
     final nextWonSlot = _nextFutureWonSlot(
@@ -596,9 +557,6 @@ class BlockProductionAlarmAuditService {
       target = nextWonSlot;
       schedulerReason = 'next_won_slot:${target.globalSlot}';
     } else {
-      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
-        return 'skipped:watchdog_disabled';
-      }
       final epochEndRustTimeMs = await _loadEpochEndTimeMs(epoch.epoch);
       if (epochEndRustTimeMs == null) {
         _report(
@@ -634,12 +592,6 @@ class BlockProductionAlarmAuditService {
       systemTimeMsAtAudit: nowMs,
       clockDriftSampleAgeMs: _clockDriftSampleAgeMs(nowMs),
     );
-    // Everything above is observation; everything below schedules or starts.
-    // The reads in between are unbounded node round-trips, so an identity
-    // boundary can have torn the runtime down since the last check.
-    if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
-      return 'skipped:watchdog_disabled';
-    }
     if (target.slotTimeMs - nowMs <= fgLeadMs) {
       var monitoringStarted = false;
       String? monitoringFailure;
@@ -667,9 +619,6 @@ class BlockProductionAlarmAuditService {
         return 'slot_too_close_monitoring_started';
       }
 
-      if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
-        return 'skipped:watchdog_disabled';
-      }
       final fallback = await _scheduleForegroundResume(
         rustWakeTimeMs: alarm.rustSlotTimeMs - fgLeadMs,
         schedulerReason: schedulerReason,
@@ -705,9 +654,6 @@ class BlockProductionAlarmAuditService {
     }
 
     final state = await _getAlarmDebugState(alarm.alarmId);
-    if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
-      return 'skipped:watchdog_disabled';
-    }
     final mismatches = _foregroundResumeMismatches(
       expected: alarm,
       state: state,
@@ -725,9 +671,6 @@ class BlockProductionAlarmAuditService {
       return 'present';
     }
 
-    if (!_isWatchdogRecoveryActive(lifecycleGeneration)) {
-      return 'skipped:watchdog_disabled';
-    }
     final result = await _scheduleForegroundResume(
       rustWakeTimeMs: alarm.rustSlotTimeMs - fgLeadMs,
       schedulerReason: schedulerReason,

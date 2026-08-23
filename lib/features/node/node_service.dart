@@ -14,7 +14,6 @@ import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' show Memo;
@@ -22,8 +21,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' show enableLogging;
 import 'package:crypto_mobile_app/src/rust/tracing.dart' show TracingLevel;
-import 'package:crypto_mobile_app/src/rust/node.dart';
 import 'package:crypto_mobile_app/src/rust/node/builder.dart';
+import 'package:crypto_mobile_app/src/rust/node/mobile.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
@@ -37,6 +36,14 @@ import 'package:http/http.dart' as http;
 final _log = LoggingService.instance.withTag('usernode/NodeService');
 const _viewOnlyTransactionError =
     'Transactions are disabled in view-only mode.';
+
+typedef _RuntimeAuthority = ({
+  String authorityDirectory,
+  String sessionId,
+  BigInt runtimeGeneration,
+  String accountId,
+  String address,
+});
 
 /// Parse log level string to TracingLevel enum
 TracingLevel _parseTracingLevel(String level) {
@@ -80,7 +87,8 @@ class RustBackendService {
   bool _nodeRunning = false;
   bool _nodePaused = false;
   bool _terminalResetRequested = false;
-  bool? _runtimeViewOnly;
+  _RuntimeAuthority? _runtimeAuthority;
+  int _runtimeOperationSequence = 0;
   String? _instanceId;
   String? _cachedPeerId;
   int? _cachedGenesisTimestamp;
@@ -88,7 +96,6 @@ class RustBackendService {
   int? _lastNodeTimeMs;
   int? _lastNodeClockSampleSystemTimeMs;
 
-  NodeControl? _control;
   NodeRpcClient? _rpc;
   bool get isRunning => _nodeRunning;
   bool get isRuntimeActive => _nodeRunning && !_nodePaused;
@@ -265,29 +272,11 @@ class RustBackendService {
     }
   }
 
-  /// Start the node using the active account's secret key.
-  /// Returns true if started successfully, false if no account or error.
-  /// Safe to call multiple times; subsequent calls return true if already running.
+  /// Starts or reuses the runtime owned by the current Ready session.
   ///
-  /// Identity gate: every start path (bootstrap, wake, foreground task,
-  /// alarms, lifecycle) funnels through here. Only a signed-in, ready identity
-  /// is currently admitted. The internal keyless/view-only construction is
-  /// intentionally retained for a future explicit guest-node product mode,
-  /// but no caller may bypass this gate today.
-  ///
-  /// The gate is checked at entry AND re-checked after the (long) internal
-  /// start: a login can close the gate while a start is in flight, and the
-  /// runtime it built holds the pre-login account's key — tear it down
-  /// instead of returning it as a success.
-  ///
-  /// [freshRuntime] (reconciler only): never adopt an already-running global
-  /// node — its block-producer key was fixed at build time for whichever
-  /// account was active then and cannot be swapped. The existing runtime is
-  /// shut down and a new one is built under the now-active account.
-  Future<bool> startNode({
-    int? httpPort,
-    bool freshRuntime = false,
-  }) async {
+  /// Dart gathers configuration; Rust serializes the journal transition and
+  /// process-wide runtime mutation as one authoritative command.
+  Future<bool> startNode({int? httpPort}) async {
     if (_terminalResetRequested) {
       _log.warn('startNode refused: terminal reset is in progress');
       return false;
@@ -309,29 +298,8 @@ class RustBackendService {
     try {
       final started = await _startNodeInternal(
         httpPort: httpPort,
-        freshRuntime: freshRuntime,
         identity: startIdentity,
       );
-      if (started && _terminalResetRequested) {
-        _log.warn('startNode: terminal reset began mid-start; '
-            'signalling the just-started node to shut down');
-        signalShutdownForTerminalReset();
-        completer.complete(false);
-        return false;
-      }
-      if (started && !IdentitySnapshots.current.allowsNodeStart) {
-        // The identity became unsettled while the start was in flight; the
-        // runtime captured the pre-transition account's key. Settle waiters
-        // first (stopNode waits on this completer), then tear down.
-        _log.warn('startNode: identity became unsettled mid-start; '
-            'stopping the just-started node');
-        if (identical(_startNodeCompleter, completer)) {
-          _startNodeCompleter = null;
-        }
-        completer.complete(false);
-        await stopNode();
-        return false;
-      }
       completer.complete(started);
       return started;
     } catch (e, st) {
@@ -349,10 +317,8 @@ class RustBackendService {
   /// Completes when any in-flight [startNode] call has finished (its result
   /// and errors are swallowed — callers re-check [isRunning] afterwards).
   ///
-  /// Used to serialize account switches with node startup: a start in
-  /// progress has already captured the (possibly old) active account's key
-  /// while [isRunning] is still false, so a switcher must wait for it to
-  /// settle before deciding whether to bounce the node.
+  /// Used to serialize teardown with startup: a stop waits for the one active
+  /// start command, then stops the exact runtime generation it returned.
   Future<void> waitForStartCompletion() async {
     final completer = _startNodeCompleter;
     if (completer == null) return;
@@ -365,60 +331,43 @@ class RustBackendService {
 
   Future<bool> _startNodeInternal({
     int? httpPort,
-    bool freshRuntime = false,
     required Identity identity,
   }) async {
     if (!_initialized) {
       await init();
     }
 
-    // Resolve keyless authority before consulting local/global runtime state
-    // or loading an account secret. SharedPreferences is cached per engine,
-    // so refresh the durable guest flag at this security boundary.
-    final guestSession =
-        IdentitySnapshots.current.phase == IdentityPhase.guest ||
-            await AuthGuestFlag().isGuest(reload: true);
-    final viewOnly = AppConfig.viewOnly || guestSession;
-
-    if (_nodeRunning) {
-      if (viewOnly) {
-        if (_runtimeViewOnly == true) {
-          _log.trace('Keyless view-only node already running');
-          return true;
-        }
-        _log.warn('View-only start found a locally tracked runtime; '
-            'shutting it down before rebuilding without account keys');
-        _control?.shutdown();
-        final wentDown = await _waitForGlobalNodeDown();
-        if (!wentDown) {
-          _log.error('Tracked node did not shut down; refusing to accept '
-              'unknown producer authority in view-only mode');
-          return false;
-        }
-        _nodeRunning = false;
-        _nodePaused = false;
-        _runtimeViewOnly = null;
-        _rpc = null;
-        _control = null;
-        _cachedPeerId = null;
-        _clearNodeClockDrift();
-      } else {
-        _log.trace('Node already running');
-        unawaited(
-          ObservabilityReportingService.instance.reportNodeInitialized(
-            resetStaticContext: false,
-          ),
-        );
-        return true;
-      }
+    final sessionId = identity.sessionId;
+    final accountId = identity.accountId;
+    final address = identity.address;
+    if (sessionId == null ||
+        sessionId.trim().isEmpty ||
+        accountId == null ||
+        accountId.trim().isEmpty ||
+        address == null ||
+        address.trim().isEmpty) {
+      _log.error('Cannot start node: Ready identity has no exact authority');
+      return false;
     }
 
-    String? accountId;
+    final currentAuthority = _runtimeAuthority;
+    if (_nodeRunning &&
+        currentAuthority != null &&
+        currentAuthority.sessionId == sessionId &&
+        currentAuthority.accountId == accountId &&
+        currentAuthority.address == address) {
+      _log.trace('Authoritative node already running');
+      unawaited(
+        ObservabilityReportingService.instance.reportNodeInitialized(
+          resetStaticContext: false,
+        ),
+      );
+      return true;
+    }
+
+    const viewOnly = AppConfig.viewOnly;
     String? secretKey;
     if (!viewOnly) {
-      // Only producer-capable starts may resolve and materialize an account
-      // secret. Guest/view-only starts stay keyless even when an old account
-      // remains in the registry.
       final repo = await AccountsRepository.create();
       final capability = repo.capabilityFor(identity);
       _log.debug('Retrieving active account...');
@@ -427,7 +376,6 @@ class RustBackendService {
         _log.error('Failed to retrieve active account');
         return false;
       }
-      accountId = account.id;
       _log.debug('Active account: ${account.id} (${account.name})');
 
       _log.trace('Retrieving secret key for account ${account.id}...');
@@ -442,72 +390,9 @@ class RustBackendService {
       _log.trace('Secret key retrieved (length: ${secretKey.length})');
     }
 
-    // First try to reuse an already-running *global* node (shared across Dart
-    // isolates / FlutterEngines in the same process) by grabbing its RPC client.
-    // This avoids spinning up a second node when another engine already started it.
-    final existing = Node.getGlobal();
-    if (existing case (final rpc, final control)) {
-      if (viewOnly) {
-        // Producer status is nullable, so probing cannot positively establish
-        // that an inherited runtime is keyless. Rebuild it instead. This also
-        // removes any wallet signer retained by the previous identity.
-        _log.warn('View-only start found an existing global node; '
-            'shutting it down before rebuilding without account keys');
-        control.shutdown();
-        final wentDown = await _waitForGlobalNodeDown();
-        if (!wentDown) {
-          _log.error('Existing global node did not shut down; refusing to '
-              'enter view-only mode with unknown producer authority');
-          return false;
-        }
-      } else if (freshRuntime) {
-        // A reconciler start must bind BOTH runtime identities (block
-        // producer + wallet signer) to the reconciled account. The producer
-        // key of an existing runtime was fixed at build time and cannot be
-        // swapped, so the existing node is torn down and rebuilt. Waiting
-        // for it to actually go down avoids two producers racing.
-        _log.warn('Fresh-runtime start found an existing global node; '
-            'shutting it down before rebuilding');
-        control.shutdown();
-        final wentDown = await _waitForGlobalNodeDown();
-        if (!wentDown) {
-          _log.error('Existing global node did not shut down; refusing to '
-              'bind the reconciled account to a runtime with unknown keys');
-          return false;
-        }
-      } else {
-        if (_terminalResetRequested) return false;
-        _rpc = rpc;
-        _control = control;
-        _nodeRunning = true;
-        _nodePaused = false;
-        _runtimeViewOnly = false;
-        control.resume();
-        await _cachePeerIdFromRpc(rpc);
-
-        final signerOk = await _configureWalletSigner(secretKey!, accountId!);
-        if (!signerOk) {
-          // The reused runtime still holds whichever signer it was left
-          // with — possibly a previous account's. Running like that lets
-          // wallet RPC sends sign as the wrong account; tear down instead.
-          _teardownRuntimeAfterFailedBind();
-          return false;
-        }
-        _log.info('Reused previously started node');
-        unawaited(
-          ObservabilityReportingService.instance.reportNodeInitialized(
-            resetStaticContext: true,
-          ),
-        );
-        return true;
-      }
-    }
-
-    // Start node
     try {
       _log.trace('Starting node${httpPort != null ? ' on $httpPort' : ''}');
 
-      // No global node exists yet, so build/configure a new one.
       final builder = NodeBuilder();
       if (httpPort != null) {
         builder.httpServer(port: httpPort);
@@ -515,18 +400,12 @@ class RustBackendService {
 
       // Load network configuration from URLs (with retry)
       await _configureNetworkFromUrls(builder);
-      if (_terminalResetRequested) return false;
 
       final delegated =
           !viewOnly && await StakingPreferenceStore.active().isDelegated();
 
-      // Keep keyless/view-only construction below the admission gate for
-      // explicit VIEW_ONLY builds and a future guest-node product mode.
-      // Current guest identities never reach this branch through startNode.
       if (viewOnly) {
-        _log.info(guestSession
-            ? 'Keyless guest safety mode; skipping block producer configuration'
-            : 'VIEW_ONLY enabled; skipping block producer configuration');
+        _log.info('VIEW_ONLY enabled; skipping account key configuration');
       } else if (delegated) {
         _log.info('Stake is delegated; node runs without a block producer');
       } else if (Platform.isIOS) {
@@ -548,6 +427,9 @@ class RustBackendService {
           'Configuring block producer with user secret key (length: ${secretKey!.length})',
         );
         builder.blockProducerSecretKey(secretKey: secretKey);
+      }
+      if (!viewOnly) {
+        builder.walletSignerSecretKey(secretKey: secretKey!);
       }
       if (!viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
         _log.info(
@@ -571,7 +453,6 @@ class RustBackendService {
       // Use network-specific paths to avoid conflicts when switching networks.
       final appSupportDir = await getApplicationSupportDirectory();
       final networkType = await _getSelectedNetwork();
-      if (_terminalResetRequested) return false;
       // TODO this should include the hash of the genesis block
       final nodeStoragePath =
           '${appSupportDir.path}/${networkType.name}_usernode_node_storage.sqlite';
@@ -584,43 +465,29 @@ class RustBackendService {
       _log.trace('Using VRF storage path: $vrfPath');
       builder.vrfStoragePath(path: vrfPath);
 
-      if (_terminalResetRequested) return false;
-      final node = builder.build();
-      _rpc = node.rpc();
-
-      // Run the node in a background thread.
-      if (_terminalResetRequested) return false;
-      _control = node.runForeverInNewThread();
-      if (_terminalResetRequested) {
-        _control?.shutdown();
-        _clearLocalRuntimeState();
-        return false;
-      }
+      final (handle, runtimeGeneration) = await MobileNode.startAuthoritative(
+        builder: builder,
+        authority: RuntimeStartEnvelope(
+          authorityDirectory: appSupportDir.path,
+          sessionId: sessionId,
+          accountId: accountId,
+          address: address,
+          operationId: _runtimeOperationId('start'),
+          engineId: _runtimeEngineId,
+        ),
+      );
+      _rpc = handle.rpc();
+      _runtimeAuthority = (
+        authorityDirectory: appSupportDir.path,
+        sessionId: sessionId,
+        runtimeGeneration: runtimeGeneration,
+        accountId: accountId,
+        address: address,
+      );
       _nodeRunning = true;
       _nodePaused = false;
-      _runtimeViewOnly = viewOnly;
 
-      // Cache peer ID once on startup.
-      // Prefer RPC status so callers don't depend on holding a Node handle.
-      // Wait a bit for the node to be ready before trying to cache peer ID
-      await Future.delayed(const Duration(milliseconds: 500));
-      try {
-        await _cachePeerIdFromRpc(_rpc!);
-      } catch (e) {
-        _log.warn('Failed to cache peer ID (node may still be starting): $e');
-      }
-
-      if (!viewOnly) {
-        final signerOk = await _configureWalletSigner(secretKey!, accountId!);
-        if (!signerOk) {
-          // The producer key is correct (set at build), but wallet RPC sends
-          // would fail or — worse, after a future reuse — sign under a stale
-          // signer. A start that cannot bind the signer is a failed start;
-          // the reconciler must not commit `ready` on top of it.
-          _teardownRuntimeAfterFailedBind();
-          return false;
-        }
-      }
+      await _cachePeerIdFromRpc(_rpc!);
 
       _log.info(viewOnly
           ? 'Node started in keyless view-only mode'
@@ -632,88 +499,46 @@ class RustBackendService {
       );
       return true;
     } catch (e, st) {
-      _log.error(
-          'Failed to start node${accountId == null ? '' : ' with account $accountId'}',
-          error: e,
-          stackTrace: st);
+      _log.error('Failed to start node with account $accountId',
+          error: e, stackTrace: st);
       await SentryUtil.captureError(e, st, tag: 'startNode');
       return false;
     }
   }
 
-  /// Returns true when the signer was bound. A false return means the
-  /// runtime is left with whatever signer it previously held — callers must
-  /// treat the start as failed (see call sites).
-  Future<bool> _configureWalletSigner(
-      String secretKey, String accountId) async {
-    const maxAttempts = 5;
-    const retryDelay = Duration(milliseconds: 500);
-
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      if (_terminalResetRequested) return false;
-      try {
-        _log.debug(
-          'Configuring wallet signer for account $accountId '
-          '(attempt $attempt/$maxAttempts)...',
-        );
-        final resp = await _rpc!.walletSetSignerFromSecret(
-          secretKey: secretKey,
-        );
-        if (_terminalResetRequested) return false;
-
-        if (resp != null && resp.ok) {
-          _log.info('Wallet signer configured for account $accountId');
-          return true;
-        }
-
-        final error =
-            resp?.error ?? (resp == null ? 'null response' : 'ok=false');
-        _log.warn('Wallet signer attempt $attempt failed: $error');
-      } catch (e) {
-        _log.warn('Wallet signer attempt $attempt exception: $e');
-      }
-
-      if (attempt < maxAttempts) {
-        await Future.delayed(retryDelay);
-      }
-    }
-    _log.error(
-      'Wallet signer configuration failed after $maxAttempts attempts '
-      'for account $accountId — refusing to run with an unbound signer',
-    );
-    return false;
+  String get _runtimeEngineId {
+    final configured = _instanceId?.trim();
+    return configured == null || configured.isEmpty
+        ? 'flutter-engine'
+        : configured;
   }
 
-  /// Shuts down a runtime whose identity binding failed mid-start. Direct
-  /// shutdown (not [stopNode]) because this runs INSIDE the start that
-  /// [stopNode] would wait on.
-  void _teardownRuntimeAfterFailedBind() {
-    _control?.shutdown();
-    _clearLocalRuntimeState();
+  String _runtimeOperationId(String command) {
+    _runtimeOperationSequence += 1;
+    return '$_runtimeEngineId:$command:$_runtimeOperationSequence';
+  }
+
+  RuntimeAuthorityEnvelope? _runtimeEnvelope(String command) {
+    final authority = _runtimeAuthority;
+    if (authority == null) return null;
+    return RuntimeAuthorityEnvelope(
+      authorityDirectory: authority.authorityDirectory,
+      sessionId: authority.sessionId,
+      runtimeGeneration: authority.runtimeGeneration,
+      accountId: authority.accountId,
+      address: authority.address,
+      operationId: _runtimeOperationId(command),
+      engineId: _runtimeEngineId,
+    );
   }
 
   void _clearLocalRuntimeState() {
     _nodeRunning = false;
     _nodePaused = false;
-    _runtimeViewOnly = null;
+    _runtimeAuthority = null;
     _rpc = null;
-    _control = null;
     _cachedPeerId = null;
     _clearNodeClockDrift();
-  }
-
-  /// Polls until [Node.getGlobal] reports the process-wide node as down
-  /// (shutdown is signal-based and completes asynchronously). Returns false
-  /// on timeout.
-  Future<bool> _waitForGlobalNodeDown() async {
-    const timeout = Duration(seconds: 10);
-    const pollInterval = Duration(milliseconds: 100);
-    final deadline = DateTime.now().add(timeout);
-    while (DateTime.now().isBefore(deadline)) {
-      if (Node.getGlobal() == null) return true;
-      await Future.delayed(pollInterval);
-    }
-    return Node.getGlobal() == null;
   }
 
   Future<void> resumeNode() async {
@@ -721,118 +546,57 @@ class RustBackendService {
       _log.warn('resumeNode refused: terminal reset is in progress');
       return;
     }
-    // Same gate as startNode: resume is a secondary "make the runtime
-    // operate" path (ZK pipeline, lifecycle foreground) and must not wake a
-    // suspended runtime while account ownership is unsettled.
-    if (!IdentitySnapshots.current.allowsNodeStart) {
-      _log.warn('resumeNode refused: identity is '
-          '${IdentitySnapshots.current.phase.name}');
-      return;
-    }
-    if (IdentitySnapshots.current.phase == IdentityPhase.guest &&
-        _runtimeViewOnly != true) {
-      _log.warn('resumeNode refused: guest runtime is not confirmed keyless');
-      return;
-    }
+    final authority = _runtimeEnvelope('resume');
+    if (authority == null) return;
     _log.info('Resuming node');
     final wasPaused = _nodePaused;
-    _nodePaused = false;
-    _control?.resume();
-    if (wasPaused && _nodeRunning) {
+    final applied =
+        await MobileNode.resumeIfAuthoritative(authority: authority);
+    if (applied) _nodePaused = false;
+    if (applied && wasPaused && _nodeRunning) {
       await ObservabilityReportingService.instance
           .resumeMobileContextSnapshotReportingAfterNodeResume();
     }
   }
 
   Future<void> pauseNode() async {
+    final authority = _runtimeEnvelope('pause');
+    if (authority == null) return;
     _log.info('Pausing node');
     final wasRuntimeActive = isRuntimeActive;
-    _nodePaused = true;
-    _control?.pause();
-    if (wasRuntimeActive) {
+    final applied = await MobileNode.pauseIfAuthoritative(authority: authority);
+    if (applied) _nodePaused = true;
+    if (applied && wasRuntimeActive) {
       await ObservabilityReportingService.instance
           .pauseMobileContextSnapshotReportingForNodePause();
     }
   }
 
   Future<void> stopNode() async {
-    // A start in flight has already captured an account key while
-    // `_nodeRunning` is still false — a stop that returned now would leave
-    // that node running AFTER the caller believes everything is down (the
-    // exact wrong-key window login suspension exists to close). Wait it
-    // out, then stop whatever it produced.
     await waitForStartCompletion();
-
-    // `Node.getGlobal()` crosses the FRB boundary. During early auth/session
-    // restore (and in no-load tests), suspension can run before this service
-    // has initialized FRB. With no locally tracked runtime, keep that path a
-    // no-op instead of calling through an uninitialized bridge.
-    if (!_initialized && !_nodeRunning) return;
-
-    final global = Node.getGlobal();
-    if (!_nodeRunning && global == null) return;
-    // Currently frb-generated API does not expose a graceful shutdown; dispose bridge.
-    _log.warn(
-      'Stopping node (dropping references; FRB stays initialized)',
-    );
-    Object? shutdownError;
-    StackTrace? shutdownStack;
-    try {
-      if (global case (_, final globalControl)) {
-        try {
-          globalControl.shutdown();
-          final wentDown = await _waitForGlobalNodeDown();
-          if (!wentDown) {
-            throw StateError('process-global node did not shut down');
-          }
-        } catch (error, stackTrace) {
-          shutdownError = error;
-          shutdownStack = stackTrace;
-        }
-      } else {
-        try {
-          _control?.shutdown();
-        } catch (error, stackTrace) {
-          shutdownError = error;
-          shutdownStack = stackTrace;
-        }
-      }
-    } finally {
-      // Never retain a locally "running" façade after shutdown was requested.
-      // The error is still rethrown below so identity transitions remain
-      // fail-closed until a later retry confirms the process-global node down.
+    final authority = _runtimeEnvelope('stop');
+    if (authority == null) {
       _clearLocalRuntimeState();
+      return;
     }
-    if (shutdownError != null) {
-      Error.throwWithStackTrace(shutdownError, shutdownStack!);
+    _log.warn('Stopping authoritative node runtime');
+    try {
+      await MobileNode.stopIfAuthoritative(authority: authority);
+    } finally {
+      _clearLocalRuntimeState();
     }
   }
 
-  /// Irreversibly fences this façade and sends the existing synchronous Rust
-  /// shutdown signal without waiting for the runtime to retire.
-  ///
-  /// Android process death owns final teardown. iOS remains in an inert app
-  /// surface after this call, so no start or resume path is allowed to reopen
-  /// the runtime in this process.
+  /// Closes this process-local façade during terminal app teardown.
   void signalShutdownForTerminalReset() {
     _terminalResetRequested = true;
-
-    NodeControl? control = _control;
     if (_initialized) {
-      try {
-        control = Node.getGlobalControl() ?? control;
-      } catch (error) {
-        _log.warn('Could not resolve process-global node during reset: $error');
+      final handle = MobileNode.current();
+      if (handle != null) {
+        unawaited(MobileNode.shutdown(handle: handle));
       }
     }
-
-    try {
-      control?.shutdown();
-    } catch (error) {
-      _log.warn('Could not signal node shutdown during reset: $error');
-    } finally {
-      _clearLocalRuntimeState();
-    }
+    _clearLocalRuntimeState();
   }
 
   /// Get the currently selected network type from storage.
@@ -986,7 +750,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getStatus');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1158,7 +922,7 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_getBlockProducerStatus');
       return null;
@@ -1211,7 +975,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_listBlockchain');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1320,7 +1084,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
     } catch (e, st) {
@@ -1402,7 +1166,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_epochRewards');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1494,7 +1258,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_listUtxosByOwner');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1545,7 +1309,7 @@ class RustBackendService {
       _log.error('FRB panic during walletBalance', error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_walletBalance');
       return null;
     } catch (e, st) {
@@ -1610,7 +1374,7 @@ class RustBackendService {
       // Mark backend as not running and drop RPC handle to avoid cascading failures.
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_transferFunds');
       // Return null gracefully so UI can keep rendering with an error message.
       return null;
@@ -1700,7 +1464,7 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st,
           tag: 'frb_panic_transferFundsEvents');
       yield const WalletTxSendEvent.rejected(
@@ -1802,7 +1566,7 @@ class RustBackendService {
           error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getEpochsWithData');
       return null;
     } catch (e, st) {
@@ -1843,7 +1607,7 @@ class RustBackendService {
       _log.error('FRB panic during getSlotTime', error: e, stackTrace: st);
       _nodeRunning = false;
       _rpc = null;
-      _control = null;
+      _runtimeAuthority = null;
       await SentryUtil.captureError(e, st, tag: 'frb_panic_getSlotTime');
       return null;
     } catch (e, st) {
@@ -1930,7 +1694,7 @@ class RustBackendService {
     }
     _nodeRunning = false;
     _rpc = null;
-    _control = null;
+    _runtimeAuthority = null;
     _cachedGenesisTimestamp = null;
   }
 }

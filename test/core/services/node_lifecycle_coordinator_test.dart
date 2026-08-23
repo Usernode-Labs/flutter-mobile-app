@@ -89,8 +89,6 @@ void main() {
         cancelAlarmWatchdog: () async => calls.add('cancelWatchdog'),
         isAndroid: () => android,
         isDelegated: () async => delegated,
-        retireProducerLeases: () => calls.add('retireProducerLeases'),
-        settleAudit: () async => calls.add('settleAudit'),
       );
     }
 
@@ -195,7 +193,6 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:platform_stop',
-        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -248,7 +245,6 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:boot',
-        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -281,7 +277,6 @@ void main() {
       expect(calls, [
         'disableRecovery',
         'stopMonitoring:account_removed',
-        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -331,14 +326,10 @@ void main() {
       // alarm and the alarm watchdog — a `RustBackendService.stopNode()` would
       // have left all but one of these armed for the retired account.
       expect(calls, [
-        // Producer leases are retired synchronously before any of this, so a
-        // continuation already past its admission check stops short.
-        'retireProducerLeases',
         'disableRecovery',
         // Never destroys the cached headless engine: this boundary can be
         // running inside it.
         'stopMonitoring:identity_boundary:keepEngine',
-        'settleAudit',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',
@@ -352,7 +343,6 @@ void main() {
       await coordinator.standDown(reason: 'identity_boundary');
       calls.clear();
 
-      expect(coordinator.acceptingRuntimeWork, isTrue);
       expect(await coordinator.startNode(reason: 'next_login'), isTrue);
       expect(calls, contains('startBackend'));
     });
@@ -402,58 +392,14 @@ void main() {
       expect(coordinator.intent, PlatformNodeIntent.unset);
     });
 
-    test('terminal reset closes admission synchronously without graceful stop',
-        () {
+    test('terminal reset disables recovery synchronously', () {
       final coordinator = build(android: true);
 
       coordinator.closeForTerminalReset();
 
-      expect(calls, ['retireProducerLeases', 'disableRecovery']);
-      expect(coordinator.acceptingRuntimeWork, isFalse);
+      expect(calls, ['disableRecovery']);
       expect(coordinator.hasAccount, isFalse);
       expect(coordinator.intent, PlatformNodeIntent.unset);
-    });
-
-    test('terminal reset admission never reopens in this process', () async {
-      final coordinator = build(android: true);
-      coordinator.closeForTerminalReset();
-      calls.clear();
-
-      expect(await coordinator.startNode(reason: 'stale_bridge'), isFalse);
-      await coordinator.stopNode(reason: 'stale_stop');
-      expect(
-        await coordinator.reportColdBoot(hasAccount: true),
-        isFalse,
-      );
-      expect(calls, isEmpty);
-    });
-
-    test('terminal reset supersedes an in-flight start before recovery wiring',
-        () async {
-      final startEntered = Completer<void>();
-      final allowStart = Completer<void>();
-      final coordinator = build(
-        android: true,
-        startBackend: () async {
-          calls.add('startBackend');
-          startEntered.complete();
-          await allowStart.future;
-          return true;
-        },
-      );
-
-      final start = coordinator.startNode(reason: 'platform_start');
-      await startEntered.future;
-      coordinator.closeForTerminalReset();
-      allowStart.complete();
-
-      await start;
-
-      expect(calls, [
-        'startBackend',
-        'retireProducerLeases',
-        'disableRecovery',
-      ]);
     });
   });
 }

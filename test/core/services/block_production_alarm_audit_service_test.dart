@@ -36,63 +36,6 @@ void main() {
       expect(harness.watchdogScheduleReasons, isEmpty);
     });
 
-    test('an identity boundary mid-audit stops it before it schedules anything',
-        () async {
-      final gate = Completer<AlarmAuditEpochSnapshot>();
-      final harness = _AuditHarness(epochCompleter: gate);
-
-      final audit = harness.service.audit(reason: 'in_flight');
-      await Future<void>.delayed(Duration.zero);
-
-      // The teardown disables recovery, which bumps the lifecycle generation.
-      // Everything after the epoch read below is an EFFECT, so the audit must
-      // re-check before reaching it — otherwise it re-arms an alarm under the
-      // freshly rotated incarnation after the boundary cancelled them all.
-      harness.service.disableWatchdogRecovery();
-      gate.complete(const AlarmAuditEpochSnapshot(
-        epoch: 7,
-        vrfComplete: true,
-        wonSlots: [AlarmAuditWonSlot(globalSlot: 42, expectedTimeMs: 20000)],
-      ));
-
-      final result = await audit;
-
-      expect(result.fgResumeStatus, 'skipped:watchdog_disabled');
-      // The watchdog re-arm above the gate is guarded by its own check and
-      // legitimately ran before the boundary; what must not happen is the
-      // foreground-resume scheduling and the monitoring start below it.
-      expect(harness.foregroundResumeSchedules, isEmpty);
-      expect(harness.monitoringReasons, isEmpty);
-    });
-
-    test('settle waits for an in-flight audit', () async {
-      final gate = Completer<AlarmAuditEpochSnapshot>();
-      final harness = _AuditHarness(epochCompleter: gate);
-
-      final audit = harness.service.audit(reason: 'in_flight');
-      await Future<void>.delayed(Duration.zero);
-
-      var settled = false;
-      final settle = harness.service.settle().then((_) => settled = true);
-      await Future<void>.delayed(Duration.zero);
-      expect(settled, isFalse,
-          reason: 'the teardown must not cancel alarms mid-schedule');
-
-      gate.complete(const AlarmAuditEpochSnapshot(
-        epoch: 7,
-        vrfComplete: true,
-        wonSlots: [],
-      ));
-      await audit;
-      await settle;
-      expect(settled, isTrue);
-    });
-
-    test('settle is a no-op when nothing is running', () async {
-      final harness = _AuditHarness();
-      await harness.service.settle();
-    });
-
     test('skips when exact alarm permission is missing', () async {
       final harness = _AuditHarness(exactAlarmPermission: false);
 
@@ -240,23 +183,6 @@ void main() {
       expect(acknowledged, isFalse);
       expect(harness.watchdogScheduleReasons, isEmpty);
       expect(retryCallbacks, isEmpty);
-    });
-
-    test('disabling recovery prevents an in-flight audit from recreating work',
-        () async {
-      final nodeReady = Completer<bool>();
-      final harness = _AuditHarness(ensureNodeRunningCompleter: nodeReady);
-
-      final audit = harness.service.audit(reason: 'workmanager:periodic');
-      await pumpEventQueue();
-      expect(harness.ensureNodeRunningCalls, 1);
-
-      harness.service.disableWatchdogRecovery();
-      nodeReady.complete(true);
-      final result = await audit;
-
-      expect(result.skippedReason, 'watchdog_disabled');
-      expect(harness.watchdogScheduleReasons, isEmpty);
     });
 
     test(
@@ -535,7 +461,6 @@ class _AuditHarness {
     this.monitoringStarts = true,
     this.foregroundResumeScheduleSucceeds = true,
     this.epochEndTimeMs = 30000,
-    this.ensureNodeRunningCompleter,
     this.recoveryEnabled = true,
   })  : presentAlarms = presentAlarms ?? <String>{},
         debugStates = debugStates ?? const <String, AlarmDebugState>{} {
@@ -588,9 +513,6 @@ class _AuditHarness {
       resolveClockDriftMs: () async => clockDriftMs,
       ensureNodeRunning: () async {
         ensureNodeRunningCalls++;
-        if (ensureNodeRunningCompleter != null) {
-          return ensureNodeRunningCompleter!.future;
-        }
         return nodeRunning;
       },
       isNodeRunning: () => nodeRunning,
@@ -636,7 +558,6 @@ class _AuditHarness {
   final bool monitoringStarts;
   final bool foregroundResumeScheduleSucceeds;
   final int? epochEndTimeMs;
-  final Completer<bool>? ensureNodeRunningCompleter;
   final bool recoveryEnabled;
   final records = <_CapturedObservabilityRecord>[];
   final foregroundResumeSchedules = <_ForegroundResumeSchedule>[];

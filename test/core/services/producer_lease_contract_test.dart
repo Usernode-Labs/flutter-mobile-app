@@ -2,65 +2,50 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Effect-point fencing for producer work that a SURVIVING process can leave
-/// in flight across an identity boundary.
-///
-/// Rotating the native incarnation only rejects newly delivered events; Dart
-/// work that already passed admission keeps running. These paths are singletons
-/// gated on `Platform.isAndroid`, so the contract is asserted at the source
-/// rather than driven — the behaviour it encodes is exercised through
-/// `NodeLifecycleCoordinator` and `BlockProductionAlarmAuditService`.
+/// Producer work uses ordinary completion plus the process runtime/scheduler
+/// owners. It does not grow a second per-effect lifecycle protocol in Dart.
 void main() {
-  late String controller;
+  late String foregroundController;
+  late String alarmAudit;
 
   setUpAll(() async {
-    controller = await File(
+    foregroundController = await File(
       'lib/core/services/android_foreground_task_controller.dart',
+    ).readAsString();
+    alarmAudit = await File(
+      'lib/core/services/block_production_alarm_audit_service.dart',
     ).readAsString();
   });
 
-  test('the monitoring lease is reversible and separate from terminal reset',
+  test('producer paths contain no Dart generation lease or settle handshake',
       () {
-    expect(controller, contains('int _monitoringGeneration = 0;'));
-    expect(controller, contains('void retireMonitoringSession()'));
-    // The one-way terminal flag cannot serve a boundary the process survives,
-    // so the lease check covers both.
-    expect(
-      controller,
-      contains('bool _superseded(int generation) =>\n'
-          '      _terminalResetRequested || generation != _monitoringGeneration;'),
-    );
+    final sources = '$foregroundController\n$alarmAudit';
+    for (final forbidden in [
+      '_monitoringGeneration',
+      '_watchdogLifecycleGeneration',
+      'retireMonitoringSession',
+      '_superseded(',
+      'Future<void> settle()',
+    ]) {
+      expect(sources, isNot(contains(forbidden)));
+    }
   });
 
-  test('every monitoring effect re-checks the lease it started under', () {
-    final start = controller.substring(
-      controller.indexOf('Future<bool> startMonitoring({'),
-      controller.indexOf('/// Stops the Android production support.'),
-    );
-    expect(start, contains('final generation = _monitoringGeneration;'));
-    // The wakelock, the foreground service, the watchdog re-arm and the poll
-    // timer are each an effect that must not land after the boundary.
-    expect('_superseded(generation)'.allMatches(start).length, greaterThan(4));
-
-    final poll = controller.substring(
-      controller.indexOf('Future<void> _pollVrf(int generation) async {'),
-      controller.indexOf('Future<bool> _shouldHoldForOtherProducerBlock('),
-    );
-    // A poll schedules alarms after several unbounded node round-trips.
-    expect('_superseded(generation)'.allMatches(poll).length, greaterThan(3));
+  test('foreground teardown waits for the one active poll', () {
+    expect(foregroundController, contains('await _drainActivePoll();'));
   });
 
-  test('the teardown retires leases first and then drains', () {
-    final stop = controller.substring(
-      controller.indexOf('Future<void> stopMonitoring({'),
-      controller.indexOf('Future<void> _drainActivePoll()'),
+  test('an accepted alarm schedule is not re-authorized after awaits', () {
+    final scheduleStart = foregroundController.indexOf(
+      'Future<ForegroundResumeAlarmScheduleResult> scheduleResumeAlarm({',
     );
-    // Retire BEFORE the drain: a poll released mid-drain must find its lease
-    // already invalid rather than re-arming what the teardown just cancelled.
-    expect(
-      stop.indexOf('retireMonitoringSession();'),
-      lessThan(stop.indexOf('await _drainActivePoll();')),
+    final schedule = foregroundController.substring(
+      scheduleStart,
+      foregroundController.indexOf(
+        'Future<int?> resolveEpochEndTimeMs(',
+        scheduleStart,
+      ),
     );
-    expect(controller, contains('await poll.timeout(const Duration('));
+    expect('_terminalResetRequested'.allMatches(schedule), hasLength(1));
   });
 }

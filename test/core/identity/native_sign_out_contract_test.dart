@@ -100,9 +100,11 @@ void main() {
     final coordinator = File(
       'lib/core/services/node_lifecycle_coordinator.dart',
     ).readAsStringSync();
+    final standDownStart =
+        coordinator.indexOf('Future<void> standDown({required String reason})');
     final standDown = coordinator.substring(
-      coordinator.indexOf('Future<void> standDown({required String reason})'),
-      coordinator.indexOf('/// Permanently closes lifecycle admission'),
+      standDownStart,
+      coordinator.indexOf('void closeForTerminalReset()', standDownStart),
     );
     expect(standDown, contains('destroyBackgroundEngine: false'));
   });

@@ -4,7 +4,6 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
-import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
@@ -274,7 +273,6 @@ void main() {
       expect(directory.listSync(), isEmpty);
     }
 
-    expect(NodeLifecycleCoordinator.instance.acceptingRuntimeWork, isFalse);
     expect(await RustBackendService.instance.startNode(), isFalse);
     expect(
       await platformAlarms.dispatchNativeEventForTesting(
@@ -376,12 +374,6 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
 
     final oldIncarnation = nativeIncarnation!;
-    // Read rather than asserted absolutely: the process-global admission
-    // fences are one-way by design, so a terminal-reset test earlier in this
-    // file may already have closed them. What matters here is that the
-    // sign-out does not move them.
-    final acceptingRuntimeWorkBefore =
-        NodeLifecycleCoordinator.instance.acceptingRuntimeWork;
     nativeCalls.clear();
 
     var clearedWebSessions = 0;
@@ -452,11 +444,6 @@ void main() {
     expect(graphProbe.mountCount, 1);
     expect(SentryUtil.enabled, isTrue);
     expect(AppLifecycleLogger.isRegistered, isTrue);
-    expect(
-      NodeLifecycleCoordinator.instance.acceptingRuntimeWork,
-      acceptingRuntimeWorkBefore,
-      reason: 'a sign-out must not close the runtime admission fence',
-    );
     expect(nativeCalls.map((call) => call.method),
         isNot(contains('enterTerminalReset')));
     expect(nativeCalls.map((call) => call.method),

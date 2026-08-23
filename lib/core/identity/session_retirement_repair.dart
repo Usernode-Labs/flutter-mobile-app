@@ -52,6 +52,8 @@ class RetirementRepairScope {
         authorityDirectory: directory,
         sessionId: sessionId,
         transitionId: transitionId,
+        operationId: 'retire-runtime:$transitionId',
+        engineId: 'retirement-repair',
       ),
     );
     return true;

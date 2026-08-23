@@ -116,63 +116,63 @@ void main() {
 
       await saveIdentityNamespace(_alice);
       expect(
-        (await (await AccountsRepository.createForMigration()).list())
-            .single
-            .id,
+        (await (await AccountsRepository.create()).list()).single.id,
         'acct-alice',
       );
 
       // Alice signs out (her rows stay) and Bob signs in.
       await saveIdentityNamespace(_bob);
-      final bobRepo = await AccountsRepository.createForMigration();
+      final bobRepo = await AccountsRepository.create();
 
       expect(await bobRepo.list(), isEmpty, reason: 'Bob starts clean');
       expect(bobRepo.getActiveId(), isNull);
 
       // Alice signs back in and finds her wallet exactly where she left it.
       await saveIdentityNamespace(_alice);
-      final aliceAgain = await AccountsRepository.createForMigration();
+      final aliceAgain = await AccountsRepository.create();
       expect((await aliceAgain.list()).single.id, 'acct-alice');
       expect(aliceAgain.getActiveId(), 'acct-alice');
     });
 
-    test('an install with no session keeps using the unnamespaced keys',
+    test('an install with no session cannot enumerate legacy accounts',
         () async {
       final prefs = await SharedPreferences.getInstance();
+      final legacy = _indexJson('acct-legacy', 'ut1legacy');
       await prefs.setString(
         'testnet:accounts:index',
-        _indexJson('acct-legacy', 'ut1legacy'),
+        legacy,
       );
 
-      final repo = await AccountsRepository.createForMigration();
+      final repo = await AccountsRepository.create();
 
-      expect((await repo.list()).single.id, 'acct-legacy');
+      expect(await repo.list(), isEmpty);
+      expect(prefs.getString('testnet:accounts:index'), legacy);
     });
 
-    test('the first signed-in user adopts a pre-namespace registry', () async {
+    test('sign-in does not automatically claim a legacy registry', () async {
       final prefs = await SharedPreferences.getInstance();
+      final legacy = _indexJson('acct-legacy', 'ut1legacy');
       await prefs.setString(
         'testnet:accounts:index',
-        _indexJson('acct-legacy', 'ut1legacy'),
+        legacy,
       );
       await prefs.setString('testnet:accounts:activeId', 'acct-legacy');
       await saveIdentityNamespace(_alice);
 
-      final repo = await AccountsRepository.createForMigration();
+      final repo = await AccountsRepository.create();
 
-      expect((await repo.list()).single.id, 'acct-legacy');
-      expect(repo.getActiveId(), 'acct-legacy');
-      // The legacy copy is gone, so the NEXT user to sign in cannot inherit
-      // the same accounts.
-      expect(prefs.getString('testnet:accounts:index'), isNull);
-      expect(prefs.getString('testnet:accounts:activeId'), isNull);
+      expect(await repo.list(), isEmpty);
+      expect(repo.getActiveId(), isNull);
+      expect(prefs.getString('testnet:accounts:index'), legacy);
+      expect(prefs.getString('testnet:accounts:activeId'), 'acct-legacy');
       expect(
         prefs.getString('testnet:user:$_alice:accounts:index'),
-        isNotNull,
+        isNull,
       );
     });
 
-    test('adoption cannot hand one registry to a second user', () async {
+    test('a bare registry is invisible to every namespace until reconcile',
+        () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         'testnet:accounts:index',
@@ -180,19 +180,13 @@ void main() {
       );
 
       await saveIdentityNamespace(_alice);
-      expect(
-          (await (await AccountsRepository.createForMigration()).list())
-              .single
-              .id,
-          'acct-legacy');
+      expect(await (await AccountsRepository.create()).list(), isEmpty);
 
       await saveIdentityNamespace(_bob);
-      expect(await (await AccountsRepository.createForMigration()).list(),
-          isEmpty);
+      expect(await (await AccountsRepository.create()).list(), isEmpty);
     });
 
-    test('adoption never overwrites a namespace that already has accounts',
-        () async {
+    test('a legacy registry never overwrites an existing namespace', () async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         'testnet:accounts:index',
@@ -204,67 +198,39 @@ void main() {
       );
       await saveIdentityNamespace(_alice);
 
-      final repo = await AccountsRepository.createForMigration();
+      final repo = await AccountsRepository.create();
 
       expect((await repo.list()).single.id, 'acct-owned');
       expect(prefs.getString('testnet:accounts:index'), isNotNull,
           reason: 'someone else may still own the legacy rows');
     });
 
-    test('an adoption interrupted before its source was removed is finished',
+    test('obsolete adoption residue is retained without changing either copy',
         () async {
       final prefs = await SharedPreferences.getInstance();
-      // The state a crash between "destination written" and "source removed"
-      // leaves: BOTH copies, plus the marker naming who was adopting.
+      final bare = _indexJson('acct-mine', 'ut1mine');
+      final namespaced = _indexJson('acct-mine', 'ut1mine');
       await prefs.setString(
         'testnet:accounts:index',
-        _indexJson('acct-mine', 'ut1mine'),
+        bare,
       );
       await prefs.setString('testnet:accounts:activeId', 'acct-mine');
       await prefs.setString(
         'testnet:user:$_alice:accounts:index',
-        _indexJson('acct-mine', 'ut1mine'),
+        namespaced,
       );
       await prefs.setString('testnet:accounts:adopting', _alice);
       await saveIdentityNamespace(_alice);
 
-      final repo = await AccountsRepository.createForMigration();
+      final repo = await AccountsRepository.create();
 
       expect((await repo.list()).single.id, 'acct-mine');
-      // The marker is what tells this duplicate apart from bare rows that
-      // were never this user's — without it the leftover copy stays
-      // resolvable by the next identity that has no namespace at all.
-      expect(prefs.getString('testnet:accounts:index'), isNull);
-      expect(prefs.getString('testnet:accounts:activeId'), isNull);
-      expect(prefs.getString('testnet:accounts:adopting'), isNull);
-    });
-
-    test('a sign-out retires bare rows even when the namespace is valid',
-        () async {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'testnet:user:$_alice:accounts:index',
-        _indexJson('acct-owned', 'ut1owned'),
-      );
-      // Reachable two ways: a same-participant renewal that only just
-      // acquired an `identity_hash`, and an adoption that was interrupted
-      // without leaving a marker.
-      await prefs.setString(
-        'testnet:accounts:index',
-        _indexJson('acct-bare', 'ut1bare'),
-      );
-      await prefs.setString('testnet:accounts:activeId', 'acct-bare');
-      await saveIdentityNamespace(_alice);
-
-      expect(await AccountsRepository.retireUnnamespacedRegistry(), isTrue);
-
-      // A non-null namespace does NOT prove the bare keys are absent, so the
-      // retirement is unconditional; the namespaced registry is untouched.
-      expect(prefs.getString('testnet:accounts:index'), isNull);
-      expect(prefs.getString('testnet:accounts:activeId'), isNull);
+      expect(prefs.getString('testnet:accounts:index'), bare);
+      expect(prefs.getString('testnet:accounts:activeId'), 'acct-mine');
+      expect(prefs.getString('testnet:accounts:adopting'), _alice);
       expect(
         prefs.getString('testnet:user:$_alice:accounts:index'),
-        isNotNull,
+        namespaced,
       );
     });
   });

@@ -226,7 +226,7 @@ Override _reconcilerOverride({
         ),
         accountsRepository: () async {
           await saveIdentityNamespace(_namespace);
-          final repository = await AccountsRepository.createForMigration(
+          final repository = await AccountsRepository.create(
             accountDeriver: ({required secretKey}) => const AccountExport(
               secretKey: 'utsk1secret',
               publicKey: 'utpk1$_addressB',
@@ -234,10 +234,25 @@ Override _reconcilerOverride({
             ),
           );
           const secure = FlutterSecureStorage();
-          for (final account in await repository.list()) {
+          final accounts = <Map<String, dynamic>>[
+            for (final account in await repository.list()) account.toJson(),
+          ];
+          final prefs = await SharedPreferences.getInstance();
+          final legacy = prefs.getString('testnet:accounts:index');
+          if (legacy != null) {
+            accounts.addAll(
+              (jsonDecode(legacy) as List<dynamic>)
+                  .cast<Map<String, dynamic>>(),
+            );
+          }
+          for (final account in accounts) {
             await secure.write(
-              key: 'testnet:account:${account.id}:address',
-              value: account.address,
+              key: 'testnet:account:${account['id']}:address',
+              value: account['address'] as String,
+            );
+            await secure.write(
+              key: 'testnet:account:${account['id']}:secretKey',
+              value: 'utsk1secret',
             );
           }
           return repository;

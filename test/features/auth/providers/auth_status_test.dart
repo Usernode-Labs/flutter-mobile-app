@@ -13,6 +13,8 @@ import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
 import '../../../helpers/session_authority_test_helpers.dart';
 
+const _namespace = 'aaaaaaaaaaaaaaaa';
+
 void _seedReadyIdentity({int? provisionedSeasonId = 7}) {
   const address = 'addr-1';
   final bucket = NetworkPrefs.bucketForAddress(address);
@@ -20,7 +22,8 @@ void _seedReadyIdentity({int? provisionedSeasonId = 7}) {
     'auth:v3:session_token': 'sess-1',
   });
   SharedPreferences.setMockInitialValues({
-    'testnet:accounts:index': jsonEncode([
+    'testnet:identity:namespace': _namespace,
+    'testnet:user:$_namespace:accounts:index': jsonEncode([
       {
         'id': 'acc-1',
         'name': 'Node Account',
@@ -33,7 +36,7 @@ void _seedReadyIdentity({int? provisionedSeasonId = 7}) {
         'isDemo': false,
       },
     ]),
-    'testnet:accounts:activeId': 'acc-1',
+    'testnet:user:$_namespace:accounts:activeId': 'acc-1',
     'testnet:acct:$bucket:leaderboard:participant_id': 1,
     'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
     if (provisionedSeasonId != null)
@@ -130,7 +133,8 @@ void main() {
     FlutterSecureStorage.setMockInitialValues(
         {'auth:v3:session_token': 'sess-1'});
     SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
+      'testnet:identity:namespace': _namespace,
+      'testnet:user:$_namespace:accounts:index': jsonEncode([
         {
           'id': 'acc_1',
           'name': 'Node Account',
@@ -143,7 +147,7 @@ void main() {
           'isDemo': false,
         }
       ]),
-      'testnet:accounts:activeId': 'acc_1',
+      'testnet:user:$_namespace:accounts:activeId': 'acc_1',
       // A past reconcile recorded participant 7 as this bucket's owner and
       // cleared the marker. The lifecycle ownership proof distinguishes this
       // from a legacy token/account pair that still needs one provision call.

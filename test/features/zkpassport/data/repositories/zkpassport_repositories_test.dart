@@ -10,6 +10,8 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 
+const _accountNamespace = 'aaaaaaaaaaaaaaaa';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -158,7 +160,11 @@ void main() {
       NetworkPrefs.setActiveBucket(address, guest: false);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-        'testnet:accounts:index',
+        'testnet:identity:namespace',
+        _accountNamespace,
+      );
+      await prefs.setString(
+        'testnet:user:$_accountNamespace:accounts:index',
         jsonEncode([
           {
             'id': accountId,
@@ -173,7 +179,10 @@ void main() {
           },
         ]),
       );
-      await prefs.setString('testnet:accounts:activeId', accountId);
+      await prefs.setString(
+        'testnet:user:$_accountNamespace:accounts:activeId',
+        accountId,
+      );
     }
 
     setUp(() async {

@@ -52,8 +52,7 @@ class NodeAccountReconciler {
     Identity Function(Identity)? accountAuthorityIdentity,
   })  : _ensureNodeIdentity = ensureNodeIdentity ?? _defaultEnsureNodeIdentity,
         _currentIdentity = currentIdentity ?? (() => IdentitySnapshots.current),
-        _accountsRepository =
-            accountsRepository ?? AccountsRepository.createForMigration,
+        _accountsRepository = accountsRepository ?? AccountsRepository.create,
         _accountAuthorityIdentity =
             accountAuthorityIdentity ?? ((value) => value);
 

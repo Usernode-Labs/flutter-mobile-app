@@ -16,10 +16,9 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 /// network-free (invariant I6) — it cannot call `/me` to learn the namespace,
 /// so the value written at login has to survive the restart.
 ///
-/// A null namespace is not an error: it means either no session yet, or a
-/// server that predates the field. Both fall back to the unnamespaced legacy
-/// keys, which [adoptLegacyRegistryInto] then migrates on the first
-/// authenticated read.
+/// A null namespace means no account registry is addressable. Pre-namespace
+/// rows remain quarantined until an authenticated reconciliation proves one
+/// exact retained account.
 const _identityNamespaceKey = 'identity:namespace';
 
 String _key() => NetworkPrefs.prefixKey(_identityNamespaceKey);

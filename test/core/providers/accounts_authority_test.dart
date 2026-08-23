@@ -106,9 +106,16 @@ void main() {
       'testnet:account:account-b:secretKey': 'retained-secret-b',
     });
 
+    final derivedSecrets = <String>[];
     final repository = await AccountsRepository.create(
-      accountDeriver: ({required secretKey}) =>
-          throw StateError('retained account must not be re-imported'),
+      accountDeriver: ({required secretKey}) {
+        derivedSecrets.add(secretKey);
+        return AccountExport(
+          secretKey: secretKey,
+          publicKey: 'public-b',
+          address: 'address-b',
+        );
+      },
     );
 
     final result = await repository.reconcileProvisionedAccount(
@@ -131,6 +138,68 @@ void main() {
       ),
       completion('retained-secret-b'),
     );
+    expect(
+      derivedSecrets,
+      containsAll(<String>[
+        'response-secret-must-not-replace-retained',
+        'retained-secret-b',
+      ]),
+      reason: 'both backend and retained keys must prove the address',
+    );
+  });
+
+  test('reconcile associates only an exact legacy account with the namespace',
+      () async {
+    final prefs = await SharedPreferences.getInstance();
+    final legacy = jsonEncode([
+      _account('legacy-a', 'address-a'),
+      _account('legacy-b', 'address-b'),
+    ]);
+    await prefs.setString('testnet:accounts:index', legacy);
+    await prefs.setString('testnet:accounts:activeId', 'legacy-a');
+    FlutterSecureStorage.setMockInitialValues({
+      'testnet:account:legacy-a:address': 'address-a',
+      'testnet:account:legacy-a:secretKey': 'secret-a',
+      'testnet:account:legacy-b:address': 'address-b',
+      'testnet:account:legacy-b:secretKey': 'secret-b',
+    });
+    final derivedSecrets = <String>[];
+    final repository = await AccountsRepository.create(
+      accountDeriver: ({required secretKey}) {
+        derivedSecrets.add(secretKey);
+        return AccountExport(
+          secretKey: secretKey,
+          publicKey: 'public-b',
+          address: secretKey == 'secret-b' ? 'address-b' : 'unexpected',
+        );
+      },
+    );
+
+    expect(await repository.list(), isEmpty,
+        reason: 'legacy metadata is not visible before reconciliation');
+
+    final result = await repository.reconcileProvisionedAccount(
+      identity: _reconciling,
+      address: 'address-b',
+      secretKey: 'secret-b',
+      name: 'Node Account',
+    );
+
+    expect(result.account.id, 'legacy-b');
+    expect(result.changed, isTrue);
+    expect(
+        (await repository.list()).map((account) => account.id), ['legacy-b']);
+    expect(repository.getActiveId(), 'legacy-b');
+    expect(prefs.getString('testnet:accounts:index'), legacy,
+        reason: 'reconciliation must not rewrite or delete legacy metadata');
+    expect(prefs.getString('testnet:accounts:activeId'), 'legacy-a');
+    expect(
+      const FlutterSecureStorage().read(
+        key: 'testnet:account:legacy-b:secretKey',
+      ),
+      completion('secret-b'),
+    );
+    expect(derivedSecrets, ['secret-b', 'secret-b']);
   });
 
   test('a provisioned secret/address mismatch writes nothing', () async {

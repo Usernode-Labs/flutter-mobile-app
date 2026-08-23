@@ -16,6 +16,8 @@ import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
+const _namespace = 'aaaaaaaaaaaaaaaa';
+
 class _RecordingSeasonsService extends LeaderboardApiService {
   _RecordingSeasonsService({this.blocked = false})
       : super(baseUrl: 'https://example.test/api/v4/mobile');
@@ -47,7 +49,8 @@ Future<SessionController> _readyIdentityController() async {
     'auth:v3:session_token': 'token-a',
   });
   SharedPreferences.setMockInitialValues({
-    'testnet:accounts:index': jsonEncode([
+    'testnet:identity:namespace': _namespace,
+    'testnet:user:$_namespace:accounts:index': jsonEncode([
       {
         'id': 'account-a',
         'name': 'Node Account',
@@ -60,7 +63,7 @@ Future<SessionController> _readyIdentityController() async {
         'isDemo': false,
       },
     ]),
-    'testnet:accounts:activeId': 'account-a',
+    'testnet:user:$_namespace:accounts:activeId': 'account-a',
     'testnet:acct:$bucket:leaderboard:participant_id': 7,
     'testnet:acct:$bucket:identity:provisioned_season': 1,
     'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
@@ -76,6 +79,8 @@ Future<SessionController> _readyIdentityController() async {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});

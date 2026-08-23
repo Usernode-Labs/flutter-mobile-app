@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_cleanup.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -185,7 +186,7 @@ void _seedReadyIdentity({
     'auth:v3:session_token': token,
   });
   SharedPreferences.setMockInitialValues({
-    'testnet:accounts:index': jsonEncode([
+    'testnet:user:${_namespaceFor(participantId)}:accounts:index': jsonEncode([
       {
         'id': 'account-a',
         'name': 'Node Account',
@@ -198,7 +199,8 @@ void _seedReadyIdentity({
         'isDemo': false,
       }
     ]),
-    'testnet:accounts:activeId': 'account-a',
+    'testnet:user:${_namespaceFor(participantId)}:accounts:activeId':
+        'account-a',
     'testnet:identity:namespace': _namespaceFor(participantId),
     'testnet:acct:$bucket:leaderboard:participant_id': participantId,
     'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
@@ -774,38 +776,37 @@ void main() {
     expect(fence.raised, isFalse);
   });
 
-  test('a registry with no identity namespace is retired rather than retained',
+  test('session cleanup retains a registry with no identity namespace',
       () async {
-    // A session whose payload carried no (or a malformed) `identity_hash`
-    // leaves its accounts on the shared, unnamespaced keys.
-    _seedReadyIdentity();
-    final seeded = await SharedPreferences.getInstance();
-    final index = seeded.getString('testnet:accounts:index');
+    final index = jsonEncode([
+      {
+        'id': 'account-a',
+        'name': 'Node Account',
+        'createdAt': '2026-01-01T00:00:00.000',
+        'derivationPath': 'imported',
+        'hdIndex': 0,
+        'address': 'ut1readyaccount',
+        'publicKey': 'utpk1ut1readyaccount',
+        'backupConfirmed': true,
+        'isDemo': false,
+      }
+    ]);
     SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': index!,
+      'testnet:accounts:index': index,
       'testnet:accounts:activeId': 'account-a',
-      'testnet:acct:${NetworkPrefs.bucketForAddress('ut1readyaccount')}:'
-          'identity:lifecycle_ownership_confirmed': true,
-      'testnet:acct:${NetworkPrefs.bucketForAddress('ut1readyaccount')}:'
-          'leaderboard:participant_id': 1,
+      'testnet:accounts:adopting': _namespaceFor(1),
+      'testnet:identity:namespace': _namespaceFor(1),
     });
-    final tokenStore = AuthTokenStore();
-    final reset = _TerminalResetProbe(tokenStore);
-    final controller = _controller(tokenStore, reset);
-    addTearDown(controller.dispose);
-    await controller.restore();
-    expect(controller.state.phase, IdentityPhase.ready);
+    expect(
+      await clearCompatibilitySessionAuthority(AuthGuestFlag()),
+      isTrue,
+    );
 
-    expect(await controller.logout(expectedIdentity: controller.state), isTrue);
-
-    // Retaining it would republish this user's wallet as a signable
-    // local-only account and hand it to the next null-namespace identity.
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('testnet:accounts:index'), isNull);
-    expect(prefs.getString('testnet:accounts:activeId'), isNull);
-    expect(controller.state.accountId, isNull);
-    expect(controller.state.allowsSigning, isFalse);
-    expect(reset.reasons, isEmpty);
+    expect(prefs.getString('testnet:accounts:index'), index);
+    expect(prefs.getString('testnet:accounts:activeId'), 'account-a');
+    expect(prefs.getString('testnet:accounts:adopting'), _namespaceFor(1));
+    expect(prefs.getString('testnet:identity:namespace'), isNull);
   });
 
   test('a namespaced registry is kept across a sign-out', () async {

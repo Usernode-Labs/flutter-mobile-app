@@ -47,7 +47,7 @@ class ObservabilityReportingService {
   static const _powerNetworkServiceSnapshotMinimumGap = Duration(minutes: 1);
   static const _batteryUsageSampleWindow = Duration(minutes: 5);
   static const _batteryStateDuplicateWindow = Duration(seconds: 30);
-  static const _sessionAuthorityTerminalRateLimit = Duration(minutes: 5);
+  static const _sessionAuthorityRecoveryRateLimit = Duration(minutes: 5);
   static const _maxPendingEarlyRecords = 16;
 
   final ObservabilityRecordClient _record;
@@ -72,7 +72,7 @@ class ObservabilityReportingService {
   DateTime? _lastBatteryLevelAt;
   BatteryState? _lastBatteryStateEvent;
   DateTime? _lastBatteryStateEventAt;
-  final Map<String, DateTime> _sessionAuthorityTerminalReportedAt = {};
+  final Map<String, DateTime> _sessionAuthorityRecoveryReportedAt = {};
 
   void markNodeInitialized({bool resetStaticContext = false}) {
     _nodeInitialized = true;
@@ -245,16 +245,16 @@ class ObservabilityReportingService {
     );
   }
 
-  FlutterObservabilityRecordResult reportSessionAuthorityTerminalEscalation({
+  FlutterObservabilityRecordResult reportSessionAuthorityRecoveryRequired({
     required String reason,
     required String phase,
     required String platform,
   }) {
     final key = '$reason\u0000$phase\u0000$platform';
     final now = DateTime.now();
-    final previous = _sessionAuthorityTerminalReportedAt[key];
+    final previous = _sessionAuthorityRecoveryReportedAt[key];
     if (previous != null &&
-        now.difference(previous) < _sessionAuthorityTerminalRateLimit) {
+        now.difference(previous) < _sessionAuthorityRecoveryRateLimit) {
       return const FlutterObservabilityRecordResult(
         queued: false,
         discarded: true,
@@ -264,7 +264,7 @@ class ObservabilityReportingService {
 
     final result = _recordStructured(
       kind: FlutterObservabilityKind.error,
-      event: 'app_session_authority_terminal_escalation',
+      event: 'app_session_authority_recovery_required',
       details: {
         'reason': reason,
         'phase': phase,
@@ -274,7 +274,7 @@ class ObservabilityReportingService {
       retainUntilNodeInitialized: true,
     );
     if (result.queued || !result.discarded) {
-      _sessionAuthorityTerminalReportedAt[key] = now;
+      _sessionAuthorityRecoveryReportedAt[key] = now;
     }
     return result;
   }

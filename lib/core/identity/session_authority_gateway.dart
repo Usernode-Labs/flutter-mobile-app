@@ -22,7 +22,7 @@ typedef SessionAuthorityCommandJson = Future<String> Function({
   required String directory,
   required String request,
 });
-typedef SessionAuthorityTerminalReporter = void Function(
+typedef SessionAuthorityRecoveryReporter = void Function(
   Map<String, Object?> details,
 );
 
@@ -131,19 +131,20 @@ class SessionAuthorityGateway {
     SessionAuthorityAdmissionJson? admissionJson,
     SessionAuthorityBootstrapJson? bootstrapJson,
     SessionAuthorityCommandJson? commandJson,
-    SessionAuthorityTerminalReporter? terminalReporter,
+    SessionAuthorityRecoveryReporter? recoveryReporter,
   })  : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory,
         _admissionJson = admissionJson ?? rust.sessionAuthorityAdmissionJson,
         _bootstrapJson =
             bootstrapJson ?? rust.sessionAuthorityBootstrapLoggedOut,
         _commandJson = commandJson ?? rust.sessionAuthorityCommandJson,
-        _terminalReporter = terminalReporter ?? _reportTerminalToProduction;
+        _recoveryReporter =
+            recoveryReporter ?? _reportRecoveryRequiredToProduction;
 
   final SessionAuthoritySupportDirectory _supportDirectory;
   final SessionAuthorityAdmissionJson _admissionJson;
   final SessionAuthorityBootstrapJson _bootstrapJson;
   final SessionAuthorityCommandJson _commandJson;
-  final SessionAuthorityTerminalReporter _terminalReporter;
+  final SessionAuthorityRecoveryReporter _recoveryReporter;
 
   String? _directory;
 
@@ -277,7 +278,7 @@ class SessionAuthorityGateway {
         request: jsonEncode(request),
       ),
     );
-    _reportTerminal(response);
+    _reportRecovery(response);
     if (response['status'] == 'rejected') {
       throw SessionAuthorityRejected(
         reason: response['reason'] is String
@@ -294,11 +295,11 @@ class SessionAuthorityGateway {
     return response;
   }
 
-  void _reportTerminal(Map<String, dynamic> response) {
+  void _reportRecovery(Map<String, dynamic> response) {
     final telemetry = response['telemetry'];
     if (telemetry is! Map) return;
     try {
-      _terminalReporter(Map<String, Object?>.from(telemetry));
+      _recoveryReporter(Map<String, Object?>.from(telemetry));
     } catch (_) {
       // Telemetry must never change authority protocol handling.
     }
@@ -322,15 +323,14 @@ String _requiredCredentialField(String? value, String field) {
   return normalized;
 }
 
-void _reportTerminalToProduction(Map<String, Object?> details) {
+void _reportRecoveryRequiredToProduction(Map<String, Object?> details) {
   final reason = details['reason'];
   final phase = details['phase'];
   final platform = details['platform'];
   if (reason is! String || phase is! String || platform is! String) {
     return;
   }
-  ObservabilityReportingService.instance
-      .reportSessionAuthorityTerminalEscalation(
+  ObservabilityReportingService.instance.reportSessionAuthorityRecoveryRequired(
     reason: reason,
     phase: phase,
     platform: platform,

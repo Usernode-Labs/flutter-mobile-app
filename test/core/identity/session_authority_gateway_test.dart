@@ -201,15 +201,15 @@ void main() {
     );
   });
 
-  test('terminal recovery metadata has no permit-era dimensions', () async {
+  test('authority recovery metadata has no permit-era dimensions', () async {
     final reports = <Map<String, Object?>>[];
-    final terminalRecord = {
+    final recoveryRecord = {
       ...record,
       'sequence': 8,
       'state': {
-        'kind': 'terminal_reset_required',
-        'reason': 'effect_drain_timeout',
-        'previous_state': record['state'],
+        'kind': 'authority_recovery_required',
+        'reason': 'activation_boundary_unconfirmed',
+        'recoverable_state': record['state'],
       },
     };
     final gateway = SessionAuthorityGateway(
@@ -225,25 +225,25 @@ void main() {
           jsonEncode({
         'status': 'ok',
         'outcome': {
-          'kind': 'retirement_terminal',
-          'reason': 'webview_clear_unconfirmed',
+          'kind': 'activation_recovery_required',
+          'reason': 'activation_boundary_unconfirmed',
         },
         'telemetry': {
-          'reason': 'webview_clear_unconfirmed',
-          'phase': 'clear_webview',
+          'reason': 'activation_boundary_unconfirmed',
+          'phase': 'persist_credential',
           'platform': Platform.operatingSystem,
         },
         'revision': {...revision, 'sequence': 8},
-        'record': terminalRecord,
+        'record': recoveryRecord,
       }),
-      terminalReporter: reports.add,
+      recoveryReporter: reports.add,
     );
 
-    await gateway.command({'command': 'enter_retirement'});
+    await gateway.command({'command': 'recover_activation'});
 
     expect(reports.single, {
-      'reason': 'webview_clear_unconfirmed',
-      'phase': 'clear_webview',
+      'reason': 'activation_boundary_unconfirmed',
+      'phase': 'persist_credential',
       'platform': Platform.operatingSystem,
     });
   });

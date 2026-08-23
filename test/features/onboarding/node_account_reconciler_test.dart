@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
-import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
@@ -212,20 +211,17 @@ SessionController _sessionController({
         'retirement' => 'retire-a',
         _ => throw StateError('Unexpected authority id: $kind'),
       },
-      suspendNode: () async {},
       retireRuntimeAuthority: ({
         required directory,
+        required expectedSequence,
         required sessionId,
+        required successorLoggedOutSessionId,
+        required successorNetwork,
         required transitionId,
-      }) async =>
-          true,
+      }) async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
 
 Override _identityOverride({

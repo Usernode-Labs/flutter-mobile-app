@@ -250,8 +250,10 @@ class AppBootstrap {
     final authority = SessionAuthorityGateway();
     final admission = await authority.admission();
     final status = admission['status'];
-    if (status == 'terminal') {
-      throw StateError('Session authority is terminal: ${admission['reason']}');
+    if (status == 'recovery_required') {
+      throw StateError(
+        'Session authority requires recovery: ${admission['reason']}',
+      );
     }
 
     if (status == 'missing_journal') {
@@ -301,21 +303,10 @@ class AppBootstrap {
     await NetworkPrefs.adoptAuthorityNetwork(network);
     final state = _bootstrapMap(record['state'], 'record.state');
     if (state['kind'] == 'retiring') {
-      final fence = DurableSignOutFence();
-      if (!await fence.raise()) {
-        throw StateError('Could not raise retirement compatibility fence');
-      }
       final completed = await RetirementRepairScope(
         authority: authority,
-        tokenStore: AuthTokenStore(),
-        guestFlag: AuthGuestFlag(),
-        revokeNativeAdmission:
-            PlatformAlarmService.instance.clearLegacySessionAuthority,
         clearWebSessionData: PlatformAlarmService.instance.clearWebSessionData,
       ).repair(read);
-      if (completed == null) {
-        throw StateError('Interrupted retirement requires terminal reset');
-      }
       final completedRecord =
           _bootstrapMap(completed['record'], 'retirement.record');
       final completedState =
@@ -328,12 +319,6 @@ class AppBootstrap {
         throw StateError('LoggedOut successor has no network');
       }
       await NetworkPrefs.adoptAuthorityNetwork(successorNetwork);
-      try {
-        await fence.lower();
-      } catch (_) {
-        // The committed LoggedOut journal is authoritative; a stale
-        // compatibility marker only causes another idempotent repair check.
-      }
       log.info('Completed interrupted retirement before provider bootstrap');
     }
     return authority;

@@ -1,5 +1,4 @@
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -39,14 +38,9 @@ SessionController _controller(ScriptedSessionAuthority authority) =>
         'credential' => 'credential-a',
         _ => throw StateError('Unexpected authority id: $kind'),
       },
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
 
 ProviderContainer _container(SessionController controller) =>

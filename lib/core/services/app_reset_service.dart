@@ -29,12 +29,11 @@ typedef ResetDirectoryResolver = Future<List<Directory>> Function();
 /// uses [terminatePreservingData] so the next process adopts the new network
 /// without deleting account-scoped application data.
 ///
-/// Voluntary sign-out does NOT come here — it is scoped and in-process; see
-/// [SessionController.logout]. Every reason that reaches this class is one the
-/// app cannot continue from: an expired or unreadable credential, a different
-/// participant replacing the current one, or the authenticated-to-guest
-/// switch. Network changes share the one-way process boundary but not the data
-/// wipe.
+/// Session transitions never come here. Logout, credential rejection,
+/// participant replacement and guest selection all retire and replace their
+/// session host in-process. A journal-committed network change may still use
+/// the preserving process boundary for operational service reconstruction;
+/// that restart grants no session-safety guarantee.
 class AppResetService {
   AppResetService._({
     ResetDirectoryResolver? resetDirectories,

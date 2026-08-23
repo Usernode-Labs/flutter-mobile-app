@@ -73,6 +73,9 @@ Map<String, dynamic> loggedOutAuthorityState({
 
 Map<String, dynamic> activatingAuthorityState({
   required String phase,
+  String predecessorSessionId = 'logged-out-a',
+  String sessionId = 'session-a',
+  String transitionId = 'login-a',
   String? credentialRef,
   int? credentialGeneration,
   String? userNamespace,
@@ -81,9 +84,9 @@ Map<String, dynamic> activatingAuthorityState({
 }) =>
     {
       'kind': 'activating',
-      'predecessor_session_id': 'logged-out-a',
-      'session_id': 'session-a',
-      'transition_id': 'login-a',
+      'predecessor_session_id': predecessorSessionId,
+      'session_id': sessionId,
+      'transition_id': transitionId,
       'phase': phase,
       'rollback_logged_out_session_id': rollbackLoggedOutSessionId,
       'credential_ref': credentialRef,
@@ -113,9 +116,7 @@ Map<String, dynamic> readyAuthorityState({
       'production_desired': false,
     };
 
-Map<String, dynamic> retiringAuthorityState(
-  String phase, {
-  int attempts = 0,
+Map<String, dynamic> retiringAuthorityState({
   String? successorNetwork,
 }) =>
     {
@@ -124,8 +125,6 @@ Map<String, dynamic> retiringAuthorityState(
       'successor_logged_out_session_id': 'logged-out-b',
       'successor_network': successorNetwork,
       'transition_id': 'retire-a',
-      'phase': phase,
-      'phase_attempts': attempts,
     };
 
 /// The fixed happy-path transcript shared by tests whose subject begins after
@@ -198,98 +197,20 @@ List<Map<String, dynamic>> successfulRetirementResponses({
 }) =>
     [
       sessionAuthorityResponse(
-        sequence: 6,
-        state: retiringAuthorityState(
-          'tombstone_work',
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_entered',
-        outcomeFields: {'effect_epoch': 2},
+        sequence: 5,
+        state: readyAuthorityState(),
+        outcome: 'record_read',
       ),
       sessionAuthorityResponse(
         sequence: 6,
-        state: retiringAuthorityState(
-          'tombstone_work',
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_tombstone_status',
-        outcomeFields: {'verified': true},
+        state: retiringAuthorityState(successorNetwork: successorNetwork),
+        outcome: 'record_read',
       ),
       sessionAuthorityResponse(
         sequence: 7,
-        state: retiringAuthorityState(
-          'revoke_native_admission',
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_advanced',
-        outcomeFields: {'phase': 'revoke_native_admission'},
-      ),
-      ..._retirementPhaseResponses(
-        instructionSequence: 8,
-        advanceSequence: 9,
-        phase: 'revoke_native_admission',
-        nextPhase: 'revoke_runtime',
-        successorNetwork: successorNetwork,
-      ),
-      ..._retirementPhaseResponses(
-        instructionSequence: 10,
-        advanceSequence: 11,
-        phase: 'revoke_runtime',
-        nextPhase: 'clear_credential',
-        successorNetwork: successorNetwork,
-      ),
-      ..._retirementPhaseResponses(
-        instructionSequence: 12,
-        advanceSequence: 13,
-        phase: 'clear_credential',
-        nextPhase: 'clear_webview',
-        successorNetwork: successorNetwork,
-      ),
-      ..._retirementPhaseResponses(
-        instructionSequence: 14,
-        advanceSequence: 15,
-        phase: 'clear_webview',
-        nextPhase: 'commit_logged_out',
-        successorNetwork: successorNetwork,
-      ),
-      sessionAuthorityResponse(
-        sequence: 16,
         state: loggedOutAuthorityState(sessionId: 'logged-out-b'),
         outcome: 'retirement_logged_out',
         network: successorNetwork ?? 'testnet',
-      ),
-    ];
-
-List<Map<String, dynamic>> _retirementPhaseResponses({
-  required int instructionSequence,
-  required int advanceSequence,
-  required String phase,
-  required String nextPhase,
-  String? successorNetwork,
-}) =>
-    [
-      sessionAuthorityResponse(
-        sequence: instructionSequence,
-        state: retiringAuthorityState(
-          phase,
-          attempts: 1,
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_invoke',
-        outcomeFields: {
-          'phase': phase,
-          'durable_attempt': 1,
-          'timeout_ms': 10000,
-        },
-      ),
-      sessionAuthorityResponse(
-        sequence: advanceSequence,
-        state: retiringAuthorityState(
-          nextPhase,
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_advanced',
-        outcomeFields: {'phase': nextPhase},
       ),
     ];
 

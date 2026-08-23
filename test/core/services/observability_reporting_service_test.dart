@@ -294,18 +294,18 @@ void main() {
       ]);
     });
 
-    test('terminal authority escalations are structured and rate limited', () {
+    test('authority recovery reports are structured and rate limited', () {
       final records = <_CapturedObservabilityRecord>[];
       final service = _service(records, nodeInitialized: false);
 
-      final first = service.reportSessionAuthorityTerminalEscalation(
-        reason: 'webview_clear_unconfirmed',
-        phase: 'clear_webview',
+      final first = service.reportSessionAuthorityRecoveryRequired(
+        reason: 'activation_boundary_unconfirmed',
+        phase: 'persist_credential',
         platform: 'android',
       );
-      final duplicate = service.reportSessionAuthorityTerminalEscalation(
-        reason: 'webview_clear_unconfirmed',
-        phase: 'clear_webview',
+      final duplicate = service.reportSessionAuthorityRecoveryRequired(
+        reason: 'activation_boundary_unconfirmed',
+        phase: 'persist_credential',
         platform: 'android',
       );
 
@@ -316,11 +316,11 @@ void main() {
       expect(records.single.kind, FlutterObservabilityKind.error);
       expect(
         records.single.event,
-        'app_session_authority_terminal_escalation',
+        'app_session_authority_recovery_required',
       );
       expect(records.single.payload, {
-        'reason': 'webview_clear_unconfirmed',
-        'phase': 'clear_webview',
+        'reason': 'activation_boundary_unconfirmed',
+        'phase': 'persist_credential',
         'platform': 'android',
       });
     });

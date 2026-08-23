@@ -1,6 +1,5 @@
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
-import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -44,6 +43,22 @@ class _RejectedAuthRepository extends AuthRepository {
   Future<void> logout(String sessionToken) async {}
 }
 
+class _AcceptedAuthRepository extends _NoopAuthRepository {
+  @override
+  Future<AuthSession> confirmBearerSession(
+    AuthCredentialLease credential,
+  ) async =>
+      _session(credential.token);
+}
+
+class _UnavailableAuthRepository extends _NoopAuthRepository {
+  @override
+  Future<AuthSession> confirmBearerSession(
+    AuthCredentialLease credential,
+  ) async =>
+      throw AuthException(AuthErrorKind.network, 'temporarily unavailable');
+}
+
 typedef _ScriptedAuthority = ScriptedSessionAuthority;
 
 AuthSession _session(String token) => AuthSession(
@@ -60,8 +75,16 @@ const _response = sessionAuthorityResponse;
 const _loggedOut = loggedOutAuthorityState;
 const _activating = activatingAuthorityState;
 const _ready = readyAuthorityState;
-const _retiring = retiringAuthorityState;
 const _successfulRetirementResponses = successfulRetirementResponses;
+
+Future<void> _retireRuntime({
+  required String directory,
+  required int expectedSequence,
+  required String sessionId,
+  required String successorLoggedOutSessionId,
+  required String? successorNetwork,
+  required String transitionId,
+}) async {}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -143,14 +166,9 @@ void main() {
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
       newAuthorityId: (kind) => ids[kind]!,
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -288,14 +306,9 @@ void main() {
         'credential' => 'credential-a',
         _ => throw StateError('Unexpected authority id: $kind'),
       },
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -377,14 +390,9 @@ void main() {
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
       newAuthorityId: (_) => 'unused',
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -446,14 +454,9 @@ void main() {
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
       newAuthorityId: (kind) => kind == 'rollback' ? 'logged-out-b' : 'unused',
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -481,73 +484,7 @@ void main() {
       () async {
     final authority = _ScriptedAuthority([
       _response(sequence: 5, state: _ready(), outcome: 'record_read'),
-      _response(
-        sequence: 6,
-        state: _retiring('tombstone_work'),
-        outcome: 'retirement_entered',
-        outcomeFields: {'effect_epoch': 2},
-      ),
-      _response(
-        sequence: 6,
-        state: _retiring('tombstone_work'),
-        outcome: 'retirement_tombstone_status',
-        outcomeFields: {'verified': false},
-      ),
-      _response(
-        sequence: 7,
-        state: _retiring('tombstone_work', attempts: 1),
-        outcome: 'retirement_invoke',
-        outcomeFields: {
-          'phase': 'tombstone_work',
-          'durable_attempt': 1,
-          'timeout_ms': 10000,
-        },
-      ),
-      _response(
-        sequence: 7,
-        state: _retiring('tombstone_work', attempts: 1),
-        outcome: 'retirement_tombstone_status',
-        outcomeFields: {'verified': true},
-      ),
-      _response(
-        sequence: 8,
-        state: _retiring('revoke_native_admission'),
-        outcome: 'retirement_advanced',
-        outcomeFields: {'phase': 'revoke_native_admission'},
-      ),
-      ..._phaseResponses(
-        instructionSequence: 9,
-        advanceSequence: 10,
-        phase: 'revoke_native_admission',
-        nextPhase: 'revoke_runtime',
-      ),
-      ..._phaseResponses(
-        instructionSequence: 11,
-        advanceSequence: 12,
-        phase: 'revoke_runtime',
-        nextPhase: 'clear_credential',
-      ),
-      ..._phaseResponses(
-        instructionSequence: 13,
-        advanceSequence: 14,
-        phase: 'clear_credential',
-        nextPhase: 'clear_webview',
-      ),
-      ..._phaseResponses(
-        instructionSequence: 15,
-        advanceSequence: 16,
-        phase: 'clear_webview',
-        nextPhase: 'commit_logged_out',
-      ),
-      _response(
-        sequence: 17,
-        state: {
-          'kind': 'logged_out',
-          'session_id': 'logged-out-b',
-          'mode': 'signed_out',
-        },
-        outcome: 'retirement_logged_out',
-      ),
+      ..._successfulRetirementResponses(),
     ]);
     final tokenStore = AuthTokenStore();
     await tokenStore.writeSessionCredential(
@@ -577,14 +514,15 @@ void main() {
         'retirement' => 'retire-a',
         _ => throw StateError('Unexpected id kind $kind'),
       },
-      suspendNode: () async {},
       retireRuntimeAuthority: ({
         required directory,
+        required expectedSequence,
         required sessionId,
+        required successorLoggedOutSessionId,
+        required successorNetwork,
         required transitionId,
       }) async {
         effects.add('runtime');
-        return true;
       },
       clearWebSessionData: () async {
         effects.add('webview');
@@ -595,10 +533,6 @@ void main() {
         return true;
       },
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -606,7 +540,7 @@ void main() {
     expect(controller.state.phase, IdentityPhase.ready);
     expect(await controller.logout(), isTrue);
 
-    expect(effects, ['native', 'runtime', 'webview']);
+    expect(effects, ['runtime', 'webview', 'native']);
     expect(controller.state.phase, IdentityPhase.unauthenticated);
     expect(controller.state.sessionId, 'logged-out-b');
     final prefs = await SharedPreferences.getInstance();
@@ -622,22 +556,10 @@ void main() {
       ),
       isNull,
     );
-    expect(authority.commands[1]['command'], 'enter_retirement');
     expect(
-      authority.commands[1]['expected'],
-      {
-        'sequence': 5,
-        'session_id': 'session-a',
-        'state': 'ready',
-        'transition_id': null,
-      },
+      authority.commands.map((command) => command['command']),
+      ['read_record', 'read_record', 'read_record', 'complete_retirement'],
     );
-    final firstPlatformEffectCommand = authority.commands.indexWhere(
-      (command) =>
-          command['command'] == 'recover_retirement' &&
-          (command['evidence'] as Map)['kind'] == 'needs_invocation',
-    );
-    expect(firstPlatformEffectCommand, greaterThan(1));
   });
 
   test('cold Ready with no exact credential retires through the journal',
@@ -660,19 +582,10 @@ void main() {
         'retirement' => 'retire-a',
         _ => throw StateError('Unexpected id kind $kind'),
       },
-      retireRuntimeAuthority: ({
-        required directory,
-        required sessionId,
-        required transitionId,
-      }) async =>
-          true,
+      retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -680,8 +593,8 @@ void main() {
 
     expect(controller.state.phase, IdentityPhase.unauthenticated);
     expect(controller.state.sessionId, 'logged-out-b');
-    expect(authority.commands[1]['command'], 'enter_retirement');
-    expect(authority.commands[1]['session_id'], 'session-a');
+    expect(authority.commands[1]['command'], 'read_record');
+    expect(authority.commands.last['command'], 'complete_retirement');
   });
 
   test('a missing current credential uses ordinary durable retirement',
@@ -714,19 +627,10 @@ void main() {
         'retirement' => 'retire-a',
         _ => throw StateError('Unexpected id kind $kind'),
       },
-      retireRuntimeAuthority: ({
-        required directory,
-        required sessionId,
-        required transitionId,
-      }) async =>
-          true,
+      retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
     await controller.restore();
@@ -737,8 +641,8 @@ void main() {
 
     expect(controller.state.phase, IdentityPhase.unauthenticated);
     expect(controller.state.sessionId, 'logged-out-b');
-    expect(authority.commands[1]['command'], 'enter_retirement');
-    expect(authority.commands[1]['session_id'], 'session-a');
+    expect(authority.commands[1]['command'], 'read_record');
+    expect(authority.commands.last['command'], 'complete_retirement');
   });
 
   test('definitive rejection retires only the exact current credential',
@@ -746,56 +650,11 @@ void main() {
     final authority = _ScriptedAuthority([
       _response(sequence: 5, state: _ready(), outcome: 'record_read'),
       _response(
-        sequence: 6,
-        state: _retiring('tombstone_work'),
-        outcome: 'retirement_entered',
-        outcomeFields: {'effect_epoch': 2},
+        sequence: 5,
+        state: _ready(),
+        outcome: 'credential_confirmation_rejected',
       ),
-      _response(
-        sequence: 6,
-        state: _retiring('tombstone_work'),
-        outcome: 'retirement_tombstone_status',
-        outcomeFields: {'verified': true},
-      ),
-      _response(
-        sequence: 7,
-        state: _retiring('revoke_native_admission'),
-        outcome: 'retirement_advanced',
-        outcomeFields: {'phase': 'revoke_native_admission'},
-      ),
-      ..._phaseResponses(
-        instructionSequence: 8,
-        advanceSequence: 9,
-        phase: 'revoke_native_admission',
-        nextPhase: 'revoke_runtime',
-      ),
-      ..._phaseResponses(
-        instructionSequence: 10,
-        advanceSequence: 11,
-        phase: 'revoke_runtime',
-        nextPhase: 'clear_credential',
-      ),
-      ..._phaseResponses(
-        instructionSequence: 12,
-        advanceSequence: 13,
-        phase: 'clear_credential',
-        nextPhase: 'clear_webview',
-      ),
-      ..._phaseResponses(
-        instructionSequence: 14,
-        advanceSequence: 15,
-        phase: 'clear_webview',
-        nextPhase: 'commit_logged_out',
-      ),
-      _response(
-        sequence: 16,
-        state: {
-          'kind': 'logged_out',
-          'session_id': 'logged-out-b',
-          'mode': 'signed_out',
-        },
-        outcome: 'retirement_logged_out',
-      ),
+      ..._successfulRetirementResponses(),
     ]);
     final tokenStore = AuthTokenStore();
     await tokenStore.writeSessionCredential(
@@ -825,20 +684,10 @@ void main() {
         'retirement' => 'retire-a',
         _ => throw StateError('Unexpected id kind $kind'),
       },
-      suspendNode: () async {},
-      retireRuntimeAuthority: ({
-        required directory,
-        required sessionId,
-        required transitionId,
-      }) async =>
-          true,
+      retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
     await controller.restore();
@@ -868,9 +717,281 @@ void main() {
       'credential_ref': 'credential-a',
       'credential_generation': 1,
       'evidence': 'definitive_rejection',
-      'successor_logged_out_session_id': 'logged-out-b',
-      'transition_id': 'retire-a',
     });
+  });
+
+  for (final entry in <(String, AuthRepository Function())>[
+    ('accepted', _AcceptedAuthRepository.new),
+    ('unavailable', _UnavailableAuthRepository.new),
+  ]) {
+    test('credential confirmation ${entry.$1} preserves Ready authority',
+        () async {
+      final authority = _ScriptedAuthority([
+        _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      ]);
+      final tokenStore = AuthTokenStore();
+      await tokenStore.writeSessionCredential(
+        const SessionCredential(
+          sessionId: 'session-a',
+          transitionId: 'login-a',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+          token: 'token-a',
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+        ),
+      );
+      final bucket = NetworkPrefs.bucketForAddress('address-a');
+      SharedPreferences.setMockInitialValues({
+        'testnet:acct:$bucket:leaderboard:participant_id': 7,
+      });
+      final controller = SessionController(
+        tokenStore: tokenStore,
+        guestFlag: AuthGuestFlag(),
+        repository: entry.$2(),
+        sessionAuthority: authority,
+        clearWebSessionData: () async => true,
+        rotateNativeGeneration: () async => true,
+        clearSessionNotifications: () async => true,
+      );
+      addTearDown(controller.dispose);
+      await controller.restore();
+      final identity = controller.state;
+
+      await controller.onUnauthorized(
+        credential: testCredentialLease(
+          epoch: identity.epoch,
+          token: 'token-a',
+          sessionId: identity.sessionId,
+          credentialRef: identity.credentialRef,
+          credentialGeneration: identity.credentialGeneration,
+        ),
+      );
+
+      expect(controller.state.sameScopeAs(identity), isTrue);
+      expect(
+        authority.commands.map((command) => command['command']),
+        ['read_record'],
+      );
+    });
+  }
+
+  test('duplicate logout commits and signals one successor', () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      ..._successfulRetirementResponses(),
+    ]);
+    final tokenStore = AuthTokenStore();
+    await tokenStore.writeSessionCredential(
+      const SessionCredential(
+        sessionId: 'session-a',
+        transitionId: 'login-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+        token: 'token-a',
+        userNamespace: 'aaaaaaaaaaaaaaaa',
+      ),
+    );
+    final bucket = NetworkPrefs.bucketForAddress('address-a');
+    SharedPreferences.setMockInitialValues({
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+    });
+    var completions = 0;
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        _ => throw StateError('Unexpected id kind $kind'),
+      },
+      retireRuntimeAuthority: _retireRuntime,
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      onSignOutCompleted: () => completions += 1,
+    );
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    final first = controller.logout();
+    final duplicate = controller.logout();
+
+    expect(await first, isTrue);
+    expect(await duplicate, isFalse);
+    expect(controller.state.sessionId, 'logged-out-b');
+    expect(completions, 1);
+    expect(
+      authority.commands
+          .where((command) => command['command'] == 'complete_retirement'),
+      hasLength(1),
+    );
+  });
+
+  test('authenticated guest choice uses ordinary retirement in-process',
+      () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      ..._successfulRetirementResponses(),
+      _response(
+        sequence: 8,
+        state: _loggedOut(sessionId: 'guest-c', mode: 'guest'),
+        outcome: 'logged_out_updated',
+      ),
+    ]);
+    final tokenStore = AuthTokenStore();
+    await tokenStore.writeSessionCredential(
+      const SessionCredential(
+        sessionId: 'session-a',
+        transitionId: 'login-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+        token: 'token-a',
+        userNamespace: 'aaaaaaaaaaaaaaaa',
+      ),
+    );
+    final bucket = NetworkPrefs.bucketForAddress('address-a');
+    SharedPreferences.setMockInitialValues({
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+    });
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        'guest' => 'guest-c',
+        _ => throw StateError('Unexpected id kind $kind'),
+      },
+      retireRuntimeAuthority: _retireRuntime,
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+    );
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    await controller.continueAsGuest();
+
+    expect(controller.state.phase, IdentityPhase.guest);
+    expect(controller.state.sessionId, 'guest-c');
+    expect(
+      authority.commands.map((command) => command['command']),
+      [
+        'read_record',
+        'read_record',
+        'read_record',
+        'complete_retirement',
+        'update_logged_out',
+      ],
+    );
+  });
+
+  test('different participant retires A then activates B in-process', () async {
+    const namespaceB = 'bbbbbbbbbbbbbbbb';
+    final authority = _ScriptedAuthority([
+      _response(sequence: 5, state: _ready(), outcome: 'record_read'),
+      ..._successfulRetirementResponses(),
+      _response(
+        sequence: 8,
+        state: _activating(
+          phase: 'persist_credential',
+          predecessorSessionId: 'logged-out-b',
+          sessionId: 'session-b',
+          transitionId: 'login-b',
+        ),
+        outcome: 'activation_started',
+      ),
+      _response(
+        sequence: 9,
+        state: _activating(
+          phase: 'bind_namespace',
+          predecessorSessionId: 'logged-out-b',
+          sessionId: 'session-b',
+          transitionId: 'login-b',
+          credentialRef: 'credential-b',
+          credentialGeneration: 1,
+        ),
+        outcome: 'activation_advanced',
+      ),
+      _response(
+        sequence: 10,
+        state: _activating(
+          phase: 'reconcile_account',
+          predecessorSessionId: 'logged-out-b',
+          sessionId: 'session-b',
+          transitionId: 'login-b',
+          credentialRef: 'credential-b',
+          credentialGeneration: 1,
+          userNamespace: namespaceB,
+        ),
+        outcome: 'activation_advanced',
+      ),
+    ]);
+    final tokenStore = AuthTokenStore();
+    await tokenStore.writeSessionCredential(
+      const SessionCredential(
+        sessionId: 'session-a',
+        transitionId: 'login-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+        token: 'token-a',
+        userNamespace: 'aaaaaaaaaaaaaaaa',
+      ),
+    );
+    final bucket = NetworkPrefs.bucketForAddress('address-a');
+    SharedPreferences.setMockInitialValues({
+      'testnet:acct:$bucket:leaderboard:participant_id': 7,
+    });
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        'session' => 'session-b',
+        'transition' => 'login-b',
+        'credential' => 'credential-b',
+        _ => throw StateError('Unexpected id kind $kind'),
+      },
+      retireRuntimeAuthority: _retireRuntime,
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+    );
+    addTearDown(controller.dispose);
+    await controller.restore();
+
+    final accepted = await controller.completeLogin(
+      const AuthSession(
+        token: 'token-b',
+        participant: Participant(
+          id: 8,
+          email: '8@example.com',
+          emailConfirmed: true,
+          identityHash: namespaceB,
+        ),
+      ),
+    );
+
+    expect(accepted, isTrue);
+    expect(controller.state.phase, IdentityPhase.reconciling);
+    expect(controller.state.participantId, 8);
+    expect(controller.state.sessionId, 'session-b');
+    expect(
+      (await tokenStore.readSessionCredential(
+        sessionId: 'session-b',
+        credentialRef: 'credential-b',
+        credentialGeneration: 1,
+      ))
+          ?.token,
+      'token-b',
+    );
   });
 
   test('guest choice is committed as a fresh logged-out incarnation', () async {
@@ -888,14 +1009,9 @@ void main() {
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
       newAuthorityId: (kind) => kind == 'guest' ? 'guest-a' : 'unused',
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -939,16 +1055,11 @@ void main() {
       newAuthorityId: (kind) => kind == 'successor'
           ? 'logged-out-b'
           : throw StateError('Unexpected id kind $kind'),
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
       terminatePreservingData: ({required reason}) async {
         terminations.add(reason);
-      },
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
       },
     );
     addTearDown(controller.dispose);
@@ -1011,21 +1122,12 @@ void main() {
         'retirement' => 'retire-a',
         _ => throw StateError('Unexpected id kind $kind'),
       },
-      retireRuntimeAuthority: ({
-        required directory,
-        required sessionId,
-        required transitionId,
-      }) async =>
-          true,
+      retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
       terminatePreservingData: ({required reason}) async {
         terminations.add(reason);
-      },
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
       },
     );
     addTearDown(controller.dispose);
@@ -1033,8 +1135,8 @@ void main() {
     await controller.restore();
     await controller.changeNetwork('internal');
 
-    expect(authority.commands[2]['command'], 'enter_retirement');
-    expect(authority.commands[2]['successor_network'], 'internal');
+    expect(authority.commands[2]['command'], 'read_record');
+    expect(authority.commands.last['command'], 'complete_retirement');
     expect(NetworkPrefs.currentNetwork, 'internal');
     expect(terminations, ['network_change']);
   });
@@ -1126,15 +1228,10 @@ void main() {
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
       newAuthorityId: (kind) => ids[kind]!,
-      suspendNode: () async {},
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
       terminatePreservingData: ({required reason}) async {},
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
     );
     addTearDown(controller.dispose);
 
@@ -1153,36 +1250,3 @@ void main() {
         'logged-out-c');
   });
 }
-
-List<Map<String, dynamic>> _phaseResponses({
-  required int instructionSequence,
-  required int advanceSequence,
-  required String phase,
-  required String nextPhase,
-  String? successorNetwork,
-}) =>
-    [
-      _response(
-        sequence: instructionSequence,
-        state: _retiring(
-          phase,
-          attempts: 1,
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_invoke',
-        outcomeFields: {
-          'phase': phase,
-          'durable_attempt': 1,
-          'timeout_ms': 10000,
-        },
-      ),
-      _response(
-        sequence: advanceSequence,
-        state: _retiring(
-          nextPhase,
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_advanced',
-        outcomeFields: {'phase': nextPhase},
-      ),
-    ];

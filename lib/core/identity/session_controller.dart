@@ -9,14 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_cleanup.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_retirement_repair.dart';
 import 'package:crypto_mobile_app/core/identity/session_scope_reset.dart';
-import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
-import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
-import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
-import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -26,22 +23,9 @@ import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repositor
 
 final _log = LoggingService.instance.withTag('usernode/SessionController');
 
-typedef SessionTerminalReset = Future<void> Function({
-  required String reason,
-  Future<void> Function()? prepareNextLaunch,
-});
-
 typedef SessionDataPreservingTermination = Future<void> Function({
   required String reason,
 });
-
-/// Work was submitted after this controller entered a terminal boundary.
-class SessionControllerRetiredException implements Exception {
-  const SessionControllerRetiredException();
-
-  @override
-  String toString() => 'SessionControllerRetiredException()';
-}
 
 enum _SessionValidation { valid, invalid, ownerMismatch, unavailable }
 
@@ -116,14 +100,11 @@ class SessionController extends StateNotifier<Identity> {
     required AuthTokenStore tokenStore,
     required AuthGuestFlag guestFlag,
     required AuthRepository repository,
-    Future<void> Function()? suspendNode,
     Future<bool> Function()? clearWebSessionData,
     Future<bool> Function()? rotateNativeGeneration,
     Future<bool> Function()? clearSessionNotifications,
     Future<void> Function()? resetSessionScopedProcessState,
     void Function()? onSignOutCompleted,
-    SignOutFence? signOutFence,
-    SessionTerminalReset? terminalReset,
     SessionDataPreservingTermination? terminatePreservingData,
     required SessionAuthorityGateway sessionAuthority,
     String Function(String kind)? newAuthorityId,
@@ -131,7 +112,6 @@ class SessionController extends StateNotifier<Identity> {
   })  : _tokenStore = tokenStore,
         _guestFlag = guestFlag,
         _repository = repository,
-        _suspendNode = suspendNode ?? _defaultSuspendNode,
         _clearWebSessionData =
             clearWebSessionData ?? _defaultClearWebSessionData,
         _rotateNativeGeneration =
@@ -140,8 +120,6 @@ class SessionController extends StateNotifier<Identity> {
             clearSessionNotifications ?? _defaultClearSessionNotifications,
         _resetSessionScopedProcessState = resetSessionScopedProcessState,
         _onSignOutCompleted = onSignOutCompleted,
-        _signOutFence = signOutFence ?? DurableSignOutFence(),
-        _terminalReset = terminalReset ?? _defaultTerminalReset,
         _terminatePreservingData =
             terminatePreservingData ?? _defaultTerminatePreservingData,
         _sessionAuthority = sessionAuthority,
@@ -161,11 +139,6 @@ class SessionController extends StateNotifier<Identity> {
   final AuthTokenStore _tokenStore;
   final AuthGuestFlag _guestFlag;
   final AuthRepository _repository;
-
-  /// Stops a running node when a transition makes account ownership unknown.
-  /// Injectable for tests; the default touches the Rust backend (a no-op
-  /// when the node was never started).
-  final Future<void> Function() _suspendNode;
 
   /// Clears the WKWebView/WebView cookie + storage jar backing the platform
   /// shell. A sign-out that left it in place would reload straight back into
@@ -192,13 +165,6 @@ class SessionController extends StateNotifier<Identity> {
   /// [signOutCompletionProvider].
   final void Function()? _onSignOutCompleted;
 
-  /// The durable journal that makes bearer retirement and namespace
-  /// retirement crash-atomic as a pair. Injectable for tests; the default is
-  /// file-backed (see [DurableSignOutFence] for why a preference is not
-  /// good enough).
-  final SignOutFence _signOutFence;
-
-  final SessionTerminalReset _terminalReset;
   final SessionDataPreservingTermination _terminatePreservingData;
   final SessionAuthorityGateway _sessionAuthority;
   final String Function(String kind) _newAuthorityId;
@@ -211,23 +177,6 @@ class SessionController extends StateNotifier<Identity> {
     return '$kind-${base64Url.encode(bytes).replaceAll('=', '')}';
   }
 
-  static Future<void> _defaultSuspendNode() async {
-    // Not `RustBackendService.stopNode()`: that leaves the coordinator's
-    // intent/account facts, Android monitoring, the foreground service and
-    // wakelock, watchdog recovery and every scheduled alarm armed, so a
-    // headless recovery event could still restart production for the identity
-    // this boundary is retiring.
-    await NodeLifecycleCoordinator.instance
-        .standDown(reason: 'identity_boundary');
-    await EpochSlotSchedulerService.instance.closeForSignOut();
-    // The sleep service is deliberately outside the coordinator (it owns a
-    // richer state machine), and its resume flags were captured while the
-    // retired identity's node was running. Awaited: it drains its own queued
-    // transitions, which would otherwise re-arm the wakelock and monitoring
-    // after this teardown.
-    await AppSleepService.instance.closeForSignOut();
-  }
-
   static Future<bool> _defaultClearWebSessionData() =>
       PlatformAlarmService.instance.clearWebSessionData();
 
@@ -236,15 +185,6 @@ class SessionController extends StateNotifier<Identity> {
 
   static Future<bool> _defaultClearSessionNotifications() =>
       PlatformAlarmService.instance.clearSessionNotifications();
-
-  static Future<void> _defaultTerminalReset({
-    required String reason,
-    Future<void> Function()? prepareNextLaunch,
-  }) =>
-      AppResetService.instance.resetAndTerminate(
-        reason: reason,
-        prepareNextLaunch: prepareNextLaunch,
-      );
 
   static Future<void> _defaultTerminatePreservingData({
     required String reason,
@@ -255,7 +195,6 @@ class SessionController extends StateNotifier<Identity> {
   Future<void> _queueTail = Future.value();
   final Queue<Future<void> Function()> _pendingTransitions = Queue();
   bool _transitionActive = false;
-  bool _retired = false;
 
   /// Completes when every transition queued so far has finished its
   /// persistence writes. Gate-closing transitions publish the new identity
@@ -310,19 +249,19 @@ class SessionController extends StateNotifier<Identity> {
   }) {
     Future<T> retiredResult() {
       if (whenRetired != null) return Future<T>.value(whenRetired());
-      return Future<T>.error(const SessionControllerRetiredException());
+      return Future<T>.error(StateError('Session controller is disposed'));
     }
 
-    if (_retired || !mounted) return retiredResult();
+    if (!mounted) return retiredResult();
     final result = Completer<T>();
 
     Future<void> run() async {
       try {
-        if (_retired || !mounted) {
+        if (!mounted) {
           if (whenRetired != null) {
             result.complete(whenRetired());
           } else {
-            result.completeError(const SessionControllerRetiredException());
+            result.completeError(StateError('Session controller is disposed'));
           }
         } else {
           result.complete(await body());
@@ -458,26 +397,22 @@ class SessionController extends StateNotifier<Identity> {
         phase: IdentityPhase.transitioning,
         sessionId: _string(authorityState['session_id'], 'session_id'),
       ));
-      if (!await _signOutFence.raise()) {
-        await _authorityTerminalReset('signout_fence_unconfirmable');
-        return;
-      }
       final completed = await _repairAuthorityRetirement(reply);
-      if (completed == null) {
-        await _authorityTerminalReset('retirement_repair_failed');
-        return;
-      }
       final loggedOut = _replyState(completed, expectedKind: 'logged_out');
+      await _reclaimRetiredSession(
+        _string(authorityState['session_id'], 'retiring.session_id'),
+      );
       await _publishAuthorityLoggedOut(loggedOut, signalCompletion: false);
       return;
     }
-    if (kind == 'terminal_reset_required') {
-      await _authorityTerminalReset(
-        authorityState['reason'] is String
-            ? authorityState['reason'] as String
-            : 'session_authority_terminal',
+    if (kind == 'authority_recovery_required') {
+      _publish(Identity(
+        epoch: state.epoch + 1,
+        phase: IdentityPhase.transitioning,
+      ));
+      throw StateError(
+        'Session authority requires recovery: ${authorityState['reason']}',
       );
-      return;
     }
     throw StateError('Session authority cannot restore state: $kind');
   }
@@ -504,13 +439,14 @@ class SessionController extends StateNotifier<Identity> {
         ));
         return;
       }
-      if (kind == 'terminal_reset_required') {
-        await _authorityTerminalReset(
-          authorityState['reason'] is String
-              ? authorityState['reason'] as String
-              : 'activation_repair_terminal',
+      if (kind == 'authority_recovery_required') {
+        _publish(Identity(
+          epoch: state.epoch + 1,
+          phase: IdentityPhase.transitioning,
+        ));
+        throw StateError(
+          'Session authority requires recovery: ${authorityState['reason']}',
         );
-        return;
       }
       if (kind != 'activating') {
         throw StateError('Activation repair found authority state $kind');
@@ -752,12 +688,21 @@ class SessionController extends StateNotifier<Identity> {
       return;
     }
     if (credential.userNamespace != userNamespace) {
+      final unavailable = Identity(
+        epoch: state.epoch,
+        phase: IdentityPhase.ready,
+        accountId: accountId,
+        address: address,
+        sessionId: sessionId,
+        credentialRef: credentialRef,
+        credentialGeneration: credentialGeneration,
+      );
       _publish(Identity(
         epoch: state.epoch + 1,
         phase: IdentityPhase.transitioning,
         sessionId: sessionId,
       ));
-      await _authorityTerminalReset('ready_credential_owner_mismatch');
+      await _logoutWithAuthority(unavailable, signalCompletion: false);
       return;
     }
     if (!await saveIdentityNamespace(userNamespace)) {
@@ -784,8 +729,8 @@ class SessionController extends StateNotifier<Identity> {
   /// Accepts an authoritative authenticated session.
   ///
   /// Initial login and a renewed credential for the current participant are
-  /// applied in place. A direct different-participant login is discarded and
-  /// forces the current authenticated incarnation through its terminal reset.
+  /// applied in place. A different participant retires the current session
+  /// and activates from its fresh logged-out successor in the same process.
   Future<bool> completeLogin(
     AuthSession session, {
     Identity? expectedIdentity,
@@ -856,11 +801,15 @@ class SessionController extends StateNotifier<Identity> {
     }
 
     if (current.isAuthenticated) {
-      _retired = true;
-      unawaited(_logoutIdentityBestEffort(current));
-      unawaited(_logoutBestEffort(session.token));
-      await _terminalReset(reason: 'different_participant_login');
-      return false;
+      _publish(Identity(
+        epoch: current.epoch + 1,
+        phase: IdentityPhase.transitioning,
+        sessionId: current.sessionId,
+      ));
+      if (!await _logoutWithAuthority(current, signalCompletion: false)) {
+        return false;
+      }
+      return _completeAuthorityLogin(session, state);
     }
 
     final epoch = current.epoch + 1;
@@ -907,7 +856,6 @@ class SessionController extends StateNotifier<Identity> {
     await _writeReconcileMarker();
     await stageParticipantIdInGuestBucket(participantId);
     await _guestFlag.clear();
-    await _suspendNode();
     _publish(Identity(
       epoch: epoch,
       phase: IdentityPhase.reconciling,
@@ -931,36 +879,34 @@ class SessionController extends StateNotifier<Identity> {
       });
 
   Future<void> continueAsGuest() => _transition(() async {
-        if (state.isAuthenticated) {
-          final current = state;
-          final epoch = state.epoch + 1;
+        final current = state;
+        final wasAuthenticated = current.isAuthenticated;
+        if (wasAuthenticated) {
           _publish(Identity(
-            epoch: epoch,
+            epoch: current.epoch + 1,
             phase: IdentityPhase.transitioning,
+            sessionId: current.sessionId,
           ));
-          _retired = true;
-          unawaited(_logoutIdentityBestEffort(current));
-          await _terminalReset(reason: 'authenticated_to_guest');
-          return;
+          if (!await _logoutWithAuthority(
+            current,
+            signalCompletion: false,
+          )) {
+            return;
+          }
+        } else {
+          // Close signing/node gates before changing the logged-out
+          // incarnation. Guest node admission remains disabled.
+          _publish(Identity(
+            epoch: current.epoch + 1,
+            phase: IdentityPhase.transitioning,
+            sessionId: current.sessionId,
+          ));
         }
-        final epoch = state.epoch + 1;
-        // Close signing/node gates before waiting for any leftover producer to
-        // stop. This remains safe if explicit guest-node admission is added in
-        // the future; today guest starts are refused at the backend boundary.
-        _publish(Identity(
-          epoch: epoch,
-          phase: IdentityPhase.transitioning,
-        ));
-        // Persist the guest choice before the fallible shutdown. If shutdown
-        // fails, this isolate stays fail-closed in `transitioning`, while a
-        // restart still restores guest instead of the previous credential.
+
         await _tokenStore.clear();
         await _guestFlag.setGuest();
-        // A leftover staged id (interrupted earlier login) must not resolve
-        // for an explicit guest session.
         await clearGuestParticipantId();
         await _clearReconcileMarker();
-        await _suspendNode();
         final guestSessionId = _newAuthorityId('guest');
         final reply = await _authorityCommand({
           'command': 'update_logged_out',
@@ -975,10 +921,11 @@ class SessionController extends StateNotifier<Identity> {
           throw StateError('Guest session authority was not committed');
         }
         _publish(Identity(
-          epoch: epoch,
+          epoch: state.epoch,
           phase: IdentityPhase.guest,
           sessionId: guestSessionId,
         ));
+        if (wasAuthenticated) _onSignOutCompleted?.call();
       });
 
   /// Commits the selected network in the installation-wide journal before
@@ -996,13 +943,11 @@ class SessionController extends StateNotifier<Identity> {
           final authorityState = _replyStateFromRecord(reply);
           final kind = authorityState['kind'];
 
-          if (kind == 'terminal_reset_required') {
-            await _authorityTerminalReset(
-              authorityState['reason'] is String
-                  ? authorityState['reason'] as String
-                  : 'session_authority_terminal',
+          if (kind == 'authority_recovery_required') {
+            throw StateError(
+              'Session authority requires recovery: '
+              '${authorityState['reason']}',
             );
-            return;
           }
 
           if (kind == 'activating') {
@@ -1014,20 +959,14 @@ class SessionController extends StateNotifier<Identity> {
               rollbackLoggedOutSessionId: rollbackId,
             );
             await _restoreActivatingAuthority(cancelled);
-            if (_retired) return;
             continue;
           }
 
           if (kind == 'retiring') {
-            if (!await _signOutFence.raise()) {
-              await _authorityTerminalReset('signout_fence_unconfirmable');
-              return;
-            }
             final completed = await _repairAuthorityRetirement(reply);
-            if (completed == null) {
-              await _authorityTerminalReset('retirement_repair_failed');
-              return;
-            }
+            await _reclaimRetiredSession(
+              _string(authorityState['session_id'], 'retiring.session_id'),
+            );
             await _publishAuthorityLoggedOut(
               _replyState(completed, expectedKind: 'logged_out'),
               signalCompletion: false,
@@ -1038,8 +977,7 @@ class SessionController extends StateNotifier<Identity> {
           if (kind == 'ready') {
             if (!current.isAuthenticated ||
                 current.sessionId != authorityState['session_id']) {
-              await _authorityTerminalReset('network_change_owner_mismatch');
-              return;
+              throw StateError('Network change lost its exact session owner');
             }
             if (!await _logoutWithAuthority(
               current,
@@ -1048,7 +986,6 @@ class SessionController extends StateNotifier<Identity> {
             )) {
               return;
             }
-            _retired = true;
             await _terminatePreservingData(reason: 'network_change');
             return;
           }
@@ -1073,8 +1010,7 @@ class SessionController extends StateNotifier<Identity> {
             if (loggedOut['session_id'] != successorSessionId ||
                 loggedOut['mode'] != mode ||
                 _replyNetwork(updated) != network) {
-              await _authorityTerminalReset('network_change_commit_mismatch');
-              return;
+              throw StateError('Network change committed a different owner');
             }
             await NetworkPrefs.adoptAuthorityNetwork(network);
             _publish(Identity(
@@ -1084,7 +1020,6 @@ class SessionController extends StateNotifier<Identity> {
                   : IdentityPhase.unauthenticated,
               sessionId: successorSessionId,
             ));
-            _retired = true;
             await _terminatePreservingData(reason: 'network_change');
             return;
           }
@@ -1137,43 +1072,26 @@ class SessionController extends StateNotifier<Identity> {
 
     final successorSessionId = _newAuthorityId('successor');
     final transitionId = _newAuthorityId('retirement');
-    final entry = await _authorityCommand({
-      'command': 'enter_retirement',
-      'expected': _authorityRevision,
-      'session_id': sessionId,
-      'successor_logged_out_session_id': successorSessionId,
-      'successor_network': successorNetwork,
-      'transition_id': transitionId,
-    });
-    final enteredState = _map(
-      _map(entry['record'], 'record')['state'],
-      'record.state',
+    final initial = await _authorityCommand({'command': 'read_record'});
+    final ready = _replyState(initial, expectedKind: 'ready');
+    if (ready['session_id'] != sessionId) {
+      throw StateError('Retirement lost its exact Ready owner');
+    }
+    final completed = await _repairAuthorityRetirement(
+      initial,
+      successorLoggedOutSessionId: successorSessionId,
+      successorNetwork: successorNetwork,
+      transitionId: transitionId,
     );
-    if (enteredState['kind'] != 'retiring') {
-      await _authorityTerminalReset('retirement_entry_failed');
-      return false;
-    }
-
-    // Compatibility-only crash marker. The Rust Ready -> Retiring CAS is the
-    // authority boundary; this fence remains until the old path is retired.
-    if (!await _signOutFence.raise()) {
-      await _authorityTerminalReset('signout_fence_unconfirmable');
-      return false;
-    }
-    final completed = await _repairAuthorityRetirement(entry);
-    if (completed == null) {
-      await _authorityTerminalReset('retirement_repair_failed');
-      return false;
-    }
     final loggedOut = _replyState(completed, expectedKind: 'logged_out');
     if (successorNetwork != null) {
       final committedNetwork = _replyNetwork(completed);
       if (committedNetwork != successorNetwork) {
-        await _authorityTerminalReset('network_change_commit_mismatch');
-        return false;
+        throw StateError('Network change committed a different network');
       }
       await NetworkPrefs.adoptAuthorityNetwork(committedNetwork);
     }
+    await _reclaimRetiredSession(sessionId);
     await _publishAuthorityLoggedOut(
       loggedOut,
       signalCompletion: signalCompletion,
@@ -1181,21 +1099,49 @@ class SessionController extends StateNotifier<Identity> {
     return true;
   }
 
-  Future<Map<String, dynamic>?> _repairAuthorityRetirement(
-    Map<String, dynamic> initialResponse,
-  ) async {
+  Future<Map<String, dynamic>> _repairAuthorityRetirement(
+    Map<String, dynamic> initialResponse, {
+    String? successorLoggedOutSessionId,
+    String? successorNetwork,
+    String? transitionId,
+  }) async {
     final response = await RetirementRepairScope(
       authority: _sessionAuthority,
-      tokenStore: _tokenStore,
-      guestFlag: _guestFlag,
-      revokeNativeAdmission: _rotateNativeGeneration,
       clearWebSessionData: _clearWebSessionData,
       retireRuntimeAuthority: _retireRuntimeAuthority,
-    ).repair(initialResponse);
-    if (response == null) return null;
+    ).repair(
+      initialResponse,
+      successorLoggedOutSessionId: successorLoggedOutSessionId,
+      successorNetwork: successorNetwork,
+      transitionId: transitionId,
+    );
     _adoptAuthorityReply(response);
     _replyState(response, expectedKind: 'logged_out');
     return response;
+  }
+
+  Future<void> _reclaimRetiredSession(String sessionId) async {
+    try {
+      if (!await _tokenStore.clearSessionCredentials(sessionId)) {
+        _log.warn('Retired credential cleanup was not confirmed');
+      }
+    } catch (error) {
+      _log.warn('Could not reclaim the retired credential: $error');
+    }
+    try {
+      if (!await clearCompatibilitySessionAuthority(_guestFlag)) {
+        _log.warn('Compatibility session cleanup was not confirmed');
+      }
+    } catch (error) {
+      _log.warn('Could not reclaim compatibility session state: $error');
+    }
+    try {
+      if (!await _rotateNativeGeneration()) {
+        _log.warn('Native session reclamation reported failure');
+      }
+    } catch (error) {
+      _log.warn('Could not reclaim native session state: $error');
+    }
   }
 
   Future<void> _publishAuthorityLoggedOut(
@@ -1214,13 +1160,6 @@ class SessionController extends StateNotifier<Identity> {
     } catch (error) {
       _log.warn('Could not clear session notifications: $error');
     }
-    try {
-      if (!await _signOutFence.lower()) {
-        _log.warn('Could not lower the compatibility sign-out fence');
-      }
-    } catch (error) {
-      _log.warn('Could not lower the compatibility sign-out fence: $error');
-    }
     _publish(Identity(
       epoch: state.epoch,
       phase: loggedOut['mode'] == 'guest'
@@ -1229,19 +1168,6 @@ class SessionController extends StateNotifier<Identity> {
       sessionId: _string(loggedOut['session_id'], 'logged_out.session_id'),
     ));
     if (signalCompletion) _onSignOutCompleted?.call();
-  }
-
-  Future<void> _authorityTerminalReset(String reason) async {
-    _retired = true;
-    await _terminalReset(reason: reason);
-  }
-
-  Future<void> _logoutIdentityBestEffort(Identity identity) async {
-    try {
-      await _logoutBestEffort(await _readIdentityToken(identity));
-    } catch (e) {
-      _log.warn('Could not read token for best-effort server logout: $e');
-    }
   }
 
   Future<void> _logoutBestEffort(String? token) async {
@@ -1298,12 +1224,11 @@ class SessionController extends StateNotifier<Identity> {
   Future<void> onUnauthorized({
     required AuthCredentialLease credential,
   }) async {
-    if (_retired || !mounted || !credential.matchesIdentity(state)) return;
+    if (!mounted || !credential.matchesIdentity(state)) return;
     final identity = state;
 
     final currentToken = await _readIdentityToken(identity);
-    if (_retired ||
-        !mounted ||
+    if (!mounted ||
         !state.sameScopeAs(identity) ||
         currentToken != credential.token) {
       _log.warn('Ignoring 401 for a credential that is no longer current');
@@ -1349,10 +1274,6 @@ class SessionController extends StateNotifier<Identity> {
         if (credentialGeneration <= 0) {
           throw StateError('Credential lease has no generation');
         }
-        _publish(Identity(
-          epoch: identity.epoch + 1,
-          phase: IdentityPhase.transitioning,
-        ));
         final reply = await _authorityCommand({
           'command': 'confirm_credential',
           'expected': _authorityRevision,
@@ -1360,39 +1281,31 @@ class SessionController extends StateNotifier<Identity> {
           'credential_ref': credentialRef,
           'credential_generation': credentialGeneration,
           'evidence': evidence,
-          'successor_logged_out_session_id': _newAuthorityId('successor'),
-          'transition_id': _newAuthorityId('retirement'),
         });
-        final record = _map(reply['record'], 'record');
-        final authorityState = _map(record['state'], 'record.state');
-        if (authorityState['kind'] == 'ready') {
-          await _restoreReadyAuthority(authorityState);
+        final outcome = _map(reply['outcome'], 'outcome')['kind'];
+        if (outcome == 'credential_confirmation_preserved' ||
+            outcome == 'credential_confirmation_stale') {
           return false;
         }
-        if (authorityState['kind'] != 'retiring') {
-          await _authorityTerminalReset('credential_retirement_failed');
+        if (outcome != 'credential_confirmation_rejected') {
+          throw StateError('Unknown credential confirmation outcome: $outcome');
+        }
+        final authorityState = _replyState(reply, expectedKind: 'ready');
+        if (authorityState['session_id'] != sessionId) {
           return false;
         }
-        if (!await _signOutFence.raise()) {
-          await _authorityTerminalReset('signout_fence_unconfirmable');
-          return false;
-        }
-        final completed = await _repairAuthorityRetirement(reply);
-        if (completed == null) {
-          await _authorityTerminalReset('retirement_repair_failed');
-          return false;
-        }
-        await _publishAuthorityLoggedOut(
-          _replyState(completed, expectedKind: 'logged_out'),
-          signalCompletion: true,
-        );
-        return true;
+        _publish(Identity(
+          epoch: identity.epoch + 1,
+          phase: IdentityPhase.transitioning,
+          sessionId: sessionId,
+        ));
+        return _logoutWithAuthority(identity);
       }, whenRetired: () => false);
 
   /// Repairs an authenticated identity whose credential disappeared before a
   /// request could be sent. A token written since the caller's read wins.
   Future<void> onCredentialMissing({required int epoch}) async {
-    if (_retired || !mounted) return;
+    if (!mounted) return;
     final identity = state;
     if (identity.epoch != epoch || !identity.isAuthenticated) return;
     await logout(expectedIdentity: identity);
@@ -1509,9 +1422,6 @@ class SessionController extends StateNotifier<Identity> {
           phase: IdentityPhase.reconciling,
         ));
         await _writeReconcileMarker();
-        // The node is producing/signing under the previous season's account
-        // binding; suspend it until the reconcile rebinds the runtime.
-        await _suspendNode();
       }, whenRetired: () {});
 }
 

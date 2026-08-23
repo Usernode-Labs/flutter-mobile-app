@@ -1077,9 +1077,15 @@ class PlatformAlarmService {
   Future<bool> cancelAlarmWatchdog() async {
     if (!_isAndroid) return false;
     if (!_initialized) return false;
+    final incarnation = _applicationIncarnation;
+    if (incarnation == null) return false;
 
     try {
-      return await _channel.invokeMethod<bool>('cancelAlarmWatchdog') ?? false;
+      return await _channel.invokeMethod<bool>(
+            'cancelAlarmWatchdog',
+            {applicationIncarnationKey: incarnation},
+          ) ??
+          false;
     } on PlatformException catch (e) {
       _log.warn('Error cancelling alarm watchdog: ${e.message}');
       return false;
@@ -1392,10 +1398,14 @@ class PlatformAlarmService {
       _log.warn('Cannot cancel alarm: service not initialized');
       return false;
     }
+    final incarnation = _applicationIncarnation;
+    if (incarnation == null) return false;
 
     try {
-      final success = await _channel
-              .invokeMethod<bool>('cancelAlarm', {'alarmId': alarmId}) ??
+      final success = await _channel.invokeMethod<bool>('cancelAlarm', {
+            'alarmId': alarmId,
+            applicationIncarnationKey: incarnation,
+          }) ??
           false;
 
       if (success) {
@@ -1417,10 +1427,15 @@ class PlatformAlarmService {
       _log.warn('Cannot cancel alarms: service not initialized');
       return false;
     }
+    final incarnation = _applicationIncarnation;
+    if (incarnation == null) return false;
 
     try {
-      final success =
-          await _channel.invokeMethod<bool>('cancelAllAlarms') ?? false;
+      final success = await _channel.invokeMethod<bool>(
+            'cancelAllAlarms',
+            {applicationIncarnationKey: incarnation},
+          ) ??
+          false;
 
       if (success) {
         _log.info('All alarms cancelled');
@@ -1493,11 +1508,16 @@ class PlatformAlarmService {
       _log.debug('Foreground service is Android-only');
       return false;
     }
+    final incarnation = _applicationIncarnation;
+    if (incarnation == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>(
             'stopForegroundService',
-            {'destroyBackgroundEngine': destroyBackgroundEngine},
+            {
+              'destroyBackgroundEngine': destroyBackgroundEngine,
+              applicationIncarnationKey: incarnation,
+            },
           ) ??
           false;
 
@@ -1555,10 +1575,14 @@ class PlatformAlarmService {
       _log.debug('Persistent foreground service is Android-only');
       return false;
     }
+    final incarnation = _applicationIncarnation;
+    if (incarnation == null) return false;
 
     try {
-      final success = await _channel
-              .invokeMethod<bool>('stopPersistentForegroundService') ??
+      final success = await _channel.invokeMethod<bool>(
+            'stopPersistentForegroundService',
+            {applicationIncarnationKey: incarnation},
+          ) ??
           false;
 
       if (success) {
@@ -1693,8 +1717,13 @@ class PlatformAlarmService {
   /// Release the native Android PARTIAL_WAKE_LOCK.
   Future<bool> releaseWakelock() async {
     if (!_isAndroid) return false;
+    final incarnation = _applicationIncarnation;
+    if (incarnation == null) return false;
     try {
-      await _channel.invokeMethod('releaseWakelock');
+      await _channel.invokeMethod(
+        'releaseWakelock',
+        {applicationIncarnationKey: incarnation},
+      );
       _recordRuntimeContextChanged('keep_alive_changed');
       _recordPowerNetworkServiceContextChanged('foreground_service_changed');
       return true;

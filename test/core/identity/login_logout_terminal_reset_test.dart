@@ -242,11 +242,6 @@ void main() {
       nativeCalls.map((call) => call.method),
       [
         'invalidateApplicationIncarnation',
-        'stopPersistentForegroundService',
-        'stopForegroundService',
-        'releaseWakelock',
-        'cancelAllAlarms',
-        'cancelAlarmWatchdog',
         'clearWebSessionData',
         'clearNativeResetState',
         'enterTerminalReset',

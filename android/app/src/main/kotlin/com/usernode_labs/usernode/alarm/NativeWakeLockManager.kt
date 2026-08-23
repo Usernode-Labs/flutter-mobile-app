@@ -19,37 +19,59 @@ object NativeWakeLockManager {
     @Volatile
     private var capturedApplicationIncarnation: String? = null
 
-    @Synchronized
-    fun acquire(context: Context, applicationIncarnation: String): Boolean {
-        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
-            Log.w(TAG, "Refusing wakelock for stale application incarnation")
-            return false
-        }
-        val existing = wakeLock
-        if (existing?.isHeld == true &&
-            capturedApplicationIncarnation == applicationIncarnation
+    fun acquire(context: Context, applicationIncarnation: String): Boolean =
+        NativeSchedulingAuthority.process.runIfCurrent(
+            operation = "wakelock.acquire",
+            captured = applicationIncarnation,
+            current = { ApplicationIncarnationStore(context).current() },
+            onRejected = {
+                Log.w(TAG, "Refusing wakelock for stale application incarnation")
+            },
         ) {
-            return true
-        }
-        if (existing?.isHeld == true) release()
-
-        val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as PowerManager
-        capturedApplicationIncarnation = applicationIncarnation
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG).apply {
-            setReferenceCounted(false)
-            try {
-                acquire()
-                Log.i(TAG, "PARTIAL_WAKE_LOCK acquired")
-                notifyFlutterWakelockState(isHeld = true)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to acquire PARTIAL_WAKE_LOCK", e)
+            val existing = wakeLock
+            if (existing?.isHeld == true &&
+                capturedApplicationIncarnation == applicationIncarnation
+            ) {
+                return@runIfCurrent true
             }
+            if (existing?.isHeld == true) releaseLocked()
+
+            val pm = context.applicationContext
+                .getSystemService(Context.POWER_SERVICE) as PowerManager
+            capturedApplicationIncarnation = applicationIncarnation
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG).apply {
+                setReferenceCounted(false)
+                try {
+                    acquire()
+                    Log.i(TAG, "PARTIAL_WAKE_LOCK acquired")
+                    notifyFlutterWakelockState(isHeld = true)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to acquire PARTIAL_WAKE_LOCK", e)
+                }
+            }
+            wakeLock?.isHeld == true
         }
-        return wakeLock?.isHeld == true
+
+    fun release(context: Context, applicationIncarnation: String): Boolean =
+        NativeSchedulingAuthority.process.runIfCurrent(
+            operation = "wakelock.release",
+            captured = applicationIncarnation,
+            current = { ApplicationIncarnationStore(context).current() },
+            onRejected = {
+                Log.w(TAG, "Refusing wakelock release for stale application incarnation")
+            },
+        ) {
+            releaseLocked()
+            true
+        }
+
+    fun releaseForReset() {
+        NativeSchedulingAuthority.process.serialized("wakelock.release_reset") {
+            releaseLocked()
+        }
     }
 
-    @Synchronized
-    fun release() {
+    private fun releaseLocked() {
         val wl = wakeLock
         if (wl == null) return
         try {
@@ -66,8 +88,10 @@ object NativeWakeLockManager {
         }
     }
 
-    @Synchronized
-    fun isHeld(): Boolean = wakeLock?.isHeld == true
+    fun isHeld(): Boolean =
+        NativeSchedulingAuthority.process.serialized("wakelock.is_held") {
+            wakeLock?.isHeld == true
+        }
 
     private fun notifyFlutterWakelockState(isHeld: Boolean) {
         try {

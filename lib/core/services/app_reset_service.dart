@@ -241,26 +241,6 @@ class AppResetService {
       'invalidate application incarnation',
       _platformAlarms.invalidateApplicationIncarnation,
     );
-    await _bestEffort(
-      'stop persistent foreground service',
-      _platformAlarms.stopPersistentForegroundService,
-    );
-    await _bestEffort(
-      'stop foreground service',
-      _platformAlarms.stopForegroundService,
-    );
-    await _bestEffort(
-      'release native wakelock',
-      _platformAlarms.releaseWakelock,
-    );
-    await _bestEffort(
-      'cancel alarms',
-      _platformAlarms.cancelAllAlarms,
-    );
-    await _bestEffort(
-      'cancel alarm watchdog',
-      _platformAlarms.cancelAlarmWatchdog,
-    );
     mandatoryCleanupSucceeded = await _requiredCleanup(
           'clear WebView session data',
           _platformAlarms.clearWebSessionData,

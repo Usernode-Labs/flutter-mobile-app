@@ -9,7 +9,6 @@ class ApplicationIncarnationStore(context: Context) {
         const val EXTRA_APPLICATION_INCARNATION = "applicationIncarnation"
         private const val PREFS_NAME = "application_incarnation"
         private const val TOKEN_KEY = "token"
-        private val lock = Any()
 
         @Volatile
         private var terminalResetRequested = false
@@ -18,25 +17,28 @@ class ApplicationIncarnationStore(context: Context) {
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun ensure(): String? = synchronized(lock) {
-        if (terminalResetRequested) return@synchronized null
-        val existing = storedCurrent()
-        if (existing != null) return@synchronized existing
-        UUID.randomUUID().toString().also { created ->
-            check(prefs.edit().putString(TOKEN_KEY, created).commit()) {
-                "Could not persist application incarnation"
+    fun ensure(): String? =
+        NativeSchedulingAuthority.process.serialized("incarnation.ensure") {
+            if (terminalResetRequested) return@serialized null
+            val existing = storedCurrent()
+            if (existing != null) return@serialized existing
+            UUID.randomUUID().toString().also { created ->
+                check(prefs.edit().putString(TOKEN_KEY, created).commit()) {
+                    "Could not persist application incarnation"
+                }
             }
         }
-    }
 
-    fun current(): String? = synchronized(lock) {
-        if (terminalResetRequested) null else storedCurrent()
-    }
+    fun current(): String? =
+        NativeSchedulingAuthority.process.serialized("incarnation.current") {
+            if (terminalResetRequested) null else storedCurrent()
+        }
 
-    fun matches(captured: String?): Boolean {
-        val current = current()
-        return captured != null && current != null && captured == current
-    }
+    fun matches(captured: String?): Boolean =
+        NativeSchedulingAuthority.process.serialized("incarnation.matches") {
+            val current = if (terminalResetRequested) null else storedCurrent()
+            captured != null && current != null && captured == current
+        }
 
     /**
      * Retires the current token and issues a fresh one.
@@ -47,23 +49,26 @@ class ApplicationIncarnationStore(context: Context) {
      * under the returned token. Returns null once a terminal reset has latched
      * the store shut.
      */
-    fun rotate(): String? = synchronized(lock) {
-        if (terminalResetRequested) return@synchronized null
-        UUID.randomUUID().toString().also { created ->
-            check(prefs.edit().putString(TOKEN_KEY, created).commit()) {
-                "Could not persist the rotated application incarnation"
+    fun rotate(): String? =
+        NativeSchedulingAuthority.process.serialized("incarnation.rotate") {
+            if (terminalResetRequested) return@serialized null
+            UUID.randomUUID().toString().also { created ->
+                check(prefs.edit().putString(TOKEN_KEY, created).commit()) {
+                    "Could not persist the rotated application incarnation"
+                }
             }
         }
-    }
 
-    fun invalidate(): Boolean = synchronized(lock) {
-        terminalResetRequested = true
-        prefs.edit().remove(TOKEN_KEY).commit()
-    }
+    fun invalidate(): Boolean =
+        NativeSchedulingAuthority.process.serialized("incarnation.invalidate") {
+            terminalResetRequested = true
+            prefs.edit().remove(TOKEN_KEY).commit()
+        }
 
-    fun clear(): Boolean = synchronized(lock) {
-        prefs.edit().clear().commit()
-    }
+    fun clear(): Boolean =
+        NativeSchedulingAuthority.process.serialized("incarnation.clear") {
+            prefs.edit().clear().commit()
+        }
 
     private fun storedCurrent(): String? =
         prefs.getString(TOKEN_KEY, null)?.takeIf { it.isNotBlank() }

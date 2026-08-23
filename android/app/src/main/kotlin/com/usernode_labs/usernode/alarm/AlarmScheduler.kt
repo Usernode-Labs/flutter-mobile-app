@@ -34,13 +34,27 @@ class AlarmScheduler(
         globalSlot: Int,
         data: Map<String, Any>
     ): Boolean {
-        try {
-            val applicationIncarnation =
-                data[ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION] as? String
-            if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+        val applicationIncarnation =
+            data[ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION] as? String
+        return NativeSchedulingAuthority.process.runIfCurrent(
+            operation = "alarm.schedule",
+            captured = applicationIncarnation,
+            current = { ApplicationIncarnationStore(context).current() },
+            onRejected = {
                 Log.w(TAG, "Refusing alarm for stale application incarnation")
-                return false
-            }
+            },
+        ) {
+            scheduleExactAlarmLocked(alarmId, delayMs, globalSlot, data)
+        }
+    }
+
+    private fun scheduleExactAlarmLocked(
+        alarmId: String,
+        delayMs: Long,
+        globalSlot: Int,
+        data: Map<String, Any>,
+    ): Boolean {
+        try {
             Log.d(TAG, "[AlarmScheduler] Attempting to schedule alarm - ID: $alarmId, GlobalSlot: $globalSlot, Delay: $delayMs")
 
             val currentTime = System.currentTimeMillis()
@@ -49,7 +63,6 @@ class AlarmScheduler(
             val triggerAtMs = currentTime + effectiveDelayMs
             val triggerElapsedRealtimeMs = scheduledElapsedRealtimeMs + effectiveDelayMs
 
-            // Check if we can schedule exact alarms
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 val canSchedule = alarmManager.canScheduleExactAlarms()
                 Log.d(TAG, "[AlarmScheduler] Exact alarm permission status: $canSchedule (API ${Build.VERSION.SDK_INT})")
@@ -65,7 +78,7 @@ class AlarmScheduler(
                         requestedDelayMs = delayMs,
                         effectiveDelayMs = effectiveDelayMs,
                         data = data,
-                        failureReason = "exact_alarm_permission_denied"
+                        failureReason = "exact_alarm_permission_denied",
                     )
                     return false
                 }
@@ -73,14 +86,12 @@ class AlarmScheduler(
                 Log.d(TAG, "[AlarmScheduler] No permission check needed (API ${Build.VERSION.SDK_INT} < 31)")
             }
 
-            // Create intent for alarm receiver
             Log.d(TAG, "[AlarmScheduler] Creating PendingIntent for alarm broadcast")
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 action = "com.usernode.app.SLOT_ALARM"
                 putExtra("alarmId", alarmId)
                 putExtra("globalSlot", globalSlot)
                 putExtra("alarmTimeMs", triggerAtMs)
-                // Fan out provided data map into intent extras for downstream consumers
                 for ((key, value) in data) {
                     when (value) {
                         is String -> putExtra(key, value)
@@ -103,33 +114,30 @@ class AlarmScheduler(
                 context,
                 alarmId.hashCode(),
                 intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             Log.d(TAG, "[AlarmScheduler] PendingIntent created with hashCode: ${alarmId.hashCode()}")
 
-            // Schedule exact alarm
             Log.d(
                 TAG,
-                "[AlarmScheduler] Current time: $currentTime, Trigger at: $triggerAtMs, Delay: ${effectiveDelayMs}ms (${effectiveDelayMs/1000}s)"
+                "[AlarmScheduler] Current time: $currentTime, Trigger at: $triggerAtMs, Delay: ${effectiveDelayMs}ms (${effectiveDelayMs/1000}s)",
             )
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 Log.d(TAG, "[AlarmScheduler] Using setExactAndAllowWhileIdle (API >= 23)")
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMs,
-                    pendingIntent
+                    pendingIntent,
                 )
             } else {
                 Log.d(TAG, "[AlarmScheduler] Using setExact (API < 23)")
                 alarmManager.setExact(
                     AlarmManager.RTC_WAKEUP,
                     triggerAtMs,
-                    pendingIntent
+                    pendingIntent,
                 )
             }
 
-            // Save alarm ID for tracking
             saveScheduledAlarm(alarmId, globalSlot)
             alarmStateStore.recordScheduled(
                 alarmId = alarmId,
@@ -140,12 +148,11 @@ class AlarmScheduler(
                 triggerElapsedRealtimeMs = triggerElapsedRealtimeMs,
                 requestedDelayMs = delayMs,
                 effectiveDelayMs = effectiveDelayMs,
-                data = data
+                data = data,
             )
             Log.d(TAG, "[AlarmScheduler] Alarm saved to SharedPreferences")
 
             showScheduledNotification(globalSlot, triggerAtMs)
-
             Log.i(TAG, "[AlarmScheduler] ✓ Successfully scheduled exact alarm for global slot $globalSlot at $triggerAtMs (in ${effectiveDelayMs/1000}s)")
             return true
         } catch (e: Exception) {
@@ -154,20 +161,41 @@ class AlarmScheduler(
         }
     }
 
-    fun cancelAlarm(alarmId: String): Boolean {
-        return cancelAlarm(alarmId, "cancel_alarm")
-    }
+    fun cancelAlarm(alarmId: String, applicationIncarnation: String): Boolean =
+        NativeSchedulingAuthority.process.runIfCurrent(
+            operation = "alarm.cancel",
+            captured = applicationIncarnation,
+            current = { ApplicationIncarnationStore(context).current() },
+            onRejected = {
+                Log.w(TAG, "Refusing cancellation for stale application incarnation")
+            },
+        ) {
+            cancelAlarmLocked(alarmId, "cancel_alarm")
+        }
 
-    fun cancelAllAlarms(): Boolean {
-        return cancelAllAlarms("cancel_all_alarms")
-    }
+    fun cancelAllAlarms(applicationIncarnation: String): Boolean =
+        NativeSchedulingAuthority.process.runIfCurrent(
+            operation = "alarm.cancel_all",
+            captured = applicationIncarnation,
+            current = { ApplicationIncarnationStore(context).current() },
+            onRejected = {
+                Log.w(TAG, "Refusing alarm cancellation for stale application incarnation")
+            },
+        ) {
+            cancelAllAlarmsLocked("cancel_all_alarms")
+        }
 
-    fun cancelAllAlarms(reason: String): Boolean {
+    fun cancelAllAlarmsForReset(reason: String): Boolean =
+        NativeSchedulingAuthority.process.serialized("alarm.cancel_all_reset") {
+            cancelAllAlarmsLocked(reason)
+        }
+
+    private fun cancelAllAlarmsLocked(reason: String): Boolean {
         try {
             val scheduledAlarms = getScheduledAlarms()
 
             for (alarmId in scheduledAlarms.keys) {
-                cancelAlarm(alarmId, reason)
+                cancelAlarmLocked(alarmId, reason)
             }
 
             clearScheduledAlarms()
@@ -180,8 +208,9 @@ class AlarmScheduler(
         }
     }
 
-    fun hasScheduledAlarm(alarmId: String): Boolean {
-        return try {
+    fun hasScheduledAlarm(alarmId: String): Boolean =
+        NativeSchedulingAuthority.process.serialized("alarm.has_scheduled") {
+            try {
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 action = "com.usernode.app.SLOT_ALARM"
             }
@@ -196,11 +225,11 @@ class AlarmScheduler(
             val exists = pendingIntent != null
             Log.d(TAG, "[AlarmScheduler] PendingIntent exists for $alarmId: $exists")
             exists
-        } catch (e: Exception) {
-            Log.e(TAG, "[AlarmScheduler] Error checking alarm existence for $alarmId", e)
-            false
+            } catch (e: Exception) {
+                Log.e(TAG, "[AlarmScheduler] Error checking alarm existence for $alarmId", e)
+                false
+            }
         }
-    }
 
     fun getAlarmDebugState(alarmId: String): Map<String, Any?> {
         return alarmStateStore.getState(
@@ -210,7 +239,7 @@ class AlarmScheduler(
         )
     }
 
-    private fun cancelAlarm(alarmId: String, reason: String): Boolean {
+    private fun cancelAlarmLocked(alarmId: String, reason: String): Boolean {
         try {
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 action = "com.usernode.app.SLOT_ALARM"

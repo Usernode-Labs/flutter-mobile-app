@@ -63,7 +63,7 @@ void main() {
     );
     expect(rotate, contains('UUID.randomUUID().toString()'));
     expect(rotate, isNot(contains('terminalResetRequested = true')));
-    expect(rotate, contains('if (terminalResetRequested) return@synchronized'));
+    expect(rotate, contains('if (terminalResetRequested) return@serialized'));
     expect(androidHandler, contains('"rotateApplicationIncarnation" ->'));
 
     expect(iosAppDelegate, contains('func rotate() -> String?'));
@@ -85,10 +85,8 @@ void main() {
       'android/app/src/main/kotlin/com/usernode_labs/usernode/alarm/'
       'ForegroundServiceManager.kt',
     ).readAsStringSync();
-    expect(
-      manager,
-      contains('fun stopForegroundService(destroyBackgroundEngine: Boolean'),
-    );
+    expect(manager, contains('fun stopForegroundService('));
+    expect(manager, contains('destroyBackgroundEngine: Boolean'));
     expect(
       manager,
       contains('if (destroyBackgroundEngine) {\n'

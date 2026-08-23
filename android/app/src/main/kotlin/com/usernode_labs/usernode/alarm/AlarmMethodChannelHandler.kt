@@ -232,17 +232,27 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(success)
             }
             "cancelAlarm" -> {
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
                 val alarmId = call.argument<String>("alarmId")
                 if (alarmId == null) {
                     result.error("INVALID_ARGS", "Missing alarmId", null)
                     return
                 }
 
-                val success = alarmScheduler.cancelAlarm(alarmId)
+                val success = alarmScheduler.cancelAlarm(alarmId, applicationIncarnation)
                 result.success(success)
             }
             "cancelAllAlarms" -> {
-                val success = alarmScheduler.cancelAllAlarms()
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
+                val success = alarmScheduler.cancelAllAlarms(applicationIncarnation)
                 result.success(success)
             }
             "hasScheduledAlarm" -> {
@@ -288,13 +298,21 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(success)
             }
             "stopForegroundService" -> {
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
+                    result.success(false)
+                    return
+                }
                 // Defaults to true so every existing caller keeps the old
                 // behaviour; a headless caller that would otherwise destroy its
                 // own engine before this result lands passes false.
                 val destroyBackgroundEngine =
                     call.argument<Boolean>("destroyBackgroundEngine") ?: true
                 val success =
-                    foregroundServiceManager.stopForegroundService(destroyBackgroundEngine)
+                    foregroundServiceManager.stopForegroundService(
+                        destroyBackgroundEngine,
+                        applicationIncarnation,
+                    )
                 result.success(success)
             }
             "startPersistentForegroundService" -> {
@@ -303,38 +321,23 @@ class AlarmMethodChannelHandler(context: Context) {
                     result.success(false)
                     return
                 }
-                Log.d(TAG, "Starting persistent foreground service")
-                val intent = Intent(appContext, SlotMonitoringService::class.java).apply {
-                    action = SlotMonitoringService.ACTION_START_PERSISTENT
-                    putExtra(
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                result.success(
+                    foregroundServiceManager.startPersistentForegroundService(
                         applicationIncarnation,
-                    )
-                }
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        appContext.startForegroundService(intent)
-                    } else {
-                        appContext.startService(intent)
-                    }
-                    result.success(true)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to start persistent foreground service", e)
-                    result.success(false)
-                }
+                    ),
+                )
             }
             "stopPersistentForegroundService" -> {
-                Log.d(TAG, "Stopping persistent foreground service")
-                val intent = Intent(appContext, SlotMonitoringService::class.java).apply {
-                    action = SlotMonitoringService.ACTION_STOP_PERSISTENT
-                }
-                try {
-                    appContext.startService(intent)
-                    result.success(true)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to stop persistent foreground service", e)
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                if (applicationIncarnation == null) {
                     result.success(false)
+                    return
                 }
+                result.success(
+                    foregroundServiceManager.stopPersistentForegroundService(
+                        applicationIncarnation,
+                    ),
+                )
             }
             "isPersistentForegroundRunning" -> {
                 val isRunning = SlotMonitoringService.isPersistentModeActive
@@ -374,8 +377,11 @@ class AlarmMethodChannelHandler(context: Context) {
                 )
             }
             "releaseWakelock" -> {
-                NativeWakeLockManager.release()
-                result.success(true)
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                result.success(
+                    applicationIncarnation != null &&
+                        NativeWakeLockManager.release(appContext, applicationIncarnation),
+                )
 
                 // // Treat wakelock release as "app suspended" for engine lifecycle:
                 // // destroy engine + remove from cache so next open/alarm starts fresh.
@@ -420,7 +426,14 @@ class AlarmMethodChannelHandler(context: Context) {
                 )
             }
             "cancelAlarmWatchdog" -> {
-                result.success(AlarmWatchdogScheduler.cancel(appContext))
+                val applicationIncarnation = currentIncarnationFromCall(call)
+                result.success(
+                    applicationIncarnation != null &&
+                        AlarmWatchdogScheduler.cancel(
+                            appContext,
+                            applicationIncarnation,
+                        ),
+                )
             }
             "getAlarmWatchdogState" -> {
                 methodScope.launch {
@@ -517,13 +530,15 @@ class AlarmMethodChannelHandler(context: Context) {
      * Social/slot text off the tray or lock screen.
      */
     private fun clearSessionNotifications(): Boolean {
-        return try {
-            (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .cancelAll()
-            true
-        } catch (error: Exception) {
-            Log.e(TAG, "Failed to clear session notifications", error)
-            false
+        return NativeSchedulingAuthority.process.serialized("notifications.clear_session") {
+            try {
+                (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                    .cancelAll()
+                true
+            } catch (error: Exception) {
+                Log.e(TAG, "Failed to clear session notifications", error)
+                false
+            }
         }
     }
 
@@ -535,49 +550,61 @@ class AlarmMethodChannelHandler(context: Context) {
      * the retry marker, so each operation must be safe to replay.
      */
     private fun clearLegacySessionAuthority(): Boolean {
-        var durableStateCleared =
-            alarmScheduler.cancelAllAlarms("legacy_authority_migration")
-        durableStateCleared =
-            AlarmWatchdogScheduler.cancel(appContext) && durableStateCleared
-        durableStateCleared =
-            foregroundServiceManager.stopForegroundService() && durableStateCleared
-        appContext.stopService(Intent(appContext, SlotMonitoringService::class.java))
-        NativeWakeLockManager.release()
-        (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .cancelAll()
-        for (name in listOf("alarm_prefs", "alarm_watchdog_prefs")) {
-            durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
-                .edit()
-                .clear()
-                .commit() && durableStateCleared
+        return NativeSchedulingAuthority.process.serialized("native.clear_legacy_authority") {
+            var durableStateCleared =
+                alarmScheduler.cancelAllAlarmsForReset("legacy_authority_migration")
+            durableStateCleared =
+                AlarmWatchdogScheduler.cancelForReset(appContext) && durableStateCleared
+            durableStateCleared =
+                foregroundServiceManager.stopForegroundServiceForReset(
+                    destroyBackgroundEngine = false,
+                ) && durableStateCleared
+            NativeWakeLockManager.releaseForReset()
+            (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .cancelAll()
+            for (name in listOf("alarm_prefs", "alarm_watchdog_prefs")) {
+                durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
+                    .edit()
+                    .clear()
+                    .commit() && durableStateCleared
+            }
+            durableStateCleared =
+                applicationIncarnationStore.clear() && durableStateCleared
+            flutterAlarmEventBuffer.clear()
+            BackgroundAlarmEngine.destroyCachedEngine("legacy_authority_migration")
+            durableStateCleared
         }
-        durableStateCleared =
-            applicationIncarnationStore.clear() && durableStateCleared
-        flutterAlarmEventBuffer.clear()
-        BackgroundAlarmEngine.destroyCachedEngine("legacy_authority_migration")
-        return durableStateCleared
     }
 
     private fun clearNativeResetState(): Boolean {
-        var durableStateCleared = alarmScheduler.cancelAllAlarms("terminal_reset")
-        durableStateCleared =
-            AlarmWatchdogScheduler.cancel(appContext) && durableStateCleared
-        durableStateCleared =
-            foregroundServiceManager.stopForegroundService() && durableStateCleared
-        appContext.stopService(Intent(appContext, SlotMonitoringService::class.java))
-        NativeWakeLockManager.release()
-        (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .cancelAll()
-        for (name in listOf("alarm_prefs", "alarm_watchdog_prefs", "background_task_stats")) {
-            durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
-                .edit()
-                .clear()
-                .commit() && durableStateCleared
+        return NativeSchedulingAuthority.process.serialized("native.clear_terminal_reset") {
+            var durableStateCleared =
+                alarmScheduler.cancelAllAlarmsForReset("terminal_reset")
+            durableStateCleared =
+                AlarmWatchdogScheduler.cancelForReset(appContext) && durableStateCleared
+            durableStateCleared =
+                foregroundServiceManager.stopForegroundServiceForReset(
+                    destroyBackgroundEngine = false,
+                ) && durableStateCleared
+            NativeWakeLockManager.releaseForReset()
+            (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .cancelAll()
+            for (name in listOf(
+                "alarm_prefs",
+                "alarm_watchdog_prefs",
+                "background_task_stats",
+            )) {
+                durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
+                    .edit()
+                    .clear()
+                    .commit() && durableStateCleared
+            }
+            durableStateCleared =
+                applicationIncarnationStore.clear() && durableStateCleared
+            flutterAlarmEventBuffer.clear()
+            BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
+            durableStateCleared
         }
-        durableStateCleared = applicationIncarnationStore.clear() && durableStateCleared
-        flutterAlarmEventBuffer.clear()
-        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
-        return durableStateCleared
     }
 
     private fun enterTerminalReset(clearApplicationData: Boolean) {

@@ -37,12 +37,15 @@ object AlarmWatchdogScheduler {
         context: Context,
         reason: String,
         applicationIncarnation: String,
-    ): Boolean {
-        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+    ): Boolean = NativeSchedulingAuthority.process.runIfCurrent(
+        operation = "watchdog.ensure_periodic",
+        captured = applicationIncarnation,
+        current = { ApplicationIncarnationStore(context).current() },
+        onRejected = {
             Log.w(TAG, "Ignoring periodic watchdog for stale application incarnation")
-            return false
-        }
-        return try {
+        },
+    ) {
+        try {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
@@ -93,17 +96,20 @@ object AlarmWatchdogScheduler {
         context: Context,
         reason: String,
         applicationIncarnation: String,
-    ): Boolean {
-        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+    ): Boolean = NativeSchedulingAuthority.process.runIfCurrent(
+        operation = "watchdog.enqueue_once",
+        captured = applicationIncarnation,
+        current = { ApplicationIncarnationStore(context).current() },
+        onRejected = {
             Log.w(TAG, "Ignoring one-time watchdog for stale application incarnation")
-            return false
-        }
-        if (!isEnabled(context)) {
+        },
+    ) {
+        if (!isEnabledLocked(context)) {
             Log.i(TAG, "Ignoring one-time watchdog request while disabled (reason=$reason)")
-            return false
+            return@runIfCurrent false
         }
 
-        return try {
+        try {
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
@@ -139,7 +145,24 @@ object AlarmWatchdogScheduler {
         }
     }
 
-    fun cancel(context: Context): Boolean {
+    fun cancel(context: Context, applicationIncarnation: String): Boolean =
+        NativeSchedulingAuthority.process.runIfCurrent(
+            operation = "watchdog.cancel",
+            captured = applicationIncarnation,
+            current = { ApplicationIncarnationStore(context).current() },
+            onRejected = {
+                Log.w(TAG, "Ignoring watchdog cancellation for stale application incarnation")
+            },
+        ) {
+            cancelLocked(context)
+        }
+
+    fun cancelForReset(context: Context): Boolean =
+        NativeSchedulingAuthority.process.serialized("watchdog.cancel_reset") {
+            cancelLocked(context)
+        }
+
+    private fun cancelLocked(context: Context): Boolean {
         return try {
             val workManager = WorkManager.getInstance(context.applicationContext)
             workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
@@ -162,6 +185,11 @@ object AlarmWatchdogScheduler {
     }
 
     fun isEnabled(context: Context): Boolean =
+        NativeSchedulingAuthority.process.serialized("watchdog.is_enabled") {
+            isEnabledLocked(context)
+        }
+
+    private fun isEnabledLocked(context: Context): Boolean =
         prefs(context).getBoolean(PERIODIC_CONFIGURED_KEY, false)
 
     suspend fun state(context: Context): Map<String, Any?> = withContext(Dispatchers.IO) {

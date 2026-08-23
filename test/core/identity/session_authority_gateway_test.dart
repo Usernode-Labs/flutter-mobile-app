@@ -326,6 +326,144 @@ void main() {
     responseGate.complete(http.StreamedResponse(const Stream.empty(), 200));
     expect((await responseFuture).statusCode, 200);
   });
+
+  test('push permit releases at native submission before a withheld result',
+      () async {
+    final events = <Object>[];
+    final nativeHandoff = Completer<String>();
+    final permit = _FakeSessionEffectPermit();
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/application-support'),
+      admissionJson: ({required directory}) => '{}',
+      bootstrapJson: ({
+        required directory,
+        required network,
+        required sessionId,
+      }) =>
+          '{}',
+      commandJson: ({required directory, required request}) async => '{}',
+      acquirePushEffect: ({
+        required directory,
+        required sessionId,
+        required operationId,
+        required engineId,
+      }) {
+        events.add({
+          'kind': 'acquire',
+          'directory': directory,
+          'session_id': sessionId,
+          'operation_id': operationId,
+        });
+        return permit;
+      },
+      markEffectHandoff: ({required permit}) => events.add('handoff'),
+      releaseEffectPermit: ({required permit}) => events.add('release'),
+    );
+
+    final result = gateway.runPushEffect(
+      sessionId: 'session-a',
+      operationId: 'social-push:provider-token-read',
+      effect: () async {
+        events.add('native-effect');
+        return nativeHandoff.future;
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(events, [
+      {
+        'kind': 'acquire',
+        'directory': '/application-support/session-authority',
+        'session_id': 'session-a',
+        'operation_id': 'social-push:provider-token-read',
+      },
+      'native-effect',
+      'handoff',
+      'release',
+    ]);
+
+    nativeHandoff.complete('provider-token-a');
+    expect(await result, 'provider-token-a');
+    expect(events, hasLength(4));
+  });
+
+  test('rejected push admission cannot invoke the native effect', () async {
+    var invoked = false;
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/application-support'),
+      admissionJson: ({required directory}) => '{}',
+      bootstrapJson: ({
+        required directory,
+        required network,
+        required sessionId,
+      }) =>
+          '{}',
+      commandJson: ({required directory, required request}) async => '{}',
+      acquirePushEffect: ({
+        required directory,
+        required sessionId,
+        required operationId,
+        required engineId,
+      }) =>
+          throw const StaleAuthCredentialException(),
+    );
+
+    await expectLater(
+      gateway.runPushEffect(
+        sessionId: 'session-a',
+        operationId: 'social-push:auto-init-enable',
+        effect: () async {
+          invoked = true;
+        },
+      ),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    expect(invoked, isFalse);
+  });
+
+  test('Rust HTTP admission rejection stays distinct from transport failure',
+      () async {
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/application-support'),
+      admissionJson: ({required directory}) => '{}',
+      bootstrapJson: ({
+        required directory,
+        required network,
+        required sessionId,
+      }) =>
+          '{}',
+      commandJson: ({required directory, required request}) async => '{}',
+      acquireHttpEffect: ({
+        required directory,
+        required sessionId,
+        required credentialRef,
+        required credentialGeneration,
+        required operationId,
+        required engineId,
+      }) =>
+          throw StateError('Rust rejected the stale credential'),
+    );
+    const credential = AuthCredentialLease(
+      epoch: 7,
+      token: 'token-a',
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 3,
+    );
+    final request = http.Request(
+      'GET',
+      Uri.parse('https://example.test/api/v3/mobile/me'),
+    )..headers['authorization'] = 'Bearer token-a';
+
+    await expectLater(
+      gateway.sendCredentialRequest(
+        credential: credential,
+        request: request,
+        operationId: 'confirm-a',
+      ),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+  });
 }
 
 SessionAuthorityGateway _gatewayReturning(Map<String, dynamic> response) =>

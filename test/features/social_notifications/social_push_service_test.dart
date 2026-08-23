@@ -577,6 +577,68 @@ void main() {
     );
   });
 
+  test('native provider effects use the exact session effect runner', () async {
+    final rig = _rig();
+    addTearDown(rig.dispose);
+    final calls = <({String sessionId, String operationId})>[];
+    Future<T> runPushEffect<T>({
+      required String sessionId,
+      required String operationId,
+      required Future<T> Function() effect,
+    }) async {
+      calls.add((sessionId: sessionId, operationId: operationId));
+      return effect();
+    }
+
+    await rig.service.initialize();
+    rig.service.attachSession(
+      rig.owner,
+      _session(pushEffectRunner: runPushEffect),
+    );
+    await rig.settle();
+    await rig.service.setEnabled(true);
+    await rig.service.setEnabled(false);
+
+    expect(calls.map((call) => call.sessionId).toSet(), {'session-42'});
+    expect(
+      calls.map((call) => call.operationId),
+      containsAll(<String>[
+        'social-push:auto-init-disable',
+        'social-push:provider-token-delete',
+        'social-push:auto-init-enable',
+        'social-push:provider-token-read',
+      ]),
+    );
+  });
+
+  test('rejected native admission invokes no provider effect or retry',
+      () async {
+    final rig = _rig();
+    addTearDown(rig.dispose);
+    Future<T> rejectPushEffect<T>({
+      required String sessionId,
+      required String operationId,
+      required Future<T> Function() effect,
+    }) async =>
+        throw const StaleAuthCredentialException();
+
+    await rig.service.initialize();
+    final autoInitCallsBeforeAttach = rig.messaging.autoInitCalls.length;
+    final deletesBeforeAttach = rig.messaging.deleteTokenCalls;
+    rig.service.attachSession(
+      rig.owner,
+      _session(pushEffectRunner: rejectPushEffect),
+    );
+    await rig.settle();
+    final state = await rig.service.setEnabled(true);
+
+    expect(rig.messaging.autoInitCalls, hasLength(autoInitCallsBeforeAttach));
+    expect(rig.messaging.deleteTokenCalls, deletesBeforeAttach);
+    expect(rig.messaging.requestPermissionCalls, 1);
+    expect(rig.activeRetryTimers, isEmpty);
+    expect(state.registrationStatus, SocialPushRegistrationStatus.error);
+  });
+
   test('successful provider shutdown is idempotent while ineligible', () async {
     final optedOut = _rig();
     final denied = _rig(optedIn: true);
@@ -1085,6 +1147,7 @@ SocialPushSession _session({
   int userId = 42,
   int epoch = 1,
   String bearer = 'bearer-42',
+  SessionAuthorityPushEffectRunner? pushEffectRunner,
 }) =>
     SocialPushSession(
       userId: userId,
@@ -1101,8 +1164,16 @@ SocialPushSession _session({
         required operationId,
       }) async =>
           throw StateError('The fake API must not invoke the HTTP sender'),
+      pushEffectRunner: pushEffectRunner ?? _passthroughPushEffect,
       onUnauthorized: (_) async {},
     );
+
+Future<T> _passthroughPushEffect<T>({
+  required String sessionId,
+  required String operationId,
+  required Future<T> Function() effect,
+}) =>
+    effect();
 
 Map<String, Object?> _payload({
   required int notificationId,

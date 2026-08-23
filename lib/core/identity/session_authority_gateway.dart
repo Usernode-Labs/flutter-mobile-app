@@ -34,6 +34,12 @@ typedef SessionAuthorityAcquireHttpEffect = rust.SessionEffectPermit Function({
   required String operationId,
   required String engineId,
 });
+typedef SessionAuthorityAcquirePushEffect = rust.SessionEffectPermit Function({
+  required String directory,
+  required String sessionId,
+  required String operationId,
+  required String engineId,
+});
 typedef SessionAuthorityEffectPermitAction = void Function({
   required rust.SessionEffectPermit permit,
 });
@@ -46,6 +52,11 @@ typedef SessionAuthorityCredentialRequestSender = Future<http.StreamedResponse>
   required AuthCredentialLease credential,
   required http.BaseRequest request,
   required String operationId,
+});
+typedef SessionAuthorityPushEffectRunner = Future<T> Function<T>({
+  required String sessionId,
+  required String operationId,
+  required Future<T> Function() effect,
 });
 
 /// Thin transport to the single Rust session-authority actor.
@@ -61,6 +72,7 @@ class SessionAuthorityGateway {
     SessionAuthorityCommandJson? commandJson,
     SessionAuthorityTerminalReporter? terminalReporter,
     SessionAuthorityAcquireHttpEffect? acquireHttpEffect,
+    SessionAuthorityAcquirePushEffect? acquirePushEffect,
     SessionAuthorityEffectPermitAction? markEffectHandoff,
     SessionAuthorityEffectPermitAction? releaseEffectPermit,
     SessionAuthorityRequestWriter? requestWriter,
@@ -72,6 +84,8 @@ class SessionAuthorityGateway {
         _terminalReporter = terminalReporter ?? _reportTerminalToProduction,
         _acquireHttpEffect =
             acquireHttpEffect ?? rust.sessionAuthorityAcquireHttpEffect,
+        _acquirePushEffect =
+            acquirePushEffect ?? rust.sessionAuthorityAcquirePushEffect,
         _markEffectHandoff =
             markEffectHandoff ?? rust.sessionAuthorityEffectPermitMarkHandoff,
         _releaseEffectPermit =
@@ -85,6 +99,7 @@ class SessionAuthorityGateway {
   final SessionAuthorityCommandJson _commandJson;
   final SessionAuthorityTerminalReporter _terminalReporter;
   final SessionAuthorityAcquireHttpEffect _acquireHttpEffect;
+  final SessionAuthorityAcquirePushEffect _acquirePushEffect;
   final SessionAuthorityEffectPermitAction _markEffectHandoff;
   final SessionAuthorityEffectPermitAction _releaseEffectPermit;
   final SessionAuthorityRequestWriter _requestWriter;
@@ -200,13 +215,16 @@ class SessionAuthorityGateway {
       throw const StaleAuthCredentialException();
     }
 
-    final permit = _acquireHttpEffect(
-      directory: await _resolveDirectory(),
-      sessionId: sessionId,
-      credentialRef: credentialRef,
-      credentialGeneration: BigInt.from(credentialGeneration),
-      operationId: operationId,
-      engineId: _clientId,
+    final directory = await _resolveDirectory();
+    final permit = _acquireOrThrowStale(
+      () => _acquireHttpEffect(
+        directory: directory,
+        sessionId: sessionId,
+        credentialRef: credentialRef,
+        credentialGeneration: BigInt.from(credentialGeneration),
+        operationId: operationId,
+        engineId: _clientId,
+      ),
     );
     var released = false;
     void release() {
@@ -225,6 +243,45 @@ class SessionAuthorityGateway {
       );
     } finally {
       release();
+    }
+  }
+
+  /// Runs one native push effect for the exact Rust-owned Ready session. The
+  /// plugin Future's creation is the platform-channel submission handoff.
+  Future<T> runPushEffect<T>({
+    required String sessionId,
+    required String operationId,
+    required Future<T> Function() effect,
+  }) async {
+    final exactSessionId = _requiredCredentialField(sessionId, 'session ID');
+    final directory = await _resolveDirectory();
+    final permit = _acquireOrThrowStale(
+      () => _acquirePushEffect(
+        directory: directory,
+        sessionId: exactSessionId,
+        operationId: operationId,
+        engineId: _clientId,
+      ),
+    );
+    late Future<T> result;
+    try {
+      result = effect();
+      _markEffectHandoff(permit: permit);
+    } finally {
+      _releaseEffectPermit(permit: permit);
+    }
+    return result;
+  }
+
+  rust.SessionEffectPermit _acquireOrThrowStale(
+    rust.SessionEffectPermit Function() acquire,
+  ) {
+    try {
+      return acquire();
+    } on StaleAuthCredentialException {
+      rethrow;
+    } catch (_) {
+      throw const StaleAuthCredentialException();
     }
   }
 

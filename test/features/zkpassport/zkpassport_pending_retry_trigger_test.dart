@@ -15,9 +15,13 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
       : super(baseUrl: 'https://example.test/api/v3/mobile');
 
   int completionCalls = 0;
+  String? appSessionId;
+  String? operationId;
 
   @override
   Future<bool> completeZkPassport({
+    required String appSessionId,
+    required String operationId,
     required int challengeId,
     required String walletAddress,
     required String sessionId,
@@ -25,6 +29,8 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
     String? completedAt,
   }) async {
     completionCalls++;
+    this.appSessionId = appSessionId;
+    this.operationId = operationId;
     return true;
   }
 }
@@ -227,6 +233,11 @@ void main() {
     await _pumpUntil(() => api.completionCalls == 1);
 
     expect(api.completionCalls, 1);
+    expect(api.appSessionId, 'app-session-a');
+    expect(
+      api.operationId,
+      'zk-delivery:app-session-a:request-a:100:nonce-a',
+    );
     expect(
       await registrationRepo.getPendingCompletion(bucket: bucket),
       isNull,

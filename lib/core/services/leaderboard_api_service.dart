@@ -30,6 +30,8 @@ class LeaderboardApiService {
     Duration? retryBaseDelay,
     Future<String?> Function()? tokenProvider,
     SessionAuthorityCredentialRequestSender? credentialRequestSender,
+    SessionAuthorityWorkflowCredentialRequestSender?
+        workflowCredentialRequestSender,
     Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
     Future<void> Function(int epoch)? onCredentialMissing,
   })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
@@ -39,6 +41,7 @@ class LeaderboardApiService {
         _retryBaseDelay = retryBaseDelay ?? const Duration(milliseconds: 300),
         _tokenProvider = tokenProvider,
         _credentialRequestSender = credentialRequestSender,
+        _workflowCredentialRequestSender = workflowCredentialRequestSender,
         _onUnauthorized = onUnauthorized,
         _onCredentialMissing = onCredentialMissing;
 
@@ -52,6 +55,8 @@ class LeaderboardApiService {
   /// receives the exact credential the failing request carried.
   final Future<String?> Function()? _tokenProvider;
   final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
+  final SessionAuthorityWorkflowCredentialRequestSender?
+      _workflowCredentialRequestSender;
   final Future<void> Function(AuthCredentialLease credential)? _onUnauthorized;
   final Future<void> Function(int epoch)? _onCredentialMissing;
 
@@ -161,6 +166,8 @@ class LeaderboardApiService {
   /// old backend's "409 = duplicate = success" mapping would clear the
   /// pending completion and permanently discard a rejected claim.
   Future<bool> completeZkPassport({
+    required String appSessionId,
+    required String operationId,
     required int challengeId,
     required String walletAddress,
     required String sessionId,
@@ -168,13 +175,18 @@ class LeaderboardApiService {
     String? completedAt,
   }) async {
     _ensureWritesEnabled();
-    await _post('/zkpassport/complete', body: {
-      'challenge_id': challengeId,
-      'wallet_address': walletAddress,
-      'session_id': sessionId,
-      'nullifier_hex': nullifierHex,
-      if (completedAt != null) 'completed_at': completedAt,
-    });
+    await _post(
+      '/zkpassport/complete',
+      workflowAppSessionId: appSessionId,
+      workflowOperationId: operationId,
+      body: {
+        'challenge_id': challengeId,
+        'wallet_address': walletAddress,
+        'session_id': sessionId,
+        'nullifier_hex': nullifierHex,
+        if (completedAt != null) 'completed_at': completedAt,
+      },
+    );
     return true;
   }
 
@@ -268,10 +280,23 @@ class LeaderboardApiService {
     AuthCredentialLease? credential,
     http.BaseRequest request, {
     required String operationId,
+    String? workflowAppSessionId,
   }) async {
     late final http.StreamedResponse streamed;
     if (credential == null) {
+      if (workflowAppSessionId != null) {
+        throw const StaleAuthCredentialException();
+      }
       streamed = await _http.send(request);
+    } else if (workflowAppSessionId != null) {
+      final sender = _workflowCredentialRequestSender;
+      if (sender == null) throw const StaleAuthCredentialException();
+      streamed = await sender(
+        appSessionId: workflowAppSessionId,
+        credential: credential,
+        request: request,
+        operationId: operationId,
+      );
     } else {
       final sender = _credentialRequestSender;
       if (sender == null) throw const StaleAuthCredentialException();
@@ -311,6 +336,8 @@ class LeaderboardApiService {
     String path, {
     required Map<String, dynamic> body,
     Set<int> expectedStatuses = const {},
+    String? workflowAppSessionId,
+    String? workflowOperationId,
   }) async {
     final url = Uri.parse('$_baseUrl$path');
     _log.trace('POST $url');
@@ -322,7 +349,8 @@ class LeaderboardApiService {
         http.Request('POST', url)
           ..headers.addAll(auth.headers)
           ..body = jsonEncode(body),
-        operationId: 'leaderboard:post:$path',
+        operationId: workflowOperationId ?? 'leaderboard:post:$path',
+        workflowAppSessionId: workflowAppSessionId,
       ),
     );
     return _parseEnvelope(resp, url,
@@ -525,6 +553,7 @@ final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
     onCredentialMissing: (epoch) =>
         ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
     credentialRequestSender: authority?.sendCredentialRequest,
+    workflowCredentialRequestSender: authority?.sendWorkflowCredentialRequest,
   );
   ref.onDispose(service.dispose);
   return service;

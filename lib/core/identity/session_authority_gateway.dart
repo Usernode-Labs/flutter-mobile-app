@@ -34,6 +34,8 @@ typedef SessionAuthorityAcquireHttpEffect = rust.SessionEffectPermit Function({
   required String operationId,
   required String engineId,
 });
+typedef SessionAuthorityAcquireWorkflowHttpEffect
+    = SessionAuthorityAcquireHttpEffect;
 typedef SessionAuthorityAcquirePushEffect = rust.SessionEffectPermit Function({
   required String directory,
   required String sessionId,
@@ -49,6 +51,13 @@ typedef SessionAuthorityRequestWriter = Future<http.StreamedResponse> Function(
 });
 typedef SessionAuthorityCredentialRequestSender = Future<http.StreamedResponse>
     Function({
+  required AuthCredentialLease credential,
+  required http.BaseRequest request,
+  required String operationId,
+});
+typedef SessionAuthorityWorkflowCredentialRequestSender
+    = Future<http.StreamedResponse> Function({
+  required String appSessionId,
   required AuthCredentialLease credential,
   required http.BaseRequest request,
   required String operationId,
@@ -72,6 +81,7 @@ class SessionAuthorityGateway {
     SessionAuthorityCommandJson? commandJson,
     SessionAuthorityTerminalReporter? terminalReporter,
     SessionAuthorityAcquireHttpEffect? acquireHttpEffect,
+    SessionAuthorityAcquireWorkflowHttpEffect? acquireWorkflowHttpEffect,
     SessionAuthorityAcquirePushEffect? acquirePushEffect,
     SessionAuthorityEffectPermitAction? markEffectHandoff,
     SessionAuthorityEffectPermitAction? releaseEffectPermit,
@@ -84,6 +94,8 @@ class SessionAuthorityGateway {
         _terminalReporter = terminalReporter ?? _reportTerminalToProduction,
         _acquireHttpEffect =
             acquireHttpEffect ?? rust.sessionAuthorityAcquireHttpEffect,
+        _acquireWorkflowHttpEffect = acquireWorkflowHttpEffect ??
+            rust.sessionAuthorityAcquireWorkflowHttpEffect,
         _acquirePushEffect =
             acquirePushEffect ?? rust.sessionAuthorityAcquirePushEffect,
         _markEffectHandoff =
@@ -99,6 +111,7 @@ class SessionAuthorityGateway {
   final SessionAuthorityCommandJson _commandJson;
   final SessionAuthorityTerminalReporter _terminalReporter;
   final SessionAuthorityAcquireHttpEffect _acquireHttpEffect;
+  final SessionAuthorityAcquireWorkflowHttpEffect _acquireWorkflowHttpEffect;
   final SessionAuthorityAcquirePushEffect _acquirePushEffect;
   final SessionAuthorityEffectPermitAction _markEffectHandoff;
   final SessionAuthorityEffectPermitAction _releaseEffectPermit;
@@ -199,25 +212,57 @@ class SessionAuthorityGateway {
     required http.BaseRequest request,
     required String operationId,
   }) async {
-    final sessionId = _requiredCredentialField(
-      credential.sessionId,
-      'session ID',
+    return _sendCredentialRequest(
+      credential: credential,
+      request: request,
+      operationId: operationId,
+      acquire: _acquireHttpEffect,
     );
-    final credentialRef = _requiredCredentialField(
-      credential.credentialRef,
-      'reference',
+  }
+
+  /// Sends one durable-workflow request only when the row owner and exact
+  /// credential name the same current, unrevoked Ready session.
+  Future<http.StreamedResponse> sendWorkflowCredentialRequest({
+    required String appSessionId,
+    required AuthCredentialLease credential,
+    required http.BaseRequest request,
+    required String operationId,
+  }) {
+    final exactAppSessionId = _requiredCredentialField(
+      appSessionId,
+      'workflow session ID',
     );
-    final credentialGeneration = credential.credentialGeneration;
-    if (credentialGeneration == null || credentialGeneration <= 0) {
+    if (credential.sessionId != exactAppSessionId) {
       throw const StaleAuthCredentialException();
     }
-    if (request.headers['authorization'] != 'Bearer ${credential.token}') {
+    return _sendCredentialRequest(
+      credential: credential,
+      request: request,
+      operationId: operationId,
+      acquire: _acquireWorkflowHttpEffect,
+    );
+  }
+
+  Future<http.StreamedResponse> _sendCredentialRequest({
+    required AuthCredentialLease credential,
+    required http.BaseRequest request,
+    required String operationId,
+    required SessionAuthorityAcquireHttpEffect acquire,
+  }) async {
+    final sessionId =
+        _requiredCredentialField(credential.sessionId, 'session ID');
+    final credentialRef =
+        _requiredCredentialField(credential.credentialRef, 'reference');
+    final credentialGeneration = credential.credentialGeneration;
+    if (credentialGeneration == null ||
+        credentialGeneration <= 0 ||
+        request.headers['authorization'] != 'Bearer ${credential.token}') {
       throw const StaleAuthCredentialException();
     }
 
     final directory = await _resolveDirectory();
     final permit = _acquireOrThrowStale(
-      () => _acquireHttpEffect(
+      () => acquire(
         directory: directory,
         sessionId: sessionId,
         credentialRef: credentialRef,

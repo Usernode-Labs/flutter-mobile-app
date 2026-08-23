@@ -327,6 +327,88 @@ void main() {
     expect((await responseFuture).statusCode, 200);
   });
 
+  test('workflow HTTP permit releases before a withheld response', () async {
+    final events = <Object>[];
+    final responseGate = Completer<http.StreamedResponse>();
+    final requestWritten = Completer<void>();
+    final permit = _FakeSessionEffectPermit();
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/application-support'),
+      admissionJson: ({required directory}) => '{}',
+      bootstrapJson: ({
+        required directory,
+        required network,
+        required sessionId,
+      }) =>
+          '{}',
+      commandJson: ({required directory, required request}) async => '{}',
+      acquireWorkflowHttpEffect: ({
+        required directory,
+        required sessionId,
+        required credentialRef,
+        required credentialGeneration,
+        required operationId,
+        required engineId,
+      }) {
+        events.add({
+          'kind': 'acquire',
+          'session_id': sessionId,
+          'credential_ref': credentialRef,
+          'credential_generation': credentialGeneration,
+          'operation_id': operationId,
+        });
+        return permit;
+      },
+      markEffectHandoff: ({required permit}) => events.add('handoff'),
+      releaseEffectPermit: ({required permit}) => events.add('release'),
+      requestWriter: (request, {required onRequestWritten}) async {
+        await Future<void>.sync(onRequestWritten);
+        requestWritten.complete();
+        return responseGate.future;
+      },
+    );
+    const credential = AuthCredentialLease(
+      epoch: 7,
+      token: 'token-a',
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 3,
+    );
+    final request = http.Request(
+      'POST',
+      Uri.parse('https://example.test/api/v3/mobile/zkpassport/complete'),
+    )..headers['authorization'] = 'Bearer token-a';
+
+    final responseFuture = gateway.sendWorkflowCredentialRequest(
+      appSessionId: 'session-a',
+      credential: credential,
+      request: request,
+      operationId: 'zk-delivery:request-a',
+    );
+    var responseSettled = false;
+    unawaited(responseFuture.then<void>(
+      (_) => responseSettled = true,
+      onError: (_) => responseSettled = true,
+    ));
+    await requestWritten.future;
+
+    expect(events, [
+      {
+        'kind': 'acquire',
+        'session_id': 'session-a',
+        'credential_ref': 'credential-a',
+        'credential_generation': BigInt.from(3),
+        'operation_id': 'zk-delivery:request-a',
+      },
+      'handoff',
+      'release',
+    ]);
+    expect(responseSettled, isFalse);
+
+    responseGate.complete(http.StreamedResponse(const Stream.empty(), 200));
+    expect((await responseFuture).statusCode, 200);
+  });
+
   test('push permit releases at native submission before a withheld result',
       () async {
     final events = <Object>[];

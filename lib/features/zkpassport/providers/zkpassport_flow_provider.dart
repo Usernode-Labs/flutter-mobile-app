@@ -75,6 +75,24 @@ class _PreparedBackendCompletion {
 
   String get bucket => identity.bucket;
   bool get identityWasSettled => identity.isSettled;
+
+  String get deliveryOperationId => _zkDeliveryOperationId(
+        appSessionId: appSessionId,
+        workflowSessionId: sessionId,
+        requestVersion: requestVersion,
+      );
+}
+
+String _zkDeliveryOperationId({
+  required String appSessionId,
+  required String workflowSessionId,
+  required ZkPassportRequestVersion? requestVersion,
+}) {
+  final version = requestVersion;
+  return version == null
+      ? 'zk-delivery:$appSessionId:$workflowSessionId'
+      : 'zk-delivery:$appSessionId:${version.requestId}:'
+          '${version.createdAtMs}:${version.nonce}';
 }
 
 final zkPassportBridgeBaseUrlProvider = Provider<String?>((ref) {
@@ -1811,6 +1829,8 @@ class ZkPassportPipelineController
         }
         try {
           final ok = await api.completeZkPassport(
+            appSessionId: completion.appSessionId,
+            operationId: completion.deliveryOperationId,
             challengeId: completion.challengeId,
             walletAddress: completion.walletAddress,
             sessionId: completion.sessionId,
@@ -2121,6 +2141,12 @@ class ZkPassportPipelineController
         return;
       }
       final ok = await api.completeZkPassport(
+        appSessionId: appSessionId,
+        operationId: _zkDeliveryOperationId(
+          appSessionId: appSessionId,
+          workflowSessionId: sessionId,
+          requestVersion: requestVersion,
+        ),
         challengeId: challengeId,
         walletAddress: walletAddress,
         sessionId: sessionId,

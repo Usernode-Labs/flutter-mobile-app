@@ -48,6 +48,17 @@ SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
     }) =>
         client.send(request);
 
+SessionAuthorityWorkflowCredentialRequestSender _throughWorkflowClient(
+  http.Client client,
+) =>
+    ({
+      required appSessionId,
+      required credential,
+      required request,
+      required operationId,
+    }) =>
+        client.send(request);
+
 void _publishAuthenticatedIdentity({
   IdentityPhase phase = IdentityPhase.ready,
 }) {
@@ -293,11 +304,18 @@ void main() {
 
   group('completeZkPassport', () {
     test('returns true on 200', () async {
+      _publishAuthenticatedIdentity();
       final client = _mockClient(200, _envelope({'status': 'completed'}));
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-a',
+        workflowCredentialRequestSender: _throughWorkflowClient(client),
+      );
 
       final ok = await service.completeZkPassport(
+        appSessionId: 'session-a',
+        operationId: 'zk-delivery:request-a',
         challengeId: 7,
         walletAddress: 'ut1abc',
         sessionId: 'sess-1',
@@ -308,15 +326,22 @@ void main() {
     });
 
     test('throws on 409 (v4 real rejection, not duplicate-success)', () async {
+      _publishAuthenticatedIdentity();
       final client = _mockClient(409, {
         'success': false,
         'error': 'Challenge is not accepting completions.',
       });
-      final service =
-          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        httpClient: client,
+        tokenProvider: () async => 'token-a',
+        workflowCredentialRequestSender: _throughWorkflowClient(client),
+      );
 
       expect(
         () => service.completeZkPassport(
+          appSessionId: 'session-a',
+          operationId: 'zk-delivery:request-a',
           challengeId: 7,
           walletAddress: 'ut1abc',
           sessionId: 'sess-1',
@@ -325,6 +350,66 @@ void main() {
         throwsA(isA<LeaderboardApiException>()
             .having((e) => e.statusCode, 'statusCode', 409)),
       );
+    });
+
+    test('submits the row owner and credential through the workflow sink',
+        () async {
+      _publishAuthenticatedIdentity();
+      var ordinaryClientUsed = false;
+      var genericCredentialSenderUsed = false;
+      late String capturedAppSessionId;
+      late AuthCredentialLease capturedCredential;
+      late http.BaseRequest capturedRequest;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        writesEnabled: true,
+        httpClient: MockClient((request) async {
+          ordinaryClientUsed = true;
+          return http.Response('{}', 500);
+        }),
+        credentialRequestSender: ({
+          required credential,
+          required request,
+          required operationId,
+        }) async {
+          genericCredentialSenderUsed = true;
+          return _streamedResponse(500, {'error': 'wrong sink'});
+        },
+        workflowCredentialRequestSender: ({
+          required appSessionId,
+          required credential,
+          required request,
+          required operationId,
+        }) async {
+          capturedAppSessionId = appSessionId;
+          capturedCredential = credential;
+          capturedRequest = request;
+          expect(operationId, 'zk-delivery:request-a');
+          return _streamedResponse(
+            200,
+            _envelope({'status': 'completed'}),
+          );
+        },
+        tokenProvider: () async => 'token-a',
+      );
+
+      final ok = await service.completeZkPassport(
+        appSessionId: 'session-a',
+        operationId: 'zk-delivery:request-a',
+        challengeId: 7,
+        walletAddress: 'ut1abc',
+        sessionId: 'zk-session-a',
+        nullifierHex: '0xdead',
+      );
+
+      expect(ok, isTrue);
+      expect(capturedAppSessionId, 'session-a');
+      expect(capturedCredential.sessionId, 'session-a');
+      expect(capturedCredential.credentialRef, 'credential-a');
+      expect(capturedCredential.credentialGeneration, 3);
+      expect(capturedRequest.headers['authorization'], 'Bearer token-a');
+      expect(ordinaryClientUsed, isFalse);
+      expect(genericCredentialSenderUsed, isFalse);
     });
   });
 

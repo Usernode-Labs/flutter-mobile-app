@@ -3,10 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
@@ -26,9 +24,6 @@ typedef SessionAuthorityCommandJson = Future<String> Function({
 });
 typedef SessionAuthorityTerminalReporter = void Function(
   Map<String, Object?> details,
-);
-typedef SessionAuthorityRequestSender = Future<http.StreamedResponse> Function(
-  http.BaseRequest request,
 );
 
 /// The exact credential attached to one authenticated request.
@@ -128,17 +123,6 @@ typedef SessionAuthorityCredentialIssuer = AuthCredentialLease Function({
   required Identity identity,
   required String token,
 });
-typedef SessionAuthorityCredentialRequestSender = Future<http.StreamedResponse>
-    Function({
-  required AuthCredentialLease credential,
-  required http.BaseRequest request,
-});
-typedef SessionAuthorityWorkflowCredentialRequestSender
-    = Future<http.StreamedResponse> Function({
-  required String appSessionId,
-  required AuthCredentialLease credential,
-  required http.BaseRequest request,
-});
 
 /// Thin transport to the single Rust session-authority actor.
 ///
@@ -152,21 +136,18 @@ class SessionAuthorityGateway {
     SessionAuthorityBootstrapJson? bootstrapJson,
     SessionAuthorityCommandJson? commandJson,
     SessionAuthorityTerminalReporter? terminalReporter,
-    SessionAuthorityRequestSender? requestSender,
   })  : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory,
         _admissionJson = admissionJson ?? rust.sessionAuthorityAdmissionJson,
         _bootstrapJson =
             bootstrapJson ?? rust.sessionAuthorityBootstrapLoggedOut,
         _commandJson = commandJson ?? rust.sessionAuthorityCommandJson,
-        _terminalReporter = terminalReporter ?? _reportTerminalToProduction,
-        _requestSender = requestSender ?? createAppHttpClient().send;
+        _terminalReporter = terminalReporter ?? _reportTerminalToProduction;
 
   final SessionAuthoritySupportDirectory _supportDirectory;
   final SessionAuthorityAdmissionJson _admissionJson;
   final SessionAuthorityBootstrapJson _bootstrapJson;
   final SessionAuthorityCommandJson _commandJson;
   final SessionAuthorityTerminalReporter _terminalReporter;
-  final SessionAuthorityRequestSender _requestSender;
 
   String? _directory;
 
@@ -317,40 +298,6 @@ class SessionAuthorityGateway {
     return response;
   }
 
-  /// Sends a request with the exact credential captured by its caller.
-  /// Already-dispatched requests may finish after logout; callers must fence
-  /// any session-owned publication or conditional durable mutation.
-  Future<http.StreamedResponse> sendCredentialRequest({
-    required AuthCredentialLease credential,
-    required http.BaseRequest request,
-  }) async {
-    if (credential.credentialGeneration <= 0 ||
-        request.headers['authorization'] != 'Bearer ${credential.token}') {
-      throw const StaleAuthCredentialException();
-    }
-    return _requestSender(request);
-  }
-
-  /// Sends one durable-workflow request only when the row and credential name
-  /// the same immutable app-session owner.
-  Future<http.StreamedResponse> sendWorkflowCredentialRequest({
-    required String appSessionId,
-    required AuthCredentialLease credential,
-    required http.BaseRequest request,
-  }) {
-    final exactAppSessionId = _requiredCredentialField(
-      appSessionId,
-      'workflow session ID',
-    );
-    if (credential.sessionId != exactAppSessionId) {
-      throw const StaleAuthCredentialException();
-    }
-    return sendCredentialRequest(
-      credential: credential,
-      request: request,
-    );
-  }
-
   void _reportTerminal(Map<String, dynamic> response) {
     final telemetry = response['telemetry'];
     if (telemetry is! Map) return;
@@ -382,24 +329,15 @@ String _requiredCredentialField(String? value, String field) {
 void _reportTerminalToProduction(Map<String, Object?> details) {
   final reason = details['reason'];
   final phase = details['phase'];
-  final sink = details['sink'];
   final platform = details['platform'];
-  if (reason is! String ||
-      phase is! String ||
-      sink is! String ||
-      platform is! String) {
+  if (reason is! String || phase is! String || platform is! String) {
     return;
   }
   ObservabilityReportingService.instance
       .reportSessionAuthorityTerminalEscalation(
     reason: reason,
     phase: phase,
-    sink: sink,
     platform: platform,
-    operationId: details['operation_id'] as String?,
-    engineId: details['engine_id'] as String?,
-    handedOff: details['handed_off'] as bool?,
-    heldForMs: details['held_for_ms'] as int?,
   );
 }
 

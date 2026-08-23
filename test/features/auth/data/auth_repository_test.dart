@@ -117,10 +117,8 @@ void main() {
   });
 
   group('confirmBearerSession', () {
-    test('uses the exact credential sender for dedicated /me confirmation',
-        () async {
-      late AuthCredentialLease capturedCredential;
-      late http.BaseRequest capturedRequest;
+    test('uses the captured bearer for dedicated /me confirmation', () async {
+      late http.Request capturedRequest;
       final credential = testCredentialLease(
         epoch: 4,
         token: 'bearer-a',
@@ -129,16 +127,10 @@ void main() {
         credentialGeneration: 2,
       );
       final repository = AuthRepository(
-        httpClient: _client(500, const {}),
-        baseUrl: _base,
-        credentialRequestSender: ({
-          required credential,
-          required request,
-        }) async {
-          capturedCredential = credential;
+        httpClient: MockClient((request) async {
           capturedRequest = request;
-          return http.StreamedResponse(
-            Stream.value(utf8.encode(jsonEncode({
+          return http.Response(
+            jsonEncode({
               'success': true,
               'data': {
                 'id': 7,
@@ -146,15 +138,15 @@ void main() {
                 'display_name': 'Web User',
                 'email_confirmed': false,
               },
-            }))),
+            }),
             200,
           );
-        },
+        }),
+        baseUrl: _base,
       );
 
       final session = await repository.confirmBearerSession(credential);
 
-      expect(capturedCredential, same(credential));
       expect(capturedRequest.method, 'GET');
       expect(capturedRequest.url.toString(),
           'https://test.example.com/api/v3/mobile/me');

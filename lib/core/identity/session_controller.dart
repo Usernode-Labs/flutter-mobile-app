@@ -48,10 +48,7 @@ class SessionControllerRetiredException implements Exception {
 enum _SessionValidation { valid, invalid, ownerMismatch, unavailable }
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  final authority = ref.watch(sessionAuthorityGatewayProvider);
-  return AuthRepository(
-    credentialRequestSender: authority?.sendCredentialRequest,
-  );
+  return AuthRepository();
 });
 
 final authTokenStoreProvider =

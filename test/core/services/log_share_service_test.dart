@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
 
 import '../../helpers/session_authority_test_helpers.dart';
@@ -20,19 +19,8 @@ final _credential = testCredentialLease(
 
 LogShareService _service(MockClient client) => LogShareService(
       baseUrl: _base,
-      credentialRequestSender: ({
-        required credential,
-        required request,
-      }) =>
-          client.send(request),
+      httpClient: client,
       retryBackoff: Duration.zero,
-    );
-
-http.StreamedResponse _streamedResponse(int statusCode, String body) =>
-    http.StreamedResponse(
-      Stream.value(utf8.encode(body)),
-      statusCode,
-      headers: {'content-type': 'application/json'},
     );
 
 Future<LogShareOutcome> _post(
@@ -44,29 +32,19 @@ Future<LogShareOutcome> _post(
     );
 
 void main() {
-  test('submits its exact lease and request only to the authority sender',
-      () async {
-    late AuthCredentialLease capturedCredential;
-    late http.BaseRequest capturedRequest;
+  test('sends the captured bearer through the injected HTTP client', () async {
+    late http.Request capturedRequest;
     final service = LogShareService(
       baseUrl: _base,
-      credentialRequestSender: ({
-        required credential,
-        required request,
-      }) async {
-        capturedCredential = credential;
+      httpClient: MockClient((request) async {
         capturedRequest = request;
-        return _streamedResponse(200, jsonEncode({'continue': true}));
-      },
+        return http.Response(jsonEncode({'continue': true}), 200);
+      }),
       retryBackoff: Duration.zero,
     );
 
     final outcome = await _post(service);
 
-    expect(capturedCredential.sessionId, 'session-a');
-    expect(capturedCredential.credentialRef, 'credential-a');
-    expect(capturedCredential.credentialGeneration, 3);
-    expect(capturedCredential.token, 'sess-1');
     expect(capturedRequest.method, 'POST');
     expect(capturedRequest.url.path, '/api/v3/mobile/logs');
     expect(capturedRequest.headers['authorization'], 'Bearer sess-1');
@@ -86,41 +64,22 @@ void main() {
     expect(await _post(service), LogShareOutcome.stop);
   });
 
-  test('missing authority sender fails closed as stale', () async {
+  test('retry reuses the original immutable bearer', () async {
+    final submittedRequests = <http.Request>[];
     final service = LogShareService(
       baseUrl: _base,
-      retryBackoff: Duration.zero,
-    );
-
-    expect(await _post(service), LogShareOutcome.stale);
-  });
-
-  test('retry re-admits the original lease and stops on sink rejection',
-      () async {
-    final submittedCredentials = <AuthCredentialLease>[];
-    final submittedRequests = <http.BaseRequest>[];
-    final service = LogShareService(
-      baseUrl: _base,
-      credentialRequestSender: ({
-        required credential,
-        required request,
-      }) async {
-        submittedCredentials.add(credential);
+      httpClient: MockClient((request) async {
         submittedRequests.add(request);
-        if (submittedCredentials.length == 1) {
-          return _streamedResponse(500, '{}');
+        if (submittedRequests.length == 1) {
+          return http.Response('{}', 500);
         }
-        throw const StaleAuthCredentialException();
-      },
+        return http.Response('{}', 401);
+      }),
       retryBackoff: Duration.zero,
     );
 
-    expect(await _post(service), LogShareOutcome.stale);
-    expect(submittedCredentials, hasLength(2));
-    expect(
-      submittedCredentials.map((credential) => credential.token),
-      everyElement('sess-1'),
-    );
+    expect(await _post(service), LogShareOutcome.stop);
+    expect(submittedRequests, hasLength(2));
     expect(
       submittedRequests.map((request) => request.headers['authorization']),
       everyElement('Bearer sess-1'),

@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/providers/log_share_provider.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
@@ -22,12 +21,6 @@ Identity _identity({required int epoch, required int participantId}) =>
       credentialRef: 'credential-$participantId',
       credentialGeneration: 1,
     );
-
-SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
-      required credential,
-      required request,
-    }) =>
-        client.send(request);
 
 HttpLogEntry _entry(String suffix) => HttpLogEntry(
       timestamp: DateTime.utc(2026, 1, 1),
@@ -70,7 +63,7 @@ void main() {
     final service = LogShareService(
       baseUrl: 'https://test.example/api/v3/mobile',
       retryBackoff: Duration.zero,
-      credentialRequestSender: _throughClient(client),
+      httpClient: client,
     );
     final controller = LogShareController(
       currentIdentity: () => identity,
@@ -130,7 +123,7 @@ void main() {
     final service = LogShareService(
       baseUrl: 'https://test.example/api/v3/mobile',
       retryBackoff: Duration.zero,
-      credentialRequestSender: _throughClient(client),
+      httpClient: client,
     );
     final controller = LogShareController(
       currentIdentity: () => identity,

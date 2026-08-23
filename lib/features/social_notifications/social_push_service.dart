@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 
 import 'social_push_api.dart';
@@ -35,13 +34,11 @@ class SocialPushSession {
   const SocialPushSession({
     required this.userId,
     required this.credential,
-    required this.credentialRequestSender,
     required this.onUnauthorized,
   });
 
   final int userId;
   final AuthCredentialLease credential;
-  final SessionAuthorityCredentialRequestSender credentialRequestSender;
   final SocialPushUnauthorized onUnauthorized;
 
   bool sameCredentialAs(SocialPushSession other) =>
@@ -713,7 +710,6 @@ class SocialPushService {
               _registeredPermission == _permission;
       final status = await _api.getStatus(
         credential: session.credential,
-        credentialRequestSender: session.credentialRequestSender,
         installationId: _record!.installationId,
       );
       if (_session?.sameCredentialAs(session) != true) return;
@@ -737,13 +733,6 @@ class SocialPushService {
       _cancelRegistrationRetry(resetAttempts: true);
       _registrationStatus = SocialPushRegistrationStatus.registered;
       _deliveryActive = reply.deliveryActive;
-    } on StaleAuthCredentialException {
-      if (_session?.sameCredentialAs(session) == true) {
-        _clearRegisteredSignature();
-        _registrationStatus = SocialPushRegistrationStatus.error;
-        _deliveryActive = false;
-        _cancelRegistrationRetry(resetAttempts: true);
-      }
     } on SocialPushApiException catch (error) {
       if (error.statusCode == 401 &&
           _session?.sameCredentialAs(session) == true) {
@@ -865,7 +854,6 @@ class SocialPushService {
     try {
       return await _api.register(
         credential: session.credential,
-        credentialRequestSender: session.credentialRequestSender,
         installationId: _record!.installationId,
         registrationToken: token,
         platform: platform!,
@@ -919,7 +907,6 @@ class SocialPushService {
     try {
       await _api.unregister(
         credential: session.credential,
-        credentialRequestSender: session.credentialRequestSender,
         installationId: _record!.installationId,
         mutationRevision: revision,
         reason: reason,

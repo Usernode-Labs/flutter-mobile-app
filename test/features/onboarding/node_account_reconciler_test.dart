@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
-import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
@@ -45,17 +44,10 @@ AuthCredentialLease _compatibilityCredential({
 }) =>
     testCredentialLease(epoch: identity.epoch, token: token);
 
-SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
-      required credential,
-      required request,
-    }) =>
-        client.send(request);
-
 AccountApiService _accountService(http.Client client) => AccountApiService(
       baseUrl: 'https://test.example.com/api/v4/mobile',
       tokenProvider: AuthTokenStore().read,
       credentialIssuer: _compatibilityCredential,
-      credentialRequestSender: _throughClient(client),
       httpClient: client,
     );
 
@@ -64,7 +56,6 @@ LeaderboardApiService _leaderboardService(http.Client client) =>
       baseUrl: 'https://test.example.com/api/v4/mobile',
       tokenProvider: AuthTokenStore().read,
       credentialIssuer: _compatibilityCredential,
-      credentialRequestSender: _throughClient(client),
       httpClient: client,
     );
 

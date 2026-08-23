@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_binding.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_api.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_messaging.dart';
@@ -560,25 +559,6 @@ void main() {
     );
   });
 
-  test('authority rejection stops registration without scheduling a retry',
-      () async {
-    final rig = _rig(optedIn: true);
-    addTearDown(rig.dispose);
-    rig.api.onRegister =
-        (_) async => throw const StaleAuthCredentialException();
-    await rig.service.initialize();
-
-    rig.service.attachSession(rig.owner, _session());
-    await rig.settle();
-
-    expect(rig.api.registerCalls, hasLength(1));
-    expect(rig.activeRetryTimers, isEmpty);
-    expect(
-      rig.service.currentState.registrationStatus,
-      SocialPushRegistrationStatus.error,
-    );
-  });
-
   test('successful provider shutdown is idempotent while ineligible', () async {
     final optedOut = _rig();
     final denied = _rig(optedIn: true);
@@ -1097,11 +1077,6 @@ SocialPushSession _session({
         credentialRef: 'credential-$userId',
         credentialGeneration: epoch,
       ),
-      credentialRequestSender: ({
-        required credential,
-        required request,
-      }) async =>
-          throw StateError('The fake API must not invoke the HTTP sender'),
       onUnauthorized: (_) async {},
     );
 
@@ -1401,7 +1376,6 @@ class _FakeApi implements SocialPushRegistrationApi {
   @override
   Future<SocialPushRegistrationReply> getStatus({
     required AuthCredentialLease credential,
-    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
   }) async {
     final bearer = credential.token;
@@ -1417,7 +1391,6 @@ class _FakeApi implements SocialPushRegistrationApi {
   @override
   Future<SocialPushRegistrationReply> register({
     required AuthCredentialLease credential,
-    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required String registrationToken,
     required String platform,
@@ -1451,7 +1424,6 @@ class _FakeApi implements SocialPushRegistrationApi {
   @override
   Future<void> unregister({
     required AuthCredentialLease credential,
-    required SessionAuthorityCredentialRequestSender credentialRequestSender,
     required String installationId,
     required int mutationRevision,
     required SocialPushUnregisterReason reason,

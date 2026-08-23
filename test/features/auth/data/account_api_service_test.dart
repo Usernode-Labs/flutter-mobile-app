@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,12 +35,6 @@ void _publishAuthenticatedIdentity({int epoch = 7}) {
   ));
 }
 
-SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
-      required credential,
-      required request,
-    }) =>
-        client.send(request);
-
 void main() {
   setUp(IdentitySnapshots.reset);
   tearDown(IdentitySnapshots.reset);
@@ -57,7 +52,6 @@ void main() {
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
-      credentialRequestSender: _throughClient(client),
       httpClient: client,
     );
 
@@ -68,44 +62,34 @@ void main() {
     expect(me.id, 123);
   });
 
-  test('authenticated getMe submits its exact lease to the HTTP sink',
+  test('in-flight getMe keeps its captured bearer across identity replacement',
       () async {
     _publishAuthenticatedIdentity();
-    late AuthCredentialLease capturedCredential;
-    late http.BaseRequest capturedRequest;
-    var ordinaryClientUsed = false;
+    final requestSeen = Completer<http.Request>();
+    final response = Completer<http.Response>();
+    final client = MockClient((request) {
+      requestSeen.complete(request);
+      return response.future;
+    });
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
-      credentialRequestSender: ({
-        required credential,
-        required request,
-      }) async {
-        capturedCredential = credential;
-        capturedRequest = request;
-        return http.StreamedResponse(
-          Stream.value(utf8.encode(jsonEncode(_envelope(_meData)))),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      },
-      httpClient: MockClient((request) async {
-        ordinaryClientUsed = true;
-        return http.Response('{}', 500);
-      }),
+      httpClient: client,
     );
 
-    final me = await service.getMe();
+    final pending = service.getMe();
+    final capturedRequest = await requestSeen.future;
+    _publishAuthenticatedIdentity(epoch: 8);
+    response.complete(http.Response(
+      jsonEncode(_envelope(_meData)),
+      200,
+      headers: {'content-type': 'application/json'},
+    ));
+    final me = await pending;
 
-    expect(capturedCredential.epoch, 7);
-    expect(capturedCredential.token, 'sess-1');
-    expect(capturedCredential.sessionId, 'session-a');
-    expect(capturedCredential.credentialRef, 'credential-a');
-    expect(capturedCredential.credentialGeneration, 3);
     expect(capturedRequest.method, 'GET');
     expect(capturedRequest.url.path, '/api/v3/mobile/me');
     expect(capturedRequest.headers['authorization'], 'Bearer sess-1');
-    expect(ordinaryClientUsed, isFalse);
     expect(me.id, 123);
   });
 
@@ -119,7 +103,6 @@ void main() {
       onUnauthorized: (credential) async {
         rejectedCredential = credential;
       },
-      credentialRequestSender: _throughClient(client),
       httpClient: client,
     );
 
@@ -172,7 +155,6 @@ void main() {
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'sess-1',
-      credentialRequestSender: _throughClient(client),
       httpClient: client,
     );
     await expectLater(service.getMe(), throwsA(isA<AccountApiException>()));
@@ -184,26 +166,6 @@ void main() {
     final service = AccountApiService(
       baseUrl: _base,
       tokenProvider: () async => 'stale-token',
-      httpClient: MockClient((req) async {
-        sent = true;
-        return http.Response('{}', 200);
-      }),
-    );
-
-    await expectLater(
-      service.getMe(),
-      throwsA(isA<StaleAuthCredentialException>()),
-    );
-    expect(sent, isFalse);
-  });
-
-  test('missing authority sender cannot fall back to the ordinary client',
-      () async {
-    _publishAuthenticatedIdentity();
-    var sent = false;
-    final service = AccountApiService(
-      baseUrl: _base,
-      tokenProvider: () async => 'sess-1',
       httpClient: MockClient((req) async {
         sent = true;
         return http.Response('{}', 200);

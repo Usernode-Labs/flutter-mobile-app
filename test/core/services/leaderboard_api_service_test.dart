@@ -34,29 +34,6 @@ Map<String, dynamic> _envelope(Object data) => {
       'data': data,
     };
 
-http.StreamedResponse _streamedResponse(int statusCode, Object body) =>
-    http.StreamedResponse(
-      Stream.value(utf8.encode(jsonEncode(body))),
-      statusCode,
-      headers: {'content-type': 'application/json'},
-    );
-
-SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
-      required credential,
-      required request,
-    }) =>
-        client.send(request);
-
-SessionAuthorityWorkflowCredentialRequestSender _throughWorkflowClient(
-  http.Client client,
-) =>
-    ({
-      required appSessionId,
-      required credential,
-      required request,
-    }) =>
-        client.send(request);
-
 void _publishAuthenticatedIdentity({
   IdentityPhase phase = IdentityPhase.ready,
 }) {
@@ -308,7 +285,6 @@ void main() {
         baseUrl: _baseUrl,
         httpClient: client,
         tokenProvider: () async => 'token-a',
-        workflowCredentialRequestSender: _throughWorkflowClient(client),
       );
 
       final ok = await service.completeZkPassport(
@@ -332,7 +308,6 @@ void main() {
         baseUrl: _baseUrl,
         httpClient: client,
         tokenProvider: () async => 'token-a',
-        workflowCredentialRequestSender: _throughWorkflowClient(client),
       );
 
       expect(
@@ -348,41 +323,20 @@ void main() {
       );
     });
 
-    test('submits the row owner and credential through the workflow sink',
-        () async {
+    test('submits a matching workflow row with the captured bearer', () async {
       _publishAuthenticatedIdentity();
-      var ordinaryClientUsed = false;
-      var genericCredentialSenderUsed = false;
-      late String capturedAppSessionId;
-      late AuthCredentialLease capturedCredential;
-      late http.BaseRequest capturedRequest;
+      late http.Request capturedRequest;
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
         writesEnabled: true,
         httpClient: MockClient((request) async {
-          ordinaryClientUsed = true;
-          return http.Response('{}', 500);
-        }),
-        credentialRequestSender: ({
-          required credential,
-          required request,
-        }) async {
-          genericCredentialSenderUsed = true;
-          return _streamedResponse(500, {'error': 'wrong sink'});
-        },
-        workflowCredentialRequestSender: ({
-          required appSessionId,
-          required credential,
-          required request,
-        }) async {
-          capturedAppSessionId = appSessionId;
-          capturedCredential = credential;
           capturedRequest = request;
-          return _streamedResponse(
+          return http.Response(
+            jsonEncode(_envelope({'status': 'completed'})),
             200,
-            _envelope({'status': 'completed'}),
+            headers: {'content-type': 'application/json'},
           );
-        },
+        }),
         tokenProvider: () async => 'token-a',
       );
 
@@ -395,13 +349,34 @@ void main() {
       );
 
       expect(ok, isTrue);
-      expect(capturedAppSessionId, 'session-a');
-      expect(capturedCredential.sessionId, 'session-a');
-      expect(capturedCredential.credentialRef, 'credential-a');
-      expect(capturedCredential.credentialGeneration, 3);
       expect(capturedRequest.headers['authorization'], 'Bearer token-a');
-      expect(ordinaryClientUsed, isFalse);
-      expect(genericCredentialSenderUsed, isFalse);
+    });
+
+    test('rejects a workflow row owned by another app session before sending',
+        () async {
+      _publishAuthenticatedIdentity();
+      var sent = false;
+      final service = LeaderboardApiService(
+        baseUrl: _baseUrl,
+        writesEnabled: true,
+        httpClient: MockClient((request) async {
+          sent = true;
+          return http.Response('{}', 500);
+        }),
+        tokenProvider: () async => 'token-a',
+      );
+
+      await expectLater(
+        service.completeZkPassport(
+          appSessionId: 'another-session',
+          challengeId: 7,
+          walletAddress: 'ut1abc',
+          sessionId: 'zk-session-a',
+          nullifierHex: '0xdead',
+        ),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+      expect(sent, isFalse);
     });
   });
 
@@ -716,124 +691,68 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('auth', () {
-    test('Ready GET submits its exact lease only to the authority sender',
+    test('Ready GET sends the captured bearer through the HTTP client',
         () async {
       _publishAuthenticatedIdentity();
-      late AuthCredentialLease capturedCredential;
-      late http.BaseRequest capturedRequest;
-      var ordinaryClientUsed = false;
+      late http.Request capturedRequest;
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
         httpClient: MockClient((request) async {
-          ordinaryClientUsed = true;
-          return http.Response('{}', 500);
-        }),
-        credentialRequestSender: ({
-          required credential,
-          required request,
-        }) async {
-          capturedCredential = credential;
           capturedRequest = request;
-          return _streamedResponse(
+          return http.Response(
+            jsonEncode(
+              _envelope({
+                'scope': 'global',
+                'display_name': 'X',
+                'total_points': 0,
+                'offchain_points': 0,
+              }),
+            ),
             200,
-            _envelope({
-              'scope': 'global',
-              'display_name': 'X',
-              'total_points': 0,
-              'offchain_points': 0,
-            }),
+            headers: {'content-type': 'application/json'},
           );
-        },
+        }),
         tokenProvider: () async => 'sess-xyz',
       );
 
       await service.getBreakdown(seasonId: 1);
 
-      expect(capturedCredential.epoch, 7);
-      expect(capturedCredential.token, 'sess-xyz');
-      expect(capturedCredential.sessionId, 'session-a');
-      expect(capturedCredential.credentialRef, 'credential-a');
-      expect(capturedCredential.credentialGeneration, 3);
       expect(capturedRequest.method, 'GET');
       expect(capturedRequest.url.path, '/api/v3/mobile/me/breakdown');
       expect(capturedRequest.headers['authorization'], 'Bearer sess-xyz');
-      expect(ordinaryClientUsed, isFalse);
     });
 
-    test('reconciling wallet provision submits its exact activation lease',
-        () async {
+    test('reconciling wallet provision sends its captured bearer', () async {
       _publishAuthenticatedIdentity(phase: IdentityPhase.reconciling);
-      late AuthCredentialLease capturedCredential;
-      late http.BaseRequest capturedRequest;
-      var ordinaryClientUsed = false;
+      late http.Request capturedRequest;
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
         writesEnabled: true,
         httpClient: MockClient((request) async {
-          ordinaryClientUsed = true;
-          return http.Response('{}', 500);
-        }),
-        credentialRequestSender: ({
-          required credential,
-          required request,
-        }) async {
-          capturedCredential = credential;
           capturedRequest = request;
-          return _streamedResponse(
+          return http.Response(
+            jsonEncode(
+              _envelope({
+                'address': 'ut1pool0',
+                'public_key': 'utpk1pool0',
+                'secret_key': 'utsk1pool0',
+                'season_id': 10,
+                'newly_allocated': true,
+              }),
+            ),
             200,
-            _envelope({
-              'address': 'ut1pool0',
-              'public_key': 'utpk1pool0',
-              'secret_key': 'utsk1pool0',
-              'season_id': 10,
-              'newly_allocated': true,
-            }),
+            headers: {'content-type': 'application/json'},
           );
-        },
+        }),
         tokenProvider: () async => 'sess-xyz',
       );
 
       await service.provisionWallet();
 
-      expect(capturedCredential.sessionId, 'session-a');
-      expect(capturedCredential.credentialRef, 'credential-a');
-      expect(capturedCredential.credentialGeneration, 3);
-      expect(capturedCredential.token, 'sess-xyz');
       expect(capturedRequest.method, 'POST');
       expect(capturedRequest.url.path, '/api/v3/mobile/wallet/provision');
       expect(capturedRequest.headers['authorization'], 'Bearer sess-xyz');
-      expect(jsonDecode((capturedRequest as http.Request).body),
-          <String, dynamic>{});
-      expect(ordinaryClientUsed, isFalse);
-    });
-
-    test(
-        'authenticated request without a sender cannot use the ordinary client',
-        () async {
-      _publishAuthenticatedIdentity();
-      var ordinaryClientUsed = false;
-      final service = LeaderboardApiService(
-        baseUrl: _baseUrl,
-        httpClient: MockClient((request) async {
-          ordinaryClientUsed = true;
-          return http.Response(
-            jsonEncode(_envelope({
-              'scope': 'global',
-              'display_name': 'X',
-              'total_points': 0,
-              'offchain_points': 0,
-            })),
-            200,
-          );
-        }),
-        tokenProvider: () async => 'sess-xyz',
-      );
-
-      await expectLater(
-        () => service.getBreakdown(seasonId: 1),
-        throwsA(isA<StaleAuthCredentialException>()),
-      );
-      expect(ordinaryClientUsed, isFalse);
+      expect(jsonDecode(capturedRequest.body), <String, dynamic>{});
     });
 
     test('omits Authorization header when no token', () async {
@@ -863,7 +782,6 @@ void main() {
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
         httpClient: client,
-        credentialRequestSender: _throughClient(client),
         tokenProvider: () async => 'sess-xyz',
         onUnauthorized: (credential) async {
           rejectedCredential = credential;
@@ -880,50 +798,44 @@ void main() {
       expect(rejectedCredential?.credentialGeneration, 3);
     });
 
-    test('retry re-admits the original immutable lease at the authority sink',
-        () async {
+    test('retry reuses the original immutable bearer', () async {
       _publishAuthenticatedIdentity();
       var tokenReads = 0;
-      final submittedCredentials = <AuthCredentialLease>[];
-      final submittedRequests = <http.BaseRequest>[];
-      var ordinaryClientUsed = false;
+      final submittedRequests = <http.Request>[];
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
         httpClient: MockClient((request) async {
-          ordinaryClientUsed = true;
-          return http.Response('{}', 500);
-        }),
-        credentialRequestSender: ({
-          required credential,
-          required request,
-        }) async {
-          submittedCredentials.add(credential);
           submittedRequests.add(request);
-          if (submittedCredentials.length == 1) {
-            return _streamedResponse(500, {'error': 'retry'});
+          if (submittedRequests.length == 1) {
+            return http.Response(
+              jsonEncode({'error': 'retry'}),
+              500,
+              headers: {'content-type': 'application/json'},
+            );
           }
-          throw const StaleAuthCredentialException();
-        },
+          return http.Response(
+            jsonEncode(_envelope({
+              'scope': 'global',
+              'display_name': 'X',
+              'total_points': 0,
+              'offchain_points': 0,
+            })),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
         tokenProvider: () async => tokenReads++ == 0 ? 'sess-old' : 'sess-new',
         maxGetRetries: 1,
         retryBaseDelay: Duration.zero,
       );
 
-      await expectLater(
-        () => service.getBreakdown(seasonId: 1),
-        throwsA(isA<StaleAuthCredentialException>()),
-      );
+      await service.getBreakdown(seasonId: 1);
       expect(tokenReads, 1);
-      expect(submittedCredentials, hasLength(2));
-      expect(
-        submittedCredentials.map((credential) => credential.token),
-        everyElement('sess-old'),
-      );
+      expect(submittedRequests, hasLength(2));
       expect(
         submittedRequests.map((request) => request.headers['authorization']),
         everyElement('Bearer sess-old'),
       );
-      expect(ordinaryClientUsed, isFalse);
     });
   });
 }

@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -37,14 +36,13 @@ Future<SocialPushRegistrationReply> _register(
 
 class _ApiHarness {
   _ApiHarness({required http.Client client})
-      : _client = client,
-        _api = HttpSocialPushRegistrationApi(
+      : _api = HttpSocialPushRegistrationApi(
           mobileApiBaseUrl: _baseUrl,
           expectedEnvironment: _environment,
           expectedFirebaseProjectId: _firebaseProjectId,
+          client: client,
         );
 
-  final http.Client _client;
   final HttpSocialPushRegistrationApi _api;
 
   Future<SocialPushRegistrationReply> getStatus({
@@ -52,7 +50,6 @@ class _ApiHarness {
   }) =>
       _api.getStatus(
         credential: _credential,
-        credentialRequestSender: _send,
         installationId: installationId,
       );
 
@@ -65,7 +62,6 @@ class _ApiHarness {
   }) =>
       _api.register(
         credential: _credential,
-        credentialRequestSender: _send,
         installationId: installationId,
         registrationToken: registrationToken,
         platform: platform,
@@ -80,52 +76,38 @@ class _ApiHarness {
   }) =>
       _api.unregister(
         credential: _credential,
-        credentialRequestSender: _send,
         installationId: installationId,
         mutationRevision: mutationRevision,
         reason: reason,
       );
-
-  Future<http.StreamedResponse> _send({
-    required AuthCredentialLease credential,
-    required http.BaseRequest request,
-  }) {
-    expect(credential, same(_credential));
-    return _client.send(request);
-  }
 }
 
 void main() {
-  test('PUT submits the exact credential through the authority sender',
+  test('PUT sends the captured bearer through the injected HTTP client',
       () async {
-    late AuthCredentialLease capturedCredential;
-    late http.BaseRequest capturedRequest;
+    late http.Request capturedRequest;
     final api = HttpSocialPushRegistrationApi(
       mobileApiBaseUrl: _baseUrl,
       expectedEnvironment: _environment,
       expectedFirebaseProjectId: _firebaseProjectId,
-    );
-
-    final reply = await api.register(
-      credential: _credential,
-      credentialRequestSender: ({
-        required credential,
-        required request,
-      }) async {
-        capturedCredential = credential;
+      client: MockClient((request) async {
         capturedRequest = request;
-        return http.StreamedResponse(
-          Stream.value(utf8.encode(jsonEncode({
+        return http.Response(
+          jsonEncode({
             'success': true,
             'registered': true,
             'delivery_active': false,
             'mutation_revision': '42',
             'environment': _environment,
             'firebase_project_id': _firebaseProjectId,
-          }))),
+          }),
           200,
         );
-      },
+      }),
+    );
+
+    final reply = await api.register(
+      credential: _credential,
       installationId: _installationId,
       registrationToken: _registration,
       platform: 'ios',
@@ -133,35 +115,9 @@ void main() {
       mutationRevision: 42,
     );
 
-    expect(capturedCredential.sessionId, 'session-a');
-    expect(capturedCredential.credentialRef, 'credential-a');
-    expect(capturedCredential.credentialGeneration, 3);
-    expect(capturedCredential.token, _bearer);
     expect(capturedRequest.method, 'PUT');
     expect(capturedRequest.headers['authorization'], 'Bearer $_bearer');
     expect(reply.registered, isTrue);
-  });
-
-  test('authority rejection remains distinguishable from transport failure',
-      () async {
-    final api = HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: _baseUrl,
-      expectedEnvironment: _environment,
-      expectedFirebaseProjectId: _firebaseProjectId,
-    );
-
-    await expectLater(
-      api.getStatus(
-        credential: _credential,
-        credentialRequestSender: ({
-          required credential,
-          required request,
-        }) async =>
-            throw const StaleAuthCredentialException(),
-        installationId: _installationId,
-      ),
-      throwsA(isA<StaleAuthCredentialException>()),
-    );
   });
 
   test('PUT sends the exact registration contract and parses its ack',

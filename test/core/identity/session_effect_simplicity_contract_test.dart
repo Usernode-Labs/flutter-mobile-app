@@ -20,6 +20,10 @@ void main() {
       'sessionAuthorityAcquireWebviewEffect',
       'markEffectHandoff',
       'releaseEffectPermit',
+      'SessionAuthorityCredentialRequestSender',
+      'SessionAuthorityWorkflowCredentialRequestSender',
+      'sendCredentialRequest',
+      'sendWorkflowCredentialRequest',
     ]) {
       final offenders = sources
           .where((file) => file.readAsStringSync().contains(forbidden))

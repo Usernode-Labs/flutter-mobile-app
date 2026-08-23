@@ -31,14 +31,11 @@ class AuthRepository {
   AuthRepository({
     http.Client? httpClient,
     String? baseUrl,
-    SessionAuthorityCredentialRequestSender? credentialRequestSender,
   })  : _http = httpClient ?? createAppHttpClient(),
-        _baseUrl = baseUrl ?? AppConfig.authApiBaseUrl,
-        _credentialRequestSender = credentialRequestSender;
+        _baseUrl = baseUrl ?? AppConfig.authApiBaseUrl;
 
   final http.Client _http;
   final String _baseUrl;
-  final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
 
   static const _jsonHeaders = {
     'Content-Type': 'application/json',
@@ -95,13 +92,6 @@ class AuthRepository {
   Future<AuthSession> confirmBearerSession(
     AuthCredentialLease credential,
   ) async {
-    final sender = _credentialRequestSender;
-    if (sender == null) {
-      throw AuthException(
-        AuthErrorKind.network,
-        'Credential confirmation transport is unavailable.',
-      );
-    }
     final mobileBase = _baseUrl.endsWith('/auth')
         ? _baseUrl.substring(0, _baseUrl.length - 5)
         : _baseUrl;
@@ -112,10 +102,8 @@ class AuthRepository {
       });
     late final http.Response response;
     try {
-      final streamed = await sender(
-        credential: credential,
-        request: request,
-      ).timeout(const Duration(seconds: 15));
+      final streamed =
+          await _http.send(request).timeout(const Duration(seconds: 15));
       response = await http.Response.fromStream(streamed)
           .timeout(const Duration(seconds: 15));
     } catch (error) {

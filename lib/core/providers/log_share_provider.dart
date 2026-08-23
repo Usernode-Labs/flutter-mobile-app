@@ -6,8 +6,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
-import 'package:crypto_mobile_app/core/identity/session_controller.dart'
-    show sessionAuthorityGatewayProvider;
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/log_share_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
@@ -161,8 +159,6 @@ class LogShareController extends StateNotifier<LogShareState> {
           state = const LogShareState(stoppedByServer: true);
         case LogShareOutcome.failed:
           break; // keep cursor; the same batch retries on the next flush
-        case LogShareOutcome.stale:
-          _stopStaleLease(lease);
       }
     } finally {
       _flushingLeases.remove(lease);
@@ -254,6 +250,7 @@ class LogShareController extends StateNotifier<LogShareState> {
   @override
   void dispose() {
     _stopTimer();
+    _service.dispose();
     super.dispose();
   }
 }
@@ -261,7 +258,6 @@ class LogShareController extends StateNotifier<LogShareState> {
 final logShareControllerProvider =
     StateNotifierProvider<LogShareController, LogShareState>(
   (ref) {
-    final authority = ref.watch(sessionAuthorityGatewayProvider);
     final controller = LogShareController(
       currentIdentity: () => ref.read(identityProvider),
       tokenProvider: () {
@@ -269,9 +265,7 @@ final logShareControllerProvider =
         return ref.read(authTokenStoreProvider).readForIdentity(identity);
       },
       filterProvider: () => ref.read(httpLogFilterProvider),
-      service: LogShareService(
-        credentialRequestSender: authority?.sendCredentialRequest,
-      ),
+      service: LogShareService(),
     );
     ref.listen<Identity>(
       identityProvider,

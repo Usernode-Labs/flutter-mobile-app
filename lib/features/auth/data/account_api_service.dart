@@ -27,7 +27,6 @@ class AccountApiService {
     String? baseUrl,
     Future<String?> Function()? tokenProvider,
     SessionAuthorityCredentialIssuer? credentialIssuer,
-    SessionAuthorityCredentialRequestSender? credentialRequestSender,
     Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
     Future<void> Function(int epoch)? onCredentialMissing,
   })  : _http = httpClient ?? createAppHttpClient(),
@@ -35,7 +34,6 @@ class AccountApiService {
         _tokenProvider = tokenProvider,
         _credentialIssuer =
             credentialIssuer ?? SessionAuthorityGateway.captureCredential,
-        _credentialRequestSender = credentialRequestSender,
         _onUnauthorized = onUnauthorized,
         _onCredentialMissing = onCredentialMissing;
 
@@ -43,7 +41,6 @@ class AccountApiService {
   final String _baseUrl;
   final Future<String?> Function()? _tokenProvider;
   final SessionAuthorityCredentialIssuer _credentialIssuer;
-  final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
 
   /// Invoked with the exact identity/token pair carried by a failed request.
   final Future<void> Function(AuthCredentialLease credential)? _onUnauthorized;
@@ -83,21 +80,8 @@ class AccountApiService {
     );
   }
 
-  Future<http.Response> _send(
-    AuthCredentialLease? credential,
-    http.BaseRequest request,
-  ) async {
-    late final http.StreamedResponse streamed;
-    if (credential == null) {
-      streamed = await _http.send(request);
-    } else {
-      final sender = _credentialRequestSender;
-      if (sender == null) throw const StaleAuthCredentialException();
-      streamed = await sender(
-        credential: credential,
-        request: request,
-      );
-    }
+  Future<http.Response> _send(http.BaseRequest request) async {
+    final streamed = await _http.send(request);
     return http.Response.fromStream(streamed);
   }
 
@@ -113,12 +97,7 @@ class AccountApiService {
       });
     http.Response resp;
     try {
-      resp = await _send(
-        credential,
-        request,
-      ).timeout(const Duration(seconds: 15));
-    } on StaleAuthCredentialException {
-      rethrow;
+      resp = await _send(request).timeout(const Duration(seconds: 15));
     } catch (e) {
       _log.warn('GET /me failed: $e');
       throw AccountApiException(0, 'Network error.');

@@ -299,24 +299,14 @@ void main() {
       final service = _service(records, nodeInitialized: false);
 
       final first = service.reportSessionAuthorityTerminalEscalation(
-        reason: 'effect_drain_timeout',
-        phase: 'retirement_entry',
-        sink: 'zk_outbox',
+        reason: 'webview_clear_unconfirmed',
+        phase: 'clear_webview',
         platform: 'android',
-        operationId: 'flush-a',
-        engineId: 'ui-a',
-        handedOff: false,
-        heldForMs: 10004,
       );
       final duplicate = service.reportSessionAuthorityTerminalEscalation(
-        reason: 'effect_drain_timeout',
-        phase: 'retirement_entry',
-        sink: 'zk_outbox',
+        reason: 'webview_clear_unconfirmed',
+        phase: 'clear_webview',
         platform: 'android',
-        operationId: 'flush-a',
-        engineId: 'ui-a',
-        handedOff: false,
-        heldForMs: 10004,
       );
 
       expect(first.queued, isTrue);
@@ -329,14 +319,9 @@ void main() {
         'app_session_authority_terminal_escalation',
       );
       expect(records.single.payload, {
-        'reason': 'effect_drain_timeout',
-        'phase': 'retirement_entry',
-        'sink': 'zk_outbox',
+        'reason': 'webview_clear_unconfirmed',
+        'phase': 'clear_webview',
         'platform': 'android',
-        'operation_id': 'flush-a',
-        'engine_id': 'ui-a',
-        'handed_off': false,
-        'held_for_ms': 10004,
       });
     });
 

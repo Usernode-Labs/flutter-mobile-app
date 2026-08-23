@@ -8,8 +8,6 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
-import 'package:crypto_mobile_app/core/identity/session_controller.dart'
-    show sessionAuthorityGatewayProvider;
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
@@ -30,9 +28,6 @@ class LeaderboardApiService {
     Duration? retryBaseDelay,
     Future<String?> Function()? tokenProvider,
     SessionAuthorityCredentialIssuer? credentialIssuer,
-    SessionAuthorityCredentialRequestSender? credentialRequestSender,
-    SessionAuthorityWorkflowCredentialRequestSender?
-        workflowCredentialRequestSender,
     Future<void> Function(AuthCredentialLease credential)? onUnauthorized,
     Future<void> Function(int epoch)? onCredentialMissing,
   })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
@@ -43,8 +38,6 @@ class LeaderboardApiService {
         _tokenProvider = tokenProvider,
         _credentialIssuer =
             credentialIssuer ?? SessionAuthorityGateway.captureCredential,
-        _credentialRequestSender = credentialRequestSender,
-        _workflowCredentialRequestSender = workflowCredentialRequestSender,
         _onUnauthorized = onUnauthorized,
         _onCredentialMissing = onCredentialMissing;
 
@@ -58,9 +51,6 @@ class LeaderboardApiService {
   /// receives the exact credential the failing request carried.
   final Future<String?> Function()? _tokenProvider;
   final SessionAuthorityCredentialIssuer _credentialIssuer;
-  final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
-  final SessionAuthorityWorkflowCredentialRequestSender?
-      _workflowCredentialRequestSender;
   final Future<void> Function(AuthCredentialLease credential)? _onUnauthorized;
   final Future<void> Function(int epoch)? _onCredentialMissing;
 
@@ -280,28 +270,13 @@ class LeaderboardApiService {
     http.BaseRequest request, {
     String? workflowAppSessionId,
   }) async {
-    late final http.StreamedResponse streamed;
-    if (credential == null) {
-      if (workflowAppSessionId != null) {
-        throw const StaleAuthCredentialException();
-      }
-      streamed = await _http.send(request);
-    } else if (workflowAppSessionId != null) {
-      final sender = _workflowCredentialRequestSender;
-      if (sender == null) throw const StaleAuthCredentialException();
-      streamed = await sender(
-        appSessionId: workflowAppSessionId,
-        credential: credential,
-        request: request,
-      );
-    } else {
-      final sender = _credentialRequestSender;
-      if (sender == null) throw const StaleAuthCredentialException();
-      streamed = await sender(
-        credential: credential,
-        request: request,
-      );
+    if (workflowAppSessionId != null &&
+        (credential == null ||
+            workflowAppSessionId.trim().isEmpty ||
+            credential.sessionId != workflowAppSessionId)) {
+      throw const StaleAuthCredentialException();
     }
+    final streamed = await _http.send(request);
     return http.Response.fromStream(streamed);
   }
 
@@ -534,7 +509,6 @@ class LeaderboardApiService {
 // ---------------------------------------------------------------------------
 
 final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
-  final authority = ref.watch(sessionAuthorityGatewayProvider);
   final service = LeaderboardApiService(
     tokenProvider: () {
       final identity = ref.read(identityProvider);
@@ -545,8 +519,6 @@ final leaderboardApiServiceProvider = Provider<LeaderboardApiService>((ref) {
         .onUnauthorized(credential: credential),
     onCredentialMissing: (epoch) =>
         ref.read(identityProvider.notifier).onCredentialMissing(epoch: epoch),
-    credentialRequestSender: authority?.sendCredentialRequest,
-    workflowCredentialRequestSender: authority?.sendWorkflowCredentialRequest,
   );
   ref.onDispose(service.dispose);
   return service;

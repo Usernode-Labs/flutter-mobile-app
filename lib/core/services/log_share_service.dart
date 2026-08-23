@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
@@ -22,9 +21,6 @@ enum LogShareOutcome {
   /// Transient failure (network error or 5xx after retries). The cursor is kept
   /// so the same batch is re-sent on the next flush.
   failed,
-
-  /// The sharing session's exact credential is no longer admitted.
-  stale,
 }
 
 /// Fire-and-forget client for `POST /api/v3/mobile/logs`.
@@ -35,18 +31,18 @@ enum LogShareOutcome {
 /// never throws — every path resolves to a [LogShareOutcome] so logging can
 /// never crash the caller.
 class LogShareService {
-  /// Transport comes from the session authority rather than the app's logging
+  /// This deliberately uses a plain client rather than the app's logging
   /// client, so share POSTs cannot feed themselves back into the debug buffer.
   LogShareService({
     String? baseUrl,
-    SessionAuthorityCredentialRequestSender? credentialRequestSender,
+    http.Client? httpClient,
     Duration retryBackoff = const Duration(seconds: 1),
   })  : _baseUrl = baseUrl ?? AppConfig.mobileApiBaseUrl,
-        _credentialRequestSender = credentialRequestSender,
+        _http = httpClient ?? http.Client(),
         _retryBackoff = retryBackoff;
 
   final String _baseUrl;
-  final SessionAuthorityCredentialRequestSender? _credentialRequestSender;
+  final http.Client _http;
   final Duration _retryBackoff;
 
   static const _maxAttempts = 3;
@@ -62,8 +58,6 @@ class LogShareService {
     required Map<String, dynamic> body,
     required AuthCredentialLease credential,
   }) async {
-    final sender = _credentialRequestSender;
-    if (sender == null) return LogShareOutcome.stale;
     final url = Uri.parse('$_baseUrl/logs');
     final headers = {
       ..._headers,
@@ -77,10 +71,8 @@ class LogShareService {
         final request = http.Request('POST', url)
           ..headers.addAll(headers)
           ..body = payload;
-        final streamed = await sender(
-          credential: credential,
-          request: request,
-        ).timeout(AppConfig.leaderboardApiTimeout);
+        final streamed =
+            await _http.send(request).timeout(AppConfig.leaderboardApiTimeout);
         final resp = await http.Response.fromStream(streamed)
             .timeout(AppConfig.leaderboardApiTimeout);
         if (resp.statusCode == 401 || resp.statusCode == 404) {
@@ -105,8 +97,6 @@ class LogShareService {
         // (cursor kept) so a misconfiguration doesn't silently drop logs.
         _log.warn('Unexpected status ${resp.statusCode}');
         return LogShareOutcome.failed;
-      } on StaleAuthCredentialException {
-        return LogShareOutcome.stale;
       } catch (e) {
         if (attempt < _maxAttempts) {
           await Future<void>.delayed(backoff);
@@ -129,4 +119,6 @@ class LogShareService {
       return false;
     }
   }
+
+  void dispose() => _http.close();
 }

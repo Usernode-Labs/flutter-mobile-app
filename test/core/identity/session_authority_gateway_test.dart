@@ -1,13 +1,9 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
-
-import '../../helpers/session_authority_test_helpers.dart';
 
 void main() {
   test('credential issuance requires complete authenticated authority', () {
@@ -205,8 +201,7 @@ void main() {
     );
   });
 
-  test('terminal drain metadata reaches production telemetry dimensions',
-      () async {
+  test('terminal recovery metadata has no permit-era dimensions', () async {
     final reports = <Map<String, Object?>>[];
     final terminalRecord = {
       ...record,
@@ -230,25 +225,13 @@ void main() {
           jsonEncode({
         'status': 'ok',
         'outcome': {
-          'kind': 'retirement_drain_terminal',
-          'reason': 'effect_drain_timeout',
-          'oldest': {
-            'sink': 'zk_outbox',
-            'operation_id': 'flush-a',
-            'engine_id': 'ui-a',
-            'handed_off': false,
-            'held_for_ms': 10004,
-          },
+          'kind': 'retirement_terminal',
+          'reason': 'webview_clear_unconfirmed',
         },
         'telemetry': {
-          'reason': 'effect_drain_timeout',
-          'phase': 'retirement_entry',
-          'sink': 'zk_outbox',
+          'reason': 'webview_clear_unconfirmed',
+          'phase': 'clear_webview',
           'platform': Platform.operatingSystem,
-          'operation_id': 'flush-a',
-          'engine_id': 'ui-a',
-          'handed_off': false,
-          'held_for_ms': 10004,
         },
         'revision': {...revision, 'sequence': 8},
         'record': terminalRecord,
@@ -259,14 +242,9 @@ void main() {
     await gateway.command({'command': 'enter_retirement'});
 
     expect(reports.single, {
-      'reason': 'effect_drain_timeout',
-      'phase': 'retirement_entry',
-      'sink': 'zk_outbox',
+      'reason': 'webview_clear_unconfirmed',
+      'phase': 'clear_webview',
       'platform': Platform.operatingSystem,
-      'operation_id': 'flush-a',
-      'engine_id': 'ui-a',
-      'handed_off': false,
-      'held_for_ms': 10004,
     });
   });
 
@@ -337,88 +315,6 @@ void main() {
       'network': 'testnet',
       'session_id': 'logged-out-a',
     });
-  });
-
-  test('credential request keeps its captured bearer and may finish late',
-      () async {
-    final responseGate = Completer<http.StreamedResponse>();
-    final dispatched = Completer<void>();
-    late http.BaseRequest capturedRequest;
-    final gateway = SessionAuthorityGateway(
-      requestSender: (request) {
-        capturedRequest = request;
-        dispatched.complete();
-        return responseGate.future;
-      },
-    );
-    final credential = testCredentialLease(
-      epoch: 7,
-      token: 'token-a',
-      sessionId: 'session-a',
-      credentialRef: 'credential-a',
-      credentialGeneration: 3,
-    );
-    final request = http.Request(
-      'GET',
-      Uri.parse('https://example.test/api/v3/mobile/me'),
-    )..headers['authorization'] = 'Bearer token-a';
-
-    final responseFuture = gateway.sendCredentialRequest(
-      credential: credential,
-      request: request,
-    );
-    var responseSettled = false;
-    unawaited(responseFuture.then<void>(
-      (_) => responseSettled = true,
-      onError: (_) => responseSettled = true,
-    ));
-    await dispatched.future;
-
-    expect(capturedRequest, same(request));
-    expect(capturedRequest.headers['authorization'], 'Bearer token-a');
-    expect(responseSettled, isFalse);
-
-    responseGate.complete(http.StreamedResponse(const Stream.empty(), 200));
-    expect((await responseFuture).statusCode, 200);
-  });
-
-  test('workflow transport requires the row and credential to share an owner',
-      () async {
-    var sends = 0;
-    final gateway = SessionAuthorityGateway(
-      requestSender: (request) async {
-        sends++;
-        return http.StreamedResponse(const Stream.empty(), 200);
-      },
-    );
-    final credential = testCredentialLease(
-      epoch: 7,
-      token: 'token-a',
-      sessionId: 'session-a',
-      credentialRef: 'credential-a',
-      credentialGeneration: 3,
-    );
-    final request = http.Request(
-      'POST',
-      Uri.parse('https://example.test/api/v3/mobile/zkpassport/complete'),
-    )..headers['authorization'] = 'Bearer token-a';
-
-    final response = await gateway.sendWorkflowCredentialRequest(
-      appSessionId: 'session-a',
-      credential: credential,
-      request: request,
-    );
-    expect(response.statusCode, 200);
-    expect(sends, 1);
-    expect(
-      () => gateway.sendWorkflowCredentialRequest(
-        appSessionId: 'session-b',
-        credential: credential,
-        request: request,
-      ),
-      throwsA(isA<StaleAuthCredentialException>()),
-    );
-    expect(sends, 1);
   });
 }
 

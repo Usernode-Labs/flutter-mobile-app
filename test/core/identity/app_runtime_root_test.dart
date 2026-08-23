@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/main.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +25,7 @@ void main() {
     final oldContainer = _containerFor(oldProbe);
 
     await tester.pumpWidget(AppRuntimeRoot(
-      initialContainer: oldContainer,
+      sessionHost: _hostFor(oldContainer),
       child: const _RuntimeView(),
     ));
     expect(find.text('old'), findsOneWidget);
@@ -56,7 +57,7 @@ void main() {
     final probe = _RuntimeProbe('old', ledger);
 
     await tester.pumpWidget(AppRuntimeRoot(
-      initialContainer: _containerFor(probe),
+      sessionHost: _hostFor(_containerFor(probe)),
       child: const _RuntimeView(),
     ));
 
@@ -80,7 +81,7 @@ void main() {
     final probe = _RuntimeProbe('old', ledger);
 
     await tester.pumpWidget(AppRuntimeRoot(
-      initialContainer: _containerFor(probe),
+      sessionHost: _hostFor(_containerFor(probe)),
       child: const _RuntimeView(),
     ));
 
@@ -97,6 +98,15 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
+}
+
+SessionHostCoordinator _hostFor(ProviderContainer container) {
+  final host = SessionHostCoordinator(
+    createSuccessor: () async =>
+        throw StateError('Terminal reset must not create a successor'),
+  );
+  host.mountInitial(container);
+  return host;
 }
 
 ProviderContainer _containerFor(_RuntimeProbe probe) => ProviderContainer(

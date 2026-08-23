@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
@@ -85,9 +86,7 @@ Future<void> _runAppBody({required String logTag}) async {
 
   // Render UI immediately; perform heavy bootstrap asynchronously.
   log.info('Running app UI');
-  runApp(AppRuntimeRoot(
-    initialContainer: boot.container,
-  ));
+  runApp(AppRuntimeRoot(sessionHost: boot.sessionHost));
 }
 
 /// Headless entrypoint for background Flutter engine
@@ -177,12 +176,12 @@ Future<void> _startHeadlessServices(
 class AppRuntimeRoot extends StatefulWidget {
   const AppRuntimeRoot({
     super.key,
-    required this.initialContainer,
+    required this.sessionHost,
     this.resetService,
     this.child = const CryptoMobileApp(),
   });
 
-  final ProviderContainer initialContainer;
+  final SessionHostCoordinator sessionHost;
   final AppResetService? resetService;
   final Widget child;
 
@@ -191,14 +190,13 @@ class AppRuntimeRoot extends StatefulWidget {
 }
 
 class _AppRuntimeRootState extends State<AppRuntimeRoot> {
-  ProviderContainer? _container;
   bool _terminalReset = false;
   String _terminalResetReason = 'unknown';
 
   @override
   void initState() {
     super.initState();
-    _container = widget.initialContainer;
+    widget.sessionHost.addListener(_hostChanged);
     (widget.resetService ?? AppResetService.instance)
         .registerTerminalResetHandler(_enterTerminalReset);
   }
@@ -207,37 +205,90 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
   void dispose() {
     (widget.resetService ?? AppResetService.instance)
         .unregisterTerminalResetHandler();
-    _container?.dispose();
+    widget.sessionHost.removeListener(_hostChanged);
+    widget.sessionHost.close();
     super.dispose();
+  }
+
+  void _hostChanged() {
+    if (mounted) setState(() {});
   }
 
   void _enterTerminalReset(String reason) {
     if (_terminalReset) return;
-    final oldContainer = _container;
     if (!mounted) {
-      oldContainer?.dispose();
-      _container = null;
+      widget.sessionHost.close();
       _terminalReset = true;
       _terminalResetReason = reason;
       return;
     }
     setState(() {
-      _container = null;
       _terminalReset = true;
       _terminalResetReason = reason;
     });
-    oldContainer?.dispose();
+    widget.sessionHost.close();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_terminalReset) return _TerminalResetApp(reason: _terminalResetReason);
-    final container = _container!;
-    return UncontrolledProviderScope(
-      container: container,
-      child: widget.child,
-    );
+    final host = widget.sessionHost;
+    return switch (host.status) {
+      SessionHostStatus.mounted => UncontrolledProviderScope(
+          container: host.container!,
+          child: KeyedSubtree(
+            key: ValueKey(host.generation),
+            child: widget.child,
+          ),
+        ),
+      SessionHostStatus.transitioning => const _SessionTransitionApp(),
+      SessionHostStatus.recoveryRequired => _SessionRecoveryApp(
+          retry: host.retry,
+        ),
+      SessionHostStatus.closed => const SizedBox.shrink(),
+    };
   }
+}
+
+class _SessionTransitionApp extends StatelessWidget {
+  const _SessionTransitionApp();
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        theme: CryptoMobileApp._lightTheme,
+        darkTheme: CryptoMobileApp._darkTheme,
+        themeMode: ThemeMode.system,
+        debugShowCheckedModeBanner: false,
+        home: const Scaffold(
+          body: Center(child: Text('Finishing session…')),
+        ),
+      );
+}
+
+class _SessionRecoveryApp extends StatelessWidget {
+  const _SessionRecoveryApp({required this.retry});
+
+  final VoidCallback retry;
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+        theme: CryptoMobileApp._lightTheme,
+        darkTheme: CryptoMobileApp._darkTheme,
+        themeMode: ThemeMode.system,
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Session recovery needed'),
+                const SizedBox(height: 16),
+                FilledButton(onPressed: retry, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _TerminalResetApp extends StatelessWidget {

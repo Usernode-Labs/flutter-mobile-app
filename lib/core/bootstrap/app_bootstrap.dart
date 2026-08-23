@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/identity/session_retirement_repair.dart';
 import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
@@ -52,6 +53,7 @@ Future<void> runPreJournalBootstrap({
 
 class AppBootstrapResult {
   final ProviderContainer container;
+  final SessionHostCoordinator sessionHost;
   final TaggedLogger log;
   final bool hasAnyAccounts;
   final String? activeAccountId;
@@ -59,6 +61,7 @@ class AppBootstrapResult {
 
   const AppBootstrapResult({
     required this.container,
+    required this.sessionHost,
     required this.log,
     required this.hasAnyAccounts,
     required this.activeAccountId,
@@ -143,17 +146,41 @@ class AppBootstrap {
       },
     );
 
-    // Create provider container
-    final container = ProviderContainer(overrides: [
-      sessionAuthorityGatewayProvider.overrideWithValue(sessionAuthority),
-    ]);
+    late final SessionHostCoordinator sessionHost;
+    Future<ProviderContainer> createSessionContainer() async {
+      final container = ProviderContainer(overrides: [
+        sessionAuthorityGatewayProvider.overrideWithValue(sessionAuthority),
+        sessionHostLifecycleProvider.overrideWithValue(sessionHost),
+      ]);
+      // Restore identity before exposing this independent container to the
+      // widget tree or any account-scoped reader.
+      await container.read(identityProvider.notifier).restore();
+      return container;
+    }
 
-    // Restore the identity (and with it the active per-identity storage
-    // bucket) before any account-scoped pref is read. This publishes the
-    // boot identity: unauthenticated, guest, ready, or reconciling when a
-    // sign-in's account reconcile was interrupted — in which case the node
-    // start below is refused until the reconcile completes.
-    await container.read(identityProvider.notifier).restore();
+    sessionHost = SessionHostCoordinator(
+      createSuccessor: createSessionContainer,
+      onDetached: () {
+        MetricsCollectorService.instance.detachSessionHost();
+        AppLifecycleLogger.onForegroundResume = null;
+      },
+      onMounted: (container) {
+        MetricsCollectorService.instance.initialize(container);
+        if (registerLifecycleObserver) {
+          AppLifecycleLogger.onForegroundResume = () {
+            container
+                .read(zkPassportPipelineProvider.notifier)
+                .recoverPendingSessionOnForeground();
+            BlockProductionAlarmAuditService.instance.auditBestEffort(
+              reason: 'foreground_resume',
+            );
+          };
+        }
+      },
+    );
+    final container = await createSessionContainer();
+    sessionHost.mountInitial(container);
+
     final identity = container.read(identityProvider);
     final repo = await AccountsRepository.create();
     if (applyBootstrapIdentity) {
@@ -176,8 +203,6 @@ class AppBootstrap {
       log.debug('Set Sentry user context for existing account: $activeId');
     }
 
-    // Metrics collector needs the container before any lifecycle/service starts
-    MetricsCollectorService.instance.initialize(container);
     ObservabilityReportingService.instance.configureMobileContextCollector(
       MetricsCollectorService.instance,
     );
@@ -189,20 +214,8 @@ class AppBootstrap {
       await AppSleepService.instance.initializeForInteractiveApp();
     }
 
-    void recoverZkSession() {
-      container
-          .read(zkPassportPipelineProvider.notifier)
-          .recoverPendingSessionOnForeground();
-    }
-
     if (registerLifecycleObserver) {
       AppLifecycleLogger.register();
-      AppLifecycleLogger.onForegroundResume = () {
-        recoverZkSession();
-        BlockProductionAlarmAuditService.instance.auditBestEffort(
-          reason: 'foreground_resume',
-        );
-      };
     }
 
     final backendBootstrap = _bootstrapBackendAsync(
@@ -212,6 +225,7 @@ class AppBootstrap {
 
     return AppBootstrapResult(
       container: container,
+      sessionHost: sessionHost,
       log: log,
       hasAnyAccounts: hasAnyAccounts,
       activeAccountId: activeId,

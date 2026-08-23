@@ -1,5 +1,6 @@
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -165,6 +166,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => ids[kind]!,
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
@@ -300,6 +302,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'session' => 'session-a',
         'transition' => 'login-a',
@@ -389,6 +392,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (_) => 'unused',
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
@@ -453,6 +457,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => kind == 'rollback' ? 'logged-out-b' : 'unused',
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
@@ -509,6 +514,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
@@ -577,6 +583,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
@@ -622,6 +629,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
@@ -678,6 +686,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: repository,
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'credential-confirmation' => 'confirm-http-a',
         'successor' => 'logged-out-b',
@@ -749,6 +758,7 @@ void main() {
         guestFlag: AuthGuestFlag(),
         repository: entry.$2(),
         sessionAuthority: authority,
+        sessionHost: const InlineSessionHostLifecycle(),
         clearWebSessionData: () async => true,
         rotateNativeGeneration: () async => true,
         clearSessionNotifications: () async => true,
@@ -801,6 +811,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
@@ -860,6 +871,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
@@ -951,6 +963,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
@@ -1008,6 +1021,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => kind == 'guest' ? 'guest-a' : 'unused',
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
@@ -1052,6 +1066,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => kind == 'successor'
           ? 'logged-out-b'
           : throw StateError('Unexpected id kind $kind'),
@@ -1117,6 +1132,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'successor' => 'logged-out-b',
         'retirement' => 'retire-a',
@@ -1227,6 +1243,7 @@ void main() {
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => ids[kind]!,
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,

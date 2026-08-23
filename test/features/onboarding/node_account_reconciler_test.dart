@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
@@ -202,6 +203,7 @@ SessionController _sessionController({
             userNamespace: _namespace,
             trailingResponses: trailingAuthorityResponses,
           ),
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'session' => 'session-a',
         'transition' => 'login-a',

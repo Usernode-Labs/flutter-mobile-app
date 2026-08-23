@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -64,6 +65,7 @@ SessionController _identityController() => SessionController(
         accountId: 'account-a',
         address: 'address-a',
       ),
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'session' => 'session-a',
         'transition' => 'login-a',

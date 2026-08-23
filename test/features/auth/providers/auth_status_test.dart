@@ -1,4 +1,5 @@
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
@@ -32,6 +33,7 @@ SessionController _controller(ScriptedSessionAuthority authority) =>
       guestFlag: AuthGuestFlag(),
       repository: _NoopAuthRepository(),
       sessionAuthority: authority,
+      sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => switch (kind) {
         'session' => 'session-a',
         'transition' => 'login-a',

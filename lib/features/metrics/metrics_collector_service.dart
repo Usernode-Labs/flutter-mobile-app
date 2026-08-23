@@ -79,6 +79,11 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     }
   }
 
+  /// Releases the disposed session host without resetting process metrics.
+  void detachSessionHost() {
+    _container = null;
+  }
+
   /// Clears cached state so a subsequent bootstrap starts cleanly.
   void reset() {
     _container = null;

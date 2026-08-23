@@ -11,6 +11,7 @@ import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_cleanup.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/identity/session_retirement_repair.dart';
 import 'package:crypto_mobile_app/core/identity/session_scope_reset.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
@@ -74,6 +75,7 @@ final identityProvider = StateNotifierProvider<SessionController, Identity>(
         signal.state = signal.state + 1;
       },
       sessionAuthority: ref.watch(sessionAuthorityGatewayProvider),
+      sessionHost: ref.watch(sessionHostLifecycleProvider),
     );
     unawaited(controller.restore());
     return controller;
@@ -107,6 +109,7 @@ class SessionController extends StateNotifier<Identity> {
     void Function()? onSignOutCompleted,
     SessionDataPreservingTermination? terminatePreservingData,
     required SessionAuthorityGateway sessionAuthority,
+    required SessionHostLifecycle sessionHost,
     String Function(String kind)? newAuthorityId,
     RetireRuntimeAuthority? retireRuntimeAuthority,
   })  : _tokenStore = tokenStore,
@@ -123,6 +126,7 @@ class SessionController extends StateNotifier<Identity> {
         _terminatePreservingData =
             terminatePreservingData ?? _defaultTerminatePreservingData,
         _sessionAuthority = sessionAuthority,
+        _sessionHost = sessionHost,
         _newAuthorityId = newAuthorityId ?? _defaultNewAuthorityId,
         _retireRuntimeAuthority = retireRuntimeAuthority,
         super(Identity.unknown(epoch: IdentitySnapshots.current.epoch)) {
@@ -167,6 +171,7 @@ class SessionController extends StateNotifier<Identity> {
 
   final SessionDataPreservingTermination _terminatePreservingData;
   final SessionAuthorityGateway _sessionAuthority;
+  final SessionHostLifecycle _sessionHost;
   final String Function(String kind) _newAuthorityId;
   final RetireRuntimeAuthority? _retireRuntimeAuthority;
   Map<String, dynamic>? _authorityRevisionValue;
@@ -684,7 +689,11 @@ class SessionController extends StateNotifier<Identity> {
         phase: IdentityPhase.transitioning,
         sessionId: sessionId,
       ));
-      await _logoutWithAuthority(unavailable, signalCompletion: false);
+      await _logoutWithAuthority(
+        unavailable,
+        signalCompletion: false,
+        replaceHost: false,
+      );
       return;
     }
     if (credential.userNamespace != userNamespace) {
@@ -702,7 +711,11 @@ class SessionController extends StateNotifier<Identity> {
         phase: IdentityPhase.transitioning,
         sessionId: sessionId,
       ));
-      await _logoutWithAuthority(unavailable, signalCompletion: false);
+      await _logoutWithAuthority(
+        unavailable,
+        signalCompletion: false,
+        replaceHost: false,
+      );
       return;
     }
     if (!await saveIdentityNamespace(userNamespace)) {
@@ -806,8 +819,12 @@ class SessionController extends StateNotifier<Identity> {
         phase: IdentityPhase.transitioning,
         sessionId: current.sessionId,
       ));
-      if (!await _logoutWithAuthority(current, signalCompletion: false)) {
-        return false;
+      final successor = await _logoutWithAuthority(
+        current,
+        signalCompletion: false,
+      );
+      if (!identical(successor, this)) {
+        return successor.completeLogin(session);
       }
       return _completeAuthorityLogin(session, state);
     }
@@ -887,10 +904,12 @@ class SessionController extends StateNotifier<Identity> {
             phase: IdentityPhase.transitioning,
             sessionId: current.sessionId,
           ));
-          if (!await _logoutWithAuthority(
+          final successor = await _logoutWithAuthority(
             current,
             signalCompletion: false,
-          )) {
+          );
+          if (!identical(successor, this)) {
+            await successor.continueAsGuest();
             return;
           }
         } else {
@@ -979,13 +998,11 @@ class SessionController extends StateNotifier<Identity> {
                 current.sessionId != authorityState['session_id']) {
               throw StateError('Network change lost its exact session owner');
             }
-            if (!await _logoutWithAuthority(
+            await _logoutWithAuthority(
               current,
               signalCompletion: false,
               successorNetwork: network,
-            )) {
-              return;
-            }
+            );
             await _terminatePreservingData(reason: 'network_change');
             return;
           }
@@ -1048,13 +1065,15 @@ class SessionController extends StateNotifier<Identity> {
           epoch: epoch,
           phase: IdentityPhase.transitioning,
         ));
-        return _logoutWithAuthority(current);
+        await _logoutWithAuthority(current);
+        return true;
       }, whenRetired: () => false);
 
-  Future<bool> _logoutWithAuthority(
+  Future<SessionController> _logoutWithAuthority(
     Identity current, {
     bool signalCompletion = true,
     String? successorNetwork,
+    bool replaceHost = true,
   }) async {
     final sessionId = _requiredAuthorityField(current.sessionId, 'session');
     final credentialRef =
@@ -1063,40 +1082,80 @@ class SessionController extends StateNotifier<Identity> {
     if (credentialGeneration == null || credentialGeneration <= 0) {
       throw StateError('Ready identity has no credential generation');
     }
-    final credential = await _tokenStore.readSessionCredential(
-      sessionId: sessionId,
-      credentialRef: credentialRef,
-      credentialGeneration: credentialGeneration,
-    );
-    unawaited(_logoutBestEffort(credential?.token));
-
     final successorSessionId = _newAuthorityId('successor');
     final transitionId = _newAuthorityId('retirement');
-    final initial = await _authorityCommand({'command': 'read_record'});
-    final ready = _replyState(initial, expectedKind: 'ready');
-    if (ready['session_id'] != sessionId) {
-      throw StateError('Retirement lost its exact Ready owner');
-    }
-    final completed = await _repairAuthorityRetirement(
-      initial,
-      successorLoggedOutSessionId: successorSessionId,
-      successorNetwork: successorNetwork,
-      transitionId: transitionId,
-    );
-    final loggedOut = _replyState(completed, expectedKind: 'logged_out');
-    if (successorNetwork != null) {
-      final committedNetwork = _replyNetwork(completed);
-      if (committedNetwork != successorNetwork) {
-        throw StateError('Network change committed a different network');
+    late Map<String, dynamic> completed;
+
+    Future<void> retire() async {
+      final credential = await _tokenStore.readSessionCredential(
+        sessionId: sessionId,
+        credentialRef: credentialRef,
+        credentialGeneration: credentialGeneration,
+      );
+      unawaited(_logoutBestEffort(credential?.token));
+
+      final initial = await _authorityCommand({'command': 'read_record'});
+      final authorityState = _replyStateFromRecord(initial);
+      final kind = authorityState['kind'];
+      if (kind == 'ready') {
+        if (authorityState['session_id'] != sessionId) {
+          throw StateError('Retirement lost its exact Ready owner');
+        }
+        completed = await _repairAuthorityRetirement(
+          initial,
+          successorLoggedOutSessionId: successorSessionId,
+          successorNetwork: successorNetwork,
+          transitionId: transitionId,
+        );
+      } else if (kind == 'retiring') {
+        if (authorityState['session_id'] != sessionId ||
+            authorityState['successor_logged_out_session_id'] !=
+                successorSessionId ||
+            authorityState['successor_network'] != successorNetwork ||
+            authorityState['transition_id'] != transitionId) {
+          throw StateError('A different retirement owns the journal');
+        }
+        completed = await _repairAuthorityRetirement(initial);
+      } else if (kind == 'logged_out') {
+        if (authorityState['session_id'] != successorSessionId) {
+          throw StateError('A different logged-out successor owns the journal');
+        }
+        completed = initial;
+      } else {
+        throw StateError('Retirement cannot resume from $kind');
       }
-      await NetworkPrefs.adoptAuthorityNetwork(committedNetwork);
+
+      final loggedOut = _replyState(completed, expectedKind: 'logged_out');
+      if (successorNetwork != null) {
+        final committedNetwork = _replyNetwork(completed);
+        if (committedNetwork != successorNetwork) {
+          throw StateError('Network change committed a different network');
+        }
+        await NetworkPrefs.adoptAuthorityNetwork(committedNetwork);
+      }
+      await _reclaimRetiredSession(sessionId);
+      if (!replaceHost) {
+        await _publishAuthorityLoggedOut(
+          loggedOut,
+          signalCompletion: signalCompletion,
+        );
+      }
     }
-    await _reclaimRetiredSession(sessionId);
-    await _publishAuthorityLoggedOut(
-      loggedOut,
-      signalCompletion: signalCompletion,
-    );
-    return true;
+
+    if (!replaceHost) {
+      await retire();
+      return this;
+    }
+
+    final successorContainer = await _sessionHost.replace(retire: retire);
+    if (successorContainer == null) {
+      await _publishAuthorityLoggedOut(
+        _replyState(completed, expectedKind: 'logged_out'),
+        signalCompletion: signalCompletion,
+      );
+      return this;
+    }
+    return successorContainer.read(identityProvider.notifier);
   }
 
   Future<Map<String, dynamic>> _repairAuthorityRetirement(
@@ -1299,7 +1358,8 @@ class SessionController extends StateNotifier<Identity> {
           phase: IdentityPhase.transitioning,
           sessionId: sessionId,
         ));
-        return _logoutWithAuthority(identity);
+        await _logoutWithAuthority(identity);
+        return true;
       }, whenRetired: () => false);
 
   /// Repairs an authenticated identity whose credential disappeared before a

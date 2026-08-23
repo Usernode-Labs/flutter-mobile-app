@@ -48,13 +48,9 @@ class AuthCredentialLease {
 
   bool matchesIdentity(Identity identity) =>
       epoch == identity.epoch &&
-      // Null authority fields exist only in the isolated compatibility
-      // controller path. Production identities compare the complete tuple.
-      (identity.sessionId == null || sessionId == identity.sessionId) &&
-      (identity.credentialRef == null ||
-          credentialRef == identity.credentialRef) &&
-      (identity.credentialGeneration == null ||
-          credentialGeneration == identity.credentialGeneration);
+      sessionId == identity.sessionId &&
+      credentialRef == identity.credentialRef &&
+      credentialGeneration == identity.credentialGeneration;
 
   @override
   String toString() => 'AuthCredentialLease(epoch: $epoch, '

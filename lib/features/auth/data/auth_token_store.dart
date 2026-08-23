@@ -30,9 +30,7 @@ class AuthTokenStore {
     if (sessionId == null ||
         credentialRef == null ||
         credentialGeneration == null) {
-      // Compatibility-only path for tests and pre-journal sessions. Shipped
-      // bootstrap always installs exact authority before identity restore.
-      return read();
+      return null;
     }
     return (await readSessionCredential(
       sessionId: sessionId,

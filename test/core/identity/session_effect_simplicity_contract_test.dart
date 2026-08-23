@@ -104,4 +104,39 @@ void main() {
     expect(source, isNot(contains('_terminalResetRequested')));
     expect(source, isNot(contains('Terminal reset is in progress')));
   });
+
+  test('session controller has one non-null authority path', () {
+    final controller =
+        File('lib/core/identity/session_controller.dart').readAsStringSync();
+    final gateway = File(
+      'lib/core/identity/session_authority_gateway.dart',
+    ).readAsStringSync();
+    final webview =
+        File('lib/features/dapps/dapp_webview_screen.dart').readAsStringSync();
+
+    expect(
+      controller,
+      contains('required SessionAuthorityGateway sessionAuthority'),
+    );
+    for (final forbidden in [
+      'Provider<SessionAuthorityGateway?>',
+      'SessionAuthorityGateway? sessionAuthority',
+      'SessionAuthorityGateway? _sessionAuthority',
+      '_sessionAuthority != null',
+      '_sessionAuthority == null',
+      '_restoreAuthenticated',
+      '_persistLoginTarget',
+      '_endSessionScope',
+      '_logoutStoredTokenBestEffort',
+    ]) {
+      expect(controller, isNot(contains(forbidden)));
+    }
+    expect(gateway, isNot(contains('identity.sessionId == null')));
+    expect(gateway, isNot(contains('identity.credentialRef == null')));
+    expect(gateway, isNot(contains('identity.credentialGeneration == null')));
+    expect(
+      webview,
+      isNot(contains('sessionAuthorityGatewayProvider) ??')),
+    );
+  });
 }

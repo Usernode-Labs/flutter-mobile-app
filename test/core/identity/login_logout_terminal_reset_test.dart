@@ -22,6 +22,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../helpers/session_authority_test_helpers.dart';
+
 final _resetProbeProvider = Provider<_ResetGraphProbe>((ref) {
   throw StateError('A reset graph probe override is required');
 });
@@ -36,6 +38,41 @@ class _NoopLogoutRepository extends AuthRepository {
   @override
   Future<void> logout(String sessionToken) async {}
 }
+
+SessionController _controller({
+  required ScriptedSessionAuthority authority,
+  required SessionTerminalReset terminalReset,
+  SignOutFence? signOutFence,
+  Future<bool> Function()? clearWebSessionData,
+  Future<bool> Function()? rotateNativeGeneration,
+  Future<bool> Function()? clearSessionNotifications,
+}) =>
+    SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopLogoutRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'session' => 'session-a',
+        'transition' => 'login-a',
+        'credential' => 'credential-a',
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        _ => throw StateError('Unexpected authority id: $kind'),
+      },
+      suspendNode: () async {},
+      retireRuntimeAuthority: ({
+        required directory,
+        required sessionId,
+        required transitionId,
+      }) async =>
+          true,
+      clearWebSessionData: clearWebSessionData ?? () async => true,
+      rotateNativeGeneration: rotateNativeGeneration ?? () async => true,
+      clearSessionNotifications: clearSessionNotifications ?? () async => true,
+      signOutFence: signOutFence ?? InMemorySignOutFence(),
+      terminalReset: terminalReset,
+    );
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
@@ -176,12 +213,13 @@ void main() {
     });
     nativeCalls.clear();
 
-    final controller = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: _NoopLogoutRepository(),
-      suspendNode: () async {},
-      signOutFence: InMemorySignOutFence(),
+    final controller = _controller(
+      authority: activationSessionAuthority(
+        accountId: 'account-a',
+        address: 'address-a',
+        userNamespace: 'aaaaaaaaaaaaaaa2',
+        loggedOutMode: 'guest',
+      ),
       terminalReset: ({required reason, prepareNextLaunch}) =>
           resetService.resetAndTerminate(
         reason: reason,
@@ -200,6 +238,7 @@ void main() {
             id: 2,
             email: 'two@example.com',
             emailConfirmed: true,
+            identityHash: 'aaaaaaaaaaaaaaa2',
           ),
         ),
       ),
@@ -217,11 +256,12 @@ void main() {
     final prefsBeforeLogout = await SharedPreferences.getInstance();
     expect(prefsBeforeLogout.getString('old_preference'), 'must disappear');
     expect(
-      await const FlutterSecureStorage().readAll(),
-      {
-        'auth:v3:session_token': 'new-session',
-        'old_secret': 'must disappear',
-      },
+      await const FlutterSecureStorage().read(key: 'old_secret'),
+      'must disappear',
+    );
+    expect(
+      await AuthTokenStore().readForIdentity(controller.state),
+      'new-session',
     );
 
     // Voluntary sign-out is no longer terminal (see the sign-out test below),
@@ -317,12 +357,14 @@ void main() {
     );
     expect(coldNativeEventCalls, 1);
 
-    final coldController = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: AuthRepository(),
-      suspendNode: () async {},
-      signOutFence: InMemorySignOutFence(),
+    final coldController = _controller(
+      authority: ScriptedSessionAuthority([
+        sessionAuthorityResponse(
+          sequence: 0,
+          state: loggedOutAuthorityState(),
+          outcome: 'record_read',
+        ),
+      ]),
       terminalReset: ({required reason, prepareNextLaunch}) async {
         fail('Cold launch unexpectedly requested another reset: $reason');
       },
@@ -379,11 +421,13 @@ void main() {
     var clearedWebSessions = 0;
     var clearedNotifications = 0;
     final signOutFence = InMemorySignOutFence();
-    final controller = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: _NoopLogoutRepository(),
-      suspendNode: () async {},
+    final controller = _controller(
+      authority: activationSessionAuthority(
+        accountId: 'account-a',
+        address: 'address-a',
+        userNamespace: 'aaaaaaaaaaaaaaa2',
+        trailingResponses: successfulRetirementResponses(),
+      ),
       clearWebSessionData: () async {
         clearedWebSessions += 1;
         return true;
@@ -418,6 +462,18 @@ void main() {
       isTrue,
     );
     await tester.pump();
+
+    expect(
+      await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'account-a',
+        address: 'address-a',
+        participantId: 2,
+        provisionedSeasonId: 1,
+      ),
+      isTrue,
+    );
+    final identityBeforeLogout = controller.state;
 
     final signedOut = await tester.runAsync(
       () => controller.logout(expectedIdentity: controller.state),
@@ -483,7 +539,10 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('old_preference'), 'must disappear',
         reason: 'only a terminal reset erases the seeded value');
-    expect(await AuthTokenStore().read(), isNull);
+    expect(
+      await AuthTokenStore().readForIdentity(identityBeforeLogout),
+      isNull,
+    );
     expect(
       await const FlutterSecureStorage().read(key: 'old_secret'),
       'must disappear',

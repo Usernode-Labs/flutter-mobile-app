@@ -215,6 +215,19 @@ void main() {
     );
   });
 
+  test('an incomplete authenticated identity cannot read the legacy token',
+      () async {
+    final store = AuthTokenStore();
+    await store.write('legacy-token');
+
+    expect(
+      await store.readForIdentity(
+        const Identity(epoch: 1, phase: IdentityPhase.reconciling),
+      ),
+      isNull,
+    );
+  });
+
   test('renewal can stage a successor without overwriting the current bearer',
       () async {
     final store = AuthTokenStore();

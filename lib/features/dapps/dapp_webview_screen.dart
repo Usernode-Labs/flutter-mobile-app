@@ -21,7 +21,6 @@ import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart'
     show sessionAuthorityGatewayProvider;
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart'
@@ -511,8 +510,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
           kDebugMode && AppConfig.enableLocalPrivilegedBridge,
       evaluateTopFrame: _controller.runJavaScriptReturningResult,
       currentIdentity: () => IdentitySnapshots.current,
-      sessionAuthority: ref.read(sessionAuthorityGatewayProvider) ??
-          SessionAuthorityGateway(),
+      sessionAuthority: ref.read(sessionAuthorityGatewayProvider),
     );
     _bridgeAdmissionCoordinator = BridgeAdmissionCoordinator(
       policy: _privilegedBridgePolicy,

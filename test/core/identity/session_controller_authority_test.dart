@@ -1,8 +1,4 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -48,33 +44,7 @@ class _RejectedAuthRepository extends AuthRepository {
   Future<void> logout(String sessionToken) async {}
 }
 
-class _ScriptedAuthority extends SessionAuthorityGateway {
-  _ScriptedAuthority(this.responses)
-      : super(
-          supportDirectory: () async => Directory('/application-support'),
-          admissionJson: ({required directory}) => '{}',
-          bootstrapJson: ({
-            required directory,
-            required network,
-            required sessionId,
-          }) =>
-              '{}',
-          commandJson: ({required directory, required request}) async => '{}',
-        );
-
-  final List<Map<String, dynamic>> responses;
-  final commands = <Map<String, dynamic>>[];
-
-  @override
-  String get directory => '/application-support/session-authority';
-
-  @override
-  Future<Map<String, dynamic>> command(Map<String, dynamic> request) async {
-    commands.add(jsonDecode(jsonEncode(request)) as Map<String, dynamic>);
-    if (responses.isEmpty) throw StateError('Unexpected authority command');
-    return responses.removeAt(0);
-  }
-}
+typedef _ScriptedAuthority = ScriptedSessionAuthority;
 
 AuthSession _session(String token) => AuthSession(
       token: token,
@@ -86,93 +56,12 @@ AuthSession _session(String token) => AuthSession(
       ),
     );
 
-Map<String, dynamic> _response({
-  required int sequence,
-  required Map<String, dynamic> state,
-  required String outcome,
-  String network = 'testnet',
-  Map<String, dynamic> outcomeFields = const {},
-}) =>
-    {
-      'status': 'ok',
-      'outcome': {'kind': outcome, ...outcomeFields},
-      'revision': {
-        'sequence': sequence,
-        'session_id': state['session_id'],
-        'state': state['kind'],
-        'transition_id': state['transition_id'],
-      },
-      'record': {
-        'schema_version': 1,
-        'sequence': sequence,
-        'network': network,
-        'state': state,
-      },
-    };
-
-Map<String, dynamic> _loggedOut({
-  String sessionId = 'logged-out-a',
-  String mode = 'signed_out',
-}) =>
-    {
-      'kind': 'logged_out',
-      'session_id': sessionId,
-      'mode': mode,
-    };
-
-Map<String, dynamic> _activating({
-  required String phase,
-  String? credentialRef,
-  int? credentialGeneration,
-  String? userNamespace,
-  Map<String, dynamic>? accountBinding,
-  String? rollbackLoggedOutSessionId,
-}) =>
-    {
-      'kind': 'activating',
-      'predecessor_session_id': 'logged-out-a',
-      'session_id': 'session-a',
-      'transition_id': 'login-a',
-      'phase': phase,
-      'rollback_logged_out_session_id': rollbackLoggedOutSessionId,
-      'credential_ref': credentialRef,
-      'credential_generation': credentialGeneration,
-      'user_namespace': userNamespace,
-      'account_binding': accountBinding,
-    };
-
-Map<String, dynamic> _ready({
-  String credentialRef = 'credential-a',
-  int credentialGeneration = 1,
-}) =>
-    {
-      'kind': 'ready',
-      'session_id': 'session-a',
-      'user_namespace': 'aaaaaaaaaaaaaaaa',
-      'credential_ref': credentialRef,
-      'credential_generation': credentialGeneration,
-      'account_binding': {
-        'account_id': 'account-a',
-        'address': 'address-a',
-      },
-      'runtime_generation': null,
-      'production_desired': false,
-    };
-
-Map<String, dynamic> _retiring(
-  String phase, {
-  int attempts = 0,
-  String? successorNetwork,
-}) =>
-    {
-      'kind': 'retiring',
-      'session_id': 'session-a',
-      'successor_logged_out_session_id': 'logged-out-b',
-      'successor_network': successorNetwork,
-      'transition_id': 'retire-a',
-      'phase': phase,
-      'phase_attempts': attempts,
-    };
+const _response = sessionAuthorityResponse;
+const _loggedOut = loggedOutAuthorityState;
+const _activating = activatingAuthorityState;
+const _ready = readyAuthorityState;
+const _retiring = retiringAuthorityState;
+const _successfulRetirementResponses = successfulRetirementResponses;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -675,6 +564,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'testnet:acct:$bucket:leaderboard:participant_id': 7,
       'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
+      'testnet:user:aaaaaaaaaaaaaaaa:accounts:index': 'retained-wallet',
     });
     final effects = <String>[];
     final controller = SessionController(
@@ -719,6 +609,11 @@ void main() {
     expect(effects, ['native', 'runtime', 'webview']);
     expect(controller.state.phase, IdentityPhase.unauthenticated);
     expect(controller.state.sessionId, 'logged-out-b');
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString('testnet:user:aaaaaaaaaaaaaaaa:accounts:index'),
+      'retained-wallet',
+    );
     expect(
       await tokenStore.readSessionCredential(
         sessionId: 'session-a',
@@ -1289,72 +1184,5 @@ List<Map<String, dynamic>> _phaseResponses({
         ),
         outcome: 'retirement_advanced',
         outcomeFields: {'phase': nextPhase},
-      ),
-    ];
-
-List<Map<String, dynamic>> _successfulRetirementResponses({
-  String? successorNetwork,
-}) =>
-    [
-      _response(
-        sequence: 6,
-        state: _retiring(
-          'tombstone_work',
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_entered',
-        outcomeFields: {'effect_epoch': 2},
-      ),
-      _response(
-        sequence: 6,
-        state: _retiring(
-          'tombstone_work',
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_tombstone_status',
-        outcomeFields: {'verified': true},
-      ),
-      _response(
-        sequence: 7,
-        state: _retiring(
-          'revoke_native_admission',
-          successorNetwork: successorNetwork,
-        ),
-        outcome: 'retirement_advanced',
-        outcomeFields: {'phase': 'revoke_native_admission'},
-      ),
-      ..._phaseResponses(
-        instructionSequence: 8,
-        advanceSequence: 9,
-        phase: 'revoke_native_admission',
-        nextPhase: 'revoke_runtime',
-        successorNetwork: successorNetwork,
-      ),
-      ..._phaseResponses(
-        instructionSequence: 10,
-        advanceSequence: 11,
-        phase: 'revoke_runtime',
-        nextPhase: 'clear_credential',
-        successorNetwork: successorNetwork,
-      ),
-      ..._phaseResponses(
-        instructionSequence: 12,
-        advanceSequence: 13,
-        phase: 'clear_credential',
-        nextPhase: 'clear_webview',
-        successorNetwork: successorNetwork,
-      ),
-      ..._phaseResponses(
-        instructionSequence: 14,
-        advanceSequence: 15,
-        phase: 'clear_webview',
-        nextPhase: 'commit_logged_out',
-        successorNetwork: successorNetwork,
-      ),
-      _response(
-        sequence: 16,
-        state: _loggedOut(sessionId: 'logged-out-b'),
-        outcome: 'retirement_logged_out',
-        network: successorNetwork ?? 'testnet',
       ),
     ];

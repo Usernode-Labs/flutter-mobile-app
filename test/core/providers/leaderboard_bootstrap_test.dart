@@ -1,22 +1,22 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
+import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
-const _namespace = 'aaaaaaaaaaaaaaaa';
+import '../../helpers/session_authority_test_helpers.dart';
 
 class _RecordingSeasonsService extends LeaderboardApiService {
   _RecordingSeasonsService({this.blocked = false})
@@ -42,39 +42,59 @@ class _RecordingSeasonsService extends LeaderboardApiService {
   }
 }
 
-Future<SessionController> _readyIdentityController() async {
-  const address = 'address-a';
-  final bucket = NetworkPrefs.bucketForAddress(address);
-  FlutterSecureStorage.setMockInitialValues({
-    'auth:v3:session_token': 'token-a',
-  });
-  SharedPreferences.setMockInitialValues({
-    'testnet:identity:namespace': _namespace,
-    'testnet:user:$_namespace:accounts:index': jsonEncode([
-      {
-        'id': 'account-a',
-        'name': 'Node Account',
-        'createdAt': '2026-01-01T00:00:00.000',
-        'derivationPath': 'imported',
-        'hdIndex': 0,
-        'address': address,
-        'publicKey': 'utpk1$address',
-        'backupConfirmed': true,
-        'isDemo': false,
+class _NoopAuthRepository extends AuthRepository {
+  @override
+  Future<void> logout(String sessionToken) async {}
+}
+
+const _session = AuthSession(
+  token: 'token-a',
+  participant: Participant(
+    id: 7,
+    email: 'seven@example.com',
+    emailConfirmed: true,
+    identityHash: 'aaaaaaaaaaaaaaaa',
+  ),
+);
+
+SessionController _identityController() => SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: activationSessionAuthority(
+        accountId: 'account-a',
+        address: 'address-a',
+      ),
+      newAuthorityId: (kind) => switch (kind) {
+        'session' => 'session-a',
+        'transition' => 'login-a',
+        'credential' => 'credential-a',
+        _ => throw StateError('Unexpected authority id: $kind'),
       },
-    ]),
-    'testnet:user:$_namespace:accounts:activeId': 'account-a',
-    'testnet:acct:$bucket:leaderboard:participant_id': 7,
-    'testnet:acct:$bucket:identity:provisioned_season': 1,
-    'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
-  });
-  final controller = SessionController(
-    tokenStore: AuthTokenStore(),
-    guestFlag: AuthGuestFlag(),
-    repository: AuthRepository(),
-    suspendNode: () async {},
-  );
+      suspendNode: () async {},
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+
+Future<SessionController> _readyIdentityController() async {
+  final controller = _identityController();
   await controller.restore();
+  expect(await controller.completeLogin(_session), isTrue);
+  expect(
+    await controller.reconcileSucceeded(
+      epoch: controller.state.epoch,
+      accountId: 'account-a',
+      address: 'address-a',
+      participantId: 7,
+      provisionedSeasonId: 1,
+    ),
+    isTrue,
+  );
   return controller;
 }
 
@@ -214,20 +234,9 @@ void main() {
 
   group('leaderboardBootstrapProvider identity lease', () {
     test('does not fetch until the authenticated identity is ready', () async {
-      FlutterSecureStorage.setMockInitialValues({
-        'auth:v3:session_token': 'token-a',
-      });
-      SharedPreferences.setMockInitialValues({
-        'testnet:account:reconcile_pending': true,
-        'testnet:acct:guest:leaderboard:participant_id': 7,
-      });
-      final controller = SessionController(
-        tokenStore: AuthTokenStore(),
-        guestFlag: AuthGuestFlag(),
-        repository: AuthRepository(),
-        suspendNode: () async {},
-      );
+      final controller = _identityController();
       await controller.restore();
+      expect(await controller.completeLogin(_session), isTrue);
       final service = _RecordingSeasonsService();
       final container = ProviderContainer(overrides: [
         identityProvider.overrideWith((ref) => controller),

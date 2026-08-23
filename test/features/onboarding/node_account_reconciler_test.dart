@@ -38,24 +38,18 @@ class _NoopAuthRepository extends AuthRepository {
   Future<void> logout(String sessionToken) async {}
 }
 
-AuthCredentialLease _compatibilityCredential({
-  required Identity identity,
-  required String token,
-}) =>
-    testCredentialLease(epoch: identity.epoch, token: token);
-
 AccountApiService _accountService(http.Client client) => AccountApiService(
       baseUrl: 'https://test.example.com/api/v4/mobile',
-      tokenProvider: AuthTokenStore().read,
-      credentialIssuer: _compatibilityCredential,
+      tokenProvider: () =>
+          AuthTokenStore().readForIdentity(IdentitySnapshots.current),
       httpClient: client,
     );
 
 LeaderboardApiService _leaderboardService(http.Client client) =>
     LeaderboardApiService(
       baseUrl: 'https://test.example.com/api/v4/mobile',
-      tokenProvider: AuthTokenStore().read,
-      credentialIssuer: _compatibilityCredential,
+      tokenProvider: () =>
+          AuthTokenStore().readForIdentity(IdentitySnapshots.current),
       httpClient: client,
     );
 
@@ -187,24 +181,74 @@ AuthSession _session(String token, {int participantId = 99}) => AuthSession(
         id: participantId,
         email: 'a@b.com',
         emailConfirmed: true,
+        identityHash: _namespace,
       ),
     );
 
-/// Stages the only payload retained by a successful terminal login, then
-/// rebuilds the identity provider to model the next cold launch.
+SessionController _sessionController({
+  String accountId = 'acc_1_b',
+  String address = _addressB,
+  List<Map<String, dynamic>> trailingAuthorityResponses = const [],
+  ScriptedSessionAuthority? authority,
+  AuthTokenStore? tokenStore,
+}) =>
+    SessionController(
+      tokenStore: tokenStore ?? AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority ??
+          activationSessionAuthority(
+            accountId: accountId,
+            address: address,
+            userNamespace: _namespace,
+            trailingResponses: trailingAuthorityResponses,
+          ),
+      newAuthorityId: (kind) => switch (kind) {
+        'session' => 'session-a',
+        'transition' => 'login-a',
+        'credential' => 'credential-a',
+        'rollback' => 'logged-out-b',
+        'successor' => 'logged-out-b',
+        'retirement' => 'retire-a',
+        _ => throw StateError('Unexpected authority id: $kind'),
+      },
+      suspendNode: () async {},
+      retireRuntimeAuthority: ({
+        required directory,
+        required sessionId,
+        required transitionId,
+      }) async =>
+          true,
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+
+Override _identityOverride({
+  String accountId = 'acc_1_b',
+  String address = _addressB,
+  List<Map<String, dynamic>> trailingAuthorityResponses = const [],
+  ScriptedSessionAuthority? authority,
+  AuthTokenStore? tokenStore,
+}) =>
+    identityProvider.overrideWith(
+      (ref) => _sessionController(
+        accountId: accountId,
+        address: address,
+        trailingAuthorityResponses: trailingAuthorityResponses,
+        authority: authority,
+        tokenStore: tokenStore,
+      ),
+    );
+
 Future<void> _login(ProviderContainer c, {String token = 'sess-1'}) async {
   await c.read(identityProvider.notifier).restore();
-  final session = _session(token);
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('testnet:account:reconcile_pending', true);
-  await prefs.setInt(
-    'testnet:acct:guest:leaderboard:participant_id',
-    session.participant.id,
-  );
-  await prefs.remove('auth:v3:guest');
-  await AuthTokenStore().write(session.token);
-  c.invalidate(identityProvider);
-  await c.read(identityProvider.notifier).restore();
+  expect(await c.read(identityProvider.notifier).completeLogin(_session(token)),
+      isTrue);
   expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
 }
 
@@ -282,6 +326,7 @@ void main() {
   test('does nothing when the identity is not reconciling', () async {
     final provisionCalls = <int>[];
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(),
@@ -317,6 +362,7 @@ void main() {
     final provisionCalls = <int>[];
     var nodeBinds = 0;
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(ensureNodeIdentity: () async => nodeBinds++),
@@ -358,102 +404,48 @@ void main() {
     expect(prefs.getBool(markerKey), isNull);
   });
 
-  test('legacy ownership migration provisions once, then restores ready',
+  test('activation reuses an exact retained legacy account without deleting it',
       () async {
-    final bucketA = NetworkPrefs.bucketForAddress(_addressA);
     final bucketB = NetworkPrefs.bucketForAddress(_addressB);
+    final legacyIndex = jsonEncode([
+      _accountJson('acc_0_a', _addressA),
+      _accountJson('acc_1_b', _addressB),
+    ]);
     SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
-        _accountJson('acc_0_a', _addressA),
-        _accountJson('acc_1_b', _addressB),
-      ]),
+      'testnet:accounts:index': legacyIndex,
       'testnet:accounts:activeId': 'acc_0_a',
-      // Pre-lifecycle state: an active account has an owner id, but there is
-      // no reconcile marker or ownership proof tying it to the stored token.
-      'testnet:acct:$bucketA:leaderboard:participant_id': 7,
-      // Residue without a pending marker is not authenticated recovery state;
-      // `/me` below must win over it.
-      'testnet:acct:guest:leaderboard:participant_id': 123,
     });
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-b'});
     await NetworkPrefs.init();
 
     final provisionCalls = <int>[];
     final provisionService = _provisionService(_addressB, provisionCalls);
-    final accountService = _accountService(MockClient((request) async {
-      expect(request.url.path, endsWith('/me'));
-      return http.Response(
-        jsonEncode({
-          'success': true,
-          'data': {
-            'id': 99,
-            'email': 'b@example.com',
-            'email_confirmed': true,
-            'level': 'operator',
-          },
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
-    }));
     addTearDown(provisionService.dispose);
-    addTearDown(accountService.dispose);
 
-    List<Override> overrides() => [
-          leaderboardApiServiceProvider.overrideWithValue(provisionService),
-          accountApiServiceProvider.overrideWithValue(accountService),
-          _reconcilerOverride(),
-        ];
+    final container = ProviderContainer(overrides: [
+      _identityOverride(),
+      leaderboardApiServiceProvider.overrideWithValue(provisionService),
+      _reconcilerOverride(),
+    ]);
+    addTearDown(container.dispose);
 
-    final firstBoot = ProviderContainer(overrides: overrides());
-    try {
-      await firstBoot.read(identityProvider.notifier).restore();
-      expect(
-        firstBoot.read(identityProvider).phase,
-        IdentityPhase.reconciling,
-      );
-
-      expect(
-        await firstBoot.read(nodeAccountReconcilerProvider).reconcile(),
-        isTrue,
-      );
-      expect(firstBoot.read(identityProvider).phase, IdentityPhase.ready);
-      expect(firstBoot.read(identityProvider).address, _addressB);
-      expect(provisionCalls, hasLength(1));
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(_namespacedActiveId), 'acc_1_b');
-      expect(
-        prefs.getInt('testnet:acct:$bucketB:leaderboard:participant_id'),
-        99,
-      );
-      expect(
-        prefs.getBool(
-            'testnet:acct:$bucketB:identity:lifecycle_ownership_confirmed'),
-        isTrue,
-      );
-      expect(prefs.getBool(markerKey), isNull);
-    } finally {
-      firstBoot.dispose();
-    }
-
-    // Simulate a new process/controller with the same durable stores. The
-    // completed lifecycle proof must allow a network-free ready restore.
-    IdentitySnapshots.reset();
-    NetworkPrefs.setActiveBucket(null, guest: true);
-    final secondBoot = ProviderContainer(overrides: overrides());
-    addTearDown(secondBoot.dispose);
-
-    await secondBoot.read(identityProvider.notifier).restore();
-
-    expect(secondBoot.read(identityProvider).phase, IdentityPhase.ready);
-    expect(secondBoot.read(identityProvider).participantId, 99);
+    await _login(container);
     expect(
-      await secondBoot.read(nodeAccountReconcilerProvider).reconcile(),
-      isFalse,
+      await container.read(nodeAccountReconcilerProvider).reconcile(),
+      isTrue,
     );
     expect(provisionCalls, hasLength(1));
+    expect(container.read(identityProvider).phase, IdentityPhase.ready);
+    expect(container.read(identityProvider).address, _addressB);
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(_namespacedActiveId), 'acc_1_b');
+    expect(
+      prefs.getInt('testnet:acct:$bucketB:leaderboard:participant_id'),
+      99,
+    );
+    expect(prefs.getString('testnet:accounts:index'), legacyIndex);
+    expect(prefs.getString('testnet:accounts:activeId'), 'acc_0_a');
+    expect(prefs.getBool(markerKey), isNull);
   });
 
   test(
@@ -466,9 +458,31 @@ void main() {
       ]),
       'testnet:accounts:activeId': 'acc_0_a',
     });
-    FlutterSecureStorage.setMockInitialValues(
-        {'auth:v3:session_token': 'sess-1'});
     await NetworkPrefs.init();
+
+    final tokenStore = AuthTokenStore();
+    await tokenStore.writeSessionCredential(
+      const SessionCredential(
+        sessionId: 'session-a',
+        transitionId: 'login-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 1,
+        token: 'sess-1',
+        userNamespace: _namespace,
+      ),
+    );
+    final sessionAuthority = ScriptedSessionAuthority([
+      sessionAuthorityResponse(
+        sequence: 3,
+        state: activatingAuthorityState(
+          phase: 'reconcile_account',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+          userNamespace: _namespace,
+        ),
+        outcome: 'record_read',
+      ),
+    ]);
 
     final provisionCalls = <int>[];
     var nodeBinds = 0;
@@ -478,6 +492,10 @@ void main() {
       ),
     );
     final container = ProviderContainer(overrides: [
+      _identityOverride(
+        authority: sessionAuthority,
+        tokenStore: tokenStore,
+      ),
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       accountApiServiceProvider.overrideWithValue(accountService),
@@ -520,6 +538,7 @@ void main() {
 
     final provisionCalls = <int>[];
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(),
@@ -551,6 +570,7 @@ void main() {
 
     final provisionCalls = <int>[];
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(
@@ -584,6 +604,7 @@ void main() {
           headers: {'content-type': 'application/json'},
         ));
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider.overrideWithValue(
         _leaderboardService(client),
       ),
@@ -617,6 +638,7 @@ void main() {
     final authority = _authorityService(activeSeasonId: 7);
     final me = _meService(email: null);
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider.overrideWithValue(authority),
       accountApiServiceProvider.overrideWithValue(me),
       _reconcilerOverride(),
@@ -668,6 +690,7 @@ void main() {
     final authority = _authorityService(activeSeasonId: 8);
     final me = _meService();
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider.overrideWithValue(authority),
       accountApiServiceProvider.overrideWithValue(me),
       _reconcilerOverride(),
@@ -695,18 +718,9 @@ void main() {
   test(
       'same-account season rollover updates only the baseline and keeps the '
       'current authority', () async {
-    final controller = SessionController(
-      tokenStore: AuthTokenStore(),
-      guestFlag: AuthGuestFlag(),
-      repository: _NoopAuthRepository(),
-      suspendNode: () async {},
-      clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
-      clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
+    final controller = _sessionController(
+      accountId: 'account-a',
+      address: _addressA,
     );
     await controller.restore();
     expect(await controller.completeLogin(_session('token-a')), isTrue);
@@ -762,18 +776,11 @@ void main() {
       'changed-account season rollover retires before repository or node '
       'mutation', () async {
     final tokenStore = AuthTokenStore();
-    final controller = SessionController(
+    final controller = _sessionController(
+      accountId: 'account-a',
+      address: _addressA,
       tokenStore: tokenStore,
-      guestFlag: AuthGuestFlag(),
-      repository: _NoopAuthRepository(),
-      suspendNode: () async {},
-      clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
-      clearSessionNotifications: () async => true,
-      signOutFence: InMemorySignOutFence(),
-      terminalReset: ({required reason, prepareNextLaunch}) async {
-        fail('Unexpected terminal reset: $reason');
-      },
+      trailingAuthorityResponses: successfulRetirementResponses(),
     );
     await controller.restore();
     expect(await controller.completeLogin(_session('token-a')), isTrue);
@@ -837,6 +844,7 @@ void main() {
     final authority = _authorityService(activeSeasonId: 7);
     final me = _meService(statusCode: 503);
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider.overrideWithValue(authority),
       accountApiServiceProvider.overrideWithValue(me),
       _reconcilerOverride(),
@@ -884,6 +892,7 @@ void main() {
     );
     late Identity currentIdentity;
     final container = ProviderContainer(overrides: [
+      _identityOverride(),
       leaderboardApiServiceProvider.overrideWithValue(authority),
       accountApiServiceProvider.overrideWithValue(me),
       _reconcilerOverride(currentIdentity: () => currentIdentity),

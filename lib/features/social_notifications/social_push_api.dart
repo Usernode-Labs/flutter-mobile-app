@@ -98,7 +98,6 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
       'GET',
       credential: credential,
       credentialRequestSender: credentialRequestSender,
-      operationId: 'social-push:status',
       endpoint: _endpoint.replace(queryParameters: {
         'installation_id': installationId,
       }),
@@ -131,7 +130,6 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
       'PUT',
       credential: credential,
       credentialRequestSender: credentialRequestSender,
-      operationId: 'social-push:register:$mutationRevision',
       body: {
         'installation_id': installationId,
         'provider': 'fcm',
@@ -165,7 +163,6 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
       'DELETE',
       credential: credential,
       credentialRequestSender: credentialRequestSender,
-      operationId: 'social-push:unregister:$mutationRevision',
       body: {
         'installation_id': installationId,
         'mutation_revision': '$mutationRevision',
@@ -189,7 +186,6 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
     String method, {
     required AuthCredentialLease credential,
     required SessionAuthorityCredentialRequestSender credentialRequestSender,
-    required String operationId,
     Uri? endpoint,
     Map<String, Object>? body,
   }) async {
@@ -205,7 +201,6 @@ class HttpSocialPushRegistrationApi implements SocialPushRegistrationApi {
       final streamed = await credentialRequestSender(
         credential: credential,
         request: request,
-        operationId: operationId,
       ).timeout(timeout);
       response = await http.Response.fromStream(streamed).timeout(timeout);
     } on StaleAuthCredentialException {

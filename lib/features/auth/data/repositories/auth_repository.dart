@@ -93,9 +93,8 @@ class AuthRepository {
   /// Independently confirms a business-endpoint `401` through the dedicated
   /// exact-lease `/me` path. This never invokes an unauthorized callback.
   Future<AuthSession> confirmBearerSession(
-    AuthCredentialLease credential, {
-    required String operationId,
-  }) async {
+    AuthCredentialLease credential,
+  ) async {
     final sender = _credentialRequestSender;
     if (sender == null) {
       throw AuthException(
@@ -116,7 +115,6 @@ class AuthRepository {
       final streamed = await sender(
         credential: credential,
         request: request,
-        operationId: operationId,
       ).timeout(const Duration(seconds: 15));
       response = await http.Response.fromStream(streamed)
           .timeout(const Duration(seconds: 15));

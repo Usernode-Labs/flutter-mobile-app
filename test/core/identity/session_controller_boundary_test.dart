@@ -37,9 +37,8 @@ class _SessionAuthorityRepository extends _NoopLogoutRepository {
 
   @override
   Future<AuthSession> confirmBearerSession(
-    AuthCredentialLease credential, {
-    required String operationId,
-  }) {
+    AuthCredentialLease credential,
+  ) {
     confirmedCredentials.add(credential);
     return _resolve(credential.token);
   }

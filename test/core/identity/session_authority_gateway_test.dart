@@ -4,21 +4,10 @@ import 'dart:io';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
-import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import '../../helpers/session_authority_test_helpers.dart';
-
-final class _FakeSessionEffectPermit implements rust.SessionEffectPermit {
-  var _disposed = false;
-
-  @override
-  void dispose() => _disposed = true;
-
-  @override
-  bool get isDisposed => _disposed;
-}
 
 void main() {
   test('credential issuance requires complete authenticated authority', () {
@@ -110,136 +99,8 @@ void main() {
     }
   });
 
-  test('account permit spans the effect and rejection invokes no effect',
-      () async {
-    final effectGate = Completer<String>();
-    final permit = _FakeSessionEffectPermit();
-    var handedOff = false;
-    var released = false;
-    var effects = 0;
-    final gateway = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/tmp/app-support'),
-      acquireAccountEffect: ({
-        required directory,
-        required sessionId,
-        required userNamespace,
-        required network,
-        required accountId,
-        required address,
-        required operationId,
-        required engineId,
-      }) {
-        expect(directory, '/tmp/app-support/session-authority');
-        expect(sessionId, 'session-a');
-        expect(userNamespace, 'aaaaaaaaaaaaaaaa');
-        expect(network, 'testnet');
-        expect(accountId, 'account-a');
-        expect(address, 'address-a');
-        expect(operationId, 'account:sign-message');
-        return permit;
-      },
-      markEffectHandoff: ({required permit}) => handedOff = true,
-      releaseEffectPermit: ({required permit}) => released = true,
-    );
-    final capability = gateway.captureAccountCapability(
-      identity: const Identity(
-        epoch: 9,
-        phase: IdentityPhase.ready,
-        accountId: 'account-a',
-        address: 'address-a',
-        sessionId: 'session-a',
-        credentialRef: 'credential-a',
-        credentialGeneration: 3,
-      ),
-      userNamespace: 'aaaaaaaaaaaaaaaa',
-      network: 'testnet',
-    );
-
-    final result = gateway.runAccountEffect(
-      capability: capability,
-      operationId: 'account:sign-message',
-      effect: () {
-        effects++;
-        return effectGate.future;
-      },
-    );
-    await Future<void>.delayed(Duration.zero);
-    expect(effects, 1);
-    expect(handedOff, isFalse);
-    expect(released, isFalse);
-    effectGate.complete('signature-a');
-    expect(await result, 'signature-a');
-    expect(handedOff, isTrue);
-    expect(released, isTrue);
-
-    final rejected = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/tmp/app-support'),
-      acquireAccountEffect: ({
-        required directory,
-        required sessionId,
-        required userNamespace,
-        required network,
-        required accountId,
-        required address,
-        required operationId,
-        required engineId,
-      }) =>
-          throw StateError('stale account'),
-    );
-    var rejectedEffects = 0;
-    await expectLater(
-      rejected.runAccountEffect(
-        capability: rejected.captureAccountCapability(
-          identity: const Identity(
-            epoch: 9,
-            phase: IdentityPhase.ready,
-            accountId: 'account-a',
-            address: 'address-a',
-            sessionId: 'session-a',
-            credentialRef: 'credential-a',
-            credentialGeneration: 3,
-          ),
-          userNamespace: 'aaaaaaaaaaaaaaaa',
-          network: 'testnet',
-        ),
-        operationId: 'account:key-read',
-        effect: () async {
-          rejectedEffects++;
-          return 'secret';
-        },
-      ),
-      throwsA(isA<StaleAuthCredentialException>()),
-    );
-    expect(rejectedEffects, 0);
-  });
-
-  test('webview realm permit releases at platform submission and stays exact',
-      () async {
-    final platformResult = Completer<String>();
-    final permit = _FakeSessionEffectPermit();
-    var acquisitions = 0;
-    var handedOff = false;
-    var released = false;
-    var submissions = 0;
-    final gateway = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/tmp/app-support'),
-      acquireWebViewEffect: ({
-        required directory,
-        required sessionId,
-        required realmId,
-        required operationId,
-        required engineId,
-      }) {
-        acquisitions++;
-        expect(directory, '/tmp/app-support/session-authority');
-        expect(sessionId, 'session-a');
-        expect(realmId, 'realm-a');
-        expect(operationId, 'webview:resolve');
-        return permit;
-      },
-      markEffectHandoff: ({required permit}) => handedOff = true,
-      releaseEffectPermit: ({required permit}) => released = true,
-    );
+  test('WebView realm capture pins the original session and document', () {
+    final gateway = SessionAuthorityGateway();
     final lease = gateway.captureWebViewRealmLease(
       identity: const Identity(
         epoch: 9,
@@ -248,75 +109,16 @@ void main() {
       ),
       realmId: 'realm-a',
     );
+    expect(lease.sessionId, 'session-a');
+    expect(lease.realmId, 'realm-a');
 
-    final result = gateway.runWebViewEffect(
-      lease: lease,
-      operationId: 'webview:resolve',
-      effect: () {
-        submissions++;
-        return platformResult.future;
-      },
-    );
-    await Future<void>.delayed(Duration.zero);
-    expect(submissions, 1);
-    expect(handedOff, isTrue);
-    expect(released, isTrue);
-    expect(platformResult.isCompleted, isFalse,
-        reason: 'the WebView result must not hold retirement open');
-    platformResult.complete('delivered');
-    expect(await result, 'delivered');
-
-    final loggedOutLease = gateway.captureWebViewRealmLease(
-      identity: const Identity(
-        epoch: 10,
-        phase: IdentityPhase.unauthenticated,
-        sessionId: 'logged-out-b',
-      ),
-      realmId: 'realm-b',
-    );
     expect(
-      await gateway.runWebViewEffect(
-        lease: loggedOutLease,
-        operationId: 'webview:login-command-response',
-        effect: () async => 'public-response',
-      ),
-      'public-response',
-    );
-    expect(acquisitions, 1,
-        reason: 'LoggedOut has no privileged process gate to acquire');
-
-    final rejected = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/tmp/app-support'),
-      acquireWebViewEffect: ({
-        required directory,
-        required sessionId,
-        required realmId,
-        required operationId,
-        required engineId,
-      }) =>
-          throw StateError('stale realm session'),
-    );
-    final rejectedLease = rejected.captureWebViewRealmLease(
-      identity: const Identity(
-        epoch: 9,
-        phase: IdentityPhase.ready,
-        sessionId: 'session-a',
-      ),
-      realmId: 'realm-a',
-    );
-    var rejectedSubmissions = 0;
-    await expectLater(
-      rejected.runWebViewEffect(
-        lease: rejectedLease,
-        operationId: 'webview:resolve',
-        effect: () async {
-          rejectedSubmissions++;
-          return false;
-        },
+      () => gateway.captureWebViewRealmLease(
+        identity: const Identity.unknown(),
+        realmId: 'realm-a',
       ),
       throwsA(isA<StaleAuthCredentialException>()),
     );
-    expect(rejectedSubmissions, 0);
   });
 
   const revision = <String, dynamic>{
@@ -537,50 +339,15 @@ void main() {
     });
   });
 
-  test('credential HTTP permit releases before a withheld response', () async {
-    final events = <Object>[];
+  test('credential request keeps its captured bearer and may finish late',
+      () async {
     final responseGate = Completer<http.StreamedResponse>();
-    final requestWritten = Completer<void>();
+    final dispatched = Completer<void>();
     late http.BaseRequest capturedRequest;
-    final permit = _FakeSessionEffectPermit();
     final gateway = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/application-support'),
-      admissionJson: ({required directory}) => '{}',
-      bootstrapJson: ({
-        required directory,
-        required network,
-        required sessionId,
-      }) =>
-          '{}',
-      commandJson: ({required directory, required request}) async => '{}',
-      acquireHttpEffect: ({
-        required directory,
-        required sessionId,
-        required credentialRef,
-        required credentialGeneration,
-        required operationId,
-        required engineId,
-      }) {
-        events.add({
-          'kind': 'acquire',
-          'directory': directory,
-          'session_id': sessionId,
-          'credential_ref': credentialRef,
-          'credential_generation': credentialGeneration,
-          'operation_id': operationId,
-        });
-        return permit;
-      },
-      markEffectHandoff: ({required permit}) {
-        events.add('handoff');
-      },
-      releaseEffectPermit: ({required permit}) {
-        events.add('release');
-      },
-      requestWriter: (request, {required onRequestWritten}) async {
+      requestSender: (request) {
         capturedRequest = request;
-        await Future<void>.sync(onRequestWritten);
-        requestWritten.complete();
+        dispatched.complete();
         return responseGate.future;
       },
     );
@@ -599,72 +366,29 @@ void main() {
     final responseFuture = gateway.sendCredentialRequest(
       credential: credential,
       request: request,
-      operationId: 'confirm-a',
     );
     var responseSettled = false;
     unawaited(responseFuture.then<void>(
       (_) => responseSettled = true,
       onError: (_) => responseSettled = true,
     ));
-    await requestWritten.future;
+    await dispatched.future;
 
     expect(capturedRequest, same(request));
-    expect(events, [
-      {
-        'kind': 'acquire',
-        'directory': '/application-support/session-authority',
-        'session_id': 'session-a',
-        'credential_ref': 'credential-a',
-        'credential_generation': BigInt.from(3),
-        'operation_id': 'confirm-a',
-      },
-      'handoff',
-      'release',
-    ]);
+    expect(capturedRequest.headers['authorization'], 'Bearer token-a');
     expect(responseSettled, isFalse);
 
     responseGate.complete(http.StreamedResponse(const Stream.empty(), 200));
     expect((await responseFuture).statusCode, 200);
   });
 
-  test('workflow HTTP permit releases before a withheld response', () async {
-    final events = <Object>[];
-    final responseGate = Completer<http.StreamedResponse>();
-    final requestWritten = Completer<void>();
-    final permit = _FakeSessionEffectPermit();
+  test('workflow transport requires the row and credential to share an owner',
+      () async {
+    var sends = 0;
     final gateway = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/application-support'),
-      admissionJson: ({required directory}) => '{}',
-      bootstrapJson: ({
-        required directory,
-        required network,
-        required sessionId,
-      }) =>
-          '{}',
-      commandJson: ({required directory, required request}) async => '{}',
-      acquireWorkflowHttpEffect: ({
-        required directory,
-        required sessionId,
-        required credentialRef,
-        required credentialGeneration,
-        required operationId,
-        required engineId,
-      }) {
-        events.add({
-          'kind': 'acquire',
-          'session_id': sessionId,
-          'credential_ref': credentialRef,
-          'credential_generation': credentialGeneration,
-          'operation_id': operationId,
-        });
-        return permit;
-      },
-      markEffectHandoff: ({required permit}) => events.add('handoff'),
-      releaseEffectPermit: ({required permit}) => events.add('release'),
-      requestWriter: (request, {required onRequestWritten}) async {
-        await Future<void>.sync(onRequestWritten);
-        requestWritten.complete();
-        return responseGate.future;
+      requestSender: (request) async {
+        sends++;
+        return http.StreamedResponse(const Stream.empty(), 200);
       },
     );
     final credential = testCredentialLease(
@@ -679,172 +403,22 @@ void main() {
       Uri.parse('https://example.test/api/v3/mobile/zkpassport/complete'),
     )..headers['authorization'] = 'Bearer token-a';
 
-    final responseFuture = gateway.sendWorkflowCredentialRequest(
+    final response = await gateway.sendWorkflowCredentialRequest(
       appSessionId: 'session-a',
       credential: credential,
       request: request,
-      operationId: 'zk-delivery:request-a',
     );
-    var responseSettled = false;
-    unawaited(responseFuture.then<void>(
-      (_) => responseSettled = true,
-      onError: (_) => responseSettled = true,
-    ));
-    await requestWritten.future;
-
-    expect(events, [
-      {
-        'kind': 'acquire',
-        'session_id': 'session-a',
-        'credential_ref': 'credential-a',
-        'credential_generation': BigInt.from(3),
-        'operation_id': 'zk-delivery:request-a',
-      },
-      'handoff',
-      'release',
-    ]);
-    expect(responseSettled, isFalse);
-
-    responseGate.complete(http.StreamedResponse(const Stream.empty(), 200));
-    expect((await responseFuture).statusCode, 200);
-  });
-
-  test('push permit releases at native submission before a withheld result',
-      () async {
-    final events = <Object>[];
-    final nativeHandoff = Completer<String>();
-    final permit = _FakeSessionEffectPermit();
-    final gateway = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/application-support'),
-      admissionJson: ({required directory}) => '{}',
-      bootstrapJson: ({
-        required directory,
-        required network,
-        required sessionId,
-      }) =>
-          '{}',
-      commandJson: ({required directory, required request}) async => '{}',
-      acquirePushEffect: ({
-        required directory,
-        required sessionId,
-        required operationId,
-        required engineId,
-      }) {
-        events.add({
-          'kind': 'acquire',
-          'directory': directory,
-          'session_id': sessionId,
-          'operation_id': operationId,
-        });
-        return permit;
-      },
-      markEffectHandoff: ({required permit}) => events.add('handoff'),
-      releaseEffectPermit: ({required permit}) => events.add('release'),
-    );
-
-    final result = gateway.runPushEffect(
-      sessionId: 'session-a',
-      operationId: 'social-push:provider-token-read',
-      effect: () async {
-        events.add('native-effect');
-        return nativeHandoff.future;
-      },
-    );
-    await Future<void>.delayed(Duration.zero);
-
-    expect(events, [
-      {
-        'kind': 'acquire',
-        'directory': '/application-support/session-authority',
-        'session_id': 'session-a',
-        'operation_id': 'social-push:provider-token-read',
-      },
-      'native-effect',
-      'handoff',
-      'release',
-    ]);
-
-    nativeHandoff.complete('provider-token-a');
-    expect(await result, 'provider-token-a');
-    expect(events, hasLength(4));
-  });
-
-  test('rejected push admission cannot invoke the native effect', () async {
-    var invoked = false;
-    final gateway = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/application-support'),
-      admissionJson: ({required directory}) => '{}',
-      bootstrapJson: ({
-        required directory,
-        required network,
-        required sessionId,
-      }) =>
-          '{}',
-      commandJson: ({required directory, required request}) async => '{}',
-      acquirePushEffect: ({
-        required directory,
-        required sessionId,
-        required operationId,
-        required engineId,
-      }) =>
-          throw const StaleAuthCredentialException(),
-    );
-
-    await expectLater(
-      gateway.runPushEffect(
-        sessionId: 'session-a',
-        operationId: 'social-push:auto-init-enable',
-        effect: () async {
-          invoked = true;
-        },
-      ),
-      throwsA(isA<StaleAuthCredentialException>()),
-    );
-    expect(invoked, isFalse);
-  });
-
-  test('Rust HTTP admission rejection stays distinct from transport failure',
-      () async {
-    final gateway = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/application-support'),
-      admissionJson: ({required directory}) => '{}',
-      bootstrapJson: ({
-        required directory,
-        required network,
-        required sessionId,
-      }) =>
-          '{}',
-      commandJson: ({required directory, required request}) async => '{}',
-      acquireHttpEffect: ({
-        required directory,
-        required sessionId,
-        required credentialRef,
-        required credentialGeneration,
-        required operationId,
-        required engineId,
-      }) =>
-          throw StateError('Rust rejected the stale credential'),
-    );
-    final credential = testCredentialLease(
-      epoch: 7,
-      token: 'token-a',
-      sessionId: 'session-a',
-      credentialRef: 'credential-a',
-      credentialGeneration: 3,
-    );
-    final request = http.Request(
-      'GET',
-      Uri.parse('https://example.test/api/v3/mobile/me'),
-    )..headers['authorization'] = 'Bearer token-a';
-
-    await expectLater(
-      gateway.sendCredentialRequest(
+    expect(response.statusCode, 200);
+    expect(sends, 1);
+    expect(
+      () => gateway.sendWorkflowCredentialRequest(
+        appSessionId: 'session-b',
         credential: credential,
         request: request,
-        operationId: 'confirm-a',
       ),
       throwsA(isA<StaleAuthCredentialException>()),
     );
+    expect(sends, 1);
   });
 }
 

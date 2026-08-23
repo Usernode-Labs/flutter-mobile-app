@@ -37,7 +37,6 @@ void _publishAuthenticatedIdentity({int epoch = 7}) {
 SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
       required credential,
       required request,
-      required operationId,
     }) =>
         client.send(request);
 
@@ -74,7 +73,6 @@ void main() {
     _publishAuthenticatedIdentity();
     late AuthCredentialLease capturedCredential;
     late http.BaseRequest capturedRequest;
-    late String capturedOperationId;
     var ordinaryClientUsed = false;
     final service = AccountApiService(
       baseUrl: _base,
@@ -82,11 +80,9 @@ void main() {
       credentialRequestSender: ({
         required credential,
         required request,
-        required operationId,
       }) async {
         capturedCredential = credential;
         capturedRequest = request;
-        capturedOperationId = operationId;
         return http.StreamedResponse(
           Stream.value(utf8.encode(jsonEncode(_envelope(_meData)))),
           200,
@@ -109,7 +105,6 @@ void main() {
     expect(capturedRequest.method, 'GET');
     expect(capturedRequest.url.path, '/api/v3/mobile/me');
     expect(capturedRequest.headers['authorization'], 'Bearer sess-1');
-    expect(capturedOperationId, 'account:get-me');
     expect(ordinaryClientUsed, isFalse);
     expect(me.id, 123);
   });

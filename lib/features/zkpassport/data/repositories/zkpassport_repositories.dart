@@ -15,12 +15,6 @@ typedef ZkPassportStringWriter = Future<bool> Function(
   String value,
 );
 
-typedef ZkPassportWorkflowMutation = Future<bool> Function({
-  required String appSessionId,
-  required String operationId,
-  required Future<bool> Function() mutation,
-});
-
 Future<void> _checkedSetString(
   SharedPreferences preferences,
   String key,
@@ -39,9 +33,7 @@ Future<void> _checkedSetString(
 class ZkPassportRegistrationRepository {
   ZkPassportRegistrationRepository({
     ZkPassportStringWriter? stringWriter,
-    ZkPassportWorkflowMutation? workflowMutation,
-  })  : _stringWriter = stringWriter,
-        _workflowMutation = workflowMutation;
+  }) : _stringWriter = stringWriter;
 
   static const _kRegisteredKeyBase = 'zkpassport:registered';
   static const _kRegistrationKeyBase = 'zkpassport:registration';
@@ -49,7 +41,6 @@ class ZkPassportRegistrationRepository {
   static const _kRequestOutcomeKeyBase = 'zkpassport:request_outcome_v1';
 
   final ZkPassportStringWriter? _stringWriter;
-  final ZkPassportWorkflowMutation? _workflowMutation;
 
   Future<bool> isRegistered() async {
     final registration = await getActiveRegistration();
@@ -171,42 +162,26 @@ class ZkPassportRegistrationRepository {
     }
     final prefs = await SharedPreferences.getInstance();
     final key = _pendingCompletionKey(bucket);
-    Future<bool> persist() async {
-      await _checkedSetString(
-        prefs,
-        key,
-        jsonEncode({
-          'app_session_id': normalizedAppSessionId,
-          'participant_id': participantId,
-          'challenge_id': challengeId,
-          'wallet_address': walletAddress,
-          'session_id': sessionId,
-          'nullifier_hex': nullifierHex,
-          'account_id': accountId,
-          'facematch_verified': facematchVerified,
-          'verify_outer_ms': verifyOuterMs,
-          'wrap_outer_ms': wrapOuterMs,
-          'verify_wrapped_ms': verifyWrappedMs,
-          ...requestVersion.toJson(),
-        }),
-        operation: 'store zkPassport pending completion',
-        writer: _stringWriter,
-      );
-      return true;
-    }
-
-    final workflowMutation = _workflowMutation;
-    final written = workflowMutation == null
-        ? await persist()
-        : await workflowMutation(
-            appSessionId: normalizedAppSessionId,
-            operationId: 'zk-outbox:${requestVersion.requestId}:'
-                '${requestVersion.createdAtMs}:${requestVersion.nonce}',
-            mutation: persist,
-          );
-    if (!written) {
-      throw StateError('Failed to store zkPassport pending completion');
-    }
+    await _checkedSetString(
+      prefs,
+      key,
+      jsonEncode({
+        'app_session_id': normalizedAppSessionId,
+        'participant_id': participantId,
+        'challenge_id': challengeId,
+        'wallet_address': walletAddress,
+        'session_id': sessionId,
+        'nullifier_hex': nullifierHex,
+        'account_id': accountId,
+        'facematch_verified': facematchVerified,
+        'verify_outer_ms': verifyOuterMs,
+        'wrap_outer_ms': wrapOuterMs,
+        'verify_wrapped_ms': verifyWrappedMs,
+        ...requestVersion.toJson(),
+      }),
+      operation: 'store zkPassport pending completion',
+      writer: _stringWriter,
+    );
   }
 
   /// Returns a pending completion if one exists, or null.
@@ -432,13 +407,9 @@ class ZkPassportSettingsRepository {
 }
 
 class ZkPassportRuntimeSessionRepository {
-  ZkPassportRuntimeSessionRepository({
-    ZkPassportWorkflowMutation? workflowMutation,
-  }) : _workflowMutation = workflowMutation;
+  ZkPassportRuntimeSessionRepository();
 
   static const _kRuntimeSessionKeyBase = 'zkpassport:runtime_session_v1';
-
-  final ZkPassportWorkflowMutation? _workflowMutation;
 
   /// Resolves the row's key.
   ///
@@ -495,28 +466,12 @@ class ZkPassportRuntimeSessionRepository {
       );
     }
     final prefs = await SharedPreferences.getInstance();
-    Future<bool> persist() async {
-      await _checkedSetString(
-        prefs,
-        _key(session.launchBucket),
-        jsonEncode(session.toJson()),
-        operation: 'store zkPassport runtime session',
-      );
-      return true;
-    }
-
-    final workflowMutation = _workflowMutation;
-    final written = workflowMutation == null
-        ? await persist()
-        : await workflowMutation(
-            appSessionId: session.appSessionId,
-            operationId: 'zk-runtime:${session.requestId}:'
-                '${session.createdAtMs}:${session.requestNonce ?? 'none'}',
-            mutation: persist,
-          );
-    if (!written) {
-      throw StateError('Failed to store zkPassport runtime session');
-    }
+    await _checkedSetString(
+      prefs,
+      _key(session.launchBucket),
+      jsonEncode(session.toJson()),
+      operation: 'store zkPassport runtime session',
+    );
   }
 
   Future<void> clear({String? bucket}) async {

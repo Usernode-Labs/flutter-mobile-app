@@ -7,7 +7,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
@@ -75,24 +74,6 @@ class _PreparedBackendCompletion {
 
   String get bucket => identity.bucket;
   bool get identityWasSettled => identity.isSettled;
-
-  String get deliveryOperationId => _zkDeliveryOperationId(
-        appSessionId: appSessionId,
-        workflowSessionId: sessionId,
-        requestVersion: requestVersion,
-      );
-}
-
-String _zkDeliveryOperationId({
-  required String appSessionId,
-  required String workflowSessionId,
-  required ZkPassportRequestVersion? requestVersion,
-}) {
-  final version = requestVersion;
-  return version == null
-      ? 'zk-delivery:$appSessionId:$workflowSessionId'
-      : 'zk-delivery:$appSessionId:${version.requestId}:'
-          '${version.createdAtMs}:${version.nonce}';
 }
 
 final zkPassportBridgeBaseUrlProvider = Provider<String?>((ref) {
@@ -116,10 +97,7 @@ final zkPassportSessionServerRepositoryProvider =
 
 final zkPassportRegistrationRepositoryProvider =
     Provider<ZkPassportRegistrationRepository>((ref) {
-  final authority = ref.watch(sessionAuthorityGatewayProvider);
-  return ZkPassportRegistrationRepository(
-    workflowMutation: authority?.runWorkflowStoreMutation,
-  );
+  return ZkPassportRegistrationRepository();
 });
 
 final zkPassportSettingsRepositoryProvider =
@@ -129,10 +107,7 @@ final zkPassportSettingsRepositoryProvider =
 
 final zkPassportRuntimeSessionRepositoryProvider =
     Provider<ZkPassportRuntimeSessionRepository>((ref) {
-  final authority = ref.watch(sessionAuthorityGatewayProvider);
-  return ZkPassportRuntimeSessionRepository(
-    workflowMutation: authority?.runWorkflowStoreMutation,
-  );
+  return ZkPassportRuntimeSessionRepository();
 });
 
 /// The zkPassport rows are bucket-scoped, but these providers cache their
@@ -1830,7 +1805,6 @@ class ZkPassportPipelineController
         try {
           final ok = await api.completeZkPassport(
             appSessionId: completion.appSessionId,
-            operationId: completion.deliveryOperationId,
             challengeId: completion.challengeId,
             walletAddress: completion.walletAddress,
             sessionId: completion.sessionId,
@@ -2142,11 +2116,6 @@ class ZkPassportPipelineController
       }
       final ok = await api.completeZkPassport(
         appSessionId: appSessionId,
-        operationId: _zkDeliveryOperationId(
-          appSessionId: appSessionId,
-          workflowSessionId: sessionId,
-          requestVersion: requestVersion,
-        ),
         challengeId: challengeId,
         walletAddress: walletAddress,
         sessionId: sessionId,

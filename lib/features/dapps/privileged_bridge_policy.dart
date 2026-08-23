@@ -170,15 +170,13 @@ class PrivilegedBridgePolicy {
     required Object? value,
     required String? error,
   }) async {
-    if (_disposed) return false;
+    if (_disposed || lease.sessionId != _currentIdentity().sessionId) {
+      return false;
+    }
     try {
-      final result = await _sessionAuthority.runWebViewEffect(
-        lease: lease.authority,
-        operationId: 'webview:resolve',
-        effect: () => _evaluateTopFrame(
-          _guardedResolveScript(lease, id, value, error),
-        ).timeout(probeTimeout),
-      );
+      final result = await _evaluateTopFrame(
+        _guardedResolveScript(lease, id, value, error),
+      ).timeout(probeTimeout);
       return !_disposed && _decodeBoolean(result);
     } catch (_) {
       return false;
@@ -205,15 +203,13 @@ class PrivilegedBridgePolicy {
     PrivilegedBridgeLease lease,
     String javaScriptBody,
   ) async {
-    if (_disposed) return false;
+    if (_disposed || lease.sessionId != _currentIdentity().sessionId) {
+      return false;
+    }
     try {
-      final result = await _sessionAuthority.runWebViewEffect(
-        lease: lease.authority,
-        operationId: 'webview:dispatch',
-        effect: () => _evaluateTopFrame(
-          _guardedRunScript(lease.realmId, javaScriptBody),
-        ).timeout(probeTimeout),
-      );
+      final result = await _evaluateTopFrame(
+        _guardedRunScript(lease.realmId, javaScriptBody),
+      ).timeout(probeTimeout);
       return !_disposed && _decodeBoolean(result);
     } catch (_) {
       return false;

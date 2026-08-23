@@ -296,44 +296,28 @@ class AccountsRepository {
     AccountCapability capability,
   ) {
     _assertCapabilityPinned(capability);
-    return _sessionAuthority.runAccountEffect(
-      capability: capability,
-      operationId: 'account:metadata',
-      effect: () => _authorizedAccountUnchecked(capability),
-    );
+    return _authorizedAccountUnchecked(capability);
   }
 
-  Future<String?> getSecretKey(AccountCapability capability) {
+  Future<String?> getSecretKey(AccountCapability capability) async {
     _assertCapabilityPinned(capability);
-    return _sessionAuthority.runAccountEffect(
-      capability: capability,
-      operationId: 'account:key-read',
-      effect: () async {
-        await _authorizedAccountUnchecked(capability);
-        await _verifyStoredAddress(capability);
-        return _secure.read(key: capability.secretKeyRef);
-      },
-    );
+    await _authorizedAccountUnchecked(capability);
+    await _verifyStoredAddress(capability);
+    return _secure.read(key: capability.secretKeyRef);
   }
 
   Future<String> signMessage(
     AccountCapability capability,
     String message,
-  ) {
+  ) async {
     _assertCapabilityPinned(capability);
-    return _sessionAuthority.runAccountEffect(
-      capability: capability,
-      operationId: 'account:sign-message',
-      effect: () async {
-        await _authorizedAccountUnchecked(capability);
-        await _verifyStoredAddress(capability);
-        final secretKey = await _secure.read(key: capability.secretKeyRef);
-        if (secretKey == null || secretKey.isEmpty) {
-          throw StateError('Authorized account key is missing');
-        }
-        return _signer(secretKey: secretKey, message: message);
-      },
-    );
+    await _authorizedAccountUnchecked(capability);
+    await _verifyStoredAddress(capability);
+    final secretKey = await _secure.read(key: capability.secretKeyRef);
+    if (secretKey == null || secretKey.isEmpty) {
+      throw StateError('Authorized account key is missing');
+    }
+    return _signer(secretKey: secretKey, message: message);
   }
 
   void _assertCapabilityPinned(AccountCapability capability) {
@@ -445,46 +429,40 @@ class AccountsRepository {
       network: _network,
       address: address,
     );
-    return _sessionAuthority.runAccountReconciliationEffect(
-      lease: lease,
-      operationId: 'account:reconcile',
-      effect: () async {
-        final accounts = await list();
-        final retained = accounts.where((item) => item.address == address);
-        if (retained.isNotEmpty) {
-          final account = retained.first;
-          final storedAddress = await _secure.read(
-            key: '$_network:account:${account.id}:address',
-          );
-          if (storedAddress != address) {
-            throw const StaleAuthCredentialException();
-          }
-          final changed = getActiveId() != account.id;
-          if (changed) {
-            await setActiveId(account.id);
-          }
-          return AccountReconciliationResult(
-            account: account,
-            changed: changed,
-          );
-        }
+    final accounts = await list();
+    final retained = accounts.where((item) => item.address == lease.address);
+    if (retained.isNotEmpty) {
+      final account = retained.first;
+      final storedAddress = await _secure.read(
+        key: '$_network:account:${account.id}:address',
+      );
+      if (storedAddress != lease.address) {
+        throw const StaleAuthCredentialException();
+      }
+      final changed = getActiveId() != account.id;
+      if (changed) {
+        await setActiveId(account.id);
+      }
+      return AccountReconciliationResult(
+        account: account,
+        changed: changed,
+      );
+    }
 
-        final derived = _deriveProvisionedSecret(secretKey);
-        if (derived.address != address) {
-          throw StateError(
-            'Provisioned secret key does not derive the provisioned address',
-          );
-        }
-        final account = await _persistNew(
-          name: name,
-          address: derived.address,
-          publicKey: derived.publicKey,
-          secretKey: derived.secretKey,
-          derivationPath: 'imported',
-        );
-        return AccountReconciliationResult(account: account, changed: true);
-      },
+    final derived = _deriveProvisionedSecret(secretKey);
+    if (derived.address != lease.address) {
+      throw StateError(
+        'Provisioned secret key does not derive the provisioned address',
+      );
+    }
+    final account = await _persistNew(
+      name: name,
+      address: derived.address,
+      publicKey: derived.publicKey,
+      secretKey: derived.secretKey,
+      derivationPath: 'imported',
     );
+    return AccountReconciliationResult(account: account, changed: true);
   }
 
   rust_account.AccountExport _deriveProvisionedSecret(String secretKey) {

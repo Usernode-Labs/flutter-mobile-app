@@ -21,7 +21,6 @@ final socialPushBindingProvider = Provider<void>((ref) {
   final service = SocialPushService.instance;
   final authority = ref.watch(sessionAuthorityGatewayProvider);
   final credentialRequestSender = authority?.sendCredentialRequest;
-  final pushEffectRunner = authority?.runPushEffect;
   final owner = Object();
   var generation = 0;
   var disposed = false;
@@ -43,8 +42,7 @@ final socialPushBindingProvider = Provider<void>((ref) {
   void attachAuthenticatedIdentity() {
     final identity = ref.read(identityProvider);
     if (!canAttachSocialPushSession(identity) ||
-        credentialRequestSender == null ||
-        pushEffectRunner == null) {
+        credentialRequestSender == null) {
       return;
     }
     final expectedGeneration = ++generation;
@@ -80,7 +78,6 @@ final socialPushBindingProvider = Provider<void>((ref) {
             token: token,
           ),
           credentialRequestSender: credentialRequestSender,
-          pushEffectRunner: pushEffectRunner,
           onUnauthorized: (credential) async {
             if (disposed) return;
             await ref

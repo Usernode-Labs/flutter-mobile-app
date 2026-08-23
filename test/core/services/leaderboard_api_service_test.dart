@@ -44,7 +44,6 @@ http.StreamedResponse _streamedResponse(int statusCode, Object body) =>
 SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
       required credential,
       required request,
-      required operationId,
     }) =>
         client.send(request);
 
@@ -55,7 +54,6 @@ SessionAuthorityWorkflowCredentialRequestSender _throughWorkflowClient(
       required appSessionId,
       required credential,
       required request,
-      required operationId,
     }) =>
         client.send(request);
 
@@ -315,7 +313,6 @@ void main() {
 
       final ok = await service.completeZkPassport(
         appSessionId: 'session-a',
-        operationId: 'zk-delivery:request-a',
         challengeId: 7,
         walletAddress: 'ut1abc',
         sessionId: 'sess-1',
@@ -341,7 +338,6 @@ void main() {
       expect(
         () => service.completeZkPassport(
           appSessionId: 'session-a',
-          operationId: 'zk-delivery:request-a',
           challengeId: 7,
           walletAddress: 'ut1abc',
           sessionId: 'sess-1',
@@ -370,7 +366,6 @@ void main() {
         credentialRequestSender: ({
           required credential,
           required request,
-          required operationId,
         }) async {
           genericCredentialSenderUsed = true;
           return _streamedResponse(500, {'error': 'wrong sink'});
@@ -379,12 +374,10 @@ void main() {
           required appSessionId,
           required credential,
           required request,
-          required operationId,
         }) async {
           capturedAppSessionId = appSessionId;
           capturedCredential = credential;
           capturedRequest = request;
-          expect(operationId, 'zk-delivery:request-a');
           return _streamedResponse(
             200,
             _envelope({'status': 'completed'}),
@@ -395,7 +388,6 @@ void main() {
 
       final ok = await service.completeZkPassport(
         appSessionId: 'session-a',
-        operationId: 'zk-delivery:request-a',
         challengeId: 7,
         walletAddress: 'ut1abc',
         sessionId: 'zk-session-a',
@@ -729,7 +721,6 @@ void main() {
       _publishAuthenticatedIdentity();
       late AuthCredentialLease capturedCredential;
       late http.BaseRequest capturedRequest;
-      late String capturedOperationId;
       var ordinaryClientUsed = false;
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
@@ -740,11 +731,9 @@ void main() {
         credentialRequestSender: ({
           required credential,
           required request,
-          required operationId,
         }) async {
           capturedCredential = credential;
           capturedRequest = request;
-          capturedOperationId = operationId;
           return _streamedResponse(
             200,
             _envelope({
@@ -768,7 +757,6 @@ void main() {
       expect(capturedRequest.method, 'GET');
       expect(capturedRequest.url.path, '/api/v3/mobile/me/breakdown');
       expect(capturedRequest.headers['authorization'], 'Bearer sess-xyz');
-      expect(capturedOperationId, 'leaderboard:get:/me/breakdown');
       expect(ordinaryClientUsed, isFalse);
     });
 
@@ -777,7 +765,6 @@ void main() {
       _publishAuthenticatedIdentity(phase: IdentityPhase.reconciling);
       late AuthCredentialLease capturedCredential;
       late http.BaseRequest capturedRequest;
-      late String capturedOperationId;
       var ordinaryClientUsed = false;
       final service = LeaderboardApiService(
         baseUrl: _baseUrl,
@@ -789,11 +776,9 @@ void main() {
         credentialRequestSender: ({
           required credential,
           required request,
-          required operationId,
         }) async {
           capturedCredential = credential;
           capturedRequest = request;
-          capturedOperationId = operationId;
           return _streamedResponse(
             200,
             _envelope({
@@ -819,7 +804,6 @@ void main() {
       expect(capturedRequest.headers['authorization'], 'Bearer sess-xyz');
       expect(jsonDecode((capturedRequest as http.Request).body),
           <String, dynamic>{});
-      expect(capturedOperationId, 'leaderboard:post:/wallet/provision');
       expect(ordinaryClientUsed, isFalse);
     });
 
@@ -912,7 +896,6 @@ void main() {
         credentialRequestSender: ({
           required credential,
           required request,
-          required operationId,
         }) async {
           submittedCredentials.add(credential);
           submittedRequests.add(request);

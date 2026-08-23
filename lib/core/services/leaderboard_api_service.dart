@@ -171,7 +171,6 @@ class LeaderboardApiService {
   /// pending completion and permanently discard a rejected claim.
   Future<bool> completeZkPassport({
     required String appSessionId,
-    required String operationId,
     required int challengeId,
     required String walletAddress,
     required String sessionId,
@@ -182,7 +181,6 @@ class LeaderboardApiService {
     await _post(
       '/zkpassport/complete',
       workflowAppSessionId: appSessionId,
-      workflowOperationId: operationId,
       body: {
         'challenge_id': challengeId,
         'wallet_address': walletAddress,
@@ -280,7 +278,6 @@ class LeaderboardApiService {
   Future<http.Response> _sendRequest(
     AuthCredentialLease? credential,
     http.BaseRequest request, {
-    required String operationId,
     String? workflowAppSessionId,
   }) async {
     late final http.StreamedResponse streamed;
@@ -296,7 +293,6 @@ class LeaderboardApiService {
         appSessionId: workflowAppSessionId,
         credential: credential,
         request: request,
-        operationId: operationId,
       );
     } else {
       final sender = _credentialRequestSender;
@@ -304,7 +300,6 @@ class LeaderboardApiService {
       streamed = await sender(
         credential: credential,
         request: request,
-        operationId: operationId,
       );
     }
     return http.Response.fromStream(streamed);
@@ -326,7 +321,6 @@ class LeaderboardApiService {
       () => _sendRequest(
         auth.credential,
         http.Request('GET', url)..headers.addAll(auth.headers),
-        operationId: 'leaderboard:get:$path',
       ),
     );
     return _parseEnvelope(resp, url,
@@ -338,7 +332,6 @@ class LeaderboardApiService {
     required Map<String, dynamic> body,
     Set<int> expectedStatuses = const {},
     String? workflowAppSessionId,
-    String? workflowOperationId,
   }) async {
     final url = Uri.parse('$_baseUrl$path');
     _log.trace('POST $url');
@@ -350,7 +343,6 @@ class LeaderboardApiService {
         http.Request('POST', url)
           ..headers.addAll(auth.headers)
           ..body = jsonEncode(body),
-        operationId: workflowOperationId ?? 'leaderboard:post:$path',
         workflowAppSessionId: workflowAppSessionId,
       ),
     );

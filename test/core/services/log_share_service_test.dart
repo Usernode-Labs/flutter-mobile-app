@@ -23,7 +23,6 @@ LogShareService _service(MockClient client) => LogShareService(
       credentialRequestSender: ({
         required credential,
         required request,
-        required operationId,
       }) =>
           client.send(request),
       retryBackoff: Duration.zero,
@@ -49,17 +48,14 @@ void main() {
       () async {
     late AuthCredentialLease capturedCredential;
     late http.BaseRequest capturedRequest;
-    late String capturedOperationId;
     final service = LogShareService(
       baseUrl: _base,
       credentialRequestSender: ({
         required credential,
         required request,
-        required operationId,
       }) async {
         capturedCredential = credential;
         capturedRequest = request;
-        capturedOperationId = operationId;
         return _streamedResponse(200, jsonEncode({'continue': true}));
       },
       retryBackoff: Duration.zero,
@@ -74,7 +70,6 @@ void main() {
     expect(capturedRequest.method, 'POST');
     expect(capturedRequest.url.path, '/api/v3/mobile/logs');
     expect(capturedRequest.headers['authorization'], 'Bearer sess-1');
-    expect(capturedOperationId, 'log-share:post');
     expect(outcome, LogShareOutcome.keepGoing);
   });
 
@@ -109,7 +104,6 @@ void main() {
       credentialRequestSender: ({
         required credential,
         required request,
-        required operationId,
       }) async {
         submittedCredentials.add(credential);
         submittedRequests.add(request);

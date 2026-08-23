@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
-import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -221,29 +219,9 @@ void main() {
   test('queued realm response keeps A session and cannot adopt B', () async {
     final topFrame = frame();
     var identity = _readyIdentity('session-a');
-    final acquiredSessions = <String>[];
-    final authority = SessionAuthorityGateway(
-      supportDirectory: () async => Directory('/tmp/app-support'),
-      acquireWebViewEffect: ({
-        required directory,
-        required sessionId,
-        required realmId,
-        required operationId,
-        required engineId,
-      }) {
-        acquiredSessions.add(sessionId);
-        if (sessionId != identity.sessionId) {
-          throw StateError('stale session');
-        }
-        return _Permit();
-      },
-      markEffectHandoff: ({required permit}) {},
-      releaseEffectPermit: ({required permit}) {},
-    );
     final subject = policy(
       topFrame,
       currentIdentity: () => identity,
-      sessionAuthority: authority,
     );
     final leaseA = await subject.bootstrapLease();
     expect(leaseA?.sessionId, 'session-a');
@@ -277,7 +255,6 @@ void main() {
       isTrue,
     );
     expect(topFrame.resolutions, ['current-b']);
-    expect(acquiredSessions, ['session-a', 'session-b']);
   });
 
   test('native events dispatch and acknowledge only the probed realm',
@@ -667,13 +644,3 @@ Identity _readyIdentity(String sessionId) => Identity(
       phase: IdentityPhase.ready,
       sessionId: sessionId,
     );
-
-final class _Permit implements rust.SessionEffectPermit {
-  var _disposed = false;
-
-  @override
-  void dispose() => _disposed = true;
-
-  @override
-  bool get isDisposed => _disposed;
-}

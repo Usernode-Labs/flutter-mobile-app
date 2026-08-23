@@ -65,32 +65,6 @@ void main() {
       expect(await repo.load(), isNull);
     });
 
-    test('runtime writes cross the exact workflow-store permit', () async {
-      final admitted = <Map<String, String>>[];
-      final gated = ZkPassportRuntimeSessionRepository(
-        workflowMutation: ({
-          required appSessionId,
-          required operationId,
-          required mutation,
-        }) async {
-          admitted.add({
-            'app_session_id': appSessionId,
-            'operation_id': operationId,
-          });
-          return mutation();
-        },
-      );
-
-      await gated.save(session());
-
-      expect(admitted, [
-        {
-          'app_session_id': 'app-session-a',
-          'operation_id': 'zk-runtime:req:1:nonce-a',
-        },
-      ]);
-    });
-
     test('writes follow the launch bucket, not the ambient one', () async {
       const launchBucket = 'bucket-a';
       final launched = ZkPassportRuntimeSession(
@@ -376,44 +350,6 @@ void main() {
       expect(pending['verify_outer_ms'], 11);
       expect(pending['wrap_outer_ms'], 12);
       expect(pending['verify_wrapped_ms'], 13);
-    });
-
-    test('pending outbox writes cross the exact workflow-store permit',
-        () async {
-      final requestVersion = version('nonce-permit');
-      final admitted = <Map<String, String>>[];
-      final gated = ZkPassportRegistrationRepository(
-        workflowMutation: ({
-          required appSessionId,
-          required operationId,
-          required mutation,
-        }) async {
-          admitted.add({
-            'app_session_id': appSessionId,
-            'operation_id': operationId,
-          });
-          return mutation();
-        },
-      );
-
-      await gated.storePendingCompletion(
-        appSessionId: 'app-session-a',
-        participantId: 7,
-        challengeId: 42,
-        walletAddress: address,
-        sessionId: requestVersion.requestId,
-        nullifierHex: 'nullifier',
-        requestVersion: requestVersion,
-        accountId: accountId,
-        bucket: bucket,
-      );
-
-      expect(admitted, [
-        {
-          'app_session_id': 'app-session-a',
-          'operation_id': 'zk-outbox:reused-session-id:100:nonce-permit',
-        },
-      ]);
     });
 
     test('legacy outbox row without an app session remains stored but inert',

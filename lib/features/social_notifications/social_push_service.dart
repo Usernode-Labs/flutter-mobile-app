@@ -36,14 +36,12 @@ class SocialPushSession {
     required this.userId,
     required this.credential,
     required this.credentialRequestSender,
-    required this.pushEffectRunner,
     required this.onUnauthorized,
   });
 
   final int userId;
   final AuthCredentialLease credential;
   final SessionAuthorityCredentialRequestSender credentialRequestSender;
-  final SessionAuthorityPushEffectRunner pushEffectRunner;
   final SocialPushUnauthorized onUnauthorized;
 
   bool sameCredentialAs(SocialPushSession other) =>
@@ -315,7 +313,6 @@ class SocialPushService {
 
   Future<bool> _disableInitializedProviderState({
     bool force = false,
-    SocialPushSession? authoritySession,
   }) async {
     if (force) {
       _providerAutoInitDisabled = false;
@@ -324,11 +321,7 @@ class SocialPushService {
     }
     if (!_providerAutoInitDisabled) {
       try {
-        await _runProviderEffect(
-          authoritySession,
-          'social-push:auto-init-disable',
-          () => _messaging.setAutoInitEnabled(false),
-        );
+        await _messaging.setAutoInitEnabled(false);
         _providerAutoInitDisabled = true;
       } catch (_) {
         // A missing or mismatched configuration is never allowed to register;
@@ -340,11 +333,7 @@ class SocialPushService {
       // immediate delivery window. Firebase may regenerate until auto-init is
       // actually disabled, so this cannot count as the final deletion.
       try {
-        await _runProviderEffect(
-          authoritySession,
-          'social-push:provider-token-delete',
-          _messaging.deleteToken,
-        );
+        await _messaging.deleteToken();
         _providerTokenDeletedBeforeDisable = true;
       } catch (_) {
         // Neither shutdown operation completed; retry both next reconcile.
@@ -352,30 +341,13 @@ class SocialPushService {
     }
     if (_providerAutoInitDisabled && !_providerTokenDeletedAfterDisable) {
       try {
-        await _runProviderEffect(
-          authoritySession,
-          'social-push:provider-token-delete',
-          _messaging.deleteToken,
-        );
+        await _messaging.deleteToken();
         _providerTokenDeletedAfterDisable = true;
       } catch (_) {
         // Auto-init is already off, so this final deletion is safe to retry.
       }
     }
     return _providerAutoInitDisabled && _providerTokenDeletedAfterDisable;
-  }
-
-  Future<T> _runProviderEffect<T>(
-    SocialPushSession? session,
-    String operationId,
-    Future<T> Function() effect,
-  ) {
-    if (session == null) return effect();
-    return session.pushEffectRunner(
-      sessionId: session.credential.sessionId,
-      operationId: operationId,
-      effect: effect,
-    );
   }
 
   /// Attaches the exact ready bearer owned by the active provider container.
@@ -576,7 +548,7 @@ class SocialPushService {
       _registrationStatus = SocialPushRegistrationStatus.disabling;
       _deliveryActive = false;
       _emitState();
-      await _rotateProviderTokenNow(authoritySession: session);
+      await _rotateProviderTokenNow();
       if (session != null && _session?.sameCredentialAs(session) == true) {
         if (await _unregisterNow(
           session,
@@ -657,7 +629,6 @@ class SocialPushService {
       final session = _session;
       await _rotateProviderTokenNow(
         updateStatus: false,
-        authoritySession: session,
       );
       if (record.mutationRevision > 0 &&
           session != null &&
@@ -678,7 +649,6 @@ class SocialPushService {
       final session = _session;
       await _rotateProviderTokenNow(
         updateStatus: false,
-        authoritySession: session,
       );
       if (record.mutationRevision > 0 &&
           session != null &&
@@ -698,11 +668,7 @@ class SocialPushService {
       _registrationStatus = SocialPushRegistrationStatus.unregistered;
       _deliveryActive = false;
       _emitState();
-      await _runProviderEffect(
-        _session,
-        'social-push:auto-init-disable',
-        () => _messaging.setAutoInitEnabled(false),
-      );
+      await _messaging.setAutoInitEnabled(false);
       return;
     }
 
@@ -721,32 +687,18 @@ class SocialPushService {
     }
 
     try {
-      await _runProviderEffect(
-        session,
-        'social-push:auto-init-enable',
-        () => _messaging.setAutoInitEnabled(true),
-      );
+      await _messaging.setAutoInitEnabled(true);
       _providerAutoInitDisabled = false;
       _providerTokenDeletedBeforeDisable = false;
       _providerTokenDeletedAfterDisable = false;
-      if (platform == 'ios' &&
-          await _runProviderEffect(
-                session,
-                'social-push:apns-token-read',
-                _messaging.getApnsToken,
-              ) ==
-              null) {
+      if (platform == 'ios' && await _messaging.getApnsToken() == null) {
         _registrationStatus = SocialPushRegistrationStatus.unregistered;
         _deliveryActive = false;
         _emitState();
         _scheduleRegistrationRetry(session);
         return;
       }
-      final token = await _runProviderEffect(
-        session,
-        'social-push:provider-token-read',
-        _messaging.getToken,
-      );
+      final token = await _messaging.getToken();
       if (token == null || token.isEmpty) {
         _registrationStatus = SocialPushRegistrationStatus.unregistered;
         _deliveryActive = false;
@@ -989,13 +941,11 @@ class SocialPushService {
   Future<void> _rotateProviderTokenNow({
     bool updateStatus = true,
     bool force = false,
-    SocialPushSession? authoritySession,
   }) async {
     _clearRegisteredSignature();
     if (platform != null) {
       final shutdownComplete = await _disableInitializedProviderState(
         force: force,
-        authoritySession: authoritySession,
       );
       if (shutdownComplete) _providerTokenCleanupPending = false;
     }
@@ -1101,7 +1051,6 @@ class SocialPushService {
     }
     await _rotateProviderTokenNow(
       force: forceProviderRotation,
-      authoritySession: sessionToUnregister,
     );
     if (sessionToUnregister != null && (_record?.mutationRevision ?? 0) > 0) {
       await _unregisterNow(

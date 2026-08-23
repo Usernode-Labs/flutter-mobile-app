@@ -996,16 +996,7 @@ class SessionController extends StateNotifier<Identity> {
         token: session.token,
         userNamespace: userNamespace,
       );
-      final authority = _sessionAuthority;
-      final credentialWritten = authority == null
-          ? await _tokenStore.writeSessionCredential(next)
-          : await authority.runCredentialStoreMutation(
-              sessionId: sessionId,
-              credentialRef: currentRef,
-              credentialGeneration: currentGeneration,
-              operationId: 'credential-write:$nextRef',
-              mutation: () => _tokenStore.writeSessionCredential(next),
-            );
+      final credentialWritten = await _tokenStore.writeSessionCredential(next);
       if (!credentialWritten) {
         throw StateError('Renewed credential could not be verified');
       }
@@ -1664,10 +1655,7 @@ class SessionController extends StateNotifier<Identity> {
     AuthCredentialLease credential,
   ) async {
     try {
-      final session = await _repository.confirmBearerSession(
-        credential,
-        operationId: _newAuthorityId('credential-confirmation'),
-      );
+      final session = await _repository.confirmBearerSession(credential);
       final participantId = identity.participantId;
       if (participantId != null && session.participant.id != participantId) {
         _log.warn(

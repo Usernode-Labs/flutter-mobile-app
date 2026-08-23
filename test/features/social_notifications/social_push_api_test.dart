@@ -89,10 +89,8 @@ class _ApiHarness {
   Future<http.StreamedResponse> _send({
     required AuthCredentialLease credential,
     required http.BaseRequest request,
-    required String operationId,
   }) {
     expect(credential, same(_credential));
-    expect(operationId, isNotEmpty);
     return _client.send(request);
   }
 }
@@ -102,7 +100,6 @@ void main() {
       () async {
     late AuthCredentialLease capturedCredential;
     late http.BaseRequest capturedRequest;
-    late String capturedOperationId;
     final api = HttpSocialPushRegistrationApi(
       mobileApiBaseUrl: _baseUrl,
       expectedEnvironment: _environment,
@@ -114,11 +111,9 @@ void main() {
       credentialRequestSender: ({
         required credential,
         required request,
-        required operationId,
       }) async {
         capturedCredential = credential;
         capturedRequest = request;
-        capturedOperationId = operationId;
         return http.StreamedResponse(
           Stream.value(utf8.encode(jsonEncode({
             'success': true,
@@ -144,7 +139,6 @@ void main() {
     expect(capturedCredential.token, _bearer);
     expect(capturedRequest.method, 'PUT');
     expect(capturedRequest.headers['authorization'], 'Bearer $_bearer');
-    expect(capturedOperationId, 'social-push:register:42');
     expect(reply.registered, isTrue);
   });
 
@@ -162,7 +156,6 @@ void main() {
         credentialRequestSender: ({
           required credential,
           required request,
-          required operationId,
         }) async =>
             throw const StaleAuthCredentialException(),
         installationId: _installationId,

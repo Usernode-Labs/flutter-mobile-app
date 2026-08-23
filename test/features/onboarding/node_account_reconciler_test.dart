@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -27,7 +26,6 @@ import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
-import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 
 import '../../helpers/session_authority_test_helpers.dart';
 
@@ -41,16 +39,6 @@ class _NoopAuthRepository extends AuthRepository {
   Future<void> logout(String sessionToken) async {}
 }
 
-final class _Permit implements rust.SessionEffectPermit {
-  var _disposed = false;
-
-  @override
-  void dispose() => _disposed = true;
-
-  @override
-  bool get isDisposed => _disposed;
-}
-
 AuthCredentialLease _compatibilityCredential({
   required Identity identity,
   required String token,
@@ -60,7 +48,6 @@ AuthCredentialLease _compatibilityCredential({
 SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
       required credential,
       required request,
-      required operationId,
     }) =>
         client.send(request);
 
@@ -249,23 +236,6 @@ Override _reconcilerOverride({
         accountsRepository: () async {
           await saveIdentityNamespace(_namespace);
           final repository = await AccountsRepository.createForMigration(
-            sessionAuthority: SessionAuthorityGateway(
-              supportDirectory: () async => Directory('/tmp/app-support'),
-              acquireAccountReconciliationEffect: ({
-                required directory,
-                required sessionId,
-                required credentialRef,
-                required credentialGeneration,
-                required userNamespace,
-                required network,
-                required address,
-                required operationId,
-                required engineId,
-              }) =>
-                  _Permit(),
-              markEffectHandoff: ({required permit}) {},
-              releaseEffectPermit: ({required permit}) {},
-            ),
             accountDeriver: ({required secretKey}) => const AccountExport(
               secretKey: 'utsk1secret',
               publicKey: 'utpk1$_addressB',

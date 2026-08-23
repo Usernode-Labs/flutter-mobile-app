@@ -26,7 +26,6 @@ Identity _identity({required int epoch, required int participantId}) =>
 SessionAuthorityCredentialRequestSender _throughClient(http.Client client) => ({
       required credential,
       required request,
-      required operationId,
     }) =>
         client.send(request);
 

@@ -56,8 +56,8 @@ class LogShareService {
   };
 
   /// POST [body] as the authed participant. See [LogShareOutcome] for semantics.
-  /// The captured [credential] is revalidated at every send effect so retries
-  /// cannot silently move to a replacement session.
+  /// Every retry uses the same immutable [credential], so it cannot silently
+  /// move to a replacement session.
   Future<LogShareOutcome> postLogs({
     required Map<String, dynamic> body,
     required AuthCredentialLease credential,
@@ -80,7 +80,6 @@ class LogShareService {
         final streamed = await sender(
           credential: credential,
           request: request,
-          operationId: 'log-share:post',
         ).timeout(AppConfig.leaderboardApiTimeout);
         final resp = await http.Response.fromStream(streamed)
             .timeout(AppConfig.leaderboardApiTimeout);

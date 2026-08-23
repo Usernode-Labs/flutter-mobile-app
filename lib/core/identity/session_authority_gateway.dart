@@ -1,13 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/network/request_written_http_transport.dart';
+import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
@@ -28,60 +27,9 @@ typedef SessionAuthorityCommandJson = Future<String> Function({
 typedef SessionAuthorityTerminalReporter = void Function(
   Map<String, Object?> details,
 );
-typedef SessionAuthorityAcquireHttpEffect = rust.SessionEffectPermit Function({
-  required String directory,
-  required String sessionId,
-  required String credentialRef,
-  required BigInt credentialGeneration,
-  required String operationId,
-  required String engineId,
-});
-typedef SessionAuthorityAcquireWorkflowHttpEffect
-    = SessionAuthorityAcquireHttpEffect;
-typedef SessionAuthorityAcquireAccountEffect = rust.SessionEffectPermit
-    Function({
-  required String directory,
-  required String sessionId,
-  required String userNamespace,
-  required String network,
-  required String accountId,
-  required String address,
-  required String operationId,
-  required String engineId,
-});
-typedef SessionAuthorityAcquireAccountReconciliationEffect
-    = rust.SessionEffectPermit Function({
-  required String directory,
-  required String sessionId,
-  required String credentialRef,
-  required BigInt credentialGeneration,
-  required String userNamespace,
-  required String network,
-  required String address,
-  required String operationId,
-  required String engineId,
-});
-typedef SessionAuthorityAcquirePushEffect = rust.SessionEffectPermit Function({
-  required String directory,
-  required String sessionId,
-  required String operationId,
-  required String engineId,
-});
-typedef SessionAuthorityAcquireWebViewEffect = rust.SessionEffectPermit
-    Function({
-  required String directory,
-  required String sessionId,
-  required String realmId,
-  required String operationId,
-  required String engineId,
-});
-typedef SessionAuthorityEffectPermitAction = void Function({
-  required rust.SessionEffectPermit permit,
-});
-typedef SessionAuthorityRequestWriter = Future<http.StreamedResponse> Function(
-  http.BaseRequest request, {
-  required RequestWrittenCallback onRequestWritten,
-});
+typedef SessionAuthorityRequestSender = Future<http.StreamedResponse> Function(
+  http.BaseRequest request,
+);
 
 /// The exact credential attached to one authenticated request.
 ///
@@ -170,12 +118,10 @@ class WebViewRealmLease {
   const WebViewRealmLease._({
     required this.sessionId,
     required this.realmId,
-    required bool requiresProcessPermit,
-  }) : _requiresProcessPermit = requiresProcessPermit;
+  });
 
   final String sessionId;
   final String realmId;
-  final bool _requiresProcessPermit;
 }
 
 typedef SessionAuthorityCredentialIssuer = AuthCredentialLease Function({
@@ -186,19 +132,12 @@ typedef SessionAuthorityCredentialRequestSender = Future<http.StreamedResponse>
     Function({
   required AuthCredentialLease credential,
   required http.BaseRequest request,
-  required String operationId,
 });
 typedef SessionAuthorityWorkflowCredentialRequestSender
     = Future<http.StreamedResponse> Function({
   required String appSessionId,
   required AuthCredentialLease credential,
   required http.BaseRequest request,
-  required String operationId,
-});
-typedef SessionAuthorityPushEffectRunner = Future<T> Function<T>({
-  required String sessionId,
-  required String operationId,
-  required Future<T> Function() effect,
 });
 
 /// Thin transport to the single Rust session-authority actor.
@@ -213,58 +152,21 @@ class SessionAuthorityGateway {
     SessionAuthorityBootstrapJson? bootstrapJson,
     SessionAuthorityCommandJson? commandJson,
     SessionAuthorityTerminalReporter? terminalReporter,
-    SessionAuthorityAcquireHttpEffect? acquireHttpEffect,
-    SessionAuthorityAcquireWorkflowHttpEffect? acquireWorkflowHttpEffect,
-    SessionAuthorityAcquireAccountEffect? acquireAccountEffect,
-    SessionAuthorityAcquireAccountReconciliationEffect?
-        acquireAccountReconciliationEffect,
-    SessionAuthorityAcquirePushEffect? acquirePushEffect,
-    SessionAuthorityAcquireWebViewEffect? acquireWebViewEffect,
-    SessionAuthorityEffectPermitAction? markEffectHandoff,
-    SessionAuthorityEffectPermitAction? releaseEffectPermit,
-    SessionAuthorityRequestWriter? requestWriter,
+    SessionAuthorityRequestSender? requestSender,
   })  : _supportDirectory = supportDirectory ?? getApplicationSupportDirectory,
         _admissionJson = admissionJson ?? rust.sessionAuthorityAdmissionJson,
         _bootstrapJson =
             bootstrapJson ?? rust.sessionAuthorityBootstrapLoggedOut,
         _commandJson = commandJson ?? rust.sessionAuthorityCommandJson,
         _terminalReporter = terminalReporter ?? _reportTerminalToProduction,
-        _acquireHttpEffect =
-            acquireHttpEffect ?? rust.sessionAuthorityAcquireHttpEffect,
-        _acquireWorkflowHttpEffect = acquireWorkflowHttpEffect ??
-            rust.sessionAuthorityAcquireWorkflowHttpEffect,
-        _acquireAccountEffect =
-            acquireAccountEffect ?? rust.sessionAuthorityAcquireAccountEffect,
-        _acquireAccountReconciliationEffect =
-            acquireAccountReconciliationEffect ??
-                rust.sessionAuthorityAcquireAccountReconciliationEffect,
-        _acquirePushEffect =
-            acquirePushEffect ?? rust.sessionAuthorityAcquirePushEffect,
-        _acquireWebViewEffect =
-            acquireWebViewEffect ?? rust.sessionAuthorityAcquireWebviewEffect,
-        _markEffectHandoff =
-            markEffectHandoff ?? rust.sessionAuthorityEffectPermitMarkHandoff,
-        _releaseEffectPermit =
-            releaseEffectPermit ?? rust.sessionAuthorityEffectPermitRelease,
-        _requestWriter = requestWriter ?? RequestWrittenHttpTransport().send,
-        _clientId = _newClientId();
+        _requestSender = requestSender ?? createAppHttpClient().send;
 
   final SessionAuthoritySupportDirectory _supportDirectory;
   final SessionAuthorityAdmissionJson _admissionJson;
   final SessionAuthorityBootstrapJson _bootstrapJson;
   final SessionAuthorityCommandJson _commandJson;
   final SessionAuthorityTerminalReporter _terminalReporter;
-  final SessionAuthorityAcquireHttpEffect _acquireHttpEffect;
-  final SessionAuthorityAcquireWorkflowHttpEffect _acquireWorkflowHttpEffect;
-  final SessionAuthorityAcquireAccountEffect _acquireAccountEffect;
-  final SessionAuthorityAcquireAccountReconciliationEffect
-      _acquireAccountReconciliationEffect;
-  final SessionAuthorityAcquirePushEffect _acquirePushEffect;
-  final SessionAuthorityAcquireWebViewEffect _acquireWebViewEffect;
-  final SessionAuthorityEffectPermitAction _markEffectHandoff;
-  final SessionAuthorityEffectPermitAction _releaseEffectPermit;
-  final SessionAuthorityRequestWriter _requestWriter;
-  final String _clientId;
+  final SessionAuthorityRequestSender _requestSender;
 
   String? _directory;
 
@@ -357,9 +259,7 @@ class SessionAuthorityGateway {
     );
   }
 
-  /// Captures the exact session/realm pair at bridge admission. Logged-out and
-  /// guest realms carry the opaque owner but have no privileged process gate;
-  /// their login/mode changes remain authority-actor commands.
+  /// Captures the exact session/realm pair at bridge admission.
   WebViewRealmLease captureWebViewRealmLease({
     required Identity identity,
     required String realmId,
@@ -370,8 +270,6 @@ class SessionAuthorityGateway {
     return WebViewRealmLease._(
       sessionId: _requiredCredentialField(identity.sessionId, 'session ID'),
       realmId: _requiredCredentialField(realmId, 'WebView realm ID'),
-      requiresProcessPermit: identity.phase != IdentityPhase.unauthenticated &&
-          identity.phase != IdentityPhase.guest,
     );
   }
 
@@ -419,134 +317,26 @@ class SessionAuthorityGateway {
     return response;
   }
 
-  /// Runs one credential-store mutation under the exact Rust-owned Ready
-  /// lease. A true result means secure storage also verified the write, which
-  /// is this sink's irreversible handoff point.
-  Future<bool> runCredentialStoreMutation({
-    required String sessionId,
-    required String credentialRef,
-    required int credentialGeneration,
-    required String operationId,
-    required Future<bool> Function() mutation,
-  }) async {
-    final permit = rust.sessionAuthorityAcquireCredentialEffect(
-      directory: await _resolveDirectory(),
-      sessionId: sessionId,
-      credentialRef: credentialRef,
-      credentialGeneration: BigInt.from(credentialGeneration),
-      operationId: operationId,
-      engineId: _clientId,
-    );
-    return _runVerifiedMutation(permit, mutation);
-  }
-
-  /// Runs one resumable-workflow row mutation only while its exact app
-  /// session remains Ready and has no durable revocation tombstone.
-  Future<bool> runWorkflowStoreMutation({
-    required String appSessionId,
-    required String operationId,
-    required Future<bool> Function() mutation,
-  }) async {
-    final permit = rust.sessionAuthorityAcquireWorkflowEffect(
-      directory: await _resolveDirectory(),
-      sessionId: appSessionId,
-      operationId: operationId,
-      engineId: _clientId,
-    );
-    return _runVerifiedMutation(permit, mutation);
-  }
-
-  /// Runs one account-scoped operation while the exact Ready owner holds the
-  /// process-shared effect permit.
-  Future<T> runAccountEffect<T>({
-    required AccountCapability capability,
-    required String operationId,
-    required Future<T> Function() effect,
-  }) async {
-    final directory = await _resolveDirectory();
-    final permit = _acquireOrThrowStale(
-      () => _acquireAccountEffect(
-        directory: directory,
-        sessionId: capability.sessionId,
-        userNamespace: capability.userNamespace,
-        network: capability.network,
-        accountId: capability.accountId,
-        address: capability.address,
-        operationId: operationId,
-        engineId: _clientId,
-      ),
-    );
-    return _runEffect(permit, effect);
-  }
-
-  /// Runs the activation-only registry/key reconciliation under the exact
-  /// credential, namespace, network and provisioned-address owner.
-  Future<T> runAccountReconciliationEffect<T>({
-    required AccountReconciliationLease lease,
-    required String operationId,
-    required Future<T> Function() effect,
-  }) async {
-    final directory = await _resolveDirectory();
-    final permit = _acquireOrThrowStale(
-      () => _acquireAccountReconciliationEffect(
-        directory: directory,
-        sessionId: lease.sessionId,
-        credentialRef: lease.credentialRef,
-        credentialGeneration: BigInt.from(lease.credentialGeneration),
-        userNamespace: lease.userNamespace,
-        network: lease.network,
-        address: lease.address,
-        operationId: operationId,
-        engineId: _clientId,
-      ),
-    );
-    return _runEffect(permit, effect);
-  }
-
-  /// Submits one guarded privileged response/event to the exact WebView realm.
-  /// The platform Future's creation is the WebView handoff; its later result
-  /// must not hold retirement open.
-  Future<T> runWebViewEffect<T>({
-    required WebViewRealmLease lease,
-    required String operationId,
-    required Future<T> Function() effect,
-  }) async {
-    if (!lease._requiresProcessPermit) return effect();
-    final directory = await _resolveDirectory();
-    final permit = _acquireOrThrowStale(
-      () => _acquireWebViewEffect(
-        directory: directory,
-        sessionId: lease.sessionId,
-        realmId: lease.realmId,
-        operationId: operationId,
-        engineId: _clientId,
-      ),
-    );
-    return _runPlatformSubmission(permit, effect);
-  }
-
-  /// Sends one exact credential request and releases its process permit at the
-  /// request-written handoff, independently of response completion.
+  /// Sends a request with the exact credential captured by its caller.
+  /// Already-dispatched requests may finish after logout; callers must fence
+  /// any session-owned publication or conditional durable mutation.
   Future<http.StreamedResponse> sendCredentialRequest({
     required AuthCredentialLease credential,
     required http.BaseRequest request,
-    required String operationId,
   }) async {
-    return _sendCredentialRequest(
-      credential: credential,
-      request: request,
-      operationId: operationId,
-      acquire: _acquireHttpEffect,
-    );
+    if (credential.credentialGeneration <= 0 ||
+        request.headers['authorization'] != 'Bearer ${credential.token}') {
+      throw const StaleAuthCredentialException();
+    }
+    return _requestSender(request);
   }
 
-  /// Sends one durable-workflow request only when the row owner and exact
-  /// credential name the same current, unrevoked Ready session.
+  /// Sends one durable-workflow request only when the row and credential name
+  /// the same immutable app-session owner.
   Future<http.StreamedResponse> sendWorkflowCredentialRequest({
     required String appSessionId,
     required AuthCredentialLease credential,
     required http.BaseRequest request,
-    required String operationId,
   }) {
     final exactAppSessionId = _requiredCredentialField(
       appSessionId,
@@ -555,131 +345,10 @@ class SessionAuthorityGateway {
     if (credential.sessionId != exactAppSessionId) {
       throw const StaleAuthCredentialException();
     }
-    return _sendCredentialRequest(
+    return sendCredentialRequest(
       credential: credential,
       request: request,
-      operationId: operationId,
-      acquire: _acquireWorkflowHttpEffect,
     );
-  }
-
-  Future<http.StreamedResponse> _sendCredentialRequest({
-    required AuthCredentialLease credential,
-    required http.BaseRequest request,
-    required String operationId,
-    required SessionAuthorityAcquireHttpEffect acquire,
-  }) async {
-    final sessionId = credential.sessionId;
-    final credentialRef = credential.credentialRef;
-    final credentialGeneration = credential.credentialGeneration;
-    if (credentialGeneration <= 0 ||
-        request.headers['authorization'] != 'Bearer ${credential.token}') {
-      throw const StaleAuthCredentialException();
-    }
-
-    final directory = await _resolveDirectory();
-    final permit = _acquireOrThrowStale(
-      () => acquire(
-        directory: directory,
-        sessionId: sessionId,
-        credentialRef: credentialRef,
-        credentialGeneration: BigInt.from(credentialGeneration),
-        operationId: operationId,
-        engineId: _clientId,
-      ),
-    );
-    var released = false;
-    void release() {
-      if (released) return;
-      released = true;
-      _releaseEffectPermit(permit: permit);
-    }
-
-    try {
-      return await _requestWriter(
-        request,
-        onRequestWritten: () {
-          _markEffectHandoff(permit: permit);
-          release();
-        },
-      );
-    } finally {
-      release();
-    }
-  }
-
-  /// Runs one native push effect for the exact Rust-owned Ready session. The
-  /// plugin Future's creation is the platform-channel submission handoff.
-  Future<T> runPushEffect<T>({
-    required String sessionId,
-    required String operationId,
-    required Future<T> Function() effect,
-  }) async {
-    final exactSessionId = _requiredCredentialField(sessionId, 'session ID');
-    final directory = await _resolveDirectory();
-    final permit = _acquireOrThrowStale(
-      () => _acquirePushEffect(
-        directory: directory,
-        sessionId: exactSessionId,
-        operationId: operationId,
-        engineId: _clientId,
-      ),
-    );
-    return _runPlatformSubmission(permit, effect);
-  }
-
-  rust.SessionEffectPermit _acquireOrThrowStale(
-    rust.SessionEffectPermit Function() acquire,
-  ) {
-    try {
-      return acquire();
-    } on StaleAuthCredentialException {
-      rethrow;
-    } catch (_) {
-      throw const StaleAuthCredentialException();
-    }
-  }
-
-  Future<bool> _runVerifiedMutation(
-    rust.SessionEffectPermit permit,
-    Future<bool> Function() mutation,
-  ) async {
-    try {
-      final verified = await mutation();
-      if (verified) {
-        _markEffectHandoff(permit: permit);
-      }
-      return verified;
-    } finally {
-      _releaseEffectPermit(permit: permit);
-    }
-  }
-
-  Future<T> _runEffect<T>(
-    rust.SessionEffectPermit permit,
-    Future<T> Function() effect,
-  ) async {
-    try {
-      final result = await effect();
-      _markEffectHandoff(permit: permit);
-      return result;
-    } finally {
-      _releaseEffectPermit(permit: permit);
-    }
-  }
-
-  Future<T> _runPlatformSubmission<T>(
-    rust.SessionEffectPermit permit,
-    Future<T> Function() effect,
-  ) async {
-    late Future<T> result;
-    try {
-      result = effect();
-      _markEffectHandoff(permit: permit);
-    } finally {
-      _releaseEffectPermit(permit: permit);
-    }
-    return result;
   }
 
   void _reportTerminal(Map<String, dynamic> response) {
@@ -708,12 +377,6 @@ String _requiredCredentialField(String? value, String field) {
     throw const StaleAuthCredentialException();
   }
   return normalized;
-}
-
-String _newClientId() {
-  final random = Random.secure();
-  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
-  return 'flutter-${base64Url.encode(bytes).replaceAll('=', '')}';
 }
 
 void _reportTerminalToProduction(Map<String, Object?> details) {

@@ -121,7 +121,6 @@ void main() {
         () async {
       late AuthCredentialLease capturedCredential;
       late http.BaseRequest capturedRequest;
-      late String capturedOperationId;
       final credential = testCredentialLease(
         epoch: 4,
         token: 'bearer-a',
@@ -135,11 +134,9 @@ void main() {
         credentialRequestSender: ({
           required credential,
           required request,
-          required operationId,
         }) async {
           capturedCredential = credential;
           capturedRequest = request;
-          capturedOperationId = operationId;
           return http.StreamedResponse(
             Stream.value(utf8.encode(jsonEncode({
               'success': true,
@@ -155,13 +152,9 @@ void main() {
         },
       );
 
-      final session = await repository.confirmBearerSession(
-        credential,
-        operationId: 'confirm-a',
-      );
+      final session = await repository.confirmBearerSession(credential);
 
       expect(capturedCredential, same(credential));
-      expect(capturedOperationId, 'confirm-a');
       expect(capturedRequest.method, 'GET');
       expect(capturedRequest.url.toString(),
           'https://test.example.com/api/v3/mobile/me');

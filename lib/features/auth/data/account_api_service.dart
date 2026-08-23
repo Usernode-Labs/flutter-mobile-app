@@ -96,7 +96,6 @@ class AccountApiService {
       streamed = await sender(
         credential: credential,
         request: request,
-        operationId: 'account:get-me',
       );
     }
     return http.Response.fromStream(streamed);

@@ -98,8 +98,7 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     int revision,
   ) async {
     try {
-      final delivered = await _privilegedBridgePolicy.runInLease(
-        readyLease,
+      final delivered = await _runInReadyMainFrame(
         'window.dispatchEvent(new CustomEvent('
         '"usernode:social-push-foreground"));',
       );

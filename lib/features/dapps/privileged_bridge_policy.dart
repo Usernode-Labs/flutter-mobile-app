@@ -4,6 +4,8 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
 
 /// Authority granted to one executing top-frame JavaScript realm.
@@ -14,12 +16,16 @@ import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
 /// document between authorization and resolution.
 final class PrivilegedBridgeLease {
   const PrivilegedBridgeLease._({
-    required this.marker,
+    required this.authority,
     required this.capability,
   });
 
-  final String marker;
+  final WebViewRealmLease authority;
   final String capability;
+
+  String get sessionId => authority.sessionId;
+  String get realmId => authority.realmId;
+  String get marker => realmId;
 }
 
 /// Result of probing one privileged request's executing top-frame realm.
@@ -76,11 +82,15 @@ class PrivilegedBridgePolicy {
     required Uri? trustedOrigin,
     required bool allowLocalDevelopment,
     required Future<Object?> Function(String script) evaluateTopFrame,
+    required Identity Function() currentIdentity,
+    required SessionAuthorityGateway sessionAuthority,
     String Function()? secretFactory,
     this.probeTimeout = const Duration(seconds: 2),
   })  : _trustedOrigin = _originOf(trustedOrigin),
         _allowLocalDevelopment = allowLocalDevelopment,
         _evaluateTopFrame = evaluateTopFrame,
+        _currentIdentity = currentIdentity,
+        _sessionAuthority = sessionAuthority,
         _secretFactory = secretFactory ?? _randomSecret {
     _markerProperty = '__usernode_${_newSecret()}';
     _capabilityKey = _newSecret();
@@ -122,6 +132,8 @@ class PrivilegedBridgePolicy {
   final Uri? _trustedOrigin;
   final bool _allowLocalDevelopment;
   final Future<Object?> Function(String script) _evaluateTopFrame;
+  final Identity Function() _currentIdentity;
+  final SessionAuthorityGateway _sessionAuthority;
   final String Function() _secretFactory;
   final Duration probeTimeout;
 
@@ -160,9 +172,13 @@ class PrivilegedBridgePolicy {
   }) async {
     if (_disposed) return false;
     try {
-      final result = await _evaluateTopFrame(
-        _guardedResolveScript(lease, id, value, error),
-      ).timeout(probeTimeout);
+      final result = await _sessionAuthority.runWebViewEffect(
+        lease: lease.authority,
+        operationId: 'webview:resolve',
+        effect: () => _evaluateTopFrame(
+          _guardedResolveScript(lease, id, value, error),
+        ).timeout(probeTimeout),
+      );
       return !_disposed && _decodeBoolean(result);
     } catch (_) {
       return false;
@@ -174,21 +190,30 @@ class PrivilegedBridgePolicy {
   Future<bool> runInTrustedTopFrame(String javaScriptBody) async {
     final realm = await _probeTopFrameRealm();
     if (realm == null || _disposed) return false;
-    return _runInMarker(realm.marker, javaScriptBody);
+    final lease = _leaseFor(realm.marker);
+    if (lease == null) return false;
+    return _runInLease(lease, javaScriptBody);
   }
 
   /// Runs a native-to-page body only if [lease]'s exact realm is still the
   /// executing top frame. Unlike [runInTrustedTopFrame], this never admits a
   /// replacement trusted document, which is useful for readiness-bound events.
   Future<bool> runInLease(PrivilegedBridgeLease lease, String javaScriptBody) =>
-      _runInMarker(lease.marker, javaScriptBody);
+      _runInLease(lease, javaScriptBody);
 
-  Future<bool> _runInMarker(String marker, String javaScriptBody) async {
+  Future<bool> _runInLease(
+    PrivilegedBridgeLease lease,
+    String javaScriptBody,
+  ) async {
     if (_disposed) return false;
     try {
-      final result = await _evaluateTopFrame(
-        _guardedRunScript(marker, javaScriptBody),
-      ).timeout(probeTimeout);
+      final result = await _sessionAuthority.runWebViewEffect(
+        lease: lease.authority,
+        operationId: 'webview:dispatch',
+        effect: () => _evaluateTopFrame(
+          _guardedRunScript(lease.realmId, javaScriptBody),
+        ).timeout(probeTimeout),
+      );
       return !_disposed && _decodeBoolean(result);
     } catch (_) {
       return false;
@@ -203,6 +228,16 @@ class PrivilegedBridgePolicy {
   Future<bool> revalidates(PrivilegedBridgeLease lease) async {
     final realm = await _probeTopFrameRealm();
     return realm != null && realm.marker == lease.marker;
+  }
+
+  /// Captures the current app session for a new native event targeting an
+  /// already-proven realm. This never changes a queued request's lease.
+  Future<PrivilegedBridgeLease?> recaptureForCurrentSession(
+    PrivilegedBridgeLease realmLease,
+  ) async {
+    final realm = await _probeTopFrameRealm();
+    if (realm == null || realm.marker != realmLease.realmId) return null;
+    return _leaseFor(realm.marker);
   }
 
   /// Detects whether [lease]'s exact trusted realm implements the explicit
@@ -249,19 +284,30 @@ class PrivilegedBridgePolicy {
     }
   }
 
-  PrivilegedBridgeLease _leaseFor(String marker) {
+  PrivilegedBridgeLease? _leaseFor(String marker) {
     final hmac = Hmac(sha256, utf8.encode(_capabilityKey));
     final capability = base64UrlEncode(
       hmac.convert(utf8.encode('privileged:$marker')).bytes,
     ).replaceAll('=', '');
-    return PrivilegedBridgeLease._(marker: marker, capability: capability);
+    try {
+      return PrivilegedBridgeLease._(
+        authority: _sessionAuthority.captureWebViewRealmLease(
+          identity: _currentIdentity(),
+          realmId: marker,
+        ),
+        capability: capability,
+      );
+    } on StaleAuthCredentialException {
+      return null;
+    }
   }
 
-  PrivilegedBridgeAuthorization _authorizationFor(
+  PrivilegedBridgeAuthorization? _authorizationFor(
     _TopFrameRealm realm,
     Object? presentedCapability,
   ) {
     final lease = _leaseFor(realm.marker);
+    if (lease == null) return null;
     return PrivilegedBridgeAuthorization._(
       lease: lease,
       authorized: presentedCapability is String &&

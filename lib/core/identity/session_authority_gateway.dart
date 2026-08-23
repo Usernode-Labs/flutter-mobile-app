@@ -67,6 +67,14 @@ typedef SessionAuthorityAcquirePushEffect = rust.SessionEffectPermit Function({
   required String operationId,
   required String engineId,
 });
+typedef SessionAuthorityAcquireWebViewEffect = rust.SessionEffectPermit
+    Function({
+  required String directory,
+  required String sessionId,
+  required String realmId,
+  required String operationId,
+  required String engineId,
+});
 typedef SessionAuthorityEffectPermitAction = void Function({
   required rust.SessionEffectPermit permit,
 });
@@ -156,6 +164,20 @@ class AccountReconciliationLease {
   final String address;
 }
 
+/// Exact app-session and top-frame realm attached to one WebView callback.
+@immutable
+class WebViewRealmLease {
+  const WebViewRealmLease._({
+    required this.sessionId,
+    required this.realmId,
+    required bool requiresProcessPermit,
+  }) : _requiresProcessPermit = requiresProcessPermit;
+
+  final String sessionId;
+  final String realmId;
+  final bool _requiresProcessPermit;
+}
+
 typedef SessionAuthorityCredentialIssuer = AuthCredentialLease Function({
   required Identity identity,
   required String token,
@@ -197,6 +219,7 @@ class SessionAuthorityGateway {
     SessionAuthorityAcquireAccountReconciliationEffect?
         acquireAccountReconciliationEffect,
     SessionAuthorityAcquirePushEffect? acquirePushEffect,
+    SessionAuthorityAcquireWebViewEffect? acquireWebViewEffect,
     SessionAuthorityEffectPermitAction? markEffectHandoff,
     SessionAuthorityEffectPermitAction? releaseEffectPermit,
     SessionAuthorityRequestWriter? requestWriter,
@@ -217,6 +240,8 @@ class SessionAuthorityGateway {
                 rust.sessionAuthorityAcquireAccountReconciliationEffect,
         _acquirePushEffect =
             acquirePushEffect ?? rust.sessionAuthorityAcquirePushEffect,
+        _acquireWebViewEffect =
+            acquireWebViewEffect ?? rust.sessionAuthorityAcquireWebviewEffect,
         _markEffectHandoff =
             markEffectHandoff ?? rust.sessionAuthorityEffectPermitMarkHandoff,
         _releaseEffectPermit =
@@ -235,6 +260,7 @@ class SessionAuthorityGateway {
   final SessionAuthorityAcquireAccountReconciliationEffect
       _acquireAccountReconciliationEffect;
   final SessionAuthorityAcquirePushEffect _acquirePushEffect;
+  final SessionAuthorityAcquireWebViewEffect _acquireWebViewEffect;
   final SessionAuthorityEffectPermitAction _markEffectHandoff;
   final SessionAuthorityEffectPermitAction _releaseEffectPermit;
   final SessionAuthorityRequestWriter _requestWriter;
@@ -328,6 +354,24 @@ class SessionAuthorityGateway {
       ),
       network: _requiredCredentialField(network, 'network'),
       address: _requiredCredentialField(address, 'address'),
+    );
+  }
+
+  /// Captures the exact session/realm pair at bridge admission. Logged-out and
+  /// guest realms carry the opaque owner but have no privileged process gate;
+  /// their login/mode changes remain authority-actor commands.
+  WebViewRealmLease captureWebViewRealmLease({
+    required Identity identity,
+    required String realmId,
+  }) {
+    if (identity.phase == IdentityPhase.unknown) {
+      throw const StaleAuthCredentialException();
+    }
+    return WebViewRealmLease._(
+      sessionId: _requiredCredentialField(identity.sessionId, 'session ID'),
+      realmId: _requiredCredentialField(realmId, 'WebView realm ID'),
+      requiresProcessPermit: identity.phase != IdentityPhase.unauthenticated &&
+          identity.phase != IdentityPhase.guest,
     );
   }
 
@@ -459,6 +503,28 @@ class SessionAuthorityGateway {
     return _runEffect(permit, effect);
   }
 
+  /// Submits one guarded privileged response/event to the exact WebView realm.
+  /// The platform Future's creation is the WebView handoff; its later result
+  /// must not hold retirement open.
+  Future<T> runWebViewEffect<T>({
+    required WebViewRealmLease lease,
+    required String operationId,
+    required Future<T> Function() effect,
+  }) async {
+    if (!lease._requiresProcessPermit) return effect();
+    final directory = await _resolveDirectory();
+    final permit = _acquireOrThrowStale(
+      () => _acquireWebViewEffect(
+        directory: directory,
+        sessionId: lease.sessionId,
+        realmId: lease.realmId,
+        operationId: operationId,
+        engineId: _clientId,
+      ),
+    );
+    return _runPlatformSubmission(permit, effect);
+  }
+
   /// Sends one exact credential request and releases its process permit at the
   /// request-written handoff, independently of response completion.
   Future<http.StreamedResponse> sendCredentialRequest({
@@ -559,14 +625,7 @@ class SessionAuthorityGateway {
         engineId: _clientId,
       ),
     );
-    late Future<T> result;
-    try {
-      result = effect();
-      _markEffectHandoff(permit: permit);
-    } finally {
-      _releaseEffectPermit(permit: permit);
-    }
-    return result;
+    return _runPlatformSubmission(permit, effect);
   }
 
   rust.SessionEffectPermit _acquireOrThrowStale(
@@ -607,6 +666,20 @@ class SessionAuthorityGateway {
     } finally {
       _releaseEffectPermit(permit: permit);
     }
+  }
+
+  Future<T> _runPlatformSubmission<T>(
+    rust.SessionEffectPermit permit,
+    Future<T> Function() effect,
+  ) async {
+    late Future<T> result;
+    try {
+      result = effect();
+      _markEffectHandoff(permit: permit);
+    } finally {
+      _releaseEffectPermit(permit: permit);
+    }
+    return result;
   }
 
   void _reportTerminal(Map<String, dynamic> response) {

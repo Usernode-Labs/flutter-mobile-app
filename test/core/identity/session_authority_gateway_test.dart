@@ -213,6 +213,112 @@ void main() {
     expect(rejectedEffects, 0);
   });
 
+  test('webview realm permit releases at platform submission and stays exact',
+      () async {
+    final platformResult = Completer<String>();
+    final permit = _FakeSessionEffectPermit();
+    var acquisitions = 0;
+    var handedOff = false;
+    var released = false;
+    var submissions = 0;
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/tmp/app-support'),
+      acquireWebViewEffect: ({
+        required directory,
+        required sessionId,
+        required realmId,
+        required operationId,
+        required engineId,
+      }) {
+        acquisitions++;
+        expect(directory, '/tmp/app-support/session-authority');
+        expect(sessionId, 'session-a');
+        expect(realmId, 'realm-a');
+        expect(operationId, 'webview:resolve');
+        return permit;
+      },
+      markEffectHandoff: ({required permit}) => handedOff = true,
+      releaseEffectPermit: ({required permit}) => released = true,
+    );
+    final lease = gateway.captureWebViewRealmLease(
+      identity: const Identity(
+        epoch: 9,
+        phase: IdentityPhase.ready,
+        sessionId: 'session-a',
+      ),
+      realmId: 'realm-a',
+    );
+
+    final result = gateway.runWebViewEffect(
+      lease: lease,
+      operationId: 'webview:resolve',
+      effect: () {
+        submissions++;
+        return platformResult.future;
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(submissions, 1);
+    expect(handedOff, isTrue);
+    expect(released, isTrue);
+    expect(platformResult.isCompleted, isFalse,
+        reason: 'the WebView result must not hold retirement open');
+    platformResult.complete('delivered');
+    expect(await result, 'delivered');
+
+    final loggedOutLease = gateway.captureWebViewRealmLease(
+      identity: const Identity(
+        epoch: 10,
+        phase: IdentityPhase.unauthenticated,
+        sessionId: 'logged-out-b',
+      ),
+      realmId: 'realm-b',
+    );
+    expect(
+      await gateway.runWebViewEffect(
+        lease: loggedOutLease,
+        operationId: 'webview:login-command-response',
+        effect: () async => 'public-response',
+      ),
+      'public-response',
+    );
+    expect(acquisitions, 1,
+        reason: 'LoggedOut has no privileged process gate to acquire');
+
+    final rejected = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/tmp/app-support'),
+      acquireWebViewEffect: ({
+        required directory,
+        required sessionId,
+        required realmId,
+        required operationId,
+        required engineId,
+      }) =>
+          throw StateError('stale realm session'),
+    );
+    final rejectedLease = rejected.captureWebViewRealmLease(
+      identity: const Identity(
+        epoch: 9,
+        phase: IdentityPhase.ready,
+        sessionId: 'session-a',
+      ),
+      realmId: 'realm-a',
+    );
+    var rejectedSubmissions = 0;
+    await expectLater(
+      rejected.runWebViewEffect(
+        lease: rejectedLease,
+        operationId: 'webview:resolve',
+        effect: () async {
+          rejectedSubmissions++;
+          return false;
+        },
+      ),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    expect(rejectedSubmissions, 0);
+  });
+
   const revision = <String, dynamic>{
     'sequence': 7,
     'session_id': 'session-a',

@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
+import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -14,12 +18,16 @@ void main() {
     bool allowLocalDevelopment = false,
     _SecretSequence? secrets,
     Duration probeTimeout = const Duration(milliseconds: 50),
+    Identity Function()? currentIdentity,
+    SessionAuthorityGateway? sessionAuthority,
   }) {
     final sequence = secrets ?? _SecretSequence();
     return PrivilegedBridgePolicy(
       trustedOrigin: Uri.parse(trustedUrl),
       allowLocalDevelopment: allowLocalDevelopment,
       evaluateTopFrame: frame.evaluate,
+      currentIdentity: currentIdentity ?? (() => _loggedOutIdentity),
+      sessionAuthority: sessionAuthority ?? SessionAuthorityGateway(),
       secretFactory: sequence.next,
       probeTimeout: probeTimeout,
     );
@@ -208,6 +216,68 @@ void main() {
       isFalse,
     );
     expect(topFrame.resolutions, ['settings-request']);
+  });
+
+  test('queued realm response keeps A session and cannot adopt B', () async {
+    final topFrame = frame();
+    var identity = _readyIdentity('session-a');
+    final acquiredSessions = <String>[];
+    final authority = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/tmp/app-support'),
+      acquireWebViewEffect: ({
+        required directory,
+        required sessionId,
+        required realmId,
+        required operationId,
+        required engineId,
+      }) {
+        acquiredSessions.add(sessionId);
+        if (sessionId != identity.sessionId) {
+          throw StateError('stale session');
+        }
+        return _Permit();
+      },
+      markEffectHandoff: ({required permit}) {},
+      releaseEffectPermit: ({required permit}) {},
+    );
+    final subject = policy(
+      topFrame,
+      currentIdentity: () => identity,
+      sessionAuthority: authority,
+    );
+    final leaseA = await subject.bootstrapLease();
+    expect(leaseA?.sessionId, 'session-a');
+    expect(leaseA?.realmId, topFrame.marker);
+
+    identity = _readyIdentity('session-b');
+    expect(
+      await subject.resolve(
+        lease: leaseA!,
+        id: 'late-a',
+        value: true,
+        error: null,
+      ),
+      isFalse,
+    );
+    expect(topFrame.resolutions, isEmpty);
+
+    final leaseB = (await subject.authorize(leaseA.capability))?.lease;
+    expect(leaseB?.sessionId, 'session-b');
+    expect(leaseB?.realmId, leaseA.realmId);
+    final nativeEventLeaseB = await subject.recaptureForCurrentSession(leaseA);
+    expect(nativeEventLeaseB?.sessionId, 'session-b');
+    expect(nativeEventLeaseB?.realmId, leaseA.realmId);
+    expect(
+      await subject.resolve(
+        lease: leaseB!,
+        id: 'current-b',
+        value: true,
+        error: null,
+      ),
+      isTrue,
+    );
+    expect(topFrame.resolutions, ['current-b']);
+    expect(acquiredSessions, ['session-a', 'session-b']);
   });
 
   test('native events dispatch and acknowledge only the probed realm',
@@ -585,3 +655,25 @@ final class _FakeTopFrame {
 }
 
 const _unset = Object();
+
+const _loggedOutIdentity = Identity(
+  epoch: 1,
+  phase: IdentityPhase.unauthenticated,
+  sessionId: 'logged-out-test',
+);
+
+Identity _readyIdentity(String sessionId) => Identity(
+      epoch: sessionId == 'session-a' ? 1 : 2,
+      phase: IdentityPhase.ready,
+      sessionId: sessionId,
+    );
+
+final class _Permit implements rust.SessionEffectPermit {
+  var _disposed = false;
+
+  @override
+  void dispose() => _disposed = true;
+
+  @override
+  bool get isDisposed => _disposed;
+}

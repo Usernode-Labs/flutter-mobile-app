@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
@@ -277,6 +279,12 @@ PrivilegedBridgePolicy _policy(
     trustedOrigin: Uri.parse('https://social-vibecoding.usernodelabs.org/'),
     allowLocalDevelopment: false,
     evaluateTopFrame: frame.evaluate,
+    currentIdentity: () => const Identity(
+      epoch: 1,
+      phase: IdentityPhase.unauthenticated,
+      sessionId: 'logged-out-test',
+    ),
+    sessionAuthority: SessionAuthorityGateway(),
     secretFactory: sequence.next,
     probeTimeout: const Duration(seconds: 1),
   );

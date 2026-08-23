@@ -50,54 +50,6 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
-
-  testWidgets('terminal reset surface states the session-expired cause',
-      (tester) async {
-    final ledger = _RuntimeLedger();
-    final probe = _RuntimeProbe('old', ledger);
-
-    await tester.pumpWidget(AppRuntimeRoot(
-      sessionHost: _hostFor(_containerFor(probe)),
-      child: const _RuntimeView(),
-    ));
-
-    AppResetService.instance.enterTerminalSurfaceForTesting('session_expired');
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('Session expired'), findsOneWidget);
-    expect(
-      find.text('Your session is no longer valid, so Usernode signed you out '
-          'and cleared local data. Close and reopen Usernode to continue.'),
-      findsOneWidget,
-    );
-    expect(find.text('Reset complete'), findsNothing);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('terminal reset surface states the logout cause', (tester) async {
-    final ledger = _RuntimeLedger();
-    final probe = _RuntimeProbe('old', ledger);
-
-    await tester.pumpWidget(AppRuntimeRoot(
-      sessionHost: _hostFor(_containerFor(probe)),
-      child: const _RuntimeView(),
-    ));
-
-    AppResetService.instance.enterTerminalSurfaceForTesting('logout');
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('Signed out'), findsOneWidget);
-    expect(
-      find.text('You signed out, and your local data was cleared. '
-          'Close and reopen Usernode to continue.'),
-      findsOneWidget,
-    );
-
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
 }
 
 SessionHostCoordinator _hostFor(ProviderContainer container) {

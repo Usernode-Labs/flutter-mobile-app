@@ -47,37 +47,6 @@ void main() {
     expect(source, contains('WidgetsBinding.instance.removeObserver(this);'));
   });
 
-  test('the session-end document replacement lives with the WebView owner',
-      () async {
-    final webview = await File(
-      'lib/features/dapps/dapp_webview_screen.dart',
-    ).readAsString();
-    final shell = await File(
-      'lib/features/dapps/sv_shell_screen.dart',
-    ).readAsString();
-
-    // Driven by the SETTLED sign-out signal. `authenticated -> anything else`
-    // also fires on the synchronous `transitioning` publication (before the
-    // token, node and cookie/storage deletion have run) and on terminal
-    // boundaries, which have no successor to build.
-    expect(
-        webview, contains('ref.listenManual<int>(signOutCompletionProvider'));
-    expect(shell, isNot(contains('authStatusProvider')));
-
-    // Every trusted realm is covered, not just the shell: a same-origin pin
-    // falls back to a standalone DappWebViewScreen, whose loaded DOM would
-    // otherwise stay rendered after a successful logout.
-    final listener = webview.substring(
-      webview.indexOf('ref.listenManual<int>(signOutCompletionProvider'),
-    );
-    expect(listener, contains('final delegate = widget.onSessionEnded;'));
-    expect(
-      listener,
-      contains('unawaited(_controller.loadRequest(parseDappUrl(widget.url)));'),
-    );
-    expect(shell, contains('onSessionEnded: _reloadForSessionEnd,'));
-  });
-
   test('dapp transaction receipts are bound to the identity that owns them',
       () async {
     final records = await File(

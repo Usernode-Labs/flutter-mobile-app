@@ -299,23 +299,6 @@ class _TerminalResetApp extends StatelessWidget {
   final String reason;
 
   (String, String) _wording(AppLocalizations l10n) => switch (reason) {
-        'logout' => (l10n.appResetLogoutTitle, l10n.appResetLogoutBody),
-        'session_expired' => (
-            l10n.appResetSessionExpiredTitle,
-            l10n.appResetSessionExpiredBody,
-          ),
-        'session_credential_missing' => (
-            l10n.appResetCredentialMissingTitle,
-            l10n.appResetCredentialMissingBody,
-          ),
-        'different_participant_login' => (
-            l10n.appResetAccountChangedTitle,
-            l10n.appResetAccountChangedBody,
-          ),
-        'authenticated_to_guest' => (
-            l10n.appResetGuestTitle,
-            l10n.appResetGuestBody,
-          ),
         'network_change' => (
             l10n.appResetNetworkChangeTitle,
             l10n.appResetNetworkChangeBody,

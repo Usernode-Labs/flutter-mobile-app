@@ -46,18 +46,14 @@ class SessionHostCoordinator extends ChangeNotifier
   SessionHostCoordinator({
     required Future<ProviderContainer> Function() createSuccessor,
     void Function()? onDetached,
-    void Function(ProviderContainer container)? onMounted,
   })  : _createSuccessor = createSuccessor,
-        _onDetached = onDetached,
-        _onMounted = onMounted;
+        _onDetached = onDetached;
 
   final Future<ProviderContainer> Function() _createSuccessor;
   final void Function()? _onDetached;
-  final void Function(ProviderContainer container)? _onMounted;
 
   ProviderContainer? _container;
   SessionHostStatus _status = SessionHostStatus.transitioning;
-  Object? _recoveryError;
   Future<void> Function()? _retire;
   Completer<ProviderContainer?>? _replacement;
   bool _running = false;
@@ -66,7 +62,6 @@ class SessionHostCoordinator extends ChangeNotifier
 
   ProviderContainer? get container => _container;
   SessionHostStatus get status => _status;
-  Object? get recoveryError => _recoveryError;
   int get generation => _generation;
 
   void mountInitial(ProviderContainer container) {
@@ -75,7 +70,6 @@ class SessionHostCoordinator extends ChangeNotifier
     }
     _container = container;
     _status = SessionHostStatus.mounted;
-    _onMounted?.call(container);
   }
 
   @override
@@ -95,7 +89,6 @@ class SessionHostCoordinator extends ChangeNotifier
     final old = _container;
     _container = null;
     _status = SessionHostStatus.transitioning;
-    _recoveryError = null;
     _onDetached?.call();
     old?.dispose();
     notifyListeners();
@@ -109,7 +102,6 @@ class SessionHostCoordinator extends ChangeNotifier
       return;
     }
     _status = SessionHostStatus.transitioning;
-    _recoveryError = null;
     notifyListeners();
     unawaited(_runReplacement());
   }
@@ -133,10 +125,8 @@ class SessionHostCoordinator extends ChangeNotifier
       _container = successor;
       _generation += 1;
       _status = SessionHostStatus.mounted;
-      _recoveryError = null;
       _retire = null;
       _replacement = null;
-      _onMounted?.call(successor);
       notifyListeners();
       replacement.complete(successor);
     } catch (error, stackTrace) {
@@ -147,7 +137,6 @@ class SessionHostCoordinator extends ChangeNotifier
         return;
       }
       _status = SessionHostStatus.recoveryRequired;
-      _recoveryError = error;
       notifyListeners();
     } finally {
       _running = false;

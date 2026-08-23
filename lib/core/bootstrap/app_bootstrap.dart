@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provide
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
+import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
@@ -158,28 +159,28 @@ class AppBootstrap {
       return container;
     }
 
+    Future<ProviderContainer> createSuccessorContainer() async {
+      try {
+        await SentryUtil.clearUser();
+      } catch (error) {
+        log.warn('Could not clear retired Sentry user: $error');
+      }
+      return createSessionContainer();
+    }
+
     sessionHost = SessionHostCoordinator(
-      createSuccessor: createSessionContainer,
-      onDetached: () {
-        MetricsCollectorService.instance.detachSessionHost();
-        AppLifecycleLogger.onForegroundResume = null;
-      },
-      onMounted: (container) {
-        MetricsCollectorService.instance.initialize(container);
-        if (registerLifecycleObserver) {
-          AppLifecycleLogger.onForegroundResume = () {
-            container
-                .read(zkPassportPipelineProvider.notifier)
-                .recoverPendingSessionOnForeground();
-            BlockProductionAlarmAuditService.instance.auditBestEffort(
-              reason: 'foreground_resume',
-            );
-          };
-        }
-      },
+      createSuccessor: createSuccessorContainer,
+      onDetached: HttpDebugLogStore.instance.clearForIdentityBoundary,
     );
     final container = await createSessionContainer();
     sessionHost.mountInitial(container);
+    MetricsCollectorService.instance.initialize(
+      loadParticipantId: () async {
+        final active = sessionHost.container;
+        if (active == null) return null;
+        return active.read(participantIdProvider.future);
+      },
+    );
 
     final identity = container.read(identityProvider);
     final repo = await AccountsRepository.create();
@@ -216,6 +217,14 @@ class AppBootstrap {
 
     if (registerLifecycleObserver) {
       AppLifecycleLogger.register();
+      AppLifecycleLogger.onForegroundResume = () {
+        sessionHost.container
+            ?.read(zkPassportPipelineProvider.notifier)
+            .recoverPendingSessionOnForeground();
+        BlockProductionAlarmAuditService.instance.auditBestEffort(
+          reason: 'foreground_resume',
+        );
+      };
     }
 
     final backendBootstrap = _bootstrapBackendAsync(

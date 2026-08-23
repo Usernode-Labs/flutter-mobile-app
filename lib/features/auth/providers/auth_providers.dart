@@ -9,7 +9,6 @@ export 'package:crypto_mobile_app/core/identity/session_controller.dart'
     show
         identityProvider,
         SessionController,
-        signOutCompletionProvider,
         authRepositoryProvider,
         authTokenStoreProvider,
         authGuestFlagProvider;

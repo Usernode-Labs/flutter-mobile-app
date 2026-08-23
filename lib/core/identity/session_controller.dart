@@ -13,7 +13,6 @@ import 'package:crypto_mobile_app/core/identity/session_authority_cleanup.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/identity/session_retirement_repair.dart';
-import 'package:crypto_mobile_app/core/identity/session_scope_reset.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -44,19 +43,6 @@ final authGuestFlagProvider = Provider<AuthGuestFlag>((ref) => AuthGuestFlag());
 final sessionAuthorityGatewayProvider =
     Provider<SessionAuthorityGateway>((ref) => SessionAuthorityGateway());
 
-/// Bumped exactly once per COMPLETED voluntary sign-out — after the bearer,
-/// the node runtime, the native generation, the session prefs and the WebView
-/// session jar are all gone.
-///
-/// Document replacement is driven from THIS edge rather than from
-/// `authenticated -> anything else`: `logout` publishes
-/// [IdentityPhase.transitioning] synchronously before its first await (so
-/// in-flight work sees a closed gate), and that publication maps to
-/// [AuthStatus.unknown] — a WebView replaced on it would race the very
-/// cookie/storage deletion that makes the next load render a login page.
-/// Terminal boundaries never reach this signal at all.
-final signOutCompletionProvider = StateProvider<int>((ref) => 0);
-
 /// The single source of truth for the app's current [Identity].
 ///
 /// All identity transitions go through [SessionController]; everything else
@@ -69,11 +55,6 @@ final identityProvider = StateNotifierProvider<SessionController, Identity>(
       tokenStore: ref.watch(authTokenStoreProvider),
       guestFlag: ref.watch(authGuestFlagProvider),
       repository: ref.watch(authRepositoryProvider),
-      resetSessionScopedProcessState: () => resetSessionScopedProcessState(ref),
-      onSignOutCompleted: () {
-        final signal = ref.read(signOutCompletionProvider.notifier);
-        signal.state = signal.state + 1;
-      },
       sessionAuthority: ref.watch(sessionAuthorityGatewayProvider),
       sessionHost: ref.watch(sessionHostLifecycleProvider),
     );
@@ -105,8 +86,6 @@ class SessionController extends StateNotifier<Identity> {
     Future<bool> Function()? clearWebSessionData,
     Future<bool> Function()? rotateNativeGeneration,
     Future<bool> Function()? clearSessionNotifications,
-    Future<void> Function()? resetSessionScopedProcessState,
-    void Function()? onSignOutCompleted,
     SessionDataPreservingTermination? terminatePreservingData,
     required SessionAuthorityGateway sessionAuthority,
     required SessionHostLifecycle sessionHost,
@@ -121,8 +100,6 @@ class SessionController extends StateNotifier<Identity> {
             rotateNativeGeneration ?? _defaultRotateNativeGeneration,
         _clearSessionNotifications =
             clearSessionNotifications ?? _defaultClearSessionNotifications,
-        _resetSessionScopedProcessState = resetSessionScopedProcessState,
-        _onSignOutCompleted = onSignOutCompleted,
         _terminatePreservingData =
             terminatePreservingData ?? _defaultTerminatePreservingData,
         _sessionAuthority = sessionAuthority,
@@ -159,15 +136,6 @@ class SessionController extends StateNotifier<Identity> {
 
   /// Removes notifications the retired session has already posted.
   final Future<bool> Function() _clearSessionNotifications;
-
-  /// Drops identity-agnostic PROCESS state that outlives a scoped sign-out
-  /// (in-memory debug buffers, provider caches that captured the retired
-  /// identity). Null in unit tests that own no provider graph.
-  final Future<void> Function()? _resetSessionScopedProcessState;
-
-  /// Fired once a voluntary sign-out has fully settled — see
-  /// [signOutCompletionProvider].
-  final void Function()? _onSignOutCompleted;
 
   final SessionDataPreservingTermination _terminatePreservingData;
   final SessionAuthorityGateway _sessionAuthority;
@@ -407,7 +375,7 @@ class SessionController extends StateNotifier<Identity> {
       await _reclaimRetiredSession(
         _string(authorityState['session_id'], 'retiring.session_id'),
       );
-      await _publishAuthorityLoggedOut(loggedOut, signalCompletion: false);
+      _publishAuthorityLoggedOut(loggedOut);
       return;
     }
     if (kind == 'authority_recovery_required') {
@@ -691,7 +659,6 @@ class SessionController extends StateNotifier<Identity> {
       ));
       await _logoutWithAuthority(
         unavailable,
-        signalCompletion: false,
         replaceHost: false,
       );
       return;
@@ -713,7 +680,6 @@ class SessionController extends StateNotifier<Identity> {
       ));
       await _logoutWithAuthority(
         unavailable,
-        signalCompletion: false,
         replaceHost: false,
       );
       return;
@@ -821,7 +787,6 @@ class SessionController extends StateNotifier<Identity> {
       ));
       final successor = await _logoutWithAuthority(
         current,
-        signalCompletion: false,
       );
       if (!identical(successor, this)) {
         return successor.completeLogin(session);
@@ -897,8 +862,7 @@ class SessionController extends StateNotifier<Identity> {
 
   Future<void> continueAsGuest() => _transition(() async {
         final current = state;
-        final wasAuthenticated = current.isAuthenticated;
-        if (wasAuthenticated) {
+        if (current.isAuthenticated) {
           _publish(Identity(
             epoch: current.epoch + 1,
             phase: IdentityPhase.transitioning,
@@ -906,7 +870,6 @@ class SessionController extends StateNotifier<Identity> {
           ));
           final successor = await _logoutWithAuthority(
             current,
-            signalCompletion: false,
           );
           if (!identical(successor, this)) {
             await successor.continueAsGuest();
@@ -944,7 +907,6 @@ class SessionController extends StateNotifier<Identity> {
           phase: IdentityPhase.guest,
           sessionId: guestSessionId,
         ));
-        if (wasAuthenticated) _onSignOutCompleted?.call();
       });
 
   /// Commits the selected network in the installation-wide journal before
@@ -986,9 +948,8 @@ class SessionController extends StateNotifier<Identity> {
             await _reclaimRetiredSession(
               _string(authorityState['session_id'], 'retiring.session_id'),
             );
-            await _publishAuthorityLoggedOut(
+            _publishAuthorityLoggedOut(
               _replyState(completed, expectedKind: 'logged_out'),
-              signalCompletion: false,
             );
             continue;
           }
@@ -1000,7 +961,6 @@ class SessionController extends StateNotifier<Identity> {
             }
             await _logoutWithAuthority(
               current,
-              signalCompletion: false,
               successorNetwork: network,
             );
             await _terminatePreservingData(reason: 'network_change');
@@ -1071,7 +1031,6 @@ class SessionController extends StateNotifier<Identity> {
 
   Future<SessionController> _logoutWithAuthority(
     Identity current, {
-    bool signalCompletion = true,
     String? successorNetwork,
     bool replaceHost = true,
   }) async {
@@ -1135,10 +1094,7 @@ class SessionController extends StateNotifier<Identity> {
       }
       await _reclaimRetiredSession(sessionId);
       if (!replaceHost) {
-        await _publishAuthorityLoggedOut(
-          loggedOut,
-          signalCompletion: signalCompletion,
-        );
+        _publishAuthorityLoggedOut(loggedOut);
       }
     }
 
@@ -1149,9 +1105,8 @@ class SessionController extends StateNotifier<Identity> {
 
     final successorContainer = await _sessionHost.replace(retire: retire);
     if (successorContainer == null) {
-      await _publishAuthorityLoggedOut(
+      _publishAuthorityLoggedOut(
         _replyState(completed, expectedKind: 'logged_out'),
-        signalCompletion: signalCompletion,
       );
       return this;
     }
@@ -1201,17 +1156,6 @@ class SessionController extends StateNotifier<Identity> {
     } catch (error) {
       _log.warn('Could not reclaim native session state: $error');
     }
-  }
-
-  Future<void> _publishAuthorityLoggedOut(
-    Map<String, dynamic> loggedOut, {
-    required bool signalCompletion,
-  }) async {
-    try {
-      await _resetSessionScopedProcessState?.call();
-    } catch (error) {
-      _log.warn('Could not clear retired process caches: $error');
-    }
     try {
       if (!await _clearSessionNotifications()) {
         _log.warn('Native session-notification clear reported failure');
@@ -1219,6 +1163,9 @@ class SessionController extends StateNotifier<Identity> {
     } catch (error) {
       _log.warn('Could not clear session notifications: $error');
     }
+  }
+
+  void _publishAuthorityLoggedOut(Map<String, dynamic> loggedOut) {
     _publish(Identity(
       epoch: state.epoch,
       phase: loggedOut['mode'] == 'guest'
@@ -1226,7 +1173,6 @@ class SessionController extends StateNotifier<Identity> {
           : IdentityPhase.unauthenticated,
       sessionId: _string(loggedOut['session_id'], 'logged_out.session_id'),
     ));
-    if (signalCompletion) _onSignOutCompleted?.call();
   }
 
   Future<void> _logoutBestEffort(String? token) async {

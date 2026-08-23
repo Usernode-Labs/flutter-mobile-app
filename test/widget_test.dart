@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/main.dart';
 
 void main() {
@@ -9,8 +10,13 @@ void main() {
       (WidgetTester tester) async {
     // Build the app widget
     await tester.pumpWidget(
-      const ProviderScope(
-        child: CryptoMobileApp(),
+      ProviderScope(
+        overrides: [
+          sessionHostLifecycleProvider.overrideWithValue(
+            const InlineSessionHostLifecycle(),
+          ),
+        ],
+        child: const CryptoMobileApp(),
       ),
     );
 

@@ -110,12 +110,9 @@ final zkPassportRuntimeSessionRepositoryProvider =
   return ZkPassportRuntimeSessionRepository();
 });
 
-/// The zkPassport rows are bucket-scoped, but these providers cache their
-/// VALUES in a ProviderContainer that now survives a sign-out — they watch
-/// only the stable repository providers. `resetSessionScopedProcessState`
-/// therefore discards the whole group at the sign-out boundary; without that,
-/// the successor is rendered as the retired user's completed registration,
-/// proof nullifier and facematch metadata included.
+/// The zkPassport rows are bucket-scoped. The complete session container is
+/// disposed at retirement, so none of these cached values can cross into the
+/// clean successor host.
 final zkPassportSettingsProvider =
     FutureProvider<ZkPassportSettings>((ref) async {
   final repo = ref.watch(zkPassportSettingsRepositoryProvider);

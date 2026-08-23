@@ -785,7 +785,7 @@ void main() {
     });
   }
 
-  test('duplicate logout commits and signals one successor', () async {
+  test('duplicate logout commits one successor', () async {
     final authority = _ScriptedAuthority([
       _response(sequence: 5, state: _ready(), outcome: 'record_read'),
       ..._successfulRetirementResponses(),
@@ -805,7 +805,6 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'testnet:acct:$bucket:leaderboard:participant_id': 7,
     });
-    var completions = 0;
     final controller = SessionController(
       tokenStore: tokenStore,
       guestFlag: AuthGuestFlag(),
@@ -821,7 +820,6 @@ void main() {
       clearWebSessionData: () async => true,
       rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
-      onSignOutCompleted: () => completions += 1,
     );
     addTearDown(controller.dispose);
     await controller.restore();
@@ -832,7 +830,6 @@ void main() {
     expect(await first, isTrue);
     expect(await duplicate, isFalse);
     expect(controller.state.sessionId, 'logged-out-b');
-    expect(completions, 1);
     expect(
       authority.commands
           .where((command) => command['command'] == 'complete_retirement'),

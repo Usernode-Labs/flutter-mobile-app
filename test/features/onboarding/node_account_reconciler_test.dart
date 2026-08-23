@@ -13,6 +13,7 @@ import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
+import 'package:crypto_mobile_app/core/identity/sign_out_fence.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
@@ -21,6 +22,7 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
@@ -33,6 +35,11 @@ const _addressA = 'ut1useraaaaaaaa';
 const _addressB = 'ut1userbbbbbbbb';
 const _namespace = 'aaaaaaaaaaaaaaaa';
 const _namespacedActiveId = 'testnet:user:$_namespace:accounts:activeId';
+
+class _NoopAuthRepository extends AuthRepository {
+  @override
+  Future<void> logout(String sessionToken) async {}
+}
 
 final class _Permit implements rust.SessionEffectPermit {
   var _disposed = false;
@@ -91,6 +98,7 @@ Map<String, dynamic> _accountJson(String id, String address) => {
 LeaderboardApiService _provisionService(
   String address,
   List<int> provisionCalls, {
+  int seasonId = 7,
   Completer<void>? firstCallStarted,
   Future<void>? releaseFirstCall,
 }) {
@@ -111,7 +119,7 @@ LeaderboardApiService _provisionService(
           'public_key': 'utpk1$address',
           'secret_key': 'utsk1secret',
           'newly_allocated': false,
-          'season_id': 7,
+          'season_id': seasonId,
         },
       }),
       200,
@@ -706,6 +714,138 @@ void main() {
     final identity = container.read(identityProvider);
     expect(identity.phase, IdentityPhase.reconciling);
     expect(identity.provisionedSeasonId, 7);
+  });
+
+  test(
+      'same-account season rollover updates only the baseline and keeps the '
+      'current authority', () async {
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      suspendNode: () async {},
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    await controller.restore();
+    expect(await controller.completeLogin(_session('token-a')), isTrue);
+    expect(
+      await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'account-a',
+        address: _addressA,
+        participantId: 99,
+        provisionedSeasonId: 7,
+      ),
+      isTrue,
+    );
+    await controller.beginSeasonRollover(activeSeasonId: 8);
+
+    var repositoryOpens = 0;
+    var nodeRebinds = 0;
+    final provisionCalls = <int>[];
+    final service = _provisionService(
+      _addressA,
+      provisionCalls,
+      seasonId: 8,
+    );
+    final container = ProviderContainer(overrides: [
+      identityProvider.overrideWith((ref) => controller),
+      leaderboardApiServiceProvider.overrideWithValue(service),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          ensureNodeIdentity: () async => nodeRebinds++,
+          accountsRepository: () async {
+            repositoryOpens++;
+            throw StateError('same binding must not open the repository');
+          },
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    addTearDown(service.dispose);
+
+    expect(
+      await container.read(nodeAccountReconcilerProvider).reconcile(),
+      isTrue,
+    );
+    expect(repositoryOpens, 0);
+    expect(nodeRebinds, 0);
+    expect(controller.state.phase, IdentityPhase.ready);
+    expect(controller.state.address, _addressA);
+    expect(controller.state.provisionedSeasonId, 8);
+  });
+
+  test(
+      'changed-account season rollover retires before repository or node '
+      'mutation', () async {
+    final tokenStore = AuthTokenStore();
+    final controller = SessionController(
+      tokenStore: tokenStore,
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      suspendNode: () async {},
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    await controller.restore();
+    expect(await controller.completeLogin(_session('token-a')), isTrue);
+    expect(
+      await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'account-a',
+        address: _addressA,
+        participantId: 99,
+        provisionedSeasonId: 7,
+      ),
+      isTrue,
+    );
+    await controller.beginSeasonRollover(activeSeasonId: 8);
+
+    var repositoryOpens = 0;
+    var nodeRebinds = 0;
+    final provisionCalls = <int>[];
+    final service = _provisionService(
+      _addressB,
+      provisionCalls,
+      seasonId: 8,
+    );
+    final container = ProviderContainer(overrides: [
+      identityProvider.overrideWith((ref) => controller),
+      leaderboardApiServiceProvider.overrideWithValue(service),
+      nodeAccountReconcilerProvider.overrideWith(
+        (ref) => NodeAccountReconciler(
+          ref,
+          ensureNodeIdentity: () async => nodeRebinds++,
+          accountsRepository: () async {
+            repositoryOpens++;
+            throw StateError('changed binding must retire first');
+          },
+        ),
+      ),
+    ]);
+    addTearDown(container.dispose);
+    addTearDown(service.dispose);
+
+    expect(
+      await container.read(nodeAccountReconcilerProvider).reconcile(),
+      isFalse,
+    );
+    expect(repositoryOpens, 0);
+    expect(nodeRebinds, 0);
+    expect(controller.state.phase, IdentityPhase.unauthenticated);
+    expect(await tokenStore.read(), isNull);
   });
 
   test('ready refresh preserves transient API errors for retry handling',

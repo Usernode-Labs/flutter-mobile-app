@@ -370,6 +370,107 @@ void main() {
     );
   });
 
+  test(
+      'same-account season rollover retains Ready authority without '
+      'reactivation', () async {
+    final authority = _ScriptedAuthority([
+      _response(sequence: 0, state: _loggedOut(), outcome: 'record_read'),
+      _response(
+        sequence: 1,
+        state: _activating(phase: 'persist_credential'),
+        outcome: 'activation_started',
+      ),
+      _response(
+        sequence: 2,
+        state: _activating(
+          phase: 'bind_namespace',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+        ),
+        outcome: 'activation_advanced',
+      ),
+      _response(
+        sequence: 3,
+        state: _activating(
+          phase: 'reconcile_account',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+        ),
+        outcome: 'activation_advanced',
+      ),
+      _response(
+        sequence: 4,
+        state: _activating(
+          phase: 'commit_ready',
+          credentialRef: 'credential-a',
+          credentialGeneration: 1,
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+          accountBinding: {
+            'account_id': 'account-a',
+            'address': 'address-a',
+          },
+        ),
+        outcome: 'activation_advanced',
+      ),
+      _response(sequence: 5, state: _ready(), outcome: 'activation_ready'),
+    ]);
+    final controller = SessionController(
+      tokenStore: AuthTokenStore(),
+      guestFlag: AuthGuestFlag(),
+      repository: _NoopAuthRepository(),
+      sessionAuthority: authority,
+      newAuthorityId: (kind) => switch (kind) {
+        'session' => 'session-a',
+        'transition' => 'login-a',
+        'credential' => 'credential-a',
+        _ => throw StateError('Unexpected authority id: $kind'),
+      },
+      suspendNode: () async {},
+      clearWebSessionData: () async => true,
+      rotateNativeGeneration: () async => true,
+      clearSessionNotifications: () async => true,
+      signOutFence: InMemorySignOutFence(),
+      terminalReset: ({required reason, prepareNextLaunch}) async {
+        fail('Unexpected terminal reset: $reason');
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.restore();
+    expect(await controller.completeLogin(_session('token-a')), isTrue);
+    expect(
+      await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'account-a',
+        address: 'address-a',
+        participantId: 7,
+        provisionedSeasonId: 7,
+      ),
+      isTrue,
+    );
+    final commandsBeforeRollover = authority.commands.length;
+
+    await controller.beginSeasonRollover(activeSeasonId: 8);
+    expect(
+      await controller.reconcileSucceeded(
+        epoch: controller.state.epoch,
+        accountId: 'account-a',
+        address: 'address-a',
+        participantId: 7,
+        provisionedSeasonId: 8,
+      ),
+      isTrue,
+    );
+
+    expect(authority.commands, hasLength(commandsBeforeRollover));
+    expect(controller.state.phase, IdentityPhase.ready);
+    expect(controller.state.sessionId, 'session-a');
+    expect(controller.state.credentialRef, 'credential-a');
+    expect(controller.state.credentialGeneration, 1);
+    expect(controller.state.provisionedSeasonId, 8);
+  });
+
   test('cold activation adopts only its exact persisted credential', () async {
     final authority = _ScriptedAuthority([
       _response(

@@ -1856,7 +1856,13 @@ class SessionController extends StateNotifier<Identity> {
               '(epoch $epoch vs ${state.epoch}, phase ${state.phase.name})');
           return false;
         }
-        if (_sessionAuthority != null) {
+        final retainedReadyAuthority = _sessionAuthority != null &&
+            state.sessionId != null &&
+            state.credentialRef != null &&
+            state.credentialGeneration != null &&
+            state.accountId == accountId &&
+            state.address == address;
+        if (_sessionAuthority != null && !retainedReadyAuthority) {
           await _activationEvidence({
             'kind': 'account_verified',
             'account_binding': {
@@ -1874,7 +1880,7 @@ class SessionController extends StateNotifier<Identity> {
         await _writeLifecycleOwnershipConfirmed(bucket);
         await _clearReconcileMarker();
         Map<String, dynamic>? ready;
-        if (_sessionAuthority != null) {
+        if (_sessionAuthority != null && !retainedReadyAuthority) {
           final reply = await _activationEvidence(
             const {'kind': 'ready_prerequisites_verified'},
           );

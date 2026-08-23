@@ -283,6 +283,35 @@ class NodeAccountReconciler {
       'seasonId': provisioned.seasonId,
     });
 
+    // A Ready identity retains its exact account while the active season is
+    // refreshed. The backend may allocate a different per-season account,
+    // but that is an account-authority replacement and therefore cannot be
+    // imported into the current session. Retire first; a normal sign-in will
+    // create the fresh session allowed to activate the new binding.
+    final retainedAddress = identity.address;
+    if (retainedAddress != null) {
+      if (provisioned.address != retainedAddress) {
+        _log.info('Season rollover returned a different account; '
+            'retiring the current session before activation');
+        await _ref.read(identityProvider.notifier).logout(
+              expectedIdentity: identity,
+            );
+        return false;
+      }
+      final retainedAccountId = identity.accountId;
+      final retainedParticipantId = identity.participantId;
+      if (retainedAccountId == null || retainedParticipantId == null) {
+        throw StateError('Ready season rollover lacks its retained authority');
+      }
+      return _ref.read(identityProvider.notifier).reconcileSucceeded(
+            epoch: epoch,
+            accountId: retainedAccountId,
+            address: retainedAddress,
+            participantId: retainedParticipantId,
+            provisionedSeasonId: provisioned.seasonId,
+          );
+    }
+
     final participantId = await _resolveParticipantId(identity);
 
     // Re-validate before every shared-state mutation: each `await` above is

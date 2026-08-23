@@ -70,7 +70,9 @@ void main() {
       );
       final collector = MetricsCollectorService.instance;
       collector.reset();
-      collector.initialize(container);
+      collector.initialize(
+        loadParticipantId: () => container.read(participantIdProvider.future),
+      );
 
       final service = ObservabilityReportingService.test(
         collector: collector,

@@ -257,38 +257,21 @@ class AppSleepService extends ChangeNotifier {
     _rescheduleIdleTimer();
   }
 
-  /// Reversible session fence for the transition queue.
-  ///
-  /// Transitions are queued, so one enqueued under the signed-out account can
-  /// still be waiting when an identity boundary tears the runtime down — and
-  /// [_wakeInternal] restarts monitoring and re-acquires the wakelock. Each
-  /// entry captures this at enqueue time and is dropped if the boundary moved.
-  int _sessionGeneration = 0;
-
-  bool _sessionSuperseded(int generation) =>
-      _terminalResetRequested || generation != _sessionGeneration;
-
   Future<void> setEnabled(bool value) {
     if (_terminalResetRequested) return Future<void>.value();
-    final generation = _sessionGeneration;
-    _transition = _transition.then((_) =>
-        _sessionSuperseded(generation) ? null : _setEnabledInternal(value));
+    _transition = _transition.then((_) => _setEnabledInternal(value));
     return _transition;
   }
 
   Future<void> sleep({required AppSleepReason reason}) {
     if (_terminalResetRequested) return Future<void>.value();
-    final generation = _sessionGeneration;
-    _transition = _transition.then(
-        (_) => _sessionSuperseded(generation) ? null : _sleepInternal(reason));
+    _transition = _transition.then((_) => _sleepInternal(reason));
     return _transition;
   }
 
   Future<void> wake({required String reason}) {
     if (_terminalResetRequested) return Future<void>.value();
-    final generation = _sessionGeneration;
-    _transition = _transition.then(
-        (_) => _sessionSuperseded(generation) ? null : _wakeInternal(reason));
+    _transition = _transition.then((_) => _wakeInternal(reason));
     return _transition;
   }
 
@@ -718,9 +701,6 @@ class AppSleepService extends ChangeNotifier {
     await AppSleepStateStore.setEnabled(value);
   }
 
-  /// Permanently cancels process-local sleep/wake work for terminal reset.
-  /// No transition is drained because reset deliberately does not wait for
-  /// runtime retirement.
   /// Quiesces the wake/sleep machinery for a scoped sign-out.
   ///
   /// The reversible twin of [closeForTerminalReset]: everything it does
@@ -730,74 +710,49 @@ class AppSleepService extends ChangeNotifier {
   /// the signed-out user's node was running, and would otherwise restart the
   /// node and epoch monitoring on the next wake.
   ///
-  /// Retires the session generation synchronously (so queued transitions are
-  /// dropped rather than run against the torn-down runtime), then DRAINS the
-  /// queue: a transition already executing is re-acquiring the wakelock and
-  /// restarting monitoring, and the boundary must not report done while that
-  /// is still in flight.
-  Future<void> closeForSignOut() async {
-    if (_terminalResetRequested) return;
-    _sessionGeneration += 1;
+  /// Already accepted transitions finish in their normal order. Cleanup is
+  /// simply the next item in that same queue.
+  Future<void> closeForSignOut() {
+    if (_terminalResetRequested) return Future<void>.value();
+    final cleanup = _transition.then<void>(
+      (_) => _clearSessionWakeState(),
+      onError: (Object error, StackTrace stackTrace) {
+        _log.warn('Sleep transition failed before sign-out cleanup: $error');
+        _clearSessionWakeState();
+      },
+    );
+    _transition = cleanup;
+    _cancelWakeTimers();
+    return cleanup;
+  }
+
+  void _cancelWakeTimers() {
     _idleTimer?.cancel();
     _idleTimer = null;
     _scheduledWakeTimer?.cancel();
     _scheduledWakeTimer = null;
     _wakelockMonitorTimer?.cancel();
     _wakelockMonitorTimer = null;
-    _resumeNodeOnWake = false;
-    _resumeEpochMonitoringOnWake = false;
-    _awaitingInactivityAfterWakelockRelease = false;
-    try {
-      await _transition.timeout(const Duration(seconds: 5));
-    } catch (error) {
-      _log.warn('In-flight sleep transition did not settle for sign-out: '
-          '$error');
-    }
-    final activePoll = _activeWakelockPoll;
-    if (activePoll != null) {
-      try {
-        await activePoll.timeout(const Duration(seconds: 5));
-      } catch (error) {
-        _log.warn('In-flight wakelock poll did not settle for sign-out: '
-            '$error');
-      }
-    }
-    // A transition that completed during the drain may have re-armed the
-    // flags/timers this boundary just cleared.
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    _scheduledWakeTimer?.cancel();
-    _scheduledWakeTimer = null;
-    _wakelockMonitorTimer?.cancel();
-    _wakelockMonitorTimer = null;
+  }
+
+  void _clearSessionWakeState() {
+    _cancelWakeTimers();
     _resumeNodeOnWake = false;
     _resumeEpochMonitoringOnWake = false;
     _awaitingInactivityAfterWakelockRelease = false;
   }
 
+  /// Permanently cancels process-local sleep/wake work for terminal reset.
+  /// Already accepted transitions may finish while the process exits.
   void closeForTerminalReset() {
     _terminalResetRequested = true;
-    _sessionGeneration += 1;
     _isEnabled = false;
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    _scheduledWakeTimer?.cancel();
-    _scheduledWakeTimer = null;
-    _wakelockMonitorTimer?.cancel();
-    _wakelockMonitorTimer = null;
-    _resumeNodeOnWake = false;
-    _resumeEpochMonitoringOnWake = false;
-    _awaitingInactivityAfterWakelockRelease = false;
+    _clearSessionWakeState();
   }
 
   @override
   void dispose() {
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    _scheduledWakeTimer?.cancel();
-    _scheduledWakeTimer = null;
-    _wakelockMonitorTimer?.cancel();
-    _wakelockMonitorTimer = null;
+    _cancelWakeTimers();
     super.dispose();
   }
 }

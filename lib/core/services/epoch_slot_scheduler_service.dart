@@ -23,7 +23,6 @@ class EpochSlotSchedulerService {
   EpochSlotSchedulerService._();
 
   bool _initialized = false;
-  bool _terminalResetRequested = false;
   int? _currentEpoch;
   List<ScheduledSlot> _scheduledSlots = [];
   Timer? _epochMonitoringTimer;
@@ -57,7 +56,6 @@ class EpochSlotSchedulerService {
 
   /// Initialize the epoch slot scheduler service
   Future<bool> initialize() async {
-    if (_terminalResetRequested) return false;
     if (_initialized) return true;
 
     try {
@@ -65,11 +63,9 @@ class EpochSlotSchedulerService {
 
       // Load persisted state
       await _loadPersistedState();
-      if (_terminalResetRequested) return false;
 
       // Register boot reschedule callback with PlatformAlarmService
       PlatformAlarmService.instance.setBootRescheduleCallback(() async {
-        if (_terminalResetRequested) return;
         _log.info(
             'Boot reschedule callback invoked - checking epoch and rescheduling');
         await _checkForEpochTransition();
@@ -80,7 +76,6 @@ class EpochSlotSchedulerService {
 
       // Perform initial epoch check
       await _checkForEpochTransition();
-      if (_terminalResetRequested) return false;
 
       _initialized = true;
       _log.info(
@@ -94,7 +89,6 @@ class EpochSlotSchedulerService {
 
   /// Start periodic monitoring for epoch transitions
   void startEpochMonitoring() {
-    if (_terminalResetRequested) return;
     if (_epochMonitoringTimer != null && _epochMonitoringTimer!.isActive) {
       _log.debug('Epoch monitoring already active');
       return;
@@ -123,7 +117,6 @@ class EpochSlotSchedulerService {
   /// - Late epoch (75-100%): Check every 5 minutes
   Future<void> _adjustEpochMonitoringFrequency() async {
     final progress = await getEpochProgress();
-    if (_terminalResetRequested) return;
     if (progress == null) {
       _log.debug('Cannot adjust epoch monitoring: progress unknown');
       return;
@@ -156,7 +149,6 @@ class EpochSlotSchedulerService {
 
   /// Check if epoch has transitioned and handle accordingly
   Future<void> _checkForEpochTransition() async {
-    if (_terminalResetRequested) return;
     try {
       _log.debug('Checking for epoch transition...');
       _lastEpochCheck = DateTime.now();
@@ -172,7 +164,6 @@ class EpochSlotSchedulerService {
       final epochData = await rpc.epochRewards(
         includeWonSlots: false, // Just need epoch number
       );
-      if (_terminalResetRequested) return;
 
       if (epochData == null) {
         _log.warn('Failed to get epoch data from backend');
@@ -203,7 +194,6 @@ class EpochSlotSchedulerService {
 
   /// Handle epoch transition event
   Future<void> _handleEpochTransition(int newEpoch) async {
-    if (_terminalResetRequested) return;
     try {
       _log.info('Handling epoch transition to epoch $newEpoch');
 
@@ -255,12 +245,6 @@ class EpochSlotSchedulerService {
     int? epoch,
     Duration? advanceTime,
   }) async {
-    if (_terminalResetRequested) {
-      return SchedulingResult(
-        success: false,
-        error: 'Terminal reset is in progress',
-      );
-    }
     if (!_initialized) {
       _log.warn('Cannot schedule slots: service not initialized');
       return SchedulingResult(
@@ -283,12 +267,6 @@ class EpochSlotSchedulerService {
       }
       final clockDriftMs =
           await RustBackendService.instance.resolveNodeClockDriftMs();
-      if (_terminalResetRequested) {
-        return SchedulingResult(
-          success: false,
-          error: 'Terminal reset is in progress',
-        );
-      }
       if (clockDriftMs == null) {
         _log.warn('Cannot schedule slots: node clock drift unavailable');
         return SchedulingResult(
@@ -300,12 +278,6 @@ class EpochSlotSchedulerService {
         epoch: epoch,
         includeWonSlots: true,
       );
-      if (_terminalResetRequested) {
-        return SchedulingResult(
-          success: false,
-          error: 'Terminal reset is in progress',
-        );
-      }
 
       if (epochData == null ||
           epochData.wonSlots == null ||
@@ -448,7 +420,6 @@ class EpochSlotSchedulerService {
 
   /// Persist current state to storage
   Future<void> _persistState() async {
-    if (_terminalResetRequested) return;
     try {
       final prefs = await SharedPreferences.getInstance();
 
@@ -615,14 +586,12 @@ class EpochSlotSchedulerService {
   /// every slot alarm the retired session scheduled is cancelled, but the
   /// scheduler stays initialized so the next session can schedule again.
   Future<void> closeForSignOut() async {
-    if (_terminalResetRequested) return;
     stopEpochMonitoring();
     await cancelAllSlots();
   }
 
   /// Permanently closes the scheduler for this application process.
   void closeForTerminalReset() {
-    _terminalResetRequested = true;
     stopEpochMonitoring();
     _initialized = false;
   }

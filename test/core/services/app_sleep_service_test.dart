@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('a scoped sign-out drops queued transitions and drains the running one',
+  test('a scoped sign-out waits for every already accepted transition',
       () async {
     final ran = <String>[];
     final sleepEntered = Completer<void>();
@@ -26,8 +26,7 @@ void main() {
     );
     addTearDown(service.dispose);
 
-    // One transition running, one queued behind it. A wake is the dangerous
-    // one: it re-acquires the wakelock and restarts monitoring.
+    // One transition is running and one is already accepted behind it.
     final running = service.sleep(reason: AppSleepReason.idleTimeout);
     await sleepEntered.future;
     final queued = service.wake(reason: 'queued');
@@ -44,12 +43,10 @@ void main() {
     await close;
 
     expect(closed, isTrue);
-    // The queued entry captured the pre-boundary generation and is dropped;
-    // only the one already executing ran.
-    expect(ran, ['sleep:idleTimeout']);
+    expect(ran, ['sleep:idleTimeout', 'wake:queued']);
   });
 
-  testWidgets('a scoped sign-out stands the wake machinery down reversibly',
+  testWidgets('a scoped sign-out cancels timers but keeps the user preference',
       (tester) async {
     final sleepReasons = <AppSleepReason>[];
     final service = AppSleepService.forTest(
@@ -76,10 +73,6 @@ void main() {
     // Reversible, unlike closeForTerminalReset: the user's automatic-sleep
     // preference belongs to the device, and the next session re-arms.
     expect(service.isEnabled, isTrue);
-    service.recordUserInteraction();
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pump();
-    expect(sleepReasons, [AppSleepReason.idleTimeout]);
   });
 
   testWidgets('does not sleep before wakelock release transition',

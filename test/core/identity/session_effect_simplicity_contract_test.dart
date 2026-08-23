@@ -69,4 +69,32 @@ void main() {
       expect(nodeService, isNot(contains(forbidden)));
     }
   });
+
+  test('sleep shutdown uses its ordinary transition queue without a drain', () {
+    final source =
+        File('lib/core/services/app_sleep_service.dart').readAsStringSync();
+
+    for (final forbidden in [
+      '_sessionGeneration',
+      '_sessionSuperseded',
+      '_transition.timeout',
+      '_activeWakelockPoll.timeout',
+    ]) {
+      expect(
+        source,
+        isNot(contains(forbidden)),
+        reason: '$forbidden creates a private shutdown protocol',
+      );
+    }
+  });
+
+  test('epoch shutdown uses ordinary cancellation without a terminal latch',
+      () {
+    final source = File(
+      'lib/core/services/epoch_slot_scheduler_service.dart',
+    ).readAsStringSync();
+
+    expect(source, isNot(contains('_terminalResetRequested')));
+    expect(source, isNot(contains('Terminal reset is in progress')));
+  });
 }

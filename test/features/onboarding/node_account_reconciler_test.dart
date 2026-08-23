@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -10,8 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
+import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -21,11 +24,25 @@ import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart';
+import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 
 import '../../helpers/session_authority_test_helpers.dart';
 
 const _addressA = 'ut1useraaaaaaaa';
 const _addressB = 'ut1userbbbbbbbb';
+const _namespace = 'aaaaaaaaaaaaaaaa';
+const _namespacedActiveId = 'testnet:user:$_namespace:accounts:activeId';
+
+final class _Permit implements rust.SessionEffectPermit {
+  var _disposed = false;
+
+  @override
+  void dispose() => _disposed = true;
+
+  @override
+  bool get isDisposed => _disposed;
+}
 
 AuthCredentialLease _compatibilityCredential({
   required Identity identity,
@@ -216,6 +233,46 @@ Override _reconcilerOverride({
         ref,
         ensureNodeIdentity: ensureNodeIdentity ?? () async {},
         currentIdentity: currentIdentity,
+        accountAuthorityIdentity: (identity) => identity.copyWith(
+          sessionId: 'session-test',
+          credentialRef: 'credential-test',
+          credentialGeneration: 1,
+        ),
+        accountsRepository: () async {
+          await saveIdentityNamespace(_namespace);
+          final repository = await AccountsRepository.createForMigration(
+            sessionAuthority: SessionAuthorityGateway(
+              supportDirectory: () async => Directory('/tmp/app-support'),
+              acquireAccountReconciliationEffect: ({
+                required directory,
+                required sessionId,
+                required credentialRef,
+                required credentialGeneration,
+                required userNamespace,
+                required network,
+                required address,
+                required operationId,
+                required engineId,
+              }) =>
+                  _Permit(),
+              markEffectHandoff: ({required permit}) {},
+              releaseEffectPermit: ({required permit}) {},
+            ),
+            accountDeriver: ({required secretKey}) => const AccountExport(
+              secretKey: 'utsk1secret',
+              publicKey: 'utpk1$_addressB',
+              address: _addressB,
+            ),
+          );
+          const secure = FlutterSecureStorage();
+          for (final account in await repository.list()) {
+            await secure.write(
+              key: 'testnet:account:${account.id}:address',
+              value: account.address,
+            );
+          }
+          return repository;
+        },
       ),
     );
 
@@ -289,7 +346,7 @@ void main() {
 
     expect(committed, isTrue);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('testnet:accounts:activeId'), 'acc_1_b');
+    expect(prefs.getString(_namespacedActiveId), 'acc_1_b');
 
     // The node runtime was re-bound to the reconciled account before commit.
     expect(nodeBinds, 1);
@@ -382,7 +439,7 @@ void main() {
       expect(provisionCalls, hasLength(1));
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('testnet:accounts:activeId'), 'acc_1_b');
+      expect(prefs.getString(_namespacedActiveId), 'acc_1_b');
       expect(
         prefs.getInt('testnet:acct:$bucketB:leaderboard:participant_id'),
         99,
@@ -530,7 +587,7 @@ void main() {
     // The registry switch itself happened, but the identity never became
     // ready and the marker survives — the next boot restore re-runs the
     // reconcile (which is idempotent) and re-binds the node.
-    expect(prefs.getString('testnet:accounts:activeId'), 'acc_1_b');
+    expect(prefs.getString(_namespacedActiveId), 'acc_1_b');
     expect(prefs.getBool(markerKey), isTrue);
     expect(container.read(identityProvider).phase, IdentityPhase.reconciling);
   });

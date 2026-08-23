@@ -848,7 +848,7 @@ class SessionController extends StateNotifier<Identity> {
 
   Future<void> _restoreAuthenticated() async {
     final pendingMarker = await _readReconcileMarker();
-    final repo = await AccountsRepository.create();
+    final repo = await AccountsRepository.createForMigration();
     final active = await repo.getActive();
 
     if (!pendingMarker && active != null) {

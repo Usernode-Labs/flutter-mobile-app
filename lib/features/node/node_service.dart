@@ -292,9 +292,10 @@ class RustBackendService {
       _log.warn('startNode refused: terminal reset is in progress');
       return false;
     }
-    if (!IdentitySnapshots.current.allowsNodeStart) {
+    final startIdentity = IdentitySnapshots.current;
+    if (!startIdentity.allowsNodeStart) {
       _log.warn('startNode refused: identity is '
-          '${IdentitySnapshots.current.phase.name}; a signed-in, ready '
+          '${startIdentity.phase.name}; a signed-in, ready '
           'identity is required');
       return false;
     }
@@ -309,6 +310,7 @@ class RustBackendService {
       final started = await _startNodeInternal(
         httpPort: httpPort,
         freshRuntime: freshRuntime,
+        identity: startIdentity,
       );
       if (started && _terminalResetRequested) {
         _log.warn('startNode: terminal reset began mid-start; '
@@ -364,6 +366,7 @@ class RustBackendService {
   Future<bool> _startNodeInternal({
     int? httpPort,
     bool freshRuntime = false,
+    required Identity identity,
   }) async {
     if (!_initialized) {
       await init();
@@ -417,16 +420,9 @@ class RustBackendService {
       // secret. Guest/view-only starts stay keyless even when an old account
       // remains in the registry.
       final repo = await AccountsRepository.create();
-      _log.trace('Checking if any accounts exist...');
-      final hasAny = await repo.hasAny();
-      _log.trace('Account check result: hasAny = $hasAny');
-      if (!hasAny) {
-        _log.trace('No accounts found - skipping node start');
-        return false;
-      }
-
+      final capability = repo.capabilityFor(identity);
       _log.debug('Retrieving active account...');
-      final account = await repo.getActive();
+      final account = await repo.getAuthorizedAccount(capability);
       if (account == null) {
         _log.error('Failed to retrieve active account');
         return false;
@@ -435,7 +431,7 @@ class RustBackendService {
       _log.debug('Active account: ${account.id} (${account.name})');
 
       _log.trace('Retrieving secret key for account ${account.id}...');
-      secretKey = await repo.getSecretKey(account.id);
+      secretKey = await repo.getSecretKey(capability);
       if (secretKey == null || secretKey.isEmpty) {
         _log.error(
           'Cannot start node: secret key unavailable for account ${account.id}',

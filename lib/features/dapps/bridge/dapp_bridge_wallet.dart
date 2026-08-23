@@ -319,7 +319,8 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
     }
 
     final repo = await _providers.read(accountsProvider.future);
-    final active = await repo.getActive();
+    final capability = repo.capabilityFor(signingIdentity);
+    final active = await repo.getAuthorizedAccount(capability);
     if (active == null || active.address != signingIdentity.address) {
       // The registry's active account must be the captured identity's — a
       // mismatch means a transition is mutating the registry mid-request.
@@ -341,27 +342,7 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       return;
     }
 
-    // Effect-point revalidation after the user-paced confirmation dialog —
-    // the private key is loaded on the next line.
-    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'The signed-in account changed; please retry the request.',
-      );
-      return;
-    }
-
-    final secretKey = await repo.getSecretKey(active.id);
-    if (secretKey == null || secretKey.isEmpty) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Secret key unavailable',
-      );
-      return;
-    }
-
+    // Effect-point revalidation after the user-paced confirmation dialog.
     if (!signingIdentity.sameScopeAs(IdentitySnapshots.current)) {
       await _resolveJsPromise(
         id: id,
@@ -372,10 +353,7 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
     }
 
     try {
-      final signature = frb_account.signMessage(
-        secretKey: secretKey,
-        message: message,
-      );
+      final signature = await repo.signMessage(capability, message);
       await _resolveJsPromise(
         id: id,
         value: <String, dynamic>{

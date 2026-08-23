@@ -68,6 +68,151 @@ void main() {
     );
   });
 
+  test('account capability issuance fixes the complete Ready owner', () {
+    final gateway = SessionAuthorityGateway();
+    const identity = Identity(
+      epoch: 9,
+      phase: IdentityPhase.ready,
+      participantId: 11,
+      accountId: 'account-a',
+      address: 'address-a',
+      sessionId: 'session-a',
+      credentialRef: 'credential-a',
+      credentialGeneration: 3,
+    );
+
+    final capability = gateway.captureAccountCapability(
+      identity: identity,
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+      network: 'testnet',
+    );
+
+    expect(capability.sessionId, 'session-a');
+    expect(capability.userNamespace, 'aaaaaaaaaaaaaaaa');
+    expect(capability.network, 'testnet');
+    expect(capability.accountId, 'account-a');
+    expect(capability.address, 'address-a');
+    expect(capability.secretKeyRef, 'testnet:account:account-a:secretKey');
+
+    for (final invalid in <Identity>[
+      identity.copyWith(phase: IdentityPhase.reconciling),
+      identity.copyWith(clearAccount: true),
+      identity.copyWith(clearSessionAuthority: true),
+    ]) {
+      expect(
+        () => gateway.captureAccountCapability(
+          identity: invalid,
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+          network: 'testnet',
+        ),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
+    }
+  });
+
+  test('account permit spans the effect and rejection invokes no effect',
+      () async {
+    final effectGate = Completer<String>();
+    final permit = _FakeSessionEffectPermit();
+    var handedOff = false;
+    var released = false;
+    var effects = 0;
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/tmp/app-support'),
+      acquireAccountEffect: ({
+        required directory,
+        required sessionId,
+        required userNamespace,
+        required network,
+        required accountId,
+        required address,
+        required operationId,
+        required engineId,
+      }) {
+        expect(directory, '/tmp/app-support/session-authority');
+        expect(sessionId, 'session-a');
+        expect(userNamespace, 'aaaaaaaaaaaaaaaa');
+        expect(network, 'testnet');
+        expect(accountId, 'account-a');
+        expect(address, 'address-a');
+        expect(operationId, 'account:sign-message');
+        return permit;
+      },
+      markEffectHandoff: ({required permit}) => handedOff = true,
+      releaseEffectPermit: ({required permit}) => released = true,
+    );
+    final capability = gateway.captureAccountCapability(
+      identity: const Identity(
+        epoch: 9,
+        phase: IdentityPhase.ready,
+        accountId: 'account-a',
+        address: 'address-a',
+        sessionId: 'session-a',
+        credentialRef: 'credential-a',
+        credentialGeneration: 3,
+      ),
+      userNamespace: 'aaaaaaaaaaaaaaaa',
+      network: 'testnet',
+    );
+
+    final result = gateway.runAccountEffect(
+      capability: capability,
+      operationId: 'account:sign-message',
+      effect: () {
+        effects++;
+        return effectGate.future;
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(effects, 1);
+    expect(handedOff, isFalse);
+    expect(released, isFalse);
+    effectGate.complete('signature-a');
+    expect(await result, 'signature-a');
+    expect(handedOff, isTrue);
+    expect(released, isTrue);
+
+    final rejected = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/tmp/app-support'),
+      acquireAccountEffect: ({
+        required directory,
+        required sessionId,
+        required userNamespace,
+        required network,
+        required accountId,
+        required address,
+        required operationId,
+        required engineId,
+      }) =>
+          throw StateError('stale account'),
+    );
+    var rejectedEffects = 0;
+    await expectLater(
+      rejected.runAccountEffect(
+        capability: rejected.captureAccountCapability(
+          identity: const Identity(
+            epoch: 9,
+            phase: IdentityPhase.ready,
+            accountId: 'account-a',
+            address: 'address-a',
+            sessionId: 'session-a',
+            credentialRef: 'credential-a',
+            credentialGeneration: 3,
+          ),
+          userNamespace: 'aaaaaaaaaaaaaaaa',
+          network: 'testnet',
+        ),
+        operationId: 'account:key-read',
+        effect: () async {
+          rejectedEffects++;
+          return 'secret';
+        },
+      ),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    expect(rejectedEffects, 0);
+  });
+
   const revision = <String, dynamic>{
     'sequence': 7,
     'session_id': 'session-a',

@@ -47,7 +47,6 @@ import 'package:crypto_mobile_app/features/zkpassport/zk_challenge_reset.dart'
     show resetChallengeState;
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart'
     show zkPassportFlowControllerProvider, zkPassportSettingsProvider;
-import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';

@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/network/request_written_http_transport.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
 
 typedef SessionAuthoritySupportDirectory = Future<Directory> Function();
@@ -37,6 +38,29 @@ typedef SessionAuthorityAcquireHttpEffect = rust.SessionEffectPermit Function({
 });
 typedef SessionAuthorityAcquireWorkflowHttpEffect
     = SessionAuthorityAcquireHttpEffect;
+typedef SessionAuthorityAcquireAccountEffect = rust.SessionEffectPermit
+    Function({
+  required String directory,
+  required String sessionId,
+  required String userNamespace,
+  required String network,
+  required String accountId,
+  required String address,
+  required String operationId,
+  required String engineId,
+});
+typedef SessionAuthorityAcquireAccountReconciliationEffect
+    = rust.SessionEffectPermit Function({
+  required String directory,
+  required String sessionId,
+  required String credentialRef,
+  required BigInt credentialGeneration,
+  required String userNamespace,
+  required String network,
+  required String address,
+  required String operationId,
+  required String engineId,
+});
 typedef SessionAuthorityAcquirePushEffect = rust.SessionEffectPermit Function({
   required String directory,
   required String sessionId,
@@ -87,6 +111,51 @@ class AuthCredentialLease {
       'token: <redacted>)';
 }
 
+/// Exact Ready owner for one account-scoped effect.
+///
+/// Construction is private so retaining an account ID or address cannot be
+/// upgraded into authority by downstream code.
+@immutable
+class AccountCapability {
+  const AccountCapability._({
+    required this.sessionId,
+    required this.userNamespace,
+    required this.network,
+    required this.accountId,
+    required this.address,
+    required this.bucket,
+    required this.secretKeyRef,
+  });
+
+  final String sessionId;
+  final String userNamespace;
+  final String network;
+  final String accountId;
+  final String address;
+  final String bucket;
+  final String secretKeyRef;
+}
+
+/// Exact activation owner for the one-time account reconciliation effect.
+@immutable
+class AccountReconciliationLease {
+  const AccountReconciliationLease._({
+    required this.sessionId,
+    required this.credentialRef,
+    required this.credentialGeneration,
+    required this.userNamespace,
+    required this.network,
+    required this.address,
+  });
+
+  final String sessionId;
+  final String credentialRef;
+  final int credentialGeneration;
+  final String userNamespace;
+  final String network;
+  final String address;
+}
+
 typedef SessionAuthorityCredentialIssuer = AuthCredentialLease Function({
   required Identity identity,
   required String token,
@@ -124,6 +193,9 @@ class SessionAuthorityGateway {
     SessionAuthorityTerminalReporter? terminalReporter,
     SessionAuthorityAcquireHttpEffect? acquireHttpEffect,
     SessionAuthorityAcquireWorkflowHttpEffect? acquireWorkflowHttpEffect,
+    SessionAuthorityAcquireAccountEffect? acquireAccountEffect,
+    SessionAuthorityAcquireAccountReconciliationEffect?
+        acquireAccountReconciliationEffect,
     SessionAuthorityAcquirePushEffect? acquirePushEffect,
     SessionAuthorityEffectPermitAction? markEffectHandoff,
     SessionAuthorityEffectPermitAction? releaseEffectPermit,
@@ -138,6 +210,11 @@ class SessionAuthorityGateway {
             acquireHttpEffect ?? rust.sessionAuthorityAcquireHttpEffect,
         _acquireWorkflowHttpEffect = acquireWorkflowHttpEffect ??
             rust.sessionAuthorityAcquireWorkflowHttpEffect,
+        _acquireAccountEffect =
+            acquireAccountEffect ?? rust.sessionAuthorityAcquireAccountEffect,
+        _acquireAccountReconciliationEffect =
+            acquireAccountReconciliationEffect ??
+                rust.sessionAuthorityAcquireAccountReconciliationEffect,
         _acquirePushEffect =
             acquirePushEffect ?? rust.sessionAuthorityAcquirePushEffect,
         _markEffectHandoff =
@@ -154,6 +231,9 @@ class SessionAuthorityGateway {
   final SessionAuthorityTerminalReporter _terminalReporter;
   final SessionAuthorityAcquireHttpEffect _acquireHttpEffect;
   final SessionAuthorityAcquireWorkflowHttpEffect _acquireWorkflowHttpEffect;
+  final SessionAuthorityAcquireAccountEffect _acquireAccountEffect;
+  final SessionAuthorityAcquireAccountReconciliationEffect
+      _acquireAccountReconciliationEffect;
   final SessionAuthorityAcquirePushEffect _acquirePushEffect;
   final SessionAuthorityEffectPermitAction _markEffectHandoff;
   final SessionAuthorityEffectPermitAction _releaseEffectPermit;
@@ -189,6 +269,65 @@ class SessionAuthorityGateway {
       sessionId: sessionId,
       credentialRef: credentialRef,
       credentialGeneration: credentialGeneration,
+    );
+  }
+
+  /// Issues a complete account capability only from a settled Ready identity.
+  AccountCapability captureAccountCapability({
+    required Identity identity,
+    required String userNamespace,
+    required String network,
+  }) {
+    if (identity.phase != IdentityPhase.ready) {
+      throw const StaleAuthCredentialException();
+    }
+    final sessionId =
+        _requiredCredentialField(identity.sessionId, 'session ID');
+    final namespace = _requiredCredentialField(userNamespace, 'user namespace');
+    final exactNetwork = _requiredCredentialField(network, 'network');
+    final accountId =
+        _requiredCredentialField(identity.accountId, 'account ID');
+    final address = _requiredCredentialField(identity.address, 'address');
+    return AccountCapability._(
+      sessionId: sessionId,
+      userNamespace: namespace,
+      network: exactNetwork,
+      accountId: accountId,
+      address: address,
+      bucket: NetworkPrefs.bucketForAddress(address),
+      secretKeyRef: '$exactNetwork:account:$accountId:secretKey',
+    );
+  }
+
+  /// Issues the activation-only owner used while the backend-provisioned
+  /// address is reconciled with retained local account data.
+  AccountReconciliationLease captureAccountReconciliationLease({
+    required Identity identity,
+    required String userNamespace,
+    required String network,
+    required String address,
+  }) {
+    if (identity.phase != IdentityPhase.reconciling) {
+      throw const StaleAuthCredentialException();
+    }
+    final sessionId =
+        _requiredCredentialField(identity.sessionId, 'session ID');
+    final credentialRef = _requiredCredentialField(
+        identity.credentialRef, 'credential reference');
+    final credentialGeneration = identity.credentialGeneration;
+    if (credentialGeneration == null || credentialGeneration <= 0) {
+      throw const StaleAuthCredentialException();
+    }
+    return AccountReconciliationLease._(
+      sessionId: sessionId,
+      credentialRef: credentialRef,
+      credentialGeneration: credentialGeneration,
+      userNamespace: _requiredCredentialField(
+        userNamespace,
+        'user namespace',
+      ),
+      network: _requiredCredentialField(network, 'network'),
+      address: _requiredCredentialField(address, 'address'),
     );
   }
 
@@ -271,6 +410,53 @@ class SessionAuthorityGateway {
       engineId: _clientId,
     );
     return _runVerifiedMutation(permit, mutation);
+  }
+
+  /// Runs one account-scoped operation while the exact Ready owner holds the
+  /// process-shared effect permit.
+  Future<T> runAccountEffect<T>({
+    required AccountCapability capability,
+    required String operationId,
+    required Future<T> Function() effect,
+  }) async {
+    final directory = await _resolveDirectory();
+    final permit = _acquireOrThrowStale(
+      () => _acquireAccountEffect(
+        directory: directory,
+        sessionId: capability.sessionId,
+        userNamespace: capability.userNamespace,
+        network: capability.network,
+        accountId: capability.accountId,
+        address: capability.address,
+        operationId: operationId,
+        engineId: _clientId,
+      ),
+    );
+    return _runEffect(permit, effect);
+  }
+
+  /// Runs the activation-only registry/key reconciliation under the exact
+  /// credential, namespace, network and provisioned-address owner.
+  Future<T> runAccountReconciliationEffect<T>({
+    required AccountReconciliationLease lease,
+    required String operationId,
+    required Future<T> Function() effect,
+  }) async {
+    final directory = await _resolveDirectory();
+    final permit = _acquireOrThrowStale(
+      () => _acquireAccountReconciliationEffect(
+        directory: directory,
+        sessionId: lease.sessionId,
+        credentialRef: lease.credentialRef,
+        credentialGeneration: BigInt.from(lease.credentialGeneration),
+        userNamespace: lease.userNamespace,
+        network: lease.network,
+        address: lease.address,
+        operationId: operationId,
+        engineId: _clientId,
+      ),
+    );
+    return _runEffect(permit, effect);
   }
 
   /// Sends one exact credential request and releases its process permit at the
@@ -405,6 +591,19 @@ class SessionAuthorityGateway {
         _markEffectHandoff(permit: permit);
       }
       return verified;
+    } finally {
+      _releaseEffectPermit(permit: permit);
+    }
+  }
+
+  Future<T> _runEffect<T>(
+    rust.SessionEffectPermit permit,
+    Future<T> Function() effect,
+  ) async {
+    try {
+      final result = await effect();
+      _markEffectHandoff(permit: permit);
+      return result;
     } finally {
       _releaseEffectPermit(permit: permit);
     }

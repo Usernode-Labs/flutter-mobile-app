@@ -22,7 +22,7 @@ Future<bool> clearCompatibilitySessionAuthority(AuthGuestFlag guestFlag) async {
   // Finish a provable legacy adoption before dropping only the shared,
   // unowned registry pointer. Namespaced wallet material is retained.
   try {
-    await AccountsRepository.create();
+    await AccountsRepository.createForMigration();
   } catch (_) {
     // The verified retirement below is still authoritative for bare rows.
   }

@@ -31,7 +31,6 @@ import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dar
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
 
@@ -149,23 +148,28 @@ class AppBootstrap {
       sessionAuthorityGatewayProvider.overrideWithValue(sessionAuthority),
     ]);
 
-    // Accounts are needed to decide background behavior and set crash context
-    final repo = await AccountsRepository.create();
-    if (applyBootstrapIdentity) {
-      await _applyBootstrapIdentity(
-        log: log,
-        container: container,
-        repo: repo,
-      );
-    }
     // Restore the identity (and with it the active per-identity storage
     // bucket) before any account-scoped pref is read. This publishes the
     // boot identity: unauthenticated, guest, ready, or reconciling when a
     // sign-in's account reconcile was interrupted — in which case the node
     // start below is refused until the reconcile completes.
     await container.read(identityProvider.notifier).restore();
-    final hasAnyAccounts = await repo.hasAny();
-    final activeId = repo.getActiveId();
+    final identity = container.read(identityProvider);
+    final repo = await AccountsRepository.create();
+    if (applyBootstrapIdentity) {
+      await _applyBootstrapIdentity(
+        log: log,
+        container: container,
+        repo: repo,
+        identity: identity,
+      );
+    }
+    var hasAnyAccounts = false;
+    String? activeId;
+    if (identity.phase == IdentityPhase.ready) {
+      hasAnyAccounts = await repo.hasAny();
+      activeId = repo.getActiveId();
+    }
 
     if (activeId != null && SentryUtil.enabled) {
       await SentryUtil.setUser(id: activeId);
@@ -345,6 +349,7 @@ class AppBootstrap {
     required TaggedLogger log,
     required ProviderContainer container,
     required AccountsRepository repo,
+    required Identity identity,
   }) async {
     final secretKey = AppConfig.bootstrapSecretKey;
     final participantId = AppConfig.bootstrapParticipantId;
@@ -377,32 +382,21 @@ class AppBootstrap {
         await RustBackendService.instance.init();
         final bootstrapAddress =
             accountFromPrivateKey(secretKey: secretKey).address;
-        AccountMeta? existingAccount;
-        for (final account in await repo.list()) {
-          if (account.address == bootstrapAddress) {
-            existingAccount = account;
-            break;
-          }
-        }
-        if (existingAccount != null) {
-          await repo.setActiveId(existingAccount.id);
-          log.info(
-            'Bootstrap account already exists; reusing existing account',
-            context: {
-              'account_id': existingAccount.id,
-              'address': existingAccount.address,
-            },
-          );
-        } else {
-          final account = await repo.importFromSecretKey(
-            name: AppConfig.bootstrapAccountName,
-            secretKey: secretKey,
-          );
-          log.info(
-            'Bootstrap account ready',
-            context: {'account_id': account.id, 'address': account.address},
+        if (identity.phase != IdentityPhase.ready ||
+            identity.address != bootstrapAddress) {
+          throw StateError(
+            'Bootstrap account does not match the restored Ready authority',
           );
         }
+        final capability = repo.capabilityFor(identity);
+        final account = await repo.getAuthorizedAccount(capability);
+        if (account == null) {
+          throw StateError('Bootstrap Ready account metadata is unavailable');
+        }
+        log.info(
+          'Bootstrap account matches the restored Ready authority',
+          context: {'account_id': account.id, 'address': account.address},
+        );
       } catch (e, st) {
         log.error(
           'Bootstrap account import failed: $e',

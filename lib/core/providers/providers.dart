@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
@@ -15,6 +16,8 @@ final _log = LoggingService.instance.withTag('usernode/Providers');
 // Derived async providers
 final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
   _log.debug('hasAnyAccountProvider: evaluating...');
+  final identity = ref.watch(identityProvider);
+  if (identity.phase != IdentityPhase.ready) return false;
   final repo = await AccountsRepository.create();
   final result = await repo.hasAny();
   _log.debug('hasAnyAccountProvider: result = $result');

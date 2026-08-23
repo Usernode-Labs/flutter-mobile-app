@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto_mobile_app/features/wallet/models/account.dart';
-import 'package:crypto_mobile_app/src/rust/account.dart';
+import 'package:crypto_mobile_app/src/rust/account.dart' as rust_account;
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
@@ -12,6 +14,24 @@ import 'package:crypto_mobile_app/core/utils/sentry.dart';
 final _log = LoggingService.instance.withTag('usernode/AccountsProvider');
 
 enum AccountImportFailure { keyDerivation, secureStorage }
+
+typedef AccountSigner = String Function({
+  required String secretKey,
+  required String message,
+});
+typedef AccountDeriver = rust_account.AccountExport Function({
+  required String secretKey,
+});
+
+class AccountReconciliationResult {
+  const AccountReconciliationResult({
+    required this.account,
+    required this.changed,
+  });
+
+  final AccountMeta account;
+  final bool changed;
+}
 
 class AccountImportException implements Exception {
   AccountImportException(this.failure, this.cause);
@@ -36,6 +56,9 @@ class AccountsRepository {
   final FlutterSecureStorage _secure;
   final SharedPreferences _prefs;
   final String _network;
+  final SessionAuthorityGateway _sessionAuthority;
+  final AccountSigner _signer;
+  final AccountDeriver _accountDeriver;
 
   /// The signed-in user's storage namespace, or null before any session
   /// exists. The registry cannot be bucket-scoped — the bucket is derived from
@@ -59,17 +82,40 @@ class AccountsRepository {
     this._prefs,
     this._network,
     this._identityNamespace,
+    this._sessionAuthority,
+    this._signer,
+    this._accountDeriver,
   );
 
-  static Future<AccountsRepository> create() async {
+  static Future<AccountsRepository> create({
+    SessionAuthorityGateway? sessionAuthority,
+    AccountSigner? signer,
+    AccountDeriver? accountDeriver,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     const secure = FlutterSecureStorage();
     final network = await NetworkPrefs.getNetwork();
-    final repository = AccountsRepository._(
+    return AccountsRepository._(
       secure,
       prefs,
       network,
       readIdentityNamespaceIn(prefs, network),
+      sessionAuthority ?? SessionAuthorityGateway(),
+      signer ?? rust_account.signMessage,
+      accountDeriver ?? rust_account.accountFromPrivateKey,
+    );
+  }
+
+  /// Explicit one-time adoption path for the pre-namespace development data.
+  static Future<AccountsRepository> createForMigration({
+    SessionAuthorityGateway? sessionAuthority,
+    AccountSigner? signer,
+    AccountDeriver? accountDeriver,
+  }) async {
+    final repository = await create(
+      sessionAuthority: sessionAuthority,
+      signer: signer,
+      accountDeriver: accountDeriver,
     );
     await repository._adoptLegacyRegistry();
     return repository;
@@ -187,11 +233,21 @@ class AccountsRepository {
         prefs.getString(activeIdKey) == null;
   }
 
+  AccountCapability capabilityFor(Identity identity) {
+    final namespace = _identityNamespace;
+    if (namespace == null) {
+      throw const StaleAuthCredentialException();
+    }
+    return _sessionAuthority.captureAccountCapability(
+      identity: identity,
+      userNamespace: namespace,
+      network: _network,
+    );
+  }
+
   Future<bool> hasAny() async {
-    final items = await list();
-    final result = items.isNotEmpty;
-    _log.trace('hasAny() = $result (found ${items.length} accounts)');
-    return result;
+    final accounts = await list();
+    return accounts.isNotEmpty;
   }
 
   Future<List<AccountMeta>> list() async {
@@ -228,76 +284,90 @@ class AccountsRepository {
   Future<AccountMeta?> getActive() async {
     final id = getActiveId();
     if (id == null) return null;
-    final items = await list();
+    final accounts = await list();
     try {
-      return items.firstWhere((a) => a.id == id);
-    } catch (e) {
-      _log.debug('Active account $id not found, falling back to first: $e');
-      return items.isNotEmpty ? items.first : null;
+      return accounts.firstWhere((account) => account.id == id);
+    } catch (_) {
+      return accounts.firstOrNull;
     }
   }
 
-  /// Get the secret key for a specific account from secure storage.
-  Future<String?> getSecretKey(String accountId) async {
-    try {
-      final key = '$_network:account:$accountId:secretKey';
-      final secretKey = await _secure.read(key: key);
-      return secretKey;
-    } catch (e, st) {
-      _log.error('Failed to read secret key for account $accountId',
-          error: e, stackTrace: st);
-      return null;
+  Future<AccountMeta?> getAuthorizedAccount(
+    AccountCapability capability,
+  ) {
+    _assertCapabilityPinned(capability);
+    return _sessionAuthority.runAccountEffect(
+      capability: capability,
+      operationId: 'account:metadata',
+      effect: () => _authorizedAccountUnchecked(capability),
+    );
+  }
+
+  Future<String?> getSecretKey(AccountCapability capability) {
+    _assertCapabilityPinned(capability);
+    return _sessionAuthority.runAccountEffect(
+      capability: capability,
+      operationId: 'account:key-read',
+      effect: () async {
+        await _authorizedAccountUnchecked(capability);
+        await _verifyStoredAddress(capability);
+        return _secure.read(key: capability.secretKeyRef);
+      },
+    );
+  }
+
+  Future<String> signMessage(
+    AccountCapability capability,
+    String message,
+  ) {
+    _assertCapabilityPinned(capability);
+    return _sessionAuthority.runAccountEffect(
+      capability: capability,
+      operationId: 'account:sign-message',
+      effect: () async {
+        await _authorizedAccountUnchecked(capability);
+        await _verifyStoredAddress(capability);
+        final secretKey = await _secure.read(key: capability.secretKeyRef);
+        if (secretKey == null || secretKey.isEmpty) {
+          throw StateError('Authorized account key is missing');
+        }
+        return _signer(secretKey: secretKey, message: message);
+      },
+    );
+  }
+
+  void _assertCapabilityPinned(AccountCapability capability) {
+    if (capability.userNamespace != _identityNamespace ||
+        capability.network != _network ||
+        capability.bucket !=
+            NetworkPrefs.bucketForAddress(capability.address) ||
+        capability.secretKeyRef !=
+            '$_network:account:${capability.accountId}:secretKey') {
+      throw const StaleAuthCredentialException();
     }
   }
 
-  /// Import an account from a bech32m-encoded secret key (HRP `utsk`).
-  ///
-  /// Throws [AccountImportException] with a specific [AccountImportFailure]
-  /// on key derivation or secure storage errors.
-  Future<AccountMeta> importFromSecretKey({
-    required String name,
-    required String secretKey,
-    bool isDemo = false,
-  }) async {
-    _log.debug('importFromSecretKey - start (name: $name, isDemo: $isDemo)');
-
-    // Derive keys from private key via Rust FFI
-    final AccountExport accountExport;
-    try {
-      accountExport = accountFromPrivateKey(
-        secretKey: secretKey.trim(),
-      );
-    } catch (e, stackTrace) {
-      _log.error('importFromSecretKey - key derivation FAILED',
-          error: e, stackTrace: stackTrace);
-      throw AccountImportException(AccountImportFailure.keyDerivation, e);
+  Future<AccountMeta> _authorizedAccountUnchecked(
+    AccountCapability capability,
+  ) async {
+    if (getActiveId() != capability.accountId) {
+      throw const StaleAuthCredentialException();
     }
+    final accounts = await list();
+    return accounts.firstWhere(
+      (account) =>
+          account.id == capability.accountId &&
+          account.address == capability.address,
+      orElse: () => throw const StaleAuthCredentialException(),
+    );
+  }
 
-    // Extract keys from AccountExport
-    final derivedSecretKey = accountExport.secretKey;
-    final publicKey = accountExport.publicKey;
-    final address = accountExport.address;
-
-    _log.debug('Secret key length: ${derivedSecretKey.length}');
-    _log.debug('Public key length: ${publicKey.length}');
-    _log.debug('Address: $address');
-
-    // Persist to secure storage
-    try {
-      final result = await _persistNew(
-        name: name,
-        address: address,
-        publicKey: publicKey,
-        secretKey: derivedSecretKey,
-        derivationPath: 'imported', // Mark as imported rather than HD path
-        isDemo: isDemo,
-      );
-      _log.trace('importFromSecretKey - success (account id: ${result.id})');
-      return result;
-    } catch (e, stackTrace) {
-      _log.error('importFromSecretKey - secure storage FAILED',
-          error: e, stackTrace: stackTrace);
-      throw AccountImportException(AccountImportFailure.secureStorage, e);
+  Future<void> _verifyStoredAddress(AccountCapability capability) async {
+    final storedAddress = await _secure.read(
+      key: '$_network:account:${capability.accountId}:address',
+    );
+    if (storedAddress != capability.address) {
+      throw const StaleAuthCredentialException();
     }
   }
 
@@ -355,5 +425,73 @@ class AccountsRepository {
     final suffix =
         address.length >= 8 ? address.substring(address.length - 8) : address;
     return 'acc_${index}_$suffix';
+  }
+
+  /// Reconciles a backend-provisioned account only during the activation
+  /// journal phases that own this address.
+  Future<AccountReconciliationResult> reconcileProvisionedAccount({
+    required Identity identity,
+    required String address,
+    required String secretKey,
+    required String name,
+  }) async {
+    final namespace = _identityNamespace;
+    if (namespace == null) {
+      throw const StaleAuthCredentialException();
+    }
+    final lease = _sessionAuthority.captureAccountReconciliationLease(
+      identity: identity,
+      userNamespace: namespace,
+      network: _network,
+      address: address,
+    );
+    return _sessionAuthority.runAccountReconciliationEffect(
+      lease: lease,
+      operationId: 'account:reconcile',
+      effect: () async {
+        final accounts = await list();
+        final retained = accounts.where((item) => item.address == address);
+        if (retained.isNotEmpty) {
+          final account = retained.first;
+          final storedAddress = await _secure.read(
+            key: '$_network:account:${account.id}:address',
+          );
+          if (storedAddress != address) {
+            throw const StaleAuthCredentialException();
+          }
+          final changed = getActiveId() != account.id;
+          if (changed) {
+            await setActiveId(account.id);
+          }
+          return AccountReconciliationResult(
+            account: account,
+            changed: changed,
+          );
+        }
+
+        final derived = _deriveProvisionedSecret(secretKey);
+        if (derived.address != address) {
+          throw StateError(
+            'Provisioned secret key does not derive the provisioned address',
+          );
+        }
+        final account = await _persistNew(
+          name: name,
+          address: derived.address,
+          publicKey: derived.publicKey,
+          secretKey: derived.secretKey,
+          derivationPath: 'imported',
+        );
+        return AccountReconciliationResult(account: account, changed: true);
+      },
+    );
+  }
+
+  rust_account.AccountExport _deriveProvisionedSecret(String secretKey) {
+    try {
+      return _accountDeriver(secretKey: secretKey.trim());
+    } catch (error) {
+      throw AccountImportException(AccountImportFailure.keyDerivation, error);
+    }
   }
 }

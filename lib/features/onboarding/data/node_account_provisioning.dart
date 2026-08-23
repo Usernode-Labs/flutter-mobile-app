@@ -48,8 +48,14 @@ class NodeAccountReconciler {
     this._ref, {
     Future<void> Function()? ensureNodeIdentity,
     Identity Function()? currentIdentity,
+    Future<AccountsRepository> Function()? accountsRepository,
+    Identity Function(Identity)? accountAuthorityIdentity,
   })  : _ensureNodeIdentity = ensureNodeIdentity ?? _defaultEnsureNodeIdentity,
-        _currentIdentity = currentIdentity ?? (() => IdentitySnapshots.current);
+        _currentIdentity = currentIdentity ?? (() => IdentitySnapshots.current),
+        _accountsRepository =
+            accountsRepository ?? AccountsRepository.createForMigration,
+        _accountAuthorityIdentity =
+            accountAuthorityIdentity ?? ((value) => value);
 
   final Ref _ref;
 
@@ -59,6 +65,8 @@ class NodeAccountReconciler {
 
   /// Source of the current identity snapshot; injectable for tests.
   final Identity Function() _currentIdentity;
+  final Future<AccountsRepository> Function() _accountsRepository;
+  final Identity Function(Identity) _accountAuthorityIdentity;
 
   Future<bool>? _inFlight;
   int? _inFlightEpoch;
@@ -277,39 +285,20 @@ class NodeAccountReconciler {
 
     final participantId = await _resolveParticipantId(identity);
 
-    final repo = await AccountsRepository.create();
-    final accounts = await repo.list();
-    final existing =
-        accounts.where((a) => a.address == provisioned.address).firstOrNull;
-
     // Re-validate before every shared-state mutation: each `await` above is
     // a suspension point where a newer identity can appear, and the final
     // epoch check inside reconcileSucceeded cannot undo registry writes.
     if (!_stillCurrent(epoch)) return false;
 
-    var changed = false;
-    String accountId;
-    if (existing != null) {
-      accountId = existing.id;
-      if (repo.getActiveId() != existing.id) {
-        await repo.setActiveId(existing.id);
-        changed = true;
-        _log.info('Activated existing local account for provisioned address');
-      } else {
-        _log.trace('Provisioned account already active - nothing to do');
-      }
-    } else {
-      // FIXME(follow-up): Derive the address/public key from secretKey and
-      // reject any provision-response mismatch before importing or mutating
-      // the registry.
-      final imported = await repo.importFromSecretKey(
-        name: 'Node Account',
-        secretKey: provisioned.secretKey,
-      );
-      accountId = imported.id;
-      changed = true;
-      _log.info('Imported platform-allocated node account');
-    }
+    final repo = await _accountsRepository();
+    final reconciliation = await repo.reconcileProvisionedAccount(
+      identity: _accountAuthorityIdentity(identity),
+      address: provisioned.address,
+      secretKey: provisioned.secretKey,
+      name: 'Node Account',
+    );
+    final changed = reconciliation.changed;
+    final accountId = reconciliation.account.id;
 
     // Install the participant ID into the provisioned account's bucket
     // (explicitly addressed — does not depend on which bucket is active).

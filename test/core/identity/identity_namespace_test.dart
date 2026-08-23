@@ -116,20 +116,22 @@ void main() {
 
       await saveIdentityNamespace(_alice);
       expect(
-        (await (await AccountsRepository.create()).list()).single.id,
+        (await (await AccountsRepository.createForMigration()).list())
+            .single
+            .id,
         'acct-alice',
       );
 
       // Alice signs out (her rows stay) and Bob signs in.
       await saveIdentityNamespace(_bob);
-      final bobRepo = await AccountsRepository.create();
+      final bobRepo = await AccountsRepository.createForMigration();
 
       expect(await bobRepo.list(), isEmpty, reason: 'Bob starts clean');
       expect(bobRepo.getActiveId(), isNull);
 
       // Alice signs back in and finds her wallet exactly where she left it.
       await saveIdentityNamespace(_alice);
-      final aliceAgain = await AccountsRepository.create();
+      final aliceAgain = await AccountsRepository.createForMigration();
       expect((await aliceAgain.list()).single.id, 'acct-alice');
       expect(aliceAgain.getActiveId(), 'acct-alice');
     });
@@ -142,7 +144,7 @@ void main() {
         _indexJson('acct-legacy', 'ut1legacy'),
       );
 
-      final repo = await AccountsRepository.create();
+      final repo = await AccountsRepository.createForMigration();
 
       expect((await repo.list()).single.id, 'acct-legacy');
     });
@@ -156,7 +158,7 @@ void main() {
       await prefs.setString('testnet:accounts:activeId', 'acct-legacy');
       await saveIdentityNamespace(_alice);
 
-      final repo = await AccountsRepository.create();
+      final repo = await AccountsRepository.createForMigration();
 
       expect((await repo.list()).single.id, 'acct-legacy');
       expect(repo.getActiveId(), 'acct-legacy');
@@ -178,11 +180,15 @@ void main() {
       );
 
       await saveIdentityNamespace(_alice);
-      expect((await (await AccountsRepository.create()).list()).single.id,
+      expect(
+          (await (await AccountsRepository.createForMigration()).list())
+              .single
+              .id,
           'acct-legacy');
 
       await saveIdentityNamespace(_bob);
-      expect(await (await AccountsRepository.create()).list(), isEmpty);
+      expect(await (await AccountsRepository.createForMigration()).list(),
+          isEmpty);
     });
 
     test('adoption never overwrites a namespace that already has accounts',
@@ -198,7 +204,7 @@ void main() {
       );
       await saveIdentityNamespace(_alice);
 
-      final repo = await AccountsRepository.create();
+      final repo = await AccountsRepository.createForMigration();
 
       expect((await repo.list()).single.id, 'acct-owned');
       expect(prefs.getString('testnet:accounts:index'), isNotNull,
@@ -222,7 +228,7 @@ void main() {
       await prefs.setString('testnet:accounts:adopting', _alice);
       await saveIdentityNamespace(_alice);
 
-      final repo = await AccountsRepository.create();
+      final repo = await AccountsRepository.createForMigration();
 
       expect((await repo.list()).single.id, 'acct-mine');
       // The marker is what tells this duplicate apart from bare rows that

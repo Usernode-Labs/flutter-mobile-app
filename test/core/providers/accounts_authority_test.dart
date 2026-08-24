@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/src/rust/account.dart';
@@ -84,6 +86,74 @@ void main() {
       await repository.signMessage(capability, 'hello'),
       'signed:hello',
     );
+  });
+
+  test('headless account access uses journal network and namespace explicitly',
+      () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'internal:user:$_namespace:accounts:index',
+      jsonEncode([_account('account-a', 'address-a')]),
+    );
+    await prefs.setString(
+      'internal:user:$_namespace:accounts:activeId',
+      'account-a',
+    );
+    FlutterSecureStorage.setMockInitialValues({
+      'internal:account:account-a:address': 'address-a',
+      'internal:account:account-a:secretKey': 'secret-a',
+    });
+    final gateway = SessionAuthorityGateway(
+      supportDirectory: () async => Directory('/application-support'),
+      admissionJson: ({required directory}) => '{}',
+      bootstrapJson: ({
+        required directory,
+        required network,
+        required sessionId,
+      }) =>
+          '{}',
+      commandJson: ({required directory, required request}) async =>
+          jsonEncode({
+        'status': 'ok',
+        'outcome': {'kind': 'record_read'},
+        'revision': {
+          'sequence': 8,
+          'session_id': 'session-a',
+          'state': 'ready',
+          'transition_id': null,
+        },
+        'record': {
+          'schema_version': 1,
+          'sequence': 8,
+          'network': 'internal',
+          'state': {
+            'kind': 'ready',
+            'session_id': 'session-a',
+            'user_namespace': _namespace,
+            'account_binding': {
+              'account_id': 'account-a',
+              'address': 'address-a',
+            },
+            'runtime_generation': 7,
+            'production_desired': true,
+          },
+        },
+      }),
+    );
+    final authority = await gateway.readBackgroundRuntimeAuthority();
+    expect(authority, isNotNull);
+
+    final repository = await AccountsRepository.createForBackground(
+      authority!,
+      sessionAuthority: gateway,
+    );
+    final capability = repository.capabilityForBackground(authority);
+
+    expect(
+        (await repository.getAuthorizedAccount(capability))?.id, 'account-a');
+    expect(await repository.getSecretKey(capability), 'secret-a');
+    expect(capability.network, 'internal');
+    expect(capability.userNamespace, _namespace);
   });
 
   test('activation reuses only the retained account at the provisioned address',

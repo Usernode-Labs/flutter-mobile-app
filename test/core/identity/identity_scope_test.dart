@@ -14,6 +14,28 @@ void main() {
     }
   });
 
+  test('linked on-chain account requires a complete ready social identity', () {
+    const linked = Identity(
+      epoch: 1,
+      phase: IdentityPhase.ready,
+      participantId: 7,
+      accountId: 'account-a',
+      address: 'address-a',
+    );
+
+    expect(linked.hasLinkedOnChainAccount, isTrue);
+    expect(
+      linked
+          .copyWith(phase: IdentityPhase.unauthenticated)
+          .hasLinkedOnChainAccount,
+      isFalse,
+    );
+    expect(linked.copyWith(clearParticipantId: true).hasLinkedOnChainAccount,
+        isFalse);
+    expect(
+        linked.copyWith(clearAccount: true).hasLinkedOnChainAccount, isFalse);
+  });
+
   test('sameScopeAs matches only the complete captured identity snapshot', () {
     const identity = Identity(
       epoch: 7,

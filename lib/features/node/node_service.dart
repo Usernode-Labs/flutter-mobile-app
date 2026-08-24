@@ -412,6 +412,7 @@ class RustBackendService {
 
     String? accountId;
     String? secretKey;
+    String? linkedWalletOwnerAddress;
     if (!viewOnly) {
       // Only producer-capable starts may resolve and materialize an account
       // secret. Guest/view-only starts stay keyless even when an old account
@@ -433,6 +434,18 @@ class RustBackendService {
       }
       accountId = account.id;
       _log.debug('Active account: ${account.id} (${account.name})');
+
+      final identity = IdentitySnapshots.current;
+      if (identity.hasLinkedOnChainAccount &&
+          identity.accountId == account.id &&
+          identity.address == account.address) {
+        linkedWalletOwnerAddress = account.address;
+      } else {
+        _log.warn(
+          'Active account is not attached to the authenticated social user; '
+          'wallet owner tracking will remain disabled',
+        );
+      }
 
       _log.trace('Retrieving secret key for account ${account.id}...');
       secretKey = await repo.getSecretKey(account.id);
@@ -520,6 +533,11 @@ class RustBackendService {
       // Load network configuration from URLs (with retry)
       await _configureNetworkFromUrls(builder);
       if (_terminalResetRequested) return false;
+
+      if (linkedWalletOwnerAddress != null) {
+        builder.walletOwnerAddress(address: linkedWalletOwnerAddress);
+        _log.info('Tracking the linked social user wallet owner');
+      }
 
       final delegated =
           !viewOnly && await StakingPreferenceStore.active().isDelegated();

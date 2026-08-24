@@ -22,10 +22,7 @@ import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
-import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
-import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';
-import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
+import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
@@ -236,17 +233,26 @@ class _SessionRecoveryApp extends StatelessWidget {
         darkTheme: CryptoMobileApp._darkTheme,
         themeMode: ThemeMode.system,
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Session recovery needed'),
-                const SizedBox(height: 16),
-                FilledButton(onPressed: retry, child: const Text('Retry')),
-              ],
-            ),
-          ),
+        home: Builder(
+          builder: (context) {
+            final spacing = Theme.of(context).extension<AppSpacing>()!;
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: spacing.space16,
+                  children: [
+                    const Text('Session recovery needed'),
+                    Button(
+                      label: 'Retry',
+                      variant: ButtonVariant.primary,
+                      onTap: retry,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       );
 }

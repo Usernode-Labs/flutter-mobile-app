@@ -53,7 +53,8 @@ void main() {
     expect(android, contains('"clearLegacySessionAuthority"'));
     expect(androidCleanup, contains('alarm_prefs'));
     expect(androidCleanup, contains('alarm_watchdog_prefs'));
-    expect(androidCleanup, contains('applicationIncarnationStore.clear()'));
+    expect(androidCleanup, contains('application_incarnation'));
+    expect(androidCleanup, contains('.edit().clear().commit()'));
     expect(androidCleanup, isNot(contains('background_task_stats')));
 
     final iosCleanup = _functionBody(
@@ -62,20 +63,10 @@ void main() {
       'private func clearNativeResetState()',
     );
     expect(ios, contains('case "clearLegacySessionAuthority"'));
-    expect(iosCleanup, contains('cancelAllBGTasks()'));
-    expect(
-      iosCleanup,
-      contains('ApplicationIncarnationStore.shared.clearForMigration()'),
-    );
+    expect(iosCleanup, contains('cancelAllTaskRequests()'));
+    expect(iosCleanup, contains('"application_incarnation"'));
     expect(iosCleanup, isNot(contains('dictionaryRepresentation')));
     expect(iosCleanup, isNot(contains('removePersistentDomain')));
-
-    final migrationClear = _functionBody(
-      ios,
-      'func clearForMigration()',
-      'func rotate()',
-    );
-    expect(migrationClear, isNot(contains('terminalResetRequested = true')));
   });
 }
 

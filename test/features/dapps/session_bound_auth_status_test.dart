@@ -106,36 +106,17 @@ void main() {
     expect(gate.blocks('getWalletState'), isFalse);
   });
 
-  test('terminal reset closes admission permanently', () {
+  test('a handoff can admit a successor without a one-way latch', () {
     final gate = SessionHandoffGate()..admitAuthenticated(ready);
 
-    gate.closeForTerminalReset();
+    gate.begin();
 
-    expect(gate.admitAnonymous(), isFalse);
-    expect(gate.admitAuthenticated(ready), isFalse);
-    expect(gate.admitWallet(ready), isFalse);
-    expect(gate.authenticates(ready), isFalse);
-    expect(gate.isAuthenticatedBlocked, isTrue);
-    expect(gate.isWalletBlocked, isTrue);
-    expect(gate.blocks('getWalletState'), isTrue);
-    expect(gate.blocks('getSocialPushState'), isTrue);
-  });
-
-  test('a sign-out closes admission without latching the gate', () {
-    final gate = SessionHandoffGate()..admitAuthenticated(ready);
-
-    gate.closeForSignOut();
-
-    // Everything the terminal close blocks...
     expect(gate.authenticates(ready), isFalse);
     expect(gate.isAuthenticatedBlocked, isTrue);
     expect(gate.isWalletBlocked, isTrue);
     expect(gate.blocks('getWalletState'), isTrue);
     expect(gate.blocks('getSocialPushState'), isTrue);
 
-    // ...except the one-way latch: this runtime survives a sign-out, so the
-    // same gate has to be able to admit the next login all the way back up to
-    // wallet scope.
     expect(gate.admitAnonymous(), isTrue);
     expect(gate.admitAuthenticated(ready), isTrue);
     expect(gate.admitWallet(ready), isTrue);

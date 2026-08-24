@@ -1029,7 +1029,7 @@ void main() {
     });
   });
 
-  test('logged-out network change commits before preserving termination',
+  test('logged-out network change commits before operational restart',
       () async {
     final authority = _ScriptedAuthority([
       _response(sequence: 0, state: _loggedOut(), outcome: 'record_read'),
@@ -1041,7 +1041,7 @@ void main() {
         network: 'internal',
       ),
     ]);
-    final terminations = <String>[];
+    var restarts = 0;
     final controller = SessionController(
       tokenStore: AuthTokenStore(),
       guestFlag: AuthGuestFlag(),
@@ -1053,9 +1053,7 @@ void main() {
           : throw StateError('Unexpected id kind $kind'),
       clearWebSessionData: () async => true,
       clearSessionNotifications: () async => true,
-      terminatePreservingData: ({required reason}) async {
-        terminations.add(reason);
-      },
+      restartAfterNetworkChange: () async => restarts++,
     );
     addTearDown(controller.dispose);
 
@@ -1081,7 +1079,7 @@ void main() {
           .getString(NetworkPrefs.networkKey),
       'internal',
     );
-    expect(terminations, ['network_change']);
+    expect(restarts, 1);
   });
 
   test('Ready network change adopts the network only in retirement commit',
@@ -1106,7 +1104,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'testnet:acct:$bucket:leaderboard:participant_id': 7,
     });
-    final terminations = <String>[];
+    var restarts = 0;
     final controller = SessionController(
       tokenStore: tokenStore,
       guestFlag: AuthGuestFlag(),
@@ -1121,9 +1119,7 @@ void main() {
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
       clearSessionNotifications: () async => true,
-      terminatePreservingData: ({required reason}) async {
-        terminations.add(reason);
-      },
+      restartAfterNetworkChange: () async => restarts++,
     );
     addTearDown(controller.dispose);
 
@@ -1133,7 +1129,7 @@ void main() {
     expect(authority.commands[2]['command'], 'read_record');
     expect(authority.commands.last['command'], 'complete_retirement');
     expect(NetworkPrefs.currentNetwork, 'internal');
-    expect(terminations, ['network_change']);
+    expect(restarts, 1);
   });
 
   test('network change explicitly rolls an in-flight activation back first',
@@ -1226,7 +1222,7 @@ void main() {
       newAuthorityId: (kind) => ids[kind]!,
       clearWebSessionData: () async => true,
       clearSessionNotifications: () async => true,
-      terminatePreservingData: ({required reason}) async {},
+      restartAfterNetworkChange: () async {},
     );
     addTearDown(controller.dispose);
 

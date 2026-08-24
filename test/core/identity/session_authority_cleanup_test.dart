@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:crypto_mobile_app/core/identity/session_authority_cleanup.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -55,5 +57,23 @@ void main() {
       prefs.getString('testnet:user:$namespace:accounts:activeId'),
       'namespaced-account',
     );
+  });
+
+  test('legacy sign-out fence cleanup deletes only the obsolete authority file',
+      () async {
+    final root = await Directory.systemTemp.createTemp('legacy-fence-cleanup-');
+    addTearDown(() => root.delete(recursive: true));
+    final fence = File('${root.path}/testnet.signout_pending');
+    final retained = File('${root.path}/wallet.data');
+    await fence.writeAsString('1');
+    await retained.writeAsString('wallet');
+
+    expect(
+      await clearLegacySignOutFence(directory: () async => root),
+      isTrue,
+    );
+
+    expect(await fence.exists(), isFalse);
+    expect(await retained.readAsString(), 'wallet');
   });
 }

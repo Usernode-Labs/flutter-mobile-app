@@ -1,5 +1,5 @@
 import 'package:crypto_mobile_app/core/identity/session_host.dart';
-import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
+import 'package:crypto_mobile_app/core/services/network_change_restart_service.dart';
 import 'package:crypto_mobile_app/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +18,7 @@ final _graphProvider = Provider<_RuntimeProbe>((ref) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('terminal reset disposes the graph and never creates a successor',
+  testWidgets('network restart disposes the graph and stays logged out',
       (tester) async {
     final ledger = _RuntimeLedger();
     final oldProbe = _RuntimeProbe('old', ledger);
@@ -31,21 +31,21 @@ void main() {
     expect(find.text('old'), findsOneWidget);
     expect(oldProbe.mounted, isTrue);
 
-    AppResetService.instance.enterTerminalSurfaceForTesting();
+    NetworkChangeRestartService.instance.enterRestartSurfaceForTesting();
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Reset complete'), findsOneWidget);
+    expect(find.text('Network changed'), findsOneWidget);
     expect(find.text('Close and reopen Usernode to continue.'), findsOneWidget);
     expect(find.text('old'), findsNothing);
     expect(oldProbe.mounted, isFalse);
     expect(ledger.mounted, 0);
     expect(ledger.maximumMounted, 1);
 
-    // A duplicate terminal signal is idempotent and cannot rebuild a graph.
-    AppResetService.instance.enterTerminalSurfaceForTesting();
+    // A duplicate restart signal is idempotent and cannot rebuild a graph.
+    NetworkChangeRestartService.instance.enterRestartSurfaceForTesting();
     await tester.pump();
-    expect(find.text('Reset complete'), findsOneWidget);
+    expect(find.text('Network changed'), findsOneWidget);
     expect(ledger.mounted, 0);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -55,7 +55,7 @@ void main() {
 SessionHostCoordinator _hostFor(ProviderContainer container) {
   final host = SessionHostCoordinator(
     createSuccessor: () async =>
-        throw StateError('Terminal reset must not create a successor'),
+        throw StateError('Network restart must not create a successor'),
   );
   host.mountInitial(container);
   return host;

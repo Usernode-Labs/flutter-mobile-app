@@ -41,15 +41,23 @@ void main() {
   group('ZkPassportRuntimeSessionRepository', () {
     final repo = ZkPassportRuntimeSessionRepository();
 
-    ZkPassportRuntimeSession session() => const ZkPassportRuntimeSession(
-          appSessionId: 'app-session-a',
-          requestId: 'req',
+    ZkPassportRuntimeSession session({
+      String appSessionId = 'app-session-a',
+      String requestId = 'req',
+      int createdAtMs = 1,
+      String requestNonce = 'nonce-a',
+      String? launchBucket,
+    }) =>
+        ZkPassportRuntimeSession(
+          appSessionId: appSessionId,
+          requestId: requestId,
           facematchStrict: true,
           phase: ZkPassportPipelinePhase.waiting,
-          createdAtMs: 1,
+          createdAtMs: createdAtMs,
           lastProgressAtMs: 2,
           resumeAttemptCount: 0,
-          requestNonce: 'nonce-a',
+          requestNonce: requestNonce,
+          launchBucket: launchBucket,
         );
 
     test('load null when empty', () async {
@@ -65,6 +73,82 @@ void main() {
 
       await repo.clear();
       expect(await repo.load(), isNull);
+    });
+
+    test('late exact-owner writes and clears cannot touch a successor',
+        () async {
+      const bucket = 'same-user-bucket';
+      final retired = session(
+        appSessionId: 'app-session-a',
+        requestId: 'operation-a',
+        createdAtMs: 10,
+        requestNonce: 'nonce-a',
+        launchBucket: bucket,
+      );
+      final successor = session(
+        appSessionId: 'app-session-b',
+        requestId: 'operation-b',
+        createdAtMs: 20,
+        requestNonce: 'nonce-b',
+        launchBucket: bucket,
+      );
+
+      await repo.save(retired);
+      await repo.save(successor);
+      await repo.save(retired.copyWith(
+        phase: ZkPassportPipelinePhase.proofReceived,
+        lastProgressAtMs: 30,
+      ));
+      await repo.clear(retired);
+
+      final recovered = await repo.loadForSession(
+        appSessionId: successor.appSessionId,
+        bucket: bucket,
+      );
+      expect(recovered?.requestId, successor.requestId);
+      expect(
+        await repo.loadForSession(
+          appSessionId: retired.appSessionId,
+          bucket: bucket,
+        ),
+        isNull,
+      );
+    });
+
+    test('recovery deterministically selects the newest owned operation',
+        () async {
+      const bucket = 'account-bucket';
+      final old = session(
+        requestId: 'operation-old',
+        createdAtMs: 10,
+        requestNonce: 'nonce-old',
+        launchBucket: bucket,
+      );
+      final current = session(
+        requestId: 'operation-current',
+        createdAtMs: 20,
+        requestNonce: 'nonce-current',
+        launchBucket: bucket,
+      );
+
+      await repo.save(old);
+      await repo.save(current);
+      await repo.save(old.copyWith(lastProgressAtMs: 30));
+
+      final recovered = await repo.loadForSession(
+        appSessionId: current.appSessionId,
+        bucket: bucket,
+      );
+      expect(recovered?.requestId, current.requestId);
+      await repo.clear(old);
+      expect(
+        (await repo.loadForSession(
+          appSessionId: current.appSessionId,
+          bucket: bucket,
+        ))
+            ?.requestId,
+        current.requestId,
+      );
     });
 
     test('writes follow the launch bucket, not the ambient one', () async {
@@ -359,6 +443,63 @@ void main() {
       expect(pending['verify_outer_ms'], 11);
       expect(pending['wrap_outer_ms'], 12);
       expect(pending['verify_wrapped_ms'], 13);
+    });
+
+    test('late outbox cleanup cannot remove a same-user successor row',
+        () async {
+      final retired = version('nonce-retired');
+      final successor = ZkPassportRequestVersion(
+        requestId: 'successor-request',
+        createdAtMs: 200,
+        nonce: 'nonce-successor',
+      );
+      await repo.storePendingCompletion(
+        appSessionId: 'app-session-a',
+        participantId: 7,
+        challengeId: 42,
+        walletAddress: address,
+        sessionId: retired.requestId,
+        nullifierHex: 'retired-nullifier',
+        requestVersion: retired,
+        accountId: accountId,
+        bucket: bucket,
+      );
+      await repo.storePendingCompletion(
+        appSessionId: 'app-session-b',
+        participantId: 7,
+        challengeId: 42,
+        walletAddress: address,
+        sessionId: successor.requestId,
+        nullifierHex: 'successor-nullifier',
+        requestVersion: successor,
+        accountId: accountId,
+        bucket: bucket,
+      );
+
+      await repo.clearPendingCompletion(
+        appSessionId: 'app-session-a',
+        requestVersion: retired,
+        bucket: bucket,
+      );
+      await repo.recordRequestOutcome(
+        appSessionId: 'app-session-a',
+        version: retired,
+        outcome: ZkPassportRequestOutcome.rejected,
+        bucket: bucket,
+      );
+
+      final pending = await repo.getPendingCompletion(
+        appSessionId: 'app-session-b',
+        bucket: bucket,
+      );
+      expect(pending?['session_id'], successor.requestId);
+      expect(
+        await repo.getPendingCompletion(
+          appSessionId: 'app-session-a',
+          bucket: bucket,
+        ),
+        isNull,
+      );
     });
 
     test('legacy outbox row without an app session remains stored but inert',

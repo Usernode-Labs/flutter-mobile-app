@@ -36,6 +36,17 @@ const _ready = Identity(
   credentialGeneration: 3,
 );
 
+const _readyB = Identity(
+  epoch: 8,
+  phase: IdentityPhase.ready,
+  participantId: 12,
+  accountId: 'account-b',
+  address: 'address-b',
+  sessionId: 'session-b',
+  credentialRef: 'credential-b',
+  credentialGeneration: 1,
+);
+
 const _reconciling = Identity(
   epoch: 7,
   phase: IdentityPhase.reconciling,
@@ -85,6 +96,51 @@ void main() {
     expect(
       await repository.signMessage(capability, 'hello'),
       'signed:hello',
+    );
+  });
+
+  test('registry enumeration and active selection require the capability',
+      () async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'testnet:user:$_namespace:accounts:index',
+      jsonEncode([_account('account-a', 'address-a')]),
+    );
+    await prefs.setString(
+      'testnet:user:$_namespace:accounts:activeId',
+      'account-a',
+    );
+    final repositoryA = await AccountsRepository.create();
+    final capabilityA = repositoryA.capabilityFor(_ready);
+
+    expect((await repositoryA.list(capabilityA)).single.id, 'account-a');
+    expect(repositoryA.getActiveId(capabilityA), 'account-a');
+    expect((await repositoryA.getActive(capabilityA))?.id, 'account-a');
+
+    const namespaceB = 'bbbbbbbbbbbbbbbb';
+    await saveIdentityNamespace(namespaceB);
+    await prefs.setString(
+      'testnet:user:$namespaceB:accounts:index',
+      jsonEncode([_account('account-b', 'address-b')]),
+    );
+    await prefs.setString(
+      'testnet:user:$namespaceB:accounts:activeId',
+      'account-b',
+    );
+    final repositoryB = await AccountsRepository.create();
+    final capabilityB = repositoryB.capabilityFor(_readyB);
+
+    await expectLater(
+      repositoryA.list(capabilityB),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    expect(
+      () => repositoryA.getActiveId(capabilityB),
+      throwsA(isA<StaleAuthCredentialException>()),
+    );
+    await expectLater(
+      repositoryA.getActive(capabilityB),
+      throwsA(isA<StaleAuthCredentialException>()),
     );
   });
 

@@ -8,6 +8,7 @@
 
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/identity_namespace_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -19,6 +20,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _alice = 'a145a65507b14025';
 const _bob = 'd1eb5fd4504344f1';
+
+Identity _ready({
+  required String accountId,
+  required String address,
+  required String sessionId,
+}) =>
+    Identity(
+      epoch: 1,
+      phase: IdentityPhase.ready,
+      participantId: 7,
+      accountId: accountId,
+      address: address,
+      sessionId: sessionId,
+    );
 
 String _indexJson(String id, String address) => jsonEncode([
       {
@@ -115,23 +130,43 @@ void main() {
       );
 
       await saveIdentityNamespace(_alice);
+      final aliceRepo = await AccountsRepository.create();
+      final aliceCapability = aliceRepo.capabilityFor(_ready(
+        accountId: 'acct-alice',
+        address: 'ut1alice',
+        sessionId: 'session-alice-a',
+      ));
       expect(
-        (await (await AccountsRepository.create()).list()).single.id,
+        (await aliceRepo.list(aliceCapability)).single.id,
         'acct-alice',
       );
 
       // Alice signs out (her rows stay) and Bob signs in.
       await saveIdentityNamespace(_bob);
       final bobRepo = await AccountsRepository.create();
+      final bobCapability = bobRepo.capabilityFor(_ready(
+        accountId: 'acct-bob',
+        address: 'ut1bob',
+        sessionId: 'session-bob',
+      ));
 
-      expect(await bobRepo.list(), isEmpty, reason: 'Bob starts clean');
-      expect(bobRepo.getActiveId(), isNull);
+      expect(await bobRepo.list(bobCapability), isEmpty,
+          reason: 'Bob starts clean');
+      expect(bobRepo.getActiveId(bobCapability), isNull);
 
       // Alice signs back in and finds her wallet exactly where she left it.
       await saveIdentityNamespace(_alice);
       final aliceAgain = await AccountsRepository.create();
-      expect((await aliceAgain.list()).single.id, 'acct-alice');
-      expect(aliceAgain.getActiveId(), 'acct-alice');
+      final aliceAgainCapability = aliceAgain.capabilityFor(_ready(
+        accountId: 'acct-alice',
+        address: 'ut1alice',
+        sessionId: 'session-alice-b',
+      ));
+      expect(
+        (await aliceAgain.list(aliceAgainCapability)).single.id,
+        'acct-alice',
+      );
+      expect(aliceAgain.getActiveId(aliceAgainCapability), 'acct-alice');
     });
 
     test('an install with no session cannot enumerate legacy accounts',
@@ -145,7 +180,14 @@ void main() {
 
       final repo = await AccountsRepository.create();
 
-      expect(await repo.list(), isEmpty);
+      expect(
+        () => repo.capabilityFor(_ready(
+          accountId: 'acct-legacy',
+          address: 'ut1legacy',
+          sessionId: 'session-none',
+        )),
+        throwsA(isA<StaleAuthCredentialException>()),
+      );
       expect(prefs.getString('testnet:accounts:index'), legacy);
     });
 
@@ -160,9 +202,14 @@ void main() {
       await saveIdentityNamespace(_alice);
 
       final repo = await AccountsRepository.create();
+      final capability = repo.capabilityFor(_ready(
+        accountId: 'acct-legacy',
+        address: 'ut1legacy',
+        sessionId: 'session-alice',
+      ));
 
-      expect(await repo.list(), isEmpty);
-      expect(repo.getActiveId(), isNull);
+      expect(await repo.list(capability), isEmpty);
+      expect(repo.getActiveId(capability), isNull);
       expect(prefs.getString('testnet:accounts:index'), legacy);
       expect(prefs.getString('testnet:accounts:activeId'), 'acct-legacy');
       expect(
@@ -180,10 +227,22 @@ void main() {
       );
 
       await saveIdentityNamespace(_alice);
-      expect(await (await AccountsRepository.create()).list(), isEmpty);
+      final aliceRepo = await AccountsRepository.create();
+      final aliceCapability = aliceRepo.capabilityFor(_ready(
+        accountId: 'acct-legacy',
+        address: 'ut1legacy',
+        sessionId: 'session-alice',
+      ));
+      expect(await aliceRepo.list(aliceCapability), isEmpty);
 
       await saveIdentityNamespace(_bob);
-      expect(await (await AccountsRepository.create()).list(), isEmpty);
+      final bobRepo = await AccountsRepository.create();
+      final bobCapability = bobRepo.capabilityFor(_ready(
+        accountId: 'acct-legacy',
+        address: 'ut1legacy',
+        sessionId: 'session-bob',
+      ));
+      expect(await bobRepo.list(bobCapability), isEmpty);
     });
 
     test('a legacy registry never overwrites an existing namespace', () async {
@@ -199,8 +258,13 @@ void main() {
       await saveIdentityNamespace(_alice);
 
       final repo = await AccountsRepository.create();
+      final capability = repo.capabilityFor(_ready(
+        accountId: 'acct-owned',
+        address: 'ut1owned',
+        sessionId: 'session-alice',
+      ));
 
-      expect((await repo.list()).single.id, 'acct-owned');
+      expect((await repo.list(capability)).single.id, 'acct-owned');
       expect(prefs.getString('testnet:accounts:index'), isNotNull,
           reason: 'someone else may still own the legacy rows');
     });
@@ -223,8 +287,13 @@ void main() {
       await saveIdentityNamespace(_alice);
 
       final repo = await AccountsRepository.create();
+      final capability = repo.capabilityFor(_ready(
+        accountId: 'acct-mine',
+        address: 'ut1mine',
+        sessionId: 'session-alice',
+      ));
 
-      expect((await repo.list()).single.id, 'acct-mine');
+      expect((await repo.list(capability)).single.id, 'acct-mine');
       expect(prefs.getString('testnet:accounts:index'), bare);
       expect(prefs.getString('testnet:accounts:activeId'), 'acct-mine');
       expect(prefs.getString('testnet:accounts:adopting'), _alice);

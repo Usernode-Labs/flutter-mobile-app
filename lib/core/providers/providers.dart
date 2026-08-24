@@ -19,7 +19,8 @@ final hasAnyAccountProvider = FutureProvider<bool>((ref) async {
   final identity = ref.watch(identityProvider);
   if (identity.phase != IdentityPhase.ready) return false;
   final repo = await AccountsRepository.create();
-  final result = await repo.hasAny();
+  if (!identity.sameScopeAs(ref.read(identityProvider))) return false;
+  final result = await repo.hasAny(repo.capabilityFor(identity));
   _log.debug('hasAnyAccountProvider: result = $result');
   return result;
 });

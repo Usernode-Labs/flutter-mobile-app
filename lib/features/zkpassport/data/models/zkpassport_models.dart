@@ -42,6 +42,10 @@ class ZkPassportRequestVersion {
   final int createdAtMs;
   final String nonce;
 
+  /// Stable owner for one workflow operation. The application session is the
+  /// other half of the durable owner and is stored alongside this value.
+  String get operationId => '$requestId:$createdAtMs:$nonce';
+
   Map<String, dynamic> toJson() => {
         'request_id': requestId,
         'request_created_at_ms': createdAtMs,
@@ -153,6 +157,7 @@ class ZkPassportRuntimeSession {
     this.requestNonce,
     this.userPublicKey,
     this.launchEpoch,
+    this.launchNetwork,
     this.launchBucket,
     this.launchParticipantId,
   });
@@ -172,6 +177,7 @@ class ZkPassportRuntimeSession {
   /// ownership is decided by [appSessionId]; these fields retain useful
   /// account and process-generation context without granting authority.
   final int? launchEpoch;
+  final String? launchNetwork;
   final String? launchBucket;
   final int? launchParticipantId;
 
@@ -203,6 +209,8 @@ class ZkPassportRuntimeSession {
       if (userPublicKey != null && userPublicKey!.trim().isNotEmpty)
         'userPublicKey': userPublicKey,
       if (launchEpoch != null) 'launchEpoch': launchEpoch,
+      if (launchNetwork != null && launchNetwork!.trim().isNotEmpty)
+        'launchNetwork': launchNetwork,
       if (launchBucket != null && launchBucket!.trim().isNotEmpty)
         'launchBucket': launchBucket,
       if (launchParticipantId != null)
@@ -263,6 +271,7 @@ class ZkPassportRuntimeSession {
       requestNonce: _optionalString(json['requestNonce']),
       userPublicKey: _optionalString(json['userPublicKey']),
       launchEpoch: _optionalInt(json['launchEpoch']),
+      launchNetwork: _optionalString(json['launchNetwork']),
       launchBucket: _optionalString(json['launchBucket']),
       launchParticipantId: _optionalInt(json['launchParticipantId']),
     );
@@ -279,6 +288,7 @@ class ZkPassportRuntimeSession {
     String? requestNonce,
     String? userPublicKey,
     int? launchEpoch,
+    String? launchNetwork,
     String? launchBucket,
     int? launchParticipantId,
   }) {
@@ -293,6 +303,7 @@ class ZkPassportRuntimeSession {
       requestNonce: requestNonce ?? this.requestNonce,
       userPublicKey: userPublicKey ?? this.userPublicKey,
       launchEpoch: launchEpoch ?? this.launchEpoch,
+      launchNetwork: launchNetwork ?? this.launchNetwork,
       launchBucket: launchBucket ?? this.launchBucket,
       launchParticipantId: launchParticipantId ?? this.launchParticipantId,
     );
@@ -354,6 +365,7 @@ class ZkPassportLocalRegistration {
     required this.registered,
     required this.nullifierHex,
     required this.registeredAtMs,
+    this.appSessionId,
     this.facematchVerified,
     this.verifyOuterMs,
     this.wrapOuterMs,
@@ -364,6 +376,7 @@ class ZkPassportLocalRegistration {
   final bool registered;
   final String? nullifierHex;
   final int? registeredAtMs;
+  final String? appSessionId;
   final bool? facematchVerified;
   final int? verifyOuterMs;
   final int? wrapOuterMs;
@@ -383,6 +396,8 @@ class ZkPassportLocalRegistration {
       'registered': registered,
       'nullifier_hex': nullifierHex,
       'registered_at_ms': registeredAtMs,
+      if (appSessionId != null && appSessionId!.trim().isNotEmpty)
+        'app_session_id': appSessionId,
       if (facematchVerified != null) 'facematch_verified': facematchVerified,
       if (verifyOuterMs != null) 'verify_outer_ms': verifyOuterMs,
       if (wrapOuterMs != null) 'wrap_outer_ms': wrapOuterMs,
@@ -418,6 +433,7 @@ class ZkPassportLocalRegistration {
       registered: registered,
       nullifierHex: nullifier,
       registeredAtMs: registeredAtMs,
+      appSessionId: _optionalString(json['app_session_id']),
       facematchVerified: facematchVerified,
       verifyOuterMs: verifyOuterMs,
       wrapOuterMs: wrapOuterMs,

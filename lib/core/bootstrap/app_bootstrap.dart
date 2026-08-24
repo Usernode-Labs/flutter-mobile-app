@@ -197,8 +197,9 @@ class AppBootstrap {
     var hasAnyAccounts = false;
     String? activeId;
     if (identity.phase == IdentityPhase.ready) {
-      hasAnyAccounts = await repo.hasAny();
-      activeId = repo.getActiveId();
+      final capability = repo.capabilityFor(identity);
+      hasAnyAccounts = await repo.hasAny(capability);
+      activeId = repo.getActiveId(capability);
     }
 
     if (activeId != null && SentryUtil.enabled) {

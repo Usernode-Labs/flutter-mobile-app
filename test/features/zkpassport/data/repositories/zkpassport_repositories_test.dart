@@ -6,35 +6,89 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 
 const _accountNamespace = 'aaaaaaaaaaaaaaaa';
+const _accountId = 'account-a';
+const _address = 'ut1-test-address';
+const _network = 'testnet';
+
+Future<AccountCapability> _accountCapability({
+  String sessionId = 'app-session-a',
+}) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(
+    'testnet:identity:namespace',
+    _accountNamespace,
+  );
+  await prefs.setString(
+    'testnet:user:$_accountNamespace:accounts:index',
+    jsonEncode([
+      {
+        'id': _accountId,
+        'name': 'Test',
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'derivationPath': 'test',
+        'hdIndex': 0,
+        'address': _address,
+        'publicKey': 'pk',
+        'backupConfirmed': true,
+        'isDemo': true,
+      },
+    ]),
+  );
+  await prefs.setString(
+    'testnet:user:$_accountNamespace:accounts:activeId',
+    _accountId,
+  );
+  final accounts = await AccountsRepository.create();
+  return accounts.capabilityFor(Identity(
+    epoch: 1,
+    phase: IdentityPhase.ready,
+    participantId: 7,
+    accountId: _accountId,
+    address: _address,
+    sessionId: sessionId,
+  ));
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    NetworkPrefs.setActiveBucket(null, guest: true);
+  });
 
   group('ZkPassportSettingsRepository', () {
     final repo = ZkPassportSettingsRepository();
+    late AccountCapability capability;
+
+    setUp(() async => capability = await _accountCapability());
 
     test('load returns defaults when nothing stored', () async {
-      final s = await repo.load();
+      final s = await repo.load(capability);
       expect(s.facematchStrict, ZkPassportSettings.defaults.facematchStrict);
     });
 
     test('save then load round-trips', () async {
-      await repo.save(const ZkPassportSettings(facematchStrict: false));
-      expect((await repo.load()).facematchStrict, isFalse);
+      await repo.save(
+        capability,
+        const ZkPassportSettings(facematchStrict: false),
+      );
+      expect((await repo.load(capability)).facematchStrict, isFalse);
     });
 
     test('setFacematchStrict updates the stored value', () async {
-      await repo.setFacematchStrict(false);
-      expect((await repo.load()).facematchStrict, isFalse);
-      await repo.setFacematchStrict(true);
-      expect((await repo.load()).facematchStrict, isTrue);
+      await repo.setFacematchStrict(capability, false);
+      expect((await repo.load(capability)).facematchStrict, isFalse);
+      await repo.setFacematchStrict(capability, true);
+      expect((await repo.load(capability)).facematchStrict, isTrue);
     });
   });
 
@@ -46,7 +100,7 @@ void main() {
       String requestId = 'req',
       int createdAtMs = 1,
       String requestNonce = 'nonce-a',
-      String? launchBucket,
+      String launchBucket = 'account-bucket',
     }) =>
         ZkPassportRuntimeSession(
           appSessionId: appSessionId,
@@ -57,22 +111,41 @@ void main() {
           lastProgressAtMs: 2,
           resumeAttemptCount: 0,
           requestNonce: requestNonce,
+          launchNetwork: _network,
           launchBucket: launchBucket,
         );
 
     test('load null when empty', () async {
-      expect(await repo.load(), isNull);
+      expect(
+        await repo.loadForSession(
+          appSessionId: 'app-session-a',
+          network: _network,
+          bucket: 'account-bucket',
+        ),
+        isNull,
+      );
     });
 
     test('save/load round-trip and clear', () async {
       await repo.save(session());
-      final loaded = await repo.load();
+      final loaded = await repo.loadForSession(
+        appSessionId: 'app-session-a',
+        network: _network,
+        bucket: 'account-bucket',
+      );
       expect(loaded, isNotNull);
       expect(loaded!.requestId, 'req');
       expect(loaded.requestVersion, session().requestVersion);
 
-      await repo.clear();
-      expect(await repo.load(), isNull);
+      await repo.clear(loaded);
+      expect(
+        await repo.loadForSession(
+          appSessionId: 'app-session-a',
+          network: _network,
+          bucket: 'account-bucket',
+        ),
+        isNull,
+      );
     });
 
     test('late exact-owner writes and clears cannot touch a successor',
@@ -103,12 +176,14 @@ void main() {
 
       final recovered = await repo.loadForSession(
         appSessionId: successor.appSessionId,
+        network: _network,
         bucket: bucket,
       );
       expect(recovered?.requestId, successor.requestId);
       expect(
         await repo.loadForSession(
           appSessionId: retired.appSessionId,
+          network: _network,
           bucket: bucket,
         ),
         isNull,
@@ -137,6 +212,7 @@ void main() {
 
       final recovered = await repo.loadForSession(
         appSessionId: current.appSessionId,
+        network: _network,
         bucket: bucket,
       );
       expect(recovered?.requestId, current.requestId);
@@ -144,6 +220,7 @@ void main() {
       expect(
         (await repo.loadForSession(
           appSessionId: current.appSessionId,
+          network: _network,
           bucket: bucket,
         ))
             ?.requestId,
@@ -162,6 +239,7 @@ void main() {
         lastProgressAtMs: session().lastProgressAtMs,
         resumeAttemptCount: session().resumeAttemptCount,
         requestNonce: session().requestNonce,
+        launchNetwork: _network,
         launchBucket: launchBucket,
         launchParticipantId: 1,
       );
@@ -172,30 +250,30 @@ void main() {
       // bucket per call is how A's proof ends up in B's bucket.
       await repo.save(launched);
 
-      final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getString(NetworkPrefs.prefixAccountKeyFor(
-            'zkpassport:runtime_session_v1', launchBucket)),
+        await repo.loadForSession(
+          appSessionId: launched.appSessionId,
+          network: _network,
+          bucket: launchBucket,
+        ),
         isNotNull,
       );
       expect(
-        prefs.getString(
-            NetworkPrefs.prefixAccountKey('zkpassport:runtime_session_v1')),
+        await repo.loadForSession(
+          appSessionId: launched.appSessionId,
+          network: _network,
+          bucket: NetworkPrefs.guestBucket,
+        ),
         isNull,
         reason: 'the ambient (guest) bucket must not receive the row',
       );
-      // And finalization clears the row it actually wrote.
-      await repo.clear();
+      await repo.clear(launched);
       expect(
-        prefs.getString(NetworkPrefs.prefixAccountKeyFor(
-            'zkpassport:runtime_session_v1', launchBucket)),
-        isNotNull,
-        reason: 'an ambient clear must not reach the launch bucket',
-      );
-      await repo.clear(bucket: launchBucket);
-      expect(
-        prefs.getString(NetworkPrefs.prefixAccountKeyFor(
-            'zkpassport:runtime_session_v1', launchBucket)),
+        await repo.loadForSession(
+          appSessionId: launched.appSessionId,
+          network: _network,
+          bucket: launchBucket,
+        ),
         isNull,
       );
     });
@@ -211,7 +289,14 @@ void main() {
       final raw = jsonEncode(legacy);
       await prefs.setString(key, raw);
 
-      expect(await repo.load(), isNull);
+      expect(
+        await repo.loadForSession(
+          appSessionId: session().appSessionId,
+          network: _network,
+          bucket: NetworkPrefs.guestBucket,
+        ),
+        isNull,
+      );
       expect(prefs.getString(key), raw);
     });
 
@@ -223,49 +308,39 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       // Any key: load() reads a specific prefixed key which is now absent.
       expect(prefs.getKeys().isEmpty, isTrue);
-      expect(await repo2.load(), isNull);
+      expect(
+        await repo2.loadForSession(
+          appSessionId: session().appSessionId,
+          network: _network,
+          bucket: session().launchBucket!,
+        ),
+        isNull,
+      );
     });
   });
 
   group('ZkPassportRegistrationRepository request outcomes', () {
-    const accountId = 'account-a';
-    const address = 'ut1-test-address';
     late String bucket;
     late ZkPassportRegistrationRepository repo;
+    late AccountCapability capability;
+    late AccountCapability successorCapability;
 
-    ZkPassportRequestVersion version(String nonce) => ZkPassportRequestVersion(
+    ZkPassportRequestVersion version(
+      String nonce, {
+      int createdAtMs = 100,
+    }) =>
+        ZkPassportRequestVersion(
           requestId: 'reused-session-id',
-          createdAtMs: 100,
+          createdAtMs: createdAtMs,
           nonce: nonce,
         );
 
     Future<void> seedActiveAccount() async {
-      bucket = NetworkPrefs.bucketForAddress(address);
-      NetworkPrefs.setActiveBucket(address, guest: false);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(
-        'testnet:identity:namespace',
-        _accountNamespace,
-      );
-      await prefs.setString(
-        'testnet:user:$_accountNamespace:accounts:index',
-        jsonEncode([
-          {
-            'id': accountId,
-            'name': 'Test',
-            'createdAt': '2026-01-01T00:00:00.000Z',
-            'derivationPath': 'test',
-            'hdIndex': 0,
-            'address': address,
-            'publicKey': 'pk',
-            'backupConfirmed': true,
-            'isDemo': true,
-          },
-        ]),
-      );
-      await prefs.setString(
-        'testnet:user:$_accountNamespace:accounts:activeId',
-        accountId,
+      bucket = NetworkPrefs.bucketForAddress(_address);
+      NetworkPrefs.setActiveBucket(_address, guest: false);
+      capability = await _accountCapability();
+      successorCapability = await _accountCapability(
+        sessionId: 'app-session-b',
       );
     }
 
@@ -278,17 +353,15 @@ void main() {
       ZkPassportRequestVersion requestVersion,
     ) async {
       await repo.storePendingCompletion(
-        appSessionId: 'app-session-a',
+        capability: capability,
         participantId: 7,
         challengeId: 42,
-        walletAddress: address,
         sessionId: requestVersion.requestId,
         nullifierHex: 'nullifier-${requestVersion.nonce}',
         requestVersion: requestVersion,
-        accountId: accountId,
-        bucket: bucket,
       );
       await repo.storeActiveRegistration(
+        capability: capability,
         registered: true,
         nullifierHex: 'nullifier-${requestVersion.nonce}',
         requestVersion: requestVersion,
@@ -301,28 +374,27 @@ void main() {
       await storeOptimisticState(rejected);
 
       await repo.recordRequestOutcome(
+        capability: capability,
         version: rejected,
         outcome: ZkPassportRequestOutcome.rejected,
-        bucket: bucket,
       );
 
-      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
-      expect((await repo.getActiveRegistration()).registered, isFalse);
+      expect(await repo.getPendingCompletion(capability), isNull);
+      expect(
+        (await repo.getActiveRegistration(capability)).registered,
+        isFalse,
+      );
 
       // The source rows deliberately remain. The outcome is the only durable
       // write needed for both views, so cleanup cannot be split by a crash.
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getString(
-          'testnet:acct:$bucket:zkpassport:pending_completion',
-        ),
-        isNotNull,
+        prefs.getKeys().where((key) => key.contains('pending_completion_v2')),
+        hasLength(1),
       );
       expect(
-        prefs.getString(
-          'testnet:acct:$bucket:zkpassport:registration:$accountId',
-        ),
-        isNotNull,
+        prefs.getKeys().where((key) => key.contains('registration_v2')),
+        hasLength(1),
       );
     });
 
@@ -330,23 +402,26 @@ void main() {
       final oldVersion = version('nonce-old');
       await storeOptimisticState(oldVersion);
       await repo.recordRequestOutcome(
+        capability: capability,
         version: oldVersion,
         outcome: ZkPassportRequestOutcome.rejected,
-        bucket: bucket,
       );
 
-      final newVersion = version('nonce-new');
+      final newVersion = version('nonce-new', createdAtMs: 101);
       await storeOptimisticState(newVersion);
 
       expect(
         ZkPassportRequestVersion.fromJson(
-          await repo.getPendingCompletion(bucket: bucket),
+          await repo.getPendingCompletion(capability),
         ),
         newVersion,
       );
-      expect((await repo.getActiveRegistration()).registered, isTrue);
       expect(
-        (await repo.getActiveRegistration()).requestVersion,
+        (await repo.getActiveRegistration(capability)).registered,
+        isTrue,
+      );
+      expect(
+        (await repo.getActiveRegistration(capability)).requestVersion,
         newVersion,
       );
     });
@@ -356,19 +431,25 @@ void main() {
       final delivered = version('nonce-delivered');
       await storeOptimisticState(delivered);
       await repo.recordRequestOutcome(
+        capability: capability,
         version: delivered,
         outcome: ZkPassportRequestOutcome.delivered,
-        bucket: bucket,
       );
 
-      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
-      expect((await repo.getActiveRegistration()).registered, isTrue);
+      expect(await repo.getPendingCompletion(capability), isNull);
+      expect(
+        (await repo.getActiveRegistration(capability)).registered,
+        isTrue,
+      );
       await repo.recordRequestOutcome(
+        capability: capability,
         version: delivered,
         outcome: ZkPassportRequestOutcome.rejected,
-        bucket: bucket,
       );
-      expect((await repo.getActiveRegistration()).registered, isTrue);
+      expect(
+        (await repo.getActiveRegistration(capability)).registered,
+        isTrue,
+      );
     });
 
     test('concurrent conflicting outcomes are append-only; delivery wins',
@@ -396,22 +477,25 @@ void main() {
       );
       await Future.wait([
         first.recordRequestOutcome(
+          capability: capability,
           version: requestVersion,
           outcome: ZkPassportRequestOutcome.rejected,
-          bucket: bucket,
         ),
         second.recordRequestOutcome(
+          capability: capability,
           version: requestVersion,
           outcome: ZkPassportRequestOutcome.delivered,
-          bucket: bucket,
         ),
       ]);
 
-      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
-      expect((await repo.getActiveRegistration()).registered, isTrue);
+      expect(await repo.getPendingCompletion(capability), isNull);
+      expect(
+        (await repo.getActiveRegistration(capability)).registered,
+        isTrue,
+      );
       final prefs = await SharedPreferences.getInstance();
       expect(
-        prefs.getKeys().where((key) => key.contains('request_outcome_v1')),
+        prefs.getKeys().where((key) => key.contains('request_outcome_v2')),
         hasLength(2),
       );
     });
@@ -420,25 +504,22 @@ void main() {
         () async {
       final requestVersion = version('nonce-repair');
       await repo.storePendingCompletion(
-        appSessionId: 'app-session-a',
+        capability: capability,
         participantId: 7,
         challengeId: 42,
-        walletAddress: address,
         sessionId: requestVersion.requestId,
         nullifierHex: 'nullifier',
         requestVersion: requestVersion,
-        accountId: accountId,
         facematchVerified: true,
         verifyOuterMs: 11,
         wrapOuterMs: 12,
         verifyWrappedMs: 13,
-        bucket: bucket,
       );
 
-      final pending = await repo.getPendingCompletion(bucket: bucket);
+      final pending = await repo.getPendingCompletion(capability);
       expect(pending, isNotNull);
       expect(pending!['app_session_id'], 'app-session-a');
-      expect(pending['account_id'], accountId);
+      expect(pending['account_id'], _accountId);
       expect(pending['facematch_verified'], isTrue);
       expect(pending['verify_outer_ms'], 11);
       expect(pending['wrap_outer_ms'], 12);
@@ -448,56 +529,42 @@ void main() {
     test('late outbox cleanup cannot remove a same-user successor row',
         () async {
       final retired = version('nonce-retired');
-      final successor = ZkPassportRequestVersion(
+      const successor = ZkPassportRequestVersion(
         requestId: 'successor-request',
         createdAtMs: 200,
         nonce: 'nonce-successor',
       );
       await repo.storePendingCompletion(
-        appSessionId: 'app-session-a',
+        capability: capability,
         participantId: 7,
         challengeId: 42,
-        walletAddress: address,
         sessionId: retired.requestId,
         nullifierHex: 'retired-nullifier',
         requestVersion: retired,
-        accountId: accountId,
-        bucket: bucket,
       );
       await repo.storePendingCompletion(
-        appSessionId: 'app-session-b',
+        capability: successorCapability,
         participantId: 7,
         challengeId: 42,
-        walletAddress: address,
         sessionId: successor.requestId,
         nullifierHex: 'successor-nullifier',
         requestVersion: successor,
-        accountId: accountId,
-        bucket: bucket,
       );
 
       await repo.clearPendingCompletion(
-        appSessionId: 'app-session-a',
+        capability: capability,
         requestVersion: retired,
-        bucket: bucket,
       );
       await repo.recordRequestOutcome(
-        appSessionId: 'app-session-a',
+        capability: capability,
         version: retired,
         outcome: ZkPassportRequestOutcome.rejected,
-        bucket: bucket,
       );
 
-      final pending = await repo.getPendingCompletion(
-        appSessionId: 'app-session-b',
-        bucket: bucket,
-      );
+      final pending = await repo.getPendingCompletion(successorCapability);
       expect(pending?['session_id'], successor.requestId);
       expect(
-        await repo.getPendingCompletion(
-          appSessionId: 'app-session-a',
-          bucket: bucket,
-        ),
+        await repo.getPendingCompletion(capability),
         isNull,
       );
     });
@@ -509,15 +576,15 @@ void main() {
       final raw = jsonEncode({
         'participant_id': 7,
         'challenge_id': 42,
-        'wallet_address': address,
+        'wallet_address': _address,
         'session_id': 'request-a',
         'nullifier_hex': 'nullifier',
-        'account_id': accountId,
+        'account_id': _accountId,
         ...version('nonce-legacy').toJson(),
       });
       await prefs.setString(key, raw);
 
-      expect(await repo.getPendingCompletion(bucket: bucket), isNull);
+      expect(await repo.getPendingCompletion(capability), isNull);
       expect(prefs.getString(key), raw);
     });
 
@@ -527,17 +594,13 @@ void main() {
       NetworkPrefs.setActiveBucket('ut1-other-address', guest: false);
 
       await repo.storeRegistrationForAccount(
-        accountId: accountId,
-        bucket: bucket,
+        capability: capability,
         registered: true,
         nullifierHex: 'nullifier',
         requestVersion: requestVersion,
       );
 
-      final stored = await repo.getRegistrationForAccount(
-        accountId: accountId,
-        bucket: bucket,
-      );
+      final stored = await repo.getRegistrationForAccount(capability);
       expect(stored.registered, isTrue);
       expect(stored.requestVersion, requestVersion);
     });
@@ -550,23 +613,20 @@ void main() {
 
       await expectLater(
         failingRepo.storePendingCompletion(
-          appSessionId: 'app-session-a',
+          capability: capability,
           participantId: 7,
           challengeId: 42,
-          walletAddress: address,
           sessionId: requestVersion.requestId,
           nullifierHex: 'nullifier',
           requestVersion: requestVersion,
-          accountId: accountId,
-          bucket: bucket,
         ),
         throwsStateError,
       );
       await expectLater(
         failingRepo.recordRequestOutcome(
+          capability: capability,
           version: requestVersion,
           outcome: ZkPassportRequestOutcome.rejected,
-          bucket: bucket,
         ),
         throwsStateError,
       );

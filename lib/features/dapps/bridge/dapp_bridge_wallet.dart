@@ -342,16 +342,6 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       return;
     }
 
-    // Effect-point revalidation after the user-paced confirmation dialog.
-    if (!signingIdentity.sameScopeAs(IdentitySnapshots.current)) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'The signed-in account changed; please retry the request.',
-      );
-      return;
-    }
-
     try {
       final signature = await repo.signMessage(capability, message);
       await _resolveJsPromise(

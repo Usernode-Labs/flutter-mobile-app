@@ -275,10 +275,14 @@ Override _reconcilerOverride({
             ),
           );
           const secure = FlutterSecureStorage();
-          final accounts = <Map<String, dynamic>>[
-            for (final account in await repository.list()) account.toJson(),
-          ];
           final prefs = await SharedPreferences.getInstance();
+          final namespaced = prefs.getString(
+            'testnet:user:$_namespace:accounts:index',
+          );
+          final accounts = namespaced == null
+              ? <Map<String, dynamic>>[]
+              : (jsonDecode(namespaced) as List<dynamic>)
+                  .cast<Map<String, dynamic>>();
           final legacy = prefs.getString('testnet:accounts:index');
           if (legacy != null) {
             accounts.addAll(

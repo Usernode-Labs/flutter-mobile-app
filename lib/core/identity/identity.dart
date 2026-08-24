@@ -37,11 +37,9 @@ enum IdentityPhase {
 
 /// An immutable snapshot of "who the app is right now".
 ///
-/// Every field is fixed at publish time. Async work captures the snapshot
-/// once when it starts and compares [epoch] before applying results — a
-/// changed epoch means the identity this work was started for no longer
-/// exists, and the work must abort rather than apply another identity's
-/// result. See docs/identity-lifecycle-invariants.md.
+/// Every field is fixed at publish time. This snapshot routes UI admission;
+/// durable or privileged work derives an immutable credential/account/runtime
+/// owner from it before suspending. See docs/identity-lifecycle-invariants.md.
 @immutable
 class Identity {
   const Identity({
@@ -68,8 +66,8 @@ class Identity {
 
   /// Monotonic identity generation. Bumped on every transition that changes
   /// WHO the identity is (initial login, participant replacement, logout,
-  /// guest, 401, season rollover) — NOT on same-participant bearer rotation
-  /// or reconciling → ready, which preserve/complete the same identity.
+  /// guest, credential retirement or changed account binding). Same-binding
+  /// season refresh, bearer rotation and reconciling → ready preserve it.
   final int epoch;
 
   final IdentityPhase phase;
@@ -187,8 +185,9 @@ class StaleAuthCredentialException implements Exception {
 /// handlers).
 ///
 /// Single writer: only `SessionController` publishes here (enforced by
-/// ds_lints). Everything else captures `IdentitySnapshots.current` once at
-/// the start of an operation and compares epochs before applying results.
+/// ds_lints). Readers use it only to capture an initial immutable lease or
+/// capability; durable writes and late publication never rediscover authority
+/// from this mirror.
 class IdentitySnapshots {
   IdentitySnapshots._();
 

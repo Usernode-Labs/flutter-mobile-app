@@ -7,9 +7,9 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/providers/challenges_provider.dart';
 import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/points_breakdown_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_pro
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 import 'package:crypto_mobile_app/features/zkpassport/services/zkpassport_services.dart';
+import 'package:crypto_mobile_app/features/wallet/models/account.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,46 +35,53 @@ String _newRequestNonce() {
   ).join();
 }
 
-/// Result of validating the current identity against a runtime session's
-/// persisted launch identity.
-enum _LaunchIdentityCheck {
-  /// Exact application-session incarnation — proceed.
-  match,
+typedef _AccountScope = ({
+  AccountCapability capability,
+  AccountMeta account,
+  Identity identity,
+});
 
-  /// The current identity is unsettled (boot restore or reconcile in
-  /// flight) — retry later; neither act nor discard.
-  defer,
-
-  /// A different settled identity — the session belongs to another user and
-  /// must not be resumed, stored, or completed under this one.
-  mismatch,
+Future<_AccountScope?> _captureAccountScope(
+  Ref ref, {
+  Identity? identity,
+}) async {
+  final captured = identity ?? IdentitySnapshots.current;
+  if (captured.phase != IdentityPhase.ready) return null;
+  final repository = await ref.read(accountsProvider.future);
+  if (!captured.sameScopeAs(IdentitySnapshots.current)) return null;
+  try {
+    final capability = repository.capabilityFor(captured);
+    final account = await repository.getAuthorizedAccount(capability);
+    return account == null
+        ? null
+        : (
+            capability: capability,
+            account: account,
+            identity: captured,
+          );
+  } on StaleAuthCredentialException {
+    return null;
+  }
 }
 
 class _PreparedBackendCompletion {
   const _PreparedBackendCompletion({
-    required this.appSessionId,
+    required this.capability,
     required this.participantId,
     required this.challengeId,
-    required this.walletAddress,
     required this.sessionId,
     required this.nullifierHex,
     required this.requestVersion,
-    required this.identity,
-    required this.accountId,
   });
 
-  final String appSessionId;
+  final AccountCapability capability;
   final int participantId;
   final int challengeId;
-  final String walletAddress;
   final String sessionId;
   final String nullifierHex;
   final ZkPassportRequestVersion requestVersion;
-  final Identity identity;
-  final String accountId;
-
-  String get bucket => identity.bucket;
-  bool get identityWasSettled => identity.isSettled;
+  String get appSessionId => capability.sessionId;
+  String get walletAddress => capability.address;
 }
 
 final zkPassportBridgeBaseUrlProvider = Provider<String?>((ref) {
@@ -116,18 +124,25 @@ final zkPassportRuntimeSessionRepositoryProvider =
 final zkPassportSettingsProvider =
     FutureProvider<ZkPassportSettings>((ref) async {
   final repo = ref.watch(zkPassportSettingsRepositoryProvider);
-  return repo.load();
+  final scope = await _captureAccountScope(ref);
+  return scope == null
+      ? ZkPassportSettings.defaults
+      : await repo.load(scope.capability);
 });
 
 final zkPassportIsRegisteredProvider = FutureProvider<bool>((ref) async {
   final repo = ref.watch(zkPassportRegistrationRepositoryProvider);
-  return repo.isRegistered();
+  final scope = await _captureAccountScope(ref);
+  return scope == null ? false : await repo.isRegistered(scope.capability);
 });
 
 final zkPassportRegistrationProvider =
     FutureProvider<ZkPassportLocalRegistration>((ref) async {
   final repo = ref.watch(zkPassportRegistrationRepositoryProvider);
-  return repo.getActiveRegistration();
+  final scope = await _captureAccountScope(ref);
+  return scope == null
+      ? ZkPassportLocalRegistration.unregistered()
+      : await repo.getActiveRegistration(scope.capability);
 });
 
 final zkPassportLaunchServiceProvider =
@@ -142,19 +157,7 @@ final zkPassportFlowControllerProvider =
 
 final zkPassportPipelineProvider = StateNotifierProvider<
     ZkPassportPipelineController, ZkPassportPipelineState>((ref) {
-  final controller = ZkPassportPipelineController(ref);
-  // A cold-start outbox retry can run before the async challenges list has
-  // resolved. Retry again when the authoritative ZK challenge becomes
-  // available; the controller coalesces duplicate triggers.
-  ref.listen<int?>(
-    zkIdentityChallengeIdProvider,
-    (previous, next) {
-      if (next == null || next == previous) return;
-      unawaited(controller.retryPendingCompletion());
-    },
-    fireImmediately: true,
-  );
-  return controller;
+  return ZkPassportPipelineController(ref);
 });
 
 class ZkPassportLaunchResult {
@@ -237,8 +240,11 @@ class ZkPassportFlowController {
       );
     }
 
-    final accounts = await AccountsRepository.create();
-    final active = await accounts.getActive();
+    final accountScope = await _captureAccountScope(
+      _ref,
+      identity: launchIdentity,
+    );
+    final active = accountScope?.account;
     if (active == null) {
       return const ZkPassportLaunchResult(
         started: false,
@@ -246,19 +252,11 @@ class ZkPassportFlowController {
         message: 'No active account available.',
       );
     }
-    if (!launchIdentity.sameScopeAs(IdentitySnapshots.current) ||
-        active.address != launchIdentity.address) {
-      return const ZkPassportLaunchResult(
-        started: false,
-        requestId: null,
-        message: 'The signed-in account changed; please try again.',
-      );
-    }
     final userPublicKey = active.publicKey;
 
     const chainId = ZkPassportRequestPolicy.boundChainId;
     final settingsRepo = _ref.read(zkPassportSettingsRepositoryProvider);
-    final settings = await settingsRepo.load();
+    final settings = await settingsRepo.load(accountScope!.capability);
     final facematchStrict = settings.facematchStrict;
 
     final sessionServerRepo =
@@ -321,26 +319,12 @@ class ZkPassportFlowController {
       );
     }
 
-    // Effect point: the server session above is bound to `launchIdentity`'s
-    // wallet and public key, so it is persisted under THAT identity or not at
-    // all.
-    if (!launchIdentity.sameScopeAs(IdentitySnapshots.current)) {
-      _log.warn(
-        'Discarding a zkPassport session whose launching identity was '
-        'replaced while the session server was answering',
-        context: {'requestId': requestId},
-      );
-      return const ZkPassportLaunchResult(
-        started: false,
-        requestId: null,
-        message: 'The signed-in account changed; please try again.',
-      );
-    }
     await pipelineController.markLaunchStarted(
       requestId: requestId,
       facematchStrict: facematchStrict,
       userPublicKey: userPublicKey,
       launchIdentity: launchIdentity,
+      launchCapability: accountScope.capability,
     );
 
     final launchService = _ref.read(zkPassportLaunchServiceProvider);
@@ -372,41 +356,8 @@ class ZkPassportFlowController {
     );
   }
 
-  Future<void> setRegistered(bool value) async {
-    final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-    await repo.storeActiveRegistration(
-      registered: value,
-      nullifierHex: null,
-    );
-    _ref.invalidate(zkPassportIsRegisteredProvider);
-    _ref.invalidate(zkPassportRegistrationProvider);
-  }
-
-  Future<void> storeSuccessfulRegistration({
-    required String? nullifierHex,
-    required ZkPassportRequestVersion requestVersion,
-    bool? facematchVerified,
-    int? verifyOuterMs,
-    int? wrapOuterMs,
-    int? verifyWrappedMs,
-  }) async {
-    final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-    await repo.storeActiveRegistration(
-      registered: true,
-      nullifierHex: nullifierHex,
-      facematchVerified: facematchVerified,
-      verifyOuterMs: verifyOuterMs,
-      wrapOuterMs: wrapOuterMs,
-      verifyWrappedMs: verifyWrappedMs,
-      requestVersion: requestVersion,
-    );
-    _ref.invalidate(zkPassportIsRegisteredProvider);
-    _ref.invalidate(zkPassportRegistrationProvider);
-  }
-
   Future<void> storeSuccessfulRegistrationForAccount({
-    required String accountId,
-    required String bucket,
+    required AccountCapability capability,
     required String? nullifierHex,
     required ZkPassportRequestVersion requestVersion,
     bool? facematchVerified,
@@ -416,8 +367,7 @@ class ZkPassportFlowController {
   }) async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     await repo.storeRegistrationForAccount(
-      accountId: accountId,
-      bucket: bucket,
+      capability: capability,
       registered: true,
       nullifierHex: nullifierHex,
       facematchVerified: facematchVerified,
@@ -431,8 +381,10 @@ class ZkPassportFlowController {
   }
 
   Future<void> clearActiveRegistration() async {
+    final scope = await _captureAccountScope(_ref);
+    if (scope == null) return;
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-    await repo.clearActiveRegistration();
+    await repo.clearActiveRegistration(scope.capability);
     _ref.invalidate(zkPassportIsRegisteredProvider);
     _ref.invalidate(zkPassportRegistrationProvider);
   }
@@ -454,8 +406,10 @@ class ZkPassportFlowController {
   }
 
   Future<void> setFacematchStrict(bool value) async {
+    final scope = await _captureAccountScope(_ref);
+    if (scope == null) return;
     final repo = _ref.read(zkPassportSettingsRepositoryProvider);
-    await repo.setFacematchStrict(value);
+    await repo.setFacematchStrict(scope.capability, value);
     _ref.invalidate(zkPassportSettingsProvider);
   }
 }
@@ -477,8 +431,6 @@ class ZkPassportPipelineController
   final Ref _ref;
   late final Future<void> _startupResetFuture;
   Future<void>? _pendingCompletionRetryInFlight;
-  Identity? _pendingCompletionRetryIdentity;
-  int? _pendingCompletionRetryChallengeId;
   bool _inFlight = false;
   Timer? _serverPollingTimer;
   bool _serverPollingInFlight = false;
@@ -487,26 +439,9 @@ class ZkPassportPipelineController
   int _lastServerStatusFetchAtMs = 0;
   int _serverPollingBurstUntilAtMs = 0;
   ZkPassportRuntimeSession? _runtimeSession;
+  AccountCapability? _runtimeCapability;
 
   bool get isProofProcessing => _inFlight;
-
-  /// How the CURRENT identity relates to the exact application-session
-  /// incarnation that owns [runtime].
-  _LaunchIdentityCheck _checkLaunchIdentity(ZkPassportRuntimeSession runtime) {
-    final current = IdentitySnapshots.current;
-    if (!current.isSettled) {
-      // Boot restore / reconcile still in progress: WHO the app is hasn't
-      // been established, so neither acting nor discarding is safe yet.
-      return _LaunchIdentityCheck.defer;
-    }
-    final currentSessionId = current.sessionId;
-    final sameSession = current.phase == IdentityPhase.ready &&
-        currentSessionId != null &&
-        currentSessionId == runtime.appSessionId;
-    return sameSession
-        ? _LaunchIdentityCheck.match
-        : _LaunchIdentityCheck.mismatch;
-  }
 
   bool _isPollingActiveFor(String requestId) {
     if (!_serverPollingInFlight) {
@@ -539,14 +474,26 @@ class ZkPassportPipelineController
 
   Future<void> _resetRuntimeSessionOnStartup() async {
     try {
-      final persisted = await _runtimeRepo.load();
+      final scope = await _captureAccountScope(_ref);
+      final persisted = scope == null
+          ? null
+          : await _runtimeRepo.loadForSession(
+              appSessionId: scope.capability.sessionId,
+              network: scope.capability.network,
+              bucket: scope.capability.bucket,
+            );
       // The container can be rebuilt (or torn down) while this startup read is
       // in flight — an identity boundary invalidates this provider.
       if (!mounted) return;
       if (persisted == null) {
         _stopServerPollingWorker();
         _runtimeSession = null;
-        state = ZkPassportPipelineState.idle();
+        _runtimeCapability = null;
+        _setState(
+          status: ZkPassportPipelineStatus.idle,
+          phase: ZkPassportPipelinePhase.idle,
+          message: '',
+        );
         return;
       }
 
@@ -561,8 +508,13 @@ class ZkPassportPipelineController
         );
         _stopServerPollingWorker();
         _runtimeSession = null;
-        await _runtimeRepo.clear(bucket: persisted.launchBucket);
-        state = ZkPassportPipelineState.idle();
+        _runtimeCapability = null;
+        await _runtimeRepo.clear(persisted);
+        _setState(
+          status: ZkPassportPipelineStatus.idle,
+          phase: ZkPassportPipelinePhase.idle,
+          message: '',
+        );
         return;
       }
 
@@ -581,13 +533,13 @@ class ZkPassportPipelineController
           },
         );
         _runtimeSession = persisted;
-        state = ZkPassportPipelineState(
+        _runtimeCapability = scope!.capability;
+        _setState(
           status: ZkPassportPipelineStatus.processing,
           phase: ZkPassportPipelinePhase.resuming,
           message: 'Recovering zkPassport session...',
           requestId: persisted.requestId,
           resumeAttemptCount: persisted.resumeAttemptCount,
-          updatedAtMs: nowMs,
         );
         return;
       }
@@ -602,8 +554,13 @@ class ZkPassportPipelineController
       );
       _stopServerPollingWorker();
       _runtimeSession = null;
-      await _runtimeRepo.clear(bucket: persisted.launchBucket);
-      state = ZkPassportPipelineState.idle();
+      _runtimeCapability = null;
+      await _runtimeRepo.clear(persisted);
+      _setState(
+        status: ZkPassportPipelineStatus.idle,
+        phase: ZkPassportPipelinePhase.idle,
+        message: '',
+      );
     } catch (e, st) {
       _log.warn(
         'Failed to reset zkPassport runtime session on app startup',
@@ -615,94 +572,59 @@ class ZkPassportPipelineController
     } finally {
       // Retry any pending backend completion from a previous session.
       // Must run unconditionally — even when a non-expired session is preserved.
-      unawaited(_retryPendingCompletionGuarded());
+      if (mounted) unawaited(_retryPendingCompletionGuarded());
     }
   }
 
   /// Retries a stored pending backend completion outside cold start.
   ///
-  /// Called when the identity settles into the ready phase (see
-  /// `identityDriverProvider`) so a proof preserved across a 401 is
-  /// submitted as soon as a fresh session exists, instead of only on the
-  /// next process restart. Waits for the startup reset so it cannot race
-  /// cold-start recovery; concurrent invocations coalesce onto one run.
+  /// Called after restore or reconciliation reaches Ready. Recovery sees only
+  /// rows owned by that exact application session; retired-session rows stay
+  /// inert. Concurrent triggers inside this host coalesce.
   Future<void> retryPendingCompletion() async {
     await _startupResetFuture;
+    if (!mounted) return;
     await _retryPendingCompletionGuarded();
   }
 
-  /// Coalesces retries only when both the exact identity scope and challenge
-  /// readiness are unchanged. A ready identity must not join a reconciling
-  /// run from the same epoch, and a newly-loaded challenge id must queue a
-  /// fresh run behind one that already deferred on a null id.
+  /// Coalesces duplicate triggers inside this disposable session host.
   Future<void> _retryPendingCompletionGuarded() {
-    final identity = IdentitySnapshots.current;
-    final challengeId = _ref.read(zkIdentityChallengeIdProvider);
     final inFlight = _pendingCompletionRetryInFlight;
-    if (inFlight != null &&
-        _pendingCompletionRetryIdentity?.sameScopeAs(identity) == true &&
-        _pendingCompletionRetryChallengeId == challengeId) {
-      return inFlight;
-    }
+    if (inFlight != null) return inFlight;
 
     late Future<void> run;
-    run = _retryAfter(inFlight, identity).whenComplete(() {
+    run = _retryPendingCompletion().whenComplete(() {
       if (identical(_pendingCompletionRetryInFlight, run)) {
         _pendingCompletionRetryInFlight = null;
-        _pendingCompletionRetryIdentity = null;
-        _pendingCompletionRetryChallengeId = null;
       }
     });
     _pendingCompletionRetryInFlight = run;
-    _pendingCompletionRetryIdentity = identity;
-    _pendingCompletionRetryChallengeId = challengeId;
     return run;
   }
 
-  Future<void> _retryAfter(Future<void>? previous, Identity identity) async {
-    if (previous != null) {
-      try {
-        await previous;
-      } catch (_) {
-        // The stale run's failure was surfaced to its own caller.
-      }
-    }
-    if (!identity.sameScopeAs(IdentitySnapshots.current)) {
-      return; // superseded while waiting
-    }
-    await _retryPendingCompletion();
-  }
-
-  /// [launchIdentity] is the identity that OWNS this session — the one whose
-  /// wallet and public key the caller bound the server session to, captured
-  /// before its first await. It must be passed rather than re-read here: by
-  /// the time the session server answers, the ambient identity may already be
-  /// a successor, and stamping that one on would make every later scope check
-  /// accept the wrong owner.
+  /// [launchCapability] is captured with the wallet before the server await.
+  /// A late continuation therefore keeps A's owner even if B is now current.
   Future<void> markLaunchStarted({
     required String requestId,
     required bool facematchStrict,
     required String? userPublicKey,
     required Identity launchIdentity,
+    required AccountCapability launchCapability,
   }) async {
     await _startupResetFuture;
     if (_inFlight) {
       throw StateError('cannot replace an in-flight zkPassport proof');
     }
-    if (!launchIdentity.sameScopeAs(IdentitySnapshots.current)) {
-      throw StateError('zkPassport launch identity was replaced');
-    }
     final appSessionId = launchIdentity.sessionId?.trim();
-    if (appSessionId == null || appSessionId.isEmpty) {
+    if (appSessionId == null ||
+        appSessionId.isEmpty ||
+        appSessionId != launchCapability.sessionId) {
       throw StateError('zkPassport launch has no exact application session');
     }
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final requestNonce = _newRequestNonce();
-    // Persist WHO launched this session. Every later stage (foreground
-    // resume, polling, the proof pipeline) validates the current identity
-    // against these before acting, so a session launched by user A is never
-    // resumed, stored, or completed under user B — including across an app
-    // restart, which the durable bucket + participant id survive.
+    // Every later write uses this immutable owner; cold recovery scans only
+    // the current Ready session's prefix.
     final session = ZkPassportRuntimeSession(
       appSessionId: appSessionId,
       requestId: requestId,
@@ -714,10 +636,12 @@ class ZkPassportPipelineController
       requestNonce: requestNonce,
       userPublicKey: userPublicKey,
       launchEpoch: launchIdentity.epoch,
-      launchBucket: launchIdentity.bucket,
+      launchNetwork: launchCapability.network,
+      launchBucket: launchCapability.bucket,
       launchParticipantId: launchIdentity.participantId,
     );
     _runtimeSession = session;
+    _runtimeCapability = launchCapability;
     await _runtimeRepo.save(session);
     _setState(
       status: ZkPassportPipelineStatus.processing,
@@ -801,8 +725,12 @@ class ZkPassportPipelineController
       return false;
     }
     _stopServerPollingWorker();
-    await _runtimeRepo.clear(bucket: _runtimeSession?.launchBucket);
+    final runtime = _runtimeSession;
+    if (runtime != null) {
+      await _runtimeRepo.clear(runtime);
+    }
     _runtimeSession = null;
+    _runtimeCapability = null;
     _setState(
       status: ZkPassportPipelineStatus.idle,
       phase: ZkPassportPipelinePhase.idle,
@@ -821,47 +749,29 @@ class ZkPassportPipelineController
   }) async {
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     final current = _runtimeSession;
-    final sameSession = current != null && current.requestId == requestId;
-    final createdAtMs = sameSession ? current.createdAtMs : nowMs;
-    final requestNonce =
-        sameSession ? current.requestNonce : _newRequestNonce();
-    final appSessionId = sameSession
-        ? current.appSessionId
-        : IdentitySnapshots.current.sessionId?.trim();
-    if (appSessionId == null || appSessionId.isEmpty) {
-      _log.warn('Dropping a zkPassport runtime write without an exact '
-          'application session');
+    if (current == null || current.requestId != requestId) {
+      _log.warn('Dropping a zkPassport runtime write without its exact '
+          'owned operation');
       return;
     }
     final next = ZkPassportRuntimeSession(
-      appSessionId: appSessionId,
+      appSessionId: current.appSessionId,
       requestId: requestId,
-      facematchStrict: sameSession ? current.facematchStrict : false,
+      facematchStrict: current.facematchStrict,
       phase: phase,
-      createdAtMs: createdAtMs,
+      createdAtMs: current.createdAtMs,
       lastProgressAtMs: nowMs,
       resumeAttemptCount: resetResumeAttempts
           ? 0
-          : (resumeAttemptCount ??
-              (sameSession ? current.resumeAttemptCount : 0)),
-      requestNonce: requestNonce,
-      userPublicKey: sameSession ? current.userPublicKey : null,
+          : (resumeAttemptCount ?? current.resumeAttemptCount),
+      requestNonce: current.requestNonce,
+      userPublicKey: current.userPublicKey,
       // The launch identity is fixed for the session's lifetime.
-      launchEpoch: sameSession ? current.launchEpoch : null,
-      launchBucket: sameSession ? current.launchBucket : null,
-      launchParticipantId: sameSession ? current.launchParticipantId : null,
+      launchEpoch: current.launchEpoch,
+      launchNetwork: current.launchNetwork,
+      launchBucket: current.launchBucket,
+      launchParticipantId: current.launchParticipantId,
     );
-    // Phase writes happen after long Rust/RPC awaits. Re-check the launch
-    // identity here (not only at resume) so a sign-out or user switch mid-proof
-    // cannot land the retired user's row — the write is dropped and the caller
-    // is left to finalize against a session that is no longer current.
-    if (_checkLaunchIdentity(next) == _LaunchIdentityCheck.mismatch) {
-      _log.warn(
-        'Dropping a zkPassport runtime write for a superseded identity',
-        context: {'requestId': next.requestId, 'phase': next.phase.name},
-      );
-      return;
-    }
     _runtimeSession = next;
     await _runtimeRepo.save(next);
   }
@@ -907,12 +817,17 @@ class ZkPassportPipelineController
       outerPublicInputsHex: outerPublicInputsHex,
       resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
     );
-    await _runtimeRepo.clear(bucket: _runtimeSession?.launchBucket);
+    final runtime = _runtimeSession;
+    if (runtime != null) {
+      await _runtimeRepo.clear(runtime);
+    }
     _runtimeSession = null;
+    _runtimeCapability = null;
   }
 
   Future<void> recoverPendingSessionOnForeground() async {
     await _startupResetFuture;
+    if (!mounted) return;
     if (_inFlight) {
       return;
     }
@@ -922,25 +837,6 @@ class ZkPassportPipelineController
     }
     final requestId = runtime.requestId.trim();
     if (requestId.isEmpty) {
-      return;
-    }
-    // A preserved session launched by a DIFFERENT user (sign-out + sign-in
-    // while the app was backgrounded or killed) must not resume under the
-    // current identity — its proof would be stored and completed as the
-    // wrong user. Deferred (unsettled identity) is fine here: the polling
-    // attempts re-validate on every tick.
-    if (_checkLaunchIdentity(runtime) == _LaunchIdentityCheck.mismatch) {
-      _log.warn(
-        'Discarding zkPassport session launched by another identity',
-        context: {'requestId': requestId},
-      );
-      await _finalizeRuntimeSession(
-        requestId: requestId,
-        phase: ZkPassportPipelinePhase.failed,
-        status: ZkPassportPipelineStatus.failure,
-        message: 'The zkPassport session belongs to a different signed-in '
-            'account. Start a new verification.',
-      );
       return;
     }
     _setState(
@@ -997,33 +893,6 @@ class ZkPassportPipelineController
           runtime.isTerminal) {
         _stopServerPollingWorker();
         return;
-      }
-
-      // Every polling tick re-validates the launch identity: a login /
-      // logout / season rollover mid-poll must stop this session before a
-      // ready result is fetched and fed to the pipeline as the new user.
-      switch (_checkLaunchIdentity(runtime)) {
-        case _LaunchIdentityCheck.match:
-          break;
-        case _LaunchIdentityCheck.defer:
-          // Identity not settled yet (boot restore / reconcile): check
-          // again on the next tick instead of acting or discarding.
-          _scheduleServerPollingAttempt(requestId: requestId);
-          return;
-        case _LaunchIdentityCheck.mismatch:
-          _log.warn(
-            'Stopping zkPassport polling: session launched by another '
-            'identity',
-            context: {'requestId': requestId},
-          );
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: 'The zkPassport session belongs to a different '
-                'signed-in account. Start a new verification.',
-          );
-          return;
       }
 
       final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -1259,12 +1128,6 @@ class ZkPassportPipelineController
     int? fetchOuterProofMs,
   }) async {
     _inFlight = true;
-    // Bind this run to the identity that LAUNCHED the session (validated
-    // here against the current one), not to whoever happens to be current
-    // at result arrival: registration storage and backend completion below
-    // are refused if a login / logout / season reconcile switched the
-    // identity while proving was in flight — A's proof must never be stored
-    // or submitted under B's account.
     final runtimeAtStart = _runtimeSession;
     if (runtimeAtStart == null || runtimeAtStart.requestId != requestId) {
       try {
@@ -1296,21 +1159,24 @@ class ZkPassportPipelineController
       }
       return;
     }
-    if (_checkLaunchIdentity(runtimeAtStart) != _LaunchIdentityCheck.match) {
+    final capability = _runtimeCapability;
+    final participantId = runtimeAtStart.launchParticipantId;
+    if (capability == null ||
+        capability.sessionId != runtimeAtStart.appSessionId ||
+        participantId == null) {
       try {
         await _finalizeRuntimeSession(
           requestId: requestId,
           phase: ZkPassportPipelinePhase.failed,
           status: ZkPassportPipelineStatus.failure,
-          message: 'The signed-in identity changed while the proof was being '
-              'produced. Please retry the verification.',
+          message: 'The zkPassport request owner could not be verified. '
+              'Please retry the verification.',
         );
       } finally {
         _inFlight = false;
       }
       return;
     }
-    final pipelineIdentity = IdentitySnapshots.current;
     List<String>? outerPublicInputsHex;
     try {
       _log.warn(
@@ -1518,26 +1384,11 @@ class ZkPassportPipelineController
         return;
       }
 
-      if (!pipelineIdentity.sameScopeAs(IdentitySnapshots.current)) {
-        await _finalizeRuntimeSession(
-          requestId: requestId,
-          phase: ZkPassportPipelinePhase.failed,
-          status: ZkPassportPipelineStatus.failure,
-          message: 'The signed-in identity changed while the proof was being '
-              'verified. Please retry the verification.',
-          fetchOuterProofMs: fetchOuterProofMs,
-          verifyOuterMs: verifyOuterMs,
-          wrapOuterMs: wrapOuterMs,
-          verifyWrappedMs: verifyWrappedMs,
-          outerPublicInputsHex: outerPublicInputsHex,
-        );
-        return;
-      }
-
       final flowController = _ref.read(zkPassportFlowControllerProvider);
       _PreparedBackendCompletion? completion;
       if (AppConfig.viewOnly) {
-        await flowController.storeSuccessfulRegistration(
+        await flowController.storeSuccessfulRegistrationForAccount(
+          capability: capability,
           nullifierHex: derivedNullifierHex,
           requestVersion: requestVersion,
           facematchVerified: _runtimeSession?.facematchStrict,
@@ -1547,6 +1398,8 @@ class ZkPassportPipelineController
         );
       } else {
         completion = await _prepareBackendCompletion(
+          capability: capability,
+          participantId: participantId,
           sessionId: requestId,
           nullifierHex: derivedNullifierHex,
           requestVersion: requestVersion,
@@ -1569,35 +1422,27 @@ class ZkPassportPipelineController
         final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
         await persistZkCompletionInOrder(
           persistOutbox: () => repo.storePendingCompletion(
-            appSessionId: completion!.appSessionId,
+            capability: completion!.capability,
             participantId: completion.participantId,
             challengeId: completion.challengeId,
-            walletAddress: completion.walletAddress,
             sessionId: completion.sessionId,
             nullifierHex: completion.nullifierHex,
             requestVersion: completion.requestVersion,
-            accountId: completion.accountId,
             facematchVerified: runtimeAtStart.facematchStrict,
             verifyOuterMs: verifyOuterMs,
             wrapOuterMs: wrapOuterMs,
             verifyWrappedMs: verifyWrappedMs,
-            bucket: completion.bucket,
           ),
-          persistRegistration: () {
-            if (!completion!.identity.sameScopeAs(IdentitySnapshots.current)) {
-              throw const StaleAuthCredentialException();
-            }
-            return flowController.storeSuccessfulRegistrationForAccount(
-              accountId: completion.accountId,
-              bucket: completion.bucket,
-              nullifierHex: derivedNullifierHex,
-              requestVersion: requestVersion,
-              facematchVerified: runtimeAtStart.facematchStrict,
-              verifyOuterMs: verifyOuterMs,
-              wrapOuterMs: wrapOuterMs,
-              verifyWrappedMs: verifyWrappedMs,
-            );
-          },
+          persistRegistration: () =>
+              flowController.storeSuccessfulRegistrationForAccount(
+            capability: completion!.capability,
+            nullifierHex: derivedNullifierHex,
+            requestVersion: requestVersion,
+            facematchVerified: runtimeAtStart.facematchStrict,
+            verifyOuterMs: verifyOuterMs,
+            wrapOuterMs: wrapOuterMs,
+            verifyWrappedMs: verifyWrappedMs,
+          ),
         );
       }
 
@@ -1697,30 +1542,16 @@ class ZkPassportPipelineController
   // ---------------------------------------------------------------------------
 
   Future<_PreparedBackendCompletion?> _prepareBackendCompletion({
+    required AccountCapability capability,
+    required int participantId,
     required String sessionId,
     required String nullifierHex,
     required ZkPassportRequestVersion requestVersion,
   }) async {
-    final identity = IdentitySnapshots.current;
     try {
-      final accountId = identity.accountId;
-      final walletAddress = identity.address;
-      final appSessionId = identity.sessionId?.trim();
-      if (!identity.isAuthenticated ||
-          !identity.isSettled ||
-          accountId == null ||
-          walletAddress == null ||
-          appSessionId == null ||
-          appSessionId.isEmpty) {
-        _log.warn('Skipping backend completion: identity has no confirmed '
-            'account scope');
-        return null;
-      }
-      final participantId = identity.participantId ??
-          await _ref.read(participantIdProvider.future);
       final challengeId = _ref.read(zkIdentityChallengeIdProvider);
 
-      if (participantId == null || challengeId == null) {
+      if (challengeId == null) {
         _log.warn('Skipping backend completion: missing data', context: {
           'participantId': participantId,
           'challengeId': challengeId,
@@ -1737,22 +1568,13 @@ class ZkPassportPipelineController
         return null;
       }
 
-      if (!identity.sameScopeAs(IdentitySnapshots.current)) {
-        _log.warn('Skipping backend completion: identity changed while '
-            'preparing the durable outbox');
-        return null;
-      }
-
       return _PreparedBackendCompletion(
-        appSessionId: appSessionId,
+        capability: capability,
         participantId: participantId,
         challengeId: challengeId,
-        walletAddress: walletAddress,
         sessionId: sessionId,
         nullifierHex: nullifierHex,
         requestVersion: requestVersion,
-        identity: identity,
-        accountId: accountId,
       );
     } catch (e, st) {
       _log.warn('Failed to prepare zkPassport backend completion', context: {
@@ -1768,18 +1590,8 @@ class ZkPassportPipelineController
   Future<void> _deliverBackendCompletion(
     _PreparedBackendCompletion completion,
   ) async {
-    bool identityStillCurrent() =>
-        completion.identity.sameScopeAs(IdentitySnapshots.current);
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
     try {
-      // An unsettled identity (reconciling) must not submit: the token and
-      // account pairing is unknown. The row is durable — the identity driver
-      // retries it as soon as the identity settles.
-      if (!completion.identityWasSettled) {
-        _log.info('Deferring backend completion until identity settles');
-        return;
-      }
-
       final api = _ref.read(leaderboardApiServiceProvider);
       const delays = <Duration>[
         Duration(seconds: 1),
@@ -1790,15 +1602,6 @@ class ZkPassportPipelineController
       StackTrace? lastStack;
 
       for (var attempt = 0; attempt < 3; attempt++) {
-        // Revalidate immediately before EVERY POST, not just at entry: the
-        // retry delays below are exactly where a login can complete and
-        // swap the token, and a request sent after that submits this proof
-        // under the new identity's credentials.
-        if (!identityStillCurrent()) {
-          _log.warn('Deferring backend completion: identity changed before '
-              'delivery (outbox row kept for its own identity)');
-          return;
-        }
         try {
           final ok = await api.completeZkPassport(
             appSessionId: completion.appSessionId,
@@ -1810,9 +1613,9 @@ class ZkPassportPipelineController
           if (ok) {
             _log.info('Backend completion succeeded');
             await repo.recordRequestOutcome(
+              capability: completion.capability,
               version: completion.requestVersion,
               outcome: ZkPassportRequestOutcome.delivered,
-              bucket: completion.bucket,
             );
             _ref.invalidate(zkPassportIsRegisteredProvider);
             _ref.invalidate(zkPassportRegistrationProvider);
@@ -1840,19 +1643,12 @@ class ZkPassportPipelineController
 
       // Terminal client rejection (4xx other than 408/429): the backend has
       // permanently refused this completion — retrying can never succeed.
-      // Roll back instead of leaving a retry row that would loop forever —
-      // but only when the response answers THIS identity's submission; a
-      // stale rejection says nothing about the current identity's records.
+      // Roll back its exact owner instead of leaving a row that loops forever.
       if (isTerminalZkCompletionRejection(lastError)) {
-        if (!identityStillCurrent()) {
-          _log.warn('Ignoring terminal rejection from a superseded identity');
-          return;
-        }
         await _handleTerminalCompletionRejection(
           lastError!,
           lastStack,
-          bucket: completion.bucket,
-          requireIdentity: completion.identity,
+          capability: completion.capability,
           requestVersion: completion.requestVersion,
         );
         return;
@@ -1875,20 +1671,12 @@ class ZkPassportPipelineController
     }
   }
 
-  /// The backend permanently rejected this completion (e.g. 409 duplicate
-  /// nullifier, 422 closed challenge). Clear the pending record so cold
-  /// starts stop retrying it, and roll back the optimistic local
-  /// registration so the challenge stops rendering as earned and the retry
-  /// CTA returns.
-  ///
-  /// Versioned rows are rolled back by one append-only outcome write.
-  /// [bucket] pins that event to the owning identity and [requireIdentity]
-  /// rejects a stale response before it can publish an outcome.
+  /// Records one outcome under the rejected operation's immutable owner. The
+  /// outbox and optimistic registration views both consume that marker.
   Future<void> _handleTerminalCompletionRejection(
     Object error,
     StackTrace? stack, {
-    String? bucket,
-    required Identity requireIdentity,
+    required AccountCapability capability,
     ZkPassportRequestVersion? requestVersion,
   }) async {
     _log.warn('Backend permanently rejected zkPassport completion', context: {
@@ -1900,12 +1688,6 @@ class ZkPassportPipelineController
       tag: 'zkpassport_completion_rejected',
     );
 
-    if (!requireIdentity.sameScopeAs(IdentitySnapshots.current)) {
-      _log.warn('Skipping completion rollback: identity changed during '
-          'rejection handling');
-      return;
-    }
-
     if (requestVersion != null) {
       try {
         final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
@@ -1913,9 +1695,9 @@ class ZkPassportPipelineController
         // the exact optimistic registration. Cleanup is intentionally not a
         // correctness boundary.
         await repo.recordRequestOutcome(
+          capability: capability,
           version: requestVersion,
           outcome: ZkPassportRequestOutcome.rejected,
-          bucket: bucket,
         );
         _ref.invalidate(zkPassportIsRegisteredProvider);
         _ref.invalidate(zkPassportRegistrationProvider);
@@ -1923,98 +1705,23 @@ class ZkPassportPipelineController
       } catch (e, st) {
         await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
       }
-      return;
     }
-
-    // Legacy rows do not carry a request generation and cannot participate in
-    // exact outcome matching. Preserve their pre-versioning cleanup behavior.
-    try {
-      final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-      // [bucket] pins the clear to the bucket the rejected record was read
-      // from (retry path); null falls back to the active bucket (live
-      // completion path, where the flow runs entirely within one identity).
-      await repo.clearPendingCompletion(bucket: bucket);
-    } catch (e, st) {
-      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
-    }
-
-    try {
-      await _ref
-          .read(zkPassportFlowControllerProvider)
-          .clearActiveRegistration();
-    } catch (e, st) {
-      await SentryUtil.captureError(e, st, tag: 'zkpassport_completion');
-    }
-
-    unawaited(refreshAllLeaderboardData(_ref));
   }
 
-  /// Retries any stored pending completion (the identity-keyed outbox row).
-  /// Reached (via [_retryPendingCompletionGuarded]) from cold start and from
-  /// [retryPendingCompletion] when the identity driver observes a settled
-  /// identity (sign-in reconcile completed, boot restore to ready).
-  ///
-  /// The run is bound to the identity snapshot it captures at the start:
-  /// - it does not run at all while the identity is unsettled
-  ///   ([Identity.isSettled] false) — the active bucket/token pairing is
-  ///   unknown (an interrupted A→B switch can expose A's bucket with B's
-  ///   token, and submitting A's proof as B would 422-terminally erase A's
-  ///   valid record);
-  /// - the storage bucket comes from the captured snapshot and every
-  ///   read/clear is pinned to it, so a mid-flight bucket switch can't
-  ///   redirect the clear;
-  /// - the exact snapshot is re-checked before every clear/rollback — if
-  ///   the identity changed (including a season-rollover account switch,
-  ///   which bumps the epoch), the record is left in place for the new
-  ///   identity's own run.
+  /// Retries the newest outbox row owned by this exact session host.
   Future<void> _retryPendingCompletion() async {
     final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-    final identity = IdentitySnapshots.current;
-    final bucket = identity.bucket;
-    bool identityStillCurrent() =>
-        identity.sameScopeAs(IdentitySnapshots.current);
+    final scope = await _captureAccountScope(_ref);
+    if (scope == null) return;
+    final capability = scope.capability;
     ZkPassportRequestVersion? pendingRequestVersion;
     try {
-      if (!identity.isAuthenticated || !identity.isSettled) {
-        _log.info('Skipping pending-completion retry: identity is '
-            '${identity.phase.name} (not ready for authenticated delivery)');
-        return;
-      }
-
-      final pending = await repo.getPendingCompletion(bucket: bucket);
+      final pending = await repo.getPendingCompletion(capability);
       if (pending == null) return;
 
-      final appSessionId = pending['app_session_id'];
-      if (appSessionId is! String || appSessionId != identity.sessionId) {
-        _log.info('Deferring pending completion owned by another '
-            'application session');
-        return;
-      }
-
       final requestVersion = ZkPassportRequestVersion.fromJson(pending);
+      if (requestVersion == null) return;
       pendingRequestVersion = requestVersion;
-      final hasVersionFields = pending.containsKey('request_id') ||
-          pending.containsKey('request_created_at_ms') ||
-          pending.containsKey('request_nonce');
-
-      if (AppConfig.viewOnly) {
-        if (requestVersion == null) {
-          await repo.clearPendingCompletion(bucket: bucket);
-        } else {
-          await repo.recordRequestOutcome(
-            version: requestVersion,
-            outcome: ZkPassportRequestOutcome.delivered,
-            bucket: bucket,
-          );
-          _ref.invalidate(zkPassportIsRegisteredProvider);
-          _ref.invalidate(zkPassportRegistrationProvider);
-        }
-        _log.info('Retired pending zkPassport completion in view-only mode');
-        return;
-      }
-
-      // Validate types before casting — corrupt data should be cleared, not
-      // retried forever.
       final participantId = pending['participant_id'];
       final challengeId = pending['challenge_id'];
       final walletAddress = pending['wallet_address'];
@@ -2026,40 +1733,25 @@ class ZkPassportPipelineController
           walletAddress is! String ||
           sessionId is! String ||
           nullifierHex is! String ||
-          (hasVersionFields &&
-              (requestVersion == null ||
-                  requestVersion.requestId != sessionId ||
-                  accountId is! String))) {
-        _log.warn('Clearing corrupt pending completion data');
-        await repo.clearPendingCompletion(bucket: bucket);
+          accountId is! String ||
+          pending['app_session_id'] != capability.sessionId ||
+          requestVersion.requestId != sessionId ||
+          participantId != scope.identity.participantId ||
+          walletAddress != capability.address ||
+          accountId != capability.accountId) {
+        _log.warn('Ignoring malformed zkPassport completion owner');
         return;
       }
 
-      // Abandon the retry if the stored challenge_id no longer matches the
-      // active ZK Identity row (e.g. a new season's row supersedes a stale one).
-      // Retrying against a closed/replaced row would loop forever on 422.
-      final currentChallengeId = _ref.read(zkIdentityChallengeIdProvider);
-      if (currentChallengeId == null) {
-        _log.info('Deferring pending completion until the active zkPassport '
-            'challenge has loaded');
-        return;
-      }
-      if (currentChallengeId != challengeId) {
-        _log.warn(
-          'Clearing pending completion targeting stale challenge_id=$challengeId '
-          '(active row is $currentChallengeId)',
+      if (AppConfig.viewOnly) {
+        await repo.recordRequestOutcome(
+          capability: capability,
+          version: requestVersion,
+          outcome: ZkPassportRequestOutcome.delivered,
         );
-        if (requestVersion == null) {
-          await repo.clearPendingCompletion(bucket: bucket);
-        } else {
-          await repo.recordRequestOutcome(
-            version: requestVersion,
-            outcome: ZkPassportRequestOutcome.discarded,
-            bucket: bucket,
-          );
-          _ref.invalidate(zkPassportIsRegisteredProvider);
-          _ref.invalidate(zkPassportRegistrationProvider);
-        }
+        _ref.invalidate(zkPassportIsRegisteredProvider);
+        _ref.invalidate(zkPassportRegistrationProvider);
+        _log.info('Retired pending zkPassport completion in view-only mode');
         return;
       }
 
@@ -2067,93 +1759,52 @@ class ZkPassportPipelineController
       // write leaves a recoverable outbox-only state. Recreate the exact local
       // marker before delivery; a terminal outcome will hide it atomically if
       // the backend rejects the completion.
-      if (requestVersion != null) {
-        if (identity.accountId != accountId ||
-            identity.address != walletAddress ||
-            identity.participantId != participantId) {
-          _log.warn('Deferring pending completion: stored account scope no '
-              'longer matches the current identity');
-          return;
-        }
-        await _ref
-            .read(zkPassportFlowControllerProvider)
-            .storeSuccessfulRegistrationForAccount(
-              accountId: accountId as String,
-              bucket: bucket,
-              nullifierHex: nullifierHex,
-              requestVersion: requestVersion,
-              facematchVerified: pending['facematch_verified'] is bool
-                  ? pending['facematch_verified'] as bool
-                  : null,
-              verifyOuterMs: pending['verify_outer_ms'] is int
-                  ? pending['verify_outer_ms'] as int
-                  : null,
-              wrapOuterMs: pending['wrap_outer_ms'] is int
-                  ? pending['wrap_outer_ms'] as int
-                  : null,
-              verifyWrappedMs: pending['verify_wrapped_ms'] is int
-                  ? pending['verify_wrapped_ms'] as int
-                  : null,
-            );
-        if (!identityStillCurrent()) {
-          _log.warn('Deferring pending completion: identity changed while '
-              'repairing its optimistic registration');
-          return;
-        }
-      }
+      await _ref
+          .read(zkPassportFlowControllerProvider)
+          .storeSuccessfulRegistrationForAccount(
+            capability: capability,
+            nullifierHex: nullifierHex,
+            requestVersion: requestVersion,
+            facematchVerified: pending['facematch_verified'] is bool
+                ? pending['facematch_verified'] as bool
+                : null,
+            verifyOuterMs: pending['verify_outer_ms'] is int
+                ? pending['verify_outer_ms'] as int
+                : null,
+            wrapOuterMs: pending['wrap_outer_ms'] is int
+                ? pending['wrap_outer_ms'] as int
+                : null,
+            verifyWrappedMs: pending['verify_wrapped_ms'] is int
+                ? pending['verify_wrapped_ms'] as int
+                : null,
+          );
 
       final api = _ref.read(leaderboardApiServiceProvider);
-      // Last revalidation before the POST: the reads above are suspension
-      // points where a transition can swap the token this request would be
-      // sent with.
-      if (!identityStillCurrent()) {
-        _log.warn('Skipping pending-completion retry: identity changed '
-            'before delivery');
-        return;
-      }
       final ok = await api.completeZkPassport(
-        appSessionId: appSessionId,
+        appSessionId: capability.sessionId,
         challengeId: challengeId,
         walletAddress: walletAddress,
         sessionId: sessionId,
         nullifierHex: nullifierHex,
       );
 
-      if (!identityStillCurrent()) {
-        _log.warn('Session changed during pending-completion retry - '
-            'leaving stored record untouched');
-        return;
-      }
       if (ok) {
         _log.info('Pending completion retry succeeded');
-        if (requestVersion == null) {
-          await repo.clearPendingCompletion(bucket: bucket);
-        } else {
-          await repo.recordRequestOutcome(
-            version: requestVersion,
-            outcome: ZkPassportRequestOutcome.delivered,
-            bucket: bucket,
-          );
-        }
+        await repo.recordRequestOutcome(
+          capability: capability,
+          version: requestVersion,
+          outcome: ZkPassportRequestOutcome.delivered,
+        );
         _ref.invalidate(zkPassportIsRegisteredProvider);
         _ref.invalidate(zkPassportRegistrationProvider);
         unawaited(refreshAllLeaderboardData(_ref));
       }
     } on LeaderboardApiException catch (e, st) {
-      if (isTerminalZkCompletionRejection(e)) {
-        if (!identityStillCurrent()) {
-          // The rejection answered a submission made under a session that no
-          // longer exists — it says nothing about the CURRENT identity's
-          // record. Erasing the proof/registration here is how an interrupted
-          // account switch destroys the previous user's valid pending proof.
-          _log.warn('Ignoring terminal rejection from a superseded session');
-          return;
-        }
+      if (isTerminalZkCompletionRejection(e) && pendingRequestVersion != null) {
         await _handleTerminalCompletionRejection(
           e,
           st,
-          bucket: bucket,
-          requireIdentity: identity,
+          capability: capability,
           requestVersion: pendingRequestVersion,
         );
         return;
@@ -2188,6 +1839,7 @@ class ZkPassportPipelineController
     int? resumeAttemptCount,
     List<String>? outerPublicInputsHex,
   }) {
+    if (!mounted) return;
     if (status == ZkPassportPipelineStatus.failure) {
       _log.warn(
         'zkPassport pipeline failure',
@@ -2231,8 +1883,12 @@ class ZkPassportPipelineController
     }
 
     try {
-      final accounts = await AccountsRepository.create();
-      final active = await accounts.getActive();
+      final capability = _runtimeCapability;
+      if (capability == null || capability.sessionId != runtime.appSessionId) {
+        return null;
+      }
+      final accounts = await _ref.read(accountsProvider.future);
+      final active = await accounts.getAuthorizedAccount(capability);
       if (active == null) {
         return null;
       }

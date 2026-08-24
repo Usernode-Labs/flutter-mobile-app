@@ -301,8 +301,11 @@ void main() {
       },
     );
 
-    expect(await repository.list(), isEmpty,
-        reason: 'legacy metadata is not visible before reconciliation');
+    expect(
+      () => repository.capabilityFor(_reconciling),
+      throwsA(isA<StaleAuthCredentialException>()),
+      reason: 'reconciliation authority cannot enumerate wallet metadata',
+    );
 
     final result = await repository.reconcileProvisionedAccount(
       identity: _reconciling,
@@ -313,9 +316,14 @@ void main() {
 
     expect(result.account.id, 'legacy-b');
     expect(result.changed, isTrue);
+    final capability = repository.capabilityFor(
+      _ready.copyWith(accountId: 'legacy-b', address: 'address-b'),
+    );
     expect(
-        (await repository.list()).map((account) => account.id), ['legacy-b']);
-    expect(repository.getActiveId(), 'legacy-b');
+      (await repository.list(capability)).map((account) => account.id),
+      ['legacy-b'],
+    );
+    expect(repository.getActiveId(capability), 'legacy-b');
     expect(prefs.getString('testnet:accounts:index'), legacy,
         reason: 'reconciliation must not rewrite or delete legacy metadata');
     expect(prefs.getString('testnet:accounts:activeId'), 'legacy-a');

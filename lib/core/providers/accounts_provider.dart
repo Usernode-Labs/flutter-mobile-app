@@ -144,13 +144,13 @@ class AccountsRepository {
     return capability;
   }
 
-  Future<bool> hasAny() async {
-    final accounts = await list();
+  Future<bool> hasAny(AccountCapability capability) async {
+    final accounts = await list(capability);
     return accounts.isNotEmpty;
   }
 
-  Future<List<AccountMeta>> list() async {
-    if (_identityNamespace == null) return [];
+  Future<List<AccountMeta>> list(AccountCapability capability) async {
+    _assertCapabilityPinned(capability);
     return _readIndex(_kIndexKey);
   }
 
@@ -176,19 +176,25 @@ class AccountsRepository {
     await _prefs.setString(_kIndexKey, raw);
   }
 
-  String? getActiveId() => _prefs.getString(_kActiveIdKey);
+  String? getActiveId(AccountCapability capability) {
+    _assertCapabilityPinned(capability);
+    return _getActiveIdUnchecked();
+  }
 
-  Future<void> setActiveId(String id) async {
+  String? _getActiveIdUnchecked() => _prefs.getString(_kActiveIdKey);
+
+  Future<void> _setActiveId(String id) async {
     await _prefs.setString(_kActiveIdKey, id);
     // Set Sentry user context for error correlation
     SentryUtil.setUser(id: id);
     _log.debug('Set Sentry user context for account: $id');
   }
 
-  Future<AccountMeta?> getActive() async {
-    final id = getActiveId();
+  Future<AccountMeta?> getActive(AccountCapability capability) async {
+    _assertCapabilityPinned(capability);
+    final id = _getActiveIdUnchecked();
     if (id == null) return null;
-    final accounts = await list();
+    final accounts = await _readIndex(_kIndexKey);
     try {
       return accounts.firstWhere((account) => account.id == id);
     } catch (_) {
@@ -238,10 +244,10 @@ class AccountsRepository {
   Future<AccountMeta> _authorizedAccountUnchecked(
     AccountCapability capability,
   ) async {
-    if (getActiveId() != capability.accountId) {
+    if (_getActiveIdUnchecked() != capability.accountId) {
       throw const StaleAuthCredentialException();
     }
-    final accounts = await list();
+    final accounts = await _readIndex(_kIndexKey);
     return accounts.firstWhere(
       (account) =>
           account.id == capability.accountId &&
@@ -269,7 +275,7 @@ class AccountsRepository {
   }) async {
     _log.trace('_persistNew - start (name: $name, address: $address)');
 
-    final current = await list();
+    final current = await _readIndex(_kIndexKey);
 
     final index = current.length;
     final id = _makeId(address, index);
@@ -302,7 +308,7 @@ class AccountsRepository {
     _log.debug('Index saved successfully');
 
     _log.debug('Setting active account ID to: $id');
-    await setActiveId(id);
+    await _setActiveId(id);
     _log.debug('_persistNew - complete (id: $id)');
 
     return meta;
@@ -340,16 +346,16 @@ class AccountsRepository {
       );
     }
 
-    final accounts = await list();
+    final accounts = await _readIndex(_kIndexKey);
     final retained = accounts.where((item) => item.address == lease.address);
     if (retained.isNotEmpty) {
       final account = retained.first;
       if (!await _accountKeyProvesAddress(account, lease.address)) {
         throw const StaleAuthCredentialException();
       }
-      final changed = getActiveId() != account.id;
+      final changed = _getActiveIdUnchecked() != account.id;
       if (changed) {
-        await setActiveId(account.id);
+        await _setActiveId(account.id);
       }
       return AccountReconciliationResult(
         account: account,
@@ -366,7 +372,7 @@ class AccountsRepository {
         final account = legacyMatches.first;
         if (await _accountKeyProvesAddress(account, lease.address)) {
           await _saveIndex([account]);
-          await setActiveId(account.id);
+          await _setActiveId(account.id);
           return AccountReconciliationResult(account: account, changed: true);
         }
       }

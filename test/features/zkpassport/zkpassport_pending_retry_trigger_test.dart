@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
+import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
@@ -30,6 +32,27 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
     this.appSessionId = appSessionId;
     return true;
   }
+}
+
+const _namespace = 'aaaaaaaaaaaaaaaa';
+
+Future<AccountCapability> _seedAccount(Identity identity) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('testnet:identity:namespace', _namespace);
+  await prefs.setString(
+    'testnet:user:$_namespace:accounts:index',
+    '[{"id":"${identity.accountId}","name":"Test",'
+        '"createdAt":"2026-01-01T00:00:00.000Z",'
+        '"derivationPath":"test","hdIndex":0,'
+        '"address":"${identity.address}","publicKey":"utpk1-test",'
+        '"backupConfirmed":true,"isDemo":true}]',
+  );
+  await prefs.setString(
+    'testnet:user:$_namespace:accounts:activeId',
+    identity.accountId!,
+  );
+  final accounts = await AccountsRepository.create();
+  return accounts.capabilityFor(identity);
 }
 
 Future<void> _pumpUntil(bool Function() condition) async {
@@ -64,13 +87,13 @@ void main() {
 
   tearDown(IdentitySnapshots.reset);
 
-  test(
-      'a launch is stamped with the identity that started it, not the one '
-      'that happens to be current when the server answers', () async {
+  test('a late launch write remains owned by the captured application session',
+      () async {
     const address = 'ut1-account-a';
     NetworkPrefs.setActiveBucket(address, guest: false);
     final launcher = _ready(participantId: 7, address: address);
     IdentitySnapshots.publish(launcher);
+    final launchCapability = await _seedAccount(launcher);
 
     final container = ProviderContainer(overrides: [
       // Reading the pipeline otherwise pulls in the challenges graph, which
@@ -80,26 +103,24 @@ void main() {
     addTearDown(container.dispose);
     final pipeline = container.read(zkPassportPipelineProvider.notifier);
 
-    // The session server call is unbounded network time; a sign-out plus a new
-    // login inside it would otherwise have this stamp the SUCCESSOR onto A's
-    // session, and every later scope check would then accept the wrong owner.
     IdentitySnapshots.publish(_ready(participantId: 8, address: 'ut1-b'));
 
-    await expectLater(
-      pipeline.markLaunchStarted(
-        requestId: 'request-a',
-        facematchStrict: true,
-        userPublicKey: 'utpk1-a',
-        launchIdentity: launcher,
-      ),
-      throwsA(isA<StateError>()),
+    await pipeline.markLaunchStarted(
+      requestId: 'request-a',
+      facematchStrict: true,
+      userPublicKey: 'utpk1-a',
+      launchIdentity: launcher,
+      launchCapability: launchCapability,
     );
 
-    // Nothing was persisted for either identity.
-    final prefs = await SharedPreferences.getInstance();
     expect(
-      prefs.getKeys().where((k) => k.contains('runtime_session')),
-      isEmpty,
+      (await ZkPassportRuntimeSessionRepository().loadForSession(
+        appSessionId: launcher.sessionId!,
+        network: launchCapability.network,
+        bucket: launchCapability.bucket,
+      ))
+          ?.requestId,
+      'request-a',
     );
   });
 
@@ -108,6 +129,7 @@ void main() {
     NetworkPrefs.setActiveBucket(address, guest: false);
     final launcher = _ready(participantId: 7, address: address);
     IdentitySnapshots.publish(launcher);
+    final launchCapability = await _seedAccount(launcher);
 
     final container = ProviderContainer(overrides: [
       zkIdentityChallengeIdProvider.overrideWithValue(null),
@@ -120,6 +142,7 @@ void main() {
       facematchStrict: true,
       userPublicKey: 'utpk1-a',
       launchIdentity: launcher,
+      launchCapability: launchCapability,
     );
 
     expect(
@@ -141,6 +164,7 @@ void main() {
       address: address,
       sessionId: 'app-session-b',
     ));
+    await _seedAccount(IdentitySnapshots.current);
 
     final runtimeRepo = ZkPassportRuntimeSessionRepository();
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -153,6 +177,7 @@ void main() {
       lastProgressAtMs: nowMs,
       resumeAttemptCount: 0,
       requestNonce: 'nonce-a',
+      launchNetwork: 'testnet',
       launchBucket: bucket,
       launchParticipantId: participantId,
     ));
@@ -167,12 +192,20 @@ void main() {
 
     expect(
       container.read(zkPassportPipelineProvider).status,
-      ZkPassportPipelineStatus.failure,
+      ZkPassportPipelineStatus.idle,
     );
-    expect(await runtimeRepo.load(), isNull);
+    expect(
+      await runtimeRepo.loadForSession(
+        appSessionId: 'app-session-a',
+        network: 'testnet',
+        bucket: bucket,
+      ),
+      isNotNull,
+    );
   });
 
-  test('challenge id becoming available retriggers a deferred outbox retry',
+  test(
+      'an exact-session outbox retry does not depend on ambient challenge load',
       () async {
     const accountId = 'account-a';
     const address = 'ut1-account-a';
@@ -183,34 +216,29 @@ void main() {
       createdAtMs: 100,
       nonce: 'nonce-a',
     );
-    final bucket = NetworkPrefs.bucketForAddress(address);
     NetworkPrefs.setActiveBucket(address, guest: false);
-    IdentitySnapshots.publish(_ready(
+    final identity = _ready(
       participantId: participantId,
       address: address,
       accountId: accountId,
       sessionId: 'app-session-a',
-    ));
+    );
+    IdentitySnapshots.publish(identity);
+    final capability = await _seedAccount(identity);
 
     final registrationRepo = ZkPassportRegistrationRepository();
     await registrationRepo.storePendingCompletion(
-      appSessionId: 'app-session-a',
+      capability: capability,
       participantId: participantId,
       challengeId: challengeId,
-      walletAddress: address,
       sessionId: version.requestId,
       nullifierHex: 'nullifier-a',
       requestVersion: version,
-      accountId: accountId,
-      bucket: bucket,
     );
 
-    final activeChallengeId = StateProvider<int?>((_) => null);
     final api = _RecordingLeaderboardApiService();
     final container = ProviderContainer(overrides: [
-      zkIdentityChallengeIdProvider.overrideWith(
-        (ref) => ref.watch(activeChallengeId),
-      ),
+      zkIdentityChallengeIdProvider.overrideWithValue(null),
       leaderboardApiServiceProvider.overrideWithValue(api),
     ]);
     addTearDown(() {
@@ -219,22 +247,11 @@ void main() {
     });
 
     container.read(zkPassportPipelineProvider.notifier);
-    await _pumpUntil(() => api.completionCalls != 0);
-    expect(api.completionCalls, 0);
-    expect(
-      await registrationRepo.getPendingCompletion(bucket: bucket),
-      isNotNull,
-    );
-
-    container.read(activeChallengeId.notifier).state = challengeId;
     await _pumpUntil(() => api.completionCalls == 1);
 
     expect(api.completionCalls, 1);
     expect(api.appSessionId, 'app-session-a');
-    expect(
-      await registrationRepo.getPendingCompletion(bucket: bucket),
-      isNull,
-    );
+    expect(await registrationRepo.getPendingCompletion(capability), isNull);
   });
 
   test('a successor app session cannot retry its predecessor outbox', () async {
@@ -246,26 +263,31 @@ void main() {
       createdAtMs: 100,
       nonce: 'nonce-a',
     );
-    final bucket = NetworkPrefs.bucketForAddress(address);
     NetworkPrefs.setActiveBucket(address, guest: false);
-    IdentitySnapshots.publish(_ready(
+    final successorIdentity = _ready(
       participantId: participantId,
       address: address,
       sessionId: 'app-session-b',
-    ));
+    );
+    final retiredIdentity = _ready(
+      participantId: participantId,
+      address: address,
+      sessionId: 'app-session-a',
+    );
+    IdentitySnapshots.publish(retiredIdentity);
+    final retiredCapability = await _seedAccount(retiredIdentity);
 
     final registrationRepo = ZkPassportRegistrationRepository();
     await registrationRepo.storePendingCompletion(
-      appSessionId: 'app-session-a',
+      capability: retiredCapability,
       participantId: participantId,
       challengeId: challengeId,
-      walletAddress: address,
       sessionId: version.requestId,
       nullifierHex: 'nullifier-a',
       requestVersion: version,
-      accountId: 'account-$participantId',
-      bucket: bucket,
     );
+    IdentitySnapshots.publish(successorIdentity);
+    await _seedAccount(successorIdentity);
 
     final api = _RecordingLeaderboardApiService();
     final container = ProviderContainer(overrides: [
@@ -282,7 +304,7 @@ void main() {
 
     expect(api.completionCalls, 0);
     expect(
-      await registrationRepo.getPendingCompletion(bucket: bucket),
+      await registrationRepo.getPendingCompletion(retiredCapability),
       isNotNull,
     );
   });

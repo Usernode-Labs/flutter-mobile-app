@@ -72,8 +72,9 @@ final identityProvider = StateNotifierProvider<SessionController, Identity>(
 /// - **Single writer**: this class is the only writer of the ambient
 ///   [IdentitySnapshots] mirror and of [NetworkPrefs.setActiveBucket]
 ///   (enforced by ds_lints).
-/// - **Epoch-scoped effects**: results of async work started under an older
-///   epoch ([reconcileSucceeded], [onUnauthorized]) are ignored.
+/// - **Exact transitions**: transition callbacks compare the journal revision
+///   and identity they were admitted under; ordinary session work uses its
+///   immutable capability and the disposable host boundary instead.
 /// - **Crash-safe login**: the reconcile-pending marker and the staged
 ///   participant id are persisted BEFORE the session token becomes
 ///   boot-restorable, so an interrupted login is always repaired on the next

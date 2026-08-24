@@ -6,9 +6,38 @@ import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/services/explorer_service.dart';
+import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 
 final _log = LoggingService.instance.withTag('usernode/WalletProvider');
+
+class WalletBalanceUnavailable implements Exception {
+  final String reason;
+
+  const WalletBalanceUnavailable(this.reason);
+
+  @override
+  String toString() => 'WalletBalanceUnavailable: $reason';
+}
+
+WalletBalance walletBalanceFromLocalResponse(RpcWalletBalanceResp? response) {
+  if (response == null) {
+    throw const WalletBalanceUnavailable('wallet RPC did not return a result');
+  }
+  if (!response.tracked) {
+    throw const WalletBalanceUnavailable('wallet owner is not tracked');
+  }
+
+  final totalBalance = response.baseTotal;
+  return WalletBalance(
+    tokenAmount: totalBalance.toDouble(),
+    tokenSymbol: totalBalance > BigInt.zero ? 'TKN' : 'TOKENS',
+    totalBalance: totalBalance,
+    dataSource: DataSource.local,
+    lastUpdated: DateTime.now(),
+  );
+}
 
 class WalletState {
   final WalletBalance balance;
@@ -31,18 +60,29 @@ class WalletController extends AsyncNotifier<WalletState> {
       // to a previous user).
       return WalletState(balance: _emptyBalance());
     }
-    var balance = await _calculateBalance(address);
 
-    // Startup race guard: wallet can initialize before node/RPC is running.
-    // Retry once so initial UI does not get stuck on transient 0 balance.
-    if (balance.totalBalance == BigInt.zero &&
-        !RustBackendService.instance.isRunning) {
-      _log.debug(
-          'Initial wallet load happened before node start; retrying once');
-      await Future.delayed(const Duration(seconds: 2));
-      balance = await _calculateBalance(address);
+    // Rebuild only on meaningful wallet-readiness transitions, not on every
+    // one-second node status poll. Explorer reads can begin once a chain ID is
+    // available; the local fallback must wait until its owner scan completes.
+    final walletNodeState = ref.watch(
+      nodeStatusProvider.select((status) {
+        final node = status.valueOrNull;
+        return (
+          chainId: node?.chainId,
+          walletSeeded: node?.walletUtxoSeed?.seeded ?? false,
+        );
+      }),
+    );
+    if (walletNodeState.chainId == null) {
+      throw const WalletBalanceUnavailable(
+        'node chain is not ready for wallet lookup',
+      );
     }
 
+    final balance = await _calculateBalance(
+      address,
+      localWalletReady: walletNodeState.walletSeeded,
+    );
     return WalletState(balance: balance);
   }
 
@@ -64,7 +104,10 @@ class WalletController extends AsyncNotifier<WalletState> {
       );
 
   /// Calculate wallet balance using explorer APIs with fallback to UTXOs
-  Future<WalletBalance> _calculateBalance(String userAddress) async {
+  Future<WalletBalance> _calculateBalance(
+    String userAddress, {
+    required bool localWalletReady,
+  }) async {
     try {
       _log.debug('Calculating balance for address: $userAddress');
 
@@ -75,12 +118,17 @@ class WalletController extends AsyncNotifier<WalletState> {
       }
 
       // Fallback to node-local wallet data.
+      if (!localWalletReady) {
+        throw const WalletBalanceUnavailable(
+          'local wallet owner scan is not complete',
+        );
+      }
       _log.debug('Falling back to local wallet balance calculation');
       return await _calculateBalanceFromLocalWallet(userAddress);
     } catch (e, st) {
       _log.error('Failed to calculate wallet balance',
           error: e, stackTrace: st);
-      return _emptyBalance();
+      rethrow;
     }
   }
 
@@ -116,21 +164,16 @@ class WalletController extends AsyncNotifier<WalletState> {
     final balanceResp =
         await RustBackendService.instance.walletBalance(owner: owner);
 
-    _log.debug('Got wallet balance response=${balanceResp != null}');
-
-    final totalBalance = balanceResp?.baseTotal ?? BigInt.zero;
-
-    final primaryTokenSymbol = totalBalance > BigInt.zero ? 'TKN' : 'TOKENS';
-
-    _log.debug('Calculated local wallet balance: ${totalBalance.toString()}');
-
-    return WalletBalance(
-      tokenAmount: totalBalance.toDouble(),
-      tokenSymbol: primaryTokenSymbol,
-      totalBalance: totalBalance,
-      dataSource: DataSource.local,
-      lastUpdated: DateTime.now(),
+    _log.debug(
+      'Got wallet balance response',
+      context: {'tracked': balanceResp?.tracked},
     );
+
+    final balance = walletBalanceFromLocalResponse(balanceResp);
+    _log.debug(
+      'Calculated local wallet balance: ${balance.totalBalance.toString()}',
+    );
+    return balance;
   }
 }
 

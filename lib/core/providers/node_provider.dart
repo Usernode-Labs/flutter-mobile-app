@@ -17,6 +17,7 @@ class NodeStatusState {
   final RpcStatusBlockInfo? networkBest;
   final BlockProgressData? fetchProgress;
   final BlockProgressData? applyProgress;
+  final RpcStatusWalletUtxoSeed? walletUtxoSeed;
   final RpcStatusBlockProducer? blockProducer;
   final RpcStatusVrfEvaluator? vrfEvaluator;
   final RpcStatusNode node;
@@ -33,6 +34,7 @@ class NodeStatusState {
     required this.networkBest,
     required this.fetchProgress,
     required this.applyProgress,
+    required this.walletUtxoSeed,
     required this.blockProducer,
     required this.vrfEvaluator,
     required this.node,
@@ -304,6 +306,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         networkBest: networkBest,
         fetchProgress: fetchProgress,
         applyProgress: applyProgress,
+        walletUtxoSeed: status.blockchain.sync.walletUtxoSeed,
         blockProducer: bpStatus?.blockProducer,
         vrfEvaluator: bpStatus?.vrfEvaluator,
         node: status.node,
@@ -323,6 +326,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         networkBest: networkBest,
         fetchProgress: fetchProgress,
         applyProgress: applyProgress,
+        walletUtxoSeed: status.blockchain.sync.walletUtxoSeed,
         blockProducer: bpStatus?.blockProducer,
         vrfEvaluator: bpStatus?.vrfEvaluator,
         node: status.node,

@@ -91,6 +91,17 @@ class Identity {
   bool get isAuthenticated =>
       phase == IdentityPhase.reconciling || phase == IdentityPhase.ready;
 
+  /// Whether an authenticated social user has a fully reconciled on-chain
+  /// account attached to this identity.
+  ///
+  /// A local-only account is intentionally excluded: its registry entry has
+  /// not been confirmed by the social backend to belong to the current user.
+  bool get hasLinkedOnChainAccount =>
+      phase == IdentityPhase.ready &&
+      participantId != null &&
+      accountId != null &&
+      address != null;
+
   /// Whether account-scoped state can be trusted to belong to this identity.
   bool get isSettled =>
       phase != IdentityPhase.transitioning &&

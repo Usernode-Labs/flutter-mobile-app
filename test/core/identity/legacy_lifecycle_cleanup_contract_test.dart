@@ -38,7 +38,6 @@ void main() {
       '_terminalResetRequested',
       '_terminallyClosed',
       "'restarting': true",
-      'SignOutFence',
       'appResetLogoutTitle',
       'appResetSessionExpiredTitle',
       'appResetCredentialMissingTitle',

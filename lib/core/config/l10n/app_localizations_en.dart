@@ -627,51 +627,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get widgetInstructionsDone => 'Done';
 
   @override
-  String get appResetCompleteTitle => 'Reset complete';
+  String get networkRestartTitle => 'Network changed';
 
   @override
-  String get appResetCompleteBody => 'Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetLogoutTitle => 'Signed out';
-
-  @override
-  String get appResetLogoutBody =>
-      'You signed out, and your local data was cleared. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetSessionExpiredTitle => 'Session expired';
-
-  @override
-  String get appResetSessionExpiredBody =>
-      'Your session is no longer valid, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetCredentialMissingTitle => 'Signed out';
-
-  @override
-  String get appResetCredentialMissingBody =>
-      'Your saved sign-in could not be read, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetAccountChangedTitle => 'Account changed';
-
-  @override
-  String get appResetAccountChangedBody =>
-      'You signed in with a different account, so the previous account\'s local data was cleared. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetGuestTitle => 'Switched to guest';
-
-  @override
-  String get appResetGuestBody =>
-      'You switched to guest mode, and your account\'s local data was cleared. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetNetworkChangeTitle => 'Network changed';
-
-  @override
-  String get appResetNetworkChangeBody =>
+  String get networkRestartBody =>
       'Usernode will start on the selected network. Close and reopen Usernode to continue.';
 
   @override

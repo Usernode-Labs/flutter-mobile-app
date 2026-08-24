@@ -76,8 +76,9 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   /// and resolve as soon as the bearer and participant are installed. Account
   /// reconciliation continues behind that authenticated boundary; only wallet
   /// and node methods wait for [IdentityPhase.ready]. Replacing an
-  /// authenticated participant enters the terminal reset boundary. No path
-  /// starts the node — lifecycle remains platform-controlled.
+  /// authenticated participant uses the same retirement and disposable-host
+  /// boundary as logout. No path starts the node — lifecycle remains
+  /// platform-controlled.
   Future<void> _handleCompleteLogin(
       String id, Map<String, dynamic> payload) async {
     if (!await _requireTrustedChromeOrigin(id, 'completeLogin')) return;
@@ -132,48 +133,6 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       return;
     }
     final controller = ref.read(identityProvider.notifier);
-    final replacingParticipant = current.isAuthenticated &&
-        current.participantId != session.participant.id;
-
-    if (replacingParticipant) {
-      await controller.transitionsSettled;
-      if (!mounted) return;
-      if (!_identityScopeIsCurrent(current)) {
-        await _rejectStaleIdentityScope(id, 'completeLogin');
-        return;
-      }
-      if (!await _revalidatePrivilegedBridgeLease(id, 'completeLogin')) return;
-      // A different authenticated participant is unsupported in-process.
-      // Start the terminal transition, then answer the initiating page without
-      // touching Riverpod again.
-      _sessionHandoffGate.closeForTerminalReset();
-      final transition = controller.completeLogin(
-        session,
-        expectedIdentity: current,
-      );
-      unawaited(transition.then<void>(
-        (applied) {
-          if (!applied) {
-            debugPrint(
-              '[Usernode JS-channel] terminal completeLogin was rejected',
-            );
-          }
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          debugPrint(
-            '[Usernode JS-channel] terminal completeLogin failed: '
-            '$error\n$stackTrace',
-          );
-        },
-      ));
-      await _resolveJsPromise(
-        id: id,
-        value: const {'restarting': true},
-        error: null,
-      );
-      return;
-    }
-
     final sameParticipant = current.isAuthenticated &&
         current.participantId == session.participant.id;
     final expectedEpoch = sameParticipant ? current.epoch : current.epoch + 1;
@@ -337,12 +296,10 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
 
   /// `logout`: web-side confirm/cache fence, then native commit.
   ///
-  /// Sign-out is no longer terminal — the runtime survives and reloads this
-  /// WebView into the platform's login page — so unlike the terminal
-  /// boundaries this one is AWAITED before the acknowledgement: the web side's
-  /// contract (`NativeChrome.commitNativeLogout`) is that native replaces the
-  /// document and it performs no continuation work, so the credential and the
-  /// web session must already be gone by the time the promise resolves.
+  /// The web side's contract (`NativeChrome.commitNativeLogout`) performs no
+  /// continuation work after native accepts logout. The disposable host may
+  /// remove this realm before the Future completes, in which case there is no
+  /// old-page promise left to resolve.
   Future<void> _handleLogout(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
     if (!mounted) return;
@@ -352,10 +309,6 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     if (!mounted) return;
     final identity = ref.read(identityProvider);
     if (!await _revalidatePrivilegedBridgeLease(id, 'logout')) return;
-    // Not the terminal latch: the same gate has to admit the next login in
-    // this runtime.
-    _sessionHandoffGate.closeForSignOut();
-
     var loggedOut = false;
     try {
       loggedOut = await controller.logout(expectedIdentity: identity);

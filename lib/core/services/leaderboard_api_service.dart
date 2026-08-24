@@ -463,8 +463,8 @@ class LeaderboardApiService {
 
   void _detachSessionInvalidation(Future<void>? invalidation) {
     if (invalidation == null) return;
-    // A 401 invalidation may enter the terminal application boundary. Keep it
-    // out of this request Future so the request cannot await its own teardown.
+    // Invalidation starts global retirement. Keep it out of this request
+    // Future so the request does not wait on disposal of its own host.
     unawaited(invalidation.catchError((Object error, StackTrace stackTrace) {
       _log.warn('Session invalidation failed: $error');
     }));

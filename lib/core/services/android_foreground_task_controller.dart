@@ -30,7 +30,6 @@ class AndroidForegroundTaskController {
   Timer? _pollTimer;
   Future<void>? _activePoll;
   bool _initialized = false;
-  bool _terminalResetRequested = false;
   bool _wakelockHeld = false;
   AccountPublicKey? _cachedOurPubKey;
   ({int height, DateTime since})? _awaitingOtherProducerState;
@@ -40,7 +39,6 @@ class AndroidForegroundTaskController {
 
   Future<void> initialize() async {
     if (!Platform.isAndroid) return;
-    if (_terminalResetRequested) return;
     if (_initialized) return;
 
     WidgetsFlutterBinding.ensureInitialized();
@@ -81,7 +79,6 @@ class AndroidForegroundTaskController {
 
   Future<void> onNodeStarted() async {
     if (!Platform.isAndroid) return;
-    if (_terminalResetRequested) return;
     if (AppSleepStateStore.isSleeping) {
       _log.info('Skipping Android monitoring start while app sleep is active');
       return;
@@ -94,7 +91,6 @@ class AndroidForegroundTaskController {
     bool allowWhileSleeping = false,
   }) async {
     if (!Platform.isAndroid) return false;
-    if (_terminalResetRequested) return false;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Skipping Android monitoring start while app sleep is active',
@@ -207,7 +203,6 @@ class AndroidForegroundTaskController {
     String? alarmKey,
     bool allowWhileSleeping = false,
   }) async {
-    if (_terminalResetRequested) return;
     if (AppSleepStateStore.isSleeping && !allowWhileSleeping) {
       _log.info(
         'Ignoring alarm-fired monitoring start while app sleep is active',
@@ -253,22 +248,6 @@ class AndroidForegroundTaskController {
         _lastHandledAlarmAt = DateTime.now();
       }
     }
-  }
-
-  /// Permanently stops this process-local monitor from admitting new work
-  /// during terminal reset. Already-started work is allowed to finish.
-  void closeForTerminalReset() {
-    _terminalResetRequested = true;
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _activePoll = null;
-    _initialized = false;
-    _wakelockHeld = false;
-    _cachedOurPubKey = null;
-    _awaitingOtherProducerState = null;
-    _alarmRecoveryInFlightKey = null;
-    _lastHandledAlarmKey = null;
-    _lastHandledAlarmAt = null;
   }
 
   Future<bool> _ensureNodeRunning() async {
@@ -461,12 +440,6 @@ class AndroidForegroundTaskController {
     int? targetSlotTimeMs,
     bool stopMonitoringAfterSchedule = false,
   }) async {
-    if (_terminalResetRequested) {
-      return const ForegroundResumeAlarmScheduleResult(
-        success: false,
-        failureReason: 'terminal_reset',
-      );
-    }
     if (await _shouldHoldForOtherProducerBlock()) {
       final height = _awaitingOtherProducerState?.height;
       _log.info(

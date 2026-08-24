@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
@@ -307,93 +305,6 @@ void main() {
         'audit:platform_start',
         'onNodeStarted',
       ]);
-    });
-
-    test(
-        'standing down for an identity boundary tears the whole producer '
-        'lifecycle down, not just the backend', () async {
-      final coordinator = build(android: true, nodeRunning: true);
-      await coordinator.startNode(reason: 'platform_start');
-      calls.clear();
-
-      await coordinator.standDown(reason: 'identity_boundary');
-
-      // Watchdog recovery, Android monitoring, the backend, every scheduled
-      // alarm and the alarm watchdog — a `RustBackendService.stopNode()` would
-      // have left all but one of these armed for the retired account.
-      expect(calls, [
-        'disableRecovery',
-        'stopMonitoring:identity_boundary',
-        'stopBackend',
-        'cancelAllAlarms',
-        'cancelWatchdog',
-      ]);
-      expect(coordinator.hasAccount, isFalse);
-      expect(coordinator.intent, PlatformNodeIntent.unset);
-    });
-
-    test('a stand-down leaves admission open for the next session', () async {
-      final coordinator = build(android: true);
-      await coordinator.standDown(reason: 'identity_boundary');
-      calls.clear();
-
-      expect(await coordinator.startNode(reason: 'next_login'), isTrue);
-      expect(calls, contains('startBackend'));
-    });
-
-    test('a headless recovery event cannot re-arm a stood-down runtime',
-        () async {
-      final coordinator = build(android: true, nodeRunning: true);
-      await coordinator.startNode(reason: 'platform_start');
-      await coordinator.standDown(reason: 'identity_boundary');
-      calls.clear();
-
-      // The account-presence signal a background/headless path reports is not
-      // an explicit platform start, so nothing comes back up and recovery
-      // stays disarmed for the retired account.
-      await coordinator.reportAccountsChanged(hasAccount: false);
-      await coordinator.reportColdBoot(hasAccount: false);
-
-      expect(calls, isNot(contains('startBackend')));
-      expect(calls, isNot(contains('enableRecovery')));
-    });
-
-    test('a stand-down supersedes an in-flight start', () async {
-      final startEntered = Completer<void>();
-      final allowStart = Completer<void>();
-      final coordinator = build(
-        android: true,
-        startBackend: () async {
-          calls.add('startBackend');
-          startEntered.complete();
-          await allowStart.future;
-          return true;
-        },
-      );
-
-      final start = coordinator.startNode(reason: 'platform_start');
-      await startEntered.future;
-      final stood = coordinator.standDown(reason: 'identity_boundary');
-      allowStart.complete();
-      await start;
-      await stood;
-
-      // The stand-down is serialized behind the start, so the teardown runs
-      // last and the runtime ends down.
-      expect(calls.last, 'cancelWatchdog');
-      expect(calls, contains('stopBackend'));
-      expect(coordinator.hasAccount, isFalse);
-      expect(coordinator.intent, PlatformNodeIntent.unset);
-    });
-
-    test('terminal reset disables recovery synchronously', () {
-      final coordinator = build(android: true);
-
-      coordinator.closeForTerminalReset();
-
-      expect(calls, ['disableRecovery']);
-      expect(coordinator.hasAccount, isFalse);
-      expect(coordinator.intent, PlatformNodeIntent.unset);
     });
   });
 }

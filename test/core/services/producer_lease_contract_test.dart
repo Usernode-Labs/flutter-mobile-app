@@ -46,6 +46,6 @@ void main() {
         scheduleStart,
       ),
     );
-    expect('_terminalResetRequested'.allMatches(schedule), hasLength(1));
+    expect(schedule, isNot(contains('_terminalResetRequested')));
   });
 }

@@ -163,12 +163,9 @@ import WebKit
     case "clearLegacySessionAuthority":
       result(clearLegacySessionAuthority())
 
-    case "clearNativeResetState":
-      result(clearNativeResetState())
-
-    case "enterTerminalReset":
+    case "restartAfterNetworkChange":
       // iOS does not expose a supported self-termination API. Dart has already
-      // replaced the functional app with the inert reset-complete surface.
+      // replaced the functional app with the network relaunch surface.
       result(nil)
 
     case "requestNotificationPermission":
@@ -318,24 +315,6 @@ import WebKit
     defaults.removeObject(forKey: "application_incarnation")
     return defaults.synchronize() &&
       defaults.object(forKey: "application_incarnation") == nil
-  }
-
-  private func clearNativeResetState() -> Bool {
-    if #available(iOS 13.0, *) {
-      BGTaskScheduler.shared.cancelAllTaskRequests()
-    }
-    endTransientBackgroundTask()
-    let center = UNUserNotificationCenter.current()
-    center.removeAllPendingNotificationRequests()
-    center.removeAllDeliveredNotifications()
-    var durableStateCleared = homeShortcutsChannel.clearForTerminalReset()
-
-    let defaults = UserDefaults.standard
-    for key in defaults.dictionaryRepresentation().keys {
-      defaults.removeObject(forKey: key)
-    }
-    durableStateCleared = defaults.synchronize() && durableStateCleared
-    return durableStateCleared
   }
 
   private func beginTransientBackgroundTask(result: @escaping FlutterResult) {

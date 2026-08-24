@@ -131,8 +131,7 @@ final class BridgeAdmissionCoordinator {
     }
 
     if (method == 'logout') {
-      // Close admission in arrival order. The handler still revalidates the
-      // realm immediately around the terminal native effect.
+      // Close admission in arrival order before the global retirement starts.
       _sessionGate.begin();
     }
 

@@ -137,7 +137,6 @@ class AppSleepService extends ChangeNotifier {
   DateTime? _lastRecordedInteractionAt;
   bool _initialized = false;
   bool _isEnabled;
-  bool _terminalResetRequested = false;
   bool _resumeNodeOnWake = false;
   bool _resumeEpochMonitoringOnWake = false;
   bool _awaitingInactivityAfterWakelockRelease = false;
@@ -156,7 +155,6 @@ class AppSleepService extends ChangeNotifier {
   bool get isAwake => !_snapshot.isSleeping;
 
   Future<void> initializeForInteractiveApp() async {
-    if (_terminalResetRequested) return;
     if (_useStateStore) {
       await AppSleepStateStore.load();
       _isEnabled = AppSleepStateStore.isEnabled;
@@ -187,7 +185,6 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> handleLifecycleStateChanged(AppLifecycleState state) async {
-    if (_terminalResetRequested) return;
     _snapshot = _snapshot.copyWith(lifecycleState: state);
     _rescheduleIdleTimer();
     notifyListeners();
@@ -224,7 +221,6 @@ class AppSleepService extends ChangeNotifier {
   }
 
   void recordUserInteraction({String source = 'pointer'}) {
-    if (_terminalResetRequested) return;
     if (!_isEnabled && !isSleeping) {
       return;
     }
@@ -258,19 +254,16 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> setEnabled(bool value) {
-    if (_terminalResetRequested) return Future<void>.value();
     _transition = _transition.then((_) => _setEnabledInternal(value));
     return _transition;
   }
 
   Future<void> sleep({required AppSleepReason reason}) {
-    if (_terminalResetRequested) return Future<void>.value();
     _transition = _transition.then((_) => _sleepInternal(reason));
     return _transition;
   }
 
   Future<void> wake({required String reason}) {
-    if (_terminalResetRequested) return Future<void>.value();
     _transition = _transition.then((_) => _wakeInternal(reason));
     return _transition;
   }
@@ -429,8 +422,7 @@ class AppSleepService extends ChangeNotifier {
     _idleTimer?.cancel();
     _idleTimer = null;
 
-    if (_terminalResetRequested ||
-        !_isEnabled ||
+    if (!_isEnabled ||
         _snapshot.lifecycleState != AppLifecycleState.resumed ||
         isSleeping ||
         (_useWakelockTransitionFlow &&
@@ -682,7 +674,6 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> _persistSleeping(bool value) async {
-    if (_terminalResetRequested) return;
     if (_persistSleepingOverride != null) {
       await _persistSleepingOverride(value);
       return;
@@ -692,38 +683,12 @@ class AppSleepService extends ChangeNotifier {
   }
 
   Future<void> _persistEnabled(bool value) async {
-    if (_terminalResetRequested) return;
     if (_persistEnabledOverride != null) {
       await _persistEnabledOverride(value);
       return;
     }
 
     await AppSleepStateStore.setEnabled(value);
-  }
-
-  /// Quiesces the wake/sleep machinery for a scoped sign-out.
-  ///
-  /// The reversible twin of [closeForTerminalReset]: everything it does
-  /// except the one-way latch and the user's automatic-sleep preference,
-  /// which belongs to the device rather than to the retired session. The
-  /// resume flags are the reason this is needed — they were captured while
-  /// the signed-out user's node was running, and would otherwise restart the
-  /// node and epoch monitoring on the next wake.
-  ///
-  /// Already accepted transitions finish in their normal order. Cleanup is
-  /// simply the next item in that same queue.
-  Future<void> closeForSignOut() {
-    if (_terminalResetRequested) return Future<void>.value();
-    final cleanup = _transition.then<void>(
-      (_) => _clearSessionWakeState(),
-      onError: (Object error, StackTrace stackTrace) {
-        _log.warn('Sleep transition failed before sign-out cleanup: $error');
-        _clearSessionWakeState();
-      },
-    );
-    _transition = cleanup;
-    _cancelWakeTimers();
-    return cleanup;
   }
 
   void _cancelWakeTimers() {
@@ -733,21 +698,6 @@ class AppSleepService extends ChangeNotifier {
     _scheduledWakeTimer = null;
     _wakelockMonitorTimer?.cancel();
     _wakelockMonitorTimer = null;
-  }
-
-  void _clearSessionWakeState() {
-    _cancelWakeTimers();
-    _resumeNodeOnWake = false;
-    _resumeEpochMonitoringOnWake = false;
-    _awaitingInactivityAfterWakelockRelease = false;
-  }
-
-  /// Permanently cancels process-local sleep/wake work for terminal reset.
-  /// Already accepted transitions may finish while the process exits.
-  void closeForTerminalReset() {
-    _terminalResetRequested = true;
-    _isEnabled = false;
-    _clearSessionWakeState();
   }
 
   @override

@@ -167,14 +167,9 @@ class AlarmMethodChannelHandler(context: Context) {
             "clearLegacySessionAuthority" -> {
                 result.success(clearLegacySessionAuthority())
             }
-            "clearNativeResetState" -> {
-                result.success(clearNativeResetState())
-            }
-            "enterTerminalReset" -> {
-                val clearApplicationData =
-                    call.argument<Boolean>("clearApplicationData") ?: true
+            "restartAfterNetworkChange" -> {
                 result.success(null)
-                enterTerminalReset(clearApplicationData)
+                restartAfterNetworkChange()
             }
             "hasExactAlarmPermission" -> {
                 result.success(hasExactAlarmPermission())
@@ -434,9 +429,8 @@ class AlarmMethodChannelHandler(context: Context) {
      * service workers, and reports completion.
      *
      * When that API is unavailable this reports failure rather than a partial
-     * wipe: a scoped sign-out must not be acknowledged on a jar that may still
-     * re-authenticate the next page load. The Dart side escalates to the
-     * terminal reset, whose clear-application-data wipe does cover it.
+     * wipe: a retirement stays on its retryable recovery surface until the
+     * exact old realm has been cleared.
      */
     private fun clearWebSessionData(result: MethodChannel.Result) {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) {
@@ -496,9 +490,9 @@ class AlarmMethodChannelHandler(context: Context) {
     /**
      * Repeats the one-time pre-journal cleanup without touching user data.
      *
-     * Unlike terminal reset this deliberately preserves account preferences,
-     * background audit counters and every app-owned file. Journal absence is
-     * the retry marker, so each operation must be safe to replay.
+     * The migration deliberately preserves account preferences, background
+     * audit counters and every app-owned file. Journal absence is the retry
+     * marker, so each operation must be safe to replay.
      */
     private fun clearLegacySessionAuthority(): Boolean {
         return NativeSchedulingAuthority.process.serialized("native.clear_legacy_authority") {
@@ -525,43 +519,10 @@ class AlarmMethodChannelHandler(context: Context) {
         }
     }
 
-    private fun clearNativeResetState(): Boolean {
-        return NativeSchedulingAuthority.process.serialized("native.clear_terminal_reset") {
-            var durableStateCleared =
-                alarmScheduler.cancelAllAlarmsForReset("terminal_reset")
-            durableStateCleared =
-                AlarmWatchdogScheduler.cancelForReset(appContext) && durableStateCleared
-            durableStateCleared =
-                foregroundServiceManager.stopForegroundServiceForReset() && durableStateCleared
-            NativeWakeLockManager.releaseForReset()
-            (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                .cancelAll()
-            for (name in listOf(
-                "alarm_prefs",
-                "alarm_watchdog_prefs",
-                "background_task_stats",
-                "application_incarnation",
-            )) {
-                durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
-                    .edit()
-                    .clear()
-                    .commit() && durableStateCleared
-            }
-            flutterAlarmEventBuffer.clear()
-            BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
-            durableStateCleared
-        }
-    }
-
-    private fun enterTerminalReset(clearApplicationData: Boolean) {
-        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
+    private fun restartAfterNetworkChange() {
+        BackgroundAlarmEngine.destroyCachedEngine("network_change")
         activityRef?.get()?.finishAffinity()
         Handler(Looper.getMainLooper()).post {
-            if (clearApplicationData) {
-                val activityManager =
-                    appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                if (activityManager.clearApplicationUserData()) return@post
-            }
             android.os.Process.killProcess(android.os.Process.myPid())
         }
     }

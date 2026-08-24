@@ -13,7 +13,7 @@ import 'package:crypto_mobile_app/core/identity/session_authority_cleanup.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/identity/session_retirement_repair.dart';
-import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
+import 'package:crypto_mobile_app/core/services/network_change_restart_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
@@ -23,9 +23,7 @@ import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repositor
 
 final _log = LoggingService.instance.withTag('usernode/SessionController');
 
-typedef SessionDataPreservingTermination = Future<void> Function({
-  required String reason,
-});
+typedef NetworkChangeRestart = Future<void> Function();
 
 enum _SessionValidation { valid, invalid, ownerMismatch, unavailable }
 
@@ -86,7 +84,7 @@ class SessionController extends StateNotifier<Identity> {
     required AuthRepository repository,
     Future<bool> Function()? clearWebSessionData,
     Future<bool> Function()? clearSessionNotifications,
-    SessionDataPreservingTermination? terminatePreservingData,
+    NetworkChangeRestart? restartAfterNetworkChange,
     required SessionAuthorityGateway sessionAuthority,
     required SessionHostLifecycle sessionHost,
     String Function(String kind)? newAuthorityId,
@@ -98,8 +96,8 @@ class SessionController extends StateNotifier<Identity> {
             clearWebSessionData ?? _defaultClearWebSessionData,
         _clearSessionNotifications =
             clearSessionNotifications ?? _defaultClearSessionNotifications,
-        _terminatePreservingData =
-            terminatePreservingData ?? _defaultTerminatePreservingData,
+        _restartAfterNetworkChange =
+            restartAfterNetworkChange ?? _defaultRestartAfterNetworkChange,
         _sessionAuthority = sessionAuthority,
         _sessionHost = sessionHost,
         _newAuthorityId = newAuthorityId ?? _defaultNewAuthorityId,
@@ -128,7 +126,7 @@ class SessionController extends StateNotifier<Identity> {
   /// Removes notifications the retired session has already posted.
   final Future<bool> Function() _clearSessionNotifications;
 
-  final SessionDataPreservingTermination _terminatePreservingData;
+  final NetworkChangeRestart _restartAfterNetworkChange;
   final SessionAuthorityGateway _sessionAuthority;
   final SessionHostLifecycle _sessionHost;
   final String Function(String kind) _newAuthorityId;
@@ -147,10 +145,8 @@ class SessionController extends StateNotifier<Identity> {
   static Future<bool> _defaultClearSessionNotifications() =>
       PlatformAlarmService.instance.clearSessionNotifications();
 
-  static Future<void> _defaultTerminatePreservingData({
-    required String reason,
-  }) =>
-      AppResetService.instance.terminatePreservingData(reason: reason);
+  static Future<void> _defaultRestartAfterNetworkChange() =>
+      NetworkChangeRestartService.instance.restart();
 
   Future<void>? _restoreFuture;
   Future<void> _queueTail = Future.value();
@@ -897,8 +893,8 @@ class SessionController extends StateNotifier<Identity> {
         ));
       });
 
-  /// Commits the selected network in the installation-wide journal before
-  /// ending this process. Account-scoped data is retained for the next launch.
+  /// Commits the selected network in the installation-wide journal before an
+  /// operational process rebuild. Account-scoped data remains intact.
   Future<void> changeNetwork(String network) => _transition(() async {
         final current = state;
         _publish(Identity(
@@ -951,7 +947,7 @@ class SessionController extends StateNotifier<Identity> {
               current,
               successorNetwork: network,
             );
-            await _terminatePreservingData(reason: 'network_change');
+            await _restartAfterNetworkChange();
             return;
           }
 
@@ -985,7 +981,7 @@ class SessionController extends StateNotifier<Identity> {
                   : IdentityPhase.unauthenticated,
               sessionId: successorSessionId,
             ));
-            await _terminatePreservingData(reason: 'network_change');
+            await _restartAfterNetworkChange();
             return;
           }
 
@@ -1161,7 +1157,8 @@ class SessionController extends StateNotifier<Identity> {
     try {
       await _repository.logout(token);
     } catch (e) {
-      _log.warn('Server-side logout failed (local reset still proceeds): $e');
+      _log.warn(
+          'Server-side logout failed (local retirement still proceeds): $e');
     }
   }
 

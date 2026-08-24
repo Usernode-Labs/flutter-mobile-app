@@ -40,9 +40,9 @@ final nodeAccountReconcilerProvider = Provider<NodeAccountReconciler>(
 /// (sign-in, interrupted-reconcile boot restore, season rollover) and
 /// commits the result through [SessionController.reconcileSucceeded], which
 /// re-validates the epoch inside the controller's serialized transition
-/// queue. A same-user season rollover can supersede an older run; terminal
-/// reset closes the gate and discards the entire process instead of handing
-/// that work to another identity.
+/// queue. A same-user season rollover can supersede an older run; a different
+/// session disposes the old provider host, so its run cannot publish into the
+/// successor.
 class NodeAccountReconciler {
   NodeAccountReconciler(
     this._ref, {
@@ -178,8 +178,8 @@ class NodeAccountReconciler {
   /// registry entries).
   ///
   /// A caller under a newer same-user season epoch never joins the stale run.
-  /// It waits the stale run out, then starts a fresh one. Account changes are
-  /// terminal application resets and do not reach this path in-process.
+  /// It waits the stale run out, then starts a fresh one. A different account
+  /// is handled by ordinary session retirement and a fresh provider host.
   ///
   /// Returns `true` when the reconcile committed (identity became ready).
   /// Returns `false` when there was nothing to do (identity not in the

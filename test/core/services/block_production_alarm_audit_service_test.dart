@@ -24,18 +24,6 @@ void main() {
       expect(harness.service.enableWatchdogRecovery(), isFalse);
     });
 
-    test('terminal reset cannot be reopened', () async {
-      final harness = _AuditHarness();
-
-      harness.service.closeForTerminalReset();
-
-      expect(harness.service.enableWatchdogRecovery(), isFalse);
-      final result = await harness.service.audit(reason: 'late_callback');
-      expect(result.skippedReason, 'watchdog_disabled');
-      expect(harness.foregroundResumeSchedules, isEmpty);
-      expect(harness.watchdogScheduleReasons, isEmpty);
-    });
-
     test('skips when exact alarm permission is missing', () async {
       final harness = _AuditHarness(exactAlarmPermission: false);
 

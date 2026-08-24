@@ -40,11 +40,6 @@ class AppLifecycleLogger with WidgetsBindingObserver {
     _log.debug('Lifecycle observer removed');
   }
 
-  static void closeForTerminalReset() {
-    onForegroundResume = null;
-    unregister();
-  }
-
   @visibleForTesting
   static bool get isRegistered => _instance != null;
 

@@ -276,8 +276,7 @@ void main() {
       expect(callbackCalls, 1);
     });
 
-    test('permission events remain unscoped and terminal reset rejects work',
-        () async {
+    test('permission events remain unscoped', () async {
       await setUpService();
       service.configureRuntimeOwnerResolver(() => owner);
       var callbackCalls = 0;
@@ -292,14 +291,6 @@ void main() {
           const {},
         ),
         isTrue,
-      );
-      service.beginTerminalReset();
-      expect(
-        await service.dispatchNativeEventForTesting(
-          'android_alarm_fired',
-          owner.toMap(),
-        ),
-        isFalse,
       );
       expect(callbackCalls, 1);
     });

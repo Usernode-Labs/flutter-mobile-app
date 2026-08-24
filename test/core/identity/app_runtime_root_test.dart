@@ -36,7 +36,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Network changed'), findsOneWidget);
-    expect(find.text('Close and reopen Usernode to continue.'), findsOneWidget);
+    expect(
+      find.text(
+        'Usernode will start on the selected network. '
+        'Close and reopen Usernode to continue.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('old'), findsNothing);
     expect(oldProbe.mounted, isFalse);
     expect(ledger.mounted, 0);

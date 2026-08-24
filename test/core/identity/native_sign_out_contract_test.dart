@@ -41,7 +41,7 @@ void main() {
     );
     expect(clear, contains('WebStorageCompat.deleteBrowsingData('));
     // Unsupported reports failure rather than a partial wipe; the Dart side
-    // escalates to the terminal reset, whose data wipe does cover it.
+    // keeps the exact retirement on its retryable recovery surface.
     expect(clear, contains('result.success(false)'));
     expect(clear, isNot(contains('WebStorage.getInstance().deleteAllData()')));
   });

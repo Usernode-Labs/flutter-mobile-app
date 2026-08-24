@@ -4,10 +4,10 @@ import 'dart:io' show Platform;
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_host.dart';
-import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
+import 'package:crypto_mobile_app/core/services/network_change_restart_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -71,10 +71,6 @@ Future<void> _runAppBody({required String logTag}) async {
       },
     ),
   );
-  AppResetService.instance.registerLocalResetHandler(
-    SocialPushService.instance.closeForTerminalReset,
-  );
-
   final boot = await AppBootstrap.initNonUi(logTag: logTag);
   final log = boot.log;
 
@@ -134,12 +130,12 @@ class AppRuntimeRoot extends StatefulWidget {
   const AppRuntimeRoot({
     super.key,
     required this.sessionHost,
-    this.resetService,
+    this.restartService,
     this.child = const CryptoMobileApp(),
   });
 
   final SessionHostCoordinator sessionHost;
-  final AppResetService? resetService;
+  final NetworkChangeRestartService? restartService;
   final Widget child;
 
   @override
@@ -147,21 +143,20 @@ class AppRuntimeRoot extends StatefulWidget {
 }
 
 class _AppRuntimeRootState extends State<AppRuntimeRoot> {
-  bool _terminalReset = false;
-  String _terminalResetReason = 'unknown';
+  bool _networkRestartRequired = false;
 
   @override
   void initState() {
     super.initState();
     widget.sessionHost.addListener(_hostChanged);
-    (widget.resetService ?? AppResetService.instance)
-        .registerTerminalResetHandler(_enterTerminalReset);
+    (widget.restartService ?? NetworkChangeRestartService.instance)
+        .registerRestartHandler(_enterNetworkRestart);
   }
 
   @override
   void dispose() {
-    (widget.resetService ?? AppResetService.instance)
-        .unregisterTerminalResetHandler();
+    (widget.restartService ?? NetworkChangeRestartService.instance)
+        .unregisterRestartHandler();
     widget.sessionHost.removeListener(_hostChanged);
     widget.sessionHost.close();
     super.dispose();
@@ -171,24 +166,22 @@ class _AppRuntimeRootState extends State<AppRuntimeRoot> {
     if (mounted) setState(() {});
   }
 
-  void _enterTerminalReset(String reason) {
-    if (_terminalReset) return;
+  void _enterNetworkRestart() {
+    if (_networkRestartRequired) return;
     if (!mounted) {
       widget.sessionHost.close();
-      _terminalReset = true;
-      _terminalResetReason = reason;
+      _networkRestartRequired = true;
       return;
     }
     setState(() {
-      _terminalReset = true;
-      _terminalResetReason = reason;
+      _networkRestartRequired = true;
     });
     widget.sessionHost.close();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_terminalReset) return _TerminalResetApp(reason: _terminalResetReason);
+    if (_networkRestartRequired) return const _NetworkChangeRestartApp();
     final host = widget.sessionHost;
     return switch (host.status) {
       SessionHostStatus.mounted => UncontrolledProviderScope(
@@ -257,20 +250,8 @@ class _SessionRecoveryApp extends StatelessWidget {
       );
 }
 
-class _TerminalResetApp extends StatelessWidget {
-  const _TerminalResetApp({required this.reason});
-
-  /// The [AppResetService] reset reason. Unrecognized values fall back to the
-  /// generic reset wording.
-  final String reason;
-
-  (String, String) _wording(AppLocalizations l10n) => switch (reason) {
-        'network_change' => (
-            l10n.appResetNetworkChangeTitle,
-            l10n.appResetNetworkChangeBody,
-          ),
-        _ => (l10n.appResetCompleteTitle, l10n.appResetCompleteBody),
-      };
+class _NetworkChangeRestartApp extends StatelessWidget {
+  const _NetworkChangeRestartApp();
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +266,6 @@ class _TerminalResetApp extends StatelessWidget {
         final spacing = Theme.of(context).extension<AppSpacing>()!;
         final textTheme = Theme.of(context).textTheme;
         final l10n = AppLocalizations.of(context);
-        final (title, body) = _wording(l10n);
         return Scaffold(
           body: SafeArea(
             child: Center(
@@ -299,12 +279,12 @@ class _TerminalResetApp extends StatelessWidget {
                   spacing: spacing.space12,
                   children: [
                     Text(
-                      title,
+                      l10n.networkRestartTitle,
                       style: textTheme.titleLarge,
                       textAlign: TextAlign.center,
                     ),
                     Text(
-                      body,
+                      l10n.networkRestartBody,
                       style: textTheme.bodyLarge,
                       textAlign: TextAlign.center,
                     ),
@@ -359,8 +339,7 @@ class CryptoMobileApp extends ConsumerWidget {
     ref.watch(seasonRolloverSyncProvider);
 
     // Feed the process-lifetime push service only the current ready identity
-    // and exact bearer. Disposing the app graph detaches this adapter; the
-    // terminal reset fence separately closes the process-lifetime service.
+    // and exact bearer. Disposing the session host detaches this adapter.
     ref.watch(socialPushBindingProvider);
 
     return MaterialApp.router(

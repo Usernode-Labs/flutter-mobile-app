@@ -1,79 +1,9 @@
-import 'dart:async';
-
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-
-  test('a scoped sign-out waits for every already accepted transition',
-      () async {
-    final ran = <String>[];
-    final sleepEntered = Completer<void>();
-    final releaseSleep = Completer<void>();
-    final service = AppSleepService.forTest(
-      idleTimeout: const Duration(minutes: 5),
-      onSleep: (reason) async {
-        ran.add('sleep:${reason.name}');
-        if (!sleepEntered.isCompleted) sleepEntered.complete();
-        await releaseSleep.future;
-      },
-      onWake: (reason) async => ran.add('wake:$reason'),
-      persistSleepState: (_) async {},
-      isWakelockHeld: () async => false,
-      useWakelockTransitionFlow: false,
-    );
-    addTearDown(service.dispose);
-
-    // One transition is running and one is already accepted behind it.
-    final running = service.sleep(reason: AppSleepReason.idleTimeout);
-    await sleepEntered.future;
-    final queued = service.wake(reason: 'queued');
-
-    var closed = false;
-    final close = service.closeForSignOut().then((_) => closed = true);
-    await Future<void>.delayed(Duration.zero);
-    expect(closed, isFalse,
-        reason: 'the boundary must not report done mid-transition');
-
-    releaseSleep.complete();
-    await running;
-    await queued;
-    await close;
-
-    expect(closed, isTrue);
-    expect(ran, ['sleep:idleTimeout', 'wake:queued']);
-  });
-
-  testWidgets('a scoped sign-out cancels timers but keeps the user preference',
-      (tester) async {
-    final sleepReasons = <AppSleepReason>[];
-    final service = AppSleepService.forTest(
-      idleTimeout: const Duration(seconds: 1),
-      wakelockMonitorInterval: const Duration(seconds: 1),
-      onSleep: (reason) async => sleepReasons.add(reason),
-      onWake: (_) async {},
-      persistSleepState: (_) async {},
-      isWakelockHeld: () async => false,
-      useWakelockTransitionFlow: false,
-    );
-    addTearDown(service.dispose);
-
-    await service.initializeForInteractiveApp();
-
-    // The sleep service sits outside the node coordinator by design, so the
-    // sign-out teardown has to stand it down explicitly: its timers and resume
-    // flags were armed while the signed-out user's node was running.
-    await tester.runAsync(service.closeForSignOut);
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pump();
-
-    expect(sleepReasons, isEmpty, reason: 'the idle timer was cancelled');
-    // Reversible, unlike closeForTerminalReset: the user's automatic-sleep
-    // preference belongs to the device, and the next session re-arms.
-    expect(service.isEnabled, isTrue);
-  });
 
   testWidgets('does not sleep before wakelock release transition',
       (tester) async {

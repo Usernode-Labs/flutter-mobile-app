@@ -48,7 +48,7 @@ void main() {
     final androidCleanup = _functionBody(
       android,
       'private fun clearLegacySessionAuthority()',
-      'private fun clearNativeResetState()',
+      'private fun restartAfterNetworkChange()',
     );
     expect(android, contains('"clearLegacySessionAuthority"'));
     expect(androidCleanup, contains('alarm_prefs'));
@@ -60,7 +60,7 @@ void main() {
     final iosCleanup = _functionBody(
       ios,
       'private func clearLegacySessionAuthority()',
-      'private func clearNativeResetState()',
+      'private func beginTransientBackgroundTask',
     );
     expect(ios, contains('case "clearLegacySessionAuthority"'));
     expect(iosCleanup, contains('cancelAllTaskRequests()'));

@@ -32,7 +32,6 @@ class SessionHandoffGate {
   bool _walletBlocked;
   int? _participantId;
   int? _epoch;
-  bool _terminallyClosed = false;
 
   bool get isAuthenticatedBlocked => _authenticatedBlocked;
   bool get isWalletBlocked => _walletBlocked;
@@ -45,7 +44,6 @@ class SessionHandoffGate {
   }
 
   bool admitAuthenticated(Identity identity) {
-    if (_terminallyClosed) return false;
     final participantId = identity.participantId;
     if (!identity.isAuthenticated || participantId == null) return false;
     _authenticatedBlocked = false;
@@ -56,7 +54,6 @@ class SessionHandoffGate {
   }
 
   bool admitWallet(Identity identity) {
-    if (_terminallyClosed) return false;
     if (!authenticates(identity) || identity.phase != IdentityPhase.ready) {
       return false;
     }
@@ -69,7 +66,6 @@ class SessionHandoffGate {
   }
 
   bool admitAnonymous() {
-    if (_terminallyClosed) return false;
     _authenticatedBlocked = false;
     _walletBlocked = false;
     _participantId = null;
@@ -82,22 +78,6 @@ class SessionHandoffGate {
       identity.isAuthenticated &&
       identity.participantId == _participantId &&
       identity.epoch == _epoch;
-
-  void closeForTerminalReset() {
-    _terminallyClosed = true;
-    closeForSignOut();
-  }
-
-  /// A voluntary sign-out ends the SESSION, not the runtime: this WebView is
-  /// reloaded rather than replaced, so the same gate has to be able to admit
-  /// the next login. Everything [closeForTerminalReset] does except the
-  /// one-way latch.
-  void closeForSignOut() {
-    _authenticatedBlocked = true;
-    _walletBlocked = true;
-    _participantId = null;
-    _epoch = null;
-  }
 
   bool blocks(String method) =>
       (_authenticatedBlocked && authenticatedScopedMethods.contains(method)) ||

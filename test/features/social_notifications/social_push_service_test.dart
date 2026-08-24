@@ -738,23 +738,7 @@ void main() {
     expect(rig.api.registerCalls.single.registrationToken, 'new-user-token');
   });
 
-  test('terminal reset and dispose cancel registration recovery', () async {
-    final resetRig = _rig(optedIn: true);
-    addTearDown(resetRig.dispose);
-    resetRig.messaging.initialToken = null;
-    await resetRig.service.initialize();
-    resetRig.service.attachSession(resetRig.owner, _session());
-    await resetRig.settle();
-    final resetRetry = resetRig.activeRetryTimers.single;
-
-    resetRig.service.closeForTerminalReset();
-    await resetRig.settle();
-    final resetTokenReads = resetRig.messaging.getTokenCalls;
-    resetRetry.fireStale();
-    await resetRig.settle();
-    expect(resetRig.messaging.getTokenCalls, resetTokenReads);
-    expect(resetRig.api.registerCalls, isEmpty);
-
+  test('dispose cancels registration recovery', () async {
     final disposedRig = _rig(optedIn: true);
     disposedRig.messaging.initialToken = null;
     await disposedRig.service.initialize();

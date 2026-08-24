@@ -277,7 +277,6 @@ class PlatformAlarmService {
   final bool _isIOS;
 
   bool _initialized = false;
-  bool _terminalResetRequested = false;
   bool _permissionsGranted = false;
   RuntimeOwner? Function()? _runtimeOwnerResolver;
   String? _lastAlarmFiredEventKey;
@@ -293,7 +292,6 @@ class PlatformAlarmService {
 
   /// Initialize the platform alarm service
   Future<bool> initialize() async {
-    if (_terminalResetRequested) return false;
     if (_initialized) return true;
 
     try {
@@ -308,8 +306,6 @@ class PlatformAlarmService {
       } else if (_isIOS) {
         await _initializeIOS();
       }
-
-      if (_terminalResetRequested) return false;
 
       _initialized = true;
       _log.info('PlatformAlarmService initialized');
@@ -358,9 +354,7 @@ class PlatformAlarmService {
       if (_requiresRuntimeOwner(eventType)) {
         final eventOwner = RuntimeOwner.fromMap(data);
         final currentOwner = _runtimeOwnerResolver?.call();
-        if (_terminalResetRequested ||
-            eventOwner == null ||
-            eventOwner != currentOwner) {
+        if (eventOwner == null || eventOwner != currentOwner) {
           _log.warn(
             'Rejected native event without the current runtime owner: '
             '$eventType',
@@ -518,11 +512,10 @@ class PlatformAlarmService {
   }
 
   Future<void> markReadyForNativeEvents() async {
-    if (!Platform.isAndroid || _terminalResetRequested) return;
+    if (!Platform.isAndroid) return;
 
     try {
       await _channel.invokeMethod<bool>('markFlutterReadyForAlarmEvents');
-      if (_terminalResetRequested) return;
       _log.debug('Marked Flutter alarm channel ready on native side');
     } on PlatformException catch (e) {
       _log.warn(
@@ -973,7 +966,7 @@ class PlatformAlarmService {
   Future<bool> ensureAlarmWatchdogScheduled({required String reason}) async {
     if (!_isAndroid) return false;
     final owner = _runtimeOwnerResolver?.call();
-    if (!_initialized || _terminalResetRequested || owner == null) {
+    if (!_initialized || owner == null) {
       _log.debug('Cannot schedule alarm watchdog: service not initialized');
       return false;
     }
@@ -1018,7 +1011,7 @@ class PlatformAlarmService {
   Future<bool> requestAlarmWatchdogRun({required String reason}) async {
     if (!_isAndroid) return false;
     final owner = _runtimeOwnerResolver?.call();
-    if (!_initialized || _terminalResetRequested || owner == null) {
+    if (!_initialized || owner == null) {
       _log.debug('Cannot request alarm watchdog run: service not initialized');
       return false;
     }
@@ -1186,10 +1179,7 @@ class PlatformAlarmService {
       );
     }
 
-    if (!_isAndroid ||
-        !_initialized ||
-        _terminalResetRequested ||
-        owner == null) {
+    if (!_isAndroid || !_initialized || owner == null) {
       _log.warn('Cannot schedule alarm: service not initialized');
       recordScheduleResult(
         success: false,
@@ -1411,7 +1401,7 @@ class PlatformAlarmService {
       return false;
     }
     final owner = _runtimeOwnerResolver?.call();
-    if (_terminalResetRequested || owner == null) return false;
+    if (owner == null) return false;
 
     try {
       final params = {
@@ -1480,7 +1470,7 @@ class PlatformAlarmService {
       return false;
     }
     final owner = _runtimeOwnerResolver?.call();
-    if (_terminalResetRequested || owner == null) return false;
+    if (owner == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>(
@@ -1631,7 +1621,7 @@ class PlatformAlarmService {
   Future<bool> acquireWakelock() async {
     if (!_isAndroid) return false;
     final owner = _runtimeOwnerResolver?.call();
-    if (_terminalResetRequested || owner == null) return false;
+    if (owner == null) return false;
     try {
       final acquired = await _channel.invokeMethod<bool>(
             'acquireWakelock',
@@ -1701,33 +1691,9 @@ class PlatformAlarmService {
         false;
   }
 
-  Future<bool> clearNativeResetState() async {
-    if (!_isAndroid && !_isIOS) return true;
-    return await _channel.invokeMethod<bool>('clearNativeResetState') ?? false;
-  }
-
-  Future<void> enterTerminalReset({
-    required bool clearApplicationData,
-  }) async {
+  Future<void> restartAfterNetworkChange() async {
     if (!_isAndroid && !_isIOS) return;
-    await _channel.invokeMethod<void>('enterTerminalReset', {
-      'clearApplicationData': clearApplicationData,
-    });
-  }
-
-  /// Closes scheduling/event admission synchronously while leaving native
-  /// cancellation callable for the remainder of terminal reset.
-  void beginTerminalReset() {
-    _terminalResetRequested = true;
-    _onBootReschedule = null;
-    _onNativeEvent = null;
-  }
-
-  /// Clears Dart callbacks while retaining the channel handler.
-  void closeForTerminalReset() {
-    beginTerminalReset();
-    _initialized = false;
-    _permissionsGranted = false;
+    await _channel.invokeMethod<void>('restartAfterNetworkChange');
   }
 
   /// Get background task execution statistics (Android only)

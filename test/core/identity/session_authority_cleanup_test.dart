@@ -69,7 +69,7 @@ void main() {
     await retained.writeAsString('wallet');
 
     expect(
-      await clearLegacySignOutFence(directory: () async => root),
+      await clearLegacySignOutMarker(directory: () async => root),
       isTrue,
     );
 

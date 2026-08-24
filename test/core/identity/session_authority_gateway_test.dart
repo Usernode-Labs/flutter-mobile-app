@@ -95,6 +95,72 @@ void main() {
     }
   });
 
+  test('headless authority is issued only from exact enabled Ready state',
+      () async {
+    final enabledRecord = <String, dynamic>{
+      'schema_version': 1,
+      'sequence': 8,
+      'network': 'testnet',
+      'state': <String, dynamic>{
+        'kind': 'ready',
+        'session_id': 'session-a',
+        'user_namespace': 'user-a',
+        'credential_ref': 'credential-a',
+        'credential_generation': 1,
+        'account_binding': <String, dynamic>{
+          'account_id': 'account-a',
+          'address': 'address-a',
+        },
+        'runtime_generation': 7,
+        'production_desired': true,
+      },
+    };
+    final authority =
+        await _gatewayReading(enabledRecord).readBackgroundRuntimeAuthority();
+
+    expect(authority, isNotNull);
+    expect(authority!.authorityDirectory,
+        '/application-support/session-authority');
+    expect(authority.network, 'testnet');
+    expect(authority.userNamespace, 'user-a');
+    expect(authority.owner.sessionId, 'session-a');
+    expect(authority.owner.runtimeGeneration, 7);
+    expect(authority.owner.accountId, 'account-a');
+    expect(authority.owner.address, 'address-a');
+
+    final invalidStates = <Map<String, dynamic>>[
+      {...enabledRecord['state'] as Map<String, dynamic>, 'kind': 'logged_out'},
+      {
+        ...enabledRecord['state'] as Map<String, dynamic>,
+        'production_desired': false,
+      },
+      {
+        ...enabledRecord['state'] as Map<String, dynamic>,
+        'runtime_generation': 0,
+      },
+      {
+        ...enabledRecord['state'] as Map<String, dynamic>,
+        'user_namespace': '',
+      },
+      {
+        ...enabledRecord['state'] as Map<String, dynamic>,
+        'account_binding': const {'account_id': 'account-a'},
+      },
+    ];
+    for (final state in invalidStates) {
+      expect(
+        await _gatewayReading({...enabledRecord, 'state': state})
+            .readBackgroundRuntimeAuthority(),
+        isNull,
+      );
+    }
+    expect(
+      await _gatewayReading({...enabledRecord, 'network': ''})
+          .readBackgroundRuntimeAuthority(),
+      isNull,
+    );
+  });
+
   test('WebView realm capture pins the original session and document', () {
     final gateway = SessionAuthorityGateway();
     final lease = gateway.captureWebViewRealmLease(
@@ -331,3 +397,16 @@ SessionAuthorityGateway _gatewayReturning(Map<String, dynamic> response) =>
       commandJson: ({required directory, required request}) async =>
           jsonEncode(response),
     );
+
+SessionAuthorityGateway _gatewayReading(Map<String, dynamic> record) =>
+    _gatewayReturning({
+      'status': 'ok',
+      'outcome': {'kind': 'record_read'},
+      'revision': {
+        'sequence': record['sequence'],
+        'session_id': (record['state'] as Map<String, dynamic>)['session_id'],
+        'state': (record['state'] as Map<String, dynamic>)['kind'],
+        'transition_id': null,
+      },
+      'record': record,
+    });

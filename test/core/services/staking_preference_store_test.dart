@@ -37,4 +37,17 @@ void main() {
     expect(await first.isDelegated(), isTrue);
     expect(await second.isDelegated(), isFalse);
   });
+
+  test('headless routing uses the explicit journal network and bucket',
+      () async {
+    SharedPreferences.setMockInitialValues({
+      'internal:acct:account-a:staking:delegate_address': 'B62server',
+    });
+    const store = StakingPreferenceStore.forOwner(
+      network: 'internal',
+      bucket: 'account-a',
+    );
+
+    expect(await store.loadDelegateAddress(), 'B62server');
+  });
 }

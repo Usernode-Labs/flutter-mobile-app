@@ -68,6 +68,23 @@ void main() {
       NetworkPrefs.setActiveBucket(null, guest: true);
       expect(await loadBlockProductionReleased(), isFalse);
     });
+
+    test('headless routing reads an explicit journal network and bucket',
+        () async {
+      final bucket = NetworkPrefs.bucketForAddress(address);
+      SharedPreferences.setMockInitialValues({
+        'internal:acct:$bucket:bp:released': true,
+      });
+
+      expect(
+        await loadBlockProductionReleasedFor(
+          network: 'internal',
+          bucket: bucket,
+        ),
+        isTrue,
+      );
+      expect(await loadBlockProductionReleased(), isFalse);
+    });
   });
 
   group('API parsing that feeds the gate', () {

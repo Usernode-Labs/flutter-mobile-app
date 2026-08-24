@@ -105,6 +105,24 @@ class AccountsRepository {
     );
   }
 
+  /// Creates the repository from journal-owned routing, without activating UI
+  /// network or identity globals in the headless isolate.
+  static Future<AccountsRepository> createForBackground(
+    BackgroundRuntimeAuthority authority, {
+    SessionAuthorityGateway? sessionAuthority,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    return AccountsRepository._(
+      const FlutterSecureStorage(),
+      prefs,
+      authority.network,
+      authority.userNamespace,
+      sessionAuthority ?? SessionAuthorityGateway(),
+      rust_account.signMessage,
+      rust_account.accountFromPrivateKey,
+    );
+  }
+
   AccountCapability capabilityFor(Identity identity) {
     final namespace = _identityNamespace;
     if (namespace == null) {
@@ -115,6 +133,15 @@ class AccountsRepository {
       userNamespace: namespace,
       network: _network,
     );
+  }
+
+  AccountCapability capabilityForBackground(
+    BackgroundRuntimeAuthority authority,
+  ) {
+    final capability =
+        _sessionAuthority.captureBackgroundAccountCapability(authority);
+    _assertCapabilityPinned(capability);
+    return capability;
   }
 
   Future<bool> hasAny() async {

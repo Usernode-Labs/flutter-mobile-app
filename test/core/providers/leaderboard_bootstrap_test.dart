@@ -73,7 +73,6 @@ SessionController _identityController() => SessionController(
         _ => throw StateError('Unexpected authority id: $kind'),
       },
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
 

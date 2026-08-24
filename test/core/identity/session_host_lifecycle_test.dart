@@ -252,7 +252,6 @@ void main() {
             },
             retireRuntimeAuthority: _retireRuntime,
             clearWebSessionData: () async => true,
-            rotateNativeGeneration: () async => true,
             clearSessionNotifications: () async => true,
           );
           controllers.add(controller);

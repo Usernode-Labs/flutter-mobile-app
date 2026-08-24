@@ -116,7 +116,16 @@ class NetworkPrefs {
   /// written under [guestBucket] before an account existed into the account's
   /// bucket) where "whatever bucket is active" is exactly the wrong address.
   static String prefixAccountKeyFor(String key, String bucket) {
+    return prefixAccountKeyForIn(key, bucket, currentNetwork);
+  }
+
+  /// Prefixes an account key from explicit journal-owned routing.
+  static String prefixAccountKeyForIn(
+    String key,
+    String bucket,
+    String network,
+  ) {
     if (_globalKeys.contains(key)) return key;
-    return '$currentNetwork:acct:$bucket:$key';
+    return '$network:acct:$bucket:$key';
   }
 }

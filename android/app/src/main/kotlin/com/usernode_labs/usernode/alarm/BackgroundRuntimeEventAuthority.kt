@@ -6,8 +6,8 @@ import org.json.JSONObject
 
 /** Native-first admission for Android events that can create runtime work. */
 internal object BackgroundRuntimeEventAuthority {
-    const val SESSION_ID_KEY = "session_id"
-    const val RUNTIME_GENERATION_KEY = "runtime_generation"
+    const val SESSION_ID_KEY = RuntimeOwner.SESSION_ID_KEY
+    const val RUNTIME_GENERATION_KEY = RuntimeOwner.RUNTIME_GENERATION_KEY
 
     private val unprivilegedAndroidEvents = setOf(
         "android_post_notifications_permission_granted",
@@ -24,54 +24,39 @@ internal object BackgroundRuntimeEventAuthority {
     ): Boolean = isAdmitted(
         eventType = eventType,
         eventData = eventData,
-        journalIsMissing = {
-            runCatching {
-                JSONObject(SessionAuthorityNative.admissionJson(context))
-                    .optString("status") == "missing_journal"
-            }.getOrDefault(false)
-        },
-        durableAdmission = { sessionId, runtimeGeneration ->
-            SessionAuthorityNative.isBackgroundRuntimeAdmitted(
-                context,
-                sessionId,
-                runtimeGeneration,
-            )
+        durableAdmission = { owner ->
+            SessionAuthorityNative.isBackgroundRuntimeAdmitted(context, owner)
         },
     )
 
     internal fun isAdmitted(
         eventType: String,
         eventData: Map<String, Any?>,
-        journalIsMissing: () -> Boolean,
-        durableAdmission: (String, Long) -> Boolean,
+        durableAdmission: (RuntimeOwner) -> Boolean,
     ): Boolean {
         if (!requiresRuntimeAuthority(eventType)) return true
-
-        // Staged compatibility only: until the vertical cutover creates the
-        // journal, the existing application-incarnation fence remains the
-        // production owner. The cutover removes this fallback atomically.
-        if (journalIsMissing()) return true
-
-        val sessionId = (eventData[SESSION_ID_KEY] as? String)
-            ?.takeIf { it.isNotBlank() }
-            ?: return false
-        val runtimeGeneration = positiveInteger(
-            eventData[RUNTIME_GENERATION_KEY],
-        ) ?: return false
-        return durableAdmission(sessionId, runtimeGeneration)
+        val owner = RuntimeOwner.fromMap(eventData) ?: return false
+        return durableAdmission(owner)
     }
+
+    fun currentOwner(context: Context): RuntimeOwner? = runCatching {
+        val admission = JSONObject(SessionAuthorityNative.admissionJson(context))
+        if (admission.optString("status") != "ready" ||
+            !admission.optBoolean("production_desired")
+        ) {
+            return@runCatching null
+        }
+        RuntimeOwner.fromMap(
+            mapOf(
+                RuntimeOwner.SESSION_ID_KEY to admission.opt("session_id"),
+                RuntimeOwner.RUNTIME_GENERATION_KEY to admission.opt("runtime_generation"),
+                RuntimeOwner.ACCOUNT_ID_KEY to admission.opt("account_id"),
+                RuntimeOwner.ADDRESS_KEY to admission.opt("address"),
+            ),
+        )
+    }.getOrNull()
 
     internal fun requiresRuntimeAuthority(eventType: String): Boolean =
         eventType.startsWith("android_") && eventType !in unprivilegedAndroidEvents
 
-    private fun positiveInteger(value: Any?): Long? {
-        val integer = when (value) {
-            is Byte -> value.toLong()
-            is Short -> value.toLong()
-            is Int -> value.toLong()
-            is Long -> value
-            else -> return null
-        }
-        return integer.takeIf { it > 0 }
-    }
 }

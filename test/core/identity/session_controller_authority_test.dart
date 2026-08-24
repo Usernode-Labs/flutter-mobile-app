@@ -169,7 +169,6 @@ void main() {
       sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => ids[kind]!,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -310,7 +309,6 @@ void main() {
         _ => throw StateError('Unexpected authority id: $kind'),
       },
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -395,7 +393,6 @@ void main() {
       sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (_) => 'unused',
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -460,7 +457,6 @@ void main() {
       sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => kind == 'rollback' ? 'logged-out-b' : 'unused',
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -534,10 +530,6 @@ void main() {
         effects.add('webview');
         return true;
       },
-      rotateNativeGeneration: () async {
-        effects.add('native');
-        return true;
-      },
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -546,7 +538,7 @@ void main() {
     expect(controller.state.phase, IdentityPhase.ready);
     expect(await controller.logout(), isTrue);
 
-    expect(effects, ['runtime', 'webview', 'native']);
+    expect(effects, ['runtime', 'webview']);
     expect(controller.state.phase, IdentityPhase.unauthenticated);
     expect(controller.state.sessionId, 'logged-out-b');
     final prefs = await SharedPreferences.getInstance();
@@ -591,7 +583,6 @@ void main() {
       },
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -637,7 +628,6 @@ void main() {
       },
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -695,7 +685,6 @@ void main() {
       },
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -760,7 +749,6 @@ void main() {
         sessionAuthority: authority,
         sessionHost: const InlineSessionHostLifecycle(),
         clearWebSessionData: () async => true,
-        rotateNativeGeneration: () async => true,
         clearSessionNotifications: () async => true,
       );
       addTearDown(controller.dispose);
@@ -818,7 +806,6 @@ void main() {
       },
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -877,7 +864,6 @@ void main() {
       },
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -971,7 +957,6 @@ void main() {
       },
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -1021,7 +1006,6 @@ void main() {
       sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => kind == 'guest' ? 'guest-a' : 'unused',
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
     addTearDown(controller.dispose);
@@ -1068,7 +1052,6 @@ void main() {
           ? 'logged-out-b'
           : throw StateError('Unexpected id kind $kind'),
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
       terminatePreservingData: ({required reason}) async {
         terminations.add(reason);
@@ -1137,7 +1120,6 @@ void main() {
       },
       retireRuntimeAuthority: _retireRuntime,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
       terminatePreservingData: ({required reason}) async {
         terminations.add(reason);
@@ -1243,7 +1225,6 @@ void main() {
       sessionHost: const InlineSessionHostLifecycle(),
       newAuthorityId: (kind) => ids[kind]!,
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
       terminatePreservingData: ({required reason}) async {},
     );

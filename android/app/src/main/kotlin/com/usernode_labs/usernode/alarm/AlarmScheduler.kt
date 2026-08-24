@@ -11,6 +11,7 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.usernode_labs.usernode.R
+import com.usernode_labs.usernode.session.SessionAuthorityNative
 
 class AlarmScheduler(
     private val context: Context,
@@ -32,21 +33,20 @@ class AlarmScheduler(
         alarmId: String,
         delayMs: Long,
         globalSlot: Int,
-        data: Map<String, Any>
-    ): Boolean {
-        val applicationIncarnation =
-            data[ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION] as? String
-        return NativeSchedulingAuthority.process.runIfCurrent(
+        data: Map<String, Any>,
+        owner: RuntimeOwner,
+    ): Boolean = NativeSchedulingAuthority.process.runIfAdmitted(
             operation = "alarm.schedule",
-            captured = applicationIncarnation,
-            current = { ApplicationIncarnationStore(context).current() },
-            onRejected = {
-                Log.w(TAG, "Refusing alarm for stale application incarnation")
-            },
+            owner = owner,
+            admitted = { SessionAuthorityNative.isBackgroundRuntimeAdmitted(context, it) },
         ) {
-            scheduleExactAlarmLocked(alarmId, delayMs, globalSlot, data)
+            scheduleExactAlarmLocked(
+                alarmId,
+                delayMs,
+                globalSlot,
+                data + owner.toMap(),
+            )
         }
-    }
 
     private fun scheduleExactAlarmLocked(
         alarmId: String,
@@ -161,28 +161,24 @@ class AlarmScheduler(
         }
     }
 
-    fun cancelAlarm(alarmId: String, applicationIncarnation: String): Boolean =
-        NativeSchedulingAuthority.process.runIfCurrent(
+    fun cancelAlarm(alarmId: String, owner: RuntimeOwner): Boolean =
+        NativeSchedulingAuthority.process.runIfOwned(
             operation = "alarm.cancel",
-            captured = applicationIncarnation,
-            current = { ApplicationIncarnationStore(context).current() },
-            onRejected = {
-                Log.w(TAG, "Refusing cancellation for stale application incarnation")
-            },
+            owner = owner,
+            resourceOwner = { alarmStateStore.owner(alarmId) },
         ) {
             cancelAlarmLocked(alarmId, "cancel_alarm")
         }
 
-    fun cancelAllAlarms(applicationIncarnation: String): Boolean =
-        NativeSchedulingAuthority.process.runIfCurrent(
-            operation = "alarm.cancel_all",
-            captured = applicationIncarnation,
-            current = { ApplicationIncarnationStore(context).current() },
-            onRejected = {
-                Log.w(TAG, "Refusing alarm cancellation for stale application incarnation")
-            },
-        ) {
-            cancelAllAlarmsLocked("cancel_all_alarms")
+    fun cancelAllAlarms(owner: RuntimeOwner): Boolean =
+        NativeSchedulingAuthority.process.serialized("alarm.cancel_all") {
+            var succeeded = true
+            for (alarmId in getScheduledAlarms().keys) {
+                if (alarmStateStore.owner(alarmId) == owner) {
+                    succeeded = cancelAlarmLocked(alarmId, "cancel_all_alarms") && succeeded
+                }
+            }
+            succeeded
         }
 
     fun cancelAllAlarmsForReset(reason: String): Boolean =

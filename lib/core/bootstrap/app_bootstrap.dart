@@ -98,11 +98,13 @@ class AppBootstrap {
       _installGlobalErrorHandlers(log);
     }
 
-    // Must settle before native scheduling can mint legacy admission and
-    // before any provider can instantiate a session-owned surface.
+    // Must settle before native scheduling or a session-owned surface starts.
     final sessionAuthority = await _ensureSessionAuthorityJournal(log);
 
     // Initialize platform alarm service early to capture native events
+    PlatformAlarmService.instance.configureRuntimeOwnerResolver(
+      () => RustBackendService.instance.runtimeOwner,
+    );
     await PlatformAlarmService.instance.initialize();
     PlatformAlarmService.instance.setNativeEventCallback(
       (eventType, eventData) async {

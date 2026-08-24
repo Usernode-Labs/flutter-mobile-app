@@ -13,8 +13,11 @@ import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet.dart';
 import 'package:crypto_mobile_app/src/rust/rpc.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/runtime_owner.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/src/rust/rpc/rpcs_generated/wallet_tx.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' show Memo;
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -39,10 +42,12 @@ const _viewOnlyTransactionError =
 
 typedef _RuntimeAuthority = ({
   String authorityDirectory,
-  String sessionId,
-  BigInt runtimeGeneration,
-  String accountId,
-  String address,
+  RuntimeOwner owner,
+});
+
+typedef _RuntimeNodeBuild = ({
+  NodeBuilder builder,
+  String authorityDirectory,
 });
 
 /// Parse log level string to TracingLevel enum
@@ -98,6 +103,8 @@ class RustBackendService {
   NodeRpcClient? _rpc;
   bool get isRunning => _nodeRunning;
   bool get isRuntimeActive => _nodeRunning && !_nodePaused;
+  RuntimeOwner? get runtimeOwner => _runtimeAuthority?.owner;
+
   String? get instanceId => _instanceId;
   int? get nodeClockDriftMs => _nodeClockDriftMs;
   int? get lastNodeTimeMs => _lastNodeTimeMs;
@@ -348,9 +355,9 @@ class RustBackendService {
     final currentAuthority = _runtimeAuthority;
     if (_nodeRunning &&
         currentAuthority != null &&
-        currentAuthority.sessionId == sessionId &&
-        currentAuthority.accountId == accountId &&
-        currentAuthority.address == address) {
+        currentAuthority.owner.sessionId == sessionId &&
+        currentAuthority.owner.accountId == accountId &&
+        currentAuthority.owner.address == address) {
       _log.trace('Authoritative node already running');
       unawaited(
         ObservabilityReportingService.instance.reportNodeInitialized(
@@ -387,83 +394,18 @@ class RustBackendService {
 
     try {
       _log.trace('Starting node${httpPort != null ? ' on $httpPort' : ''}');
-
-      final builder = NodeBuilder();
-      if (httpPort != null) {
-        builder.httpServer(port: httpPort);
-      }
-
-      // Load network configuration from URLs (with retry)
-      await _configureNetworkFromUrls(builder);
-
-      final delegated =
-          !viewOnly && await StakingPreferenceStore.active().isDelegated();
-
-      if (viewOnly) {
-        _log.info('VIEW_ONLY enabled; skipping account key configuration');
-      } else if (delegated) {
-        _log.info('Stake is delegated; node runs without a block producer');
-      } else if (Platform.isIOS) {
-        // Block production is disabled entirely on iOS: the platform cannot
-        // keep the app alive reliably enough to honor won slots (no alarms,
-        // no foreground service), so producing there only creates missed
-        // slots. The node still runs, syncs, and signs wallet transactions.
-        _log.info('iOS: block production disabled; node runs non-producing');
-      } else if (!await loadBlockProductionReleased()) {
-        // Onboarding flow alignment: producing blocks is a released
-        // capability. Until the platform releases this user's keys
-        // (bp_released on /me and /wallet/provision, persisted per account
-        // bucket by the reconciler), the node runs non-producing — it still
-        // syncs and signs wallet transactions for dapps.
-        _log.info('Block production not released for this account; '
-            'node runs non-producing');
-      } else {
-        _log.trace(
-          'Configuring block producer with user secret key (length: ${secretKey!.length})',
-        );
-        builder.blockProducerSecretKey(secretKey: secretKey);
-      }
-      if (!viewOnly) {
-        builder.walletSignerSecretKey(secretKey: secretKey!);
-      }
-      if (!viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
-        _log.info(
-          'Enabling observability hub HTTP intake',
-          context: {'base_url': AppConfig.observabilityHubBaseUrl},
-        );
-        builder.enableObservabilityHubHttp(
-          baseUrl: AppConfig.observabilityHubBaseUrl,
-        );
-      } else if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
-        _log.info('Skipping observability hub HTTP intake in view-only mode');
-      }
-      if (AppConfig.enableRealProver) {
-        _log.info('Forcing real prover mode');
-        builder.enableRealProver();
-      }
-      if (!viewOnly) {
-        builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
-      }
-      // Configure persistent node storage path so wallet cache state survives restarts.
-      // Use network-specific paths to avoid conflicts when switching networks.
-      final appSupportDir = await getApplicationSupportDirectory();
       final networkType = await _getSelectedNetwork();
-      // TODO this should include the hash of the genesis block
-      final nodeStoragePath =
-          '${appSupportDir.path}/${networkType.name}_usernode_node_storage.sqlite';
-      _log.trace('Using node storage path: $nodeStoragePath');
-      builder.nodeStoragePath(path: nodeStoragePath);
-
-      // Keep persistent VRF storage separate until it is folded into general node storage.
-      final vrfPath =
-          '${appSupportDir.path}/${networkType.name}_usernode_vrf_storage.sqlite';
-      _log.trace('Using VRF storage path: $vrfPath');
-      builder.vrfStoragePath(path: vrfPath);
+      final build = await _buildRuntimeNode(
+        httpPort: httpPort,
+        networkType: networkType,
+        bucket: NetworkPrefs.bucketForAddress(address),
+        secretKey: secretKey,
+      );
 
       final (handle, runtimeGeneration) = await MobileNode.startAuthoritative(
-        builder: builder,
+        builder: build.builder,
         authority: RuntimeStartEnvelope(
-          authorityDirectory: appSupportDir.path,
+          authorityDirectory: build.authorityDirectory,
           sessionId: sessionId,
           accountId: accountId,
           address: address,
@@ -473,11 +415,13 @@ class RustBackendService {
       );
       _rpc = handle.rpc();
       _runtimeAuthority = (
-        authorityDirectory: appSupportDir.path,
-        sessionId: sessionId,
-        runtimeGeneration: runtimeGeneration,
-        accountId: accountId,
-        address: address,
+        authorityDirectory: build.authorityDirectory,
+        owner: RuntimeOwner(
+          sessionId: sessionId,
+          runtimeGeneration: runtimeGeneration.toInt(),
+          accountId: accountId,
+          address: address,
+        ),
       );
       _nodeRunning = true;
       _nodePaused = false;
@@ -501,6 +445,152 @@ class RustBackendService {
     }
   }
 
+  /// Rebuilds only the exact runtime generation already enabled in the Rust
+  /// journal. It cannot turn production intent back on or allocate a successor
+  /// generation.
+  Future<bool> recoverNode(BackgroundRuntimeAuthority authority) async {
+    if (!_initialized) await init();
+
+    final owner = authority.owner;
+    final current = _runtimeAuthority;
+    if (_nodeRunning && current?.owner == owner) {
+      await resumeNode();
+      return true;
+    }
+
+    const viewOnly = AppConfig.viewOnly;
+    String? secretKey;
+    if (!viewOnly) {
+      try {
+        final repository = await AccountsRepository.createForBackground(
+          authority,
+        );
+        final capability = repository.capabilityForBackground(authority);
+        final account = await repository.getAuthorizedAccount(capability);
+        if (account == null) return false;
+        secretKey = await repository.getSecretKey(capability);
+        if (secretKey == null || secretKey.isEmpty) return false;
+      } catch (error, stackTrace) {
+        _log.warn(
+          'Headless account authority is unavailable: $error $stackTrace',
+        );
+        return false;
+      }
+    }
+
+    try {
+      final build = await _buildRuntimeNode(
+        networkType: _networkTypeFromName(authority.network),
+        bucket: NetworkPrefs.bucketForAddress(owner.address),
+        secretKey: secretKey,
+      );
+      final handle = await MobileNode.recoverAuthoritative(
+        builder: build.builder,
+        authority: RuntimeAuthorityEnvelope(
+          authorityDirectory: authority.authorityDirectory,
+          sessionId: owner.sessionId,
+          runtimeGeneration: BigInt.from(owner.runtimeGeneration),
+          accountId: owner.accountId,
+          address: owner.address,
+          operationId: _runtimeOperationId('recover'),
+          engineId: _runtimeEngineId,
+        ),
+      );
+      _rpc = handle.rpc();
+      _runtimeAuthority = (
+        authorityDirectory: authority.authorityDirectory,
+        owner: owner,
+      );
+      _nodeRunning = true;
+      _nodePaused = false;
+      await _cachePeerIdFromRpc(_rpc!);
+      _log.info('Recovered the exact journal-owned node runtime');
+      return true;
+    } catch (error, stackTrace) {
+      _log.warn('Headless node recovery was rejected: $error $stackTrace');
+      _clearLocalRuntimeState();
+      return false;
+    }
+  }
+
+  Future<_RuntimeNodeBuild> _buildRuntimeNode({
+    int? httpPort,
+    required NetworkType networkType,
+    required String bucket,
+    required String? secretKey,
+  }) async {
+    const viewOnly = AppConfig.viewOnly;
+    if (!viewOnly && (secretKey == null || secretKey.isEmpty)) {
+      throw StateError('Runtime account key is unavailable');
+    }
+
+    final builder = NodeBuilder();
+    if (httpPort != null) builder.httpServer(port: httpPort);
+    await _configureNetworkFromUrls(builder, networkType);
+
+    final delegated = !viewOnly &&
+        await StakingPreferenceStore.forOwner(
+          network: networkType.name,
+          bucket: bucket,
+        ).isDelegated();
+    if (viewOnly) {
+      _log.info('VIEW_ONLY enabled; skipping account key configuration');
+    } else if (delegated) {
+      _log.info('Stake is delegated; node runs without a block producer');
+    } else if (Platform.isIOS) {
+      _log.info('iOS: block production disabled; node runs non-producing');
+    } else if (!await loadBlockProductionReleasedFor(
+      network: networkType.name,
+      bucket: bucket,
+    )) {
+      _log.info('Block production not released for this account; '
+          'node runs non-producing');
+    } else {
+      _log.trace(
+        'Configuring block producer with user secret key '
+        '(length: ${secretKey!.length})',
+      );
+      builder.blockProducerSecretKey(secretKey: secretKey);
+    }
+    if (!viewOnly) {
+      builder.walletSignerSecretKey(secretKey: secretKey!);
+    }
+    if (!viewOnly && AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+      _log.info(
+        'Enabling observability hub HTTP intake',
+        context: {'base_url': AppConfig.observabilityHubBaseUrl},
+      );
+      builder.enableObservabilityHubHttp(
+        baseUrl: AppConfig.observabilityHubBaseUrl,
+      );
+    } else if (AppConfig.observabilityHubBaseUrl.isNotEmpty) {
+      _log.info('Skipping observability hub HTTP intake in view-only mode');
+    }
+    if (AppConfig.enableRealProver) builder.enableRealProver();
+    if (!viewOnly) {
+      builder.mempoolAutoinsertInterval(secs: BigInt.from(1));
+    }
+
+    final appSupportDir = await getApplicationSupportDirectory();
+    final nodeStoragePath =
+        '${appSupportDir.path}/${networkType.name}_usernode_node_storage.sqlite';
+    builder.nodeStoragePath(path: nodeStoragePath);
+    final vrfPath =
+        '${appSupportDir.path}/${networkType.name}_usernode_vrf_storage.sqlite';
+    builder.vrfStoragePath(path: vrfPath);
+    return (
+      builder: builder,
+      authorityDirectory: '${appSupportDir.path}/session-authority',
+    );
+  }
+
+  NetworkType _networkTypeFromName(String network) => switch (network) {
+        'testnet' => NetworkType.testnet,
+        'internal' => NetworkType.internal,
+        'custom' => NetworkType.custom,
+        _ => throw StateError('Unsupported journal network: $network'),
+      };
+
   String get _runtimeEngineId {
     final configured = _instanceId?.trim();
     return configured == null || configured.isEmpty
@@ -518,10 +608,10 @@ class RustBackendService {
     if (authority == null) return null;
     return RuntimeAuthorityEnvelope(
       authorityDirectory: authority.authorityDirectory,
-      sessionId: authority.sessionId,
-      runtimeGeneration: authority.runtimeGeneration,
-      accountId: authority.accountId,
-      address: authority.address,
+      sessionId: authority.owner.sessionId,
+      runtimeGeneration: BigInt.from(authority.owner.runtimeGeneration),
+      accountId: authority.owner.accountId,
+      address: authority.owner.address,
       operationId: _runtimeOperationId(command),
       engineId: _runtimeEngineId,
     );
@@ -600,9 +690,11 @@ class RustBackendService {
   Future<NetworkType> getSelectedNetwork() => _getSelectedNetwork();
 
   /// Configure network settings from URLs (seedlist, genesis).
-  Future<void> _configureNetworkFromUrls(NodeBuilder builder) async {
+  Future<void> _configureNetworkFromUrls(
+    NodeBuilder builder,
+    NetworkType networkType,
+  ) async {
     final retries = BigInt.from(AppConfig.loadGenesisNbRetries);
-    final networkType = await _getSelectedNetwork();
 
     // Get URLs based on selected network
     final String seedlistUrl;

@@ -139,6 +139,9 @@ class AlarmStateStore(context: Context) {
         return map
     }
 
+    fun owner(alarmId: String): RuntimeOwner? =
+        RuntimeOwner.fromMap(jsonToMap(read(alarmId)))
+
     private fun putData(json: JSONObject, data: Map<String, Any>) {
         putIfSupported(json, "epoch", data["epoch"])
         putIfSupported(json, "slotTimeMs", data["slotTimeMs"])
@@ -155,6 +158,9 @@ class AlarmStateStore(context: Context) {
         putIfSupported(json, "purpose", data["purpose"])
         putIfSupported(json, "schedulerReason", data["reason"])
         putIfSupported(json, "nodeRunning", data["nodeRunning"])
+        for ((key, value) in RuntimeOwner.fromMap(data)?.toMap().orEmpty()) {
+            putIfSupported(json, key, value)
+        }
     }
 
     private fun putIfSupported(json: JSONObject, key: String, value: Any?) {

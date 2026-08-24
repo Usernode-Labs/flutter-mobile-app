@@ -79,12 +79,8 @@ void main() {
         auditBestEffort: ({required String reason}) =>
             calls.add('audit:$reason'),
         onNodeStarted: () async => calls.add('onNodeStarted'),
-        stopMonitoring: ({
-          required String reason,
-          bool destroyBackgroundEngine = true,
-        }) async =>
-            calls.add('stopMonitoring:$reason'
-                '${destroyBackgroundEngine ? '' : ':keepEngine'}'),
+        stopMonitoring: ({required String reason}) async =>
+            calls.add('stopMonitoring:$reason'),
         cancelAllAlarms: () async => calls.add('cancelAllAlarms'),
         cancelAlarmWatchdog: () async => calls.add('cancelWatchdog'),
         isAndroid: () => android,
@@ -327,9 +323,7 @@ void main() {
       // have left all but one of these armed for the retired account.
       expect(calls, [
         'disableRecovery',
-        // Never destroys the cached headless engine: this boundary can be
-        // running inside it.
-        'stopMonitoring:identity_boundary:keepEngine',
+        'stopMonitoring:identity_boundary',
         'stopBackend',
         'cancelAllAlarms',
         'cancelWatchdog',

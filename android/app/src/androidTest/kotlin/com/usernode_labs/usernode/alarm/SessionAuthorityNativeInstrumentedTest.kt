@@ -36,18 +36,12 @@ class SessionAuthorityNativeInstrumentedTest {
     @Test
     fun shippedAlarmEntryReadsRustJournalBeforeCreatingFlutter() {
         File(journalDirectory, "session-authority-v1.json").writeText("{")
-        val applicationIncarnation = ApplicationIncarnationStore(context).ensure()
-        checkNotNull(applicationIncarnation)
+        val owner = RuntimeOwner("session-a", 7, "account-a", "address-a")
 
         val admitted = BackgroundAlarmEngine.isEventAdmittedBeforeFlutter(
             context = context,
             eventType = "android_alarm_fired",
-            eventData = mapOf(
-                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                    applicationIncarnation,
-                BackgroundRuntimeEventAuthority.SESSION_ID_KEY to "session-a",
-                BackgroundRuntimeEventAuthority.RUNTIME_GENERATION_KEY to 7L,
-            ),
+            eventData = owner.toMap(),
         )
 
         assertFalse(admitted)
@@ -59,7 +53,7 @@ class SessionAuthorityNativeInstrumentedTest {
         assertFalse(nativeAdmission.contains("library unavailable"))
         assertFalse(
             com.usernode_labs.usernode.session.SessionAuthorityNative
-                .isBackgroundRuntimeAdmitted(context, "session-a", 7L),
+                .isBackgroundRuntimeAdmitted(context, owner),
         )
     }
 }

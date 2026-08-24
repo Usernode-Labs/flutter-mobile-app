@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/runtime_owner.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/src/rust/lib.dart' as rust;
@@ -81,6 +82,25 @@ class AccountCapability {
   final String address;
   final String bucket;
   final String secretKeyRef;
+}
+
+/// Complete read-only authority for one unattended runtime recovery.
+///
+/// Only the Rust journal transport can construct it. Recovery consumes the
+/// explicit network and user namespace here instead of ambient UI state.
+@immutable
+class BackgroundRuntimeAuthority {
+  const BackgroundRuntimeAuthority._({
+    required this.authorityDirectory,
+    required this.network,
+    required this.userNamespace,
+    required this.owner,
+  });
+
+  final String authorityDirectory;
+  final String network;
+  final String userNamespace;
+  final RuntimeOwner owner;
 }
 
 /// Exact activation owner for the one-time account reconciliation effect.
@@ -205,6 +225,21 @@ class SessionAuthorityGateway {
     );
   }
 
+  AccountCapability captureBackgroundAccountCapability(
+    BackgroundRuntimeAuthority authority,
+  ) {
+    final owner = authority.owner;
+    return AccountCapability._(
+      sessionId: owner.sessionId,
+      userNamespace: authority.userNamespace,
+      network: authority.network,
+      accountId: owner.accountId,
+      address: owner.address,
+      bucket: NetworkPrefs.bucketForAddress(owner.address),
+      secretKeyRef: '${authority.network}:account:${owner.accountId}:secretKey',
+    );
+  }
+
   /// Issues the activation-only owner used while the backend-provisioned
   /// address is reconciled with retained local account data.
   AccountReconciliationLease captureAccountReconciliationLease({
@@ -293,6 +328,47 @@ class SessionAuthorityGateway {
       );
     }
     return response;
+  }
+
+  /// Reads the exact already-enabled owner used by a minimal headless boot.
+  /// Invalid, partial, stopped, retiring, logged-out or unavailable state is
+  /// deliberately indistinguishable from no authority.
+  Future<BackgroundRuntimeAuthority?> readBackgroundRuntimeAuthority() async {
+    try {
+      final response = await command(const {'command': 'read_record'});
+      final record = _requiredObject(response['record'], 'record');
+      final state = _requiredObject(record['state'], 'record.state');
+      if (state['kind'] != 'ready' || state['production_desired'] != true) {
+        return null;
+      }
+
+      final network = _backgroundString(record['network']);
+      if (network == null ||
+          (network != 'testnet' &&
+              network != 'internal' &&
+              network != 'custom')) {
+        return null;
+      }
+      final userNamespace = _backgroundString(state['user_namespace']);
+      final binding = state['account_binding'];
+      if (userNamespace == null || binding is! Map) return null;
+      final owner = RuntimeOwner.fromMap({
+        RuntimeOwner.sessionIdKey: state['session_id'],
+        RuntimeOwner.runtimeGenerationKey: state['runtime_generation'],
+        RuntimeOwner.accountIdKey: binding['account_id'],
+        RuntimeOwner.addressKey: binding['address'],
+      });
+      if (owner == null) return null;
+
+      return BackgroundRuntimeAuthority._(
+        authorityDirectory: directory,
+        network: network,
+        userNamespace: userNamespace,
+        owner: owner,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   void _reportRecovery(Map<String, dynamic> response) {
@@ -385,3 +461,9 @@ Map<String, dynamic> _requiredObject(Object? value, String field) {
 
 Map<String, dynamic>? _optionalObject(Object? value) =>
     value == null ? null : _requiredObject(value, 'record');
+
+String? _backgroundString(Object? value) {
+  if (value is! String) return null;
+  final normalized = value.trim();
+  return normalized.isEmpty ? null : normalized;
+}

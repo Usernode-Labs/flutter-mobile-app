@@ -899,9 +899,14 @@ class BlockProductionAlarmAuditService {
 
   static Future<bool> _ensureDefaultNodeRunning() async {
     try {
-      final started = await RustBackendService.instance.startNode();
+      final backend = RustBackendService.instance;
+      if (backend.isRunning) {
+        await backend.resumeNode();
+        return true;
+      }
+      final started = await backend.startNode();
       if (started) {
-        await RustBackendService.instance.resumeNode();
+        await backend.resumeNode();
       }
       return started;
     } catch (e, st) {

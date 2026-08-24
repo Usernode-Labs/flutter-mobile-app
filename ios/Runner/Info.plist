@@ -42,18 +42,8 @@
     <string>Biometrics are used to unlock your private data.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Photo access lets you upload images to dapps you open in Usernode.</string>
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>fetch</string>
-        <string>processing</string>
-    </array>
     <key>FirebaseMessagingAutoInitEnabled</key>
     <false/>
-    <key>BGTaskSchedulerPermittedIdentifiers</key>
-    <array>
-        <string>be.tramckrijte.workmanager.slot_monitoring_task</string>
-        <string>com.usernode.app.slotmonitoring</string>
-    </array>
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>

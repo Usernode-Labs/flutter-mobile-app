@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/identity/session_authority_gateway.dart';
 import 'package:crypto_mobile_app/core/identity/session_host.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
-import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
+import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
+import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
@@ -96,80 +98,38 @@ Future<void> _runAppBody({required String logTag}) async {
 /// with entrypoint name "headlessMain"
 @pragma('vm:entry-point')
 Future<void> headlessMain() async {
-  // Initialize Flutter binding manually (no Sentry in headless mode)
   WidgetsFlutterBinding.ensureInitialized();
+  await LoggingService.initialize();
+  final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
   try {
-    await AppSleepStateStore.load();
-    final alarmServiceReady = await PlatformAlarmService.instance.initialize();
-    if (!alarmServiceReady) return;
-    final nativeWakelockHeld =
-        await PlatformAlarmService.instance.isWakelockHeld();
-    final watchdogDeliveryInProgress =
-        await PlatformAlarmService.instance.isAlarmWatchdogDeliveryInProgress();
-    if (AppSleepStateStore.isSleeping &&
-        !nativeWakelockHeld &&
-        !watchdogDeliveryInProgress) {
-      await LoggingService.initialize();
-      final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
-      log.info('Skipping headless bootstrap while app sleep is active');
+    final backend = RustBackendService.instance;
+    await backend.init();
+    final authority =
+        await SessionAuthorityGateway().readBackgroundRuntimeAuthority();
+    if (authority == null) {
+      log.info('No enabled background runtime authority');
       return;
     }
 
-    final boot = await AppBootstrap.initNonUi(
-      logTag: 'usernode/HeadlessBootstrap',
-      registerLifecycleObserver: false,
+    final alarms = PlatformAlarmService.instance;
+    alarms.configureRuntimeOwnerResolver(() => backend.runtimeOwner);
+    if (!await alarms.initialize()) return;
+    alarms.setNativeEventCallback((eventType, eventData) async {
+      AndroidForegroundTaskController.instance
+          .handleNativeEvent(eventType, eventData);
+      return BlockProductionAlarmAuditService.instance
+          .handleNativeEvent(eventType, eventData);
+    });
+
+    if (!await backend.recoverNode(authority)) return;
+    BlockProductionAlarmAuditService.instance.enableWatchdogRecovery();
+    await alarms.markReadyForNativeEvents();
+    log.info(
+      'Recovered headless runtime',
+      context: authority.owner.toMap(),
     );
-    final log = boot.log;
-    final container = boot.container;
-    await boot.backendBootstrap;
-
-    log.debug('hasAnyAccounts: ${boot.hasAnyAccounts}');
-
-    log.debug('Starting headless bootstrap');
-
-    try {
-      // Start headless services
-      log.debug('Starting headless services...');
-      await _startHeadlessServices(container, log);
-      log.debug('Headless services started');
-    } catch (e, st) {
-      log.error(
-        'Error during headless bootstrap: $e',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    }
   } catch (e, st) {
-    // Try to initialize logging if it's not already initialized
-    try {
-      await LoggingService.initialize();
-      final log = LoggingService.instance.withTag('usernode/HeadlessBootstrap');
-      log.error('Fatal error in headless main()', error: e, stackTrace: st);
-    } catch (_) {
-      // If logging fails, at least we have the print statements
-    }
-
-    // Re-throw to let Flutter handle it
-    rethrow;
-  }
-}
-
-/// Start services that are normally started by providers in headless mode
-Future<void> _startHeadlessServices(
-  ProviderContainer container,
-  TaggedLogger log,
-) async {
-  try {
-    log.info('Starting headless services (lifecycle, etc.)');
-
-    // Initialize backend lifecycle provider manually
-    container.read(backendLifecycleProvider);
-
-    log.info('Headless services started successfully');
-  } catch (e, st) {
-    log.error('Error starting headless services: $e', error: e, stackTrace: st);
-    await SentryUtil.captureError(e, st, tag: 'headless_services');
+    log.error('Headless recovery failed', error: e, stackTrace: st);
   }
 }
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
+import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
@@ -12,7 +13,7 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.workDataOf
+import com.usernode_labs.usernode.session.SessionAuthorityNative
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,18 +33,19 @@ object AlarmWatchdogScheduler {
     private const val ONE_TIME_ENQUEUED_AT_MS_KEY = "one_time_enqueued_at_ms"
     private const val ONE_TIME_REASON_KEY = "one_time_reason"
     private const val CANCELLED_AT_MS_KEY = "cancelled_at_ms"
+    private const val OWNER_SESSION_KEY = "owner_session_id"
+    private const val OWNER_GENERATION_KEY = "owner_runtime_generation"
+    private const val OWNER_ACCOUNT_KEY = "owner_account_id"
+    private const val OWNER_ADDRESS_KEY = "owner_address"
 
     fun ensurePeriodic(
         context: Context,
         reason: String,
-        applicationIncarnation: String,
-    ): Boolean = NativeSchedulingAuthority.process.runIfCurrent(
+        owner: RuntimeOwner,
+    ): Boolean = NativeSchedulingAuthority.process.runIfAdmitted(
         operation = "watchdog.ensure_periodic",
-        captured = applicationIncarnation,
-        current = { ApplicationIncarnationStore(context).current() },
-        onRejected = {
-            Log.w(TAG, "Ignoring periodic watchdog for stale application incarnation")
-        },
+        owner = owner,
+        admitted = { SessionAuthorityNative.isBackgroundRuntimeAdmitted(context, it) },
     ) {
         try {
             val constraints = Constraints.Builder()
@@ -56,13 +58,7 @@ object AlarmWatchdogScheduler {
                 15,
                 TimeUnit.MINUTES
             )
-                .setInputData(
-                    workDataOf(
-                        "reason" to reason,
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            applicationIncarnation,
-                    ),
-                )
+                .setInputData(workData(reason, owner))
                 .setConstraints(constraints)
                 .setBackoffCriteria(
                     BackoffPolicy.EXPONENTIAL,
@@ -78,11 +74,14 @@ object AlarmWatchdogScheduler {
                     ExistingPeriodicWorkPolicy.UPDATE,
                     request
                 )
-            prefs(context)
-                .edit()
+            prefs(context).edit()
                 .putBoolean(PERIODIC_CONFIGURED_KEY, true)
                 .putLong(PERIODIC_SCHEDULED_AT_MS_KEY, System.currentTimeMillis())
                 .putString(PERIODIC_REASON_KEY, reason)
+                .putString(OWNER_SESSION_KEY, owner.sessionId)
+                .putLong(OWNER_GENERATION_KEY, owner.runtimeGeneration)
+                .putString(OWNER_ACCOUNT_KEY, owner.accountId)
+                .putString(OWNER_ADDRESS_KEY, owner.address)
                 .apply()
             Log.i(TAG, "Ensured periodic alarm watchdog (reason=$reason)")
             true
@@ -95,18 +94,15 @@ object AlarmWatchdogScheduler {
     fun enqueueOneTime(
         context: Context,
         reason: String,
-        applicationIncarnation: String,
-    ): Boolean = NativeSchedulingAuthority.process.runIfCurrent(
+        owner: RuntimeOwner,
+    ): Boolean = NativeSchedulingAuthority.process.runIfAdmitted(
         operation = "watchdog.enqueue_once",
-        captured = applicationIncarnation,
-        current = { ApplicationIncarnationStore(context).current() },
-        onRejected = {
-            Log.w(TAG, "Ignoring one-time watchdog for stale application incarnation")
-        },
+        owner = owner,
+        admitted = { SessionAuthorityNative.isBackgroundRuntimeAdmitted(context, it) },
     ) {
-        if (!isEnabledLocked(context)) {
+        if (!isEnabledLocked(context, owner)) {
             Log.i(TAG, "Ignoring one-time watchdog request while disabled (reason=$reason)")
-            return@runIfCurrent false
+            return@runIfAdmitted false
         }
 
         try {
@@ -114,13 +110,7 @@ object AlarmWatchdogScheduler {
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
             val request = OneTimeWorkRequestBuilder<AlarmWatchdogWorker>()
-                .setInputData(
-                    workDataOf(
-                        "reason" to reason,
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            applicationIncarnation,
-                    ),
-                )
+                .setInputData(workData(reason, owner))
                 .setConstraints(constraints)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .addTag(WATCHDOG_TAG)
@@ -145,14 +135,11 @@ object AlarmWatchdogScheduler {
         }
     }
 
-    fun cancel(context: Context, applicationIncarnation: String): Boolean =
-        NativeSchedulingAuthority.process.runIfCurrent(
+    fun cancel(context: Context, owner: RuntimeOwner): Boolean =
+        NativeSchedulingAuthority.process.runIfOwned(
             operation = "watchdog.cancel",
-            captured = applicationIncarnation,
-            current = { ApplicationIncarnationStore(context).current() },
-            onRejected = {
-                Log.w(TAG, "Ignoring watchdog cancellation for stale application incarnation")
-            },
+            owner = owner,
+            resourceOwner = { storedOwner(context) },
         ) {
             cancelLocked(context)
         }
@@ -171,6 +158,10 @@ object AlarmWatchdogScheduler {
                 .edit()
                 .putBoolean(PERIODIC_CONFIGURED_KEY, false)
                 .putLong(CANCELLED_AT_MS_KEY, System.currentTimeMillis())
+                .remove(OWNER_SESSION_KEY)
+                .remove(OWNER_GENERATION_KEY)
+                .remove(OWNER_ACCOUNT_KEY)
+                .remove(OWNER_ADDRESS_KEY)
                 .commit()
             Log.i(
                 TAG,
@@ -184,13 +175,14 @@ object AlarmWatchdogScheduler {
         }
     }
 
-    fun isEnabled(context: Context): Boolean =
+    fun isEnabled(context: Context, owner: RuntimeOwner): Boolean =
         NativeSchedulingAuthority.process.serialized("watchdog.is_enabled") {
-            isEnabledLocked(context)
+            isEnabledLocked(context, owner)
         }
 
-    private fun isEnabledLocked(context: Context): Boolean =
-        prefs(context).getBoolean(PERIODIC_CONFIGURED_KEY, false)
+    private fun isEnabledLocked(context: Context, owner: RuntimeOwner): Boolean =
+        prefs(context).getBoolean(PERIODIC_CONFIGURED_KEY, false) &&
+            storedOwner(context) == owner
 
     suspend fun state(context: Context): Map<String, Any?> = withContext(Dispatchers.IO) {
         val prefs = prefs(context)
@@ -205,7 +197,8 @@ object AlarmWatchdogScheduler {
             "cancelledAtMs" to prefs.getLong(CANCELLED_AT_MS_KEY, 0L),
             "lastRunAtMs" to prefs.getLong(LAST_RUN_AT_MS_KEY, 0L),
             "lastRunReason" to prefs.getString(LAST_RUN_REASON_KEY, null),
-            "lastRunAttempt" to prefs.getInt(LAST_RUN_ATTEMPT_KEY, 0)
+            "lastRunAttempt" to prefs.getInt(LAST_RUN_ATTEMPT_KEY, 0),
+            "runtimeOwner" to storedOwner(context)?.toMap(),
         )
 
         try {
@@ -241,6 +234,28 @@ object AlarmWatchdogScheduler {
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private fun storedOwner(context: Context): RuntimeOwner? {
+        val prefs = prefs(context)
+        return RuntimeOwner.fromMap(
+            mapOf(
+                RuntimeOwner.SESSION_ID_KEY to prefs.getString(OWNER_SESSION_KEY, null),
+                RuntimeOwner.RUNTIME_GENERATION_KEY to
+                    prefs.getLong(OWNER_GENERATION_KEY, 0L),
+                RuntimeOwner.ACCOUNT_ID_KEY to prefs.getString(OWNER_ACCOUNT_KEY, null),
+                RuntimeOwner.ADDRESS_KEY to prefs.getString(OWNER_ADDRESS_KEY, null),
+            ),
+        )
+    }
+
+    private fun workData(reason: String, owner: RuntimeOwner): Data =
+        Data.Builder()
+            .putString("reason", reason)
+            .putString(RuntimeOwner.SESSION_ID_KEY, owner.sessionId)
+            .putLong(RuntimeOwner.RUNTIME_GENERATION_KEY, owner.runtimeGeneration)
+            .putString(RuntimeOwner.ACCOUNT_ID_KEY, owner.accountId)
+            .putString(RuntimeOwner.ADDRESS_KEY, owner.address)
+            .build()
 
     private val WorkInfo.State.isActive: Boolean
         get() = this == WorkInfo.State.ENQUEUED ||

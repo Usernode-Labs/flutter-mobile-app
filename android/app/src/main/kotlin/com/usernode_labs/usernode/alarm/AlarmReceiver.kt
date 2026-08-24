@@ -7,12 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import android.app.NotificationManager
-import android.app.NotificationChannel
-import android.app.PendingIntent
-import com.usernode_labs.usernode.MainActivity
-import com.usernode_labs.usernode.R
+import com.usernode_labs.usernode.session.SessionAuthorityNative
 
 class AlarmReceiver : BroadcastReceiver() {
     companion object {
@@ -44,11 +39,11 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun handleSlotAlarm(context: Context, intent: Intent) {
-        val applicationIncarnation = intent.getStringExtra(
-            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
-        )
-        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
-            Log.w(TAG, "Ignoring slot alarm for stale application incarnation")
+        val owner = RuntimeOwner.fromIntent(intent)
+        if (owner == null ||
+            !SessionAuthorityNative.isBackgroundRuntimeAdmitted(context, owner)
+        ) {
+            Log.w(TAG, "Ignoring slot alarm without current runtime authority")
             return
         }
         val alarmId = intent.getStringExtra("alarmId")
@@ -98,8 +93,8 @@ class AlarmReceiver : BroadcastReceiver() {
 
         // Take the native wakelock before handing control to Flutter so the
         // inactivity sleep path cannot win a race against alarm recovery.
-        if (!NativeWakeLockManager.acquire(context, applicationIncarnation!!)) {
-            Log.w(TAG, "Could not acquire wakelock for current application incarnation")
+        if (!NativeWakeLockManager.acquire(context, owner)) {
+            Log.w(TAG, "Could not acquire wakelock for current runtime owner")
             return
         }
 
@@ -112,9 +107,8 @@ class AlarmReceiver : BroadcastReceiver() {
             "batteryLevel" to 0,
             "networkState" to "unknown",
             "nodeRunning" to nodeRunning,
-            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                applicationIncarnation,
         )
+        eventData.putAll(owner.toMap())
         nativeScheduledAtMs?.let { eventData["nativeScheduledAtMs"] = it }
         scheduledElapsedRealtimeMs?.let { eventData["scheduledElapsedRealtimeMs"] = it }
         nativeTriggerAtMs?.let { eventData["nativeTriggerAtMs"] = it }
@@ -147,10 +141,7 @@ class AlarmReceiver : BroadcastReceiver() {
             putExtra("globalSlot", globalSlot)
             putExtra("nodeRunning", nodeRunning)
             putExtra("alarmTimeMs", scheduledTimeMs)
-            putExtra(
-                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
-                applicationIncarnation,
-            )
+            owner.putInto(this)
             nativeScheduledAtMs?.let { putExtra("nativeScheduledAtMs", it) }
             scheduledElapsedRealtimeMs?.let { putExtra("scheduledElapsedRealtimeMs", it) }
             nativeTriggerAtMs?.let { putExtra("nativeTriggerAtMs", it) }
@@ -176,66 +167,28 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     private fun handleBootCompleted(context: Context) {
-        if (!AlarmWatchdogScheduler.isEnabled(context)) {
-            Log.i(TAG, "Ignoring boot recovery because block production watchdog is disabled")
-            return
-        }
-        val applicationIncarnation =
-            ApplicationIncarnationStore(context).current() ?: run {
-                Log.i(TAG, "Ignoring boot recovery without an application incarnation")
-                return
-            }
-
-        Log.i(TAG, "Device boot completed - starting monitoring")
-        AlarmWatchdogScheduler.ensurePeriodic(
-            context,
-            "boot_completed",
-            applicationIncarnation,
-        )
-        AlarmWatchdogScheduler.enqueueOneTime(
-            context,
-            "boot_completed",
-            applicationIncarnation,
-        )
-        sendAuditRecoveryEvent(context, "boot_completed", applicationIncarnation)
-        startMonitoringService(
-            context = context,
-            alarmId = "boot_completed",
-            globalSlot = 0,
-            nodeRunning = false,
-            applicationIncarnation = applicationIncarnation,
-        )
+        recoverEnabledRuntime(context, "boot_completed")
     }
 
     private fun handlePackageReplaced(context: Context) {
-        if (!AlarmWatchdogScheduler.isEnabled(context)) {
-            Log.i(TAG, "Ignoring package update recovery because block production watchdog is disabled")
+        recoverEnabledRuntime(context, "package_replaced")
+    }
+
+    private fun recoverEnabledRuntime(context: Context, reason: String) {
+        val owner = BackgroundRuntimeEventAuthority.currentOwner(context) ?: run {
+            Log.i(TAG, "Ignoring $reason without enabled Ready runtime authority")
             return
         }
-        val applicationIncarnation =
-            ApplicationIncarnationStore(context).current() ?: run {
-                Log.i(TAG, "Ignoring package recovery without an application incarnation")
-                return
-            }
 
-        Log.i(TAG, "App updated - starting monitoring")
-        AlarmWatchdogScheduler.ensurePeriodic(
-            context,
-            "package_replaced",
-            applicationIncarnation,
-        )
-        AlarmWatchdogScheduler.enqueueOneTime(
-            context,
-            "package_replaced",
-            applicationIncarnation,
-        )
-        sendAuditRecoveryEvent(context, "package_replaced", applicationIncarnation)
+        AlarmWatchdogScheduler.ensurePeriodic(context, reason, owner)
+        AlarmWatchdogScheduler.enqueueOneTime(context, reason, owner)
+        sendAuditRecoveryEvent(context, reason, owner)
         startMonitoringService(
             context = context,
-            alarmId = "package_replaced",
+            alarmId = reason,
             globalSlot = 0,
             nodeRunning = false,
-            applicationIncarnation = applicationIncarnation,
+            owner = owner,
         )
     }
 
@@ -252,22 +205,6 @@ class AlarmReceiver : BroadcastReceiver() {
         } else {
             "android_exact_alarm_permission_denied"
         }
-        val applicationIncarnation = ApplicationIncarnationStore(context).current()
-        if (granted &&
-            applicationIncarnation != null &&
-            AlarmWatchdogScheduler.isEnabled(context)
-        ) {
-            AlarmWatchdogScheduler.ensurePeriodic(
-                context,
-                "exact_alarm_permission_granted",
-                applicationIncarnation,
-            )
-            AlarmWatchdogScheduler.enqueueOneTime(
-                context,
-                "exact_alarm_permission_granted",
-                applicationIncarnation,
-            )
-        }
         sendFlutterEvent(
             context = context,
             eventType = eventType,
@@ -281,17 +218,15 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun sendAuditRecoveryEvent(
         context: Context,
         reason: String,
-        applicationIncarnation: String,
+        owner: RuntimeOwner,
     ) {
         sendFlutterEvent(
             context = context,
             eventType = "android_alarm_recovery_requested",
-            eventData = mapOf(
+            eventData = mapOf<String, Any?>(
                 "reason" to reason,
                 "source" to "alarm_receiver",
-                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                    applicationIncarnation,
-            )
+            ) + owner.toMap(),
         )
     }
 
@@ -314,17 +249,14 @@ class AlarmReceiver : BroadcastReceiver() {
         alarmId: String,
         globalSlot: Int,
         nodeRunning: Boolean,
-        applicationIncarnation: String,
+        owner: RuntimeOwner,
     ) {
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
             putExtra("globalSlot", globalSlot)
             putExtra("nodeRunning", nodeRunning)
-            putExtra(
-                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
-                applicationIncarnation,
-            )
+            owner.putInto(this)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -334,49 +266,6 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, globalSlot=$globalSlot)")
-    }
-
-    private fun showFallbackNotification(
-        context: Context,
-        globalSlot: Int,
-        scheduledTimeMs: Long
-    ) {
-        val channelId = "slot_alarm_fallback"
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "Slot Alarm",
-                NotificationManager.IMPORTANCE_HIGH
-            )
-            nm.createNotificationChannel(channel)
-        }
-
-        val launchIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("globalSlot", globalSlot)
-            putExtra("fromAlarm", true)
-        }
-        val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        val pendingIntent = PendingIntent.getActivity(context, 0, launchIntent, piFlags)
-
-        val scheduledTimeText = AlarmTimeFormatter.formatScheduledTime(scheduledTimeMs)
-        val message = if (scheduledTimeText != null) {
-            "Resumed for slot $globalSlot (scheduled $scheduledTimeText)"
-        } else {
-            "Resumed for slot $globalSlot"
-        }
-
-        val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.launch_background)
-            .setContentTitle("Slot alarm fired")
-            .setContentText(message)
-            .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(pendingIntent)
-            .build()
-
-        nm.notify(globalSlot, notification)
     }
 
     @Suppress("DEPRECATION")

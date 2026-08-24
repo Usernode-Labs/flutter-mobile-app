@@ -20,6 +20,17 @@ Future<bool> loadBlockProductionReleased() async {
   return prefs.getBool(NetworkPrefs.prefixAccountKey(_bpReleasedKey)) ?? false;
 }
 
+Future<bool> loadBlockProductionReleasedFor({
+  required String network,
+  required String bucket,
+}) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(
+        NetworkPrefs.prefixAccountKeyForIn(_bpReleasedKey, bucket, network),
+      ) ??
+      false;
+}
+
 /// Persists the released flag into an explicit account [bucket]. Written by
 /// the account reconciler (off the provision response) and refreshed
 /// whenever `/me` is fetched, so an admin release takes effect on the next

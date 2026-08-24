@@ -5,17 +5,31 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 /// Identity- and network-scoped persistence for the selected delegation
 /// target. An absent address means the account self-stakes.
 class StakingPreferenceStore {
-  const StakingPreferenceStore({required this.bucket});
+  const StakingPreferenceStore({required this.bucket}) : network = null;
+
+  const StakingPreferenceStore.forOwner({
+    required this.network,
+    required this.bucket,
+  });
 
   static const _delegateAddressKey = 'staking:delegate_address';
 
   final String bucket;
+  final String? network;
 
   factory StakingPreferenceStore.active() =>
       StakingPreferenceStore(bucket: NetworkPrefs.activeBucket);
 
-  String get _key =>
-      NetworkPrefs.prefixAccountKeyFor(_delegateAddressKey, bucket);
+  String get _key {
+    final explicitNetwork = network;
+    return explicitNetwork == null
+        ? NetworkPrefs.prefixAccountKeyFor(_delegateAddressKey, bucket)
+        : NetworkPrefs.prefixAccountKeyForIn(
+            _delegateAddressKey,
+            bucket,
+            explicitNetwork,
+          );
+  }
 
   Future<String?> loadDelegateAddress() async {
     final prefs = await SharedPreferences.getInstance();

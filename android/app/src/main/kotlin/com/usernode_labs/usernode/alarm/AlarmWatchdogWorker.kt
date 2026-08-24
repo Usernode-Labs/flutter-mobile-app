@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.usernode_labs.usernode.session.SessionAuthorityNative
 import kotlinx.coroutines.CancellationException
 
 class AlarmWatchdogWorker(
@@ -15,15 +16,14 @@ class AlarmWatchdogWorker(
     }
 
     override suspend fun doWork(): Result {
-        val applicationIncarnation = inputData.getString(
-            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
-        )
-        val incarnationStore = ApplicationIncarnationStore(applicationContext)
-        if (!incarnationStore.matches(applicationIncarnation)) {
-            Log.i(TAG, "Ignoring watchdog work for stale application incarnation")
+        val owner = RuntimeOwner.fromMap(inputData.keyValueMap)
+        if (owner == null ||
+            !SessionAuthorityNative.isBackgroundRuntimeAdmitted(applicationContext, owner)
+        ) {
+            Log.i(TAG, "Ignoring watchdog work without current runtime authority")
             return Result.success()
         }
-        if (!AlarmWatchdogScheduler.isEnabled(applicationContext)) {
+        if (!AlarmWatchdogScheduler.isEnabled(applicationContext, owner)) {
             Log.i(TAG, "Alarm watchdog is disabled; ignoring queued work")
             return Result.success()
         }
@@ -48,16 +48,18 @@ class AlarmWatchdogWorker(
                     "reason" to reason,
                     "startedAtMs" to startedAtMs,
                     "runAttemptCount" to attempt,
-                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                        applicationIncarnation,
-                )
+                ) + owner.toMap(),
             )
             if (acknowledged) {
                 Result.success()
-            } else if (!incarnationStore.matches(applicationIncarnation)) {
-                Log.i(TAG, "Application incarnation changed while watchdog ran")
+            } else if (!SessionAuthorityNative.isBackgroundRuntimeAdmitted(
+                    applicationContext,
+                    owner,
+                )
+            ) {
+                Log.i(TAG, "Runtime authority changed while watchdog ran")
                 Result.success()
-            } else if (!AlarmWatchdogScheduler.isEnabled(applicationContext)) {
+            } else if (!AlarmWatchdogScheduler.isEnabled(applicationContext, owner)) {
                 Log.i(TAG, "Alarm watchdog was disabled while running; skipping retry")
                 Result.success()
             } else {
@@ -68,7 +70,11 @@ class AlarmWatchdogWorker(
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to deliver alarm watchdog event", e)
-            if (incarnationStore.matches(applicationIncarnation)) {
+            if (SessionAuthorityNative.isBackgroundRuntimeAdmitted(
+                    applicationContext,
+                    owner,
+                ) && AlarmWatchdogScheduler.isEnabled(applicationContext, owner)
+            ) {
                 Result.retry()
             } else {
                 Result.success()

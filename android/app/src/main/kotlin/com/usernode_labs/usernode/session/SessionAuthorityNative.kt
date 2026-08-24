@@ -1,6 +1,7 @@
 package com.usernode_labs.usernode.session
 
 import android.content.Context
+import com.usernode_labs.usernode.alarm.RuntimeOwner
 import java.io.File
 
 /** Thin, read-only Android client for the Rust-owned process authority. */
@@ -20,6 +21,8 @@ internal object SessionAuthorityNative {
         journalDirectory: String,
         sessionId: String,
         runtimeGeneration: Long,
+        accountId: String,
+        address: String,
     ): Boolean
 
     fun admissionJson(context: Context): String {
@@ -31,16 +34,17 @@ internal object SessionAuthorityNative {
 
     fun isBackgroundRuntimeAdmitted(
         context: Context,
-        sessionId: String,
-        runtimeGeneration: Long,
+        owner: RuntimeOwner,
     ): Boolean {
-        if (!libraryLoaded || sessionId.isBlank() || runtimeGeneration <= 0) {
+        if (!libraryLoaded) {
             return false
         }
         return admitsBackgroundRuntime(
             journalDirectory(context),
-            sessionId,
-            runtimeGeneration,
+            owner.sessionId,
+            owner.runtimeGeneration,
+            owner.accountId,
+            owner.address,
         )
     }
 

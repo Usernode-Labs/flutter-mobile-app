@@ -16,18 +16,13 @@ class ExactRuntimeSchedulingAuthorityTest {
 
     @Test
     fun acceptedACompletesBeforeQueuedBUsesTheSameNativeOwner() {
-        val aAcquired = CountDownLatch(1)
+        val aAdmitted = CountDownLatch(1)
         val releaseA = CountDownLatch(1)
         val bQueued = CountDownLatch(1)
         val journalOwner = AtomicReference(ownerA)
         val effects = Collections.synchronizedList(mutableListOf<String>())
         val authority = NativeSchedulingAuthority { operation, point ->
             when {
-                operation == "schedule-a" &&
-                    point == NativeSchedulingCheckpoint.AFTER_ACQUIRE -> {
-                    aAcquired.countDown()
-                    assertTrue(releaseA.await(5, TimeUnit.SECONDS))
-                }
                 operation == "schedule-b" &&
                     point == NativeSchedulingCheckpoint.BEFORE_ACQUIRE -> bQueued.countDown()
             }
@@ -39,13 +34,18 @@ class ExactRuntimeSchedulingAuthorityTest {
                 authority.runIfAdmitted(
                     operation = "schedule-a",
                     owner = ownerA,
-                    admitted = { it == journalOwner.get() },
+                    admitted = {
+                        val accepted = it == journalOwner.get()
+                        aAdmitted.countDown()
+                        assertTrue(releaseA.await(5, TimeUnit.SECONDS))
+                        accepted
+                    },
                 ) {
                     effects += "A"
                     true
                 }
             }
-            assertTrue(aAcquired.await(5, TimeUnit.SECONDS))
+            assertTrue(aAdmitted.await(5, TimeUnit.SECONDS))
 
             journalOwner.set(ownerB)
             val b = executor.submit<Boolean> {

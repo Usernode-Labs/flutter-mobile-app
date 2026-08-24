@@ -16,8 +16,8 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
-import com.usernode_labs.usernode.alarm.ApplicationIncarnationStore
 import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
+import com.usernode_labs.usernode.alarm.BackgroundRuntimeEventAuthority
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
 import com.usernode_labs.usernode.shortcuts.HomeShortcutsHandler
 import java.io.ByteArrayOutputStream
@@ -245,7 +245,7 @@ class MainActivity: FlutterActivity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (::alarmHandler.isInitialized) {
-            alarmHandler.onRequestPermissionsResult(requestCode, permissions, grantResults)
+            alarmHandler.onRequestPermissionsResult(requestCode, grantResults)
         }
     }
 
@@ -314,21 +314,17 @@ class MainActivity: FlutterActivity() {
         val replacementActivityAttached = AlarmMethodChannelHandler.getInstance()
             ?.isActivityAttached() == true
         if (SlotMonitoringService.isForegroundServiceActive && !replacementActivityAttached) {
-            // A foreground service may outlive the UI engine. Re-enter Dart
-            // only through an exact event; engine creation alone grants no
-            // lifecycle work and terminal reset leaves no current token.
-            val applicationIncarnation =
-                ApplicationIncarnationStore(applicationContext).current()
-            if (applicationIncarnation != null) {
+            // A foreground service may outlive the disposable UI engine.
+            // Re-enter Dart only for the exact owner admitted by the journal.
+            val owner = BackgroundRuntimeEventAuthority.currentOwner(applicationContext)
+            if (owner != null) {
                 BackgroundAlarmEngine.sendAlarmEvent(
                     applicationContext,
                     "android_alarm_recovery_requested",
                     mapOf(
                         "reason" to "activity_destroyed_foreground_service",
                         "source" to "main_activity",
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            applicationIncarnation,
-                    ),
+                    ) + owner.toMap(),
                 )
             }
         } else if (SlotMonitoringService.isForegroundServiceActive) {

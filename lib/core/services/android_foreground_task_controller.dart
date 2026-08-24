@@ -158,17 +158,8 @@ class AndroidForegroundTaskController {
     return true;
   }
 
-  /// Stops the Android production support.
-  ///
-  /// [destroyBackgroundEngine] must be false when the caller may itself be
-  /// running inside the cached headless engine: native
-  /// `ForegroundServiceManager.stopForegroundService()` destroys that engine
-  /// synchronously, before the method result is delivered, so a headless
-  /// caller would kill its own continuation mid-boundary.
-  Future<void> stopMonitoring({
-    String reason = 'stopped',
-    bool destroyBackgroundEngine = true,
-  }) async {
+  /// Stops the Android production support after the active poll drains.
+  Future<void> stopMonitoring({String reason = 'stopped'}) async {
     if (!Platform.isAndroid) return;
     _pollTimer?.cancel();
     _pollTimer = null;
@@ -184,9 +175,7 @@ class AndroidForegroundTaskController {
           'Activity is resumed; skipping node pause on stopMonitoring ($reason)');
     }
     await _releaseWakelock();
-    await PlatformAlarmService.instance.stopForegroundService(
-      destroyBackgroundEngine: destroyBackgroundEngine,
-    );
+    await PlatformAlarmService.instance.stopForegroundService();
   }
 
   /// Waits for an in-flight VRF poll to finish before teardown continues.
@@ -284,8 +273,13 @@ class AndroidForegroundTaskController {
 
   Future<bool> _ensureNodeRunning() async {
     try {
-      final started = await RustBackendService.instance.startNode();
-      await RustBackendService.instance.resumeNode();
+      final backend = RustBackendService.instance;
+      if (backend.isRunning) {
+        await backend.resumeNode();
+        return true;
+      }
+      final started = await backend.startNode();
+      if (started) await backend.resumeNode();
       _log.info('Node start result: $started');
       return started;
     } catch (e, st) {

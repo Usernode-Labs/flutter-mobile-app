@@ -2,12 +2,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:crypto_mobile_app/core/identity/runtime_owner.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('com.usernode.app/alarm');
+  const owner = RuntimeOwner(
+    sessionId: 'session-a',
+    runtimeGeneration: 7,
+    accountId: 'account-a',
+    address: 'address-a',
+  );
 
   late List<String> calls;
   late Map<String, List<Object?>> responses;
@@ -235,10 +242,10 @@ void main() {
     });
   });
 
-  group('application incarnation event fence', () {
+  group('runtime owner event boundary', () {
     test('rejects a stale scheduled event before invoking Dart work', () async {
       await setUpService();
-      service.setApplicationIncarnationForTesting('current');
+      service.configureRuntimeOwnerResolver(() => owner);
       var callbackCalls = 0;
       service.setNativeEventCallback((_, __) async {
         callbackCalls += 1;
@@ -248,7 +255,12 @@ void main() {
       expect(
         await service.dispatchNativeEventForTesting(
           'android_alarm_fired',
-          const {'applicationIncarnation': 'old'},
+          const RuntimeOwner(
+            sessionId: 'session-b',
+            runtimeGeneration: 1,
+            accountId: 'account-b',
+            address: 'address-b',
+          ).toMap(),
         ),
         isFalse,
       );
@@ -257,7 +269,7 @@ void main() {
       expect(
         await service.dispatchNativeEventForTesting(
           'android_alarm_fired',
-          const {'applicationIncarnation': 'current'},
+          owner.toMap(),
         ),
         isTrue,
       );
@@ -267,7 +279,7 @@ void main() {
     test('permission events remain unscoped and terminal reset rejects work',
         () async {
       await setUpService();
-      service.setApplicationIncarnationForTesting('current');
+      service.configureRuntimeOwnerResolver(() => owner);
       var callbackCalls = 0;
       service.setNativeEventCallback((_, __) async {
         callbackCalls += 1;
@@ -285,7 +297,7 @@ void main() {
       expect(
         await service.dispatchNativeEventForTesting(
           'android_alarm_fired',
-          const {'applicationIncarnation': 'current'},
+          owner.toMap(),
         ),
         isFalse,
       );

@@ -183,20 +183,10 @@ object BackgroundAlarmEngine {
             completion?.invoke(false)
             return
         }
-        if (!eventMatchesCurrentIncarnation(context, eventType, eventData)) {
-            Log.w(TAG, "Ignoring stale alarm event before engine creation: $eventType")
-            completion?.invoke(false)
-            return
-        }
         val posted = mainHandler.post {
             try {
                 if (!isEventAdmittedBeforeFlutter(context, eventType, eventData)) {
                     Log.w(TAG, "Ignoring queued event after authority changed: $eventType")
-                    completion?.invoke(false)
-                    return@post
-                }
-                if (!eventMatchesCurrentIncarnation(context, eventType, eventData)) {
-                    Log.w(TAG, "Ignoring stale queued alarm event: $eventType")
                     completion?.invoke(false)
                     return@post
                 }
@@ -215,10 +205,7 @@ object BackgroundAlarmEngine {
                 // UI-only permission signals carry no lifecycle authority.
                 // They may update an attached UI engine, but must never create
                 // a headless engine on their own.
-                val captured = eventData[
-                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION
-                ] as? String
-                if (!ApplicationIncarnationStore(context).matches(captured)) {
+                if (!BackgroundRuntimeEventAuthority.requiresRuntimeAuthority(eventType)) {
                     Log.d(TAG, "Dropping unscoped event without an attached Activity: $eventType")
                     completion?.invoke(false)
                     return@post
@@ -247,18 +234,4 @@ object BackgroundAlarmEngine {
         eventType: String,
         eventData: Map<String, Any?>,
     ): Boolean = BackgroundRuntimeEventAuthority.isAdmitted(context, eventType, eventData)
-
-    private fun eventMatchesCurrentIncarnation(
-        context: Context,
-        eventType: String,
-        eventData: Map<String, Any?>,
-    ): Boolean {
-        if (!BackgroundRuntimeEventAuthority.requiresRuntimeAuthority(eventType)) {
-            return true
-        }
-        val captured = eventData[
-            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION
-        ] as? String
-        return ApplicationIncarnationStore(context).matches(captured)
-    }
 }

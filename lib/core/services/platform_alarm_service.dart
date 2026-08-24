@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:crypto_mobile_app/core/identity/runtime_owner.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
@@ -253,8 +254,7 @@ class AlarmDebugState {
 /// Abstract interface for platform-specific alarm/wake-up scheduling
 ///
 /// Android: Uses AlarmManager with exact alarms and Foreground Service
-/// iOS: Uses incarnation-scoped local notifications. The registered BGTask
-/// handler only drains requests left by older app versions.
+/// iOS: Notification permissions only; slot production is unsupported.
 class PlatformAlarmService {
   static final PlatformAlarmService instance = PlatformAlarmService._();
   PlatformAlarmService._({ObservabilityReportingService? observability})
@@ -272,7 +272,6 @@ class PlatformAlarmService {
         _isIOS = platform == TargetPlatform.iOS;
 
   static const MethodChannel _channel = MethodChannel('com.usernode.app/alarm');
-  static const applicationIncarnationKey = 'applicationIncarnation';
   final ObservabilityReportingService _observability;
   final bool _isAndroid;
   final bool _isIOS;
@@ -280,7 +279,7 @@ class PlatformAlarmService {
   bool _initialized = false;
   bool _terminalResetRequested = false;
   bool _permissionsGranted = false;
-  String? _applicationIncarnation;
+  RuntimeOwner? Function()? _runtimeOwnerResolver;
   String? _lastAlarmFiredEventKey;
   DateTime? _lastAlarmFiredEventAt;
 
@@ -311,16 +310,6 @@ class PlatformAlarmService {
       }
 
       if (_terminalResetRequested) return false;
-
-      if (_isAndroid || _isIOS) {
-        final incarnation =
-            await _channel.invokeMethod<String>('ensureApplicationIncarnation');
-        if (_terminalResetRequested) return false;
-        if (incarnation == null || incarnation.isEmpty) {
-          throw StateError('Native application incarnation is unavailable');
-        }
-        _applicationIncarnation = incarnation;
-      }
 
       _initialized = true;
       _log.info('PlatformAlarmService initialized');
@@ -366,15 +355,18 @@ class PlatformAlarmService {
       }
 
       final data = eventData ?? <String, dynamic>{};
-      if (_requiresApplicationIncarnation(eventType) &&
-          (_terminalResetRequested ||
-              _applicationIncarnation == null ||
-              data[applicationIncarnationKey] != _applicationIncarnation)) {
-        _log.warn(
-          'Rejected native event for a stale application incarnation: '
-          '$eventType',
-        );
-        return false;
+      if (_requiresRuntimeOwner(eventType)) {
+        final eventOwner = RuntimeOwner.fromMap(data);
+        final currentOwner = _runtimeOwnerResolver?.call();
+        if (_terminalResetRequested ||
+            eventOwner == null ||
+            eventOwner != currentOwner) {
+          _log.warn(
+            'Rejected native event without the current runtime owner: '
+            '$eventType',
+          );
+          return false;
+        }
       }
 
       _log.debug('Native event received: $eventType');
@@ -397,27 +389,19 @@ class PlatformAlarmService {
     }
   }
 
-  bool _requiresApplicationIncarnation(String eventType) {
-    if (eventType.startsWith('android_')) {
-      return eventType != 'android_post_notifications_permission_granted' &&
-          eventType != 'android_post_notifications_permission_denied' &&
-          eventType != 'android_exact_alarm_permission_granted' &&
-          eventType != 'android_exact_alarm_permission_denied' &&
-          eventType != 'android_battery_optimization_disabled';
-    }
-    if (eventType.startsWith('ios_')) {
-      return eventType != 'ios_notification_permission_granted' &&
-          eventType != 'ios_notification_permission_denied';
-    }
-    return false;
-  }
+  bool _requiresRuntimeOwner(String eventType) =>
+      eventType.startsWith('android_') &&
+      eventType != 'android_post_notifications_permission_granted' &&
+      eventType != 'android_post_notifications_permission_denied' &&
+      eventType != 'android_exact_alarm_permission_granted' &&
+      eventType != 'android_exact_alarm_permission_denied' &&
+      eventType != 'android_battery_optimization_disabled';
 
   void _recordNativeAlarmFiredEvent(
     String eventType,
     Map<String, dynamic> eventData,
   ) {
-    if (eventType != 'android_alarm_fired' &&
-        eventType != 'ios_bgtask_executed') {
+    if (eventType != 'android_alarm_fired') {
       return;
     }
 
@@ -479,9 +463,8 @@ class PlatformAlarmService {
     _recordNativeAlarmFiredEvent(eventType, eventData);
   }
 
-  @visibleForTesting
-  void setApplicationIncarnationForTesting(String? value) {
-    _applicationIncarnation = value;
+  void configureRuntimeOwnerResolver(RuntimeOwner? Function() resolver) {
+    _runtimeOwnerResolver = resolver;
   }
 
   @visibleForTesting
@@ -497,7 +480,6 @@ class PlatformAlarmService {
 
   String _alarmPurposeForNativeEvent(String eventType, String? alarmId) {
     if (alarmId != null) return _alarmPurpose(alarmId, const {});
-    if (eventType == 'ios_bgtask_executed') return 'ios_background_task';
     return 'block_production_wake';
   }
 
@@ -577,17 +559,11 @@ class PlatformAlarmService {
     }
   }
 
-  /// Initialize iOS notification scheduling and the legacy task drain.
+  /// Initialize iOS notification permission support.
   Future<void> _initializeIOS() async {
     try {
-      // AppDelegate registers a no-op handler during launch solely to drain
-      // requests submitted by older versions. New schedules are notifications.
-      _log.info(
-          'iOS notification scheduling initialized; legacy task drain registered');
-
-      // Just mark as ready - no need to call native code again
       _permissionsGranted = true;
-      _log.info('iOS alarm service initialized successfully');
+      _log.info('iOS notification support initialized');
     } on PlatformException catch (e) {
       _log.error('Error initializing iOS alarm service: ${e.message}');
     }
@@ -995,9 +971,9 @@ class PlatformAlarmService {
   }
 
   Future<bool> ensureAlarmWatchdogScheduled({required String reason}) async {
-    if (!Platform.isAndroid) return false;
-    final incarnation = _applicationIncarnation;
-    if (!_initialized || _terminalResetRequested || incarnation == null) {
+    if (!_isAndroid) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (!_initialized || _terminalResetRequested || owner == null) {
       _log.debug('Cannot schedule alarm watchdog: service not initialized');
       return false;
     }
@@ -1007,7 +983,7 @@ class PlatformAlarmService {
             'ensureAlarmWatchdogScheduled',
             {
               'reason': reason,
-              applicationIncarnationKey: incarnation,
+              ...owner.toMap(),
             },
           ) ??
           false;
@@ -1040,9 +1016,9 @@ class PlatformAlarmService {
   }
 
   Future<bool> requestAlarmWatchdogRun({required String reason}) async {
-    if (!Platform.isAndroid) return false;
-    final incarnation = _applicationIncarnation;
-    if (!_initialized || _terminalResetRequested || incarnation == null) {
+    if (!_isAndroid) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (!_initialized || _terminalResetRequested || owner == null) {
       _log.debug('Cannot request alarm watchdog run: service not initialized');
       return false;
     }
@@ -1052,7 +1028,7 @@ class PlatformAlarmService {
             'requestAlarmWatchdogRun',
             {
               'reason': reason,
-              applicationIncarnationKey: incarnation,
+              ...owner.toMap(),
             },
           ) ??
           false;
@@ -1077,13 +1053,13 @@ class PlatformAlarmService {
   Future<bool> cancelAlarmWatchdog() async {
     if (!_isAndroid) return false;
     if (!_initialized) return false;
-    final incarnation = _applicationIncarnation;
-    if (incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (owner == null) return false;
 
     try {
       return await _channel.invokeMethod<bool>(
             'cancelAlarmWatchdog',
-            {applicationIncarnationKey: incarnation},
+            owner.toMap(),
           ) ??
           false;
     } on PlatformException catch (e) {
@@ -1148,8 +1124,7 @@ class PlatformAlarmService {
 
   /// Schedule an exact alarm using a resolved delay.
   ///
-  /// Android: Schedules exact alarm + starts Foreground Service
-  /// iOS: Schedules an incarnation-scoped local notification
+  /// Android schedules exact alarm work. Slot production is unsupported on iOS.
   Future<bool> scheduleAlarm({
     required String alarmId,
     required int globalSlot,
@@ -1157,7 +1132,7 @@ class PlatformAlarmService {
     Map<String, dynamic>? data,
   }) async {
     final alarmData = Map<String, dynamic>.from(data ?? const {});
-    final incarnation = _applicationIncarnation;
+    final owner = _runtimeOwnerResolver?.call();
     final requestedDelayMs = delayMs;
     final normalizedDelayMs = delayMs < 0 ? 0 : delayMs;
     final scheduledAtMs = DateTime.now().millisecondsSinceEpoch;
@@ -1211,16 +1186,20 @@ class PlatformAlarmService {
       );
     }
 
-    if (!_initialized || _terminalResetRequested || incarnation == null) {
+    if (!_isAndroid ||
+        !_initialized ||
+        _terminalResetRequested ||
+        owner == null) {
       _log.warn('Cannot schedule alarm: service not initialized');
       recordScheduleResult(
         success: false,
-        failureReason: 'service_not_initialized',
+        failureReason:
+            _isAndroid ? 'service_not_initialized' : 'unsupported_platform',
       );
       return false;
     }
 
-    alarmData[applicationIncarnationKey] = incarnation;
+    alarmData.addAll(owner.toMap());
 
     if (!_permissionsGranted) {
       _log.warn('Cannot schedule alarm: permissions not granted');
@@ -1236,22 +1215,11 @@ class PlatformAlarmService {
         'alarmId': alarmId,
         'globalSlot': resolvedGlobalSlot ?? globalSlot,
         'delayMs': normalizedDelayMs,
-        applicationIncarnationKey: incarnation,
+        ...owner.toMap(),
         'data': alarmData,
       };
 
-      bool success;
-      if (Platform.isAndroid) {
-        success = await _scheduleAndroidAlarm(params);
-      } else if (Platform.isIOS) {
-        success = await _scheduleIOSAlarm(params);
-      } else {
-        recordScheduleResult(
-          success: false,
-          failureReason: 'unsupported_platform',
-        );
-        return false;
-      }
+      final success = await _scheduleAndroidAlarm(params);
 
       recordScheduleResult(
         success: success,
@@ -1371,40 +1339,19 @@ class PlatformAlarmService {
     }
   }
 
-  /// Schedule an iOS local notification through the legacy channel API.
-  Future<bool> _scheduleIOSAlarm(Map<String, dynamic> params) async {
-    try {
-      final success =
-          await _channel.invokeMethod<bool>('scheduleIOSBGTask', params) ??
-              false;
-
-      if (success) {
-        _log.info(
-            'iOS slot notification scheduled for global slot ${params['globalSlot']}');
-      } else {
-        _log.warn('Failed to schedule iOS slot notification');
-      }
-
-      return success;
-    } on PlatformException catch (e) {
-      _log.error('Error scheduling iOS slot notification: ${e.message}');
-      return false;
-    }
-  }
-
   /// Cancel a specific alarm
   Future<bool> cancelAlarm(String alarmId) async {
-    if (!_initialized) {
+    if (!_isAndroid || !_initialized) {
       _log.warn('Cannot cancel alarm: service not initialized');
       return false;
     }
-    final incarnation = _applicationIncarnation;
-    if (incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (owner == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>('cancelAlarm', {
             'alarmId': alarmId,
-            applicationIncarnationKey: incarnation,
+            ...owner.toMap(),
           }) ??
           false;
 
@@ -1423,17 +1370,17 @@ class PlatformAlarmService {
 
   /// Cancel all scheduled alarms
   Future<bool> cancelAllAlarms() async {
-    if (!_initialized) {
+    if (!_isAndroid || !_initialized) {
       _log.warn('Cannot cancel alarms: service not initialized');
       return false;
     }
-    final incarnation = _applicationIncarnation;
-    if (incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (owner == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>(
             'cancelAllAlarms',
-            {applicationIncarnationKey: incarnation},
+            owner.toMap(),
           ) ??
           false;
 
@@ -1459,19 +1406,19 @@ class PlatformAlarmService {
     required String message,
     required int globalSlot,
   }) async {
-    if (!Platform.isAndroid) {
+    if (!_isAndroid) {
       _log.debug('Foreground service is Android-only');
       return false;
     }
-    final incarnation = _applicationIncarnation;
-    if (_terminalResetRequested || incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (_terminalResetRequested || owner == null) return false;
 
     try {
       final params = {
         'title': title,
         'message': message,
         'globalSlot': globalSlot,
-        applicationIncarnationKey: incarnation,
+        ...owner.toMap(),
       };
 
       final success =
@@ -1492,32 +1439,19 @@ class PlatformAlarmService {
     }
   }
 
-  /// Stop foreground service (Android only)
-  ///
-  /// Native `ForegroundServiceManager.stopForegroundService()` destroys the
-  /// cached headless Flutter engine synchronously, BEFORE the method result is
-  /// delivered. When this call originates from Dart running inside that engine
-  /// — a headless boot repairing an interrupted sign-out, for instance — the
-  /// await would never resume and the rest of the boundary would never run.
-  /// Such callers pass [destroyBackgroundEngine] false; the engine is retired
-  /// by the next alarm or activity open instead.
-  Future<bool> stopForegroundService({
-    bool destroyBackgroundEngine = true,
-  }) async {
+  /// Stop the exact owner's foreground service (Android only).
+  Future<bool> stopForegroundService() async {
     if (!_isAndroid) {
       _log.debug('Foreground service is Android-only');
       return false;
     }
-    final incarnation = _applicationIncarnation;
-    if (incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (owner == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>(
             'stopForegroundService',
-            {
-              'destroyBackgroundEngine': destroyBackgroundEngine,
-              applicationIncarnationKey: incarnation,
-            },
+            owner.toMap(),
           ) ??
           false;
 
@@ -1541,17 +1475,17 @@ class PlatformAlarmService {
   /// providing 100% reliability for block production monitoring
   /// at the cost of higher battery usage.
   Future<bool> startPersistentForegroundService() async {
-    if (!Platform.isAndroid) {
+    if (!_isAndroid) {
       _log.debug('Persistent foreground service is Android-only');
       return false;
     }
-    final incarnation = _applicationIncarnation;
-    if (_terminalResetRequested || incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (_terminalResetRequested || owner == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>(
             'startPersistentForegroundService',
-            {applicationIncarnationKey: incarnation},
+            owner.toMap(),
           ) ??
           false;
 
@@ -1575,13 +1509,13 @@ class PlatformAlarmService {
       _log.debug('Persistent foreground service is Android-only');
       return false;
     }
-    final incarnation = _applicationIncarnation;
-    if (incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (owner == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>(
             'stopPersistentForegroundService',
-            {applicationIncarnationKey: incarnation},
+            owner.toMap(),
           ) ??
           false;
 
@@ -1695,13 +1629,13 @@ class PlatformAlarmService {
   /// This is used for background/foreground service work where `wakelock_plus` would throw
   /// `NoActivityException`.
   Future<bool> acquireWakelock() async {
-    if (!Platform.isAndroid) return false;
-    final incarnation = _applicationIncarnation;
-    if (_terminalResetRequested || incarnation == null) return false;
+    if (!_isAndroid) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (_terminalResetRequested || owner == null) return false;
     try {
       final acquired = await _channel.invokeMethod<bool>(
             'acquireWakelock',
-            {applicationIncarnationKey: incarnation},
+            owner.toMap(),
           ) ??
           false;
       if (!acquired) return false;
@@ -1717,12 +1651,12 @@ class PlatformAlarmService {
   /// Release the native Android PARTIAL_WAKE_LOCK.
   Future<bool> releaseWakelock() async {
     if (!_isAndroid) return false;
-    final incarnation = _applicationIncarnation;
-    if (incarnation == null) return false;
+    final owner = _runtimeOwnerResolver?.call();
+    if (owner == null) return false;
     try {
       await _channel.invokeMethod(
         'releaseWakelock',
-        {applicationIncarnationKey: incarnation},
+        owner.toMap(),
       );
       _recordRuntimeContextChanged('keep_alive_changed');
       _recordPowerNetworkServiceContextChanged('foreground_service_changed');
@@ -1731,50 +1665,6 @@ class PlatformAlarmService {
       _log.error('Error releasing wakelock: $e');
       return false;
     }
-  }
-
-  Future<bool> invalidateApplicationIncarnation() async {
-    _applicationIncarnation = null;
-    if (!_isAndroid && !_isIOS) return true;
-    return await _channel.invokeMethod<bool>(
-          'invalidateApplicationIncarnation',
-        ) ??
-        false;
-  }
-
-  /// Retires the current native incarnation token and issues a fresh one, so
-  /// every alarm, watchdog and headless event scheduled by the previous
-  /// SESSION is rejected while this process keeps scheduling under the new
-  /// token.
-  ///
-  /// The reversible twin of [invalidateApplicationIncarnation]: sign-out is
-  /// scoped, so the fence has to close behind the retired session without
-  /// latching the process shut. Returns false when the rotation could not be
-  /// confirmed — callers must then treat the boundary as failed rather than
-  /// acknowledging a sign-out whose durable work is still armed.
-  Future<bool> rotateApplicationIncarnation() async {
-    if (_terminalResetRequested) return false;
-    if (!_isAndroid && !_isIOS) return true;
-    // Stop scheduling under the retired token before asking for the new one:
-    // a concurrent schedule that reads this field must never re-arm work with
-    // an incarnation the native side is about to retire.
-    _applicationIncarnation = null;
-    final String? rotated;
-    try {
-      rotated = await _channel
-          .invokeMethod<String>('rotateApplicationIncarnation')
-          .timeout(const Duration(seconds: 5));
-    } catch (e) {
-      _log.error('Error rotating the application incarnation: $e');
-      return false;
-    }
-    if (rotated == null || rotated.isEmpty) {
-      _log.error('Native application incarnation rotation returned no token');
-      return false;
-    }
-    if (_terminalResetRequested) return false;
-    _applicationIncarnation = rotated;
-    return true;
   }
 
   /// Removes notifications this app has already posted (and, on iOS, the
@@ -1802,11 +1692,8 @@ class PlatformAlarmService {
         false;
   }
 
-  /// Replays the authority-only native cleanup used while the Rust journal is
-  /// absent. This is callable before [initialize] so initialization cannot
-  /// mint a legacy application-incarnation token ahead of the new journal.
+  /// Replays one-time native cleanup while the Rust journal is absent.
   Future<bool> clearLegacySessionAuthority() async {
-    _applicationIncarnation = null;
     if (!_isAndroid && !_isIOS) return true;
     return await _channel
             .invokeMethod<bool>('clearLegacySessionAuthority')
@@ -1832,13 +1719,11 @@ class PlatformAlarmService {
   /// cancellation callable for the remainder of terminal reset.
   void beginTerminalReset() {
     _terminalResetRequested = true;
-    _applicationIncarnation = null;
     _onBootReschedule = null;
     _onNativeEvent = null;
   }
 
-  /// Clears Dart callbacks while retaining the channel handler so late native
-  /// events are still explicitly rejected by the invalidated incarnation.
+  /// Clears Dart callbacks while retaining the channel handler.
   void closeForTerminalReset() {
     beginTerminalReset();
     _initialized = false;

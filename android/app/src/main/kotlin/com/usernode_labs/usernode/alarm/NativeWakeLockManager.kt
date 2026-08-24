@@ -3,6 +3,7 @@ package com.usernode_labs.usernode.alarm
 import android.content.Context
 import android.os.PowerManager
 import android.util.Log
+import com.usernode_labs.usernode.session.SessionAuthorityNative
 
 /**
  * Holds a native PARTIAL_WAKE_LOCK that does NOT require a foreground Activity.
@@ -17,28 +18,23 @@ object NativeWakeLockManager {
     @Volatile
     private var wakeLock: PowerManager.WakeLock? = null
     @Volatile
-    private var capturedApplicationIncarnation: String? = null
+    private var capturedOwner: RuntimeOwner? = null
 
-    fun acquire(context: Context, applicationIncarnation: String): Boolean =
-        NativeSchedulingAuthority.process.runIfCurrent(
+    fun acquire(context: Context, owner: RuntimeOwner): Boolean =
+        NativeSchedulingAuthority.process.runIfAdmitted(
             operation = "wakelock.acquire",
-            captured = applicationIncarnation,
-            current = { ApplicationIncarnationStore(context).current() },
-            onRejected = {
-                Log.w(TAG, "Refusing wakelock for stale application incarnation")
-            },
+            owner = owner,
+            admitted = { SessionAuthorityNative.isBackgroundRuntimeAdmitted(context, it) },
         ) {
             val existing = wakeLock
-            if (existing?.isHeld == true &&
-                capturedApplicationIncarnation == applicationIncarnation
-            ) {
-                return@runIfCurrent true
+            if (existing?.isHeld == true && capturedOwner == owner) {
+                return@runIfAdmitted true
             }
             if (existing?.isHeld == true) releaseLocked()
 
             val pm = context.applicationContext
                 .getSystemService(Context.POWER_SERVICE) as PowerManager
-            capturedApplicationIncarnation = applicationIncarnation
+            capturedOwner = owner
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKELOCK_TAG).apply {
                 setReferenceCounted(false)
                 try {
@@ -52,14 +48,11 @@ object NativeWakeLockManager {
             wakeLock?.isHeld == true
         }
 
-    fun release(context: Context, applicationIncarnation: String): Boolean =
-        NativeSchedulingAuthority.process.runIfCurrent(
+    fun release(owner: RuntimeOwner): Boolean =
+        NativeSchedulingAuthority.process.runIfOwned(
             operation = "wakelock.release",
-            captured = applicationIncarnation,
-            current = { ApplicationIncarnationStore(context).current() },
-            onRejected = {
-                Log.w(TAG, "Refusing wakelock release for stale application incarnation")
-            },
+            owner = owner,
+            resourceOwner = { capturedOwner },
         ) {
             releaseLocked()
             true
@@ -84,7 +77,7 @@ object NativeWakeLockManager {
             Log.e(TAG, "Failed to release PARTIAL_WAKE_LOCK", e)
         } finally {
             wakeLock = null
-            capturedApplicationIncarnation = null
+            capturedOwner = null
         }
     }
 
@@ -99,9 +92,7 @@ object NativeWakeLockManager {
                 if (isHeld) "android_native_wakelock_acquired" else "android_native_wakelock_released",
                 mapOf(
                     "wakelockHeld" to isHeld,
-                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                        capturedApplicationIncarnation,
-                )
+                ) + (capturedOwner?.toMap() ?: emptyMap()),
             )
         } catch (e: Exception) {
             Log.w(TAG, "Failed to send wakelock state change to Flutter", e)

@@ -222,7 +222,6 @@ SessionController _sessionController({
         required transitionId,
       }) async {},
       clearWebSessionData: () async => true,
-      rotateNativeGeneration: () async => true,
       clearSessionNotifications: () async => true,
     );
 

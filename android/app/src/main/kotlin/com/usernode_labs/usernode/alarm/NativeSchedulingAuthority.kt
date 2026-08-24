@@ -12,10 +12,8 @@ internal enum class NativeSchedulingCheckpoint {
 /**
  * One process-global serialization boundary for native runtime scheduling.
  *
- * The lock is deliberately reentrant: an admitted alarm/watchdog/service
- * operation rechecks [ApplicationIncarnationStore] while it is held, and that
- * store is protected by this same authority. The checkpoint callback is a
- * deterministic test seam; production uses the no-op process instance.
+ * The checkpoint callback is a deterministic test seam; production uses the
+ * no-op process instance.
  */
 internal class NativeSchedulingAuthority(
     private val checkpoint: (String, NativeSchedulingCheckpoint) -> Unit = { _, _ -> },
@@ -38,20 +36,22 @@ internal class NativeSchedulingAuthority(
         }
     }
 
-    fun runIfCurrent(
+    fun runIfAdmitted(
         operation: String,
-        captured: String?,
-        current: () -> String?,
-        onRejected: () -> Unit = {},
+        owner: RuntimeOwner,
+        admitted: (RuntimeOwner) -> Boolean,
         effect: () -> Boolean,
     ): Boolean = serialized(operation) {
-        val authoritative = current()
-        if (captured.isNullOrBlank() || authoritative == null || captured != authoritative) {
-            onRejected()
-            false
-        } else {
-            effect()
-        }
+        if (admitted(owner)) effect() else false
+    }
+
+    fun runIfOwned(
+        operation: String,
+        owner: RuntimeOwner,
+        resourceOwner: () -> RuntimeOwner?,
+        effect: () -> Boolean,
+    ): Boolean = serialized(operation) {
+        if (resourceOwner() == owner) effect() else false
     }
 
     companion object {

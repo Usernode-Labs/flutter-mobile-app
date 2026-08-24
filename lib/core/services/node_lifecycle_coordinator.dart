@@ -61,7 +61,6 @@ class NodeLifecycleCoordinator {
     Future<void> Function()? onNodeStarted,
     Future<void> Function({
       required String reason,
-      bool destroyBackgroundEngine,
     })? stopMonitoring,
     Future<void> Function()? cancelAllAlarms,
     Future<void> Function()? cancelAlarmWatchdog,
@@ -89,13 +88,9 @@ class NodeLifecycleCoordinator {
         _onNodeStarted = onNodeStarted ??
             (() => AndroidForegroundTaskController.instance.onNodeStarted()),
         _stopMonitoring = stopMonitoring ??
-            (({
-              required String reason,
-              bool destroyBackgroundEngine = true,
-            }) =>
+            (({required String reason}) =>
                 AndroidForegroundTaskController.instance.stopMonitoring(
                   reason: reason,
-                  destroyBackgroundEngine: destroyBackgroundEngine,
                 )),
         _cancelAllAlarms = cancelAllAlarms ??
             (() => PlatformAlarmService.instance.cancelAllAlarms()),
@@ -119,7 +114,6 @@ class NodeLifecycleCoordinator {
   final Future<void> Function() _onNodeStarted;
   final Future<void> Function({
     required String reason,
-    bool destroyBackgroundEngine,
   }) _stopMonitoring;
   final Future<void> Function() _cancelAllAlarms;
   final Future<void> Function() _cancelAlarmWatchdog;
@@ -233,10 +227,7 @@ class NodeLifecycleCoordinator {
     _hasAccount = false;
     _intent = PlatformNodeIntent.unset;
     return _serialized(() async {
-      // Never destroys the background engine: this boundary can run inside it
-      // (a headless boot repairing an interrupted sign-out), and the native
-      // stop would otherwise tear down its own caller mid-teardown.
-      await _tearDownRuntime(reason: reason, destroyBackgroundEngine: false);
+      await _tearDownRuntime(reason: reason);
     });
   }
 
@@ -311,16 +302,10 @@ class NodeLifecycleCoordinator {
     return running;
   }
 
-  Future<void> _tearDownRuntime({
-    required String reason,
-    bool destroyBackgroundEngine = true,
-  }) async {
+  Future<void> _tearDownRuntime({required String reason}) async {
     if (_isAndroid()) {
       _disableWatchdogRecovery();
-      await _stopMonitoring(
-        reason: reason,
-        destroyBackgroundEngine: destroyBackgroundEngine,
-      );
+      await _stopMonitoring(reason: reason);
     }
     await _stopBackend();
     if (_isAndroid()) {

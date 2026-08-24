@@ -48,7 +48,6 @@ class AlarmMethodChannelHandler(context: Context) {
     private val alarmManager: AlarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val alarmScheduler: AlarmScheduler = AlarmScheduler(appContext, alarmManager)
     private val foregroundServiceManager: ForegroundServiceManager = ForegroundServiceManager(appContext)
-    private val applicationIncarnationStore = ApplicationIncarnationStore(appContext)
     private val powerManager: PowerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
 
     private var methodChannel: MethodChannel? = null
@@ -143,15 +142,10 @@ class AlarmMethodChannelHandler(context: Context) {
         eventData: Map<String, Any?>,
         completion: ((Boolean) -> Unit)? = null,
     ) {
-        if (requiresApplicationIncarnation(eventType)) {
-            val captured = eventData[
-                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION
-            ] as? String
-            if (!applicationIncarnationStore.matches(captured)) {
-                Log.w(TAG, "Dropping stale native event: $eventType")
-                completion?.invoke(false)
-                return
-            }
+        if (!BackgroundRuntimeEventAuthority.isAdmitted(appContext, eventType, eventData)) {
+            Log.w(TAG, "Dropping native event without current runtime authority: $eventType")
+            completion?.invoke(false)
+            return
         }
         val event = flutterAlarmEventBuffer.enqueueOrDispatch(eventType, eventData, completion)
         if (event == null) {
@@ -164,15 +158,6 @@ class AlarmMethodChannelHandler(context: Context) {
 
     fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "ensureApplicationIncarnation" -> {
-                result.success(applicationIncarnationStore.ensure())
-            }
-            "invalidateApplicationIncarnation" -> {
-                result.success(applicationIncarnationStore.invalidate())
-            }
-            "rotateApplicationIncarnation" -> {
-                result.success(applicationIncarnationStore.rotate())
-            }
             "clearSessionNotifications" -> {
                 result.success(clearSessionNotifications())
             }
@@ -207,8 +192,8 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(requestBatteryOptimizationExemption())
             }
             "scheduleExactAlarm" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
@@ -227,13 +212,14 @@ class AlarmMethodChannelHandler(context: Context) {
                     alarmId = alarmId,
                     delayMs = delayMs,
                     globalSlot = globalSlot,
-                    data = data ?: emptyMap()
+                    data = data ?: emptyMap(),
+                    owner = owner,
                 )
                 result.success(success)
             }
             "cancelAlarm" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
@@ -243,16 +229,16 @@ class AlarmMethodChannelHandler(context: Context) {
                     return
                 }
 
-                val success = alarmScheduler.cancelAlarm(alarmId, applicationIncarnation)
+                val success = alarmScheduler.cancelAlarm(alarmId, owner)
                 result.success(success)
             }
             "cancelAllAlarms" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
-                val success = alarmScheduler.cancelAllAlarms(applicationIncarnation)
+                val success = alarmScheduler.cancelAllAlarms(owner)
                 result.success(success)
             }
             "hasScheduledAlarm" -> {
@@ -274,8 +260,8 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(alarmScheduler.getAlarmDebugState(alarmId))
             }
             "startForegroundService" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
@@ -293,50 +279,37 @@ class AlarmMethodChannelHandler(context: Context) {
                     title = title,
                     message = message,
                     globalSlot = globalSlot,
-                    applicationIncarnation = applicationIncarnation,
+                    owner = owner,
                 )
                 result.success(success)
             }
             "stopForegroundService" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
-                // Defaults to true so every existing caller keeps the old
-                // behaviour; a headless caller that would otherwise destroy its
-                // own engine before this result lands passes false.
-                val destroyBackgroundEngine =
-                    call.argument<Boolean>("destroyBackgroundEngine") ?: true
-                val success =
-                    foregroundServiceManager.stopForegroundService(
-                        destroyBackgroundEngine,
-                        applicationIncarnation,
-                    )
+                val success = foregroundServiceManager.stopForegroundService(owner)
                 result.success(success)
             }
             "startPersistentForegroundService" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
                 result.success(
-                    foregroundServiceManager.startPersistentForegroundService(
-                        applicationIncarnation,
-                    ),
+                    foregroundServiceManager.startPersistentForegroundService(owner),
                 )
             }
             "stopPersistentForegroundService" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
                 result.success(
-                    foregroundServiceManager.stopPersistentForegroundService(
-                        applicationIncarnation,
-                    ),
+                    foregroundServiceManager.stopPersistentForegroundService(owner),
                 )
             }
             "isPersistentForegroundRunning" -> {
@@ -370,24 +343,16 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(true)
             }
             "acquireWakelock" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
+                val owner = runtimeOwnerFromCall(call)
                 result.success(
-                    applicationIncarnation != null &&
-                        NativeWakeLockManager.acquire(appContext, applicationIncarnation)
+                    owner != null && NativeWakeLockManager.acquire(appContext, owner)
                 )
             }
             "releaseWakelock" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
+                val owner = runtimeOwnerFromCall(call)
                 result.success(
-                    applicationIncarnation != null &&
-                        NativeWakeLockManager.release(appContext, applicationIncarnation),
+                    owner != null && NativeWakeLockManager.release(owner),
                 )
-
-                // // Treat wakelock release as "app suspended" for engine lifecycle:
-                // // destroy engine + remove from cache so next open/alarm starts fresh.
-                // Handler(Looper.getMainLooper()).post {
-                //     BackgroundAlarmEngine.destroyCachedEngine("wakelock_release")
-                // }
             }
             "markFlutterReadyForAlarmEvents" -> {
                 result.success(markFlutterReadyForAlarmEvents())
@@ -396,8 +361,8 @@ class AlarmMethodChannelHandler(context: Context) {
                 result.success(wasForceStoppedOnStartup())
             }
             "ensureAlarmWatchdogScheduled" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
@@ -406,13 +371,13 @@ class AlarmMethodChannelHandler(context: Context) {
                     AlarmWatchdogScheduler.ensurePeriodic(
                         appContext,
                         reason,
-                        applicationIncarnation,
+                        owner,
                     )
                 )
             }
             "requestAlarmWatchdogRun" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
-                if (applicationIncarnation == null) {
+                val owner = runtimeOwnerFromCall(call)
+                if (owner == null) {
                     result.success(false)
                     return
                 }
@@ -421,18 +386,14 @@ class AlarmMethodChannelHandler(context: Context) {
                     AlarmWatchdogScheduler.enqueueOneTime(
                         appContext,
                         reason,
-                        applicationIncarnation,
+                        owner,
                     )
                 )
             }
             "cancelAlarmWatchdog" -> {
-                val applicationIncarnation = currentIncarnationFromCall(call)
+                val owner = runtimeOwnerFromCall(call)
                 result.success(
-                    applicationIncarnation != null &&
-                        AlarmWatchdogScheduler.cancel(
-                            appContext,
-                            applicationIncarnation,
-                        ),
+                    owner != null && AlarmWatchdogScheduler.cancel(appContext, owner),
                 )
             }
             "getAlarmWatchdogState" -> {
@@ -454,22 +415,12 @@ class AlarmMethodChannelHandler(context: Context) {
         }
     }
 
-    private fun currentIncarnationFromCall(call: MethodCall): String? {
-        val captured = call.argument<String>(
-            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
-        )
-        if (applicationIncarnationStore.matches(captured)) return captured
-        Log.w(TAG, "Rejected ${call.method} for stale application incarnation")
-        return null
-    }
-
-    private fun requiresApplicationIncarnation(eventType: String): Boolean {
-        if (!eventType.startsWith("android_")) return false
-        return eventType != "android_post_notifications_permission_granted" &&
-            eventType != "android_post_notifications_permission_denied" &&
-            eventType != "android_exact_alarm_permission_granted" &&
-            eventType != "android_exact_alarm_permission_denied" &&
-            eventType != "android_battery_optimization_disabled"
+    private fun runtimeOwnerFromCall(call: MethodCall): RuntimeOwner? {
+        val owner = RuntimeOwner.fromMap(call.arguments as? Map<*, *>)
+        if (owner == null) {
+            Log.w(TAG, "Rejected ${call.method} without a complete runtime owner")
+        }
+        return owner
     }
 
     /**
@@ -556,20 +507,18 @@ class AlarmMethodChannelHandler(context: Context) {
             durableStateCleared =
                 AlarmWatchdogScheduler.cancelForReset(appContext) && durableStateCleared
             durableStateCleared =
-                foregroundServiceManager.stopForegroundServiceForReset(
-                    destroyBackgroundEngine = false,
-                ) && durableStateCleared
+                foregroundServiceManager.stopForegroundServiceForReset() && durableStateCleared
             NativeWakeLockManager.releaseForReset()
             (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .cancelAll()
-            for (name in listOf("alarm_prefs", "alarm_watchdog_prefs")) {
+            for (name in listOf(
+                "alarm_prefs",
+                "alarm_watchdog_prefs",
+                "application_incarnation",
+            )) {
                 durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
-                    .edit()
-                    .clear()
-                    .commit() && durableStateCleared
+                    .edit().clear().commit() && durableStateCleared
             }
-            durableStateCleared =
-                applicationIncarnationStore.clear() && durableStateCleared
             flutterAlarmEventBuffer.clear()
             BackgroundAlarmEngine.destroyCachedEngine("legacy_authority_migration")
             durableStateCleared
@@ -583,9 +532,7 @@ class AlarmMethodChannelHandler(context: Context) {
             durableStateCleared =
                 AlarmWatchdogScheduler.cancelForReset(appContext) && durableStateCleared
             durableStateCleared =
-                foregroundServiceManager.stopForegroundServiceForReset(
-                    destroyBackgroundEngine = false,
-                ) && durableStateCleared
+                foregroundServiceManager.stopForegroundServiceForReset() && durableStateCleared
             NativeWakeLockManager.releaseForReset()
             (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .cancelAll()
@@ -593,14 +540,13 @@ class AlarmMethodChannelHandler(context: Context) {
                 "alarm_prefs",
                 "alarm_watchdog_prefs",
                 "background_task_stats",
+                "application_incarnation",
             )) {
                 durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
                     .edit()
                     .clear()
                     .commit() && durableStateCleared
             }
-            durableStateCleared =
-                applicationIncarnationStore.clear() && durableStateCleared
             flutterAlarmEventBuffer.clear()
             BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
             durableStateCleared
@@ -738,7 +684,7 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     // Handle permission request result
-    fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+    fun onRequestPermissionsResult(requestCode: Int, grantResults: IntArray) {
         when (requestCode) {
             REQUEST_POST_NOTIFICATIONS -> {
                 val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED

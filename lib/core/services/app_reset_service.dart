@@ -230,14 +230,9 @@ class AppResetService {
 
   Future<bool> _cancelNativeWork() async {
     var mandatoryCleanupSucceeded = await _requiredCleanup(
-      'invalidate application incarnation',
-      _platformAlarms.invalidateApplicationIncarnation,
+      'clear WebView session data',
+      _platformAlarms.clearWebSessionData,
     );
-    mandatoryCleanupSucceeded = await _requiredCleanup(
-          'clear WebView session data',
-          _platformAlarms.clearWebSessionData,
-        ) &&
-        mandatoryCleanupSucceeded;
     mandatoryCleanupSucceeded = await _requiredCleanup(
           'clear native reset state',
           _platformAlarms.clearNativeResetState,

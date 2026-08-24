@@ -84,7 +84,6 @@ class SessionController extends StateNotifier<Identity> {
     required AuthGuestFlag guestFlag,
     required AuthRepository repository,
     Future<bool> Function()? clearWebSessionData,
-    Future<bool> Function()? rotateNativeGeneration,
     Future<bool> Function()? clearSessionNotifications,
     SessionDataPreservingTermination? terminatePreservingData,
     required SessionAuthorityGateway sessionAuthority,
@@ -96,8 +95,6 @@ class SessionController extends StateNotifier<Identity> {
         _repository = repository,
         _clearWebSessionData =
             clearWebSessionData ?? _defaultClearWebSessionData,
-        _rotateNativeGeneration =
-            rotateNativeGeneration ?? _defaultRotateNativeGeneration,
         _clearSessionNotifications =
             clearSessionNotifications ?? _defaultClearSessionNotifications,
         _terminatePreservingData =
@@ -127,13 +124,6 @@ class SessionController extends StateNotifier<Identity> {
   /// native method channel.
   final Future<bool> Function() _clearWebSessionData;
 
-  /// Retires the native application-incarnation token and issues a fresh one.
-  /// Durable native work (alarms, the watchdog, headless recovery events)
-  /// captured the retired token, so rotating it is what stops a background
-  /// engine from restarting a producer for the signed-out account. Injectable
-  /// for tests; the default crosses the native method channel.
-  final Future<bool> Function() _rotateNativeGeneration;
-
   /// Removes notifications the retired session has already posted.
   final Future<bool> Function() _clearSessionNotifications;
 
@@ -152,9 +142,6 @@ class SessionController extends StateNotifier<Identity> {
 
   static Future<bool> _defaultClearWebSessionData() =>
       PlatformAlarmService.instance.clearWebSessionData();
-
-  static Future<bool> _defaultRotateNativeGeneration() =>
-      PlatformAlarmService.instance.rotateApplicationIncarnation();
 
   static Future<bool> _defaultClearSessionNotifications() =>
       PlatformAlarmService.instance.clearSessionNotifications();
@@ -1148,13 +1135,6 @@ class SessionController extends StateNotifier<Identity> {
       }
     } catch (error) {
       _log.warn('Could not reclaim compatibility session state: $error');
-    }
-    try {
-      if (!await _rotateNativeGeneration()) {
-        _log.warn('Native session reclamation reported failure');
-      }
-    } catch (error) {
-      _log.warn('Could not reclaim native session state: $error');
     }
     try {
       if (!await _clearSessionNotifications()) {

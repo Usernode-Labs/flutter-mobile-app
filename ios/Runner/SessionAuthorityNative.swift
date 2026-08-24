@@ -18,26 +18,6 @@ enum SessionAuthorityNative {
     return String(cString: value)
   }
 
-  static func isBackgroundRuntimeAdmitted(
-    sessionID: String,
-    runtimeGeneration: UInt64
-  ) -> Bool {
-    guard let directory = journalDirectory(),
-          !sessionID.isEmpty,
-          runtimeGeneration > 0 else {
-      return false
-    }
-    return directory.path.withCString { directoryPointer in
-      sessionID.withCString { sessionPointer in
-        usernode_session_authority_admits_background_runtime(
-          directoryPointer,
-          sessionPointer,
-          runtimeGeneration
-        )
-      }
-    }
-  }
-
   private static func journalDirectory() -> URL? {
     try? FileManager.default
       .url(

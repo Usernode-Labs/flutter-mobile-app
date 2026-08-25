@@ -18,6 +18,7 @@ class NodeStatusState {
   final BlockProgressData? fetchProgress;
   final BlockProgressData? applyProgress;
   final RpcStatusWalletUtxoSeed? walletUtxoSeed;
+  final RpcStatusPartialLedgerSync? partialLedgerSync;
   final RpcStatusBlockProducer? blockProducer;
   final RpcStatusVrfEvaluator? vrfEvaluator;
   final RpcStatusNode node;
@@ -27,6 +28,7 @@ class NodeStatusState {
   // Derived data
   final String? peerId;
   final SyncStatus syncStatus;
+  final bool syncStalled;
 
   const NodeStatusState({
     required this.peers,
@@ -35,6 +37,7 @@ class NodeStatusState {
     required this.fetchProgress,
     required this.applyProgress,
     required this.walletUtxoSeed,
+    required this.partialLedgerSync,
     required this.blockProducer,
     required this.vrfEvaluator,
     required this.node,
@@ -42,6 +45,7 @@ class NodeStatusState {
     required this.blockInterval,
     required this.peerId,
     required this.syncStatus,
+    this.syncStalled = false,
   });
 
   // Convenience getters from NodeRawStatusView
@@ -99,6 +103,11 @@ class NodeStatusState {
   }
 
   int get totalPeers => peers.length;
+
+  bool get walletDataHydrating => walletDataHydrationInProgress(
+        walletUtxoSeed: walletUtxoSeed,
+        partialLedgerSync: partialLedgerSync,
+      );
 
   BigInt? get appliedBlocksCount => applyProgress?.done;
 
@@ -174,6 +183,90 @@ class BlockProgressData {
   });
 }
 
+bool walletDataHydrationInProgress({
+  required RpcStatusWalletUtxoSeed? walletUtxoSeed,
+  required RpcStatusPartialLedgerSync? partialLedgerSync,
+}) {
+  if (walletUtxoSeed?.inProgress == true) return true;
+  if (partialLedgerSync == null) return false;
+
+  return partialLedgerSync.inProgress ||
+      partialLedgerSync.walletSeedTopUpDoneForActiveRoot == false ||
+      partialLedgerSync.walletSpendHydrationPendingRpcs > BigInt.zero ||
+      partialLedgerSync.walletSpendHydrationRetryDueRpcs > BigInt.zero;
+}
+
+class SyncStallDetector {
+  static const minimumThreshold = Duration(seconds: 60);
+  static const blockIntervalsBeforeStalled = 3;
+
+  _SyncProgressFingerprint? _lastProgress;
+  int? _unchangedSinceMs;
+
+  bool update({
+    required bool syncing,
+    required int blockIntervalMs,
+    required int elapsedMs,
+    required int? localBestHeight,
+    required BigInt? fetchedBlocks,
+    required BigInt? appliedBlocks,
+  }) {
+    if (!syncing) {
+      reset();
+      return false;
+    }
+
+    final progress = _SyncProgressFingerprint(
+      localBestHeight: localBestHeight,
+      fetchedBlocks: fetchedBlocks,
+      appliedBlocks: appliedBlocks,
+    );
+    if (_lastProgress != progress || _unchangedSinceMs == null) {
+      _lastProgress = progress;
+      _unchangedSinceMs = elapsedMs;
+      return false;
+    }
+
+    final blockThresholdMs =
+        blockIntervalMs > 0 ? blockIntervalMs * blockIntervalsBeforeStalled : 0;
+    final thresholdMs = blockThresholdMs > minimumThreshold.inMilliseconds
+        ? blockThresholdMs
+        : minimumThreshold.inMilliseconds;
+    return elapsedMs - _unchangedSinceMs! >= thresholdMs;
+  }
+
+  void reset() {
+    _lastProgress = null;
+    _unchangedSinceMs = null;
+  }
+}
+
+class _SyncProgressFingerprint {
+  const _SyncProgressFingerprint({
+    required this.localBestHeight,
+    required this.fetchedBlocks,
+    required this.appliedBlocks,
+  });
+
+  final int? localBestHeight;
+  final BigInt? fetchedBlocks;
+  final BigInt? appliedBlocks;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _SyncProgressFingerprint &&
+      localBestHeight == other.localBestHeight &&
+      fetchedBlocks == other.fetchedBlocks &&
+      appliedBlocks == other.appliedBlocks;
+
+  @override
+  int get hashCode => Object.hash(
+        localBestHeight,
+        fetchedBlocks,
+        appliedBlocks,
+      );
+}
+
 /// Unified node status controller
 class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
   /// Cadence for automatic background refresh.
@@ -195,6 +288,8 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
   /// hop + one in-process RPC, so the overhead is negligible and a tight
   /// 1s interval keeps the UI close to real-time.
   static const _autoRefreshInterval = Duration(seconds: 1);
+  final _syncStallClock = Stopwatch()..start();
+  final _syncStallDetector = SyncStallDetector();
 
   @override
   Future<NodeStatusState?> build() async {
@@ -224,8 +319,13 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
     _log.debug('NodeStatusProvider: load start');
 
     try {
-      final status = await RustBackendService.instance.getStatus();
-      if (status == null) return null;
+      final status = await RustBackendService.instance.getStatus(
+        includeVrfDetails: false,
+      );
+      if (status == null) {
+        _syncStallDetector.reset();
+        return null;
+      }
 
       // Fetch block producer status (includes VRF evaluator)
       final bpStatus =
@@ -307,6 +407,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         fetchProgress: fetchProgress,
         applyProgress: applyProgress,
         walletUtxoSeed: status.blockchain.sync.walletUtxoSeed,
+        partialLedgerSync: status.blockchain.sync.partialLedger,
         blockProducer: bpStatus?.blockProducer,
         vrfEvaluator: bpStatus?.vrfEvaluator,
         node: status.node,
@@ -318,6 +419,14 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
 
       // Calculate sync status
       final syncStatus = _calculateSyncStatus(intermediateState);
+      final syncStalled = _syncStallDetector.update(
+        syncing: syncStatus.isSyncing,
+        blockIntervalMs: status.node.blockInterval,
+        elapsedMs: _syncStallClock.elapsedMilliseconds,
+        localBestHeight: localBest?.height,
+        fetchedBlocks: fetchProgress?.done,
+        appliedBlocks: applyProgress?.done,
+      );
 
       // Return final state with calculated sync status
       return NodeStatusState(
@@ -327,6 +436,7 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         fetchProgress: fetchProgress,
         applyProgress: applyProgress,
         walletUtxoSeed: status.blockchain.sync.walletUtxoSeed,
+        partialLedgerSync: status.blockchain.sync.partialLedger,
         blockProducer: bpStatus?.blockProducer,
         vrfEvaluator: bpStatus?.vrfEvaluator,
         node: status.node,
@@ -334,8 +444,10 @@ class NodeStatusController extends AsyncNotifier<NodeStatusState?> {
         blockInterval: status.node.blockInterval,
         peerId: peerId,
         syncStatus: syncStatus,
+        syncStalled: syncStalled,
       );
     } catch (e, st) {
+      _syncStallDetector.reset();
       _log.error(
         'status load failed',
         error: e,

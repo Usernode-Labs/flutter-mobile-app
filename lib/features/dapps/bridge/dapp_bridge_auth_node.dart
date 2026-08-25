@@ -13,13 +13,18 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
   Map<String, dynamic> _nodeStatusSnapshot() {
     final chrome = ref.read(topStatusChromeNodeStatusProvider);
     final node = ref.read(nodeStatusProvider).valueOrNull;
-    return {
-      'status': chrome.name,
-      'localBestHeight': node?.localBestHeight,
-      'networkBestHeight': node?.networkBestHeight,
-      'connectedPeers': node?.connectedPeers,
-      'totalPeers': node?.totalPeers,
-    };
+    return dappNodeStatusSnapshot(
+      status: chrome.name,
+      chain: node?.node.chainName,
+      localBestHeight: node?.localBestHeight,
+      localBestTimestampMs: node?.localBest?.timestamp.toInt(),
+      networkBestHeight: node?.networkBestHeight,
+      readyPeers: node?.connectedPeers,
+      totalPeers: node?.totalPeers,
+      syncStalled: node?.syncStalled,
+      clockDriftMs: RustBackendService.instance.nodeClockDriftMs,
+      walletDataHydrating: node?.walletDataHydrating,
+    );
   }
 
   /// Pushes the current node status into the page as a

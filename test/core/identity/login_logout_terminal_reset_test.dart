@@ -220,7 +220,7 @@ void main() {
     expect(
       await const FlutterSecureStorage().readAll(),
       {
-        'auth:v3:session_token': 'new-session',
+        'auth:v4:session_token': 'new-session',
         'old_secret': 'must disappear',
       },
     );

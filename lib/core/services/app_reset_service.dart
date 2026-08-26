@@ -263,9 +263,9 @@ class AppResetService {
     const secureStorage = FlutterSecureStorage();
     await secureStorage.deleteAll();
     if (Platform.isIOS) {
-      // Social push state intentionally uses this device-only accessibility
-      // class. Keychain deleteAll queries are accessibility-scoped, so the
-      // default query above does not remove these items.
+      // Session and social-push state intentionally use this device-only
+      // accessibility class. Keychain deleteAll queries are accessibility-
+      // scoped, so the default query above does not remove these items.
       const deviceOnlySecureStorage = FlutterSecureStorage(
         iOptions: IOSOptions(
           accessibility: KeychainAccessibility.first_unlock_this_device,

@@ -17,8 +17,8 @@ M3 doesn't cover the need.
 ### Selective M3 Adoption (2026-02-24)
 
 5 of 9 widgets reimplemented standard M3 patterns incompletely (missing ripple,
-focus, keyboard, semantics). Switched to hybrid: M3 for standard interactions,
-primitives for custom visuals (ChallengeCard, ScoreHeader, etc.).
+focus, keyboard, semantics). Switched to hybrid: M3 for standard interactions
+and primitives for custom visuals.
 
 ### Dark Mode Gap (2026-02-27)
 
@@ -66,24 +66,6 @@ Light `surface` moved from T99 near-white to `#F5F5F5` (T96) so
 ---
 
 ## Widget Implementation Decisions
-
-### ChallengeCard Title Weight (2026-02-23)
-
-Closest Material style to Figma's 16px/medium is `titleMedium` (16px/w500).
-Kept as-is — no hard overrides. A different weight scale means refactoring the
-entire `TextTheme`.
-
-### ChallengeCard State Demotion (2026-02-23)
-
-Replaced blanket `Opacity` with color-based demotion. `Opacity` reduces text
-contrast below accessible thresholds. Use `onSurfaceVariant` for muted text and
-`surfaceContainerLow` for tinted background instead.
-
-### ChallengeCard Animation Loop Seam (2026-02-23)
-
-Removed `CurvedAnimation(Curves.easeInOut)` from the looping border animation.
-`easeInOut` stalls at both endpoints when repeating. Linear rotation is
-seamless; for looping animations, use linear or C1-continuous curves.
 
 ### ScoreHeader Score Monospace (2026-02-23)
 

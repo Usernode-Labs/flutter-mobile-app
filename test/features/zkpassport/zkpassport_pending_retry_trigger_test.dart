@@ -3,21 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
-import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
+import 'package:crypto_mobile_app/features/zkpassport/data/repositories/legacy_zk_completion_api.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
-class _RecordingLeaderboardApiService extends LeaderboardApiService {
-  _RecordingLeaderboardApiService()
-      : super(baseUrl: 'https://example.test/api/v3/mobile');
-
+class _RecordingLegacyZkCompletionApi implements LegacyZkCompletionApi {
   int completionCalls = 0;
+  int? completedChallengeId;
 
   @override
-  Future<bool> completeZkPassport({
+  Future<int> resolveActiveChallengeId() async => 999;
+
+  @override
+  Future<void> complete({
     required int challengeId,
     required String walletAddress,
     required String sessionId,
@@ -25,7 +25,7 @@ class _RecordingLeaderboardApiService extends LeaderboardApiService {
     String? completedAt,
   }) async {
     completionCalls++;
-    return true;
+    completedChallengeId = challengeId;
   }
 }
 
@@ -63,11 +63,7 @@ void main() {
     final launcher = _ready(participantId: 7, address: address);
     IdentitySnapshots.publish(launcher);
 
-    final container = ProviderContainer(overrides: [
-      // Reading the pipeline otherwise pulls in the challenges graph, which
-      // builds `identityProvider` and republishes over the snapshot above.
-      zkIdentityChallengeIdProvider.overrideWithValue(null),
-    ]);
+    final container = ProviderContainer();
     addTearDown(container.dispose);
     final pipeline = container.read(zkPassportPipelineProvider.notifier);
 
@@ -100,9 +96,7 @@ void main() {
     final launcher = _ready(participantId: 7, address: address);
     IdentitySnapshots.publish(launcher);
 
-    final container = ProviderContainer(overrides: [
-      zkIdentityChallengeIdProvider.overrideWithValue(null),
-    ]);
+    final container = ProviderContainer();
     addTearDown(container.dispose);
     final pipeline = container.read(zkPassportPipelineProvider.notifier);
 
@@ -121,8 +115,7 @@ void main() {
     // `zkpassport_repositories_test.dart`.
   });
 
-  test('challenge id becoming available retriggers a deferred outbox retry',
-      () async {
+  test('pending retry submits the exact stored challenge id', () async {
     const accountId = 'account-a';
     const address = 'ut1-account-a';
     const participantId = 7;
@@ -154,31 +147,17 @@ void main() {
       bucket: bucket,
     );
 
-    final activeChallengeId = StateProvider<int?>((_) => null);
-    final api = _RecordingLeaderboardApiService();
+    final api = _RecordingLegacyZkCompletionApi();
     final container = ProviderContainer(overrides: [
-      zkIdentityChallengeIdProvider.overrideWith(
-        (ref) => ref.watch(activeChallengeId),
-      ),
-      leaderboardApiServiceProvider.overrideWithValue(api),
+      legacyZkCompletionApiProvider.overrideWithValue(api),
     ]);
-    addTearDown(() {
-      container.dispose();
-      api.dispose();
-    });
+    addTearDown(container.dispose);
 
     container.read(zkPassportPipelineProvider.notifier);
-    await _pumpUntil(() => api.completionCalls != 0);
-    expect(api.completionCalls, 0);
-    expect(
-      await registrationRepo.getPendingCompletion(bucket: bucket),
-      isNotNull,
-    );
-
-    container.read(activeChallengeId.notifier).state = challengeId;
     await _pumpUntil(() => api.completionCalls == 1);
 
     expect(api.completionCalls, 1);
+    expect(api.completedChallengeId, challengeId);
     expect(
       await registrationRepo.getPendingCompletion(bucket: bucket),
       isNull,

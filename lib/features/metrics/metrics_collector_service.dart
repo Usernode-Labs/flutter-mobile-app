@@ -4,13 +4,13 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/features/metrics/models/mobile_context_metrics.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -42,9 +42,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   final Connectivity _connectivity = Connectivity();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
-  /// Provider container for reading the participant id.
-  static ProviderContainer? _container;
-
   /// Track app startup time
   DateTime? _appStartTime;
 
@@ -69,8 +66,7 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   }
 
   /// Initialize the service (call at app startup)
-  void initialize(ProviderContainer container) {
-    _container = container;
+  void initialize() {
     _appStartTime = DateTime.now();
     // Initialize to actual current state if available
     final currentState = WidgetsBinding.instance.lifecycleState;
@@ -81,7 +77,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
 
   /// Clears cached state so a subsequent bootstrap starts cleanly.
   void reset() {
-    _container = null;
     _appStartTime = null;
     _appLifecycleState = AppLifecycleState.resumed;
     _cachedPackageInfo = null;
@@ -217,17 +212,8 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   }
 
   Future<int?> _loadParticipantId() async {
-    if (_container != null) {
-      try {
-        final participantId =
-            await _container!.read(participantIdProvider.future);
-        if (participantId != null) {
-          return participantId;
-        }
-      } catch (e) {
-        _log.debug('Failed to get participant_id from provider: $e');
-      }
-    }
+    final participantId = IdentitySnapshots.current.participantId;
+    if (participantId != null) return participantId;
 
     try {
       return await loadParticipantId();

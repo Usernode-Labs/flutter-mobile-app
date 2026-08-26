@@ -11,7 +11,7 @@ const meta = Meta<Button>(path: 'live app/widgets/buttons');
 final $Playground = _Story(
   name: 'Playground',
   args: _Args(
-    label: StringArg('View in Leaderboard'),
+    label: StringArg('Continue'),
     size: EnumArg(ButtonSize.regular, values: ButtonSize.values),
     variant: EnumArg(ButtonVariant.tonal, values: ButtonVariant.values),
     isLoading: BoolArg(false),
@@ -61,11 +61,11 @@ final $Playground = _Story(
 final $WithIcon = _Story(
   name: 'With Icon',
   args: _Args(
-    label: StringArg('View in Leaderboard'),
+    label: StringArg('Continue'),
     size: EnumArg(ButtonSize.regular, values: ButtonSize.values),
     variant: EnumArg(ButtonVariant.tonal, values: ButtonVariant.values),
     isLoading: BoolArg(false),
-    leadingIcon: Arg.fixed(const Icon(Symbols.leaderboard_sharp, size: 20)),
+    leadingIcon: Arg.fixed(const Icon(Symbols.arrow_forward_sharp, size: 20)),
     onTap: Arg.fixed(() {}),
   ),
 );

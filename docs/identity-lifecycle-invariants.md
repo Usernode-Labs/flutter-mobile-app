@@ -23,10 +23,10 @@ An `Identity` carries:
   means "a session exists but which on-chain account it owns has not been
   confirmed"; both phases gate wallet routes, dApp signing, and node starts.
 - **`epoch`** — a monotonic counter bumped on every transition (login,
-  logout, guest, 401, season rollover). Async work captures the epoch it
+  logout, guest, 401). Async work captures the epoch it
   started under and its results are discarded if the epoch moved on.
-- **`participantId` / `accountId` / `address` / `provisionedSeasonId`** —
-  the confirmed bindings, populated as the phase settles.
+- **`participantId` / `accountId` / `address`** — the confirmed bindings,
+  populated as the phase settles.
 
 The controller serializes every transition on an internal queue, publishes
 each snapshot to the ambient `IdentitySnapshots` mirror (for non-Riverpod
@@ -52,7 +52,6 @@ transition into `ready` retries any pending ZK completion.
 | Storage namespace (`identity_hash`) | Network-prefixed pref, owned by `SessionController` (`lib/core/identity/identity_namespace_store.dart`) | Login → sign-out |
 | Active storage bucket (`guest` or `sha256(address)[..16]`) | `NetworkPrefs.activeBucket` (`lib/core/utils/network_prefs.dart`), in-memory | Recomputed on every identity transition |
 | Participant id | Account-bucket-scoped pref (`lib/core/identity/participant_id_store.dart`) | Staged in guest bucket at login, installed on reconcile |
-| Provisioned season id | Account-bucket-scoped pref, owned by `SessionController` | Written at reconcile commit |
 | Pending ZK completion | Versioned registration-repository outbox, pinned to an explicit bucket | Hidden by an exact-version terminal outcome |
 | ZK runtime session | Pref in the session's captured LAUNCH bucket, never the ambient one | Launch → finalization/timeout |
 | HTTP debug buffer | `HttpDebugLogStore` (in-memory, process-global, identity-agnostic), generation-stamped per exchange | Cleared at every sign-out; in-flight exchanges from the retired generation are rejected (I16) |
@@ -77,22 +76,16 @@ active account's secret key at start. `RustBackendService.startNode` — the
 chokepoint every start path funnels through (bootstrap, wake, foreground
 task, alarms) — refuses to start while the identity is `transitioning` or
 `reconciling` (`Identity.allowsNodeStart`), and `resumeNode` applies the same
-gate; only the reconciler passes `identityOverride: true`, and only for the account
-it just confirmed. The gate is airtight against races on both sides:
+gate. The gate is airtight against races on both sides:
 `completeLogin` publishes `transitioning` before its first `await`, so a start
-racing login already sees the closed gate. Season rollover closes the gate
-after its one-time baseline-migration lookup. `startNode` re-checks the gate
+racing login already sees the closed gate. `startNode` re-checks the gate
 after the runtime comes up and tears it down if the identity became unsettled
 mid-start; and
 `stopNode` waits out any in-flight start before stopping, so a suspend can
-never interleave with a start and lose. Entering `reconciling` stops a
-running node; the reconciler then requests `freshRuntime: true`, which
-shuts down and rebuilds any existing global node — the block producer key
-is captured at build time and cannot be swapped on a live runtime — and a
-wallet-signer bind failure fails the start and tears the runtime down
-rather than leaving a half-bound node running. The reconciler treats
-`startNode() == false` as failure — the identity must not become `ready`
-with an unconfirmed runtime.
+never interleave with a start and lose. Before committing a reconciled
+identity, the reconciler waits for any in-flight start and stops a runtime
+bound to the previous account. It does not restart the node; the platform
+requests a fresh start only after the identity is `ready`.
 Entering guest mode also publishes `transitioning`, requests shutdown of the
 observed process-global runtime, and waits for it to disappear before guest
 becomes visible. A guest/view-only start in the same engine never adopts an
@@ -102,12 +95,9 @@ a residual risk below.
 *Enforced by:* the gates in `startNode` / `resumeNode`, the post-start
 re-check and `_teardownRuntimeAfterFailedBind` in
 `RustBackendService._startNodeInternal`, the publish-before-await order
-and `_suspendNode` in `SessionController.completeLogin` /
-`beginSeasonRollover` (gate-ordering test in
-`test/features/auth/providers/auth_status_test.dart`), and
+and `_suspendNode` in `SessionController.completeLogin`, and
 `NodeAccountReconciler._defaultEnsureNodeIdentity` (runs before the
-`reconcileSucceeded` commit). `IdentityDriver` restarts the keyless runtime
-after an exact guest identity settles.
+`reconcileSucceeded` commit).
 
 **I3 — Secrets never reach logs or log exports.** Key material and
 credentials (`secret_key`, `token`, `password` and its aliases, `otp`, …)
@@ -203,7 +193,7 @@ and the ready-transition trigger in the `IdentityDriver`.
 **I8 — Identity transitions recompute identity-derived state.** Every
 transition publishes a new `Identity` snapshot; providers holding
 identity-derived or bucket-scoped data watch `identityProvider` (e.g.
-`participantIdProvider`, `walletProvider`, `recipientHistoryProvider`) or
+`walletProvider`, `recipientHistoryProvider`) or
 are invalidated by the reconciler (`hasAnyAccountProvider`,
 `activeAccountProvider`, `accountsProvider`,
 `hasCompletedOnboardingProvider`). An auth-status watch alone cannot see a
@@ -231,7 +221,7 @@ This is what stops
 *Enforced by:* the epoch guards in `NodeAccountReconciler.reconcile` /
 `_reconcile` (re-checked before every mutation, each `await` being a
 suspension point), `_retryPendingCompletionGuarded`, the epoch-carrying
-credential callbacks in `LeaderboardApiService._parseEnvelope` and
+credential callbacks in the private `_SessionApiTransport` and
 `AccountApiService.getMe`, and the epoch checks inside
 `SessionController.reconcileSucceeded` / `onUnauthorized`; regression
 tests in `test/features/onboarding/node_account_reconciler_test.dart` and
@@ -280,26 +270,6 @@ snapshot.
 (`lib/features/dapps/dapp_webview_screen.dart`), the identity-derived
 address in `walletProvider` (`lib/core/providers/wallet_provider.dart`),
 and the `startNode` gate.
-
-**I13 — Reconciliation follows the active season.** `/wallet/provision`
-allocates per season. A session that lives across a season rollover must
-re-reconcile — no sign-in transition ever fires for it. The authoritative
-signal is the backend's `is_active` season from `/seasons`
-(`activeSeasonIdOf`), never the user-selected reporting season the season
-picker mutates. The controller compares it against the identity's
-persisted `provisionedSeasonId` and re-enters `reconciling` (new epoch)
-only on a genuine mismatch, so the listener can fire on every refresh. A
-rollover also suspends a running node (I2) — it was producing under the
-previous season's binding. Installs upgraded from before season tracking
-have a `ready` identity with *no* baseline: the first authoritative season
-report triggers a one-time migration reconcile (guarded by a persisted
-per-account flag so a backend that still reports no season id cannot loop
-it).
-*Enforced by:* `seasonRolloverSyncProvider` / `activeSeasonIdOf`
-(`lib/features/auth/providers/post_sign_in_sync.dart`) and
-`SessionController.beginSeasonRollover` (rollover-suspend and
-baseline-migration tests in
-`test/features/auth/providers/auth_status_test.dart`).
 
 **I14 — Long-lived callbacks retain exact identity authority.** A log-sharing
 session captures one identity and credential, validates both before every
@@ -448,10 +418,6 @@ incarnation and the rotated generation),
 
 ## Known residual risks (accepted for now)
 
-- **In-memory session state is not reset on user switch.** e.g.
-  `seasonEventContextProvider` keeps the previous user's season/event
-  selection until the auth-gated bootstrap rewrites it. Cosmetic: all
-  data fetches use the new session's token.
 - **Sign-in reconcile costs one `/wallet/provision` round-trip per
   login** (deliberate: it is the ownership check). Boot restore stays
   network-free unless the previous session never settled (I6).
@@ -489,8 +455,3 @@ incarnation and the rotated generation),
   `WebStorageCompat.deleteBrowsingData` falls back to the terminal reset**, and
   therefore erases local accounts. Fail-closed by choice: the alternative is
   acknowledging a sign-out on a jar that may re-authenticate the next load.
-- **The pre-baseline season migration reads its persisted one-time flag before
-  publishing the rollover gate.** A start can race that lookup on upgraded
-  installs whose identity has no provisioned-season baseline. Moving the
-  baseline attempt into the identity transaction belongs with the follow-up
-  process-authority work.

@@ -3,11 +3,9 @@ import 'dart:convert';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/src/rust/observability.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -63,14 +61,9 @@ void main() {
       await NetworkPrefs.init();
 
       final records = <_CapturedObservabilityRecord>[];
-      final container = ProviderContainer(
-        overrides: [
-          participantIdProvider.overrideWith((ref) => loadParticipantId()),
-        ],
-      );
       final collector = MetricsCollectorService.instance;
       collector.reset();
-      collector.initialize(container);
+      collector.initialize();
 
       final service = ObservabilityReportingService.test(
         collector: collector,
@@ -96,7 +89,6 @@ void main() {
 
       addTearDown(() async {
         await service.stopMobileContextSnapshotReporting();
-        container.dispose();
         collector.reset();
       });
 

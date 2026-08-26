@@ -82,7 +82,7 @@ class LogShareService {
           credential,
           () => _http
               .post(url, headers: headers, body: payload)
-              .timeout(AppConfig.leaderboardApiTimeout),
+              .timeout(AppConfig.mobileApiTimeout),
         );
         if (resp == null) {
           return LogShareOutcome.stale;

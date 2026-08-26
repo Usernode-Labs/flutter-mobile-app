@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/design_system/src/zk_identity_status_card.dart
 
 part 'zk_identity_status_card.stories.g.dart';
 
-const meta = Meta<ZkIdentityStatusCard>(path: 'live app/widgets/challenges');
+const meta = Meta<ZkIdentityStatusCard>(path: 'live app/widgets/zk-identity');
 
 final $Default = _Story(
   args: _Args(

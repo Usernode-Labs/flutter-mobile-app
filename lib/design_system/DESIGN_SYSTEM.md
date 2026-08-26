@@ -247,10 +247,6 @@ Shape values come from `AppRadii`.
 | Widget | Source | Genesis |
 |--------|--------|---------|
 | `Button` | Code | [genesis](.specs/Button.genesis.md) |
-| `ChallengeCard` | [Figma list](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:19310), [Figma ongoing](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2402) | [genesis](.specs/ChallengeCard.genesis.md) |
-| `ChallengeCategoryIcon` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=3012:2775) | [genesis](.specs/ChallengeCategoryIcon.genesis.md) |
-| `ChallengeDetailPage` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:28627) | [genesis](.specs/ChallengeDetailPage.genesis.md) |
-| `ChallengeRewardCard` | [Figma](https://figma.com/design/rsh9wLMKsMnFPOEBkHJUvg/?node-id=2943:28627) | [genesis](.specs/ChallengeRewardCard.genesis.md) |
 | `FullPageErrorState` | Code | [genesis](.specs/FullPageErrorState.genesis.md) |
 | `IconBadge` | Code | [genesis](.specs/IconBadge.genesis.md) |
 | `InfoRow` | Code | [genesis](.specs/InfoRow.genesis.md) |

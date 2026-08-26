@@ -2,15 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
-import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/node/node_service.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/wallet_provisioning_api.dart';
 
 final _log =
     LoggingService.instance.withTag('usernode/NodeAccountProvisioning');
@@ -29,20 +28,19 @@ final nodeAccountReconcilerProvider = Provider<NodeAccountReconciler>(
 /// The retired v2 registration flow imported a server-allocated secret key;
 /// the v4 provisioning endpoint restores exactly that: the backend returns
 /// the user's allocated account (the same one on every device — migrated
-/// users and reinstalls included), allocating one from the season pool for
-/// fresh users. A client-generated random key cannot work here: the backend
+/// users and reinstalls included), allocating one for fresh users. A
+/// client-generated random key cannot work here: the backend
 /// rejects wallets without a matching `onchain_accounts` row (zkPassport
 /// completion, slot-outcome attribution), so the account must come from the
 /// platform.
 ///
 /// This is the ONLY component that resolves [IdentityPhase.reconciling]: it
 /// runs whenever the [SessionController] publishes a reconciling identity
-/// (sign-in, interrupted-reconcile boot restore, season rollover) and
+/// (sign-in or interrupted-reconcile boot restore) and
 /// commits the result through [SessionController.reconcileSucceeded], which
 /// re-validates the epoch inside the controller's serialized transition
-/// queue. A same-user season rollover can supersede an older run; terminal
-/// reset closes the gate and discards the entire process instead of handing
-/// that work to another identity.
+/// queue. Terminal reset closes the gate and discards the entire process
+/// instead of handing that work to another identity.
 class NodeAccountReconciler {
   NodeAccountReconciler(
     this._ref, {
@@ -67,11 +65,11 @@ class NodeAccountReconciler {
 
   /// Refreshes backend-authoritative facts for an already-ready identity.
   ///
-  /// `/me` owns block-production release and `/seasons` owns the active
-  /// season. Both responses are captured under one exact identity snapshot;
-  /// a replacement epoch discards them before they can affect the current
-  /// session. Concurrent lifecycle/connectivity/timer triggers coalesce.
-  Future<bool> refreshAuthoritativeState() {
+  /// `/me` owns block-production release. Its response is captured under one
+  /// exact identity snapshot; a replacement epoch discards it before it can
+  /// affect the current session. Concurrent lifecycle/connectivity/timer
+  /// triggers coalesce.
+  Future<bool> refreshAccountAuthority() {
     final identity = _currentIdentity();
     if (identity.phase != IdentityPhase.ready || identity.address == null) {
       return Future.value(false);
@@ -115,15 +113,10 @@ class NodeAccountReconciler {
   }
 
   Future<bool> _refresh(Identity expected) async {
-    // Refresh the providers themselves so profile and season consumers see
-    // the same authoritative values used by reconciliation.
-    // Keep these sequential so provider failures retain their concrete error
-    // type; record `.wait` wraps them in ParallelWaitError and would hide a
-    // transient network/API failure from the driver's retry classifier.
+    // Refresh the provider itself so profile consumers see the same
+    // authoritative value used by reconciliation.
     final me = await _ref.refresh(meProvider.future);
     if (me == null || !_stillReady(expected)) return false;
-    final seasons = await _ref.refresh(seasonsProvider.future);
-    if (seasons == null || !_stillReady(expected)) return false;
 
     // This is the sole ready-state writer of release authority. Address the
     // captured bucket explicitly; never derive it from ambient active state.
@@ -131,18 +124,6 @@ class NodeAccountReconciler {
       released: me.bpReleased,
       bucket: NetworkPrefs.bucketForAddress(expected.address!),
     );
-    if (!_stillReady(expected)) return false;
-
-    final activeSeasonId = seasons
-        .where((season) => season.isActive)
-        .map((season) => season.id)
-        .firstOrNull;
-    if (activeSeasonId != null) {
-      await _ref.read(identityProvider.notifier).beginSeasonRollover(
-            activeSeasonId: activeSeasonId,
-            expectedIdentity: expected,
-          );
-    }
     return _stillReady(expected);
   }
 
@@ -170,14 +151,14 @@ class NodeAccountReconciler {
   /// can race; two parallel imports of the same account would duplicate
   /// registry entries).
   ///
-  /// A caller under a newer same-user season epoch never joins the stale run.
-  /// It waits the stale run out, then starts a fresh one. Account changes are
-  /// terminal application resets and do not reach this path in-process.
+  /// A caller under a newer identity epoch never joins the stale run. It waits
+  /// the stale run out, then starts a fresh one. Account changes are terminal
+  /// application resets and do not reach this path in-process.
   ///
   /// Returns `true` when the reconcile committed (identity became ready).
   /// Returns `false` when there was nothing to do (identity not in the
   /// reconciling phase) or the run was superseded. Throws
-  /// ([LeaderboardApiException], [AccountImportException], network errors)
+  /// ([WalletProvisioningException], [AccountImportException], network errors)
   /// on failure so the caller can surface it; onboarding must not proceed
   /// without an account or the router loops back to onboarding forever
   /// (`hasAny == false`).
@@ -256,8 +237,8 @@ class NodeAccountReconciler {
     if (!_stillCurrent(epoch)) return false;
 
     final identity = _currentIdentity();
-    final api = _ref.read(leaderboardApiServiceProvider);
-    final provisioned = await api.provisionWallet();
+    final api = _ref.read(walletProvisioningApiProvider);
+    final provisioned = await api.provision();
     // The provision round-trip is the long pole: if the identity changed
     // while it was in flight, this response belongs to a user who is no
     // longer signed in. Mutating local state with it would hand their
@@ -272,7 +253,6 @@ class NodeAccountReconciler {
     _log.info('Wallet provisioned', context: {
       'address': provisioned.address,
       'newlyAllocated': provisioned.newlyAllocated,
-      'seasonId': provisioned.seasonId,
     });
 
     final participantId = await _resolveParticipantId(identity);
@@ -348,7 +328,6 @@ class NodeAccountReconciler {
               accountId: accountId,
               address: provisioned.address,
               participantId: participantId,
-              provisionedSeasonId: provisioned.seasonId,
             );
     if (!committed) return false;
 
@@ -357,8 +336,6 @@ class NodeAccountReconciler {
       _ref.invalidate(hasAnyAccountProvider);
       _ref.invalidate(accountsProvider);
     }
-    _ref.invalidate(participantIdProvider);
-
     return true;
   }
 }

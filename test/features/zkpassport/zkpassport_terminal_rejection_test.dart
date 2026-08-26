@@ -1,4 +1,4 @@
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/features/zkpassport/data/repositories/legacy_zk_completion_api.dart';
 import 'package:crypto_mobile_app/features/zkpassport/services/zkpassport_services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,8 +38,11 @@ void main() {
   });
 
   group('isTerminalZkCompletionRejection', () {
-    LeaderboardApiException ex(int code) =>
-        LeaderboardApiException(code, 'error $code');
+    LegacyZkCompletionException ex(int code) => LegacyZkCompletionException(
+          code,
+          'error $code',
+          failure: LegacyZkCompletionFailure.api,
+        );
 
     test('terminal 4xx responses are rejections', () {
       expect(isTerminalZkCompletionRejection(ex(400)), isTrue);

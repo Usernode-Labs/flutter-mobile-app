@@ -11,7 +11,7 @@ import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 
-void _seedReadyIdentity({int? provisionedSeasonId = 7}) {
+void _seedReadyIdentity() {
   const address = 'addr-1';
   final bucket = NetworkPrefs.bucketForAddress(address);
   FlutterSecureStorage.setMockInitialValues({
@@ -34,8 +34,6 @@ void _seedReadyIdentity({int? provisionedSeasonId = 7}) {
     'testnet:accounts:activeId': 'acc-1',
     'testnet:acct:$bucket:leaderboard:participant_id': 1,
     'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
-    if (provisionedSeasonId != null)
-      'testnet:acct:$bucket:identity:provisioned_season': provisionedSeasonId,
   });
 }
 
@@ -112,7 +110,6 @@ void main() {
       // cleared the marker. The lifecycle ownership proof distinguishes this
       // from a legacy token/account pair that still needs one provision call.
       'testnet:acct:$bucket:leaderboard:participant_id': 7,
-      'testnet:acct:$bucket:identity:provisioned_season': 4,
       'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed': true,
     });
     final c = ProviderContainer();
@@ -122,7 +119,6 @@ void main() {
     expect(identity.phase, IdentityPhase.ready);
     expect(identity.participantId, 7);
     expect(identity.address, address);
-    expect(identity.provisionedSeasonId, 4);
     expect(NetworkPrefs.activeBucket, bucket);
   });
 
@@ -246,14 +242,12 @@ void main() {
               accountId: 'acc-1',
               address: 'addr-1',
               participantId: 1,
-              provisionedSeasonId: 7,
             );
     expect(committed, isTrue);
     final identity = c.read(identityProvider);
     expect(identity.phase, IdentityPhase.ready);
     expect(identity.epoch, epoch);
     expect(identity.address, 'addr-1');
-    expect(identity.provisionedSeasonId, 7);
     expect(identity.allowsSigning, isTrue);
     expect(identity.allowsNodeStart, isTrue);
     final prefs = await SharedPreferences.getInstance();
@@ -263,52 +257,6 @@ void main() {
           'testnet:acct:$bucket:identity:lifecycle_ownership_confirmed'),
       isTrue,
     );
-  });
-
-  test('reconcileSucceeded from a superseded epoch is discarded', () async {
-    _seedReadyIdentity();
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await _settle(c);
-    final staleEpoch = c.read(identityProvider).epoch;
-    await c
-        .read(identityProvider.notifier)
-        .beginSeasonRollover(activeSeasonId: 8);
-    final committed =
-        await c.read(identityProvider.notifier).reconcileSucceeded(
-              epoch: staleEpoch,
-              accountId: 'acc-stale',
-              address: 'addr-stale',
-              participantId: 1,
-            );
-    expect(committed, isFalse);
-    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
-    expect(c.read(identityProvider).accountId, 'acc-1');
-  });
-
-  test('beginSeasonRollover re-enters reconciling on a season mismatch',
-      () async {
-    _seedReadyIdentity();
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await _settle(c);
-    final epoch = c.read(identityProvider).epoch;
-
-    // Same season: no-op.
-    await c
-        .read(identityProvider.notifier)
-        .beginSeasonRollover(activeSeasonId: 7);
-    expect(c.read(identityProvider).phase, IdentityPhase.ready);
-
-    // New season: reconcile again under a new epoch.
-    await c
-        .read(identityProvider.notifier)
-        .beginSeasonRollover(activeSeasonId: 8);
-    final identity = c.read(identityProvider);
-    expect(identity.phase, IdentityPhase.reconciling);
-    expect(identity.epoch, greaterThan(epoch));
-    expect(identity.allowsSigning, isFalse);
-    expect(identity.allowsNodeStart, isFalse);
   });
 
   test('continueAsGuest sets guest', () async {
@@ -370,23 +318,6 @@ void main() {
     expect(await AuthGuestFlag().isGuest(), isTrue);
   });
 
-  test('onUnauthorized from a superseded epoch is ignored', () async {
-    _seedReadyIdentity();
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await _settle(c);
-    final staleEpoch = c.read(identityProvider).epoch;
-    await c
-        .read(identityProvider.notifier)
-        .beginSeasonRollover(activeSeasonId: 8);
-    await c.read(identityProvider.notifier).onUnauthorized(
-          credential: AuthCredentialLease(epoch: staleEpoch, token: 'sess-1'),
-        );
-    expect(c.read(authStatusProvider), AuthStatus.authenticated);
-    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
-    expect(await c.read(authTokenStoreProvider).read(), 'sess-1');
-  });
-
   test('401 for a replaced token in the same epoch is ignored', () async {
     _seedReadyIdentity();
     final c = ProviderContainer();
@@ -418,26 +349,6 @@ void main() {
     expect(await c.read(authTokenStoreProvider).read(), 'sess-2');
   });
 
-  test('stale bridge logout cannot reset a newer season identity', () async {
-    _seedReadyIdentity();
-    final c = ProviderContainer();
-    addTearDown(c.dispose);
-    await _settle(c);
-    final staleIdentity = c.read(identityProvider);
-    await c
-        .read(identityProvider.notifier)
-        .beginSeasonRollover(activeSeasonId: 8);
-
-    expect(
-      await c
-          .read(identityProvider.notifier)
-          .logout(expectedIdentity: staleIdentity),
-      isFalse,
-    );
-    expect(c.read(identityProvider).phase, IdentityPhase.reconciling);
-    expect(await c.read(authTokenStoreProvider).read(), 'sess-1');
-  });
-
   test('guest sessions never allow signing or wallet exposure', () async {
     final c = ProviderContainer();
     addTearDown(c.dispose);
@@ -466,64 +377,6 @@ void main() {
         const Identity(epoch: 1, phase: IdentityPhase.reconciling)
             .allowsSigning,
         isFalse);
-  });
-
-  group('node suspension and season baseline (injected suspendNode)', () {
-    late int suspendCount;
-    late SessionController controller;
-
-    setUp(() {
-      suspendCount = 0;
-      controller = SessionController(
-        tokenStore: AuthTokenStore(),
-        guestFlag: AuthGuestFlag(),
-        repository: AuthRepository(),
-        suspendNode: () async => suspendCount++,
-      );
-    });
-
-    tearDown(() => controller.dispose());
-
-    Future<void> settleReady({int? provisionedSeasonId}) async {
-      _seedReadyIdentity(provisionedSeasonId: provisionedSeasonId);
-      await controller.restore();
-      expect(controller.state.phase, IdentityPhase.ready);
-    }
-
-    test('season rollover suspends the existing node', () async {
-      await settleReady(provisionedSeasonId: 7);
-      expect(suspendCount, 0);
-
-      await controller.beginSeasonRollover(activeSeasonId: 8);
-      expect(controller.state.phase, IdentityPhase.reconciling);
-      expect(suspendCount, 1);
-    });
-
-    test(
-        'a ready identity with no provisioned-season baseline reconciles '
-        'once (pre-baseline install migration), and only once', () async {
-      await settleReady(provisionedSeasonId: null);
-      expect(controller.state.provisionedSeasonId, isNull);
-      final readyEpoch = controller.state.epoch;
-
-      // First authoritative season report: one-time migration reconcile.
-      await controller.beginSeasonRollover(activeSeasonId: 5);
-      expect(controller.state.phase, IdentityPhase.reconciling);
-      expect(controller.state.epoch, greaterThan(readyEpoch));
-
-      // The migration reconcile commits — but the backend again returned no
-      // season id. The persisted flag must prevent an endless loop.
-      final committed = await controller.reconcileSucceeded(
-        epoch: controller.state.epoch,
-        accountId: 'acc-1',
-        address: 'addr-1',
-        participantId: 1,
-        provisionedSeasonId: null,
-      );
-      expect(committed, isTrue);
-      await controller.beginSeasonRollover(activeSeasonId: 5);
-      expect(controller.state.phase, IdentityPhase.ready);
-    });
   });
 
   test('onUnauthorized keeps a remembered guest as guest', () async {

@@ -437,39 +437,6 @@
   "@retry": {
     "description": "Retry button label"
   },
-  "challengeTotalReward": "Total Reward {reward}",
-  "@challengeTotalReward": {
-    "description": "Detail screen total reward heading",
-    "placeholders": {
-      "reward": {
-        "type": "String"
-      }
-    }
-  },
-  "challengeSectionTheWhy": "Why it matters",
-  "@challengeSectionTheWhy": {
-    "description": "Section title for challenge description"
-  },
-  "challengeSectionTask": "Task",
-  "@challengeSectionTask": {
-    "description": "Section title for challenge task"
-  },
-  "challengeSectionRequirements": "Requirements",
-  "@challengeSectionRequirements": {
-    "description": "Section title for challenge requirements"
-  },
-  "zkIdentityChallengeTitle": "Prove you're a unique human",
-  "@zkIdentityChallengeTitle": {
-    "description": "Detail screen title for the ZK identity challenge"
-  },
-  "zkIdentityDetailStartCta": "Start",
-  "@zkIdentityDetailStartCta": {
-    "description": "Detail screen CTA shown before the user has begun the flow"
-  },
-  "zkIdentityDetailContinueCta": "Continue",
-  "@zkIdentityDetailContinueCta": {
-    "description": "Detail screen CTA shown when the user resumes an in-progress flow"
-  },
   "zkIdentityAppNotFoundTitle": "Install ZK Passport first",
   "@zkIdentityAppNotFoundTitle": {
     "description": "Title shown when the ZK Passport companion app is not installed"

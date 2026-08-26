@@ -43,7 +43,6 @@ void main() {
       participantId: 11,
       accountId: 'account-a',
       address: 'address-a',
-      provisionedSeasonId: 3,
     );
 
     expect(identity.sameScopeAs(identity), isTrue);

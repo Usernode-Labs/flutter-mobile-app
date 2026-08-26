@@ -594,7 +594,8 @@ class RustBackendService {
       final appSupportDir = await getApplicationSupportDirectory();
       final networkType = await _getSelectedNetwork();
       if (_terminalResetRequested) return false;
-      // TODO this should include the hash of the genesis block
+      // TODO(trust-refactor): Bind authenticated genesis/chain identity and
+      // namespace storage by that binding outside this lifecycle refactor.
       final nodeStoragePath =
           '${appSupportDir.path}/${networkType.name}_usernode_node_storage.sqlite';
       _log.trace('Using node storage path: $nodeStoragePath');

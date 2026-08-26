@@ -319,29 +319,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
-  String challengeTotalReward(String reward) {
-    return 'Total Reward $reward';
-  }
-
-  @override
-  String get challengeSectionTheWhy => 'Why it matters';
-
-  @override
-  String get challengeSectionTask => 'Task';
-
-  @override
-  String get challengeSectionRequirements => 'Requirements';
-
-  @override
-  String get zkIdentityChallengeTitle => 'Prove you\'re a unique human';
-
-  @override
-  String get zkIdentityDetailStartCta => 'Start';
-
-  @override
-  String get zkIdentityDetailContinueCta => 'Continue';
-
-  @override
   String get zkIdentityAppNotFoundTitle => 'Install ZK Passport first';
 
   @override

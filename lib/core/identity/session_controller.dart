@@ -63,8 +63,8 @@ final signOutCompletionProvider = StateProvider<int>((ref) => 0);
 ///
 /// All identity transitions go through [SessionController]; everything else
 /// only reads. Watch this (or a `select` on it) from any provider whose
-/// output depends on WHO the user is — auth status, account bucket,
-/// participant id, or season binding.
+/// output depends on WHO the user is — auth status, account bucket, or
+/// participant id.
 final identityProvider = StateNotifierProvider<SessionController, Identity>(
   (ref) {
     final tokenStore = ref.watch(authTokenStoreProvider);
@@ -161,11 +161,8 @@ class SessionController extends StateNotifier<Identity> {
   }
 
   static const _kReconcilePendingKeyBase = 'account:reconcile_pending';
-  static const _kProvisionedSeasonKeyBase = 'identity:provisioned_season';
   static const _kLifecycleOwnershipConfirmedKeyBase =
       'identity:lifecycle_ownership_confirmed';
-  static const _kSeasonBaselineMigratedKeyBase =
-      'identity:season_baseline_migrated';
 
   final AuthTokenStore _tokenStore;
   final AuthGuestFlag _guestFlag;
@@ -335,23 +332,6 @@ class SessionController extends StateNotifier<Identity> {
     await prefs.remove(_reconcileMarkerKey);
   }
 
-  Future<void> _writeProvisionedSeason(String bucket, int? seasonId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final key =
-        NetworkPrefs.prefixAccountKeyFor(_kProvisionedSeasonKeyBase, bucket);
-    if (seasonId == null) {
-      await prefs.remove(key);
-    } else {
-      await prefs.setInt(key, seasonId);
-    }
-  }
-
-  Future<int?> _readProvisionedSeason(String bucket) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(
-        NetworkPrefs.prefixAccountKeyFor(_kProvisionedSeasonKeyBase, bucket));
-  }
-
   /// Whether this account bucket completed a reconcile under the lifecycle
   /// protocol owned by this controller. Legacy installs can have both a token
   /// and an account-bucket participant id without any durable proof that the
@@ -371,24 +351,6 @@ class SessionController extends StateNotifier<Identity> {
           _kLifecycleOwnershipConfirmedKeyBase, bucket),
       true,
     );
-  }
-
-  /// One-shot flag for the null-baseline migration in [beginSeasonRollover]:
-  /// set before the migration reconcile is published so the migration can
-  /// never loop if the backend does not return a season id.
-  Future<bool> _readSeasonBaselineMigrated(String bucket) async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(NetworkPrefs.prefixAccountKeyFor(
-            _kSeasonBaselineMigratedKeyBase, bucket)) ??
-        false;
-  }
-
-  Future<void> _writeSeasonBaselineMigrated(String bucket) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(
-        NetworkPrefs.prefixAccountKeyFor(
-            _kSeasonBaselineMigratedKeyBase, bucket),
-        true);
   }
 
   // -- transitions ------------------------------------------------------------
@@ -493,15 +455,12 @@ class SessionController extends StateNotifier<Identity> {
         // The last reconcile completed under this lifecycle protocol (every
         // login sets the marker, and only a confirmed reconcile clears it and
         // records lifecycle ownership for the bucket).
-        final provisionedSeasonId = await _readProvisionedSeason(bucket);
-        if (!mounted) return;
         _publish(Identity(
           epoch: epoch,
           phase: IdentityPhase.ready,
           participantId: ownerId,
           accountId: active.id,
           address: active.address,
-          provisionedSeasonId: provisionedSeasonId,
         ));
         return;
       }
@@ -1043,7 +1002,6 @@ class SessionController extends StateNotifier<Identity> {
     required String accountId,
     required String address,
     required int participantId,
-    int? provisionedSeasonId,
   }) =>
       _transition(() async {
         if (state.epoch != epoch || state.phase != IdentityPhase.reconciling) {
@@ -1052,68 +1010,18 @@ class SessionController extends StateNotifier<Identity> {
           return false;
         }
         final bucket = NetworkPrefs.bucketForAddress(address);
-        await _writeProvisionedSeason(bucket, provisionedSeasonId);
         // Persist the one-time legacy ownership migration before clearing the
         // recovery marker. A crash after the marker is cleared may restore
         // directly to ready only when this proof and the bucket owner id both
         // exist.
         await _writeLifecycleOwnershipConfirmed(bucket);
         await _clearReconcileMarker();
-        // FIXME(follow-up): Pass clearProvisionedSeasonId when the response is
-        // null; copyWith otherwise retains the old baseline and repeats the
-        // rollover reconcile.
         _publish(state.copyWith(
           phase: IdentityPhase.ready,
           accountId: accountId,
           address: address,
           participantId: participantId,
-          provisionedSeasonId: provisionedSeasonId,
         ));
         return true;
       }, whenRetired: () => false);
-
-  /// The authoritative active season moved past the season this identity's
-  /// account was provisioned for. Re-enter [IdentityPhase.reconciling] (new
-  /// epoch: in-flight work bound to the old season identity must not apply)
-  /// so the reconcile driver provisions the current season's account.
-  ///
-  /// The current account/bucket are kept — they still belong to the same
-  /// USER — but wallet routes, signing, and node starts are gated until the
-  /// reconcile settles the new season binding.
-  /// A ready identity with a null baseline is an install upgraded from
-  /// before season baselines were persisted — rollovers are undetectable
-  /// for it. Route it through ONE reconcile (the `/wallet/provision`
-  /// response establishes the baseline); the persisted flag keeps this from
-  /// looping on every `/seasons` refresh if the backend returns no season id.
-  Future<void> beginSeasonRollover({
-    required int activeSeasonId,
-    Identity? expectedIdentity,
-  }) =>
-      _transition(() async {
-        if (expectedIdentity != null && !state.sameScopeAs(expectedIdentity)) {
-          return;
-        }
-        if (state.phase != IdentityPhase.ready) return;
-        final provisioned = state.provisionedSeasonId;
-        if (provisioned == activeSeasonId) return;
-        if (provisioned == null) {
-          if (await _readSeasonBaselineMigrated(state.bucket)) return;
-          await _writeSeasonBaselineMigrated(state.bucket);
-          _log.info('No provisioned-season baseline (pre-baseline install) - '
-              'running one-time reconcile to establish it');
-        } else {
-          _log.info('Season rollover detected '
-              '($provisioned -> $activeSeasonId) - reconciling account');
-        }
-        // Close the gate before the awaits below — same ordering rationale
-        // as completeLogin.
-        _publish(state.copyWith(
-          epoch: state.epoch + 1,
-          phase: IdentityPhase.reconciling,
-        ));
-        await _writeReconcileMarker();
-        // The node is producing/signing under the previous season's account
-        // binding; suspend it until the reconcile rebinds the runtime.
-        await _suspendNode();
-      }, whenRetired: () {});
 }

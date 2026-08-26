@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
@@ -44,8 +43,8 @@ void main() {
         retryPendingZkCompletion: () async => calls.add('zk-retry'),
       );
 
-      // Covers sign-in, boot restore of an interrupted reconcile, and season
-      // rollover uniformly: each publishes a reconciling identity.
+      // Covers sign-in and boot restore of an interrupted reconcile: each
+      // publishes a reconciling identity.
       driver.onIdentityChanged(
         _identity(IdentityPhase.unauthenticated),
         _identity(IdentityPhase.reconciling, epoch: 2),
@@ -301,7 +300,7 @@ void main() {
       final driver = IdentityDriver(
         reconcileNodeAccount: () async {},
         retryPendingZkCompletion: () async {},
-        refreshAuthoritativeState: () async {
+        refreshAccountAuthority: () async {
           calls++;
           if (calls == 1) return first.future;
           return true;
@@ -331,7 +330,7 @@ void main() {
       final driver = IdentityDriver(
         reconcileNodeAccount: () async {},
         retryPendingZkCompletion: () async {},
-        refreshAuthoritativeState: () => refresh.future,
+        refreshAccountAuthority: () => refresh.future,
         publishStatus: statuses.add,
       );
 
@@ -347,7 +346,7 @@ void main() {
       expect(statuses, isNot(contains(AccountReconciliationStatus.settled)));
     });
 
-    test('a refresh-triggered rollover does not run the ready-only zk retry',
+    test('a refresh-closing identity does not run the ready-only zk retry',
         () async {
       var zkRetries = 0;
       late IdentityDriver driver;
@@ -355,7 +354,7 @@ void main() {
       driver = IdentityDriver(
         reconcileNodeAccount: () async {},
         retryPendingZkCompletion: () async => zkRetries++,
-        refreshAuthoritativeState: () async {
+        refreshAccountAuthority: () async {
           driver.onIdentityChanged(
             ready,
             _identity(IdentityPhase.reconciling, epoch: 3),
@@ -376,7 +375,7 @@ void main() {
       final driver = IdentityDriver(
         reconcileNodeAccount: () async {},
         retryPendingZkCompletion: () async {},
-        refreshAuthoritativeState: () {
+        refreshAccountAuthority: () {
           calls++;
           return calls == 1 ? oldRefresh.future : Future.value(true);
         },
@@ -398,32 +397,6 @@ void main() {
       expect(calls, 2);
       oldRefresh.complete(false);
       await Future<void>.delayed(Duration.zero);
-    });
-  });
-
-  group('activeSeasonIdOf', () {
-    SeasonDto season(int id, {required bool active}) => SeasonDto(
-          id: id,
-          name: 'Season $id',
-          isActive: active,
-        );
-
-    test('returns the active season id', () {
-      expect(
-        activeSeasonIdOf([season(4, active: false), season(5, active: true)]),
-        5,
-      );
-    });
-
-    test('returns null when no season is active', () {
-      // Old seasons normally remain in the response; the ACTIVE flag is the
-      // authoritative signal, never list membership or the UI-selected
-      // reporting season.
-      expect(activeSeasonIdOf([season(4, active: false)]), isNull);
-    });
-
-    test('returns null while unknown', () {
-      expect(activeSeasonIdOf(null), isNull);
     });
   });
 }

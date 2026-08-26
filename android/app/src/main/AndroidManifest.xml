@@ -68,7 +68,7 @@
                     android:scheme="usernode-zk"
                     android:host="callback"/>
             </intent-filter>
-            <!-- In-app challenge deep links: usernode://app/challenges/... routed via GoRouter. -->
+            <!-- Temporary native ZK proof deep link; Social owns challenge UI. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -76,7 +76,7 @@
                 <data
                     android:scheme="usernode"
                     android:host="app"
-                    android:pathPrefix="/challenges"/>
+                    android:pathPrefix="/challenges/zk-identity"/>
             </intent-filter>
             <!-- In-app dApp deep links: usernode://app/dapps/... routed via GoRouter. -->
             <intent-filter>

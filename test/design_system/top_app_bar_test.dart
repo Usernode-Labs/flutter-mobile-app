@@ -24,15 +24,15 @@ void main() {
   group('TopAppBar - small', () {
     testWidgets('renders title', (tester) async {
       await tester.pumpWidget(wrap(
-        const TopAppBar(title: 'Leaderboard'),
+        const TopAppBar(title: 'Details'),
       ));
 
-      expect(find.text('Leaderboard'), findsOneWidget);
+      expect(find.text('Details'), findsOneWidget);
     });
 
     testWidgets('renders back arrow by default', (tester) async {
       await tester.pumpWidget(wrap(
-        const TopAppBar(title: 'Leaderboard'),
+        const TopAppBar(title: 'Details'),
       ));
 
       expect(find.byIcon(Symbols.arrow_back_sharp), findsOneWidget);
@@ -42,7 +42,7 @@ void main() {
       bool tapped = false;
       await tester.pumpWidget(wrap(
         TopAppBar(
-          title: 'Leaderboard',
+          title: 'Details',
           onLeadingTap: () => tapped = true,
         ),
       ));
@@ -54,7 +54,7 @@ void main() {
     testWidgets('renders custom leading widget', (tester) async {
       await tester.pumpWidget(wrap(
         const TopAppBar(
-          title: 'Leaderboard',
+          title: 'Details',
           leading: Icon(Symbols.menu_sharp),
         ),
       ));
@@ -66,7 +66,7 @@ void main() {
     testWidgets('renders actions', (tester) async {
       await tester.pumpWidget(wrap(
         const TopAppBar(
-          title: 'Leaderboard',
+          title: 'Details',
           actions: [Icon(Symbols.filter_list_sharp)],
         ),
       ));
@@ -81,7 +81,7 @@ void main() {
 
       await tester.pumpWidget(wrap(
         TopAppBar(
-          title: 'Leaderboard',
+          title: 'Details',
           actions: [
             IconButton(
               key: actionKey,
@@ -102,7 +102,7 @@ void main() {
 
     testWidgets('uses SliverAppBar', (tester) async {
       await tester.pumpWidget(wrap(
-        const TopAppBar(title: 'Leaderboard'),
+        const TopAppBar(title: 'Details'),
       ));
 
       expect(find.byType(SliverAppBar), findsOneWidget);

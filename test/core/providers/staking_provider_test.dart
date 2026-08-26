@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/providers/staking_provider.dart';
 import 'package:crypto_mobile_app/core/services/staking_preference_store.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
+import 'package:crypto_mobile_app/features/wallet/data/delegation_api.dart';
 
 void main() {
   const store = StakingPreferenceStore(bucket: 'account-a');

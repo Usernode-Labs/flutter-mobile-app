@@ -1,45 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/categorized_challenges_provider.dart';
 import 'package:crypto_mobile_app/design_system/src/zk_identity_flow_page.dart';
-import 'package:crypto_mobile_app/features/challenges/challenge_mappers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
 final zkIdentityChallengeActiveProvider = StateProvider<bool>((ref) => false);
-
-/// Resolves the real challenge ID for the ZK Identity challenge from the
-/// already-loaded challenges list by matching subCategory.
-final zkIdentityChallengeIdProvider = Provider<int?>((ref) {
-  return ref.watch(zkIdentityChallengeDtoProvider)?.id;
-});
-
-/// Resolves the full [ChallengeDto] for the ZK Identity challenge.
-///
-/// Reads from [categorizedChallengesProvider] so the picked row matches what
-/// the Challenges tab shows: prefer the active row, then completed, then
-/// missed. Falling back to the raw challenges list would risk picking a stale
-/// duplicate (e.g. a previous season's disabled row).
-final zkIdentityChallengeDtoProvider = Provider<ChallengeDto?>((ref) {
-  final categorized = ref.watch(categorizedChallengesProvider);
-  if (categorized == null) return null;
-  for (final bucket in [
-    categorized.active,
-    categorized.completed,
-    categorized.missed,
-  ]) {
-    for (final c in bucket) {
-      if (c.dto.subCategory == zkIdentitySubCategory) return c.dto;
-    }
-  }
-  return null;
-});
-
-final zkIdentityIsCompleteProvider = Provider<AsyncValue<bool>>((ref) {
-  return ref.watch(zkPassportIsRegisteredProvider);
-});
 
 final zkIdentityRegistrationProvider =
     Provider<AsyncValue<ZkPassportLocalRegistration>>((ref) {

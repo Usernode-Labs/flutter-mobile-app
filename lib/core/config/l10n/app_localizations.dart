@@ -640,48 +640,6 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
-  /// Detail screen total reward heading
-  ///
-  /// In en, this message translates to:
-  /// **'Total Reward {reward}'**
-  String challengeTotalReward(String reward);
-
-  /// Section title for challenge description
-  ///
-  /// In en, this message translates to:
-  /// **'Why it matters'**
-  String get challengeSectionTheWhy;
-
-  /// Section title for challenge task
-  ///
-  /// In en, this message translates to:
-  /// **'Task'**
-  String get challengeSectionTask;
-
-  /// Section title for challenge requirements
-  ///
-  /// In en, this message translates to:
-  /// **'Requirements'**
-  String get challengeSectionRequirements;
-
-  /// Detail screen title for the ZK identity challenge
-  ///
-  /// In en, this message translates to:
-  /// **'Prove you\'re a unique human'**
-  String get zkIdentityChallengeTitle;
-
-  /// Detail screen CTA shown before the user has begun the flow
-  ///
-  /// In en, this message translates to:
-  /// **'Start'**
-  String get zkIdentityDetailStartCta;
-
-  /// Detail screen CTA shown when the user resumes an in-progress flow
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get zkIdentityDetailContinueCta;
-
   /// Title shown when the ZK Passport companion app is not installed
   ///
   /// In en, this message translates to:

@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/features/zkpassport/data/repositories/legacy_zk_completion_api.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -16,7 +16,7 @@ const _iosStoreUrl = 'https://apps.apple.com/us/app/zkpassport/id6477371975';
 
 /// True when a backend completion response can never succeed on retry.
 bool isTerminalZkCompletionRejection(Object? error) {
-  return error is LeaderboardApiException &&
+  return error is LegacyZkCompletionException &&
       error.statusCode >= 400 &&
       error.statusCode < 500 &&
       error.statusCode != 401 &&

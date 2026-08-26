@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/wallet_provisioning_api.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/me.dart';
 
@@ -71,8 +71,8 @@ void main() {
   });
 
   group('API parsing that feeds the gate', () {
-    test('WalletProvisionResult parses bp_released (default false)', () {
-      final released = WalletProvisionResult.fromJson(const {
+    test('WalletProvisioningResult parses bp_released (default false)', () {
+      final released = WalletProvisioningResult.fromJson(const {
         'address': 'ut1abc',
         'public_key': 'pk',
         'secret_key': 'sk',
@@ -80,7 +80,7 @@ void main() {
       });
       expect(released.bpReleased, isTrue);
 
-      final absent = WalletProvisionResult.fromJson(const {
+      final absent = WalletProvisioningResult.fromJson(const {
         'address': 'ut1abc',
         'public_key': 'pk',
         'secret_key': 'sk',

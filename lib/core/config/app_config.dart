@@ -49,8 +49,7 @@ class AppConfig {
       );
 
   // Token-scoped mobile API (data + auth). Default is the Social Vibecoding
-  // platform's v4 mobile API, which replaced topochain's v2/v3 leaderboard
-  // API after the account/leaderboard data migration. `MOBILE_API_BASE_URL`
+  // platform's v4 mobile API. `MOBILE_API_BASE_URL`
   // overrides (e.g. a staging deployment of the same v4 API). The retired
   // topochain v3 backend is NOT supported: onboarding depends on the
   // v4-only `/wallet/provision`, so a v3-pointed build could never onboard
@@ -88,21 +87,11 @@ class AppConfig {
       defaultValue: 'Bootstrap Account');
   static const String _bootstrapParticipantIdRaw =
       String.fromEnvironment('BOOTSTRAP_PARTICIPANT_ID', defaultValue: '');
-  static const String _bootstrapSeasonIdRaw =
-      String.fromEnvironment('BOOTSTRAP_SEASON_ID', defaultValue: '');
-  static const String bootstrapSeasonName =
-      String.fromEnvironment('BOOTSTRAP_SEASON_NAME', defaultValue: '');
-  static const String _bootstrapEventIdRaw =
-      String.fromEnvironment('BOOTSTRAP_EVENT_ID', defaultValue: '');
-  static const String bootstrapEventName =
-      String.fromEnvironment('BOOTSTRAP_EVENT_NAME', defaultValue: '');
 
   static String get bootstrapSecretKey => _bootstrapSecretKey.trim();
   static bool get hasBootstrapSecretKey => bootstrapSecretKey.isNotEmpty;
   static int? get bootstrapParticipantId =>
       _parseOptionalInt(_bootstrapParticipantIdRaw);
-  static int? get bootstrapSeasonId => _parseOptionalInt(_bootstrapSeasonIdRaw);
-  static int? get bootstrapEventId => _parseOptionalInt(_bootstrapEventIdRaw);
 
   // Global gate for remote/backend mutations and producer-side node behavior.
   // Defaults to normal behavior; pass `--dart-define=VIEW_ONLY=true`
@@ -281,32 +270,13 @@ class AppConfig {
     return Uri.tryParse(versionCheckApiUrl)?.host ?? '<unparsed>';
   }
 
-  // Leaderboard API v2
-  static const int leaderboardApiTimeoutSeconds = int.fromEnvironment(
-    'LEADERBOARD_API_TIMEOUT_SECONDS',
+  // Session-scoped Social mobile API transport.
+  static const int mobileApiTimeoutSeconds = int.fromEnvironment(
+    'MOBILE_API_TIMEOUT_SECONDS',
     defaultValue: 30,
   );
-  static Duration get leaderboardApiTimeout =>
-      const Duration(seconds: leaderboardApiTimeoutSeconds);
-
-  static const String leaderboardApiBaseUrl = String.fromEnvironment(
-    'LEADERBOARD_API_BASE_URL',
-    defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile',
-  );
-
-  // Challenge point tracker configuration
-  static const int challengePointMaxAgeHours = int.fromEnvironment(
-    'CHALLENGE_POINT_MAX_AGE_HOURS',
-    defaultValue: 48,
-  );
-  static const int challengePointDiffWindowHours = int.fromEnvironment(
-    'CHALLENGE_POINT_DIFF_WINDOW_HOURS',
-    defaultValue: 24,
-  );
-  static Duration get challengePointMaxAge =>
-      const Duration(hours: challengePointMaxAgeHours);
-  static Duration get challengePointDiffWindow =>
-      const Duration(hours: challengePointDiffWindowHours);
+  static Duration get mobileApiTimeout =>
+      const Duration(seconds: mobileApiTimeoutSeconds);
 
   // === Community ===
   static const String discordInviteUrl =

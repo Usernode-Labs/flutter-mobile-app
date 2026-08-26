@@ -7,7 +7,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/diagnostics_screen.dart';
-import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_detail_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
@@ -19,7 +18,6 @@ import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benc
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_run_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/http_debug_logs_screen.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/staking_delegation_screen.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
@@ -34,9 +32,6 @@ class AppRoutes {
   static const splash = '/splash';
   static const home = '/home';
   static const homeSlash = '/';
-
-  // Challenge deep-link remap target (native leaderboard retired into SV).
-  static const leaderboard = '/challenges/leaderboard';
 
   static const dapps = '/dapps';
   static const dappDetail = '/dapps/:slug';
@@ -114,10 +109,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // Do NOT ref.watch state providers here: a watch rebuilds this provider
   // when they change (e.g. loading -> data right after launch), which
   // creates a brand-new GoRouter and resets navigation to /splash — this
-  // stomped cold-start deep links from homescreen widgets. The listen keeps
-  // the leaderboard bootstrap chain alive (it hydrates the season context
-  // the zk-identity challenge providers read) without triggering rebuilds.
-  ref.listen(leaderboardBootstrapProvider, (_, __) {});
+  // stomped cold-start deep links from homescreen widgets.
 
   return GoRouter(
     navigatorKey: _navigatorKey,
@@ -174,18 +166,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.zkIdentityDetail,
-        builder: (context, state) => const ZkIdentityDetailScreen(),
+        // Temporary Social CTA compatibility path. Flutter owns only the
+        // device proof mechanics, so skip the retired challenge/reward page.
+        builder: (context, state) => const ZkIdentityFlowScreen(),
       ),
       GoRoute(
         path: AppRoutes.zkIdentityFlow,
         builder: (context, state) => const ZkIdentityFlowScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.leaderboard,
-        // usernode://app/challenges/leaderboard remaps to SV's challenges hash
-        // route — the native leaderboard is retired inside the SV shell.
-        // ZK-identity routes stay native — they run hardware flows.
-        redirect: (context, state) => '${AppRoutes.home}?sv=challenges',
       ),
       GoRoute(
         path: AppRoutes.dapps,

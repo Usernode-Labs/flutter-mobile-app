@@ -190,8 +190,8 @@ M3 distinguishes two containment strategies. Both follow the same Matryoshka spa
 3. **Widgets** (ListTile, ExpansionTile, etc.) own their content padding via theme. Do not wrap them in extra `Padding`.
 4. **Inter-widget gaps** inside a surface are owned by that surface's layout — use `Column(spacing: ...)`. Avoid `Divider` between homogeneous ListTile items.
 5. **Keyline consistency** — all text in ListTile/ExpansionTile rows must land on K₂ (see LAYOUT.md § Keylines). Never wrap these widgets in extra horizontal Padding.
-6. **PSL surface body inset** — non-ListTile content inside PSL `surfaceSlivers` uses `space24` horizontal inset from the white surface edge. ListTile/ExpansionTile are exempt (they sit edge-to-edge and own their `contentPadding`). Challenges (`nestedBody`/TabBarView) keep `space16` — different layout path.
-7. **PSL surface top inset + content slots** — PSL injects `kSurfaceTopInset` (8px) before the first surfaceSliver. The first content widget should deliver a 48px slot — either naturally (rows with M3 action elements like `PopupMenuButton`) or explicitly (`SizedBox(height: sizing.iconContainerRegular)`). Challenges' tab bar is the prior art: `_kTopInset(8) + kTabBarHeight(48)`. See LAYOUT.md § Content Slot System.
+6. **PSL surface body inset** — non-ListTile content inside PSL `surfaceSlivers` uses `space24` horizontal inset from the white surface edge. ListTile/ExpansionTile are exempt (they sit edge-to-edge and own their `contentPadding`). `nestedBody`/TabBarView content follows its separate layout path.
+7. **PSL surface top inset + content slots** — PSL injects `kSurfaceTopInset` (8px) before the first surfaceSliver. The first content widget should deliver a 48px slot — either naturally (rows with M3 action elements like `PopupMenuButton`) or explicitly (`SizedBox(height: sizing.iconContainerRegular)`). See LAYOUT.md § Content Slot System.
 
 ### When Zones Collide: The ListTile-in-Card Case
 

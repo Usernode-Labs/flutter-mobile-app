@@ -6,14 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/session_controller.dart';
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
+import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/wallet_provisioning_api.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
 final _log = LoggingService.instance.withTag('usernode/IdentityDriver');
@@ -50,7 +49,7 @@ bool _isTransientReconcileFailure(Object error) {
       error is http.ClientException) {
     return true;
   }
-  if (error is LeaderboardApiException) {
+  if (error is WalletProvisioningException) {
     return error.statusCode == 429 || error.statusCode >= 500;
   }
   if (error is AccountApiException) {
@@ -68,8 +67,8 @@ Timer _defaultRetryTimer(Duration duration, void Function() callback) =>
 /// WHAT the identity is; this driver owns making the app converge on it:
 ///
 /// - [IdentityPhase.reconciling] → run the [NodeAccountReconciler]. Covers
-///   fresh sign-ins, boot restores of an interrupted reconcile, and season
-///   rollovers — every path that publishes a reconciling identity.
+///   fresh sign-ins and boot restores of an interrupted reconcile — every
+///   path that publishes a reconciling identity.
 /// - transition into [IdentityPhase.ready] → retry any pending zkPassport
 ///   backend completion (the identity-keyed outbox row). Runs only once the
 ///   identity is settled so a proof is never submitted under an unsettled
@@ -88,7 +87,7 @@ class IdentityDriver {
   IdentityDriver({
     required Future<void> Function() reconcileNodeAccount,
     required Future<void> Function() retryPendingZkCompletion,
-    Future<bool> Function()? refreshAuthoritativeState,
+    Future<bool> Function()? refreshAccountAuthority,
     void Function(AccountReconciliationStatus)? publishStatus,
     void Function(AccountReconciliationFailure?)? publishFailure,
     Timer Function(Duration, void Function())? createRetryTimer,
@@ -96,15 +95,15 @@ class IdentityDriver {
     this.refreshTtl = const Duration(minutes: 15),
   })  : _reconcileNodeAccount = reconcileNodeAccount,
         _retryPendingZkCompletion = retryPendingZkCompletion,
-        _refreshAuthoritativeState =
-            refreshAuthoritativeState ?? (() async => true),
+        _refreshAccountAuthority =
+            refreshAccountAuthority ?? (() async => true),
         _publishStatus = publishStatus ?? ((_) {}),
         _publishFailure = publishFailure ?? ((_) {}),
         _createRetryTimer = createRetryTimer ?? _defaultRetryTimer;
 
   final Future<void> Function() _reconcileNodeAccount;
   final Future<void> Function() _retryPendingZkCompletion;
-  final Future<bool> Function() _refreshAuthoritativeState;
+  final Future<bool> Function() _refreshAccountAuthority;
   final void Function(AccountReconciliationStatus) _publishStatus;
   final void Function(AccountReconciliationFailure?) _publishFailure;
   final Timer Function(Duration, void Function()) _createRetryTimer;
@@ -132,8 +131,8 @@ class IdentityDriver {
     final refreshIdentity = _refreshIdentity;
     if (refreshIdentity != null && !next.sameScopeAs(refreshIdentity)) {
       // The request itself is not cancellable. Exact identity checks discard
-      // its result; release this coalescing slot so a new season epoch cannot
-      // join it.
+      // its result; release this coalescing slot so a new identity cannot join
+      // it.
       _refreshRun = null;
       _refreshIdentity = null;
     }
@@ -321,7 +320,7 @@ class IdentityDriver {
   Future<bool> _refreshReady(Identity expected) async {
     _publishStatus(AccountReconciliationStatus.refreshing);
     try {
-      final refreshed = await _refreshAuthoritativeState();
+      final refreshed = await _refreshAccountAuthority();
       if (!refreshed || !_isReady(expected)) return false;
       _refreshAttempt = 0;
       _lastRefreshAt = DateTime.now();
@@ -380,8 +379,8 @@ final identityDriverProvider = Provider<IdentityDriver>((ref) {
     reconcileNodeAccount: () async {
       await ref.read(nodeAccountReconcilerProvider).reconcile();
     },
-    refreshAuthoritativeState: () =>
-        ref.read(nodeAccountReconcilerProvider).refreshAuthoritativeState(),
+    refreshAccountAuthority: () =>
+        ref.read(nodeAccountReconcilerProvider).refreshAccountAuthority(),
     retryPendingZkCompletion: () =>
         ref.read(zkPassportPipelineProvider.notifier).retryPendingCompletion(),
     publishStatus: (status) =>
@@ -407,40 +406,4 @@ final identityDriverProvider = Provider<IdentityDriver>((ref) {
     driver.dispose();
   });
   return driver;
-});
-
-/// The backend's ACTIVE season id from the authoritative `/seasons` response
-/// — NOT the user-selected reporting season (`seasonEventContextProvider`,
-/// which the season picker mutates and bootstrap restores from cache).
-/// Null while unknown (loading, unauthenticated, or no active season).
-int? activeSeasonIdOf(List<SeasonDto>? seasons) {
-  if (seasons == null) return null;
-  for (final season in seasons) {
-    if (season.isActive) return season.id;
-  }
-  return null;
-}
-
-/// Always-alive listener that hands the authoritative active season to the
-/// [SessionController]. `/wallet/provision` allocates per season: a user who
-/// stays signed in across a rollover would otherwise keep the previous
-/// season's wallet (and be stuck on stale-registration) until they logged
-/// out and back in — no sign-in transition ever fires for them.
-///
-/// The controller compares the reported season against the identity's
-/// provisioned season (persisted at reconcile commit) and re-enters the
-/// reconciling phase only on a genuine mismatch, so this can safely fire on
-/// every `/seasons` refresh.
-final seasonRolloverSyncProvider = Provider<void>((ref) {
-  ref.listen<AsyncValue<List<SeasonDto>?>>(seasonsProvider, (previous, next) {
-    final activeSeasonId = activeSeasonIdOf(next.valueOrNull);
-    if (activeSeasonId == null) return;
-    final expectedIdentity = ref.read(identityProvider);
-    unawaited(
-      ref.read(identityProvider.notifier).beginSeasonRollover(
-            activeSeasonId: activeSeasonId,
-            expectedIdentity: expectedIdentity,
-          ),
-    );
-  });
 });

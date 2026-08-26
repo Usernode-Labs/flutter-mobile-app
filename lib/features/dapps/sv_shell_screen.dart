@@ -23,7 +23,7 @@ import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 class SvShellScreen extends ConsumerStatefulWidget {
   const SvShellScreen({super.key, this.initialHash, this.navigationRequest});
 
-  /// Optional SV hash route to land on (e.g. `challenges`, `leaderboard`)
+  /// Optional Social hash route to land on.
   /// — used by the deep-link remap of the retired native tabs.
   final String? initialHash;
 

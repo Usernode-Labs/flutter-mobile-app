@@ -284,7 +284,6 @@ graph LR
         DS_IB["IconBadge"]
         DS_IR["InfoRow"]
         DS_LSH["ListSectionHeader"]
-        DS_CC["ChallengeCard"]
         DS_TAB["TopAppBar"]
     end
 
@@ -302,12 +301,10 @@ graph LR
     M3_LT --> SCREEN
     M3_CARD --> SCREEN
     M3_SC --> SCREEN
-    DS_CC --> SCREEN
     DS_TAB --> SCREEN
     DS_IR --> SCREEN
     CORE_CARD --> SCREEN
 
-    CORE_CARD -->|"composed in"| DS_CC
 ```
 
 ---

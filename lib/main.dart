@@ -353,11 +353,6 @@ class CryptoMobileApp extends ConsumerWidget {
     // phase and retries pending zk completions once it settles.
     ref.watch(identityDriverProvider);
 
-    // Hand the authoritative active season to the SessionController — a
-    // rollover re-enters the reconciling phase (per-season wallets), and no
-    // sign-in transition fires for users who stay signed in across it.
-    ref.watch(seasonRolloverSyncProvider);
-
     // Feed the process-lifetime push service only the current ready identity
     // and exact bearer. Disposing the app graph detaches this adapter; the
     // terminal reset fence separately closes the process-lifetime service.

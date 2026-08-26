@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/providers/log_share_provider.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/http_debug_log_store.dart';
@@ -190,7 +190,8 @@ class _ShareLogsBar extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
 
     final shareState = ref.watch(logShareControllerProvider);
-    final participantId = ref.watch(participantIdProvider).valueOrNull;
+    final participantId = ref
+        .watch(identityProvider.select((identity) => identity.participantId));
     final controller = ref.read(logShareControllerProvider.notifier);
 
     final Widget child;

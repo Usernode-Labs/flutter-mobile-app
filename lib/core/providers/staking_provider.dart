@@ -3,12 +3,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/staking_preference_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
+import 'package:crypto_mobile_app/features/wallet/data/delegation_api.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Staking');
 
@@ -173,7 +172,7 @@ final stakingProvider = StateNotifierProvider<StakingController, StakingState>((
   ref,
 ) {
   final identity = ref.watch(identityProvider);
-  final api = ref.watch(leaderboardApiServiceProvider);
+  final api = ref.watch(delegationApiProvider);
   final address = identity.address;
   final canUseBackend = identity.phase == IdentityPhase.ready &&
       address != null &&
@@ -182,15 +181,14 @@ final stakingProvider = StateNotifierProvider<StakingController, StakingState>((
   return StakingController(
     store: StakingPreferenceStore(bucket: identity.bucket),
     syncBackend: canUseBackend
-        ? (delegated) => api.setDelegation(
+        ? (delegated) => api.set(
               walletAddress: address,
               delegated: delegated,
             )
         : (_) => Future<DelegationStatus>.error(
               StateError('Delegation requires a ready authenticated wallet'),
             ),
-    fetchBackend:
-        canUseBackend ? () => api.getDelegation(walletAddress: address) : null,
+    fetchBackend: canUseBackend ? () => api.get(walletAddress: address) : null,
     isScopeCurrent: () => identity.sameScopeAs(ref.read(identityProvider)),
     applyNodeEffects: () => NodeLifecycleCoordinator.instance
         .reconfigureForDelegationChange(reason: 'staking_changed'),

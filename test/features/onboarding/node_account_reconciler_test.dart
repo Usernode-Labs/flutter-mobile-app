@@ -10,9 +10,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/block_production_store.dart';
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
-import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
@@ -20,6 +17,7 @@ import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
+import 'package:crypto_mobile_app/features/onboarding/data/wallet_provisioning_api.dart';
 
 const _addressA = 'ut1useraaaaaaaa';
 const _addressB = 'ut1userbbbbbbbb';
@@ -36,84 +34,58 @@ Map<String, dynamic> _accountJson(String id, String address) => {
       'isDemo': false,
     };
 
-/// A service whose `/wallet/provision` returns [address]. [provisionCalls]
-/// counts round-trips so tests can assert coalescing.
-LeaderboardApiService _provisionService(
+/// A narrow provisioning capability that returns [address].
+/// [provisionCalls] counts calls so tests can assert coalescing.
+WalletProvisioningApi _provisionService(
   String address,
   List<int> provisionCalls, {
   Completer<void>? firstCallStarted,
   Future<void>? releaseFirstCall,
+  Object? error,
 }) {
-  final client = MockClient((request) async {
-    expect(request.url.path, endsWith('/wallet/provision'));
-    provisionCalls.add(1);
-    if (provisionCalls.length == 1) {
-      if (firstCallStarted != null && !firstCallStarted.isCompleted) {
-        firstCallStarted.complete();
-      }
-      if (releaseFirstCall != null) await releaseFirstCall;
-    }
-    return http.Response(
-      jsonEncode({
-        'success': true,
-        'data': {
-          'address': address,
-          'public_key': 'utpk1$address',
-          'secret_key': 'utsk1secret',
-          'newly_allocated': false,
-          'season_id': 7,
-        },
-      }),
-      200,
-      headers: {'content-type': 'application/json'},
-    );
-  });
-  return LeaderboardApiService(
-    baseUrl: 'https://test.example.com/api/v4/mobile',
-    httpClient: client,
-    tokenProvider: AuthTokenStore().read,
+  return _FakeWalletProvisioningApi(
+    result: WalletProvisioningResult(
+      address: address,
+      publicKey: 'utpk1$address',
+      secretKey: 'utsk1secret',
+      newlyAllocated: false,
+      bpReleased: false,
+    ),
+    provisionCalls: provisionCalls,
+    firstCallStarted: firstCallStarted,
+    releaseFirstCall: releaseFirstCall,
+    error: error,
   );
 }
 
-LeaderboardApiService _authorityService({required int activeSeasonId}) {
-  return LeaderboardApiService(
-    baseUrl: 'https://test.example.com/api/v4/mobile',
-    tokenProvider: AuthTokenStore().read,
-    httpClient: MockClient((request) async {
-      if (request.url.path.endsWith('/wallet/provision')) {
-        return http.Response(
-          jsonEncode({
-            'success': true,
-            'data': {
-              'address': _addressB,
-              'public_key': 'utpk1$_addressB',
-              'secret_key': 'utsk1secret',
-              'newly_allocated': false,
-              'season_id': 7,
-              'bp_released': false,
-            },
-          }),
-          200,
-          headers: {'content-type': 'application/json'},
-        );
-      }
-      expect(request.url.path, endsWith('/seasons'));
-      return http.Response(
-        jsonEncode({
-          'success': true,
-          'data': [
-            {
-              'season_id': activeSeasonId,
-              'name': 'Season $activeSeasonId',
-              'is_active': true,
-            },
-          ],
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
-    }),
-  );
+class _FakeWalletProvisioningApi implements WalletProvisioningApi {
+  _FakeWalletProvisioningApi({
+    required this.result,
+    required this.provisionCalls,
+    this.firstCallStarted,
+    this.releaseFirstCall,
+    this.error,
+  });
+
+  final WalletProvisioningResult result;
+  final List<int> provisionCalls;
+  final Completer<void>? firstCallStarted;
+  final Future<void>? releaseFirstCall;
+  final Object? error;
+
+  @override
+  Future<WalletProvisioningResult> provision() async {
+    provisionCalls.add(1);
+    if (provisionCalls.length == 1) {
+      final started = firstCallStarted;
+      if (started != null && !started.isCompleted) started.complete();
+      final release = releaseFirstCall;
+      if (release != null) await release;
+    }
+    final failure = error;
+    if (failure != null) throw failure;
+    return result;
+  }
 }
 
 AccountApiService _meService({
@@ -220,7 +192,7 @@ void main() {
   test('does nothing when the identity is not reconciling', () async {
     final provisionCalls = <int>[];
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
+      walletProvisioningApiProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(),
     ]);
@@ -255,7 +227,7 @@ void main() {
     final provisionCalls = <int>[];
     var nodeBinds = 0;
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
+      walletProvisioningApiProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(ensureNodeIdentity: () async => nodeBinds++),
     ]);
@@ -273,12 +245,11 @@ void main() {
     // The node runtime was re-bound to the reconciled account before commit.
     expect(nodeBinds, 1);
 
-    // The identity settled to ready under B's account and season.
+    // The identity settled to ready under B's account.
     final identity = container.read(identityProvider);
     expect(identity.phase, IdentityPhase.ready);
     expect(identity.address, _addressB);
     expect(identity.participantId, 99);
-    expect(identity.provisionedSeasonId, 7);
 
     // The bucket now follows B's account, and B's staged participant id
     // was installed there (and removed from the guest bucket).
@@ -287,10 +258,6 @@ void main() {
     expect(
         prefs.getInt('testnet:acct:$bucketB:leaderboard:participant_id'), 99);
     expect(prefs.getInt(guestPidKey), isNull);
-
-    // The provisioned season is persisted for rollover detection.
-    expect(
-        prefs.getInt('testnet:acct:$bucketB:identity:provisioned_season'), 7);
 
     // Reconcile completed — boot restores no longer need to re-run it.
     expect(prefs.getBool(markerKey), isNull);
@@ -339,11 +306,10 @@ void main() {
         );
       }),
     );
-    addTearDown(provisionService.dispose);
     addTearDown(accountService.dispose);
 
     List<Override> overrides() => [
-          leaderboardApiServiceProvider.overrideWithValue(provisionService),
+          walletProvisioningApiProvider.overrideWithValue(provisionService),
           accountApiServiceProvider.overrideWithValue(accountService),
           _reconcilerOverride(),
         ];
@@ -422,7 +388,7 @@ void main() {
       ),
     );
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
+      walletProvisioningApiProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       accountApiServiceProvider.overrideWithValue(accountService),
       _reconcilerOverride(ensureNodeIdentity: () async => nodeBinds++),
@@ -464,7 +430,7 @@ void main() {
 
     final provisionCalls = <int>[];
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
+      walletProvisioningApiProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(),
     ]);
@@ -495,7 +461,7 @@ void main() {
 
     final provisionCalls = <int>[];
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider
+      walletProvisioningApiProvider
           .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       _reconcilerOverride(
         ensureNodeIdentity: () async =>
@@ -522,17 +488,16 @@ void main() {
 
   test('propagates provisioning failure so onboarding can surface it',
       () async {
-    final client = MockClient((request) async => http.Response(
-          jsonEncode({'success': false, 'error': 'No accounts available'}),
-          409,
-          headers: {'content-type': 'application/json'},
-        ));
+    final provisionCalls = <int>[];
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(
-        LeaderboardApiService(
-          baseUrl: 'https://test.example.com/api/v4/mobile',
-          httpClient: client,
-          tokenProvider: AuthTokenStore().read,
+      walletProvisioningApiProvider.overrideWithValue(
+        _provisionService(
+          _addressB,
+          provisionCalls,
+          error: WalletProvisioningException(
+            409,
+            'No accounts available',
+          ),
         ),
       ),
       _reconcilerOverride(),
@@ -543,7 +508,7 @@ void main() {
 
     await expectLater(
       container.read(nodeAccountReconcilerProvider).reconcile(),
-      throwsA(isA<LeaderboardApiException>()
+      throwsA(isA<WalletProvisioningException>()
           .having((e) => e.statusCode, 'statusCode', 409)),
     );
     // The identity stays reconciling for the retry path.
@@ -562,16 +527,16 @@ void main() {
     });
     await NetworkPrefs.init();
 
-    final authority = _authorityService(activeSeasonId: 7);
+    final provisionCalls = <int>[];
     final me = _meService(email: null);
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(authority),
+      walletProvisioningApiProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       accountApiServiceProvider.overrideWithValue(me),
       _reconcilerOverride(),
     ]);
     addTearDown(() {
       container.dispose();
-      authority.dispose();
       me.dispose();
     });
 
@@ -583,7 +548,7 @@ void main() {
     final driver = IdentityDriver(
       reconcileNodeAccount: () async {},
       retryPendingZkCompletion: () async {},
-      refreshAuthoritativeState: reconciler.refreshAuthoritativeState,
+      refreshAccountAuthority: reconciler.refreshAccountAuthority,
     );
     addTearDown(driver.dispose);
     driver.onIdentityChanged(null, container.read(identityProvider));
@@ -591,53 +556,14 @@ void main() {
     expect(await driver.ensureFreshBeforeNodeStart(), isTrue);
 
     final profile = await container.read(meProvider.future);
-    final seasons = await container.read(seasonsProvider.future);
     expect(profile?.displayName, 'Fresh Profile');
     expect(profile?.email, isEmpty);
-    expect(seasons?.single.id, 7);
     expect(await loadBlockProductionReleased(), isTrue);
     final prefs = await SharedPreferences.getInstance();
     expect(
       prefs.getBool('testnet:acct:$bucketB:bp:released'),
       isTrue,
     );
-  });
-
-  test('ready refresh re-enters reconciliation after a season rollover',
-      () async {
-    SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([
-        _accountJson('acc_1_b', _addressB),
-      ]),
-      'testnet:accounts:activeId': 'acc_1_b',
-    });
-    await NetworkPrefs.init();
-
-    final authority = _authorityService(activeSeasonId: 8);
-    final me = _meService();
-    final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(authority),
-      accountApiServiceProvider.overrideWithValue(me),
-      _reconcilerOverride(),
-    ]);
-    addTearDown(() {
-      container.dispose();
-      authority.dispose();
-      me.dispose();
-    });
-
-    await _login(container);
-    final reconciler = container.read(nodeAccountReconcilerProvider);
-    expect(await reconciler.reconcile(), isTrue);
-    expect(container.read(identityProvider).provisionedSeasonId, 7);
-
-    // A live process sees the new authoritative season and closes the ready
-    // gate before the next node start. The identity driver owns the ensuing
-    // provision/reconcile attempt.
-    expect(await reconciler.refreshAuthoritativeState(), isFalse);
-    final identity = container.read(identityProvider);
-    expect(identity.phase, IdentityPhase.reconciling);
-    expect(identity.provisionedSeasonId, 7);
   });
 
   test('ready refresh preserves transient API errors for retry handling',
@@ -650,16 +576,16 @@ void main() {
     });
     await NetworkPrefs.init();
 
-    final authority = _authorityService(activeSeasonId: 7);
+    final provisionCalls = <int>[];
     final me = _meService(statusCode: 503);
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(authority),
+      walletProvisioningApiProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       accountApiServiceProvider.overrideWithValue(me),
       _reconcilerOverride(),
     ]);
     addTearDown(() {
       container.dispose();
-      authority.dispose();
       me.dispose();
     });
 
@@ -668,7 +594,7 @@ void main() {
     expect(await reconciler.reconcile(), isTrue);
 
     await expectLater(
-      reconciler.refreshAuthoritativeState(),
+      reconciler.refreshAccountAuthority(),
       throwsA(
         isA<AccountApiException>().having(
           (error) => error.statusCode,
@@ -693,20 +619,20 @@ void main() {
     addTearDown(() {
       if (!releaseRequest.isCompleted) releaseRequest.complete();
     });
-    final authority = _authorityService(activeSeasonId: 7);
+    final provisionCalls = <int>[];
     final me = _meService(
       requestStarted: requestStarted,
       releaseRequest: releaseRequest.future,
     );
     late Identity currentIdentity;
     final container = ProviderContainer(overrides: [
-      leaderboardApiServiceProvider.overrideWithValue(authority),
+      walletProvisioningApiProvider
+          .overrideWithValue(_provisionService(_addressB, provisionCalls)),
       accountApiServiceProvider.overrideWithValue(me),
       _reconcilerOverride(currentIdentity: () => currentIdentity),
     ]);
     addTearDown(() {
       container.dispose();
-      authority.dispose();
       me.dispose();
     });
 
@@ -716,7 +642,7 @@ void main() {
     expect(await reconciler.reconcile(), isTrue);
     currentIdentity = container.read(identityProvider);
 
-    final refresh = reconciler.refreshAuthoritativeState();
+    final refresh = reconciler.refreshAccountAuthority();
     await requestStarted.future;
     currentIdentity = currentIdentity.copyWith(
       epoch: currentIdentity.epoch + 1,

@@ -7,10 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
-import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_bootstrap.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
@@ -125,7 +123,6 @@ class AppBootstrap {
     if (applyBootstrapIdentity) {
       await _applyBootstrapIdentity(
         log: log,
-        container: container,
         repo: repo,
       );
     }
@@ -143,8 +140,7 @@ class AppBootstrap {
       log.debug('Set Sentry user context for existing account: $activeId');
     }
 
-    // Metrics collector needs the container before any lifecycle/service starts
-    MetricsCollectorService.instance.initialize(container);
+    MetricsCollectorService.instance.initialize();
     ObservabilityReportingService.instance.configureMobileContextCollector(
       MetricsCollectorService.instance,
     );
@@ -211,22 +207,12 @@ class AppBootstrap {
 
   static Future<void> _applyBootstrapIdentity({
     required TaggedLogger log,
-    required ProviderContainer container,
     required AccountsRepository repo,
   }) async {
     final secretKey = AppConfig.bootstrapSecretKey;
     final participantId = AppConfig.bootstrapParticipantId;
-    final seasonId = AppConfig.bootstrapSeasonId;
-    final seasonName = AppConfig.bootstrapSeasonName.trim();
-    final eventId = AppConfig.bootstrapEventId;
-    final eventName = AppConfig.bootstrapEventName.trim();
 
-    final hasBootstrapConfig = secretKey.isNotEmpty ||
-        participantId != null ||
-        seasonId != null ||
-        seasonName.isNotEmpty ||
-        eventId != null ||
-        eventName.isNotEmpty;
+    final hasBootstrapConfig = secretKey.isNotEmpty || participantId != null;
     if (!hasBootstrapConfig) {
       return;
     }
@@ -234,8 +220,6 @@ class AppBootstrap {
     log.info('Applying bootstrap identity from env', context: {
       'has_secret_key': secretKey.isNotEmpty,
       'has_participant_id': participantId != null,
-      'season_id': seasonId,
-      'event_id': eventId,
     });
 
     // (Bootstrap-env onboarding completion was removed with the retired
@@ -284,25 +268,6 @@ class AppBootstrap {
       await saveParticipantId(participantId);
       log.info('Persisted bootstrap participant id', context: {
         'participant_id': participantId,
-      });
-    }
-
-    final hasSeasonContext = seasonId != null ||
-        seasonName.isNotEmpty ||
-        eventId != null ||
-        eventName.isNotEmpty;
-    if (hasSeasonContext) {
-      final ctx = SeasonEventContext(
-        seasonId: seasonId,
-        seasonName: seasonName.isNotEmpty ? seasonName : null,
-        eventId: eventId,
-        eventName: eventName.isNotEmpty ? eventName : null,
-      );
-      container.read(seasonEventContextProvider.notifier).state = ctx;
-      await LeaderboardBootstrap.persistSeasonEvent(ctx);
-      log.info('Persisted bootstrap season/event context', context: {
-        'season_id': ctx.seasonId,
-        'event_id': ctx.eventId,
       });
     }
   }

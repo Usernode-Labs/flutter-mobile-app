@@ -155,6 +155,46 @@ void main() {
       await driver.lastRun;
     });
 
+    test('publishes the wallet recovery code and can retry through ready',
+        () async {
+      var reconcileCalls = 0;
+      final failures = <AccountReconciliationFailure?>[];
+      final reconciling = _identity(IdentityPhase.reconciling, epoch: 2);
+      final ready = _identity(IdentityPhase.ready, epoch: 2);
+      late IdentityDriver driver;
+      driver = IdentityDriver(
+        reconcileNodeAccount: () async {
+          reconcileCalls++;
+          if (reconcileCalls == 1) {
+            throw LeaderboardApiException(
+              409,
+              'No on-chain accounts are available.',
+              code: 'wallet_pool_exhausted',
+            );
+          }
+          driver.onIdentityChanged(reconciling, ready);
+        },
+        retryPendingZkCompletion: () async {},
+        publishFailure: failures.add,
+      );
+
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.unauthenticated),
+        reconciling,
+      );
+      await driver.lastRun;
+
+      expect(reconcileCalls, 1);
+      expect(
+        failures.whereType<AccountReconciliationFailure>().single.code,
+        'wallet_pool_exhausted',
+      );
+
+      expect(await driver.retryReconciliation(), isTrue);
+      expect(reconcileCalls, 2);
+      expect(failures.last, isNull);
+    });
+
     test('a failing zk retry does not propagate', () async {
       final driver = IdentityDriver(
         reconcileNodeAccount: () async {},

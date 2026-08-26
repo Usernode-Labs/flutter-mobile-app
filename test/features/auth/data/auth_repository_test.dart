@@ -18,6 +18,41 @@ AuthRepository _repo(http.Client c) =>
     AuthRepository(httpClient: c, baseUrl: _base);
 
 void main() {
+  group('requestOtp', () {
+    test('posts the normalized email to the shared OTP endpoint', () async {
+      late http.Request request;
+      await _repo(_client(
+        200,
+        {
+          'success': true,
+          'message': 'If that email can receive a code, one has been sent.',
+        },
+        onReq: (value) => request = value,
+      )).requestOtp('  Legacy@Example.com  ');
+
+      expect(request.method, 'POST');
+      expect(request.url.toString(), '$_base/otp/request');
+      expect(jsonDecode(request.body), {'email': 'legacy@example.com'});
+    });
+
+    test('maps validation failures through the existing auth error model',
+        () async {
+      expect(
+        () => _repo(_client(422, {
+          'success': false,
+          'error': 'The given data was invalid.',
+        })).requestOtp('invalid'),
+        throwsA(
+          isA<AuthException>().having(
+            (error) => error.kind,
+            'kind',
+            AuthErrorKind.validation,
+          ),
+        ),
+      );
+    });
+  });
+
   group('logout', () {
     test('sends bearer session token', () async {
       String? auth;

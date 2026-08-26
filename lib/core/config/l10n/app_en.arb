@@ -614,6 +614,62 @@
   "@zkIdentityTryAgain": {
     "description": "Button label for retrying a failed ZK identity verification"
   },
+  "zkIdentityWalletClaimTitle": "Connect your programme wallet",
+  "@zkIdentityWalletClaimTitle": {
+    "description": "Title shown when a social account must recover its existing programme wallet before ZK verification"
+  },
+  "zkIdentityWalletClaimDescription": "This Social account is different from the account that holds your existing wallet. Verify your original programme email once to connect it.",
+  "@zkIdentityWalletClaimDescription": {
+    "description": "Explanation for the legacy programme wallet recovery step"
+  },
+  "zkIdentityWalletClaimEmailLabel": "Original programme email",
+  "@zkIdentityWalletClaimEmailLabel": {
+    "description": "Email field label for programme wallet recovery"
+  },
+  "zkIdentityWalletClaimEmailHelper": "Use the email from your original Usernode programme registration.",
+  "@zkIdentityWalletClaimEmailHelper": {
+    "description": "Help text under the legacy programme email field"
+  },
+  "zkIdentityWalletClaimSendCode": "Send verification code",
+  "@zkIdentityWalletClaimSendCode": {
+    "description": "Button label that sends the wallet recovery email code"
+  },
+  "zkIdentityWalletClaimSendingCode": "Sending code…",
+  "@zkIdentityWalletClaimSendingCode": {
+    "description": "Busy button label while requesting a wallet recovery code"
+  },
+  "zkIdentityWalletClaimCodeSent": "Enter the 6-digit code sent to that email.",
+  "@zkIdentityWalletClaimCodeSent": {
+    "description": "Instructions shown after requesting a wallet recovery code"
+  },
+  "zkIdentityWalletClaimCodeLabel": "Verification code",
+  "@zkIdentityWalletClaimCodeLabel": {
+    "description": "One-time code field label for programme wallet recovery"
+  },
+  "zkIdentityWalletClaimConnect": "Connect wallet and continue",
+  "@zkIdentityWalletClaimConnect": {
+    "description": "Button label that claims the existing wallet and resumes ZK verification"
+  },
+  "zkIdentityWalletClaimConnecting": "Connecting wallet…",
+  "@zkIdentityWalletClaimConnecting": {
+    "description": "Busy button label while claiming and reconciling the existing wallet"
+  },
+  "zkIdentityWalletClaimChangeEmail": "Use a different email",
+  "@zkIdentityWalletClaimChangeEmail": {
+    "description": "Button label that returns from code entry to the wallet recovery email field"
+  },
+  "zkIdentityWalletClaimEmailRequired": "Enter a valid email address.",
+  "@zkIdentityWalletClaimEmailRequired": {
+    "description": "Validation message for the programme wallet recovery email"
+  },
+  "zkIdentityWalletClaimCodeRequired": "Enter the 6-digit code.",
+  "@zkIdentityWalletClaimCodeRequired": {
+    "description": "Validation message for the programme wallet recovery code"
+  },
+  "zkIdentityWalletClaimRetryFailed": "Your wallet was connected, but the app could not finish preparing it. Try again.",
+  "@zkIdentityWalletClaimRetryFailed": {
+    "description": "Error shown when reconciliation still fails after a successful wallet claim"
+  },
   "zkIdentityDone": "Done",
   "@zkIdentityDone": {
     "description": "Button label to dismiss the ZK identity result screen on success"
@@ -665,6 +721,10 @@
   "commonRetry": "Retry",
   "@commonRetry": {
     "description": "Retry button text"
+  },
+  "commonCopied": "Copied",
+  "@commonCopied": {
+    "description": "Confirmation shown after copying a value to the clipboard"
   },
   "buildInfoAppVersion": "App Version",
   "@buildInfoAppVersion": {

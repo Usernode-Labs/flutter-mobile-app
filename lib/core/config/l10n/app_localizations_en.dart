@@ -458,6 +458,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityTryAgain => 'Try again';
 
   @override
+  String get zkIdentityWalletClaimTitle => 'Connect your programme wallet';
+
+  @override
+  String get zkIdentityWalletClaimDescription =>
+      'This Social account is different from the account that holds your existing wallet. Verify your original programme email once to connect it.';
+
+  @override
+  String get zkIdentityWalletClaimEmailLabel => 'Original programme email';
+
+  @override
+  String get zkIdentityWalletClaimEmailHelper =>
+      'Use the email from your original Usernode programme registration.';
+
+  @override
+  String get zkIdentityWalletClaimSendCode => 'Send verification code';
+
+  @override
+  String get zkIdentityWalletClaimSendingCode => 'Sending code…';
+
+  @override
+  String get zkIdentityWalletClaimCodeSent =>
+      'Enter the 6-digit code sent to that email.';
+
+  @override
+  String get zkIdentityWalletClaimCodeLabel => 'Verification code';
+
+  @override
+  String get zkIdentityWalletClaimConnect => 'Connect wallet and continue';
+
+  @override
+  String get zkIdentityWalletClaimConnecting => 'Connecting wallet…';
+
+  @override
+  String get zkIdentityWalletClaimChangeEmail => 'Use a different email';
+
+  @override
+  String get zkIdentityWalletClaimEmailRequired =>
+      'Enter a valid email address.';
+
+  @override
+  String get zkIdentityWalletClaimCodeRequired => 'Enter the 6-digit code.';
+
+  @override
+  String get zkIdentityWalletClaimRetryFailed =>
+      'Your wallet was connected, but the app could not finish preparing it. Try again.';
+
+  @override
   String get zkIdentityDone => 'Done';
 
   @override
@@ -496,6 +543,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonRetry => 'Retry';
+
+  @override
+  String get commonCopied => 'Copied';
 
   @override
   String get buildInfoAppVersion => 'App Version';

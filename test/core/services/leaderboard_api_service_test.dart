@@ -255,14 +255,70 @@ void main() {
       final client = _mockClient(409, {
         'success': false,
         'error': 'No on-chain accounts are available for the current season.',
+        'code': 'wallet_pool_exhausted',
       });
       final service =
           LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
 
       expect(
         () => service.provisionWallet(),
-        throwsA(isA<LeaderboardApiException>()
-            .having((e) => e.statusCode, 'statusCode', 409)),
+        throwsA(
+          isA<LeaderboardApiException>()
+              .having((e) => e.statusCode, 'statusCode', 409)
+              .having((e) => e.code, 'code', 'wallet_pool_exhausted'),
+        ),
+      );
+    });
+  });
+
+  group('claimExistingWallet', () {
+    test('posts the email proof to the authenticated wallet claim route',
+        () async {
+      late http.Request captured;
+      final client = _mockClient(
+        200,
+        {
+          'success': true,
+          'claimed': true,
+          'address': 'ut1legacy',
+        },
+        onRequest: (request) => captured = request,
+      );
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      await service.claimExistingWallet(
+        email: 'legacy@example.com',
+        code: '123456',
+      );
+
+      expect(captured.method, 'POST');
+      expect(captured.url.path, endsWith('/wallet/claim'));
+      expect(jsonDecode(captured.body), {
+        'email': 'legacy@example.com',
+        'code': '123456',
+      });
+    });
+
+    test('preserves a machine-readable claim error code', () async {
+      final client = _mockClient(422, {
+        'success': false,
+        'error': 'Invalid or expired code.',
+        'code': 'wallet_claim_invalid',
+      });
+      final service =
+          LeaderboardApiService(baseUrl: _baseUrl, httpClient: client);
+
+      expect(
+        () => service.claimExistingWallet(
+          email: 'legacy@example.com',
+          code: '999999',
+        ),
+        throwsA(
+          isA<LeaderboardApiException>()
+              .having((e) => e.statusCode, 'statusCode', 422)
+              .having((e) => e.code, 'code', 'wallet_claim_invalid'),
+        ),
       );
     });
   });

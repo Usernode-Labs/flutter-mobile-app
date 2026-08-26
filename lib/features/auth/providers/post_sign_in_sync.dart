@@ -32,6 +32,16 @@ final accountReconciliationStatusProvider =
   (ref) => AccountReconciliationStatus.idle,
 );
 
+class AccountReconciliationFailure {
+  const AccountReconciliationFailure({required this.message, this.code});
+
+  final String message;
+  final String? code;
+}
+
+final accountReconciliationFailureProvider =
+    StateProvider<AccountReconciliationFailure?>((ref) => null);
+
 bool _isTransientReconcileFailure(Object error) {
   if (error is StaleAuthCredentialException ||
       error is AuthTokenUnavailableException ||
@@ -80,6 +90,7 @@ class IdentityDriver {
     required Future<void> Function() retryPendingZkCompletion,
     Future<bool> Function()? refreshAuthoritativeState,
     void Function(AccountReconciliationStatus)? publishStatus,
+    void Function(AccountReconciliationFailure?)? publishFailure,
     Timer Function(Duration, void Function())? createRetryTimer,
     this.maxReconcileAttempts = 4,
     this.refreshTtl = const Duration(minutes: 15),
@@ -88,12 +99,14 @@ class IdentityDriver {
         _refreshAuthoritativeState =
             refreshAuthoritativeState ?? (() async => true),
         _publishStatus = publishStatus ?? ((_) {}),
+        _publishFailure = publishFailure ?? ((_) {}),
         _createRetryTimer = createRetryTimer ?? _defaultRetryTimer;
 
   final Future<void> Function() _reconcileNodeAccount;
   final Future<void> Function() _retryPendingZkCompletion;
   final Future<bool> Function() _refreshAuthoritativeState;
   final void Function(AccountReconciliationStatus) _publishStatus;
+  final void Function(AccountReconciliationFailure?) _publishFailure;
   final Timer Function(Duration, void Function()) _createRetryTimer;
   final int maxReconcileAttempts;
   final Duration refreshTtl;
@@ -144,11 +157,13 @@ class IdentityDriver {
     final becameReady = next.phase == IdentityPhase.ready &&
         previous?.phase != IdentityPhase.ready;
     if (becameReady) {
+      _publishFailure(null);
       lastRun = _onReady(next);
       unawaited(lastRun);
       return;
     }
     if (next.phase != IdentityPhase.ready) {
+      _publishFailure(null);
       _publishStatus(AccountReconciliationStatus.idle);
     }
   }
@@ -185,6 +200,7 @@ class IdentityDriver {
 
   Future<void> _runReconcile(int epoch) async {
     _publishStatus(AccountReconciliationStatus.reconciling);
+    _publishFailure(null);
     try {
       await _reconcileNodeAccount();
     } catch (error, stackTrace) {
@@ -193,6 +209,14 @@ class IdentityDriver {
           _reconcileAttempt < maxReconcileAttempts;
       if (!retry) {
         _publishStatus(AccountReconciliationStatus.failed);
+        _publishFailure(
+          AccountReconciliationFailure(
+            message: error is LeaderboardApiException
+                ? error.message
+                : 'Could not prepare the signed-in account.',
+            code: error is LeaderboardApiException ? error.code : null,
+          ),
+        );
         await SentryUtil.captureError(
           error,
           stackTrace,
@@ -213,6 +237,28 @@ class IdentityDriver {
   void _cancelRetry() {
     _retryTimer?.cancel();
     _retryTimer = null;
+  }
+
+  /// Restarts a failed reconciling identity and waits until that attempt has
+  /// either committed the ready identity or failed again. Used after a
+  /// verified legacy-wallet claim so proof creation can continue in-place.
+  Future<bool> retryReconciliation() async {
+    if (_disposed) return false;
+    if (_latestIdentity.phase == IdentityPhase.ready) return true;
+    if (_latestIdentity.phase != IdentityPhase.reconciling) return false;
+
+    _cancelRetry();
+    final existingRun = _reconcileRun;
+    if (existingRun != null) await existingRun;
+    if (_latestIdentity.phase == IdentityPhase.ready) return true;
+    if (_latestIdentity.phase != IdentityPhase.reconciling || _disposed) {
+      return false;
+    }
+
+    _startReconcile(resetAttempts: true);
+    final retryRun = _reconcileRun;
+    if (retryRun != null) await retryRun;
+    return !_disposed && _latestIdentity.phase == IdentityPhase.ready;
   }
 
   /// Refreshes ready-identity authority after lifecycle/network/timer events.
@@ -340,6 +386,8 @@ final identityDriverProvider = Provider<IdentityDriver>((ref) {
         ref.read(zkPassportPipelineProvider.notifier).retryPendingCompletion(),
     publishStatus: (status) =>
         ref.read(accountReconciliationStatusProvider.notifier).state = status,
+    publishFailure: (failure) =>
+        ref.read(accountReconciliationFailureProvider.notifier).state = failure,
   );
   ref.listen<Identity>(
     identityProvider,

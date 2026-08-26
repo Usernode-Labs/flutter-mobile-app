@@ -81,13 +81,20 @@ double? _jsonDoubleN(dynamic v) => v == null ? null : _jsonDouble(v);
 // ---------------------------------------------------------------------------
 
 class LeaderboardApiException implements Exception {
-  LeaderboardApiException(this.statusCode, this.message, {this.body});
+  LeaderboardApiException(
+    this.statusCode,
+    this.message, {
+    this.body,
+    this.code,
+  });
   final int statusCode;
   final String message;
   final Object? body;
+  final String? code;
 
   @override
-  String toString() => 'LeaderboardApiException($statusCode, $message)';
+  String toString() =>
+      'LeaderboardApiException($statusCode, $message${code == null ? '' : ', $code'})';
 }
 
 // ---------------------------------------------------------------------------

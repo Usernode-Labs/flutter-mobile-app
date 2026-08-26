@@ -7,7 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/identity/session_controller.dart';
+import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
+import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zk_identity/zk_identity_status_mapper.dart';
@@ -24,8 +29,18 @@ class ZkIdentityFlowScreen extends ConsumerStatefulWidget {
 
 class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     with WidgetsBindingObserver {
+  final _claimEmailController = TextEditingController();
+  final _claimCodeController = TextEditingController();
+  final _claimEmailFocus = FocusNode();
+  final _claimCodeFocus = FocusNode();
+
   bool _checkingApp = true;
   bool _appNotInstalled = false;
+  bool _claimFlowActive = false;
+  bool _claimCodeSent = false;
+  bool _walletClaimed = false;
+  bool _claimBusy = false;
+  String? _claimError;
 
   @override
   void initState() {
@@ -49,6 +64,10 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _claimEmailController.dispose();
+    _claimCodeController.dispose();
+    _claimEmailFocus.dispose();
+    _claimCodeFocus.dispose();
     super.dispose();
   }
 
@@ -78,13 +97,23 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   Widget build(BuildContext context) {
     final flowState = ref.watch(zkIdentityStepControllerProvider);
     final pipelineState = ref.watch(zkPassportPipelineProvider);
+    final reconciliationFailure =
+        ref.watch(accountReconciliationFailureProvider);
+    final walletRecoveryRequired = _claimFlowActive ||
+        reconciliationFailure?.code == 'wallet_pool_exhausted';
 
     final l10n = AppLocalizations.of(context);
     final steps = flowState.steps.map((s) {
+      final isRecoveryStep =
+          walletRecoveryRequired && s.step == ZkIdentityStep.verification;
       return ZkIdentityStepData(
-        label: _stepLabel(s.step, l10n),
-        description: _stepDescription(s.step, l10n),
-        status: s.status,
+        label: isRecoveryStep
+            ? l10n.zkIdentityWalletClaimTitle
+            : _stepLabel(s.step, l10n),
+        description: isRecoveryStep
+            ? l10n.zkIdentityWalletClaimDescription
+            : _stepDescription(s.step, l10n),
+        status: isRecoveryStep ? ZkIdentityStepVisualStatus.active : s.status,
       );
     }).toList();
 
@@ -94,8 +123,18 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
       centerActiveContent: flowState.currentStep == ZkIdentityStep.result ||
           (flowState.currentStep == ZkIdentityStep.checkApp &&
               _appNotInstalled),
-      activeStepContent: _buildBody(context, flowState, pipelineState),
-      bottomAction: _buildBottomAction(context, flowState, pipelineState),
+      activeStepContent: _buildBody(
+        context,
+        flowState,
+        pipelineState,
+        walletRecoveryRequired: walletRecoveryRequired,
+      ),
+      bottomAction: _buildBottomAction(
+        context,
+        flowState,
+        pipelineState,
+        walletRecoveryRequired: walletRecoveryRequired,
+      ),
       onBack: () => context.pop(),
     );
   }
@@ -103,8 +142,9 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   Widget? _buildBody(
     BuildContext context,
     ZkIdentityFlowState flowState,
-    ZkPassportPipelineState pipelineState,
-  ) {
+    ZkPassportPipelineState pipelineState, {
+    required bool walletRecoveryRequired,
+  }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
@@ -126,26 +166,28 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
             ),
       // These compatibility states are skipped by the saved-passport flow.
       ZkIdentityStep.confirmScanned || ZkIdentityStep.readyToVerify => null,
-      ZkIdentityStep.verification => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (flowState.resultMessage != null && !flowState.isSuccess)
-              Text(
-                flowState.resultMessage!,
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.error,
-                ),
-              )
-            else
-              for (final task in _subTasks) ...[
-                _SubTaskRow(
-                  label: task.labelOf(l10n),
-                  state: task.stateFor(pipelineState.phase),
-                ),
-                SizedBox(height: spacing.space8),
+      ZkIdentityStep.verification => walletRecoveryRequired
+          ? _buildWalletClaimBody(context)
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (flowState.resultMessage != null && !flowState.isSuccess)
+                  Text(
+                    flowState.resultMessage!,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.error,
+                    ),
+                  )
+                else
+                  for (final task in _subTasks) ...[
+                    _SubTaskRow(
+                      label: task.labelOf(l10n),
+                      state: task.stateFor(pipelineState.phase),
+                    ),
+                    SizedBox(height: spacing.space8),
+                  ],
               ],
-          ],
-        ),
+            ),
       ZkIdentityStep.result => Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -185,7 +227,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
                                 ClipboardData(text: reg.nullifierHex!),
                               );
                               ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(content: Text('Copied')),
+                                SnackBar(content: Text(l10n.commonCopied)),
                               );
                             }
                           : null,
@@ -220,8 +262,9 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   Widget? _buildBottomAction(
     BuildContext context,
     ZkIdentityFlowState flowState,
-    ZkPassportPipelineState pipelineState,
-  ) {
+    ZkPassportPipelineState pipelineState, {
+    required bool walletRecoveryRequired,
+  }) {
     final controller = ref.read(zkIdentityStepControllerProvider.notifier);
     final spacing = Theme.of(context).extension<AppSpacing>()!;
     final l10n = AppLocalizations.of(context);
@@ -236,13 +279,15 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
             )
           : null,
       ZkIdentityStep.confirmScanned || ZkIdentityStep.readyToVerify => null,
-      ZkIdentityStep.verification => _buildVerificationActions(
-          flowState: flowState,
-          pipelineState: pipelineState,
-          controller: controller,
-          spacing: spacing,
-          l10n: l10n,
-        ),
+      ZkIdentityStep.verification => walletRecoveryRequired
+          ? _buildWalletClaimActions(spacing: spacing, l10n: l10n)
+          : _buildVerificationActions(
+              flowState: flowState,
+              pipelineState: pipelineState,
+              controller: controller,
+              spacing: spacing,
+              l10n: l10n,
+            ),
       ZkIdentityStep.result => Button(
           variant: ButtonVariant.primary,
           size: ButtonSize.large,
@@ -250,6 +295,217 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           onTap: () => context.pop(),
         ),
     };
+  }
+
+  Widget _buildWalletClaimBody(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!_claimCodeSent)
+          TextField(
+            controller: _claimEmailController,
+            focusNode: _claimEmailFocus,
+            enabled: !_claimBusy,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.email],
+            autocorrect: false,
+            decoration: InputDecoration(
+              labelText: l10n.zkIdentityWalletClaimEmailLabel,
+              helperText: l10n.zkIdentityWalletClaimEmailHelper,
+            ),
+            onSubmitted: (_) {
+              if (!_claimBusy) unawaited(_sendWalletClaimCode());
+            },
+          )
+        else ...[
+          Text(
+            l10n.zkIdentityWalletClaimCodeSent,
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          SizedBox(height: spacing.space16),
+          TextField(
+            controller: _claimCodeController,
+            focusNode: _claimCodeFocus,
+            enabled: !_claimBusy,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            maxLength: 6,
+            decoration: InputDecoration(
+              labelText: l10n.zkIdentityWalletClaimCodeLabel,
+            ),
+            onSubmitted: (_) {
+              if (!_claimBusy) unawaited(_claimWalletAndContinue());
+            },
+          ),
+        ],
+        if (_claimError != null) ...[
+          SizedBox(height: spacing.space12),
+          Text(
+            _claimError!,
+            style: textTheme.bodySmall?.copyWith(color: colorScheme.error),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildWalletClaimActions({
+    required AppSpacing spacing,
+    required AppLocalizations l10n,
+  }) {
+    if (!_claimCodeSent) {
+      return Button(
+        variant: ButtonVariant.primary,
+        size: ButtonSize.large,
+        label: _claimBusy
+            ? l10n.zkIdentityWalletClaimSendingCode
+            : l10n.zkIdentityWalletClaimSendCode,
+        onTap: _claimBusy ? null : () => unawaited(_sendWalletClaimCode()),
+      );
+    }
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Button(
+          variant: ButtonVariant.primary,
+          size: ButtonSize.large,
+          label: _claimBusy
+              ? l10n.zkIdentityWalletClaimConnecting
+              : _walletClaimed
+                  ? l10n.zkIdentityTryAgain
+                  : l10n.zkIdentityWalletClaimConnect,
+          onTap: _claimBusy ? null : () => unawaited(_claimWalletAndContinue()),
+        ),
+        if (!_walletClaimed) ...[
+          SizedBox(height: spacing.space8),
+          Button(
+            variant: ButtonVariant.outlined,
+            size: ButtonSize.large,
+            label: l10n.zkIdentityWalletClaimChangeEmail,
+            onTap: _claimBusy ? null : _changeWalletClaimEmail,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _sendWalletClaimCode() async {
+    final l10n = AppLocalizations.of(context);
+    final email = _claimEmailController.text.trim().toLowerCase();
+    if (!_looksLikeEmail(email)) {
+      setState(() => _claimError = l10n.zkIdentityWalletClaimEmailRequired);
+      _claimEmailFocus.requestFocus();
+      return;
+    }
+
+    setState(() {
+      _claimFlowActive = true;
+      _claimBusy = true;
+      _claimError = null;
+    });
+    try {
+      await ref.read(authRepositoryProvider).requestOtp(email);
+      if (!mounted) return;
+      setState(() {
+        _claimBusy = false;
+        _claimCodeSent = true;
+      });
+      _claimCodeFocus.requestFocus();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _claimBusy = false;
+        _claimError = _claimErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _claimWalletAndContinue() async {
+    final l10n = AppLocalizations.of(context);
+    final code = _claimCodeController.text.trim();
+    if (!_walletClaimed && !RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() => _claimError = l10n.zkIdentityWalletClaimCodeRequired);
+      _claimCodeFocus.requestFocus();
+      return;
+    }
+
+    setState(() {
+      _claimFlowActive = true;
+      _claimBusy = true;
+      _claimError = null;
+    });
+    try {
+      if (!_walletClaimed) {
+        await ref.read(leaderboardApiServiceProvider).claimExistingWallet(
+              email: _claimEmailController.text.trim().toLowerCase(),
+              code: code,
+            );
+        _walletClaimed = true;
+      }
+
+      final ready =
+          await ref.read(identityDriverProvider).retryReconciliation();
+      if (!mounted) return;
+      if (!ready) {
+        setState(() {
+          _claimBusy = false;
+          _claimError =
+              ref.read(accountReconciliationFailureProvider)?.message ??
+                  l10n.zkIdentityWalletClaimRetryFailed;
+        });
+        return;
+      }
+
+      final launched = await ref
+          .read(zkIdentityStepControllerProvider.notifier)
+          .retryVerification();
+      if (!mounted) return;
+      setState(() {
+        _checkingApp = false;
+        _appNotInstalled = !launched;
+        _claimBusy = false;
+        _claimFlowActive = !launched;
+        if (!launched) {
+          _claimError = l10n.zkIdentityWalletClaimRetryFailed;
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _claimBusy = false;
+        _claimError = _claimErrorMessage(error);
+      });
+    }
+  }
+
+  void _changeWalletClaimEmail() {
+    setState(() {
+      _claimCodeSent = false;
+      _claimCodeController.clear();
+      _claimError = null;
+    });
+    _claimEmailFocus.requestFocus();
+  }
+
+  bool _looksLikeEmail(String value) =>
+      RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(value);
+
+  String _claimErrorMessage(Object error) {
+    if (error is AuthException) return error.message;
+    if (error is LeaderboardApiException) return error.message;
+    return AppLocalizations.of(context).zkIdentityWalletClaimRetryFailed;
   }
 
   Widget? _buildVerificationActions({

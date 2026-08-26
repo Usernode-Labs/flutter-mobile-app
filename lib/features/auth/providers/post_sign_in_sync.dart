@@ -12,6 +12,7 @@ import 'package:crypto_mobile_app/core/providers/seasons_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/onboarding/data/node_account_provisioning.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
 
@@ -33,6 +34,7 @@ final accountReconciliationStatusProvider =
 
 bool _isTransientReconcileFailure(Object error) {
   if (error is StaleAuthCredentialException ||
+      error is AuthTokenUnavailableException ||
       error is TimeoutException ||
       error is SocketException ||
       error is http.ClientException) {

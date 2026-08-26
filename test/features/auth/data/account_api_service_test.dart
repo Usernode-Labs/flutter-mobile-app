@@ -6,6 +6,7 @@ import 'package:http/testing.dart';
 
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 
 const _base = 'https://test.example.com/api/v3/mobile';
 
@@ -103,6 +104,28 @@ void main() {
       throwsA(isA<StaleAuthCredentialException>()),
     );
     expect(missingEpoch, 9);
+    expect(sent, isFalse);
+  });
+
+  test('unavailable token is not reported as a missing credential', () async {
+    _publishAuthenticatedIdentity();
+    var sent = false;
+    var missingCallbacks = 0;
+    final service = AccountApiService(
+      baseUrl: _base,
+      tokenProvider: () async => throw const AuthTokenUnavailableException(),
+      onCredentialMissing: (_) async => missingCallbacks += 1,
+      httpClient: MockClient((req) async {
+        sent = true;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await expectLater(
+      service.getMe(),
+      throwsA(isA<AuthTokenUnavailableException>()),
+    );
+    expect(missingCallbacks, 0);
     expect(sent, isFalse);
   });
 

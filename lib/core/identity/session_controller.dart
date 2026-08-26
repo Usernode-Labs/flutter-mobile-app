@@ -67,8 +67,9 @@ final signOutCompletionProvider = StateProvider<int>((ref) => 0);
 /// participant id, or season binding.
 final identityProvider = StateNotifierProvider<SessionController, Identity>(
   (ref) {
+    final tokenStore = ref.watch(authTokenStoreProvider);
     final controller = SessionController(
-      tokenStore: ref.watch(authTokenStoreProvider),
+      tokenStore: tokenStore,
       guestFlag: ref.watch(authGuestFlagProvider),
       repository: ref.watch(authRepositoryProvider),
       resetSessionScopedProcessState: () => resetSessionScopedProcessState(ref),
@@ -77,7 +78,38 @@ final identityProvider = StateNotifierProvider<SessionController, Identity>(
         signal.state = signal.state + 1;
       },
     );
-    unawaited(controller.restore());
+
+    var disposed = false;
+
+    void restoreWhenAvailable({bool retryAfterCurrent = false}) {
+      unawaited(() async {
+        try {
+          await controller.restore();
+          if (retryAfterCurrent && !disposed) {
+            // The protected-data event can race the failing storage reply. In
+            // that ordering the first call merely joins the in-flight restore;
+            // the second runs after it has released its retry slot.
+            await controller.restore();
+          }
+        } on SessionControllerRetiredException {
+          // Provider disposal retires an in-flight restore; there is no graph
+          // left for a retry to update.
+        } catch (error, stackTrace) {
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+      }());
+    }
+
+    final protectedDataSubscription = tokenStore
+        .protectedDataAvailabilityChanges
+        ?.where((available) => available)
+        .listen((_) => restoreWhenAvailable(retryAfterCurrent: true));
+    ref.onDispose(() {
+      disposed = true;
+      final subscription = protectedDataSubscription;
+      if (subscription != null) unawaited(subscription.cancel());
+    });
+    restoreWhenAvailable();
     return controller;
   },
 );
@@ -274,12 +306,13 @@ class SessionController extends StateNotifier<Identity> {
   }
 
   void _publish(Identity next) {
+    if (!mounted) return;
     IdentitySnapshots.publish(next);
     NetworkPrefs.setActiveBucket(
       next.address,
       guest: next.address == null,
     );
-    if (mounted) state = next;
+    state = next;
   }
 
   // -- persistence owned by the controller -----------------------------------
@@ -365,69 +398,110 @@ class SessionController extends StateNotifier<Identity> {
   /// [IdentityPhase.ready]; only an interrupted login (persisted reconcile
   /// marker) or an account/bucket mismatch routes through
   /// [IdentityPhase.reconciling].
-  Future<void> restore() => _restoreFuture ??= _transition(() async {
-        // Honoured BEFORE any account lookup: a sign-out that died between
-        // retiring the bearer and retiring the namespace would otherwise
-        // resolve the previous user's active account here and publish it as
-        // a locally-signable identity.
-        if (await _signOutFence.isRaised()) {
-          _log.warn('Completing a sign-out interrupted before it settled');
-          _publish(Identity(
-            epoch: state.epoch + 1,
-            phase: IdentityPhase.transitioning,
-          ));
-          if (!await _endSessionScopeGuarded()) {
-            _retired = true;
-            await _terminalReset(reason: 'signout_cleanup_unconfirmed');
-            return;
-          }
-        }
-        final token = await _tokenStore.read();
-        if (token != null && token.isNotEmpty) {
-          await _restoreAuthenticated();
-          return;
-        }
-        final guest = await _guestFlag.isGuest();
-        if (guest) {
-          _publish(Identity(
-            epoch: state.epoch + 1,
-            phase: IdentityPhase.guest,
-          ));
-          return;
-        }
-        // No session: local-only mode. The bucket follows the active local
-        // account (its owner is offline-irrelevant — no token can act as
-        // anyone), matching pre-auth behavior.
-        final active = await (await AccountsRepository.create()).getActive();
-        _publish(Identity(
-          epoch: state.epoch + 1,
-          phase: IdentityPhase.unauthenticated,
-          accountId: active?.id,
-          address: active?.address,
-        ));
-      });
+  Future<void> restore() {
+    final existing = _restoreFuture;
+    if (existing != null) return existing;
 
-  Future<void> _restoreAuthenticated() async {
+    late Future<void> run;
+    run = _transition(() async {
+      var nextEpoch = state.epoch + 1;
+      // Honoured BEFORE any account lookup: a sign-out that died between
+      // retiring the bearer and retiring the namespace would otherwise
+      // resolve the previous user's active account here and publish it as
+      // a locally-signable identity.
+      final interruptedSignOut = await _signOutFence.isRaised();
+      if (!mounted) return;
+      if (interruptedSignOut) {
+        _log.warn('Completing a sign-out interrupted before it settled');
+        _publish(Identity(
+          epoch: nextEpoch,
+          phase: IdentityPhase.transitioning,
+        ));
+        nextEpoch += 1;
+        final sessionEnded = await _endSessionScopeGuarded();
+        if (!mounted) return;
+        if (!sessionEnded) {
+          _retired = true;
+          await _terminalReset(reason: 'signout_cleanup_unconfirmed');
+          return;
+        }
+      }
+      final token = await _tokenStore.read();
+      if (!mounted) return;
+      if (token != null && token.isNotEmpty) {
+        await _restoreAuthenticated(epoch: nextEpoch);
+        return;
+      }
+      final guest = await _guestFlag.isGuest();
+      if (!mounted) return;
+      if (guest) {
+        _publish(Identity(
+          epoch: nextEpoch,
+          phase: IdentityPhase.guest,
+        ));
+        return;
+      }
+      // No session: local-only mode. The bucket follows the active local
+      // account (its owner is offline-irrelevant — no token can act as
+      // anyone), matching pre-auth behavior.
+      final active = await (await AccountsRepository.create()).getActive();
+      if (!mounted) return;
+      _publish(Identity(
+        epoch: nextEpoch,
+        phase: IdentityPhase.unauthenticated,
+        accountId: active?.id,
+        address: active?.address,
+      ));
+    }).catchError((Object error, StackTrace stackTrace) {
+      if (error is AuthTokenUnavailableException) {
+        if (identical(_restoreFuture, run)) {
+          // A later protected-data event may now start a fresh restore.
+          _restoreFuture = null;
+        }
+        if (mounted) {
+          _log.warn(
+            'Session credential is temporarily unavailable; '
+            'waiting for protected data',
+          );
+        }
+        // Unavailable is an expected unresolved boot state, not a failed app
+        // bootstrap. Keep Identity unknown until a protected-data retry.
+        return;
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    });
+    _restoreFuture = run;
+    return run;
+  }
+
+  Future<void> _restoreAuthenticated({required int epoch}) async {
     final pendingMarker = await _readReconcileMarker();
+    if (!mounted) return;
     final repo = await AccountsRepository.create();
+    if (!mounted) return;
     final active = await repo.getActive();
+    if (!mounted) return;
 
     if (!pendingMarker && active != null) {
       final bucket = NetworkPrefs.bucketForAddress(active.address);
       final ownerId = await loadParticipantIdInBucket(bucket);
+      if (!mounted) return;
       final lifecycleOwnershipConfirmed =
           await _readLifecycleOwnershipConfirmed(bucket);
+      if (!mounted) return;
       if (ownerId != null && lifecycleOwnershipConfirmed) {
         // The last reconcile completed under this lifecycle protocol (every
         // login sets the marker, and only a confirmed reconcile clears it and
         // records lifecycle ownership for the bucket).
+        final provisionedSeasonId = await _readProvisionedSeason(bucket);
+        if (!mounted) return;
         _publish(Identity(
-          epoch: state.epoch + 1,
+          epoch: epoch,
           phase: IdentityPhase.ready,
           participantId: ownerId,
           accountId: active.id,
           address: active.address,
-          provisionedSeasonId: await _readProvisionedSeason(bucket),
+          provisionedSeasonId: provisionedSeasonId,
         ));
         return;
       }
@@ -444,9 +518,12 @@ class SessionController extends StateNotifier<Identity> {
     int? staged;
     if (pendingMarker) {
       staged = await loadParticipantIdInBucket(NetworkPrefs.guestBucket);
+      if (!mounted) return;
     } else {
       await clearGuestParticipantId();
+      if (!mounted) return;
       await _writeReconcileMarker();
+      if (!mounted) return;
     }
     _log.info('Boot restore requires account reconcile', context: {
       'hadMarker': pendingMarker,
@@ -455,7 +532,7 @@ class SessionController extends StateNotifier<Identity> {
       'legacyOwnershipMigration': !pendingMarker && active != null,
     });
     _publish(Identity(
-      epoch: state.epoch + 1,
+      epoch: epoch,
       phase: IdentityPhase.reconciling,
       participantId: staged,
     ));

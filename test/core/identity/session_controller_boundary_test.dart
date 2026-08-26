@@ -8,6 +8,8 @@ import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/repositories/auth_repository.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,6 +46,104 @@ class _BlockingLogoutRepository extends AuthRepository {
     if (!started.isCompleted) started.complete();
     await release.future;
   }
+}
+
+class _LockableTokenStorage extends FlutterSecureStorage {
+  _LockableTokenStorage(Map<String, String> values) : values = Map.of(values);
+
+  final Map<String, String> values;
+  bool locked = false;
+
+  @override
+  Future<String?> read({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (locked && values.containsKey(key)) return null;
+    return values[key];
+  }
+
+  @override
+  Future<bool> containsKey({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (locked && values.containsKey(key)) {
+      throw PlatformException(
+        code: 'Unexpected security result code',
+        message: 'User interaction is not allowed.',
+        details: -25308,
+      );
+    }
+    return values.containsKey(key);
+  }
+
+  @override
+  Future<void> write({
+    required String key,
+    required String? value,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    if (value == null) {
+      values.remove(key);
+    } else {
+      values[key] = value;
+    }
+  }
+
+  @override
+  Future<void> delete({
+    required String key,
+    AppleOptions? iOptions,
+    AndroidOptions? aOptions,
+    LinuxOptions? lOptions,
+    WebOptions? webOptions,
+    AppleOptions? mOptions,
+    WindowsOptions? wOptions,
+  }) async {
+    values.remove(key);
+  }
+}
+
+class _RacingUnavailableTokenStore extends AuthTokenStore {
+  final StreamController<bool> _availability =
+      StreamController<bool>.broadcast(sync: true);
+  final Completer<void> firstReadStarted = Completer<void>();
+  final Completer<void> releaseFirstRead = Completer<void>();
+  int reads = 0;
+
+  @override
+  Stream<bool>? get protectedDataAvailabilityChanges => _availability.stream;
+
+  @override
+  Future<String?> read() async {
+    reads += 1;
+    if (reads == 1) {
+      firstReadStarted.complete();
+      await releaseFirstRead.future;
+      throw const AuthTokenUnavailableException();
+    }
+    return null;
+  }
+
+  void publishAvailable() => _availability.add(true);
+
+  Future<void> close() => _availability.close();
 }
 
 class _TerminalResetProbe {
@@ -824,5 +924,65 @@ void main() {
     expect(reset.phasesAtEntry, [IdentityPhase.transitioning]);
     expect(reset.tokensBeforeWipe, [null]);
     expect(controller.state.phase, IdentityPhase.transitioning);
+  });
+
+  test('temporarily unavailable credentials retry restore and never reset',
+      () async {
+    _seedReadyIdentity();
+    final storage = _LockableTokenStorage({
+      'auth:v3:session_token': 'token-a',
+    })
+      ..locked = true;
+    final tokenStore = AuthTokenStore(storage: storage);
+    final reset = _TerminalResetProbe(tokenStore);
+    final controller = _controller(tokenStore, reset);
+    addTearDown(controller.dispose);
+
+    await expectLater(controller.restore(), completes);
+    expect(controller.state.phase, IdentityPhase.unknown);
+
+    storage.locked = false;
+    await controller.restore();
+    expect(controller.state.phase, IdentityPhase.ready);
+
+    storage.locked = true;
+    await expectLater(
+      controller.onCredentialMissing(epoch: controller.state.epoch),
+      throwsA(isA<AuthTokenUnavailableException>()),
+    );
+    expect(reset.reasons, isEmpty);
+    expect(controller.state.phase, IdentityPhase.ready);
+  });
+
+  test('protected-data event retries after an in-flight unavailable restore',
+      () async {
+    final tokenStore = _RacingUnavailableTokenStore();
+    final container = ProviderContainer(overrides: [
+      authTokenStoreProvider.overrideWithValue(tokenStore),
+    ]);
+    addTearDown(() async {
+      container.dispose();
+      await tokenStore.close();
+    });
+
+    final controller = container.read(identityProvider.notifier);
+    final initialRestore = controller.restore();
+    await tokenStore.firstReadStarted.future;
+    final restored = controller.stream.firstWhere(
+      (identity) => identity.phase == IdentityPhase.unauthenticated,
+    );
+
+    // Deliver the event before the failing read settles. The listener first
+    // joins that in-flight attempt, then must start a new one after its retry
+    // slot is released.
+    tokenStore.publishAvailable();
+    tokenStore.releaseFirstRead.complete();
+
+    await expectLater(initialRestore, completes);
+    expect(
+      (await restored.timeout(const Duration(seconds: 1))).phase,
+      IdentityPhase.unauthenticated,
+    );
+    expect(tokenStore.reads, 2);
   });
 }

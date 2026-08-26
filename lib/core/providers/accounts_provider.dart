@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:crypto_mobile_app/core/config/secure_storage_options.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -63,7 +64,9 @@ class AccountsRepository {
 
   static Future<AccountsRepository> create() async {
     final prefs = await SharedPreferences.getInstance();
-    const secure = FlutterSecureStorage();
+    const secure = FlutterSecureStorage(
+      aOptions: usernodeAndroidSecureStorageOptions,
+    );
     final network = await NetworkPrefs.getNetwork();
     final repository = AccountsRepository._(
       secure,

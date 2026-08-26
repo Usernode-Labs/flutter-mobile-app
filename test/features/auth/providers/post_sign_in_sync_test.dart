@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/features/auth/data/account_api_service.dart';
+import 'package:crypto_mobile_app/features/auth/data/auth_token_store.dart';
 import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart';
 
 Identity _identity(IdentityPhase phase, {int epoch = 1}) =>
@@ -187,6 +188,33 @@ void main() {
       );
       await driver.lastRun;
       expect(calls, 1);
+      expect(statuses.last, AccountReconciliationStatus.transient);
+
+      retry.fire();
+      await Future<void>.delayed(Duration.zero);
+      await driver.lastRun;
+      expect(calls, 2);
+    });
+
+    test('temporarily unavailable secure storage schedules a retry', () async {
+      var calls = 0;
+      late _ManualTimer retry;
+      final statuses = <AccountReconciliationStatus>[];
+      final driver = IdentityDriver(
+        reconcileNodeAccount: () async {
+          calls++;
+          if (calls == 1) throw const AuthTokenUnavailableException();
+        },
+        retryPendingZkCompletion: () async {},
+        publishStatus: statuses.add,
+        createRetryTimer: (_, callback) => retry = _ManualTimer(callback),
+      );
+
+      driver.onIdentityChanged(
+        _identity(IdentityPhase.unauthenticated),
+        _identity(IdentityPhase.reconciling, epoch: 2),
+      );
+      await driver.lastRun;
       expect(statuses.last, AccountReconciliationStatus.transient);
 
       retry.fire();

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crypto_mobile_app/core/config/secure_storage_options.dart';
 import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
@@ -260,13 +261,16 @@ class AppResetService {
     }
     NetworkPrefs.resetForApplicationReset();
 
-    const secureStorage = FlutterSecureStorage();
+    const secureStorage = FlutterSecureStorage(
+      aOptions: usernodeAndroidSecureStorageOptions,
+    );
     await secureStorage.deleteAll();
     if (Platform.isIOS) {
-      // Social push state intentionally uses this device-only accessibility
-      // class. Keychain deleteAll queries are accessibility-scoped, so the
-      // default query above does not remove these items.
+      // Session and social-push state intentionally use this device-only
+      // accessibility class. Keychain deleteAll queries are accessibility-
+      // scoped, so the default query above does not remove these items.
       const deviceOnlySecureStorage = FlutterSecureStorage(
+        aOptions: usernodeAndroidSecureStorageOptions,
         iOptions: IOSOptions(
           accessibility: KeychainAccessibility.first_unlock_this_device,
           synchronizable: false,

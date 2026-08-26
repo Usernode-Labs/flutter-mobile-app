@@ -44,120 +44,154 @@ object BackgroundAlarmEngine {
 
     fun isWatchdogDeliveryInProgress(): Boolean = watchdogDeliveriesInProgress.get() > 0
 
-    @Synchronized
-    private fun getCachedEngine(): FlutterEngine? {
-        return FlutterEngineCache.getInstance().get(ENGINE_ID)
-    }
-
     /**
      * Destroy and evict any cached engine.
      *
      * Safe to call multiple times.
      */
-    @Synchronized
     fun destroyCachedEngine(reason: String) {
-        val doDestroy = {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            destroyCachedEngineOnMain(reason)
+        } else {
+            mainHandler.post { destroyCachedEngineOnMain(reason) }
+        }
+    }
+
+    private fun destroyCachedEngineOnMain(reason: String) {
+        checkMainLooper()
+        // Take/release the lease independently of the cache entry. A failed
+        // cache access or put must not leave the channel authoritative.
+        val lease = cachedEngineLease
+        cachedEngineLease = null
+        if (lease != null) {
             try {
-                val cache = FlutterEngineCache.getInstance()
-                val cached = cache.get(ENGINE_ID)
-                cache.remove(ENGINE_ID)
-                if (cached != null) {
-                    try {
-                        Log.i(TAG, "Destroying cached FlutterEngine (reason=$reason)")
-                        // Ensure no one tries to invoke on a stale messenger after destroy.
-                        cachedEngineLease?.let { lease ->
-                            AlarmMethodChannelHandler.getInstance()
-                                ?.compareReleaseMethodChannel(lease, "engine_destroyed:$reason")
-                        }
-                        cachedEngineLease = null
-                        cached.destroy()
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error destroying FlutterEngine (reason=$reason)", e)
-                    }
-                }
-            } finally {
-                // no-op (cache-only)
+                AlarmMethodChannelHandler.getInstance()
+                    ?.compareReleaseMethodChannel(lease, "engine_destroyed:$reason")
+            } catch (failure: Throwable) {
+                Log.w(TAG, "Could not release alarm channel (reason=$reason)", failure)
             }
         }
 
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            doDestroy()
-        } else {
-            mainHandler.post { doDestroy() }
+        val cache = try {
+            FlutterEngineCache.getInstance()
+        } catch (failure: Throwable) {
+            Log.w(TAG, "Could not access FlutterEngine cache (reason=$reason)", failure)
+            return
+        }
+        val cached = try {
+            cache.get(ENGINE_ID)
+        } catch (failure: Throwable) {
+            Log.w(TAG, "Could not read cached FlutterEngine (reason=$reason)", failure)
+            null
+        }
+        try {
+            cache.remove(ENGINE_ID)
+        } catch (failure: Throwable) {
+            Log.w(TAG, "Could not evict cached FlutterEngine (reason=$reason)", failure)
+        }
+
+        if (cached == null) return
+        Log.i(TAG, "Destroying cached FlutterEngine (reason=$reason)")
+        try {
+            cached.destroy()
+        } catch (failure: Throwable) {
+            Log.w(TAG, "Error destroying FlutterEngine (reason=$reason)", failure)
         }
     }
 
     /**
      * Create a brand-new engine, evicting/destroying any previously cached engine first.
-     *
-     * - For background usage, set [registerPlugins] = true.
-     * - For Activity engines, prefer [registerPlugins] = false and let FlutterActivity register.
      */
-    @Synchronized
-    fun createAndCacheNewEngine(
+    private fun createAndCacheNewEngine(
         context: Context,
         reason: String,
-        registerPlugins: Boolean = true,
     ): FlutterEngine {
-        // Ensure we never reuse a cached engine across opens/alarms.
-        destroyCachedEngine("before_create:$reason")
+        checkMainLooper()
+        // Replacement is one main-looper transaction: no asynchronous half
+        // destroy can overtake construction of its successor.
+        destroyCachedEngineOnMain("before_create:$reason")
 
-        Log.i(TAG, "Creating new FlutterEngine (reason=$reason)")
-        // Headless engines must not auto-register plugins: the generated
-        // registrant includes WebViewFlutterPlugin, whose process-wide Pigeon
-        // channels can replace the visible UI engine's WebView handlers.
-        val flutterEngine = FlutterEngine(
-            context.applicationContext,
-            null,
-            false,
-        )
-        if (registerPlugins) {
-            HeadlessPluginRegistrant.registerWith(flutterEngine)
-        }
-        // Set up method channel handler BEFORE executing Dart entrypoint
-        // This ensures the handler is registered when Dart code starts running
-        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-        val handler = AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
-        val engineLease = handler.acquireMethodChannel(EngineRole.HEADLESS, channel)
-            ?: run {
-                flutterEngine.destroy()
-                throw IllegalStateException("Another Flutter engine owns the alarm channel")
-            }
-        cachedEngineLease = engineLease
-        
-        // Register the method call handler so Dart can invoke methods on this channel
-        channel.setMethodCallHandler { call, result ->
-            handler.handleMethodCall(engineLease, call, result)
-        }
-        
-        Log.d(TAG, "Method channel handler registered for background engine")
-        
+        val appContext = context.applicationContext
+        val cache = FlutterEngineCache.getInstance()
+        var flutterEngine: FlutterEngine? = null
+        var handler: AlarmMethodChannelHandler? = null
+        var engineLease: EngineLease? = null
         try {
+            Log.i(TAG, "Creating new FlutterEngine (reason=$reason)")
+            // Headless engines must not auto-register plugins: the generated
+            // registrant includes WebViewFlutterPlugin, whose process-wide
+            // Pigeon channels can replace the visible UI engine's handlers.
+            val candidate = FlutterEngine(
+                appContext,
+                null,
+                false,
+            )
+            flutterEngine = candidate
+            HeadlessPluginRegistrant.registerWith(candidate)
+
+            // Bind the exact engine before Dart starts, then capture that lease
+            // in every callback registered on its messenger.
+            val channel = MethodChannel(candidate.dartExecutor.binaryMessenger, CHANNEL)
+            val localHandler = AlarmMethodChannelHandler.getOrCreate(appContext)
+            handler = localHandler
+            val localLease = localHandler.acquireMethodChannel(EngineRole.HEADLESS, channel)
+                ?: throw IllegalStateException("Another Flutter engine owns the alarm channel")
+            engineLease = localLease
+            cachedEngineLease = localLease
+            channel.setMethodCallHandler { call, result ->
+                localHandler.handleMethodCall(localLease, call, result)
+            }
+            Log.d(TAG, "Method channel handler registered for background engine")
+
             val flutterLoader = FlutterInjector.instance().flutterLoader()
-            flutterLoader.startInitialization(context.applicationContext)
-            flutterLoader.ensureInitializationComplete(context.applicationContext, null)
+            flutterLoader.startInitialization(appContext)
+            flutterLoader.ensureInitializationComplete(appContext, null)
             val bundlePath = flutterLoader.findAppBundlePath()
             Log.d(TAG, "Bundle path: $bundlePath, creating entrypoint for 'headlessMain'")
-            
+
             // Use 2-parameter constructor: bundle path and function name
             // Flutter will search for the function with @pragma('vm:entry-point') annotation
             val headlessEntrypoint = DartExecutor.DartEntrypoint(
                 bundlePath,
                 "headlessMain"
             )
-            
-            Log.d(TAG, "Executing headless Dart entrypoint: headlessMain")
-            flutterEngine.dartExecutor.executeDartEntrypoint(headlessEntrypoint)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to execute Dart entrypoint headlessMain", e)
-            handler.compareReleaseMethodChannel(engineLease, "headless_start_failed")
-            cachedEngineLease = null
-            flutterEngine.destroy()
-            throw e
-        }
 
-        FlutterEngineCache.getInstance().put(ENGINE_ID, flutterEngine)
-        return flutterEngine
+            Log.d(TAG, "Executing headless Dart entrypoint: headlessMain")
+            candidate.dartExecutor.executeDartEntrypoint(headlessEntrypoint)
+
+            cache.put(ENGINE_ID, candidate)
+            return candidate
+        } catch (failure: Throwable) {
+            Log.e(TAG, "Headless FlutterEngine transaction failed (reason=$reason)", failure)
+            val localLease = engineLease
+            if (localLease != null) {
+                try {
+                    handler?.compareReleaseMethodChannel(
+                        localLease,
+                        "engine_create_failed:$reason",
+                    )
+                } catch (cleanupFailure: Throwable) {
+                    failure.addSuppressed(cleanupFailure)
+                }
+                if (cachedEngineLease === localLease) {
+                    cachedEngineLease = null
+                }
+            }
+            // A cache put may have succeeded before throwing; always evict.
+            try {
+                cache.remove(ENGINE_ID)
+            } catch (cleanupFailure: Throwable) {
+                failure.addSuppressed(cleanupFailure)
+            }
+            flutterEngine?.let { failedEngine ->
+                try {
+                    failedEngine.destroy()
+                } catch (destroyFailure: Throwable) {
+                    failure.addSuppressed(destroyFailure)
+                }
+            }
+            throw failure
+        }
     }
 
     fun sendAlarmEvent(context: Context, eventType: String, eventData: Map<String, Any?>) {
@@ -231,7 +265,6 @@ object BackgroundAlarmEngine {
                 createAndCacheNewEngine(
                     context = context,
                     reason = "alarm_event:$eventType",
-                    registerPlugins = true,
                 )
                 AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
                     .sendEventToFlutter(eventType, eventData, completion)
@@ -263,5 +296,11 @@ object BackgroundAlarmEngine {
             ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION
         ] as? String
         return ApplicationIncarnationStore(context).matches(captured)
+    }
+
+    private fun checkMainLooper() {
+        check(Looper.myLooper() == Looper.getMainLooper()) {
+            "Headless FlutterEngine lifecycle must run on the main looper"
+        }
     }
 }

@@ -939,16 +939,10 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
                         args,
                         object : MethodChannel.Result {
                             override fun success(result: Any?) {
-                                val acknowledged = result == true &&
-                                    engineChannels.isCurrent(captured.lease)
-                                if (result == true && !acknowledged) {
-                                    Log.w(
-                                        TAG,
-                                        "Ignoring stale Flutter acknowledgement for " +
-                                            event.eventType,
-                                    )
-                                }
-                                completion(acknowledged)
+                                // Scheduling was admitted atomically under the
+                                // captured lease. A later handoff cannot revoke
+                                // this exact correlated completion.
+                                completion(result == true)
                             }
 
                             override fun error(

@@ -181,6 +181,34 @@ void main() {
       expect(s.flowController.startCalled, isFalse);
     });
 
+    test('account recovery enters verification without starting a proof', () {
+      final s = _setup();
+      addTearDown(s.container.dispose);
+
+      s.controller.prepareForAccountRecovery();
+
+      final state = s.container.read(zkIdentityStepControllerProvider);
+      expect(state.currentStep, ZkIdentityStep.verification);
+      expect(state.resultMessage, isNull);
+      expect(state.steps[ZkIdentityStep.verification.index].status,
+          ZkIdentityStepVisualStatus.active);
+      expect(s.flowController.startCalled, isFalse);
+    });
+
+    test('account preparation failure does not attempt to create a proof', () {
+      final s = _setup();
+      addTearDown(s.container.dispose);
+
+      s.controller.showAccountPreparationFailure('Wallet unavailable');
+
+      final state = s.container.read(zkIdentityStepControllerProvider);
+      expect(state.currentStep, ZkIdentityStep.verification);
+      expect(state.resultMessage, 'Wallet unavailable');
+      expect(state.steps[ZkIdentityStep.verification.index].status,
+          ZkIdentityStepVisualStatus.failed);
+      expect(s.flowController.startCalled, isFalse);
+    });
+
     test('reopen sends the complete active proof request back to ZK Passport',
         () async {
       final s = _setup();

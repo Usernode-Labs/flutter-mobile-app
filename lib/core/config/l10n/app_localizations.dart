@@ -718,6 +718,24 @@ abstract class AppLocalizations {
   /// **'Continue'**
   String get zkIdentityCheckAppCta;
 
+  /// Step label shown while the signed-in Social account is being prepared for ZK verification
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing your account'**
+  String get zkIdentityAccountPreparingTitle;
+
+  /// Step description shown while native account reconciliation is still running
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting your signed-in Social Vibecoding account'**
+  String get zkIdentityAccountPreparingDescription;
+
+  /// Error shown when no signed-in Social account reaches the native app before ZK verification
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to Social Vibecoding before starting verification.'**
+  String get zkIdentityAccountUnavailable;
+
   /// Step label for the confirm-scanned step in the stepper
   ///
   /// In en, this message translates to:

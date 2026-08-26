@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
 import 'package:crypto_mobile_app/core/models/leaderboard_api_models.dart';
 import 'package:crypto_mobile_app/core/services/leaderboard_api_service.dart';
@@ -29,6 +30,9 @@ class ZkIdentityFlowScreen extends ConsumerStatefulWidget {
 
 class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     with WidgetsBindingObserver {
+  static const _accountSessionHandoffTimeout = Duration(seconds: 30);
+  static const _walletPoolExhaustedCode = 'wallet_pool_exhausted';
+
   final _claimEmailController = TextEditingController();
   final _claimCodeController = TextEditingController();
   final _claimEmailFocus = FocusNode();
@@ -40,7 +44,12 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   bool _claimCodeSent = false;
   bool _walletClaimed = false;
   bool _claimBusy = false;
+  bool _accountRetryBusy = false;
+  bool _accountPreparationFailureShown = false;
+  bool _verificationStartInFlight = false;
+  bool _waitingForAccount = false;
   String? _claimError;
+  Timer? _accountSessionTimer;
 
   @override
   void initState() {
@@ -56,6 +65,19 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
         });
       }
     });
+    ref.listenManual<Identity>(identityProvider, (previous, next) {
+      if (next.allowsSigning || _waitingForAccount) {
+        unawaited(_startVerification());
+      }
+    });
+    ref.listenManual<AccountReconciliationFailure?>(
+      accountReconciliationFailureProvider,
+      (previous, next) {
+        if (next != null || _waitingForAccount) {
+          unawaited(_startVerification());
+        }
+      },
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_startVerification());
     });
@@ -64,6 +86,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _accountSessionTimer?.cancel();
     _claimEmailController.dispose();
     _claimCodeController.dispose();
     _claimEmailFocus.dispose();
@@ -79,17 +102,113 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   }
 
   Future<void> _startVerification() async {
-    if (!mounted) return;
+    if (!mounted ||
+        _verificationStartInFlight ||
+        _claimBusy ||
+        _accountRetryBusy) {
+      return;
+    }
+    final flowState = ref.read(zkIdentityStepControllerProvider);
+    if (flowState.currentStep != ZkIdentityStep.checkApp) return;
+
+    _verificationStartInFlight = true;
     setState(() {
       _checkingApp = true;
       _appNotInstalled = false;
     });
-    final controller = ref.read(zkIdentityStepControllerProvider.notifier);
-    final installed = await controller.startVerificationFromSavedPassport();
-    if (!mounted) return;
-    setState(() {
-      _checkingApp = false;
-      _appNotInstalled = !installed;
+    try {
+      late final bool appInstalled;
+      try {
+        appInstalled =
+            await ref.read(zkPassportLaunchServiceProvider).isInstalled();
+      } catch (_) {
+        appInstalled = false;
+      }
+      if (!mounted) return;
+      if (!appInstalled) {
+        _accountSessionTimer?.cancel();
+        _accountSessionTimer = null;
+        setState(() {
+          _checkingApp = false;
+          _appNotInstalled = true;
+          _waitingForAccount = false;
+          _accountPreparationFailureShown = false;
+        });
+        return;
+      }
+
+      final identity = ref.read(identityProvider);
+      final reconciliationFailure =
+          ref.read(accountReconciliationFailureProvider);
+      final controller = ref.read(zkIdentityStepControllerProvider.notifier);
+
+      if (identity.allowsSigning) {
+        _accountSessionTimer?.cancel();
+        _accountSessionTimer = null;
+        _waitingForAccount = false;
+        _accountPreparationFailureShown = false;
+        final launched = await controller.startVerificationFromSavedPassport();
+        if (!mounted) return;
+        setState(() {
+          _checkingApp = false;
+          _appNotInstalled = !launched;
+        });
+        return;
+      }
+
+      if (reconciliationFailure != null) {
+        _accountSessionTimer?.cancel();
+        _accountSessionTimer = null;
+        if (reconciliationFailure.code == _walletPoolExhaustedCode) {
+          _accountPreparationFailureShown = false;
+          controller.prepareForAccountRecovery();
+        } else {
+          _accountPreparationFailureShown = true;
+          controller.showAccountPreparationFailure(
+            reconciliationFailure.message,
+          );
+        }
+        if (!mounted) return;
+        setState(() {
+          _checkingApp = false;
+          _waitingForAccount = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _checkingApp = true;
+        _waitingForAccount = true;
+        _accountPreparationFailureShown = false;
+      });
+      _scheduleAccountSessionTimeout();
+    } finally {
+      _verificationStartInFlight = false;
+    }
+  }
+
+  void _scheduleAccountSessionTimeout() {
+    if (_accountSessionTimer != null) return;
+    _accountSessionTimer = Timer(_accountSessionHandoffTimeout, () {
+      _accountSessionTimer = null;
+      if (!mounted) return;
+      final identity = ref.read(identityProvider);
+      if (identity.allowsSigning ||
+          identity.phase == IdentityPhase.reconciling ||
+          ref.read(accountReconciliationFailureProvider) != null) {
+        unawaited(_startVerification());
+        return;
+      }
+      ref
+          .read(zkIdentityStepControllerProvider.notifier)
+          .showAccountPreparationFailure(
+            AppLocalizations.of(context).zkIdentityAccountUnavailable,
+          );
+      setState(() {
+        _checkingApp = false;
+        _waitingForAccount = false;
+        _accountPreparationFailureShown = true;
+      });
     });
   }
 
@@ -100,19 +219,27 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     final reconciliationFailure =
         ref.watch(accountReconciliationFailureProvider);
     final walletRecoveryRequired = _claimFlowActive ||
-        reconciliationFailure?.code == 'wallet_pool_exhausted';
+        reconciliationFailure?.code == _walletPoolExhaustedCode;
 
     final l10n = AppLocalizations.of(context);
     final steps = flowState.steps.map((s) {
       final isRecoveryStep =
           walletRecoveryRequired && s.step == ZkIdentityStep.verification;
+      final isAccountPreparationStep =
+          (_waitingForAccount && s.step == ZkIdentityStep.checkApp) ||
+              (_accountPreparationFailureShown &&
+                  s.step == ZkIdentityStep.verification);
       return ZkIdentityStepData(
         label: isRecoveryStep
             ? l10n.zkIdentityWalletClaimTitle
-            : _stepLabel(s.step, l10n),
+            : isAccountPreparationStep
+                ? l10n.zkIdentityAccountPreparingTitle
+                : _stepLabel(s.step, l10n),
         description: isRecoveryStep
             ? l10n.zkIdentityWalletClaimDescription
-            : _stepDescription(s.step, l10n),
+            : isAccountPreparationStep
+                ? l10n.zkIdentityAccountPreparingDescription
+                : _stepDescription(s.step, l10n),
         status: isRecoveryStep ? ZkIdentityStepVisualStatus.active : s.status,
       );
     }).toList();
@@ -521,7 +648,13 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
         variant: ButtonVariant.primary,
         size: ButtonSize.large,
         label: l10n.zkIdentityTryAgain,
-        onTap: () => unawaited(controller.retryVerification()),
+        onTap: _accountRetryBusy
+            ? null
+            : () => unawaited(
+                  _accountPreparationFailureShown
+                      ? _retryAccountPreparation()
+                      : controller.retryVerification(),
+                ),
       );
     }
 
@@ -549,6 +682,42 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
         ),
       ],
     );
+  }
+
+  Future<void> _retryAccountPreparation() async {
+    setState(() => _accountRetryBusy = true);
+    if (ref.read(identityProvider).phase != IdentityPhase.reconciling) {
+      ref.read(zkIdentityStepControllerProvider.notifier).reset();
+      setState(() {
+        _accountRetryBusy = false;
+        _accountPreparationFailureShown = false;
+        _waitingForAccount = true;
+      });
+      await _startVerification();
+      return;
+    }
+
+    final ready = await ref.read(identityDriverProvider).retryReconciliation();
+    if (!mounted) return;
+    if (!ready) {
+      final failure = ref.read(accountReconciliationFailureProvider);
+      if (failure != null && failure.code != _walletPoolExhaustedCode) {
+        _accountPreparationFailureShown = true;
+        ref
+            .read(zkIdentityStepControllerProvider.notifier)
+            .showAccountPreparationFailure(failure.message);
+      }
+      setState(() => _accountRetryBusy = false);
+      return;
+    }
+
+    setState(() {
+      _accountRetryBusy = false;
+      _accountPreparationFailureShown = false;
+    });
+    await ref
+        .read(zkIdentityStepControllerProvider.notifier)
+        .retryVerification();
   }
 
   String _stepLabel(ZkIdentityStep step, AppLocalizations l10n) {

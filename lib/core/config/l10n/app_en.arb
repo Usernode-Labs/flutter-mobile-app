@@ -494,6 +494,18 @@
   "@zkIdentityCheckAppCta": {
     "description": "Button label that triggers the install-check"
   },
+  "zkIdentityAccountPreparingTitle": "Preparing your account",
+  "@zkIdentityAccountPreparingTitle": {
+    "description": "Step label shown while the signed-in Social account is being prepared for ZK verification"
+  },
+  "zkIdentityAccountPreparingDescription": "Connecting your signed-in Social Vibecoding account",
+  "@zkIdentityAccountPreparingDescription": {
+    "description": "Step description shown while native account reconciliation is still running"
+  },
+  "zkIdentityAccountUnavailable": "Sign in to Social Vibecoding before starting verification.",
+  "@zkIdentityAccountUnavailable": {
+    "description": "Error shown when no signed-in Social account reaches the native app before ZK verification"
+  },
   "zkIdentityStepLabelScan": "Use saved passport",
   "@zkIdentityStepLabelScan": {
     "description": "Step label for the confirm-scanned step in the stepper"

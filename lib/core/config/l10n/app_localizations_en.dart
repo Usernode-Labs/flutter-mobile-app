@@ -362,6 +362,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityCheckAppCta => 'Continue';
 
   @override
+  String get zkIdentityAccountPreparingTitle => 'Preparing your account';
+
+  @override
+  String get zkIdentityAccountPreparingDescription =>
+      'Connecting your signed-in Social Vibecoding account';
+
+  @override
+  String get zkIdentityAccountUnavailable =>
+      'Sign in to Social Vibecoding before starting verification.';
+
+  @override
   String get zkIdentityStepLabelScan => 'Use saved passport';
 
   @override

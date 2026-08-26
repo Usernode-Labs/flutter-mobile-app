@@ -58,6 +58,45 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   ProviderSubscription<ZkPassportPipelineState>? _pipelineSubscription;
   Uri? _activeRequestUri;
 
+  /// Moves the flow to its verification slot without starting a proof.
+  ///
+  /// Account reconciliation can finish after the user opens this screen. A
+  /// terminal recovery state still belongs in the verification slot, but it
+  /// must not call zkPassport until the wallet is ready for signing.
+  void prepareForAccountRecovery() {
+    if (state.currentStep != ZkIdentityStep.checkApp &&
+        state.currentStep != ZkIdentityStep.verification) {
+      return;
+    }
+    _pipelineSubscription?.close();
+    _pipelineSubscription = null;
+    _activeRequestUri = null;
+    final verificationIndex = ZkIdentityStep.verification.index;
+    final prepared = state.currentStep == ZkIdentityStep.checkApp
+        ? state.advanceTo(verificationIndex)
+        : state;
+    final updated = List<ZkIdentityStepState>.from(prepared.steps);
+    updated[verificationIndex] = updated[verificationIndex].copyWith(
+      status: ZkIdentityStepVisualStatus.active,
+    );
+    state = ZkIdentityFlowState(
+      steps: updated,
+      currentStepIndex: verificationIndex,
+    );
+    _ref.read(zkIdentityChallengeActiveProvider.notifier).state = false;
+  }
+
+  /// Shows an account-preparation failure in the verification slot without
+  /// attempting to create a proof under an unsettled identity.
+  void showAccountPreparationFailure(String message) {
+    if (state.currentStep != ZkIdentityStep.checkApp &&
+        state.currentStep != ZkIdentityStep.verification) {
+      return;
+    }
+    prepareForAccountRecovery();
+    _failVerification(message);
+  }
+
   /// Starts verification immediately with the passport already stored in the
   /// companion app. No passport scan or readiness confirmation is required.
   Future<bool> startVerificationFromSavedPassport() async {

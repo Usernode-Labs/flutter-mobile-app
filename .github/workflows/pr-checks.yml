@@ -6,140 +6,50 @@ on:
       - main
       - develop
 
+permissions:
+  contents: read
+
 env:
-  FLUTTER_VERSION: "3.41.4"
   JAVA_VERSION: "17"
   NDK_VERSION: "29.0.14206865"
 
 jobs:
-  # Job 0: Determine versions before build
-  determine-frb-rev:
-    name: Determine Rust Versions
-    runs-on: macos-latest
-    outputs:
-      frb_rev: ${{ steps.frb_rev.outputs.rev }}
-      usernode_sha: ${{ steps.usernode_rev.outputs.sha }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Checkout usernode repository
-        uses: actions/checkout@v4
-        with:
-          repository: Usernode-Labs/usernode
-          path: usernode
-          ref: main
-          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
-
-      - name: Determine usernode revision
-        id: usernode_rev
-        run: |
-          cd usernode
-          SHA=$(git rev-parse HEAD)
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
-          echo "Usernode commit: $SHORT_SHA"
-
-      - name: Determine flutter_rust_bridge revision
-        id: frb_rev
-        run: |
-          FRB_REV=$(grep -m1 'flutter_rust_bridge =' usernode/crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
-          if [ -z "$FRB_REV" ]; then
-            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
-            exit 1
-          fi
-          echo "rev=$FRB_REV" >> "$GITHUB_OUTPUT"
-          echo "Using flutter_rust_bridge rev: $FRB_REV"
-
-  # Job 1: Setup Rust tools (reusable) for iOS
-  setup-rust-tools:
-    name: Setup Rust Tools for iOS
-    needs: determine-frb-rev
-    uses: ./.github/workflows/setup-rust-tools.yml
+  prepare-frb-bindings:
+    name: Prepare FRB Bindings
+    uses: ./.github/workflows/prepare-frb-bindings.yml
     secrets: inherit
-    with:
-      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
-      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
-
-  # Job 1b: Setup Rust tools for Android
-  setup-rust-tools-android:
-    name: Setup Rust Tools for Android
-    needs: determine-frb-rev
-    uses: ./.github/workflows/setup-rust-tools-android.yml
-    secrets: inherit
-    with:
-      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
-      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
 
   analyze:
     name: Code Analysis
     runs-on: ubuntu-20.04-16core2
-    needs: [determine-frb-rev, setup-rust-tools]
+    needs: prepare-frb-bindings
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Checkout usernode repository
-        uses: actions/checkout@v4
+      - name: Download generated bindings
+        uses: actions/download-artifact@v4
         with:
-          repository: Usernode-Labs/usernode
-          path: usernode
-          ref: main
-          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+          name: ${{ needs.prepare-frb-bindings.outputs.artifact_name }}
+          path: ${{ runner.temp }}/frb-bindings-artifact
 
-      - name: Move usernode repository next to workspace
+      - name: Restore generated Dart bindings
         run: |
-          TARGET_DIR="../usernode"
-          if [ -d "$TARGET_DIR" ]; then
-            echo "⚠️  Existing $TARGET_DIR detected. Removing to ensure fresh checkout."
-            rm -rf "$TARGET_DIR"
-          fi
-          mv usernode "$TARGET_DIR"
+          rm -rf lib/src/rust
+          mkdir -p lib/src/rust
+          cp -R "$RUNNER_TEMP/frb-bindings-artifact/dart/." lib/src/rust/
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ needs.prepare-frb-bindings.outputs.flutter_version }}
           channel: "stable"
           cache: false
 
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        id: cache-cargo-bins
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Install flutter_rust_bridge_codegen if not cached
-        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
-        run: |
-          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
-            echo "Installing flutter_rust_bridge_codegen..."
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
-          else
-            echo "flutter_rust_bridge_codegen already available"
-          fi
-
-      - name: Cache FRB generated code
-        id: cache-frb-gen
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-          restore-keys: |
-            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
-
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
 
       - name: Check formatting
         run: |
@@ -195,10 +105,22 @@ jobs:
   build-android:
     name: Build Android (Debug)
     runs-on: ubuntu-20.04-16core2
-    needs: [determine-frb-rev, setup-rust-tools-android]
+    needs: prepare-frb-bindings
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download generated bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare-frb-bindings.outputs.artifact_name }}
+          path: ${{ runner.temp }}/frb-bindings-artifact
+
+      - name: Restore generated Dart bindings
+        run: |
+          rm -rf lib/src/rust
+          mkdir -p lib/src/rust
+          cp -R "$RUNNER_TEMP/frb-bindings-artifact/dart/." lib/src/rust/
 
       - name: Setup jq
         run: sudo apt-get install -y jq
@@ -208,7 +130,7 @@ jobs:
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: main
+          ref: ${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -220,14 +142,21 @@ jobs:
           fi
           mv usernode "$TARGET_DIR"
 
+      - name: Restore generated Rust binding
+        run: cp "$RUNNER_TEMP/frb-bindings-artifact/rust/frb_generated.rs" ../usernode/crates/usernode/src/frb_generated.rs
+
+      - name: Resolve usernode target path
+        id: usernode-paths
+        run: echo "target=$(cd ../usernode && pwd -P)/target" >> "$GITHUB_OUTPUT"
+
       - name: Cache usernode Rust target artifacts
         uses: actions/cache@v4
         with:
-          path: ../usernode/target
-          key: ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          path: ${{ steps.usernode-paths.outputs.target }}
+          key: ${{ runner.os }}-usernode-target-android-v1-${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
           restore-keys: |
-            ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.frb_rev }}-
-            ${{ runner.os }}-usernode-target-
+            ${{ runner.os }}-usernode-target-frb-v1-${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
+            ${{ runner.os }}-usernode-target-android-v1-
 
       - name: Determine environment based on target branch
         id: env_config
@@ -304,44 +233,12 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ needs.prepare-frb-bindings.outputs.flutter_version }}
           channel: "stable"
           cache: false
 
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        id: cache-cargo-bins
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Cache FRB generated code
-        id: cache-frb-gen
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-          restore-keys: |
-            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
-
       - name: Install Flutter dependencies
         run: flutter pub get
-
-      - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
-
-      - name: Verify flutter_rust_bridge bindings are up-to-date
-        run: |
-          cd ../usernode
-          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
-            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
-            git status --short crates/usernode/src/frb_generated.rs
-            exit 1
-          fi
 
       - name: Locate Android NDK
         id: ndk
@@ -381,17 +278,29 @@ jobs:
   build-ios:
     name: Build iOS (Debug)
     runs-on: macos-latest
-    needs: [determine-frb-rev, setup-rust-tools]
+    needs: prepare-frb-bindings
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download generated bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare-frb-bindings.outputs.artifact_name }}
+          path: ${{ runner.temp }}/frb-bindings-artifact
+
+      - name: Restore generated Dart bindings
+        run: |
+          rm -rf lib/src/rust
+          mkdir -p lib/src/rust
+          cp -R "$RUNNER_TEMP/frb-bindings-artifact/dart/." lib/src/rust/
 
       - name: Checkout usernode repository
         uses: actions/checkout@v4
         with:
           repository: Usernode-Labs/usernode
           path: usernode
-          ref: main
+          ref: ${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
           token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
 
       - name: Move usernode repository next to workspace
@@ -403,18 +312,25 @@ jobs:
           fi
           mv usernode "$TARGET_DIR"
 
+      - name: Restore generated Rust binding
+        run: cp "$RUNNER_TEMP/frb-bindings-artifact/rust/frb_generated.rs" ../usernode/crates/usernode/src/frb_generated.rs
+
+      - name: Resolve usernode target path
+        id: usernode-paths
+        run: echo "target=$(cd ../usernode && pwd -P)/target" >> "$GITHUB_OUTPUT"
+
       - name: Cache usernode Rust target artifacts
         uses: actions/cache@v4
         with:
-          path: ../usernode/target
-          key: ${{ runner.os }}-usernode-target-${{ needs.determine-frb-rev.outputs.usernode_sha }}
+          path: ${{ steps.usernode-paths.outputs.target }}
+          key: ${{ runner.os }}-usernode-target-ios-v1-${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
           restore-keys: |
-            ${{ runner.os }}-usernode-target-
+            ${{ runner.os }}-usernode-target-ios-v1-
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ needs.prepare-frb-bindings.outputs.flutter_version }}
           channel: "stable"
           cache: false
 
@@ -443,36 +359,6 @@ jobs:
       #   if: steps.sccache-ios.outcome != 'success'
       #   run: |
       #     echo "⚠️  sccache setup failed, building without cache"
-
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        id: cache-cargo-bins
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Install flutter_rust_bridge_codegen if not cached
-        if: steps.cache-cargo-bins.outputs.cache-hit != 'true'
-        run: |
-          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
-            echo "Installing flutter_rust_bridge_codegen..."
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
-          else
-            echo "flutter_rust_bridge_codegen already available"
-          fi
-
-      - name: Cache FRB generated code
-        id: cache-frb-gen
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-          restore-keys: |
-            ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-
 
       - name: Determine environment based on target branch
         id: env_config
@@ -529,23 +415,6 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Generate flutter_rust_bridge bindings
-        env:
-          GMP_MPFR_SYS_USE_PKG_CONFIG: "1"
-          PKG_CONFIG_PATH: "/opt/homebrew/lib/pkgconfig:/usr/local/lib/pkgconfig"
-        run: |
-          export PATH="/opt/homebrew/opt/texinfo/bin:$HOME/.cargo/bin:$PATH"
-          flutter_rust_bridge_codegen generate
-
-      - name: Verify flutter_rust_bridge bindings are up-to-date
-        run: |
-          cd ../usernode
-          if ! git diff --quiet -- crates/usernode/src/frb_generated.rs; then
-            echo "::error::frb_generated.rs changed during CI. Run flutter_rust_bridge_codegen generate and commit the result in the usernode repo."
-            git status --short crates/usernode/src/frb_generated.rs
-            exit 1
-          fi
-
       - name: Install CocoaPods
         run: |
           cd ios
@@ -557,15 +426,6 @@ jobs:
           flutter build ios \
             --no-codesign \
             --dart-define-from-file=.env
-
-      - name: Cache Statistics
-        if: always()
-        run: |
-          echo "### PR Check Cache Statistics" >> $GITHUB_STEP_SUMMARY
-          echo "- Cargo binaries cache hit: \`${{ steps.cache-cargo-bins.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- FRB generated code cache hit: \`${{ steps.cache-frb-gen.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- CocoaPods cache hit: \`${{ steps.cache-pods.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Rust tools setup cache hit: \`${{ needs.setup-rust-tools.outputs.cache-hit }}\`" >> $GITHUB_STEP_SUMMARY
 
   summary:
     name: PR Check Summary

@@ -13,109 +13,44 @@ on:
     # Run tests every day at 6 AM UTC
     - cron: "0 6 * * *"
 
-env:
-  FLUTTER_VERSION: "3.41.4"
+permissions:
+  contents: read
 
 jobs:
-  determine-frb-rev:
-    name: Determine FRB Revision
-    runs-on: ubuntu-20.04-16core2
-    outputs:
-      frb_rev: ${{ steps.get-frb-rev.outputs.frb_rev }}
-      usernode_sha: ${{ steps.get-frb-rev.outputs.usernode_sha }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Checkout usernode repository
-        uses: actions/checkout@v4
-        with:
-          repository: Usernode-Labs/usernode
-          path: usernode
-          ref: main
-          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
-
-      - name: Get FRB revision and usernode SHA
-        id: get-frb-rev
-        run: |
-          cd usernode/crates/usernode
-          USERNODE_SHA=$(git rev-parse HEAD)
-          FRB_REV=$(grep 'flutter_rust_bridge =' Cargo.toml | sed -n 's/.*rev = "\([^"]*\)".*/\1/p')
-          echo "frb_rev=$FRB_REV" >> $GITHUB_OUTPUT
-          echo "usernode_sha=$USERNODE_SHA" >> $GITHUB_OUTPUT
-          echo "FRB Revision: $FRB_REV"
-          echo "Usernode SHA: $USERNODE_SHA"
-
-  setup-rust-tools-android:
-    name: Setup Rust Tools (Android)
-    needs: determine-frb-rev
-    uses: ./.github/workflows/setup-rust-tools-android.yml
-    with:
-      frb_rev: ${{ needs.determine-frb-rev.outputs.frb_rev }}
-      usernode_ref: ${{ needs.determine-frb-rev.outputs.usernode_sha }}
+  prepare-frb-bindings:
+    name: Prepare FRB Bindings
+    uses: ./.github/workflows/prepare-frb-bindings.yml
     secrets: inherit
 
   unit-tests:
     name: Code Analysis and Tests
     runs-on: ubuntu-20.04-16core2
-    needs: [determine-frb-rev, setup-rust-tools-android]
+    needs: prepare-frb-bindings
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Checkout usernode repository
-        uses: actions/checkout@v4
+      - name: Download generated bindings
+        uses: actions/download-artifact@v4
         with:
-          repository: Usernode-Labs/usernode
-          path: usernode
-          ref: main
-          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+          name: ${{ needs.prepare-frb-bindings.outputs.artifact_name }}
+          path: ${{ runner.temp }}/frb-bindings-artifact
 
-      - name: Move usernode repository next to workspace
+      - name: Restore generated Dart bindings
         run: |
-          TARGET_DIR="../usernode"
-          if [ -d "$TARGET_DIR" ]; then
-            rm -rf "$TARGET_DIR"
-          fi
-          mv usernode "$TARGET_DIR"
+          rm -rf lib/src/rust
+          mkdir -p lib/src/rust
+          cp -R "$RUNNER_TEMP/frb-bindings-artifact/dart/." lib/src/rust/
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ needs.prepare-frb-bindings.outputs.flutter_version }}
           channel: "stable"
           cache: false
 
-      - name: Restore cargo binaries from cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            ~/.cargo/bin/cargo-expand
-            ~/.cargo/bin/flutter_rust_bridge_codegen
-          key: ${{ runner.os }}-cargo-bins-${{ needs.determine-frb-rev.outputs.frb_rev }}-v2
-
-      - name: Install flutter_rust_bridge_codegen if not cached
-        run: |
-          if ! command -v flutter_rust_bridge_codegen &> /dev/null; then
-            echo "Installing flutter_rust_bridge_codegen..."
-            cargo install flutter_rust_bridge_codegen --git https://github.com/Usernode-Labs/flutter_rust_bridge --rev ${{ needs.determine-frb-rev.outputs.frb_rev }} --locked
-          else
-            echo "flutter_rust_bridge_codegen already available"
-          fi
-
-      - name: Cache FRB generated code
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/src/rust/frb_generated.dart
-            lib/src/rust/api
-          key: ${{ runner.os }}-frb-gen-${{ needs.determine-frb-rev.outputs.frb_rev }}-${{ needs.determine-frb-rev.outputs.usernode_sha }}
-
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Generate flutter_rust_bridge bindings
-        run: flutter_rust_bridge_codegen generate
 
       - name: Run unit tests
         run: flutter test --coverage --reporter expanded 

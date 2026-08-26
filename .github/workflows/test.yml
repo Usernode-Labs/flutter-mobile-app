@@ -17,9 +17,29 @@ permissions:
   contents: read
 
 jobs:
+  resolve-usernode-ref:
+    name: Resolve Usernode Ref
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.usernode-ref.outputs.ref }}
+    steps:
+      - name: Resolve usernode ref
+        id: usernode-ref
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          REF=$(printf '%s\n' "$PR_BODY" | sed -n 's/^Usernode-Ref:[[:space:]]*//p' | tail -n 1)
+          REF=${REF:-main}
+          git check-ref-format --branch "$REF" >/dev/null
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "Usernode ref: $REF"
+
   prepare-frb-bindings:
     name: Prepare FRB Bindings
+    needs: resolve-usernode-ref
     uses: ./.github/workflows/prepare-frb-bindings.yml
+    with:
+      usernode_ref: ${{ needs.resolve-usernode-ref.outputs.ref }}
     secrets: inherit
 
   unit-tests:

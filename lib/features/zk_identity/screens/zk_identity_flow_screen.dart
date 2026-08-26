@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -25,7 +24,7 @@ class ZkIdentityFlowScreen extends ConsumerStatefulWidget {
 
 class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     with WidgetsBindingObserver {
-  bool _checkingApp = false;
+  bool _checkingApp = true;
   bool _appNotInstalled = false;
 
   @override
@@ -42,6 +41,9 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
         });
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_startVerification());
+    });
   }
 
   @override
@@ -53,17 +55,18 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _appNotInstalled) {
-      _checkApp();
+      unawaited(_startVerification());
     }
   }
 
-  Future<void> _checkApp() async {
+  Future<void> _startVerification() async {
+    if (!mounted) return;
     setState(() {
       _checkingApp = true;
       _appNotInstalled = false;
     });
     final controller = ref.read(zkIdentityStepControllerProvider.notifier);
-    final installed = await controller.checkAppInstalled();
+    final installed = await controller.startVerificationFromSavedPassport();
     if (!mounted) return;
     setState(() {
       _checkingApp = false;
@@ -106,8 +109,6 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
     final spacing = theme.extension<AppSpacing>()!;
-    final sizing = theme.extension<AppSizing>()!;
-    final semantic = theme.extension<AppSemanticColors>()!;
     final l10n = AppLocalizations.of(context);
 
     return switch (flowState.currentStep) {
@@ -123,41 +124,8 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
                   const Center(child: CircularProgressIndicator()),
               ],
             ),
-      ZkIdentityStep.confirmScanned => Text(
-          l10n.zkIdentityConfirmScannedBody,
-          style: textTheme.bodyMedium,
-        ),
-      ZkIdentityStep.readyToVerify => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              l10n.zkIdentityReadyBody,
-              style: textTheme.bodyMedium,
-            ),
-            SizedBox(height: spacing.space16),
-            for (final bullet in [
-              l10n.zkIdentityReadyBullet1,
-              l10n.zkIdentityReadyBullet2,
-              l10n.zkIdentityReadyBullet3,
-            ])
-              Padding(
-                padding: EdgeInsets.only(bottom: spacing.space12),
-                child: Row(
-                  children: [
-                    Icon(
-                      Symbols.check_circle_sharp,
-                      size: sizing.iconRegular,
-                      color: semantic.success.color,
-                    ),
-                    SizedBox(width: spacing.space12),
-                    Expanded(
-                      child: Text(bullet, style: textTheme.bodyMedium),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+      // These compatibility states are skipped by the saved-passport flow.
+      ZkIdentityStep.confirmScanned || ZkIdentityStep.readyToVerify => null,
       ZkIdentityStep.verification => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -266,42 +234,8 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
               label: l10n.zkIdentityInstallCta,
               onTap: ref.read(zkPassportLaunchServiceProvider).openStoreListing,
             )
-          : _checkingApp
-              ? null
-              : Button(
-                  variant: ButtonVariant.primary,
-                  size: ButtonSize.large,
-                  label: l10n.zkIdentityCheckAppCta,
-                  onTap: _checkApp,
-                ),
-      ZkIdentityStep.confirmScanned => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Button(
-              variant: ButtonVariant.primary,
-              size: ButtonSize.large,
-              label: l10n.zkIdentityConfirmScannedYesCta,
-              onTap: controller.confirmPassportScanned,
-            ),
-            SizedBox(height: spacing.space8),
-            Button(
-              variant: ButtonVariant.outlined,
-              size: ButtonSize.large,
-              label: l10n.zkIdentityConfirmScannedNoCta,
-              onTap: () => context.pop(),
-            ),
-          ],
-        ),
-      ZkIdentityStep.readyToVerify => Button(
-          variant: ButtonVariant.primary,
-          size: ButtonSize.large,
-          label: l10n.zkIdentityReadyCta,
-          onTap: () {
-            controller.confirmReady();
-            unawaited(controller.triggerVerification());
-          },
-        ),
+          : null,
+      ZkIdentityStep.confirmScanned || ZkIdentityStep.readyToVerify => null,
       ZkIdentityStep.verification => _buildVerificationActions(
           flowState: flowState,
           pipelineState: pipelineState,
@@ -331,7 +265,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
         variant: ButtonVariant.primary,
         size: ButtonSize.large,
         label: l10n.zkIdentityTryAgain,
-        onTap: () => unawaited(controller.cancelVerification()),
+        onTap: () => unawaited(controller.retryVerification()),
       );
     }
 
@@ -348,10 +282,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           variant: ButtonVariant.tonal,
           size: ButtonSize.large,
           label: l10n.zkIdentityGoToZkPassport,
-          onTap: () => launchUrl(
-            Uri.parse('zkpassport://'),
-            mode: LaunchMode.externalApplication,
-          ),
+          onTap: () => unawaited(controller.reopenVerificationRequest()),
         ),
         SizedBox(height: spacing.space8),
         Button(

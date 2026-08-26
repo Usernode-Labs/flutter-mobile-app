@@ -703,13 +703,13 @@ abstract class AppLocalizations {
   /// Step label for the check-app step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Open ZK Passport'**
+  /// **'Opening ZK Passport'**
   String get zkIdentityStepLabelOpenApp;
 
   /// Step description for the check-app step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Make sure ZK Passport is installed'**
+  /// **'Preparing a proof request with your saved passport'**
   String get zkIdentityStepDescOpenApp;
 
   /// Button label that triggers the install-check
@@ -721,19 +721,19 @@ abstract class AppLocalizations {
   /// Step label for the confirm-scanned step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Scan your passport'**
+  /// **'Use saved passport'**
   String get zkIdentityStepLabelScan;
 
   /// Step description for the confirm-scanned step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Scan once in ZK Passport. It\'s saved for next time.'**
+  /// **'Uses the passport already stored in ZK Passport'**
   String get zkIdentityStepDescScan;
 
   /// Body prompt for the confirm-scanned step
   ///
   /// In en, this message translates to:
-  /// **'Already scanned?'**
+  /// **'Your saved passport will be used.'**
   String get zkIdentityConfirmScannedBody;
 
   /// Affirmative button on the confirm-scanned step
@@ -751,19 +751,19 @@ abstract class AppLocalizations {
   /// Step label for the ready-to-verify step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Ready to verify'**
+  /// **'Create proof'**
   String get zkIdentityStepLabelReady;
 
   /// Step description for the ready-to-verify step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Switch to ZK Passport to build your proof'**
+  /// **'ZK Passport will ask you to approve and create the proof'**
   String get zkIdentityStepDescReady;
 
   /// Body for the ready-to-verify step
   ///
   /// In en, this message translates to:
-  /// **'Switch to ZK Passport. It builds your proof in about a minute.'**
+  /// **'ZK Passport builds the proof from your saved passport in about a minute.'**
   String get zkIdentityReadyBody;
 
   /// First privacy bullet on the ready-to-verify step

@@ -1,5 +1,20 @@
 part of '../dapp_webview_screen.dart';
 
+/// Feature capability advertised when the trusted SV shell can enter the
+/// retained native ZK identity flow through [trustedNativeScreenRoutes].
+const zkIdentityFlowCapability = 'zkIdentityFlow';
+
+/// Native routes the trusted SV top frame may push through
+/// `openNativeScreen`. Keeping the wire targets in one registry makes the
+/// advertised ZK capability and its dispatch target independently testable.
+@visibleForTesting
+const trustedNativeScreenRoutes = <String, String>{
+  'diagnostics': AppRoutes.diagnostics,
+  'benchmark': AppRoutes.deviceBenchmark,
+  'httpLogs': AppRoutes.httpDebugLogs,
+  'zkIdentity': AppRoutes.zkIdentityDetail,
+};
+
 /// Settings/profile/misc bridge methods. Native settings, account state, and
 /// actions stay behind trusted SV chrome; the installed app's public release
 /// identifiers are also shared with `getBridgeInfo` so staging can display
@@ -30,26 +45,21 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   }
 
   /// `openNativeScreen` JS-channel method: pushes an allowlisted native
-  /// route. Escape hatch for the tooling that stays native — diagnostics,
-  /// the device benchmark, and the HTTP log viewer (debugging UIs over
-  /// native-only data). Only the trusted SV origin may drive native
-  /// navigation — sub-apps get a rejection.
+  /// route. Escape hatch for the tooling and hardware-backed identity flow
+  /// that stay native. Only the trusted SV origin may drive native navigation
+  /// — sub-apps get a rejection.
   Future<void> _handleOpenNativeScreen(
       String id, Map<String, dynamic> payload) async {
-    const allowedScreens = <String, String>{
-      'diagnostics': AppRoutes.diagnostics,
-      'benchmark': AppRoutes.deviceBenchmark,
-      'httpLogs': AppRoutes.httpDebugLogs,
-    };
     final args = payload['args'];
     final screen =
         args is Map<String, dynamic> ? args['screen']?.toString() : null;
-    final route = screen == null ? null : allowedScreens[screen];
+    final route = screen == null ? null : trustedNativeScreenRoutes[screen];
     if (route == null) {
       await _resolveJsPromise(
         id: id,
         value: null,
-        error: 'Unknown screen; allowed: ${allowedScreens.keys.join(', ')}',
+        error:
+            'Unknown screen; allowed: ${trustedNativeScreenRoutes.keys.join(', ')}',
       );
       return;
     }
@@ -112,7 +122,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// One JSON shape shared by `getSettingsState` and every settings setter
   /// (each setter resolves with the refreshed state so SV re-renders from a
   /// single source of truth). Mirrors what the native settings screen shows.
-  Future<Map<String, dynamic>> _settingsStateSnapshot() async {
+  Future<Map<String, dynamic>> _settingsStateSnapshot({
+    bool? facematchStrictOverride,
+  }) async {
     // Live probes, not the service's cached combined flag: the granular
     // request methods don't refresh `hasPermissions`, and its legacy
     // notifications&&exactAlarm semantics would mislabel `exactAlarmGranted`.
@@ -149,10 +161,16 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       branch = env.git.branch;
     } catch (_) {}
 
-    final facematchStrict = ref
-            .read(zkPassportSettingsProvider)
-            .whenOrNull(data: (s) => s.facematchStrict) ??
-        true;
+    var facematchStrict = facematchStrictOverride ?? true;
+    if (facematchStrictOverride == null) {
+      try {
+        facematchStrict = await ref
+            .read(zkPassportFlowControllerProvider)
+            .getFacematchStrict();
+      } catch (e) {
+        debugPrint('[Usernode JS-channel] facematch setting read failed: $e');
+      }
+    }
 
     return {
       'buildInfo': {
@@ -225,12 +243,14 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     if (!await _revalidatePrivilegedBridgeLease(id, 'setFacematchStrict')) {
       return;
     }
-    await ref.read(zkPassportFlowControllerProvider).setFacematchStrict(
-          enabled,
-        );
+    final facematchStrict = await ref
+        .read(zkPassportFlowControllerProvider)
+        .setFacematchStrict(enabled);
     await _resolveJsPromise(
       id: id,
-      value: await _settingsStateSnapshot(),
+      value: await _settingsStateSnapshot(
+        facematchStrictOverride: facematchStrict,
+      ),
       error: null,
     );
   }
@@ -255,6 +275,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       return;
     }
     await _resolveJsPromise(id: id, value: true, error: null);
+    if (mounted) {
+      context.push(AppRoutes.zkIdentityDetail);
+    }
   }
 
   Future<void> _handleRequestPermissions(String id) async {

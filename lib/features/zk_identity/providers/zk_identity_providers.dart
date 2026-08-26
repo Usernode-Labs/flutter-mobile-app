@@ -56,31 +56,45 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
 
   final Ref _ref;
   ProviderSubscription<ZkPassportPipelineState>? _pipelineSubscription;
+  Uri? _activeRequestUri;
 
-  Future<bool> checkAppInstalled() async {
+  /// Starts verification immediately with the passport already stored in the
+  /// companion app. No passport scan or readiness confirmation is required.
+  Future<bool> startVerificationFromSavedPassport() async {
+    late final bool installed;
     try {
-      final installed =
+      installed =
           await _ref.read(zkPassportLaunchServiceProvider).isInstalled();
-      if (installed) {
-        state = state.advanceTo(ZkIdentityStep.confirmScanned.index);
-        return true;
-      }
-      return false;
     } catch (_) {
       return false;
     }
+    if (!installed) return false;
+
+    if (state.currentStep == ZkIdentityStep.verification) {
+      if (_activeRequestUri != null) {
+        await reopenVerificationRequest();
+      }
+      return true;
+    }
+    if (state.currentStep != ZkIdentityStep.checkApp) {
+      return true;
+    }
+
+    state = state.advanceTo(ZkIdentityStep.verification.index);
+    try {
+      await triggerVerification();
+    } catch (_) {
+      _failVerification('Unable to start zkPassport verification.');
+    }
+    return true;
   }
 
-  void confirmPassportScanned() {
-    if (state.currentStep == ZkIdentityStep.confirmScanned) {
-      state = state.advanceTo(ZkIdentityStep.readyToVerify.index);
-    }
-  }
-
-  void confirmReady() {
-    if (state.currentStep == ZkIdentityStep.readyToVerify) {
-      state = state.advanceTo(ZkIdentityStep.verification.index);
-    }
+  Future<bool> reopenVerificationRequest() async {
+    final launchUri = _activeRequestUri;
+    if (launchUri == null) return false;
+    return _ref
+        .read(zkPassportLaunchServiceProvider)
+        .launchOrOpenStore(launchUri);
   }
 
   Future<void> triggerVerification() async {
@@ -88,15 +102,9 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
 
     _ref.read(zkIdentityChallengeActiveProvider.notifier).state = true;
 
-    final flowController = _ref.read(zkPassportFlowControllerProvider);
-    final result = await flowController.startRegistrationNonceZero();
-
-    if (!result.started) {
-      _failVerification(result.message);
-      return;
-    }
-
-    // Cancel any previous subscription before creating a new one.
+    // Start observing before the app handoff. On iOS, Usernode can be
+    // suspended as soon as ZKPassport opens, and the proof may finish before
+    // the URL-launch future resumes.
     _pipelineSubscription?.close();
     _pipelineSubscription = _ref.listen<ZkPassportPipelineState>(
       zkPassportPipelineProvider,
@@ -108,6 +116,15 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
         }
       },
     );
+
+    final flowController = _ref.read(zkPassportFlowControllerProvider);
+    final result = await flowController.startRegistrationNonceZero();
+    _activeRequestUri = result.launchUri;
+
+    if (!result.started) {
+      _failVerification(result.message);
+      return;
+    }
   }
 
   void _onVerificationComplete(bool success, String message) {
@@ -135,6 +152,8 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   }
 
   void _failVerification(String message) {
+    _pipelineSubscription?.close();
+    _pipelineSubscription = null;
     final idx = ZkIdentityStep.verification.index;
     final updated = List<ZkIdentityStepState>.from(state.steps);
     updated[idx] = updated[idx].copyWith(
@@ -152,8 +171,19 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   void reset() {
     _pipelineSubscription?.close();
     _pipelineSubscription = null;
+    _activeRequestUri = null;
     _ref.read(zkIdentityChallengeActiveProvider.notifier).state = false;
     state = ZkIdentityFlowState.initial();
+  }
+
+  Future<bool> retryVerification() async {
+    final discarded = await _ref
+        .read(zkPassportPipelineProvider.notifier)
+        .discardPendingSession(reason: 'Retrying');
+    if (!discarded) return false;
+
+    reset();
+    return startVerificationFromSavedPassport();
   }
 
   Future<bool> cancelVerification() async {

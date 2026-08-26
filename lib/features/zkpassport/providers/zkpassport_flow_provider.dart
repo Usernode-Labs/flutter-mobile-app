@@ -163,11 +163,13 @@ class ZkPassportLaunchResult {
     required this.started,
     required this.requestId,
     required this.message,
+    this.launchUri,
   });
 
   final bool started;
   final String? requestId;
   final String message;
+  final Uri? launchUri;
 }
 
 class ZkPassportFlowController {
@@ -370,6 +372,7 @@ class ZkPassportFlowController {
       started: true,
       requestId: requestId,
       message: 'zkPassport launch requested.',
+      launchUri: launchUri,
     );
   }
 
@@ -454,10 +457,16 @@ class ZkPassportFlowController {
     return true;
   }
 
-  Future<void> setFacematchStrict(bool value) async {
+  Future<bool> getFacematchStrict() async {
+    final repo = _ref.read(zkPassportSettingsRepositoryProvider);
+    return (await repo.load()).facematchStrict;
+  }
+
+  Future<bool> setFacematchStrict(bool value) async {
     final repo = _ref.read(zkPassportSettingsRepositoryProvider);
     await repo.setFacematchStrict(value);
     _ref.invalidate(zkPassportSettingsProvider);
+    return (await repo.load()).facematchStrict;
   }
 }
 

@@ -482,11 +482,11 @@
   "@zkIdentityInstallCta": {
     "description": "Button label to open the store listing for ZK Passport"
   },
-  "zkIdentityStepLabelOpenApp": "Open ZK Passport",
+  "zkIdentityStepLabelOpenApp": "Opening ZK Passport",
   "@zkIdentityStepLabelOpenApp": {
     "description": "Step label for the check-app step in the stepper"
   },
-  "zkIdentityStepDescOpenApp": "Make sure ZK Passport is installed",
+  "zkIdentityStepDescOpenApp": "Preparing a proof request with your saved passport",
   "@zkIdentityStepDescOpenApp": {
     "description": "Step description for the check-app step in the stepper"
   },
@@ -494,15 +494,15 @@
   "@zkIdentityCheckAppCta": {
     "description": "Button label that triggers the install-check"
   },
-  "zkIdentityStepLabelScan": "Scan your passport",
+  "zkIdentityStepLabelScan": "Use saved passport",
   "@zkIdentityStepLabelScan": {
     "description": "Step label for the confirm-scanned step in the stepper"
   },
-  "zkIdentityStepDescScan": "Scan once in ZK Passport. It's saved for next time.",
+  "zkIdentityStepDescScan": "Uses the passport already stored in ZK Passport",
   "@zkIdentityStepDescScan": {
     "description": "Step description for the confirm-scanned step in the stepper"
   },
-  "zkIdentityConfirmScannedBody": "Already scanned?",
+  "zkIdentityConfirmScannedBody": "Your saved passport will be used.",
   "@zkIdentityConfirmScannedBody": {
     "description": "Body prompt for the confirm-scanned step"
   },
@@ -514,15 +514,15 @@
   "@zkIdentityConfirmScannedNoCta": {
     "description": "Decline button on the confirm-scanned step"
   },
-  "zkIdentityStepLabelReady": "Ready to verify",
+  "zkIdentityStepLabelReady": "Create proof",
   "@zkIdentityStepLabelReady": {
     "description": "Step label for the ready-to-verify step in the stepper"
   },
-  "zkIdentityStepDescReady": "Switch to ZK Passport to build your proof",
+  "zkIdentityStepDescReady": "ZK Passport will ask you to approve and create the proof",
   "@zkIdentityStepDescReady": {
     "description": "Step description for the ready-to-verify step in the stepper"
   },
-  "zkIdentityReadyBody": "Switch to ZK Passport. It builds your proof in about a minute.",
+  "zkIdentityReadyBody": "ZK Passport builds the proof from your saved passport in about a minute.",
   "@zkIdentityReadyBody": {
     "description": "Body for the ready-to-verify step"
   },

@@ -72,7 +72,7 @@ final class ApplicationIncarnationStore {
 }
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private static let socialNotificationSource = "usernode_social"
   private static let socialNotificationCategory = "USERNODE_SOCIAL"
   private let alarmChannelName = "com.usernode.app/alarm"
@@ -102,45 +102,6 @@ final class ApplicationIncarnationStore {
     registerSocialNotificationCategory()
     print("[AppDelegate] UNUserNotificationCenter delegate set")
 
-    GeneratedPluginRegistrant.register(with: self)
-    print("[AppDelegate] Plugin registrant registered")
-
-    // Setup method channel for alarm service
-    // Use safe unwrapping instead of accessing rootViewController directly (Flutter deprecation fix)
-    if let flutterViewController = window?.rootViewController as? FlutterViewController {
-      print("[AppDelegate] FlutterViewController found, setting up method channel")
-      alarmChannel = FlutterMethodChannel(
-        name: alarmChannelName,
-        binaryMessenger: flutterViewController.binaryMessenger
-      )
-      setupMethodChannelHandlers()
-      print("[AppDelegate] Method channel '\(alarmChannelName)' configured")
-
-      let shortcutsChannel = FlutterMethodChannel(
-        name: HomeShortcutsChannel.channelName,
-        binaryMessenger: flutterViewController.binaryMessenger
-      )
-      shortcutsChannel.setMethodCallHandler { [weak self] (call, result) in
-        self?.homeShortcutsChannel.handle(call, result: result)
-      }
-      print("[AppDelegate] Method channel '\(HomeShortcutsChannel.channelName)' configured")
-
-      screenshotChannel = FlutterMethodChannel(
-        name: screenshotChannelName,
-        binaryMessenger: flutterViewController.binaryMessenger
-      )
-      screenshotChannel?.setMethodCallHandler { [weak self] (call, result) in
-        guard call.method == "capture" else {
-          result(FlutterMethodNotImplemented)
-          return
-        }
-        self?.captureCurrentScreen(result: result)
-      }
-      print("[AppDelegate] Method channel '\(screenshotChannelName)' configured")
-    } else {
-      print("[AppDelegate] ⚠ Warning - Could not access FlutterViewController")
-    }
-
     // Register a no-op legacy BGTask handler during launch. New versions do
     // not submit BGTasks, but old installed requests still need a safe drain.
     if #available(iOS 13.0, *) {
@@ -166,6 +127,46 @@ final class ApplicationIncarnationStore {
 
     print("[AppDelegate] Calling super.application(didFinishLaunchingWithOptions:)")
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    print("[AppDelegate] Plugin registrant registered")
+
+    setupApplicationChannels(
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+  }
+
+  private func setupApplicationChannels(binaryMessenger: FlutterBinaryMessenger) {
+    alarmChannel = FlutterMethodChannel(
+      name: alarmChannelName,
+      binaryMessenger: binaryMessenger
+    )
+    setupMethodChannelHandlers()
+    print("[AppDelegate] Method channel '\(alarmChannelName)' configured")
+
+    let shortcutsChannel = FlutterMethodChannel(
+      name: HomeShortcutsChannel.channelName,
+      binaryMessenger: binaryMessenger
+    )
+    shortcutsChannel.setMethodCallHandler { [weak self] (call, result) in
+      self?.homeShortcutsChannel.handle(call, result: result)
+    }
+    print("[AppDelegate] Method channel '\(HomeShortcutsChannel.channelName)' configured")
+
+    screenshotChannel = FlutterMethodChannel(
+      name: screenshotChannelName,
+      binaryMessenger: binaryMessenger
+    )
+    screenshotChannel?.setMethodCallHandler { [weak self] (call, result) in
+      guard call.method == "capture" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self?.captureCurrentScreen(result: result)
+    }
+    print("[AppDelegate] Method channel '\(screenshotChannelName)' configured")
   }
 
   override func application(

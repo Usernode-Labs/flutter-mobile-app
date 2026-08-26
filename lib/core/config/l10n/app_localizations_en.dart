@@ -352,23 +352,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityInstallCta => 'Install';
 
   @override
-  String get zkIdentityStepLabelOpenApp => 'Open ZK Passport';
+  String get zkIdentityStepLabelOpenApp => 'Opening ZK Passport';
 
   @override
-  String get zkIdentityStepDescOpenApp => 'Make sure ZK Passport is installed';
+  String get zkIdentityStepDescOpenApp =>
+      'Preparing a proof request with your saved passport';
 
   @override
   String get zkIdentityCheckAppCta => 'Continue';
 
   @override
-  String get zkIdentityStepLabelScan => 'Scan your passport';
+  String get zkIdentityStepLabelScan => 'Use saved passport';
 
   @override
   String get zkIdentityStepDescScan =>
-      'Scan once in ZK Passport. It\'s saved for next time.';
+      'Uses the passport already stored in ZK Passport';
 
   @override
-  String get zkIdentityConfirmScannedBody => 'Already scanned?';
+  String get zkIdentityConfirmScannedBody =>
+      'Your saved passport will be used.';
 
   @override
   String get zkIdentityConfirmScannedYesCta => 'Continue';
@@ -377,15 +379,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityConfirmScannedNoCta => 'Not yet';
 
   @override
-  String get zkIdentityStepLabelReady => 'Ready to verify';
+  String get zkIdentityStepLabelReady => 'Create proof';
 
   @override
   String get zkIdentityStepDescReady =>
-      'Switch to ZK Passport to build your proof';
+      'ZK Passport will ask you to approve and create the proof';
 
   @override
   String get zkIdentityReadyBody =>
-      'Switch to ZK Passport. It builds your proof in about a minute.';
+      'ZK Passport builds the proof from your saved passport in about a minute.';
 
   @override
   String get zkIdentityReadyBullet1 => 'No name, photo, or ID is shared';

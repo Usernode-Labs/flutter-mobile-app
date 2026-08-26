@@ -40,6 +40,7 @@ mixin _BridgeDispatch
     'manageStaking',
     'getTransactionRecords',
     'openNativeScreen',
+    zkIdentityFlowCapability,
     'getProfileInfo',
     'getSettingsState',
     'setNodeSleepEnabled',

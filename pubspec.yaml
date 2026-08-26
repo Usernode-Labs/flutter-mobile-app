@@ -23,7 +23,7 @@ dependencies:
       path: frb_dart
   path_provider: "^2.1.4"
   shared_preferences: "^2.2.3"
-  flutter_secure_storage: "^9.2.2"
+  flutter_secure_storage: "^10.3.1"
   sentry_flutter: "^9.7.0"
   http: "^1.1.0"
   package_info_plus: "^9.0.0"

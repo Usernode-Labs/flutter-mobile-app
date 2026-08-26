@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:crypto_mobile_app/core/config/secure_storage_options.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,13 +27,17 @@ class AuthTokenStore {
     FlutterSecureStorage? legacyStorage,
   })  : _storage = storage ??
             const FlutterSecureStorage(
+              aOptions: usernodeAndroidSecureStorageOptions,
               iOptions: IOSOptions(
                 accessibility: KeychainAccessibility.first_unlock_this_device,
                 synchronizable: false,
               ),
             ),
-        _legacyStorage =
-            legacyStorage ?? storage ?? const FlutterSecureStorage();
+        _legacyStorage = legacyStorage ??
+            storage ??
+            const FlutterSecureStorage(
+              aOptions: usernodeAndroidSecureStorageOptions,
+            );
 
   static const _key = 'auth:v4:session_token';
   static const _legacyKey = 'auth:v3:session_token';

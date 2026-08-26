@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
     <!--
-      flutter_secure_storage 9.x shares this file process-wide. Exclude the
-      default file rather than selecting custom Android options, which can
-      redirect unrelated secure-storage users in the same process.
+      flutter_secure_storage shares these files process-wide. Their encrypted
+      values, wrapped keys, and cipher configuration are bound to the device's
+      Android Keystore and must move together or not at all.
     -->
     <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
+    <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
+    <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml" />
+    <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml" />
 </full-backup-content>

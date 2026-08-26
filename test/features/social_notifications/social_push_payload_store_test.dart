@@ -152,7 +152,7 @@ void main() {
     expect(decoded?.optedIn, isFalse);
   });
 
-  test('Android backup rules exclude the shared secure-storage file', () async {
+  test('Android backup rules exclude every secure-storage file', () async {
     final manifest = await File(
       'android/app/src/main/AndroidManifest.xml',
     ).readAsString();
@@ -168,10 +168,18 @@ void main() {
       manifest,
       contains('android:dataExtractionRules="@xml/data_extraction_rules"'),
     );
-    expect(legacyRules, contains('path="FlutterSecureStorage.xml"'));
-    expect(
-      RegExp('path="FlutterSecureStorage.xml"').allMatches(extractionRules),
-      hasLength(2),
-    );
+    const secureStorageFiles = [
+      'FlutterSecureStorage.xml',
+      'FlutterSecureKeyStorage.xml',
+      'FlutterSecureStorageConfiguration.xml',
+      'FlutterSecureStorageConfiguration:FlutterSecureStorage.xml',
+    ];
+    for (final file in secureStorageFiles) {
+      expect(legacyRules, contains('path="$file"'));
+      expect(
+        RegExp('path="$file"').allMatches(extractionRules),
+        hasLength(2),
+      );
+    }
   });
 }

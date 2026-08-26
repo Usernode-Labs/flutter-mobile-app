@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:crypto_mobile_app/core/config/secure_storage_options.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 const socialPushPayloadSource = 'usernode_social';
@@ -183,6 +184,7 @@ abstract interface class SocialPushPersistence {
 class SecureStorageSocialPushPersistence implements SocialPushPersistence {
   SecureStorageSocialPushPersistence({
     FlutterSecureStorage storage = const FlutterSecureStorage(
+      aOptions: usernodeAndroidSecureStorageOptions,
       iOptions: IOSOptions(
         accessibility: KeychainAccessibility.first_unlock_this_device,
         synchronizable: false,

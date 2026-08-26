@@ -122,6 +122,7 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
      * There is deliberately no replacement operation. The predecessor must
      * compare-release its own lease before a successor can bind.
      */
+    @Synchronized
     fun acquireMethodChannel(role: EngineRole, channel: MethodChannel): EngineLease? {
         val lease = engineChannels.acquire(role, channel) ?: run {
             Log.e(TAG, "Refusing $role alarm channel while another engine is bound")
@@ -161,10 +162,12 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
             )
             return
         }
-        handleCurrentMethodCall(call, result)
+        handleCurrentMethodCall(expected, call, result)
     }
 
-    fun markFlutterReadyForAlarmEvents(): Boolean {
+    @Synchronized
+    private fun markFlutterReadyForAlarmEvents(expected: EngineLease): Boolean {
+        if (!engineChannels.isCurrent(expected)) return false
         Log.d(TAG, "Flutter marked alarm channel ready")
         val pendingEvents = flutterAlarmEventBuffer.markFlutterReady()
         flushEventsToCurrentChannel(pendingEvents, "flutter_ready")
@@ -196,7 +199,11 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
         flushEventsToCurrentChannel(listOf(event), "immediate_dispatch")
     }
 
-    private fun handleCurrentMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    private fun handleCurrentMethodCall(
+        expected: EngineLease,
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
         when (call.method) {
             "ensureApplicationIncarnation" -> {
                 result.success(applicationIncarnationStore.ensure())
@@ -415,7 +422,7 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
                 // }
             }
             "markFlutterReadyForAlarmEvents" -> {
-                result.success(markFlutterReadyForAlarmEvents())
+                result.success(markFlutterReadyForAlarmEvents(expected))
             }
             "wasForceStoppedOnStartup" -> {
                 result.success(wasForceStoppedOnStartup())
@@ -917,48 +924,61 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
         }
 
         for (event in events) {
-            if (!engineChannels.isCurrent(captured.lease)) {
-                Log.w(TAG, "Alarm channel changed while flushing events (reason=$reason)")
-                event.completion?.invoke(false)
-                continue
-            }
             Log.d(TAG, "Sending event to Flutter: ${event.eventType}")
             val args = mapOf(
                 "eventType" to event.eventType,
                 "eventData" to event.eventData
             )
             val completion = event.completion
-            if (completion == null) {
-                captured.value.invokeMethod("onBlockProductionEvent", args)
-                continue
+            val dispatched = engineChannels.runIfCurrent(captured.lease) { channel ->
+                if (completion == null) {
+                    channel.invokeMethod("onBlockProductionEvent", args)
+                } else {
+                    channel.invokeMethod(
+                        "onBlockProductionEvent",
+                        args,
+                        object : MethodChannel.Result {
+                            override fun success(result: Any?) {
+                                val acknowledged = result == true &&
+                                    engineChannels.isCurrent(captured.lease)
+                                if (result == true && !acknowledged) {
+                                    Log.w(
+                                        TAG,
+                                        "Ignoring stale Flutter acknowledgement for " +
+                                            event.eventType,
+                                    )
+                                }
+                                completion(acknowledged)
+                            }
+
+                            override fun error(
+                                errorCode: String,
+                                errorMessage: String?,
+                                errorDetails: Any?,
+                            ) {
+                                Log.w(
+                                    TAG,
+                                    "Flutter rejected ${event.eventType}: " +
+                                        "$errorCode $errorMessage",
+                                )
+                                completion(false)
+                            }
+
+                            override fun notImplemented() {
+                                Log.w(
+                                    TAG,
+                                    "Flutter did not implement ${event.eventType}",
+                                )
+                                completion(false)
+                            }
+                        },
+                    )
+                }
             }
-
-            captured.value.invokeMethod(
-                "onBlockProductionEvent",
-                args,
-                object : MethodChannel.Result {
-                    override fun success(result: Any?) {
-                        completion(result == true)
-                    }
-
-                    override fun error(
-                        errorCode: String,
-                        errorMessage: String?,
-                        errorDetails: Any?,
-                    ) {
-                        Log.w(
-                            TAG,
-                            "Flutter rejected ${event.eventType}: $errorCode $errorMessage",
-                        )
-                        completion(false)
-                    }
-
-                    override fun notImplemented() {
-                        Log.w(TAG, "Flutter did not implement ${event.eventType}")
-                        completion(false)
-                    }
-                },
-            )
+            if (!dispatched) {
+                Log.w(TAG, "Alarm channel changed while flushing events (reason=$reason)")
+                completion?.invoke(false)
+            }
         }
     }
 }

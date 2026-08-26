@@ -49,6 +49,20 @@ internal class EngineLeaseRegistry<T : Any> {
     @Synchronized
     fun isCurrent(expected: EngineLease): Boolean = active?.lease === expected
 
+    /**
+     * Runs one synchronous dispatch step only while [expected] is current.
+     *
+     * The registry lock ends when [body] returns. It never covers an
+     * asynchronous platform reply.
+     */
+    @Synchronized
+    fun runIfCurrent(expected: EngineLease, body: (T) -> Unit): Boolean {
+        val current = active ?: return false
+        if (current.lease !== expected) return false
+        body(current.value)
+        return true
+    }
+
     @Synchronized
     fun compareRelease(expected: EngineLease): T? {
         val current = active ?: return null

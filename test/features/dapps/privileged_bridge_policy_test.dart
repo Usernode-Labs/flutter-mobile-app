@@ -37,7 +37,7 @@ void main() {
     expect(topFrame.marker, isNotNull);
     expect(subject.requiresCapability('completeLogin'), isTrue);
     expect(subject.requiresCapability('getBridgeInfo'), isFalse);
-    expect(subject.requiresCapability('sendTransaction'), isFalse);
+    expect(subject.requiresCapability('submitTransaction'), isFalse);
   });
 
   test('the centralized privileged method set stays explicit', () {
@@ -48,7 +48,6 @@ void main() {
       'reorderHomeScreenShortcuts',
       'openNativeScreen',
       'captureScreenshot',
-      'getProfileInfo',
       'getSettingsState',
       'manageStaking',
       'setNodeSleepEnabled',

@@ -146,7 +146,7 @@ void main() {
       {'privilegedCapability': lease?.capability},
     );
     final second = await coordinator.admit(
-      'getProfileInfo',
+      'openNativeScreen',
       {'privilegedCapability': lease?.capability},
     );
 

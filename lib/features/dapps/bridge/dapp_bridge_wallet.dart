@@ -1,10 +1,9 @@
 part of '../dapp_webview_screen.dart';
 
-/// Wallet-facing bridge methods: `getWalletState`, `sendTransaction`
-/// (with the native confirmation flow and receipt records), and
-/// `signMessage` (identity capture-and-revalidate around the
-/// user-paced confirmation).
-mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
+/// Wallet-facing bridge methods: `getWalletState`, `submitTransaction`, and
+/// `signMessage`. Transaction observation and receipt persistence belong to
+/// Social; native returns only the exact transaction id it queued.
+mixin _BridgeWallet on _DappWebViewScreenStateBase {
   Future<void> _handleGetWalletState(String id) async {
     // Unavailable-shaped response (all nulls) unless the identity owns a
     // wallet: mid-reconcile and guest sessions must not be served the
@@ -96,7 +95,7 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
     );
   }
 
-  Future<void> _handleSendTransaction(
+  Future<void> _handleSubmitTransaction(
       String id, Map<String, dynamic> payload) async {
     // Route-level gating cannot cover this bridge (every dApp webview can
     // request a send) — enforce identity readiness at the signing chokepoint
@@ -114,41 +113,21 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       );
       return;
     }
-    final args = payload['args'];
-    if (args is! Map<String, dynamic>) {
-      await _resolveJsPromise(id: id, value: null, error: 'Missing args');
-      return;
-    }
-
-    final destinationPubkey = (args['destination_pubkey'] as String?)?.trim();
-    final amountRaw = args['amount'];
-    final memoString = _parseMemoString(args['memo']);
-    final confirmTitle = (args['confirm_title'] as String?)?.trim();
-    final confirmSubtitle = (args['confirm_subtitle'] as String?)?.trim();
-
-    if (destinationPubkey == null || destinationPubkey.isEmpty) {
+    late final SubmitTransactionRequest request;
+    try {
+      request = SubmitTransactionRequest.fromBridgeArgs(payload['args']);
+    } on FormatException catch (error) {
       await _resolveJsPromise(
         id: id,
         value: null,
-        error: 'destination_pubkey is required',
+        error: error.message.toString(),
       );
       return;
     }
 
-    final amount = _parseAmountToBigInt(amountRaw);
-    if (amount == null) {
-      await _resolveJsPromise(id: id, value: null, error: 'Invalid amount');
-      return;
-    }
-
-    if (memoString == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Invalid memo; expected UTF-8 string',
-      );
-      return;
-    }
+    final destinationPubkey = request.destinationPubkey;
+    final amount = request.amount;
+    final memoString = request.memo;
     final memo = frb_types.Memo.fromUtf8Str(s: memoString);
 
     // The sender is the CAPTURED identity's confirmed address — never the
@@ -164,33 +143,16 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       return;
     }
 
-    // The receipt's owner, captured before the confirmation dialog (unbounded
-    // user time) and the RPC below. `_recordsBucket` is rebound on every
-    // identity edge, so reading it after those awaits could file A's transfer
-    // under guest or under B.
-    final recordsBucket = _activeRecordsBucket;
-
     final userConfirmed = await _requestTransactionConfirmation(
       from: fromAddress,
       to: destinationPubkey,
       amount: amount,
       memo: memoString,
-      confirmTitle: confirmTitle,
-      confirmSubtitle: confirmSubtitle,
+      confirmTitle: request.confirmation?.title,
+      confirmSubtitle: request.confirmation?.subtitle,
     );
 
     if (!userConfirmed) {
-      _addRecord(
-          _TxRecord(
-            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-            sentAt: DateTime.now(),
-            from: fromAddress,
-            to: destinationPubkey,
-            amount: amount,
-            memo: memoString,
-            status: _TxStatus.denied,
-          ),
-          bucket: recordsBucket);
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -201,18 +163,6 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
 
     if (AppConfig.viewOnly) {
       const errorMessage = 'Transactions are disabled in view-only mode.';
-      _addRecord(
-          _TxRecord(
-            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-            sentAt: DateTime.now(),
-            from: fromAddress,
-            to: destinationPubkey,
-            amount: amount,
-            memo: memoString,
-            status: _TxStatus.error,
-            errorMessage: errorMessage,
-          ),
-          bucket: recordsBucket);
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -254,42 +204,33 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
           memo: memo,
         );
 
-    final rpcError = resp?.error;
-    final isQueued = resp?.queued ?? false;
-    final recordId =
-        resp?.txId ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
-    _addRecord(
-        _TxRecord(
-          id: recordId,
-          sentAt: DateTime.now(),
-          from: fromAddress,
-          to: destinationPubkey,
-          amount: amount,
-          memo: memoString,
-          status: isQueued ? _TxStatus.queued : _TxStatus.error,
-          errorMessage: rpcError,
-        ),
-        bucket: recordsBucket);
-
-    if (isQueued &&
-        resp?.txId != null &&
-        recordsBucket == _activeRecordsBucket) {
-      _ensureConfirmPoller();
+    final rpcError = resp?.error?.trim();
+    final txId = resp?.txId;
+    if (resp?.queued != true ||
+        (rpcError != null && rpcError.isNotEmpty) ||
+        txId == null ||
+        txId.isEmpty ||
+        txId != txId.trim()) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: rpcError == null || rpcError.isEmpty
+            ? 'Native transaction submission did not return a transaction id.'
+            : rpcError,
+      );
+      return;
     }
 
     await _resolveJsPromise(
       id: id,
-      value: <String, dynamic>{
-        'queued': isQueued,
-        'error': rpcError,
-      },
+      value: SubmitTransactionResult(txId: txId).toBridgeJson(),
       error: null,
     );
   }
 
   Future<void> _handleSignMessage(
       String id, Map<String, dynamic> payload) async {
-    // Same identity gate as _handleSendTransaction: this handler loads the
+    // Same identity gate as _handleSubmitTransaction: this handler loads the
     // active account's private key, which must never happen while account
     // ownership is unsettled or for a guest. Captured once, revalidated at
     // the key-load effect point below.
@@ -506,23 +447,5 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       confirmTitle: confirmTitle,
       confirmSubtitle: confirmSubtitle,
     );
-  }
-
-  BigInt? _parseAmountToBigInt(Object? amountRaw) {
-    if (amountRaw is num) return BigInt.from(amountRaw.round());
-    if (amountRaw is String) {
-      final trimmed = amountRaw.trim();
-      if (trimmed.isEmpty) return null;
-      final parsed = double.tryParse(trimmed);
-      if (parsed == null) return null;
-      return BigInt.from(parsed.round());
-    }
-    return null;
-  }
-
-  String? _parseMemoString(Object? memoRaw) {
-    if (memoRaw is String) return memoRaw.trim();
-    if (memoRaw == null) return '';
-    return null;
   }
 }

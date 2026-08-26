@@ -93,7 +93,6 @@ class PrivilegedBridgePolicy {
     'reorderHomeScreenShortcuts',
     'openNativeScreen',
     'captureScreenshot',
-    'getProfileInfo',
     'getSettingsState',
     'manageStaking',
     'setNodeSleepEnabled',

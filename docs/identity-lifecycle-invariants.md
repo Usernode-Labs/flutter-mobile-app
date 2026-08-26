@@ -55,7 +55,6 @@ transition into `ready` retries any pending ZK completion.
 | Provisioned season id | Account-bucket-scoped pref, owned by `SessionController` | Written at reconcile commit |
 | Pending ZK completion | Versioned registration-repository outbox, pinned to an explicit bucket | Hidden by an exact-version terminal outcome |
 | ZK runtime session | Pref in the session's captured LAUNCH bucket, never the ambient one | Launch → finalization/timeout |
-| dApp transaction receipts | Account-bucket-scoped pref per dapp URL (`lib/features/dapps/bridge/dapp_bridge_records.dart`) | Per identity, reloaded on every identity edge |
 | HTTP debug buffer | `HttpDebugLogStore` (in-memory, process-global, identity-agnostic), generation-stamped per exchange | Cleared at every sign-out; in-flight exchanges from the retired generation are rejected (I16) |
 | Registry adoption marker | Network-prefixed pref (`accounts:adopting`) | Written before the namespaced copy, removed after the bare source is deleted |
 | Native application incarnation | Native pref/UserDefaults token (`ApplicationIncarnationStore`) | Rotated at sign-out, invalidated one-way at terminal reset |
@@ -262,14 +261,14 @@ re-proven at the effect point.** While the identity is `transitioning` or
 local account — it may still belong to a previous user; guest sessions never
 sign at all (`Identity.allowsSigning` refuses `guest` outright). Three
 independent gates enforce this: the router bounces wallet routes
-(`identityGateRedirect`), the dApp bridge refuses `sendTransaction` /
+(`identityGateRedirect`), the dApp bridge refuses `submitTransaction` /
 `signMessage`, and the node-start chokepoint refuses to start (I2). Entry
 gates alone are not enough: the dApp handlers capture the signing identity when
 the request arrives and re-validate its exact snapshot *after* the user
 confirmation dialog, immediately before loading the secret key or
 issuing the RPC — a login/logout while the dialog is up must not let the
 old confirmation sign under the new identity. All wallet reads exposed to
-dApps (`getNodeAddress`, `getWalletState`, balance/transaction fetches)
+dApps (`getNodeAddress` and `getWalletState`)
 derive their address from the same identity snapshot, never from the
 account registry directly. The router re-evaluates on every published
 snapshot.
@@ -277,7 +276,7 @@ snapshot.
 `Identity.allowsSigning` (guest-refusal test in
 `test/features/auth/providers/auth_status_test.dart`),
 `_bridgeWalletIdentity` and the post-confirmation epoch re-checks in
-`DappWebViewScreen._handleSendTransaction` / `_handleSignMessage`
+`DappWebViewScreen._handleSubmitTransaction` / `_handleSignMessage`
 (`lib/features/dapps/dapp_webview_screen.dart`), the identity-derived
 address in `walletProvider` (`lib/core/providers/wallet_provider.dart`),
 and the `startNode` gate.
@@ -305,11 +304,11 @@ baseline-migration tests in
 **I14 — Long-lived callbacks retain exact identity authority.** A log-sharing
 session captures one identity and credential, validates both before every
 send/retry and after each response, and never advances its cursor after either
-is replaced. dApp profile/logout callbacks capture identity before origin
-validation and re-check it after that await; profile data comes only from the
-captured snapshot, and a stale callback cannot log out its successor.
+is replaced. The dApp logout callback captures identity before origin
+validation and re-checks it after that await, so a stale callback cannot log
+out its successor.
 *Enforced by:* `LogShareController` / `LogShareService`, and
-`DappWebViewScreen._handleGetProfileInfo` / `_handleLogout`.
+`DappWebViewScreen._handleLogout`.
 
 **I16 — Voluntary sign-out is scoped; every other boundary is terminal.**
 `SessionController.logout` does not reset the app. iOS exposes no supported
@@ -410,13 +409,11 @@ Account-scoped state is deliberately kept: it belongs to the user's on-chain
 account, and it is segregated both by bucket and by the storage namespace, so
 the same user signing back in finds their wallet while a different user never
 resolves it. Anything account-sensitive that was NOT partitioned that way —
-dApp transaction receipts, the zkPassport runtime row's write target — is
-bucket-scoped rather than retained ambiently. Ownership for those is captured
-when the OPERATION starts, not read when it finishes: a transaction receipt
-follows the identity that made the transfer across the confirmation dialog and
-the RPC, and a zkPassport launch is stamped with the identity whose wallet and
-public key the server session was bound to, revalidated before it is
-persisted.
+notably the zkPassport runtime row's write target — is bucket-scoped rather
+than retained ambiently. A zkPassport launch is stamped with the identity whose
+wallet and public key the server session was bound to, revalidated before it is
+persisted. Transaction receipt persistence and observation are Social-owned;
+Flutter returns only the authoritative native `txId`.
 
 The document replacement is driven from `signOutCompletionProvider`, bumped
 once the boundary has settled, and it lives in the shared WebView owner

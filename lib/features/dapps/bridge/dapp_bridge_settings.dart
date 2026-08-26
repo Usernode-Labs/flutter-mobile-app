@@ -80,25 +80,6 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 
-  /// `getProfileInfo`: the leaderboard participant id SV's #profile screen
-  /// needs to query /me/ranking and /me/breakdown. Null when this install
-  /// hasn't registered with the leaderboard yet.
-  Future<void> _handleGetProfileInfo(String id) async {
-    final identity = ref.read(identityProvider);
-    if (!await _requireTrustedChromeOrigin(id, 'getProfileInfo')) return;
-    if (!_identityScopeIsCurrent(identity)) {
-      await _rejectStaleIdentityScope(id, 'getProfileInfo');
-      return;
-    }
-    await _resolveJsPromise(
-      id: id,
-      // Use only the captured identity. The participant-id provider may still
-      // hold the previous bucket's value while an identity transition settles.
-      value: {'participantId': identity.participantId},
-      error: null,
-    );
-  }
-
   /// Public, device-local build metadata. `getBridgeInfo` includes these two
   /// fields so the Social Vibecoding shell can identify the installed Flutter
   /// binary even on a staging origin, where privileged settings access is

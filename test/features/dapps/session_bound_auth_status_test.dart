@@ -34,12 +34,10 @@ void main() {
 
     expect(SessionHandoffGate.walletScopedMethods, {
       'getNodeAddress',
-      'sendTransaction',
+      'submitTransaction',
       'signMessage',
-      'txObserved',
       'getWalletState',
       'manageStaking',
-      'getTransactionRecords',
     });
     expect(SessionHandoffGate.authenticatedScopedMethods, {
       'getSocialPushState',

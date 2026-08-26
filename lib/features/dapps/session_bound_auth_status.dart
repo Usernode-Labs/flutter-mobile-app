@@ -13,12 +13,10 @@ class SessionHandoffGate {
 
   static const walletScopedMethods = <String>{
     'getNodeAddress',
-    'sendTransaction',
+    'submitTransaction',
     'signMessage',
-    'txObserved',
     'getWalletState',
     'manageStaking',
-    'getTransactionRecords',
   };
 
   static const authenticatedScopedMethods = <String>{

@@ -23,6 +23,30 @@ void main() {
     expect(settings, contains("'buildNumber': packageInfo.buildNumber"));
   });
 
+  test('bridge v5 exposes exact submission without native product receipts',
+      () async {
+    final dispatch = await File(
+      'lib/features/dapps/bridge/dapp_bridge_dispatch.dart',
+    ).readAsString();
+    final wallet = await File(
+      'lib/features/dapps/bridge/dapp_bridge_wallet.dart',
+    ).readAsString();
+
+    expect(dispatch, contains('static const int _bridgeVersion = 5;'));
+    expect(dispatch, contains("'submitTransaction'"));
+    expect(dispatch, isNot(contains("'sendTransaction'")));
+    expect(dispatch, isNot(contains("'txObserved'")));
+    expect(dispatch, isNot(contains("'getTransactionRecords'")));
+    expect(dispatch, isNot(contains("'getProfileInfo'")));
+    expect(wallet, contains('SubmitTransactionResult(txId: txId)'));
+    expect(
+      await File(
+        'lib/features/dapps/bridge/dapp_bridge_records.dart',
+      ).exists(),
+      isFalse,
+    );
+  });
+
   test('resuming the app replays authoritative state into the WebView',
       () async {
     final source = await File(
@@ -76,63 +100,6 @@ void main() {
       contains('unawaited(_controller.loadRequest(parseDappUrl(widget.url)));'),
     );
     expect(shell, contains('onSessionEnded: _reloadForSessionEnd,'));
-  });
-
-  test('dapp transaction receipts are bound to the identity that owns them',
-      () async {
-    final records = await File(
-      'lib/features/dapps/bridge/dapp_bridge_records.dart',
-    ).readAsString();
-    final webview = await File(
-      'lib/features/dapps/dapp_webview_screen.dart',
-    ).readAsString();
-
-    // Receipts carry sender, recipient, amount, memo and timing. Keyed by URL
-    // alone they were resolvable by every later WebView on the same URL,
-    // whoever was signed in.
-    expect(records, isNot(contains("=> 'dapp_tx_ids:")));
-    expect(records, isNot(contains("=> 'tx_records:")));
-    expect(records, contains('NetworkPrefs.prefixAccountKeyFor('));
-    expect(records, contains('_recordsBucket ?? NetworkPrefs.activeBucket'));
-    // Pre-bucket keys belong to a user this app can no longer identify.
-    expect(records, contains('Future<void> _removeUnbucketedRecords()'));
-    // In-memory maps are dropped on the identity edge, not just on disk.
-    final bind = records.substring(
-      records.indexOf('Future<void> _bindTxRecordsToActiveIdentity()'),
-    );
-    expect(bind, contains('_dappTxIds.clear();'));
-    expect(bind, contains('_txRecords.clear();'));
-    expect(webview, contains('unawaited(_bindTxRecordsToActiveIdentity());'));
-  });
-
-  test('a transaction receipt follows the identity that made it', () async {
-    final wallet = await File(
-      'lib/features/dapps/bridge/dapp_bridge_wallet.dart',
-    ).readAsString();
-    final records = await File(
-      'lib/features/dapps/bridge/dapp_bridge_records.dart',
-    ).readAsString();
-
-    // `_recordsBucket` is rebound on every identity edge, and a send waits on
-    // an unbounded confirmation dialog and then an RPC — reading the owner
-    // after those awaits files A's transfer under guest or under B.
-    final send = wallet.substring(
-      wallet.indexOf('final recordsBucket = _activeRecordsBucket;'),
-    );
-    expect(
-      wallet.indexOf('final recordsBucket = _activeRecordsBucket;'),
-      lessThan(wallet.indexOf('_requestTransactionConfirmation(')),
-    );
-    expect('bucket: recordsBucket'.allMatches(send).length, 3,
-        reason: 'denied, view-only and sent receipts all carry the owner');
-    // Only poll for confirmations while that owner still owns the screen.
-    expect(send, contains('recordsBucket == _activeRecordsBucket'));
-
-    expect(
-        records,
-        contains('void _addRecord(_TxRecord record, '
-            '{required String bucket})'));
-    expect(records, contains('Future<void> _appendRecordToRetiredBucket('));
   });
 
   test('login admits authenticated services without awaiting a wallet',

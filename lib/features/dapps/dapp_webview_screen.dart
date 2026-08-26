@@ -15,7 +15,6 @@ import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
@@ -38,6 +37,7 @@ import 'package:crypto_mobile_app/features/dapps/native_screen_capture.dart';
 import 'package:crypto_mobile_app/features/dapps/node_status_snapshot.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
+import 'package:crypto_mobile_app/features/dapps/submit_transaction_contract.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_store.dart'
     show SocialPushState;
@@ -57,14 +57,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
-part 'bridge/dapp_bridge_records.dart';
 part 'bridge/dapp_bridge_auth_node.dart';
 part 'bridge/dapp_bridge_wallet.dart';
 part 'bridge/dapp_bridge_shortcuts.dart';
@@ -411,7 +409,6 @@ abstract class _DappWebViewScreenStateBase
 class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     with
         WidgetsBindingObserver,
-        _BridgeTxRecords,
         _BridgeAuthNode,
         _BridgeWallet,
         _BridgeShortcuts,
@@ -545,9 +542,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       } else if (!next.isAuthenticated) {
         _sessionHandoffGate.begin();
       }
-      // Receipts are account-scoped: drop the previous identity's receipts
-      // from memory and reload this one's before anything can read them back.
-      unawaited(_bindTxRecordsToActiveIdentity());
     });
     // A settled sign-out must leave no trusted document rendering the retired
     // session. This is the shared WebView owner, so it happens here for every
@@ -569,7 +563,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       _dispatchAuthStatusEvent();
     });
     _listenForSocialPushEvents();
-    unawaited(_bindTxRecordsToActiveIdentity());
     unawaited(_ensureNodeForStandaloneDappEntry());
     WidgetsBinding.instance.addObserver(this);
   }
@@ -700,7 +693,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     _readyMainFrameLease = null;
     _privilegedBridgePolicy.dispose();
     _disposeSocialPushEvents();
-    _confirmPoller?.cancel();
     super.dispose();
   }
 

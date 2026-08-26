@@ -6,7 +6,6 @@ part of '../dapp_webview_screen.dart';
 mixin _BridgeDispatch
     on
         _DappWebViewScreenStateBase,
-        _BridgeTxRecords,
         _BridgeAuthNode,
         _BridgeWallet,
         _BridgeShortcuts,
@@ -16,12 +15,14 @@ mixin _BridgeDispatch
   /// Bridge protocol version. Bump only on breaking changes; additive
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
-  static const int _bridgeVersion = 4;
+  // Version 5 removes native product receipt/profile ownership and installs
+  // the exact tx-id-returning submitTransaction contract.
+  // It does not advertise the later sessionLifecycleProtocol.
+  static const int _bridgeVersion = 5;
   static final List<String> _staticBridgeCapabilities = [
     'getNodeAddress',
-    'sendTransaction',
+    'submitTransaction',
     'signMessage',
-    'txObserved',
     'getHomeScreenShortcutSupport',
     'addHomeScreenShortcut',
     'getHomeScreenShortcuts',
@@ -38,10 +39,8 @@ mixin _BridgeDispatch
     'nodeStatusEvents',
     'getWalletState',
     'manageStaking',
-    'getTransactionRecords',
     'openNativeScreen',
     zkIdentityFlowCapability,
-    'getProfileInfo',
     'getSettingsState',
     'setNodeSleepEnabled',
     'setDebugMode',
@@ -205,16 +204,12 @@ mixin _BridgeDispatch
       }
     }
 
-    if (method == 'sendTransaction') {
-      await _handleSendTransaction(id, payload);
+    if (method == 'submitTransaction') {
+      await _handleSubmitTransaction(id, payload);
     }
 
     if (method == 'signMessage') {
       await _handleSignMessage(id, payload);
-    }
-
-    if (method == 'txObserved') {
-      await _handleTxObserved(payload);
     }
 
     if (method == 'getHomeScreenShortcutSupport') {
@@ -269,16 +264,8 @@ mixin _BridgeDispatch
       await _handleManageStaking(id);
     }
 
-    if (method == 'getTransactionRecords') {
-      await _handleGetTransactionRecords(id);
-    }
-
     if (method == 'openNativeScreen') {
       await _handleOpenNativeScreen(id, payload);
-    }
-
-    if (method == 'getProfileInfo') {
-      await _handleGetProfileInfo(id);
     }
 
     if (method == 'getSettingsState') {

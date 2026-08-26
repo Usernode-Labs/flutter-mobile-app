@@ -40,6 +40,7 @@ object BackgroundAlarmEngine {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val watchdogDeliveriesInProgress = AtomicInteger(0)
+    private var cachedEngineLease: EngineLease? = null
 
     fun isWatchdogDeliveryInProgress(): Boolean = watchdogDeliveriesInProgress.get() > 0
 
@@ -64,7 +65,11 @@ object BackgroundAlarmEngine {
                     try {
                         Log.i(TAG, "Destroying cached FlutterEngine (reason=$reason)")
                         // Ensure no one tries to invoke on a stale messenger after destroy.
-                        AlarmMethodChannelHandler.getInstance()?.clearMethodChannel("engine_destroyed:$reason")
+                        cachedEngineLease?.let { lease ->
+                            AlarmMethodChannelHandler.getInstance()
+                                ?.compareReleaseMethodChannel(lease, "engine_destroyed:$reason")
+                        }
+                        cachedEngineLease = null
                         cached.destroy()
                     } catch (e: Exception) {
                         Log.w(TAG, "Error destroying FlutterEngine (reason=$reason)", e)
@@ -113,11 +118,16 @@ object BackgroundAlarmEngine {
         // This ensures the handler is registered when Dart code starts running
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         val handler = AlarmMethodChannelHandler.getOrCreate(context.applicationContext)
-        handler.setMethodChannel(channel)
+        val engineLease = handler.acquireMethodChannel(EngineRole.HEADLESS, channel)
+            ?: run {
+                flutterEngine.destroy()
+                throw IllegalStateException("Another Flutter engine owns the alarm channel")
+            }
+        cachedEngineLease = engineLease
         
         // Register the method call handler so Dart can invoke methods on this channel
         channel.setMethodCallHandler { call, result ->
-            handler.handleMethodCall(call, result)
+            handler.handleMethodCall(engineLease, call, result)
         }
         
         Log.d(TAG, "Method channel handler registered for background engine")
@@ -140,6 +150,9 @@ object BackgroundAlarmEngine {
             flutterEngine.dartExecutor.executeDartEntrypoint(headlessEntrypoint)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to execute Dart entrypoint headlessMain", e)
+            handler.compareReleaseMethodChannel(engineLease, "headless_start_failed")
+            cachedEngineLease = null
+            flutterEngine.destroy()
             throw e
         }
 

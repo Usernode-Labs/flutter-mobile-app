@@ -18,6 +18,8 @@ import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
 import com.usernode_labs.usernode.alarm.ApplicationIncarnationStore
 import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
+import com.usernode_labs.usernode.alarm.EngineLease
+import com.usernode_labs.usernode.alarm.EngineRole
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
 import com.usernode_labs.usernode.shortcuts.HomeShortcutsHandler
 import java.io.ByteArrayOutputStream
@@ -31,6 +33,7 @@ class MainActivity: FlutterActivity() {
     private val SCREENSHOT_CHANNEL = "com.usernode.app/screenshot"
     private val screenshotMaxBytes = 4 * 1024 * 1024
     private lateinit var alarmHandler: AlarmMethodChannelHandler
+    private var alarmEngineLease: EngineLease? = null
     private val backgroundStopHandler = Handler(Looper.getMainLooper())
     private val backgroundStopTimeoutMs = 5 * 60 * 1000L
     private val backgroundStopRunnable = Runnable {
@@ -49,13 +52,19 @@ class MainActivity: FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
 
         alarmHandler = AlarmMethodChannelHandler.getOrCreate(applicationContext)
-        alarmHandler.attachActivity(this)
 
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-        alarmHandler.setMethodChannel(channel)
+        val engineLease = alarmHandler.acquireMethodChannel(EngineRole.INTERACTIVE, channel)
+            ?: throw IllegalStateException("Another Flutter engine owns the alarm channel")
+        alarmEngineLease = engineLease
+        if (!alarmHandler.attachActivity(this, engineLease)) {
+            alarmHandler.compareReleaseMethodChannel(engineLease, "activity_attach_failed")
+            alarmEngineLease = null
+            throw IllegalStateException("Interactive engine could not attach its Activity")
+        }
 
         channel.setMethodCallHandler { call, result ->
-            alarmHandler.handleMethodCall(call, result)
+            alarmHandler.handleMethodCall(engineLease, call, result)
         }
 
         MethodChannel(
@@ -303,11 +312,14 @@ class MainActivity: FlutterActivity() {
 
     override fun onDestroy() {
         val ownsAlarmChannel = ::alarmHandler.isInitialized &&
-            alarmHandler.isActivityAttached(this)
+            alarmEngineLease?.let(alarmHandler::isCurrentEngine) == true
         if (ownsAlarmChannel) {
-            alarmHandler.clearMethodChannel("ui_activity_onDestroy")
-            alarmHandler.detachActivity(this)
+            alarmHandler.compareReleaseMethodChannel(
+                alarmEngineLease!!,
+                "ui_activity_onDestroy",
+            )
         }
+        alarmEngineLease = null
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
         super.onDestroy()
         Log.i(TAG, "destroyed - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");

@@ -37,13 +37,18 @@ import kotlinx.coroutines.launch
  * - Constructed with an application [Context] so it can exist in background-only processes.
  * - Optionally an [Activity] can be attached for UI-only operations (permission prompts / settings).
  */
-class AlarmMethodChannelHandler(context: Context) {
+internal class AlarmMethodChannelHandler private constructor(context: Context) {
 
     private val appContext: Context = context.applicationContext
 
-    // Activity is optional; only required for UI-only flows like permission prompts.
+    private class ActivityBinding(
+        val engineLease: EngineLease,
+        val activityRef: WeakReference<Activity>,
+    )
+
+    // Activity access is bound to the exact interactive engine lease.
     @Volatile
-    private var activityRef: WeakReference<Activity>? = null
+    private var activityBinding: ActivityBinding? = null
 
     private val alarmManager: AlarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val alarmScheduler: AlarmScheduler = AlarmScheduler(appContext, alarmManager)
@@ -51,7 +56,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private val applicationIncarnationStore = ApplicationIncarnationStore(appContext)
     private val powerManager: PowerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
 
-    private var methodChannel: MethodChannel? = null
+    private val engineChannels = EngineLeaseRegistry<MethodChannel>()
     private val flutterAlarmEventBuffer = FlutterAlarmEventBuffer()
     private var lastKnownExactAlarmPermission: Boolean? = null
     private val methodScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -81,27 +86,17 @@ class AlarmMethodChannelHandler(context: Context) {
             }
         }
 
-        internal fun setInstance(handler: AlarmMethodChannelHandler) {
-            instance = handler
+    }
+
+    @Synchronized
+    fun attachActivity(activity: Activity, expected: EngineLease): Boolean {
+        if (expected.role != EngineRole.INTERACTIVE || !engineChannels.isCurrent(expected)) {
+            Log.w(TAG, "Refusing Activity attachment for a stale or non-interactive engine")
+            return false
         }
-    }
-
-    init {
-        setInstance(this)
-        Log.d(TAG, "Handler initialized")
-    }
-
-    fun attachActivity(activity: Activity) {
-        activityRef = WeakReference(activity)
+        activityBinding = ActivityBinding(expected, WeakReference(activity))
         Log.d(TAG, "Activity attached (${activity::class.java.simpleName})")
-    }
-
-    fun detachActivity(activity: Activity? = null) {
-        val current = activityRef?.get()
-        if (activity == null || current === activity) {
-            activityRef = null
-            Log.d(TAG, "Activity detached")
-        }
+        return true
     }
 
     /**
@@ -110,24 +105,63 @@ class AlarmMethodChannelHandler(context: Context) {
      * @return true if an Activity is attached and not garbage collected, false otherwise
      */
     fun isActivityAttached(): Boolean {
-        return activityRef?.get() != null
+        val current = activityBinding ?: return false
+        return current.activityRef.get() != null &&
+            engineChannels.isCurrent(current.engineLease)
     }
 
-    fun isActivityAttached(activity: Activity): Boolean {
-        return activityRef?.get() === activity
+    private fun attachedActivity(): Activity? {
+        val current = activityBinding ?: return null
+        if (!engineChannels.isCurrent(current.engineLease)) return null
+        return current.activityRef.get()
     }
 
-    /// Set the method channel for bidirectional communication
-    fun setMethodChannel(channel: MethodChannel) {
-        methodChannel = channel
-        Log.d(TAG, "Method channel set")
+    /**
+     * Acquires the alarm channel for one exact engine.
+     *
+     * There is deliberately no replacement operation. The predecessor must
+     * compare-release its own lease before a successor can bind.
+     */
+    fun acquireMethodChannel(role: EngineRole, channel: MethodChannel): EngineLease? {
+        val lease = engineChannels.acquire(role, channel) ?: run {
+            Log.e(TAG, "Refusing $role alarm channel while another engine is bound")
+            return null
+        }
+        Log.d(TAG, "Alarm channel acquired by $role engine")
         flushPendingEvents("method_channel_set")
+        return lease
     }
 
-    fun clearMethodChannel(reason: String) {
-        methodChannel = null
+    @Synchronized
+    fun compareReleaseMethodChannel(expected: EngineLease, reason: String): Boolean {
+        if (engineChannels.compareRelease(expected) == null) {
+            Log.w(TAG, "Ignoring stale alarm channel release (reason=$reason)")
+            return false
+        }
+        if (activityBinding?.engineLease === expected) {
+            activityBinding = null
+        }
         flutterAlarmEventBuffer.markFlutterNotReady()
-        Log.d(TAG, "Method channel cleared (reason=$reason)")
+        Log.d(TAG, "Alarm channel released (role=${expected.role}, reason=$reason)")
+        return true
+    }
+
+    fun isCurrentEngine(expected: EngineLease): Boolean = engineChannels.isCurrent(expected)
+
+    fun handleMethodCall(
+        expected: EngineLease,
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
+        if (!engineChannels.isCurrent(expected)) {
+            result.error(
+                "STALE_ENGINE",
+                "The Flutter engine no longer owns the native alarm channel",
+                null,
+            )
+            return
+        }
+        handleCurrentMethodCall(call, result)
     }
 
     fun markFlutterReadyForAlarmEvents(): Boolean {
@@ -162,7 +196,7 @@ class AlarmMethodChannelHandler(context: Context) {
         flushEventsToCurrentChannel(listOf(event), "immediate_dispatch")
     }
 
-    fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    private fun handleCurrentMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "ensureApplicationIncarnation" -> {
                 result.success(applicationIncarnationStore.ensure())
@@ -548,7 +582,7 @@ class AlarmMethodChannelHandler(context: Context) {
 
     private fun enterTerminalReset(clearApplicationData: Boolean) {
         BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
-        activityRef?.get()?.finishAffinity()
+        attachedActivity()?.finishAffinity()
         Handler(Looper.getMainLooper()).post {
             if (clearApplicationData) {
                 val activityManager =
@@ -572,7 +606,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private fun requestExactAlarmPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) {
-                val activity = activityRef?.get()
+                val activity = attachedActivity()
                 if (activity == null) {
                     Log.w(TAG, "Cannot request exact alarm permission - no Activity attached")
                     return false
@@ -637,7 +671,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private fun requestPostNotificationsPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (!hasPostNotificationsPermission()) {
-                val activity = activityRef?.get()
+                val activity = attachedActivity()
                 if (activity == null) {
                     Log.w(TAG, "Cannot request POST_NOTIFICATIONS permission - no Activity attached")
                     return false
@@ -699,7 +733,7 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     private fun openAppNotificationSettings(): Boolean {
-        val activity = activityRef?.get()
+        val activity = attachedActivity()
         if (activity == null) {
             Log.w(TAG, "Cannot open notification settings - no Activity attached")
             return false
@@ -728,7 +762,7 @@ class AlarmMethodChannelHandler(context: Context) {
 
     private fun openBatteryOptimizationSettings(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val activity = activityRef?.get()
+            val activity = attachedActivity()
             if (activity == null) {
                 Log.w(TAG, "Cannot open battery settings - no Activity attached")
                 return false
@@ -757,7 +791,7 @@ class AlarmMethodChannelHandler(context: Context) {
 
     private fun requestBatteryOptimizationExemption(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val activity = activityRef?.get()
+            val activity = attachedActivity()
             if (activity == null) {
                 Log.w(TAG, "Cannot request battery optimization exemption - no Activity attached")
                 return false
@@ -871,8 +905,8 @@ class AlarmMethodChannelHandler(context: Context) {
             return
         }
 
-        val channel = methodChannel
-        if (channel == null) {
+        val captured = engineChannels.capture()
+        if (captured == null) {
             Log.w(TAG, "Cannot flush ${events.size} event(s) - method channel not set (reason=$reason)")
             events.forEach { it.completion?.invoke(false) }
             return
@@ -883,6 +917,11 @@ class AlarmMethodChannelHandler(context: Context) {
         }
 
         for (event in events) {
+            if (!engineChannels.isCurrent(captured.lease)) {
+                Log.w(TAG, "Alarm channel changed while flushing events (reason=$reason)")
+                event.completion?.invoke(false)
+                continue
+            }
             Log.d(TAG, "Sending event to Flutter: ${event.eventType}")
             val args = mapOf(
                 "eventType" to event.eventType,
@@ -890,11 +929,11 @@ class AlarmMethodChannelHandler(context: Context) {
             )
             val completion = event.completion
             if (completion == null) {
-                channel.invokeMethod("onBlockProductionEvent", args)
+                captured.value.invokeMethod("onBlockProductionEvent", args)
                 continue
             }
 
-            channel.invokeMethod(
+            captured.value.invokeMethod(
                 "onBlockProductionEvent",
                 args,
                 object : MethodChannel.Result {

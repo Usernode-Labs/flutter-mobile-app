@@ -1,0 +1,303 @@
+name: Prepare FRB Bindings
+
+on:
+  workflow_call:
+    inputs:
+      mobile_app_ref:
+        description: "Mobile app branch, tag, or commit to generate against"
+        required: false
+        default: ""
+        type: string
+      usernode_ref:
+        description: "Usernode branch, tag, or commit used as the Rust input"
+        required: false
+        default: "main"
+        type: string
+    outputs:
+      artifact_name:
+        description: "Current-run artifact containing the generated bindings"
+        value: ${{ jobs.resolve.outputs.artifact_name }}
+      flutter_version:
+        description: "Flutter version used to generate the Dart bindings"
+        value: ${{ jobs.resolve.outputs.flutter_version }}
+      mobile_app_sha:
+        description: "Exact mobile app commit used to generate the bindings"
+        value: ${{ jobs.resolve.outputs.mobile_app_sha }}
+      usernode_sha:
+        description: "Exact usernode commit used as the Rust input"
+        value: ${{ jobs.resolve.outputs.usernode_sha }}
+    secrets:
+      USERNODE_ACCESS_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  BINDINGS_SCHEMA: "3"
+  CARGO_EXPAND_VERSION: "1.0.115"
+  FLUTTER_VERSION: "3.41.4"
+
+jobs:
+  resolve:
+    name: Resolve binding inputs
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.binding_inputs.outputs.artifact_name }}
+      binding_fingerprint: ${{ steps.binding_inputs.outputs.binding_fingerprint }}
+      cargo_expand_version: ${{ steps.binding_inputs.outputs.cargo_expand_version }}
+      flutter_version: ${{ steps.binding_inputs.outputs.flutter_version }}
+      frb_rev: ${{ steps.binding_inputs.outputs.frb_rev }}
+      mobile_app_sha: ${{ steps.binding_inputs.outputs.mobile_app_sha }}
+      usernode_sha: ${{ steps.binding_inputs.outputs.usernode_sha }}
+    steps:
+      - name: Checkout mobile app
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.mobile_app_ref || github.sha }}
+
+      - name: Checkout usernode repository
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          ref: ${{ inputs.usernode_ref }}
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Resolve binding inputs
+        id: binding_inputs
+        run: |
+          set -euo pipefail
+          MOBILE_APP_SHA=$(git rev-parse HEAD)
+          USERNODE_SHA=$(git -C usernode rev-parse HEAD)
+          FRB_REV=$(grep -m1 'flutter_rust_bridge =' usernode/crates/usernode/Cargo.toml | sed -E 's/.*rev = "([^"]+)".*/\1/')
+          if [ -z "$FRB_REV" ]; then
+            echo "Unable to find flutter_rust_bridge rev in Cargo.toml" >&2
+            exit 1
+          fi
+
+          BINDING_FINGERPRINT=$(
+            {
+              echo "schema=$BINDINGS_SCHEMA"
+              echo "cargo_expand=$CARGO_EXPAND_VERSION"
+              echo "flutter=$FLUTTER_VERSION"
+              echo "frb=$FRB_REV"
+              echo "mobile"
+              git ls-files -s -- \
+                analysis_options.yaml \
+                flutter_rust_bridge.yaml \
+                pubspec.lock \
+                pubspec.yaml
+              echo "usernode"
+              git -C usernode ls-files -s -- \
+                Cargo.lock \
+                Cargo.toml \
+                rust-toolchain \
+                rust-toolchain.toml \
+                rustfmt.toml \
+                crates/usernode \
+                crates/node/src/rpc/rpcs
+            } | git hash-object --stdin
+          )
+
+          echo "artifact_name=frb-bindings-$BINDING_FINGERPRINT" >> "$GITHUB_OUTPUT"
+          echo "binding_fingerprint=$BINDING_FINGERPRINT" >> "$GITHUB_OUTPUT"
+          echo "cargo_expand_version=$CARGO_EXPAND_VERSION" >> "$GITHUB_OUTPUT"
+          echo "flutter_version=$FLUTTER_VERSION" >> "$GITHUB_OUTPUT"
+          echo "frb_rev=$FRB_REV" >> "$GITHUB_OUTPUT"
+          echo "mobile_app_sha=$MOBILE_APP_SHA" >> "$GITHUB_OUTPUT"
+          echo "usernode_sha=$USERNODE_SHA" >> "$GITHUB_OUTPUT"
+
+          echo "Bindings fingerprint: $BINDING_FINGERPRINT"
+          echo "Mobile app commit: $MOBILE_APP_SHA"
+          echo "Usernode commit: $USERNODE_SHA"
+          echo "flutter_rust_bridge revision: $FRB_REV"
+
+  prepare:
+    name: Generate or restore FRB bindings
+    needs: resolve
+    runs-on: ubuntu-20.04-16core2
+    concurrency:
+      group: frb-bindings-${{ needs.resolve.outputs.binding_fingerprint }}-${{ needs.resolve.outputs.mobile_app_sha }}
+      cancel-in-progress: false
+    steps:
+      - name: Restore generated bindings
+        id: cache-frb-bindings
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/frb-bindings-artifact
+          key: ${{ runner.os }}-frb-bindings-${{ needs.resolve.outputs.binding_fingerprint }}
+
+      - name: Checkout mobile app
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.mobile_app_sha }}
+
+      - name: Checkout usernode repository
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: Usernode-Labs/usernode
+          path: usernode
+          ref: ${{ needs.resolve.outputs.usernode_sha }}
+          token: ${{ secrets.USERNODE_ACCESS_TOKEN }}
+
+      - name: Move usernode repository next to workspace
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        run: mv usernode ../usernode
+
+      - name: Resolve usernode target path
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        id: usernode-paths
+        run: echo "target=$(cd ../usernode && pwd -P)/target" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Rust
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Flutter
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ needs.resolve.outputs.flutter_version }}
+          channel: "stable"
+          cache: false
+
+      - name: Cache cargo registry and git dependencies
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ needs.resolve.outputs.frb_rev }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+
+      - name: Cache cargo binaries
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-expand
+            ~/.cargo/bin/cargo-expand.version
+            ~/.cargo/bin/flutter_rust_bridge_codegen
+            ~/.cargo/bin/flutter_rust_bridge_codegen.rev
+          key: ${{ runner.os }}-cargo-bins-v3-frb-${{ needs.resolve.outputs.frb_rev }}-cargo-expand-${{ needs.resolve.outputs.cargo_expand_version }}
+
+      - name: Cache usernode Rust target artifacts
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.usernode-paths.outputs.target }}
+          key: ${{ runner.os }}-usernode-target-frb-v1-${{ needs.resolve.outputs.usernode_sha }}
+          restore-keys: |
+            ${{ runner.os }}-usernode-target-frb-v1-
+
+      - name: Install FRB codegen tools
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        env:
+          CARGO_EXPAND_VERSION: ${{ needs.resolve.outputs.cargo_expand_version }}
+          FRB_REV: ${{ needs.resolve.outputs.frb_rev }}
+        run: |
+          set -euo pipefail
+          CARGO_EXPAND_MARKER="$HOME/.cargo/bin/cargo-expand.version"
+          FRB_REV_MARKER="$HOME/.cargo/bin/flutter_rust_bridge_codegen.rev"
+
+          if ! command -v cargo-expand >/dev/null 2>&1 || \
+             [ "$(cat "$CARGO_EXPAND_MARKER" 2>/dev/null || true)" != "$CARGO_EXPAND_VERSION" ] || \
+             [ "$(cargo-expand --version | awk '{print $2}')" != "$CARGO_EXPAND_VERSION" ]; then
+            cargo install cargo-expand \
+              --version "$CARGO_EXPAND_VERSION" \
+              --locked \
+              --force
+            echo "$CARGO_EXPAND_VERSION" > "$CARGO_EXPAND_MARKER"
+          fi
+
+          if ! command -v flutter_rust_bridge_codegen >/dev/null 2>&1 || \
+             [ "$(cat "$FRB_REV_MARKER" 2>/dev/null || true)" != "$FRB_REV" ]; then
+            cargo install flutter_rust_bridge_codegen \
+              --git https://github.com/Usernode-Labs/flutter_rust_bridge \
+              --rev "$FRB_REV" \
+              --locked \
+              --force
+            echo "$FRB_REV" > "$FRB_REV_MARKER"
+          fi
+
+          test "$(cat "$CARGO_EXPAND_MARKER")" = "$CARGO_EXPAND_VERSION"
+          test "$(cargo-expand --version | awk '{print $2}')" = "$CARGO_EXPAND_VERSION"
+          test "$(cat "$FRB_REV_MARKER")" = "$FRB_REV"
+          flutter_rust_bridge_codegen --version
+
+      - name: Install Flutter dependencies
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        run: flutter pub get
+
+      - name: Generate flutter_rust_bridge bindings
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        run: flutter_rust_bridge_codegen generate
+
+      - name: Stage generated bindings
+        if: steps.cache-frb-bindings.outputs.cache-hit != 'true'
+        env:
+          BINDING_FINGERPRINT: ${{ needs.resolve.outputs.binding_fingerprint }}
+        run: |
+          BUNDLE_DIR="$RUNNER_TEMP/frb-bindings-artifact"
+          RUST_BINDING="../usernode/crates/usernode/src/frb_generated.rs"
+          if [ ! -s "$RUST_BINDING" ]; then
+            echo "::error::Missing generated Rust binding: $RUST_BINDING"
+            exit 1
+          fi
+
+          rm -rf "$BUNDLE_DIR"
+          mkdir -p "$BUNDLE_DIR/dart" "$BUNDLE_DIR/rust"
+          cp -R lib/src/rust/. "$BUNDLE_DIR/dart/"
+          cp "$RUST_BINDING" "$BUNDLE_DIR/rust/frb_generated.rs"
+          echo "$BINDING_FINGERPRINT" > "$BUNDLE_DIR/fingerprint"
+
+      - name: Validate generated bindings
+        env:
+          BINDING_FINGERPRINT: ${{ needs.resolve.outputs.binding_fingerprint }}
+        run: |
+          BUNDLE_DIR="$RUNNER_TEMP/frb-bindings-artifact"
+          for file in \
+            "$BUNDLE_DIR/dart/frb_generated.dart" \
+            "$BUNDLE_DIR/dart/frb_generated.io.dart" \
+            "$BUNDLE_DIR/dart/frb_generated.web.dart" \
+            "$BUNDLE_DIR/dart/frb_types.dart" \
+            "$BUNDLE_DIR/rust/frb_generated.rs"; do
+            if [ ! -s "$file" ]; then
+              echo "::error::Missing generated binding: $file"
+              exit 1
+            fi
+          done
+
+          if [ "$(cat "$BUNDLE_DIR/fingerprint")" != "$BINDING_FINGERPRINT" ]; then
+            echo "::error::Cached bindings do not match the requested input fingerprint"
+            exit 1
+          fi
+
+      - name: Upload generated bindings for this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.resolve.outputs.artifact_name }}
+          path: ${{ runner.temp }}/frb-bindings-artifact
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Report cache result
+        env:
+          CACHE_HIT: ${{ steps.cache-frb-bindings.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = "true" ]; then
+            SOURCE="actions-cache"
+          else
+            SOURCE="generated"
+          fi
+          echo "### FRB bindings" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source: \`$SOURCE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Input fingerprint: \`${{ needs.resolve.outputs.binding_fingerprint }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Usernode commit: \`${{ needs.resolve.outputs.usernode_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- FRB revision: \`${{ needs.resolve.outputs.frb_rev }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- cargo-expand version: \`${{ needs.resolve.outputs.cargo_expand_version }}\`" >> "$GITHUB_STEP_SUMMARY"

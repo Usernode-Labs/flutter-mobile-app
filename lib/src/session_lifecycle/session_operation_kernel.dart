@@ -10,7 +10,13 @@ enum _ScopeState {
 }
 
 final class _SessionScope {
-  _ScopeState _state = _ScopeState.staged;
+  _SessionScope() : _state = _ScopeState.staged;
+
+  _SessionScope.closed() : _state = _ScopeState.revoked {
+    _drained.complete();
+  }
+
+  _ScopeState _state;
   int _operations = 0;
   int _children = 0;
   int _effects = 0;
@@ -249,43 +255,100 @@ final class _ReadOnlySessionView implements SessionFeatureAccessView {
   void dispose() => _changes.close();
 }
 
-final class _SessionOperationKernel {
-  _SessionOperationKernel(SessionIdentityProjection initialIdentity) {
-    final initial = _createOpenSession(initialIdentity);
+/// The private owner of session publication and lifecycle mutation.
+///
+/// Production bootstrap will construct exactly one of these after native
+/// recovery can provide a truthful initial projection. Until then it remains
+/// deliberately unmounted: the existing application identity must not gain a
+/// decorative second publisher. Only the read-only [view] crosses this root.
+final class _SessionCompositionRoot {
+  _SessionCompositionRoot(SessionIdentityProjection initialIdentity) {
+    final initial = switch (initialIdentity.status) {
+      SessionProjectionStatus.signedOut =>
+        _createSignedOutSession(initialIdentity),
+      SessionProjectionStatus.ready => _createOpenSession(initialIdentity),
+    };
     _published = initial;
     _view = _ReadOnlySessionView(initial.featureAccess);
   }
 
   late _PublishedSession _published;
   late final _ReadOnlySessionView _view;
-  var _replacementInFlight = false;
+  var _logoutInFlight = false;
   var _disposed = false;
 
   SessionFeatureAccessView get view => _view;
 
-  Future<void> replaceWith(SessionIdentityProjection identity) async {
-    if (_disposed) throw StateError('Session operation kernel is disposed.');
-    if (_replacementInFlight) {
-      throw StateError('A session replacement is already in progress.');
+  Future<void> logout(SessionIdentityProjection signedOut) {
+    if (signedOut.status != SessionProjectionStatus.signedOut) {
+      throw ArgumentError.value(
+        signedOut.status,
+        'signedOut',
+        'Logout requires a signed-out projection.',
+      );
     }
-    _replacementInFlight = true;
+    _checkActive();
+    if (_logoutInFlight) {
+      throw StateError('Session logout is already in progress.');
+    }
+    if (_published.featureAccess.identity.status ==
+        SessionProjectionStatus.signedOut) {
+      return Future<void>.value();
+    }
+    _logoutInFlight = true;
 
     // Closing admission is synchronous. Publication remains on A until this
-    // exact drain completes; there is no timeout or forced successor.
+    // exact drain completes; there is no timeout or forced publication.
     final drain = _published.scope.closeAndDrain();
-    try {
-      await drain;
+    return drain.then<void>((_) {
       if (_disposed) return;
-      final successor = _createOpenSession(identity);
-      _published = successor;
-      _view.publish(successor.featureAccess);
-    } finally {
-      _replacementInFlight = false;
+      final publication = _createSignedOutSession(signedOut);
+      _published = publication;
+      _view.publish(publication.featureAccess);
+    }).whenComplete(() {
+      _logoutInFlight = false;
+    });
+  }
+
+  void login(SessionIdentityProjection ready) {
+    if (ready.status != SessionProjectionStatus.ready) {
+      throw ArgumentError.value(
+        ready.status,
+        'ready',
+        'Login requires a ready projection.',
+      );
     }
+    _checkActive();
+    if (_logoutInFlight ||
+        _published.featureAccess.identity.status !=
+            SessionProjectionStatus.signedOut) {
+      throw StateError('Logout must drain and publish before login.');
+    }
+
+    final publication = _createOpenSession(ready);
+    _published = publication;
+    _view.publish(publication.featureAccess);
+  }
+
+  void _checkActive() {
+    if (_disposed) throw StateError('Session composition root is disposed.');
   }
 
   _PublishedSession _createOpenSession(SessionIdentityProjection identity) {
     final scope = _SessionScope()..open();
+    return _createSession(identity, scope);
+  }
+
+  _PublishedSession _createSignedOutSession(
+    SessionIdentityProjection identity,
+  ) {
+    return _createSession(identity, _SessionScope.closed());
+  }
+
+  _PublishedSession _createSession(
+    SessionIdentityProjection identity,
+    _SessionScope scope,
+  ) {
     return _PublishedSession(
       scope: scope,
       featureAccess: SessionFeatureAccess(
@@ -296,7 +359,11 @@ final class _SessionOperationKernel {
   }
 
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
+    // Widget/process-root disposal cannot await, but admission still closes
+    // synchronously and no successor is ever published from this root.
+    unawaited(_published.scope.closeAndDrain());
     _view.dispose();
   }
 }
@@ -308,17 +375,19 @@ final class _SessionOperationKernel {
 /// fake counted effect.
 final class SessionOperationKernelTestHarness {
   SessionOperationKernelTestHarness(SessionIdentityProjection initialIdentity)
-      : _kernel = _SessionOperationKernel(initialIdentity);
+      : _root = _SessionCompositionRoot(initialIdentity);
 
-  final _SessionOperationKernel _kernel;
+  final _SessionCompositionRoot _root;
   final SessionEffectTestSink effects = const SessionEffectTestSink._();
 
-  SessionFeatureAccessView get view => _kernel.view;
+  SessionFeatureAccessView get view => _root.view;
 
-  Future<void> replaceWith(SessionIdentityProjection identity) =>
-      _kernel.replaceWith(identity);
+  Future<void> logout(SessionIdentityProjection signedOut) =>
+      _root.logout(signedOut);
 
-  void dispose() => _kernel.dispose();
+  void login(SessionIdentityProjection ready) => _root.login(ready);
+
+  void dispose() => _root.dispose();
 }
 
 /// Fake sink used only to prove synchronous effect acquisition and drain.

@@ -12,8 +12,12 @@ final _identityA = SessionIdentityProjection.ready(
   address: 'address-a',
 );
 
-final _identityB = SessionIdentityProjection.ready(
+final _signedOut = SessionIdentityProjection.signedOut(
   nativeRevision: '2',
+);
+
+final _identityB = SessionIdentityProjection.ready(
+  nativeRevision: '3',
   participantId: 2,
   accountId: 'account-b',
   address: 'address-b',
@@ -37,7 +41,7 @@ void main() {
     });
     expect(bodyEntered, isTrue);
 
-    final replacement = harness.replaceWith(_identityB);
+    final logout = harness.logout(_signedOut);
     var rejectedBodyEntered = false;
     expect(
       () => runnerA.run<void>((_) {
@@ -60,7 +64,18 @@ void main() {
 
     operationRelease.complete();
     effectRelease.complete();
-    await Future.wait([running, effect, replacement]);
+    await Future.wait([running, effect, logout]);
+    expect(
+      harness.view.current.identity.status,
+      SessionProjectionStatus.signedOut,
+    );
+    expect(
+      () => harness.view.current.operations.run<void>((_) {}),
+      throwsA(isA<SessionAdmissionClosedException>()),
+    );
+
+    harness.login(_identityB);
+    expect(harness.view.current.identity.nativeRevision, '3');
   });
 
   test('drain waits for registered children and independently counted effects',
@@ -81,7 +96,7 @@ void main() {
         () => effectRelease.future,
       );
     });
-    final replacement = harness.replaceWith(_identityB);
+    final logout = harness.logout(_signedOut);
 
     childRelease.complete();
     await child;
@@ -90,8 +105,11 @@ void main() {
 
     effectRelease.complete();
     await effect;
-    await replacement;
+    await logout;
     expect(harness.view.current.identity.nativeRevision, '2');
+
+    harness.login(_identityB);
+    expect(harness.view.current.identity.nativeRevision, '3');
 
     expect(
       () => harness.effects.run<void>(operation, () {}),
@@ -99,12 +117,19 @@ void main() {
     );
   });
 
-  test('a retired runner stays revoked after its successor opens', () async {
+  test('direct replacement rejects and a retired runner stays revoked',
+      () async {
     final harness = SessionOperationKernelTestHarness(_identityA);
     addTearDown(harness.dispose);
     final runnerA = harness.view.current.operations;
 
-    await harness.replaceWith(_identityB);
+    expect(
+      () => harness.login(_identityB),
+      throwsA(isA<StateError>()),
+    );
+
+    await harness.logout(_signedOut);
+    harness.login(_identityB);
 
     expect(
       () => runnerA.run<void>((_) {}),
@@ -130,15 +155,23 @@ void main() {
     });
     addTearDown(subscription.cancel);
 
-    final replacement = harness.replaceWith(_identityB);
+    final logout = harness.logout(_signedOut);
     expect(harness.view.current.identity.nativeRevision, '1');
     expect(notifications, isEmpty);
+    expect(
+      () => harness.login(_identityB),
+      throwsA(isA<StateError>()),
+    );
 
     releaseA.complete();
     await runningA;
-    await replacement;
+    await logout;
 
     expect(harness.view.current.identity.nativeRevision, '2');
     expect(notifications, ['2']);
+
+    harness.login(_identityB);
+    expect(harness.view.current.identity.nativeRevision, '3');
+    expect(notifications, ['2', '3']);
   });
 }

@@ -117,7 +117,10 @@ final class SessionIdentityProjection {
   final String? address;
 }
 
-/// The one immutable feature publication for an exact session.
+/// The one immutable feature publication for an exact session state.
+///
+/// A signed-out publication carries a permanently rejecting [operations]
+/// runner; only a separately published ready session admits feature work.
 final class SessionFeatureAccess {
   const SessionFeatureAccess({
     required this.identity,

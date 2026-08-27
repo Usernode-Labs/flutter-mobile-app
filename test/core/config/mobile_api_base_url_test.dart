@@ -20,4 +20,9 @@ void main() {
     expect(Uri.parse(AppConfig.versionCheckApiUrl).path,
         '/api/v4/app-version/check');
   });
+  test('explorer APIs default to the preseason testnet', () {
+    const expected = 'https://preseason-testnet.apps.beta.usernodelabs.org/api';
+    expect(AppConfig.primaryExplorerUrl, expected);
+    expect(AppConfig.secondaryExplorerUrl, expected);
+  });
 }

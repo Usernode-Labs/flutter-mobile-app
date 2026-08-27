@@ -78,6 +78,9 @@ lib/src/rust
 
 .vscode/
 rust
+!rust_builder/rust/
+!rust_builder/rust/**
+/rust_builder/rust/target/
 ios/build/
 ios/Podfile.lock
 rust_builder/cargokit/build_tool/pubspec.lock

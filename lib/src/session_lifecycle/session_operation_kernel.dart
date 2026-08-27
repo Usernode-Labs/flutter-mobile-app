@@ -1,6 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
+import 'package:crypto_mobile_app/src/rust/mobile_api.dart' as native;
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
+import 'package:http/http.dart' as http;
+
+part 'native_session_transport.dart';
 
 enum _ScopeState {
   staged,
@@ -287,27 +298,42 @@ final class _SessionCompositionRoot {
         'Logout requires a signed-out projection.',
       );
     }
+    return logoutAfterDrain(() => signedOut);
+  }
+
+  Future<void> logoutAfterDrain(
+    FutureOr<SessionIdentityProjection> Function() commit,
+  ) async {
     _checkActive();
     if (_logoutInFlight) {
       throw StateError('Session logout is already in progress.');
     }
     if (_published.featureAccess.identity.status ==
         SessionProjectionStatus.signedOut) {
-      return Future<void>.value();
+      return;
     }
     _logoutInFlight = true;
 
     // Closing admission is synchronous. Publication remains on A until this
     // exact drain completes; there is no timeout or forced publication.
     final drain = _published.scope.closeAndDrain();
-    return drain.then<void>((_) {
+    try {
+      await drain;
+      final signedOut = await commit();
+      if (signedOut.status != SessionProjectionStatus.signedOut) {
+        throw ArgumentError.value(
+          signedOut.status,
+          'commit',
+          'Logout commit must return a signed-out projection.',
+        );
+      }
       if (_disposed) return;
       final publication = _createSignedOutSession(signedOut);
       _published = publication;
       _view.publish(publication.featureAccess);
-    }).whenComplete(() {
+    } finally {
       _logoutInFlight = false;
-    });
+    }
   }
 
   void login(SessionIdentityProjection ready) {
@@ -326,6 +352,26 @@ final class _SessionCompositionRoot {
     }
 
     final publication = _createOpenSession(ready);
+    _published = publication;
+    _view.publish(publication.featureAccess);
+  }
+
+  void replaceSignedOut(SessionIdentityProjection signedOut) {
+    if (signedOut.status != SessionProjectionStatus.signedOut) {
+      throw ArgumentError.value(
+        signedOut.status,
+        'signedOut',
+        'Signed-out replacement requires a signed-out projection.',
+      );
+    }
+    _checkActive();
+    if (_logoutInFlight ||
+        _published.featureAccess.identity.status !=
+            SessionProjectionStatus.signedOut) {
+      throw StateError('Only a closed signed-out projection can be replaced.');
+    }
+
+    final publication = _createSignedOutSession(signedOut);
     _published = publication;
     _view.publish(publication.featureAccess);
   }
@@ -368,40 +414,145 @@ final class _SessionCompositionRoot {
   }
 }
 
-/// Test-only access to the in-memory scheduling core.
+/// Run the fixed deterministic ordering proof used by the lifecycle test.
 ///
-/// This type lives under `lib/src`, is not exported, and owns no native
-/// transport or production sink. It can only exercise fake operations and a
-/// fake counted effect.
-final class SessionOperationKernelTestHarness {
-  SessionOperationKernelTestHarness(SessionIdentityProjection initialIdentity)
-      : _root = _SessionCompositionRoot(initialIdentity);
+/// This deliberately accepts no projections, callbacks, roots, runners, or
+/// sinks and returns only inert event labels. It lets the test exercise the
+/// private scheduling implementation without publishing a second lifecycle
+/// owner as production-callable API.
+Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
+  final identityA = SessionIdentityProjection.ready(
+    nativeRevision: '1',
+    participantId: 1,
+    accountId: 'account-a',
+    address: 'address-a',
+  );
+  final signedOut = SessionIdentityProjection.signedOut(nativeRevision: '2');
+  final identityB = SessionIdentityProjection.ready(
+    nativeRevision: '3',
+    participantId: 2,
+    accountId: 'account-b',
+    address: 'address-b',
+  );
+  final events = <String>[];
+  final root = _SessionCompositionRoot(identityA);
+  final runnerA = root.view.current.operations;
+  final publication = root.view.changes.listen(
+    (next) => events.add('publish:${next.identity.nativeRevision}'),
+  );
+  try {
+    final operationRelease = Completer<void>();
+    final childRelease = Completer<void>();
+    final effectRelease = Completer<void>();
+    late SessionOperation operation;
+    late Future<void> child;
+    late Future<void> effect;
+    final running = runnerA.run<void>((admitted) {
+      events.add('operation-entered');
+      operation = admitted;
+      child = admitted.runChild<void>((_) {
+        events.add('child-entered');
+        return childRelease.future;
+      });
+      effect = _SessionEffectSelfCheckSink.run<void>(admitted, () {
+        events.add('effect-entered');
+        return effectRelease.future;
+      });
+      return operationRelease.future;
+    });
 
-  final _SessionCompositionRoot _root;
-  final SessionEffectTestSink effects = const SessionEffectTestSink._();
+    final logout = root.logoutAfterDrain(() {
+      events.add('commit');
+      return signedOut;
+    });
+    _expectSelfCheckThrows<SessionAdmissionClosedException>(
+      () => runnerA.run<void>((_) {}),
+      'close must reject new admission synchronously',
+    );
+    events.add('admission-closed');
 
-  SessionFeatureAccessView get view => _root.view;
+    operationRelease.complete();
+    await Future<void>.delayed(Duration.zero);
+    _expectSelfCheck(
+        !events.contains('commit'), 'operation body did not drain');
+    childRelease.complete();
+    await child;
+    await Future<void>.delayed(Duration.zero);
+    _expectSelfCheck(!events.contains('commit'), 'effect did not drain');
+    effectRelease.complete();
+    await Future.wait<void>([running, effect, logout]);
+    _expectSelfCheck(
+      root.view.current.identity.nativeRevision == '2',
+      'signed-out publication must follow commit',
+    );
 
-  Future<void> logout(SessionIdentityProjection signedOut) =>
-      _root.logout(signedOut);
+    root.login(identityB);
+    _expectSelfCheckThrows<SessionAdmissionClosedException>(
+      () => runnerA.run<void>((_) {}),
+      'retired runner reopened',
+    );
+    events.add('retired-runner-rejected');
+    _expectSelfCheckThrows<SessionOperationExpiredException>(
+      () => _SessionEffectSelfCheckSink.run<void>(operation, () {}),
+      'expired operation reacquired an effect',
+    );
+    events.add('expired-effect-rejected');
+  } finally {
+    await publication.cancel();
+    root.dispose();
+  }
 
-  void login(SessionIdentityProjection ready) => _root.login(ready);
+  final queuedRoot = _SessionCompositionRoot(
+    SessionIdentityProjection.signedOut(nativeRevision: '0'),
+  );
+  final transitions = _NativeSessionTransitionSlot();
+  final queuedPublication = queuedRoot.view.changes.listen(
+    (next) => events.add('queued-publish:${next.identity.nativeRevision}'),
+  );
+  try {
+    const realm = 'trusted-realm';
+    transitions.beginEstablish(realm);
+    final establishCompleted = transitions.beginLogout(realm);
+    _expectSelfCheck(
+        establishCompleted != null, 'logout did not join establish');
+    final queuedLogout = () async {
+      await establishCompleted;
+      queuedRoot.replaceSignedOut(
+        SessionIdentityProjection.signedOut(nativeRevision: '4'),
+      );
+      transitions.finishLogout(succeeded: true);
+    }();
+    if (!transitions.hasTerminalIntentFor(realm)) {
+      queuedRoot.login(identityB);
+    }
+    transitions.finishEstablish();
+    await queuedLogout;
+    _expectSelfCheck(
+      queuedRoot.view.current.identity.status ==
+          SessionProjectionStatus.signedOut,
+      'queued logout published Ready',
+    );
+    _expectSelfCheckThrows<SessionAdmissionClosedException>(
+      () => queuedRoot.view.current.operations.run<void>((_) {}),
+      'queued logout opened admission',
+    );
+    events.add('queued-runner-rejected');
+  } finally {
+    await queuedPublication.cancel();
+    queuedRoot.dispose();
+  }
 
-  void dispose() => _root.dispose();
+  return List<String>.unmodifiable(events);
 }
 
-/// Fake sink used only to prove synchronous effect acquisition and drain.
-final class SessionEffectTestSink {
-  const SessionEffectTestSink._();
-
-  Future<T> run<T>(
+abstract final class _SessionEffectSelfCheckSink {
+  static Future<T> run<T>(
     SessionOperation operation,
     FutureOr<T> Function() body,
   ) {
     if (operation is! _SessionOperation) {
       throw const SessionOperationExpiredException();
     }
-    // Acquire synchronously before invoking even a synchronous sink body.
     final lease = operation.acquireEffect();
     late FutureOr<T> result;
     try {
@@ -412,4 +563,21 @@ final class SessionEffectTestSink {
     }
     return Future<T>.value(result).whenComplete(lease.release);
   }
+}
+
+void _expectSelfCheck(bool condition, String message) {
+  if (!condition) throw StateError(message);
+}
+
+void _expectSelfCheckThrows<T extends Object>(
+  void Function() body,
+  String message,
+) {
+  try {
+    body();
+  } catch (error) {
+    if (error is T) return;
+    Error.throwWithStackTrace(error, StackTrace.current);
+  }
+  throw StateError(message);
 }

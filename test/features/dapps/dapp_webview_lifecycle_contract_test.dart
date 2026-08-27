@@ -64,8 +64,9 @@ void main() {
     expect(source, contains('WidgetsBinding.instance.addObserver(this);'));
     expect(
       lifecycle,
-      contains('state != AppLifecycleState.resumed || !mounted'),
+      contains('state != AppLifecycleState.resumed ||'),
     );
+    expect(lifecycle, contains('widget.nativeSessionBridge != null'));
     expect(lifecycle, contains('_dispatchAuthStatusEvent();'));
     expect(lifecycle, contains('_dispatchPendingSocialPushEvents();'));
     expect(source, contains('WidgetsBinding.instance.removeObserver(this);'));
@@ -94,9 +95,17 @@ void main() {
     final listener = webview.substring(
       webview.indexOf('ref.listenManual<int>(signOutCompletionProvider'),
     );
-    expect(listener, contains('final delegate = widget.onSessionEnded;'));
+    expect(listener, contains('_replaceRetiredSessionDocument();'));
+    final replacementStart = webview.indexOf(
+      'void _replaceRetiredSessionDocument()',
+    );
+    final replacement = webview.substring(
+      replacementStart,
+      webview.indexOf('// First main-frame load outcome', replacementStart),
+    );
+    expect(replacement, contains('final delegate = widget.onSessionEnded;'));
     expect(
-      listener,
+      replacement,
       contains('unawaited(_controller.loadRequest(parseDappUrl(widget.url)));'),
     );
     expect(shell, contains('onSessionEnded: _reloadForSessionEnd,'));

@@ -50,6 +50,7 @@ import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_
     show zkPassportFlowControllerProvider;
 import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -125,6 +126,9 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   /// first-launch gate ("has SV ever rendered on this install?").
   final void Function(bool ok)? onFirstLoadResult;
 
+  /// Private composition-root ingress. It exposes no native/root authority.
+  final NativeSessionBridgeIngress? nativeSessionBridge;
+
   const DappWebViewScreen({
     super.key,
     required this.url,
@@ -134,6 +138,7 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
     this.standalone = false,
     this.onSessionEnded,
     this.onFirstLoadResult,
+    this.nativeSessionBridge,
   });
 
   @override
@@ -202,6 +207,12 @@ abstract class _DappWebViewScreenStateBase
     // The trusted shell calls markPrivilegedBridgeReady only after installing
     // its native-event listeners. The handler binds this lease to that exact
     // realm before replaying state, without relying on WebView finish callbacks.
+    // Protocol 2 intentionally has no legacy identity, node, wallet, or push
+    // event surface. Validate the exact realm without installing it as a
+    // destination for those ambient event publishers.
+    if (widget.nativeSessionBridge != null) {
+      return _privilegedBridgePolicy.runInLease(lease, 'void 0;');
+    }
     final service = SocialPushService.instance;
     final foregroundRevision = service.foregroundInvalidationRevision;
     final canReplayForeground = !_sessionHandoffGate.isAuthenticatedBlocked;
@@ -273,6 +284,17 @@ abstract class _DappWebViewScreenStateBase
     return true;
   }
 
+  void _replaceRetiredSessionDocument() {
+    final delegate = widget.onSessionEnded;
+    if (delegate != null) {
+      delegate();
+      return;
+    }
+    if (!mounted) return;
+    _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+  }
+
   // First main-frame load outcome has been reported via
   // widget.onFirstLoadResult (shell first-launch gate). Never reset.
   bool _firstLoadReported = false;
@@ -337,6 +359,7 @@ abstract class _DappWebViewScreenStateBase
     required String id,
     required Object? value,
     required String? error,
+    Map<String, Object?>? errorInfo,
   }) async {
     final lease = _activePrivilegedBridgeLease;
     if (lease != null) {
@@ -345,11 +368,13 @@ abstract class _DappWebViewScreenStateBase
         id: id,
         value: value,
         error: error,
+        errorInfo: errorInfo,
       );
       return;
     }
     final js = 'window.__usernodeResolve(${jsonEncode(id)},'
-        ' ${jsonEncode(value)}, ${jsonEncode(error)});';
+        ' ${jsonEncode(value)}, ${jsonEncode(error)},'
+        ' ${jsonEncode(errorInfo)});';
     try {
       await _controller.runJavaScript(js);
     } catch (_) {
@@ -398,8 +423,14 @@ abstract class _DappWebViewScreenStateBase
     required String id,
     required Object? value,
     required String? error,
+    Map<String, Object?>? errorInfo,
   }) async {
-    await _resolveJsPromise(id: id, value: value, error: error);
+    await _resolveJsPromise(
+      id: id,
+      value: value,
+      error: error,
+      errorInfo: errorInfo,
+    );
   }
 
   PrivilegedBridgeLease? get _activePrivilegedBridgeLease =>
@@ -515,61 +546,51 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     if (platformController is AndroidWebViewController) {
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
     }
-    // Push node pill-state transitions into the page (SV header pill).
-    // Chrome-level provider only changes on real state flips (hysteresis
-    // inside), so this doesn't spam the page with the 1s status poll.
-    // Subscription is auto-closed when this State is disposed.
-    ref.listenManual(
-      topStatusChromeNodeStatusProvider,
-      (_, __) => _dispatchNodeStatusEvent(),
-    );
-    // Push identity phase transitions into the page (bridge v4) so SV
-    // chrome can render login/provisioning progress and request node
-    // start once the identity settles.
-    ref.listenManual(identityProvider, (previous, next) {
-      if (previous?.phase == next.phase &&
-          previous?.address == next.address &&
-          previous?.participantId == next.participantId &&
-          previous?.epoch == next.epoch) {
-        return;
-      }
-      _dispatchAuthStatusEvent();
-      if (next.phase == IdentityPhase.ready) {
-        _admitWalletSession(next);
-        unawaited(_ensureNodeForStandaloneDappEntry());
-      } else if (next.phase == IdentityPhase.reconciling) {
-        _sessionHandoffGate.restrictWallet(next);
-      } else if (!next.isAuthenticated) {
-        _sessionHandoffGate.begin();
-      }
-    });
-    // A settled sign-out must leave no trusted document rendering the retired
-    // session. This is the shared WebView owner, so it happens here for every
-    // realm — the SV shell just supplies a colder replacement than an in-place
-    // load can be.
-    ref.listenManual<int>(signOutCompletionProvider, (previous, next) {
-      if (previous != null && next <= previous) return;
-      final delegate = widget.onSessionEnded;
-      if (delegate != null) {
-        delegate();
-        return;
-      }
-      if (!mounted) return;
-      _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
-      unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
-    });
-    ref.listenManual(accountReconciliationStatusProvider, (previous, next) {
-      if (previous == next) return;
-      _dispatchAuthStatusEvent();
-    });
-    _listenForSocialPushEvents();
-    unawaited(_ensureNodeForStandaloneDappEntry());
+    if (widget.nativeSessionBridge == null) {
+      // The legacy bridge owns these ambient identity/node/push feeds. Protocol
+      // 2 exposes only its explicit establish/logout surface in this slice.
+      ref.listenManual(
+        topStatusChromeNodeStatusProvider,
+        (_, __) => _dispatchNodeStatusEvent(),
+      );
+      ref.listenManual(identityProvider, (previous, next) {
+        if (previous?.phase == next.phase &&
+            previous?.address == next.address &&
+            previous?.participantId == next.participantId &&
+            previous?.epoch == next.epoch) {
+          return;
+        }
+        _dispatchAuthStatusEvent();
+        if (next.phase == IdentityPhase.ready) {
+          _admitWalletSession(next);
+          unawaited(_ensureNodeForStandaloneDappEntry());
+        } else if (next.phase == IdentityPhase.reconciling) {
+          _sessionHandoffGate.restrictWallet(next);
+        } else if (!next.isAuthenticated) {
+          _sessionHandoffGate.begin();
+        }
+      });
+      ref.listenManual<int>(signOutCompletionProvider, (previous, next) {
+        if (previous != null && next <= previous) return;
+        _replaceRetiredSessionDocument();
+      });
+      ref.listenManual(accountReconciliationStatusProvider, (previous, next) {
+        if (previous == next) return;
+        _dispatchAuthStatusEvent();
+      });
+      _listenForSocialPushEvents();
+      unawaited(_ensureNodeForStandaloneDappEntry());
+    }
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
+    if (widget.nativeSessionBridge != null ||
+        state != AppLifecycleState.resumed ||
+        !mounted) {
+      return;
+    }
     // The identity itself may not change while the WebView is backgrounded.
     // Re-emit authoritative native state so a page whose secure handoff
     // previously failed can retry after the app returns to the foreground.

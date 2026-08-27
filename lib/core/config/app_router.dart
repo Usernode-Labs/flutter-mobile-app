@@ -21,6 +21,7 @@ import 'package:crypto_mobile_app/features/wallet/presentation/staking_delegatio
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Router');
 
@@ -105,7 +106,8 @@ String _withPinnedLaunchRevision(String route) {
 /// This is used by the notification tap handler to navigate from outside the widget tree
 GlobalKey<NavigatorState> get appNavigatorKey => _navigatorKey;
 
-final appRouterProvider = Provider<GoRouter>((ref) {
+final appRouterProvider =
+    Provider.family<GoRouter, NativeSessionBridgeIngress?>((ref, nativeBridge) {
   // Do NOT ref.watch state providers here: a watch rebuilds this provider
   // when they change (e.g. loading -> data right after launch), which
   // creates a brand-new GoRouter and resets navigation to /splash — this
@@ -128,6 +130,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => SvShellScreen(
           initialHash: state.uri.queryParameters['sv'],
           navigationRequest: state.uri.queryParameters['launch'],
+          nativeSessionBridge: nativeBridge,
         ),
       ),
       GoRoute(
@@ -135,6 +138,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => SvShellScreen(
           initialHash: state.uri.queryParameters['sv'],
           navigationRequest: state.uri.queryParameters['launch'],
+          nativeSessionBridge: nativeBridge,
         ),
       ),
       GoRoute(
@@ -209,8 +213,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             return AppRoutes.home;
           }
         },
-        builder: (context, state) =>
-            _PinnedDappFallbackScreen(id: state.pathParameters['id']),
+        builder: (context, state) => _PinnedDappFallbackScreen(
+          id: state.pathParameters['id'],
+          nativeSessionBridge: nativeBridge,
+        ),
       ),
       GoRoute(
         // Legacy `usernode://app/dapps/<slug>` deep links. Nothing mints
@@ -253,9 +259,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 });
 
 class _PinnedDappFallbackScreen extends ConsumerWidget {
-  const _PinnedDappFallbackScreen({required this.id});
+  const _PinnedDappFallbackScreen({
+    required this.id,
+    required this.nativeSessionBridge,
+  });
 
   final String? id;
+  final NativeSessionBridgeIngress? nativeSessionBridge;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -277,6 +287,7 @@ class _PinnedDappFallbackScreen extends ConsumerWidget {
               name: dapp.name,
               appBoundDomainsOnly: usesAppBoundOrigin,
               standalone: true,
+              nativeSessionBridge: nativeSessionBridge,
             );
           },
         );

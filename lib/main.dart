@@ -11,10 +11,12 @@ import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_binding.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
@@ -30,6 +32,8 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/providers/node_provider.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
+import 'package:crypto_mobile_app/src/session_lifecycle/session_operation_kernel.dart';
 
 /// Marionette MCP mode initializes MarionetteBinding for runtime inspection
 /// and screenshots by an external AI agent. It must bypass Sentry because
@@ -83,11 +87,26 @@ Future<void> _runAppBody({required String logTag}) async {
     'Version check: enabled=${AppConfig.versionCheckEnabled}, host=${AppConfig.versionCheckHost}, intervalSec=${AppConfig.versionCheckIntervalSeconds}',
   );
 
-  // Render UI immediately; perform heavy bootstrap asynchronously.
+  NativeSessionBridgeIngress? nativeSessionBridge;
+  if (AppConfig.enableNativeSessionLifecycleV2 &&
+      !kIsWeb &&
+      defaultTargetPlatform == TargetPlatform.android) {
+    // Protocol 2 may claim its one-use process root only after FRB bootstrap
+    // has settled. The factory returns a closed failing ingress on any native
+    // health/recovery error, so selecting v2 never falls back to legacy APIs.
+    await boot.backendBootstrap;
+    nativeSessionBridge = await bootstrapNativeSessionBridgeIngress();
+  }
+
+  // The default path renders before heavy bootstrap. Protocol 2 first claims
+  // its one-use root so a selected v2 runtime can never fall back to legacy.
   log.info('Running app UI');
-  runApp(AppRuntimeRoot(
-    initialContainer: boot.container,
-  ));
+  runApp(
+    AppRuntimeRoot(
+      initialContainer: boot.container,
+      child: CryptoMobileApp(nativeSessionBridge: nativeSessionBridge),
+    ),
+  );
 }
 
 /// Headless entrypoint for background Flutter engine
@@ -320,7 +339,9 @@ class _TerminalResetApp extends StatelessWidget {
 }
 
 class CryptoMobileApp extends ConsumerWidget {
-  const CryptoMobileApp({super.key});
+  const CryptoMobileApp({super.key, this.nativeSessionBridge});
+
+  final NativeSessionBridgeIngress? nativeSessionBridge;
 
   static final _lightTheme =
       ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
@@ -338,7 +359,12 @@ class CryptoMobileApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(appRouterProvider);
+    final selectedNativeBridge = AppConfig.enableNativeSessionLifecycleV2 &&
+            !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android
+        ? nativeSessionBridge ?? const _UnavailableNativeSessionBridgeIngress()
+        : null;
+    final router = ref.watch(appRouterProvider(selectedNativeBridge));
     final themeMode = ref.watch(themeModeProvider);
 
     // Initialize backend lifecycle manager
@@ -368,15 +394,38 @@ class CryptoMobileApp extends ConsumerWidget {
       routerConfig: router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => _AppWrapper(child: child),
+      builder: (context, child) => _AppWrapper(router: router, child: child),
     );
   }
 }
 
+final class _UnavailableNativeSessionBridgeIngress
+    implements NativeSessionBridgeIngress {
+  const _UnavailableNativeSessionBridgeIngress();
+
+  @override
+  Future<Map<String, Object?>> establishNativeSession({
+    required Map<String, dynamic> payload,
+    required String realmMarker,
+  }) async =>
+      throw const NativeSessionException(
+        'native_session_root_unavailable',
+        'The secure native session root is unavailable.',
+      );
+
+  @override
+  Future<void> logoutNativeSession({required String realmMarker}) async =>
+      throw const NativeSessionException(
+        'native_session_root_unavailable',
+        'The secure native session root is unavailable.',
+      );
+}
+
 /// Wrapper that handles version check and hot reload invalidation
 class _AppWrapper extends ConsumerStatefulWidget {
-  const _AppWrapper({required this.child});
+  const _AppWrapper({required this.child, required this.router});
   final Widget? child;
+  final GoRouter router;
 
   @override
   ConsumerState<_AppWrapper> createState() => _AppWrapperState();
@@ -456,7 +505,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
 
   void _openPendingSocialNotification() {
     if (!mounted || !SocialPushService.instance.hasPendingTap) return;
-    ref.read(appRouterProvider).go(AppRoutes.home);
+    widget.router.go(AppRoutes.home);
   }
 
   void _handleVersionCheckResult(VersionCheckResult result) {

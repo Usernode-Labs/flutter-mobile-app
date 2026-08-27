@@ -112,6 +112,7 @@ class PrivilegedBridgePolicy {
     'getAuthStatus',
     'markPrivilegedBridgeReady',
     'logout',
+    'establishNativeSession',
     'getSocialPushState',
     'setSocialPushEnabled',
     'claimPendingSocialNotification',
@@ -156,11 +157,12 @@ class PrivilegedBridgePolicy {
     required String id,
     required Object? value,
     required String? error,
+    Map<String, Object?>? errorInfo,
   }) async {
     if (_disposed) return false;
     try {
       final result = await _evaluateTopFrame(
-        _guardedResolveScript(lease, id, value, error),
+        _guardedResolveScript(lease, id, value, error, errorInfo),
       ).timeout(probeTimeout);
       return !_disposed && _decodeBoolean(result);
     } catch (_) {
@@ -296,6 +298,7 @@ class PrivilegedBridgePolicy {
     String id,
     Object? value,
     String? error,
+    Map<String, Object?>? errorInfo,
   ) =>
       '''
     (function () {
@@ -304,7 +307,8 @@ class PrivilegedBridgePolicy {
       if (window[markerKey] !== ${jsonEncode(lease.marker)}) return false;
       const resolver = window.__usernodeResolve;
       if (typeof resolver !== 'function') return false;
-      resolver(${jsonEncode(id)}, ${jsonEncode(value)}, ${jsonEncode(error)});
+      resolver(${jsonEncode(id)}, ${jsonEncode(value)}, ${jsonEncode(error)},
+        ${jsonEncode(errorInfo)});
       return true;
     })()
   ''';

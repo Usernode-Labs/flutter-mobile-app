@@ -9,4 +9,5 @@
     <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
     <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml" />
     <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml" />
+    <exclude domain="sharedpref" path="native_session_v2.xml" />
 </full-backup-content>

@@ -19,6 +19,40 @@ mixin _BridgeDispatch
   // the exact tx-id-returning submitTransaction contract.
   // It does not advertise the later sessionLifecycleProtocol.
   static const int _bridgeVersion = 5;
+  // Protocol 2 is deliberately a dark login/logout slice. These are the only
+  // established bridge methods that remain available: public discovery and
+  // purpose-specific device UI. Session-bound features return only after they
+  // have a SessionOperationRunner sink instead of reaching legacy globals.
+  static const _protocol2AllowedCapabilities = <String>{
+    'getHomeScreenShortcutSupport',
+    'addHomeScreenShortcut',
+    'getHomeScreenShortcuts',
+    'removeHomeScreenShortcut',
+    'reorderHomeScreenShortcuts',
+    'openExternal',
+    'getBridgeInfo',
+    'captureScreenshot',
+    'privilegedBridgeCapability',
+    'openBatterySettings',
+    'openNotificationSettings',
+    'logout',
+    'privilegedBridgeReady',
+  };
+  static const _protocol2AllowedMethods = <String>{
+    'getHomeScreenShortcutSupport',
+    'addHomeScreenShortcut',
+    'getHomeScreenShortcuts',
+    'removeHomeScreenShortcut',
+    'reorderHomeScreenShortcuts',
+    'openExternal',
+    'getBridgeInfo',
+    'captureScreenshot',
+    'openBatterySettings',
+    'openNotificationSettings',
+    'logout',
+    'establishNativeSession',
+    'markPrivilegedBridgeReady',
+  };
   static final List<String> _staticBridgeCapabilities = [
     'getNodeAddress',
     'submitTransaction',
@@ -86,8 +120,15 @@ mixin _BridgeDispatch
   /// and Android's pinned launcher shortcuts are static bitmaps that can
   /// never flip, so advertising there would make the page ship an asset
   /// that is silently dropped.
+  bool get _usesNativeSessionProtocol2 => widget.nativeSessionBridge != null;
+
   List<String> get _bridgeCapabilities => [
-        ..._staticBridgeCapabilities,
+        ..._staticBridgeCapabilities.where(
+          (capability) =>
+              !_usesNativeSessionProtocol2 ||
+              _protocol2AllowedCapabilities.contains(capability),
+        ),
+        if (_usesNativeSessionProtocol2) 'establishNativeSession',
         if (HomeShortcutsChannel.isIOS) 'homeScreenShortcutDarkIcon',
       ];
 
@@ -110,6 +151,21 @@ mixin _BridgeDispatch
       if (method == 'titleChanged') return;
 
       if (id == null) return;
+
+      // Reject retired protocol-2 methods before the legacy admission
+      // coordinator can perform a split-lifecycle side effect such as opening
+      // the old handoff gate. The same check remains in the handler router as
+      // a fail-closed backstop.
+      if (_usesNativeSessionProtocol2 &&
+          !_protocol2AllowedMethods.contains(method) &&
+          method != 'getPrivilegedBridgeCapability') {
+        await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: '$method is unavailable under session lifecycle protocol 2',
+        );
+        return;
+      }
 
       if (method == 'getPrivilegedBridgeCapability') {
         final lease = await _privilegedBridgePolicy.bootstrapLease();
@@ -191,6 +247,15 @@ mixin _BridgeDispatch
     String id,
     Map<String, dynamic> payload,
   ) async {
+    if (_usesNativeSessionProtocol2 &&
+        !_protocol2AllowedMethods.contains(method)) {
+      await _resolveBridgePromise(
+        id: id,
+        value: null,
+        error: '$method is unavailable under session lifecycle protocol 2',
+      );
+      return;
+    }
     if (method == 'getNodeAddress') {
       final address = _bridgeWalletIdentity()?.address;
       if (address == null || address.isEmpty) {
@@ -312,6 +377,10 @@ mixin _BridgeDispatch
       await _handleLogout(id);
     }
 
+    if (method == 'establishNativeSession') {
+      await _handleEstablishNativeSession(id, payload);
+    }
+
     if (method == 'completeLogin') {
       await _handleCompleteLogin(id, payload);
     }
@@ -348,6 +417,7 @@ mixin _BridgeDispatch
   Future<Map<String, dynamic>> _bridgeInfoValue() async => {
         'version': _bridgeVersion,
         'capabilities': _bridgeCapabilities,
+        if (_usesNativeSessionProtocol2) 'sessionLifecycleProtocol': 2,
         // Public release identifiers belong in this discovery probe: SV
         // staging cannot bootstrap the production-origin authority but still
         // needs to show which Flutter binary hosts the page.

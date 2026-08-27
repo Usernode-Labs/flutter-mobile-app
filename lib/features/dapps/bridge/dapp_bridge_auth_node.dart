@@ -340,18 +340,95 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     );
   }
 
+  Future<void> _handleEstablishNativeSession(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    if (!await _requireTrustedChromeOrigin(id, 'establishNativeSession')) {
+      return;
+    }
+    final bridge = widget.nativeSessionBridge;
+    final lease = _activePrivilegedBridgeLease;
+    if (bridge == null || lease == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Secure native session establishment is unavailable',
+      );
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(
+      id,
+      'establishNativeSession',
+    )) {
+      return;
+    }
+    try {
+      final response = await bridge.establishNativeSession(
+        payload: payload,
+        realmMarker: lease.marker,
+      );
+      await _resolveJsPromise(id: id, value: response, error: null);
+    } on NativeSessionException catch (error) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: error.message,
+        errorInfo: {'code': error.code},
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[Usernode JS-channel] native establishment failed: '
+        '$error\n$stackTrace',
+      );
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Secure native session establishment failed',
+      );
+    }
+  }
+
   /// `logout`: web-side confirm/cache fence, then native commit.
   ///
-  /// Sign-out is no longer terminal — the runtime survives and reloads this
-  /// WebView into the platform's login page — so unlike the terminal
-  /// boundaries this one is AWAITED before the acknowledgement: the web side's
-  /// contract (`NativeChrome.commitNativeLogout`) is that native replaces the
-  /// document and it performs no continuation work, so the credential and the
-  /// web session must already be gone by the time the promise resolves.
+  /// Protocol 2 closes admission, drains and stops the native session before
+  /// acknowledging. The legacy branch below retains the older in-process
+  /// identity logout/reload behavior only while protocol 2 is dark.
   Future<void> _handleLogout(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'logout')) return;
     if (!mounted) return;
     if (!await _revalidatePrivilegedBridgeLease(id, 'logout')) return;
+    final nativeBridge = widget.nativeSessionBridge;
+    final nativeRealm = _activePrivilegedBridgeLease;
+    if (nativeBridge != null && nativeRealm != null) {
+      // Both the bridge gate and the composition root close admission before
+      // the first asynchronous native drain. Failure stays closed.
+      _sessionHandoffGate.closeForSignOut();
+      try {
+        await nativeBridge.logoutNativeSession(
+          realmMarker: nativeRealm.marker,
+        );
+        await _resolveJsPromise(id: id, value: true, error: null);
+        _replaceRetiredSessionDocument();
+      } on NativeSessionException catch (error) {
+        await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: error.message,
+          errorInfo: {'code': error.code},
+        );
+      } catch (error, stackTrace) {
+        debugPrint(
+          '[Usernode JS-channel] native logout failed: $error\n$stackTrace',
+        );
+        await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: 'Secure native logout failed',
+        );
+      }
+      return;
+    }
     final controller = ref.read(identityProvider.notifier);
     await controller.transitionsSettled;
     if (!mounted) return;

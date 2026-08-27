@@ -5,11 +5,13 @@
         <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
         <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml" />
         <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml" />
+        <exclude domain="sharedpref" path="native_session_v2.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="FlutterSecureStorage.xml" />
         <exclude domain="sharedpref" path="FlutterSecureKeyStorage.xml" />
         <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration.xml" />
         <exclude domain="sharedpref" path="FlutterSecureStorageConfiguration:FlutterSecureStorage.xml" />
+        <exclude domain="sharedpref" path="native_session_v2.xml" />
     </device-transfer>
 </data-extraction-rules>

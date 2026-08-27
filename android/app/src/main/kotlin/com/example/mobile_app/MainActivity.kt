@@ -22,6 +22,7 @@ import com.usernode_labs.usernode.alarm.EngineLease
 import com.usernode_labs.usernode.alarm.EngineRole
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
 import com.usernode_labs.usernode.shortcuts.HomeShortcutsHandler
+import com.usernode_labs.usernode.session.InteractiveNativeSessionChannel
 import java.io.ByteArrayOutputStream
 
 private const val TAG = "usernode/MainActivity"
@@ -34,6 +35,7 @@ class MainActivity: FlutterActivity() {
     private val screenshotMaxBytes = 4 * 1024 * 1024
     private lateinit var alarmHandler: AlarmMethodChannelHandler
     private var alarmEngineLease: EngineLease? = null
+    private var nativeSessionChannel: InteractiveNativeSessionChannel? = null
     private val backgroundStopHandler = Handler(Looper.getMainLooper())
     private val backgroundStopTimeoutMs = 5 * 60 * 1000L
     private val backgroundStopRunnable = Runnable {
@@ -66,6 +68,12 @@ class MainActivity: FlutterActivity() {
         channel.setMethodCallHandler { call, result ->
             alarmHandler.handleMethodCall(engineLease, call, result)
         }
+        nativeSessionChannel = InteractiveNativeSessionChannel(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger,
+            engineLease,
+            alarmHandler,
+        )
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -314,11 +322,13 @@ class MainActivity: FlutterActivity() {
         val ownsAlarmChannel = ::alarmHandler.isInitialized &&
             alarmEngineLease?.let(alarmHandler::isCurrentEngine) == true
         if (ownsAlarmChannel) {
+            nativeSessionChannel?.closeIfCurrent()
             alarmHandler.compareReleaseMethodChannel(
                 alarmEngineLease!!,
                 "ui_activity_onDestroy",
             )
         }
+        nativeSessionChannel = null
         alarmEngineLease = null
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
         super.onDestroy()

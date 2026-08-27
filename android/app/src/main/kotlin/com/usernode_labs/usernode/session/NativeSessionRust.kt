@@ -22,6 +22,9 @@ internal object NativeSessionRust {
 
     external fun nativeStageColdInstalledCredentialV1(frame: ByteArray): ByteArray
 
+    /** Advances the exact installed credential's authenticated server lease. */
+    external fun nativeApplyCredentialLeaseV1(frame: ByteArray): Boolean
+
     external fun nativeResolveColdCredentialAbsentV1(expectedRevision: Long): Long
 
     external fun nativeStageProducerPolicyV1(frame: ByteArray): ByteArray

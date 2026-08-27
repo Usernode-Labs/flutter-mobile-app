@@ -145,6 +145,8 @@ final class _NativeSessionTicketEnvelope {
   String toString() => '_NativeSessionTicketEnvelope(<redacted>)';
 }
 
+enum _NativeCredentialServerRevocation { definitivelyAbsent, uncertain }
+
 /// Purpose-specific interactive platform port. Android and iOS implement the
 /// same closed contract; neither exposes a generic crypto/read API.
 final class _NativeSessionPlatformPort {
@@ -257,6 +259,44 @@ final class _NativeSessionPlatformPort {
       );
     }
     return claim;
+  }
+
+  Future<void> discardUncommittedCredential({
+    required String attemptId,
+  }) async {
+    if (attemptId.isEmpty || attemptId.length > 64) {
+      throw const NativeSessionException(
+        'invalid_native_establishment_cleanup',
+        'The native attempt id is invalid.',
+      );
+    }
+    await _invoke(
+      'discardUncommittedNativeSessionCredential',
+      {'attemptId': attemptId},
+    );
+  }
+
+  Future<_NativeCredentialServerRevocation> revokeCredentialOnServer({
+    required int expectedRevision,
+  }) async {
+    final raw = await _invoke(
+      'revokeNativeSessionCredential',
+      {'expectedRevision': expectedRevision},
+    );
+    final value = _exactMap(
+      raw,
+      const {'status'},
+      'native credential revocation',
+    );
+    return switch (value['status']) {
+      'definitivelyAbsent' =>
+        _NativeCredentialServerRevocation.definitivelyAbsent,
+      'uncertain' => _NativeCredentialServerRevocation.uncertain,
+      _ => throw const NativeSessionException(
+          'native_credential_revocation_result_invalid',
+          'The native credential revocation result is invalid.',
+        ),
+    };
   }
 
   Future<void> retireCredential({
@@ -1282,10 +1322,17 @@ final class _NativeSessionCompositionRoot
   Future<void>? _resumeValidation;
   Future<void>? _nativeRetirement;
   bool _terminallyRetired = false;
+  final _terminalRetirements = StreamController<void>.broadcast(sync: true);
   final _transitions = _NativeSessionTransitionSlot();
 
   @override
   NativeSessionBridgeIngress get bridge => this;
+
+  @override
+  bool get terminallyRetired => _terminallyRetired;
+
+  @override
+  Stream<void> get terminalRetirements => _terminalRetirements.stream;
 
   @override
   SessionFeatureAccessView get sessions => _sessions.view;
@@ -1337,9 +1384,9 @@ final class _NativeSessionCompositionRoot
 
   Future<void> _commitNativeRetirement(int nativeRevision) async {
     // Rust deliberately leaves warm definitive absence as RecoveryRequired so
-    // Android can terminate. iOS does not exit: latch this process into an
-    // inert, permanently rejecting signed-out surface until natural relaunch.
-    _terminallyRetired = true;
+    // Android wake paths can terminate. The process latch also covers iOS and
+    // foreground Android paths with an inert surface until natural relaunch.
+    _latchTerminalRetirement();
     final signedOut = SessionIdentityProjection.signedOut(
       nativeRevision: nativeRevision.toString(),
     );
@@ -1348,6 +1395,23 @@ final class _NativeSessionCompositionRoot
     _nativeReadyRevision = null;
     _realmMarker = null;
     _realmClaim = null;
+  }
+
+  void _latchTerminalRetirement() {
+    if (_terminallyRetired) return;
+    _terminallyRetired = true;
+    _terminalRetirements.add(null);
+  }
+
+  Future<void> _retireDefinitivelyAbsent(String realmMarker) async {
+    if (_terminallyRetired) return;
+    try {
+      await logoutNativeSession(realmMarker: realmMarker);
+    } finally {
+      // Even an unexpected local retirement failure must not reopen a process
+      // whose server credential is definitively absent.
+      _latchTerminalRetirement();
+    }
   }
 
   @override
@@ -1384,9 +1448,21 @@ final class _NativeSessionCompositionRoot
         'There is no ready native session.',
       );
     }
-    return access.operations.run(
-      (operation) => body(access.identity, operation),
-    );
+    try {
+      return await access.operations.run(
+        (operation) => body(access.identity, operation),
+      );
+    } catch (error) {
+      final sessionError = _asNativeSessionException(error);
+      if (const {
+        'native_credential_definitively_absent',
+        'native_credential_expired',
+      }.contains(sessionError.code)) {
+        await _retireDefinitivelyAbsent(realmMarker);
+        throw sessionError;
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -1402,6 +1478,10 @@ final class _NativeSessionCompositionRoot
       );
     }
     _transitions.beginEstablish(realmMarker);
+    var outcome = _nativeSession == null
+        ? _NativeEstablishOutcome.notCommitted
+        : _NativeEstablishOutcome.ready;
+    String? installedAttemptId;
     try {
       final ticket = _NativeSessionTicketEnvelope.fromBridgePayload(payload);
       final exchangeRequest = await _platform.prepareExchange(ticket);
@@ -1410,6 +1490,7 @@ final class _NativeSessionCompositionRoot
         ticket: ticket,
         exchange: exchangeResult,
       );
+      installedAttemptId = ticket.attemptId;
 
       late native.NativeEstablishResult receipt;
       try {
@@ -1424,6 +1505,9 @@ final class _NativeSessionCompositionRoot
             ),
           ),
         );
+        // From here onward Rust is durably Ready. Receipt validation or
+        // publication failures must retain the exact vault record for logout.
+        outcome = _NativeEstablishOutcome.ready;
       } finally {
         claimBytes.fillRange(0, claimBytes.length, 0);
       }
@@ -1492,9 +1576,23 @@ final class _NativeSessionCompositionRoot
 
       return _establishResponse(receipt, realmClaim);
     } catch (error) {
+      if (outcome == _NativeEstablishOutcome.notCommitted &&
+          installedAttemptId != null) {
+        // Until exact cleanup succeeds, make any queued logout take the
+        // fail-closed retirement path instead of treating the vault as empty.
+        outcome = _NativeEstablishOutcome.ready;
+        try {
+          await _platform.discardUncommittedCredential(
+            attemptId: installedAttemptId,
+          );
+          outcome = _NativeEstablishOutcome.notCommitted;
+        } catch (cleanupError) {
+          throw _asNativeSessionException(cleanupError);
+        }
+      }
       throw _asNativeSessionException(error);
     } finally {
-      _transitions.finishEstablish();
+      _transitions.finishEstablish(outcome);
     }
   }
 
@@ -1538,7 +1636,17 @@ final class _NativeSessionCompositionRoot
           return _commitNativeLogout(realmMarker);
         });
       } else {
-        if (establishCompleted != null) await establishCompleted;
+        final outcome = establishCompleted == null
+            ? _NativeEstablishOutcome.ready
+            : await establishCompleted;
+        if (outcome == _NativeEstablishOutcome.notCommitted &&
+            _nativeSession == null) {
+          _nativeReadyRevision = null;
+          _realmMarker = null;
+          _realmClaim = null;
+          _transitions.finishLogout(succeeded: true);
+          return;
+        }
         final signedOut = await _commitNativeLogout(realmMarker);
         _sessions.replaceSignedOut(
           signedOut,
@@ -1582,6 +1690,15 @@ final class _NativeSessionCompositionRoot
         'There is no exact native Ready revision to retire.',
       );
     }
+    final serverRevocation = await _platform.revokeCredentialOnServer(
+      expectedRevision: readyRevision,
+    );
+    if (serverRevocation == _NativeCredentialServerRevocation.uncertain) {
+      throw const NativeSessionException(
+        'native_credential_revocation_uncertain',
+        'The server could not confirm native credential revocation.',
+      );
+    }
     final result = await native.logoutNativeSession(
       root: _root,
       session: session,
@@ -1621,8 +1738,10 @@ final class _NativeSessionCompositionRoot
 /// The single accepted establishment and the single terminal intent behind it.
 /// This is deliberately not a queue: a second establishment or logout is
 /// rejected, while an exact-realm logout may wait for the accepted attempt.
+enum _NativeEstablishOutcome { notCommitted, ready }
+
 final class _NativeSessionTransitionSlot {
-  Completer<void>? _establish;
+  Completer<_NativeEstablishOutcome>? _establish;
   String? _establishRealm;
   String? _terminalRealm;
   var _logoutInFlight = false;
@@ -1646,18 +1765,20 @@ final class _NativeSessionTransitionSlot {
         'A native session transition is already in progress.',
       );
     }
-    _establish = Completer<void>();
+    _establish = Completer<_NativeEstablishOutcome>();
     _establishRealm = realmMarker;
   }
 
-  void finishEstablish() {
+  void finishEstablish(_NativeEstablishOutcome outcome) {
     final establish = _establish;
     _establish = null;
     _establishRealm = null;
-    if (establish != null && !establish.isCompleted) establish.complete();
+    if (establish != null && !establish.isCompleted) {
+      establish.complete(outcome);
+    }
   }
 
-  Future<void>? beginLogout(String realmMarker) {
+  Future<_NativeEstablishOutcome>? beginLogout(String realmMarker) {
     if (_logoutInFlight) {
       throw const NativeSessionException(
         'native_session_transition_in_progress',
@@ -1694,6 +1815,12 @@ final class _FailingNativeSessionBridgeIngress
 
   @override
   NativeSessionBridgeIngress get bridge => this;
+
+  @override
+  bool get terminallyRetired => false;
+
+  @override
+  Stream<void> get terminalRetirements => const Stream<void>.empty();
 
   @override
   SessionFeatureAccessView get sessions => _sessions.view;

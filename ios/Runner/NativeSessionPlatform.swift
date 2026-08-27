@@ -70,6 +70,17 @@ enum IOSNativeSessionRust {
     }
   }
 
+  static func applyCredentialLease(_ frame: inout Data) throws {
+    let length = frame.count
+    let status = frame.withUnsafeBytes {
+      usernode_mobile_apply_credential_lease_v1(
+        $0.bindMemory(to: UInt8.self).baseAddress,
+        length
+      )
+    }
+    try requireZero(status, "native_credential_lease_update_failed")
+  }
+
   static func resolveColdCredentialAbsent(expectedRevision: UInt64) throws -> UInt64 {
     var committed: UInt64 = 0
     let status = usernode_mobile_resolve_cold_credential_absent_v1(expectedRevision, &committed)
@@ -484,7 +495,9 @@ final class IOSNativeSessionChannel {
       case "bootstrapInteractiveRoot": try bootstrap(call, result)
       case "prepareNativeSessionExchange": try prepare(call, result)
       case "installNativeSessionCredential": try install(call, result)
+      case "discardUncommittedNativeSessionCredential": try discardUncommitted(call, result)
       case "retireNativeSessionCredential": try retire(call, result)
+      case "revokeNativeSessionCredential": try revoke(call, result)
       case "recoverNativeSession": try recover(call, result)
       case "runInteractiveProducerWake": try runInteractive(call, result)
       case "stageNativeProducerPolicy": try stagePolicy(call, result)
@@ -541,6 +554,34 @@ final class IOSNativeSessionChannel {
       ticket: arguments["nativeEstablishTicket"], exchange: arguments["exchange"]
     )
     result(["installClaim": FlutterStandardTypedData(bytes: claim)])
+  }
+
+  private func discardUncommitted(
+    _ call: FlutterMethodCall,
+    _ result: @escaping FlutterResult
+  ) throws {
+    let arguments = try authorized(
+      call, keys: ["attemptId", "processTransportClaim"]
+    )
+    guard let attemptId = arguments["attemptId"] as? String else {
+      try NativeSessionProtocol.fail(
+        "invalid_native_establishment_cleanup", "The native attempt id is invalid"
+      )
+    }
+    try vault.discardUncommittedCredential(attemptId: attemptId)
+    result(nil)
+  }
+
+  private func revoke(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {
+    _ = try managed(call, keys: ["expectedRevision", "processTransportClaim"])
+    work(result) {
+      let status: String
+      switch self.vault.revokeCredentialOnServer() {
+      case .definitivelyAbsent: status = "definitivelyAbsent"
+      case .uncertain: status = "uncertain"
+      }
+      return ["status": status]
+    }
   }
 
   private func retire(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {

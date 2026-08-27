@@ -138,6 +138,7 @@ abstract class _DappWebViewScreenStateBase
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
   late final BridgeAdmissionCoordinator _bridgeAdmissionCoordinator;
   PrivilegedBridgeLease? _readyMainFrameLease;
+  StreamSubscription<void>? _nativeTerminalRetirementSubscription;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
   /// the WebView can invoke after this screen is disposed — read through it
@@ -164,6 +165,10 @@ abstract class _DappWebViewScreenStateBase
   }
 
   void _replaceRetiredSessionDocument() {
+    if (widget._nativeSessionBridge.terminallyRetired) {
+      unawaited(_makeTerminalSessionDocumentInert());
+      return;
+    }
     final delegate = widget.onSessionEnded;
     if (delegate != null) {
       delegate();
@@ -172,6 +177,21 @@ abstract class _DappWebViewScreenStateBase
     if (!mounted) return;
     _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
     unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+  }
+
+  Future<void> _makeTerminalSessionDocumentInert() async {
+    if (!mounted) return;
+    _readyMainFrameLease = null;
+    _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+    try {
+      await _controller.loadHtmlString(
+        '<!doctype html><html><head><meta name="viewport" '
+        'content="width=device-width,initial-scale=1"></head>'
+        '<body></body></html>',
+      );
+    } catch (_) {
+      // Admission is already permanently closed in the composition root.
+    }
   }
 
   // First main-frame load outcome has been reported via
@@ -444,7 +464,15 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       policy: _privilegedBridgePolicy,
       markRealmReady: _seedReadyMainFrame,
     );
-    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+    _nativeTerminalRetirementSubscription =
+        widget._nativeSessionBridge.terminalRetirements.listen((_) {
+      unawaited(_makeTerminalSessionDocumentInert());
+    });
+    if (widget._nativeSessionBridge.terminallyRetired) {
+      unawaited(_makeTerminalSessionDocumentInert());
+    } else {
+      unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+    }
     // Android WebView shows no OS file chooser for <input type="file">
     // unless the host app registers one (WebChromeClient.onShowFileChooser)
     // — without this, upload controls in dapps (including cross-origin
@@ -479,6 +507,10 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   }
 
   Future<void> _applyWidgetNavigation(int revision) async {
+    if (widget._nativeSessionBridge.terminallyRetired) {
+      await _makeTerminalSessionDocumentInert();
+      return;
+    }
     final next = parseDappUrl(widget.url);
     Uri? current;
     try {
@@ -568,6 +600,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
 
   @override
   void dispose() {
+    unawaited(_nativeTerminalRetirementSubscription?.cancel());
     _bridgeAdmissionCoordinator.dispose();
     _readyMainFrameLease = null;
     _privilegedBridgePolicy.dispose();

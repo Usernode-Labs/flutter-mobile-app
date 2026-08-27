@@ -19,6 +19,9 @@ int32_t usernode_mobile_stage_cold_installed_credential_v1(
     size_t length,
     uint8_t *output,
     size_t capacity);
+int32_t usernode_mobile_apply_credential_lease_v1(
+    const uint8_t *frame,
+    size_t length);
 int32_t usernode_mobile_resolve_cold_credential_absent_v1(
     uint64_t expected_revision,
     uint64_t *committed_revision);

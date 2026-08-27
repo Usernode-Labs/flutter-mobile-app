@@ -523,6 +523,21 @@ final class ApplicationIncarnationStore {
     center.removeAllPendingNotificationRequests()
     center.removeAllDeliveredNotifications()
     var durableStateCleared = homeShortcutsChannel.clearForTerminalReset()
+    durableStateCleared = IOSNativeSessionVault.shared.clearForTerminalReset() && durableStateCleared
+
+    // TODO(session-lifecycle): keep scheduling semantics out of this refactor;
+    // only the exact terminal-reset storage boundary belongs here.
+    if let support = FileManager.default.urls(
+      for: .applicationSupportDirectory,
+      in: .userDomainMask
+    ).first?.appendingPathComponent("native_session_v2", isDirectory: true),
+       FileManager.default.fileExists(atPath: support.path) {
+      do {
+        try FileManager.default.removeItem(at: support)
+      } catch {
+        durableStateCleared = false
+      }
+    }
 
     let defaults = UserDefaults.standard
     for key in defaults.dictionaryRepresentation().keys {

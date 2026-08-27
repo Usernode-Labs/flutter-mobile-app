@@ -14,22 +14,34 @@ enum IOSProducerWakeCredential {
   case uncertain
 }
 
+enum IOSNativeCredentialServerRevocation {
+  case definitivelyAbsent
+  case uncertain
+}
+
 private final class IOSRecoveredCredential {
   var storedRaw: Data
   let binding: NativeCredentialBinding
-  let installFrame: Data
+  var installFrame: Data?
   var credential: NativeCredentialPlaintext
 
   init(
     storedRaw: Data,
     binding: NativeCredentialBinding,
-    installFrame: Data,
+    installFrame: Data?,
     credential: NativeCredentialPlaintext
   ) {
     self.storedRaw = storedRaw
     self.binding = binding
     self.installFrame = installFrame
     self.credential = credential
+  }
+
+  func close() {
+    let installFrameCount = installFrame?.count ?? 0
+    installFrame?.resetBytes(in: 0..<installFrameCount)
+    installFrame = nil
+    credential.accountScalar.resetBytes(in: 0..<credential.accountScalar.count)
   }
 }
 
@@ -42,11 +54,13 @@ final class IOSNativeSessionVault {
   private let lock = NSRecursiveLock()
   private let defaults = UserDefaults.standard
   private var configuredHTTP: IOSNativeSessionHTTP?
+  private var installationBoundaryChecked = false
 
   private init() {}
 
   func configureMobileApiBaseUrl(_ raw: String) throws {
     lock.lock(); defer { lock.unlock() }
+    try ensureInstallationBoundary()
     let next = try IOSNativeSessionHTTP(raw)
     if let configuredHTTP {
       guard configuredHTTP.canonicalBaseUrl == next.canonicalBaseUrl else {
@@ -103,12 +117,11 @@ final class IOSNativeSessionVault {
     var credential = try NativeSessionProtocol.validateCredential(
       plaintext, binding: binding, installation: installation
     )
-    _ = try NativeSessionProtocol.requireCredentialLeaseCurrent(credential.bearerExpiresAt)
     defer { credential.accountScalar.resetBytes(in: 0..<credential.accountScalar.count) }
     let fingerprint = try credentialFingerprint(
       binding: binding, installation: installation, credential: credential
     )
-    let commitment = try persistCredential(
+    let persisted = try persistCredential(
       binding: binding,
       installation: installation,
       exchange: exchange,
@@ -119,7 +132,8 @@ final class IOSNativeSessionVault {
       binding: binding,
       installation: installation,
       credential: credential,
-      commitment: commitment
+      leaseExpiresAt: persisted.leaseExpiresAt,
+      commitment: persisted.commitment
     )
     defer { frame.resetBytes(in: 0..<frame.count) }
     return try IOSNativeSessionRust.stageInstalledCredential(&frame)
@@ -176,14 +190,13 @@ final class IOSNativeSessionVault {
       return .uncertain
     }
     do {
-      var recovered = try recoverCredential(raw)
-      defer {
-        recovered.installFrame.withUnsafeBytes { _ in }
-        recovered.credential.accountScalar.resetBytes(
-          in: 0..<recovered.credential.accountScalar.count
+      let recovered = try recoverCredential(raw, includeInstallFrame: true)
+      defer { recovered.close() }
+      guard var frame = recovered.installFrame else {
+        try NativeSessionProtocol.fail(
+          "native_install_frame_invalid", "The cold native install frame is unavailable"
         )
       }
-      var frame = recovered.installFrame
       defer { frame.resetBytes(in: 0..<frame.count) }
       return .present(try IOSNativeSessionRust.stageColdInstalledCredential(&frame))
     } catch let error as NativeSessionProtocolError {
@@ -226,12 +239,8 @@ final class IOSNativeSessionVault {
       }
     }
     do {
-      var recovered = try recoverCredential(raw)
-      defer {
-        recovered.credential.accountScalar.resetBytes(
-          in: 0..<recovered.credential.accountScalar.count
-        )
-      }
+      let recovered = try recoverCredential(raw, includeInstallFrame: false)
+      defer { recovered.close() }
       switch try http().getProducerPolicy(bearer: recovered.credential.bearerToken) {
       case .success(let body, let lease):
         try applyCredentialLease(lease, recovered: recovered, required: true)
@@ -267,12 +276,8 @@ final class IOSNativeSessionVault {
 
   func stageProducerPolicy(delegated: Bool?) throws -> Data {
     lock.lock(); defer { lock.unlock() }
-    var recovered = try recoverForManagedCall()
-    defer {
-      recovered.credential.accountScalar.resetBytes(
-        in: 0..<recovered.credential.accountScalar.count
-      )
-    }
+    let recovered = try recoverForManagedCall()
+    defer { recovered.close() }
     let response: IOSNativeHTTPResult
     if let delegated {
       response = try http().setProducerPolicy(
@@ -294,8 +299,8 @@ final class IOSNativeSessionVault {
   func getPushStatus(installationId: String) throws -> [String: Any] {
     lock.lock(); defer { lock.unlock() }
     try validateInstallationUUID(installationId)
-    var recovered = try recoverForManagedCall()
-    defer { recovered.credential.accountScalar.resetBytes(in: 0..<recovered.credential.accountScalar.count) }
+    let recovered = try recoverForManagedCall()
+    defer { recovered.close() }
     return try pushStatus(try requireManagedSuccess(
       http().getPushStatus(
         bearer: recovered.credential.bearerToken,
@@ -322,8 +327,8 @@ final class IOSNativeSessionVault {
         "invalid_native_push_request", "The push registration request is invalid"
       )
     }
-    var recovered = try recoverForManagedCall()
-    defer { recovered.credential.accountScalar.resetBytes(in: 0..<recovered.credential.accountScalar.count) }
+    let recovered = try recoverForManagedCall()
+    defer { recovered.close() }
     let body = try requireManagedSuccess(
       http().registerPush(
         bearer: recovered.credential.bearerToken,
@@ -359,8 +364,8 @@ final class IOSNativeSessionVault {
         "invalid_native_push_request", "The push unregistration request is invalid"
       )
     }
-    var recovered = try recoverForManagedCall()
-    defer { recovered.credential.accountScalar.resetBytes(in: 0..<recovered.credential.accountScalar.count) }
+    let recovered = try recoverForManagedCall()
+    defer { recovered.close() }
     let body = try requireManagedSuccess(
       http().unregisterPush(
         bearer: recovered.credential.bearerToken,
@@ -378,10 +383,81 @@ final class IOSNativeSessionVault {
     )
   }
 
+  /// Revokes only the bearer bound to the currently installed credential.
+  func revokeCredentialOnServer() -> IOSNativeCredentialServerRevocation {
+    lock.lock(); defer { lock.unlock() }
+    let raw: Data
+    do {
+      try ensureInstallationBoundary()
+      guard let stored = try readKeychain(account: Self.credentialAccount) else {
+        return .definitivelyAbsent
+      }
+      raw = stored
+    } catch {
+      return .uncertain
+    }
+    let recovered: IOSRecoveredCredential
+    do {
+      recovered = try recoverCredential(raw, includeInstallFrame: false)
+    } catch let error as NativeSessionProtocolError where shouldDiscardCredential(error) {
+      try? deleteKeychain(account: Self.credentialAccount, expected: raw)
+      return .definitivelyAbsent
+    } catch {
+      return .uncertain
+    }
+    defer { recovered.close() }
+    do {
+      switch try http().logout(bearer: recovered.credential.bearerToken) {
+      case .success(let body, _):
+        return body.count == 1 && body["success"] as? Bool == true
+          ? .definitivelyAbsent
+          : .uncertain
+      case .unauthorized:
+        try? deleteKeychain(account: Self.credentialAccount, expected: recovered.storedRaw)
+        return .definitivelyAbsent
+      case .failure:
+        return .uncertain
+      }
+    } catch {
+      return .uncertain
+    }
+  }
+
+  /// Removes only a credential staged by the failed establishment attempt.
+  func discardUncommittedCredential(attemptId: String) throws {
+    lock.lock(); defer { lock.unlock() }
+    guard !attemptId.isEmpty, attemptId.utf8.count <= 64 else {
+      try NativeSessionProtocol.fail(
+        "invalid_native_establishment_cleanup", "The native attempt id is invalid"
+      )
+    }
+    guard let raw = try readKeychain(account: Self.credentialAccount) else { return }
+    let stored = try parseStoredRecord(raw)
+    if stored["attemptId"] as? String == attemptId {
+      try deleteKeychain(account: Self.credentialAccount, expected: raw)
+    }
+  }
+
+  /// Clears the exact native-session vault and installation keys on terminal reset.
+  func clearForTerminalReset() -> Bool {
+    lock.lock(); defer { lock.unlock() }
+    var cleared = true
+    for query in installationBoundaryDeletionQueries() {
+      let status = SecItemDelete(query as CFDictionary)
+      cleared = (status == errSecSuccess || status == errSecItemNotFound) && cleared
+    }
+    defaults.removeObject(forKey: Self.mobileApiBaseUrlKey)
+    defaults.removeObject(forKey: Self.readyRevisionKey)
+    defaults.removeObject(forKey: Self.installationMarkerKey)
+    configuredHTTP = nil
+    installationBoundaryChecked = false
+    return defaults.synchronize() && cleared
+  }
+
   func resolveLegacyZkPassportChallengeId() throws -> Int {
     lock.lock(); defer { lock.unlock() }
-    var recovered = try recoverForManagedCall()
-    defer { recovered.credential.accountScalar.resetBytes(in: 0..<recovered.credential.accountScalar.count) }
+    let recovered = try recoverForManagedCall()
+    defer { recovered.close() }
     let seasons = try requireArray(
       try requireManagedSuccess(
         http().getSeasons(bearer: recovered.credential.bearerToken), recovered: recovered
@@ -454,8 +530,8 @@ final class IOSNativeSessionVault {
         "invalid_native_zk_completion", "The zkPassport completion is invalid"
       )
     }
-    var recovered = try recoverForManagedCall()
-    defer { recovered.credential.accountScalar.resetBytes(in: 0..<recovered.credential.accountScalar.count) }
+    let recovered = try recoverForManagedCall()
+    defer { recovered.close() }
     _ = try requireManagedSuccess(
       http().completeZkPassport(
         bearer: recovered.credential.bearerToken,
@@ -498,7 +574,7 @@ final class IOSNativeSessionVault {
       try NativeSessionProtocol.fail("native_vault_absent", "The native credential is absent")
     }
     do {
-      return try recoverCredential(raw)
+      return try recoverCredential(raw, includeInstallFrame: false)
     } catch let error as NativeSessionProtocolError {
       if shouldDiscardCredential(error) {
         try? deleteKeychain(account: Self.credentialAccount, expected: raw)
@@ -517,8 +593,9 @@ final class IOSNativeSessionVault {
       return body
     case .unauthorized:
       try? deleteKeychain(account: Self.credentialAccount, expected: recovered.storedRaw)
-      throw IOSNativeManagedHTTPError(
-        statusCode: 401, errorCode: "native_credential_invalid", latestMutationRevision: nil
+      try NativeSessionProtocol.fail(
+        "native_credential_definitively_absent",
+        "The authenticated native credential is no longer accepted"
       )
     case .failure(let status, let code, let latest, let lease):
       try applyCredentialLease(lease, recovered: recovered, required: false)
@@ -567,21 +644,58 @@ final class IOSNativeSessionVault {
         current["leaseExpiresAt"], "stored credential lease expiry"
       )
     )
-    guard receipt.leaseExpiry > currentExpiry else {
-      recovered.storedRaw = currentRaw
-      return
+    guard receipt.leaseExpiry >= currentExpiry else {
+      try NativeSessionProtocol.fail(
+        "native_credential_lease_regressed",
+        "The authenticated credential lease moved backwards"
+      )
     }
-    current["leaseExpiresAt"] = receipt.leaseExpiresAt
-    let updatedRaw = try JSONSerialization.data(withJSONObject: current, options: [.sortedKeys])
-    try replaceKeychain(
-      account: Self.credentialAccount,
-      expected: currentRaw,
-      value: updatedRaw
-    )
-    recovered.storedRaw = updatedRaw
+    var appliedRaw = currentRaw
+    if receipt.leaseExpiry > currentExpiry {
+      current["leaseExpiresAt"] = receipt.leaseExpiresAt
+      appliedRaw = try JSONSerialization.data(withJSONObject: current, options: [.sortedKeys])
+      try replaceKeychain(
+        account: Self.credentialAccount,
+        expected: currentRaw,
+        value: appliedRaw
+      )
+    }
+    recovered.storedRaw = appliedRaw
+    try applyCredentialLeaseToRust(current, leaseExpiry: receipt.leaseExpiry)
   }
 
-  private func recoverCredential(_ raw: Data) throws -> IOSRecoveredCredential {
+  private func applyCredentialLeaseToRust(
+    _ stored: [String: Any],
+    leaseExpiry: Date
+  ) throws {
+    var frame = Data("UNVL".utf8)
+    frame.append(1)
+    try NativeSessionProtocol.appendString(
+      try NativeSessionProtocol.canonicalString(
+        stored["credentialReference"], "stored credential reference"
+      ),
+      maximum: 64,
+      to: &frame
+    )
+    frame.appendUInt64(
+      try NativeSessionProtocol.exactUInt64(
+        stored["credentialGeneration"], "stored credential generation"
+      )
+    )
+    frame.append(try NativeSessionProtocol.decodeBase64Url(
+      stored["vaultCommitment"] as? String ?? "",
+      expected: 32,
+      label: "stored vault commitment"
+    ))
+    frame.appendUInt64(try epochMilliseconds(leaseExpiry))
+    defer { frame.resetBytes(in: 0..<frame.count) }
+    try IOSNativeSessionRust.applyCredentialLease(&frame)
+  }
+
+  private func recoverCredential(
+    _ raw: Data,
+    includeInstallFrame: Bool
+  ) throws -> IOSRecoveredCredential {
     let stored = try parseStoredRecord(raw)
     _ = try NativeSessionProtocol.requireCredentialLeaseCurrent(
       try NativeSessionProtocol.canonicalString(
@@ -636,12 +750,20 @@ final class IOSNativeSessionVault {
         expected: 32,
         label: "stored vault commitment"
       )
-      let frame = try buildInstallFrame(
-        binding: binding,
-        installation: installation,
-        credential: credential,
-        commitment: commitment
-      )
+      let frame: Data?
+      if includeInstallFrame {
+        frame = try buildInstallFrame(
+          binding: binding,
+          installation: installation,
+          credential: credential,
+          leaseExpiresAt: try NativeSessionProtocol.canonicalString(
+            stored["leaseExpiresAt"], "stored credential lease expiry"
+          ),
+          commitment: commitment
+        )
+      } else {
+        frame = nil
+      }
       return IOSRecoveredCredential(
         storedRaw: raw, binding: binding, installFrame: frame, credential: credential
       )
@@ -798,7 +920,7 @@ final class IOSNativeSessionVault {
     exchange: NativeExchangeEnvelope,
     fingerprint: Data,
     credential: NativeCredentialPlaintext
-  ) throws -> Data {
+  ) throws -> (commitment: Data, leaseExpiresAt: String) {
     if let existingRaw = try readKeychain(account: Self.credentialAccount) {
       let existing = try parseStoredRecord(existingRaw)
       guard existing["fingerprint"] as? String == NativeSessionProtocol.base64Url(fingerprint),
@@ -807,12 +929,20 @@ final class IOSNativeSessionVault {
           "native_vault_occupied", "A different native credential is already installed"
         )
       }
-      return try NativeSessionProtocol.decodeBase64Url(
-        existing["vaultCommitment"] as? String ?? "",
-        expected: 32,
-        label: "stored vault commitment"
+      let leaseExpiresAt = try NativeSessionProtocol.canonicalString(
+        existing["leaseExpiresAt"], "stored credential lease expiry"
+      )
+      _ = try NativeSessionProtocol.requireCredentialLeaseCurrent(leaseExpiresAt)
+      return (
+        try NativeSessionProtocol.decodeBase64Url(
+          existing["vaultCommitment"] as? String ?? "",
+          expected: 32,
+          label: "stored vault commitment"
+        ),
+        leaseExpiresAt
       )
     }
+    _ = try NativeSessionProtocol.requireCredentialLeaseCurrent(credential.bearerExpiresAt)
     let commitment = try randomData(count: 32)
     let record: [String: Any] = [
       "version": 4,
@@ -839,13 +969,14 @@ final class IOSNativeSessionVault {
     ]
     let raw = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
     try writeKeychain(account: Self.credentialAccount, value: raw)
-    return commitment
+    return (commitment, credential.bearerExpiresAt)
   }
 
   private func buildInstallFrame(
     binding: NativeCredentialBinding,
     installation: NativeInstallationMaterial,
     credential: NativeCredentialPlaintext,
+    leaseExpiresAt: String,
     commitment: Data
   ) throws -> Data {
     var frame = Data("UNSI".utf8)
@@ -867,6 +998,9 @@ final class IOSNativeSessionVault {
     try NativeSessionProtocol.appendString(credential.accountId, maximum: 32, to: &frame)
     try NativeSessionProtocol.appendString(credential.address, maximum: 128, to: &frame)
     try NativeSessionProtocol.appendString(credential.publicKey, maximum: 128, to: &frame)
+    frame.appendUInt64(try epochMilliseconds(
+      NativeSessionProtocol.requireCredentialLeaseCurrent(leaseExpiresAt)
+    ))
     frame.append(credential.blockProductionReleased ? 1 : 0)
     frame.append(commitment)
     frame.append(credential.accountScalar)
@@ -895,6 +1029,11 @@ final class IOSNativeSessionVault {
     let generation = try NativeSessionProtocol.exactUInt64(
       stored["credentialGeneration"], "stored credential generation"
     )
+    let leaseExpiry = try NativeSessionProtocol.requireCredentialLeaseCurrent(
+      try NativeSessionProtocol.canonicalString(
+        stored["leaseExpiresAt"], "stored credential lease expiry"
+      )
+    )
     let commitment = try NativeSessionProtocol.decodeBase64Url(
       stored["vaultCommitment"] as? String ?? "", expected: 32, label: "stored vault commitment"
     )
@@ -903,7 +1042,9 @@ final class IOSNativeSessionVault {
     )
     var frame = Data("UNVE".utf8); frame.append(1)
     try NativeSessionProtocol.appendString(reference, maximum: 64, to: &frame)
-    frame.appendUInt64(generation); frame.append(commitment); frame.append(fingerprint)
+    frame.appendUInt64(generation)
+    frame.appendUInt64(try epochMilliseconds(leaseExpiry))
+    frame.append(commitment); frame.append(fingerprint)
     if let coldInstallClaim { frame.append(32); frame.append(coldInstallClaim) } else { frame.append(0) }
     return frame
   }
@@ -1085,7 +1226,61 @@ final class IOSNativeSessionVault {
     return bytes
   }
 
+  private func epochMilliseconds(_ date: Date) throws -> UInt64 {
+    let milliseconds = (date.timeIntervalSince1970 * 1_000).rounded()
+    guard milliseconds.isFinite, milliseconds > 0, milliseconds <= Double(UInt64.max) else {
+      try NativeSessionProtocol.fail(
+        "invalid_native_credential", "The native credential expiry is invalid"
+      )
+    }
+    return UInt64(milliseconds)
+  }
+
+  /// UserDefaults is removed on uninstall while Keychain items may survive it.
+  /// A missing marker therefore defines a new installation and retires only
+  /// this protocol's Keychain namespace before any credential can be used.
+  private func ensureInstallationBoundary() throws {
+    if installationBoundaryChecked { return }
+    if defaults.bool(forKey: Self.installationMarkerKey) {
+      installationBoundaryChecked = true
+      return
+    }
+    for query in installationBoundaryDeletionQueries() {
+      let status = SecItemDelete(query as CFDictionary)
+      guard status == errSecSuccess || status == errSecItemNotFound else {
+        try NativeSessionProtocol.fail(
+          "native_vault_unavailable", "The native installation boundary could not be applied"
+        )
+      }
+    }
+    defaults.set(true, forKey: Self.installationMarkerKey)
+    guard defaults.synchronize() else {
+      try NativeSessionProtocol.fail(
+        "native_vault_write_failed", "The native installation marker could not be persisted"
+      )
+    }
+    installationBoundaryChecked = true
+  }
+
+  private func installationBoundaryDeletionQueries() -> [[CFString: Any]] {
+    [
+      [
+        kSecClass: kSecClassGenericPassword,
+        kSecAttrService: Self.keychainService,
+      ],
+      [
+        kSecClass: kSecClassKey,
+        kSecAttrApplicationTag: Self.possessionTag,
+      ],
+      [
+        kSecClass: kSecClassKey,
+        kSecAttrApplicationTag: Self.envelopeTag,
+      ],
+    ]
+  }
+
   private func findPrivateKey(tag: Data) throws -> SecKey? {
+    try ensureInstallationBoundary()
     let query: [CFString: Any] = [
       kSecClass: kSecClassKey,
       kSecAttrApplicationTag: tag,
@@ -1126,6 +1321,7 @@ final class IOSNativeSessionVault {
   }
 
   private func readKeychain(account: String) throws -> Data? {
+    try ensureInstallationBoundary()
     let query: [CFString: Any] = [
       kSecClass: kSecClassGenericPassword,
       kSecAttrService: Self.keychainService,
@@ -1203,6 +1399,7 @@ final class IOSNativeSessionVault {
   private static let envelopeTag = Data("org.usernode.app.native-session-v2.envelope.1".utf8)
   private static let mobileApiBaseUrlKey = "native_session_v2_mobile_api_base_url"
   private static let readyRevisionKey = "native_session_v2_ready_revision"
+  private static let installationMarkerKey = "native_session_v2_installation_marker"
 }
 
 struct IOSNativeManagedHTTPError: Error {
@@ -1245,6 +1442,10 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
       bearer: bearer,
       body: ["requestId": requestId, "delegated": delegated]
     )
+  }
+
+  func logout(bearer: String) -> IOSNativeHTTPResult {
+    request(method: "POST", path: "auth/logout", bearer: bearer)
   }
 
   func getPushStatus(bearer: String, installationId: String) -> IOSNativeHTTPResult {

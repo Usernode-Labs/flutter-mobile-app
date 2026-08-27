@@ -26,6 +26,14 @@ final class NativeSessionException implements Exception {
 /// exact methods. Feature code receives neither native authority nor a generic
 /// lifecycle host.
 abstract interface class NativeSessionBridgeIngress {
+  /// Read-only terminal latch used by the WebView boundary to avoid loading an
+  /// authenticated document after a retirement event that preceded mounting.
+  bool get terminallyRetired;
+
+  /// Emits once when the current process must stop rendering an authenticated
+  /// document until relaunch.
+  Stream<void> get terminalRetirements;
+
   Future<Map<String, Object?>> establishNativeSession({
     required Map<String, dynamic> payload,
     required String realmMarker,

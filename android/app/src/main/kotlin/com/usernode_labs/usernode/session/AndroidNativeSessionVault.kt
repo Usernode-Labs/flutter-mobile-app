@@ -49,14 +49,36 @@ internal class AndroidNativeSessionVault(context: Context) {
             // The engine lease may be replaced, but a process may not switch
             // the credential's authenticated origin underneath a live vault.
             if (existing.canonicalBaseUrl != configured.canonicalBaseUrl) {
-                fail(
-                    "native_api_origin_conflict",
-                    "The native mobile API origin changed within one process",
-                )
+                requireOriginMayChange()
+                persistMobileApiBaseUrl(configured.canonicalBaseUrl)
+                http = configured
             }
             return
         }
+        val persisted = preferences.getString(MOBILE_API_BASE_URL_KEY, null)
+        if (persisted != null && persisted != configured.canonicalBaseUrl) {
+            requireOriginMayChange()
+        }
+        persistMobileApiBaseUrl(configured.canonicalBaseUrl)
         http = configured
+    }
+
+    private fun requireOriginMayChange() {
+        if (preferences.contains(CREDENTIAL_RECORD_KEY)) {
+            fail(
+                "native_api_origin_conflict",
+                "The native mobile API origin changed underneath a live credential",
+            )
+        }
+    }
+
+    private fun persistMobileApiBaseUrl(canonicalBaseUrl: String) {
+        if (preferences.getString(MOBILE_API_BASE_URL_KEY, null) == canonicalBaseUrl) return
+        if (!preferences.edit().putString(MOBILE_API_BASE_URL_KEY, canonicalBaseUrl).commit() ||
+            preferences.getString(MOBILE_API_BASE_URL_KEY, null) != canonicalBaseUrl
+        ) {
+            fail("native_api_unavailable", "The native mobile API origin could not be persisted")
+        }
     }
 
     @Synchronized
@@ -109,12 +131,10 @@ internal class AndroidNativeSessionVault(context: Context) {
         } finally {
             plaintextBytes.fill(0)
         }
-        NativeSessionProtocol.requireCredentialLeaseCurrent(credential.bearerExpiresAt)
-
         return try {
             val fingerprint = credentialFingerprint(binding, installation, credential)
             try {
-                val commitment = persistCredential(
+                val persisted = persistCredential(
                     binding = binding,
                     installation = installation,
                     exchange = exchange,
@@ -126,7 +146,8 @@ internal class AndroidNativeSessionVault(context: Context) {
                         binding = binding,
                         installation = installation,
                         credential = credential,
-                        commitment = commitment,
+                        leaseExpiresAt = persisted.leaseExpiresAt,
+                        commitment = persisted.commitment,
                     )
                     try {
                         NativeSessionRust.nativeStageInstalledCredential(frame).also { claim ->
@@ -142,7 +163,7 @@ internal class AndroidNativeSessionVault(context: Context) {
                         frame.fill(0)
                     }
                 } finally {
-                    commitment.fill(0)
+                    persisted.commitment.fill(0)
                 }
             } finally {
                 fingerprint.fill(0)
@@ -399,6 +420,76 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
+    /** Revokes only the bearer bound to the currently installed credential. */
+    @Synchronized
+    fun revokeCredentialOnServer(): NativeCredentialServerRevocation {
+        val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
+            ?: return NativeCredentialServerRevocation.DEFINITIVELY_ABSENT
+        val recovered = try {
+            recoverCredential(storedRaw)
+        } catch (error: NativeSessionProtocolException) {
+            if (shouldDiscardCredential(error)) {
+                compareDeleteExact(storedRaw)
+                return NativeCredentialServerRevocation.DEFINITIVELY_ABSENT
+            }
+            return NativeCredentialServerRevocation.UNCERTAIN
+        } catch (_: Throwable) {
+            return NativeCredentialServerRevocation.UNCERTAIN
+        }
+        return try {
+            when (val response = configuredHttp().logout(recovered.credential.bearerToken)) {
+                is NativeHttpResult.Success -> {
+                    if (response.body.length() == 1 && response.body.opt("success") == true) {
+                        NativeCredentialServerRevocation.DEFINITIVELY_ABSENT
+                    } else {
+                        NativeCredentialServerRevocation.UNCERTAIN
+                    }
+                }
+                NativeHttpResult.Unauthorized -> {
+                    compareDeleteExact(recovered.storedRaw)
+                    NativeCredentialServerRevocation.DEFINITIVELY_ABSENT
+                }
+                is NativeHttpResult.Failure -> NativeCredentialServerRevocation.UNCERTAIN
+            }
+        } finally {
+            recovered.close()
+        }
+    }
+
+    /** Removes only a credential staged by the failed establishment attempt. */
+    @Synchronized
+    fun discardUncommittedCredential(attemptId: String) {
+        if (attemptId.isEmpty() || attemptId.toByteArray(StandardCharsets.UTF_8).size > 64) {
+            fail("invalid_native_establishment_cleanup", "The native attempt id is invalid")
+        }
+        val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null) ?: return
+        val stored = parseStoredRecord(storedRaw)
+        if (stored.getString("attemptId") == attemptId && !compareDeleteExact(storedRaw)) {
+            fail(
+                "native_vault_write_failed",
+                "The uncommitted native credential could not be discarded",
+            )
+        }
+    }
+
+    /** Clears the exact native-session vault and installation keys on terminal reset. */
+    @Synchronized
+    fun clearForTerminalReset(): Boolean {
+        var cleared = preferences.edit().clear().commit()
+        http = null
+        cleared = try {
+            KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.let { keyStore ->
+                for (alias in listOf(POSSESSION_ALIAS, ENVELOPE_ALIAS)) {
+                    if (keyStore.containsAlias(alias)) keyStore.deleteEntry(alias)
+                }
+            }
+            cleared
+        } catch (_: Throwable) {
+            false
+        }
+        return cleared
+    }
+
     /** Retained, authenticated challenge lookup; no bearer/API client enters Dart. */
     @Synchronized
     fun resolveLegacyZkPassportChallengeId(): Int {
@@ -585,7 +676,10 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
         NativeHttpResult.Unauthorized -> {
             compareDeleteExact(recovered.storedRaw)
-            throw NativeManagedHttpException(401, "native_credential_invalid", null)
+            fail(
+                "native_credential_definitively_absent",
+                "The authenticated native credential is no longer accepted",
+            )
         }
         is NativeHttpResult.Failure -> {
             applyCredentialLease(response.credentialLease, recovered, required = false)
@@ -634,21 +728,27 @@ internal class AndroidNativeSessionVault(context: Context) {
         val currentExpiry = NativeSessionProtocol.credentialLeaseExpiry(
             current.getString("leaseExpiresAt"),
         )
-        if (!receipt.leaseExpiry.isAfter(currentExpiry)) {
-            recovered.storedRaw = currentRaw
-            return
+        if (receipt.leaseExpiry.isBefore(currentExpiry)) {
+            fail(
+                "native_credential_lease_regressed",
+                "The authenticated credential lease moved backwards",
+            )
         }
 
-        val updatedRaw = JSONObject(currentRaw)
-            .put("leaseExpiresAt", receipt.leaseExpiresAt)
-            .toString()
-        if (preferences.getString(CREDENTIAL_RECORD_KEY, null) != currentRaw ||
-            !preferences.edit().putString(CREDENTIAL_RECORD_KEY, updatedRaw).commit() ||
-            preferences.getString(CREDENTIAL_RECORD_KEY, null) != updatedRaw
-        ) {
-            fail("native_vault_write_failed", "The credential lease could not be persisted")
+        var appliedRaw = currentRaw
+        if (receipt.leaseExpiry.isAfter(currentExpiry)) {
+            appliedRaw = JSONObject(currentRaw)
+                .put("leaseExpiresAt", receipt.leaseExpiresAt)
+                .toString()
+            if (preferences.getString(CREDENTIAL_RECORD_KEY, null) != currentRaw ||
+                !preferences.edit().putString(CREDENTIAL_RECORD_KEY, appliedRaw).commit() ||
+                preferences.getString(CREDENTIAL_RECORD_KEY, null) != appliedRaw
+            ) {
+                fail("native_vault_write_failed", "The credential lease could not be persisted")
+            }
         }
-        recovered.storedRaw = updatedRaw
+        recovered.storedRaw = appliedRaw
+        applyCredentialLeaseToRust(current, receipt.leaseExpiresAt)
     }
 
     private fun compareDeleteExact(storedRaw: String): Boolean {
@@ -656,10 +756,47 @@ internal class AndroidNativeSessionVault(context: Context) {
         return preferences.edit().remove(CREDENTIAL_RECORD_KEY).commit()
     }
 
-    private fun configuredHttp(): NativeSessionHttp = http ?: fail(
-        "native_api_unavailable",
-        "The native mobile API origin has not been configured",
-    )
+    @Synchronized
+    private fun configuredHttp(): NativeSessionHttp {
+        http?.let { return it }
+        val persisted = preferences.getString(MOBILE_API_BASE_URL_KEY, null)
+            ?: fail(
+                "native_api_unavailable",
+                "The native mobile API origin has not been configured",
+            )
+        return NativeSessionHttp(persisted).also { http = it }
+    }
+
+    private fun applyCredentialLeaseToRust(stored: JSONObject, leaseExpiresAt: String) {
+        val commitment = NativeSessionProtocol.decodeCanonicalBase64Url(
+            stored.getString("vaultCommitment"),
+            COMMITMENT_BYTES,
+            "stored vault commitment",
+        )
+        val frame = try {
+            buildFrame("UNVL") {
+                write(1)
+                writeString(stored.getString("credentialReference"), 64)
+                writeLong(stored.getLong("credentialGeneration"))
+                writeFixed(commitment)
+                writeLong(
+                    NativeSessionProtocol.credentialLeaseExpiry(leaseExpiresAt).toEpochMilli(),
+                )
+            }
+        } finally {
+            commitment.fill(0)
+        }
+        try {
+            if (!NativeSessionRust.nativeApplyCredentialLeaseV1(frame)) {
+                fail(
+                    "native_credential_lease_update_failed",
+                    "Rust rejected the authenticated credential lease",
+                )
+            }
+        } finally {
+            frame.fill(0)
+        }
+    }
 
     private fun randomPolicyRequestId(): String {
         val bytes = ByteArray(32).also(secureRandom::nextBytes)
@@ -772,6 +909,7 @@ internal class AndroidNativeSessionVault(context: Context) {
                 binding = binding,
                 installation = installation,
                 credential = credential,
+                leaseExpiresAt = stored.getString("leaseExpiresAt"),
                 commitment = commitment,
             )
             return RecoveredCredential(storedRaw, binding, frame, credential)
@@ -1011,7 +1149,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         exchange: NativeExchangeEnvelope,
         fingerprint: ByteArray,
         credential: NativeCredentialPlaintext,
-    ): ByteArray {
+    ): PersistedCredentialInstall {
         val fingerprintText = NativeSessionProtocol.encodeBase64Url(fingerprint)
         val existingRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
         if (existingRaw != null) {
@@ -1021,13 +1159,19 @@ internal class AndroidNativeSessionVault(context: Context) {
             ) {
                 fail("native_vault_occupied", "A different native credential is already installed")
             }
-            return NativeSessionProtocol.decodeCanonicalBase64Url(
-                existing.getString("vaultCommitment"),
-                COMMITMENT_BYTES,
-                "stored vault commitment",
+            val leaseExpiresAt = existing.getString("leaseExpiresAt")
+            NativeSessionProtocol.requireCredentialLeaseCurrent(leaseExpiresAt)
+            return PersistedCredentialInstall(
+                commitment = NativeSessionProtocol.decodeCanonicalBase64Url(
+                    existing.getString("vaultCommitment"),
+                    COMMITMENT_BYTES,
+                    "stored vault commitment",
+                ),
+                leaseExpiresAt = leaseExpiresAt,
             )
         }
 
+        NativeSessionProtocol.requireCredentialLeaseCurrent(credential.bearerExpiresAt)
         val commitment = ByteArray(COMMITMENT_BYTES).also(secureRandom::nextBytes)
         val record = JSONObject()
             .put("version", 4)
@@ -1058,13 +1202,14 @@ internal class AndroidNativeSessionVault(context: Context) {
             commitment.fill(0)
             fail("native_vault_write_failed", "The native credential could not be persisted")
         }
-        return commitment
+        return PersistedCredentialInstall(commitment, credential.bearerExpiresAt)
     }
 
     private fun buildInstallFrame(
         binding: NativeCredentialBinding,
         installation: NativeInstallationMaterial,
         credential: NativeCredentialPlaintext,
+        leaseExpiresAt: String,
         commitment: ByteArray,
     ): ByteArray = buildFrame("UNSI") {
         write(1)
@@ -1101,6 +1246,11 @@ internal class AndroidNativeSessionVault(context: Context) {
         writeString(credential.accountId, 32)
         writeString(credential.address, 128)
         writeString(credential.publicKey, 128)
+        writeLong(
+            NativeSessionProtocol.requireCredentialLeaseCurrent(
+                leaseExpiresAt,
+            ).toEpochMilli(),
+        )
         write(if (credential.blockProductionReleased) 1 else 0)
         writeFixed(commitment)
         writeFixed(credential.accountScalar)
@@ -1127,6 +1277,9 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
         val reference = stored.getString("credentialReference")
         val generation = stored.getLong("credentialGeneration")
+        val leaseExpiryMs = NativeSessionProtocol.requireCredentialLeaseCurrent(
+            stored.getString("leaseExpiresAt"),
+        ).toEpochMilli()
         if (reference.isEmpty() || reference.toByteArray(StandardCharsets.UTF_8).size > 64 ||
             generation <= 0
         ) {
@@ -1147,6 +1300,7 @@ internal class AndroidNativeSessionVault(context: Context) {
                 write(1)
                 writeString(reference, 64)
                 writeLong(generation)
+                writeLong(leaseExpiryMs)
                 writeFixed(commitment)
                 writeFixed(fingerprint)
                 if (coldInstallClaim == null) {
@@ -1217,6 +1371,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         const val PREFERENCES_NAME = "native_session_v2"
         const val INSTALLATION_ID_KEY = "installation_id"
         const val CREDENTIAL_RECORD_KEY = "credential_record"
+        const val MOBILE_API_BASE_URL_KEY = "mobile_api_base_url"
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val POSSESSION_ALIAS = "usernode_native_session_v2_possession_1"
         const val ENVELOPE_ALIAS = "usernode_native_session_v2_envelope_1"
@@ -1268,6 +1423,16 @@ internal sealed interface ColdCredentialStage {
     object Absent : ColdCredentialStage
     object Uncertain : ColdCredentialStage
 }
+
+internal enum class NativeCredentialServerRevocation {
+    DEFINITIVELY_ABSENT,
+    UNCERTAIN,
+}
+
+private data class PersistedCredentialInstall(
+    val commitment: ByteArray,
+    val leaseExpiresAt: String,
+)
 
 internal sealed interface ProducerWakeCredential {
     data class Present(

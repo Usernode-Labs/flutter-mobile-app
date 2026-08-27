@@ -55,7 +55,9 @@ internal class InteractiveNativeSessionChannel(
                 "bootstrapInteractiveRoot" -> bootstrapInteractiveRoot(call, result)
                 "prepareNativeSessionExchange" -> prepareExchange(call, result)
                 "installNativeSessionCredential" -> installCredential(call, result)
+                "discardUncommittedNativeSessionCredential" -> discardUncommittedCredential(call, result)
                 "retireNativeSessionCredential" -> retireCredential(call, result)
+                "revokeNativeSessionCredential" -> revokeCredential(call, result)
                 "recoverNativeSession" -> recoverNativeSession(call, result)
                 "runInteractiveProducerWake" -> runInteractiveProducerWake(call, result)
                 "stageNativeProducerPolicy" -> stageProducerPolicy(call, result)
@@ -151,6 +153,37 @@ internal class InteractiveNativeSessionChannel(
             arguments["exchange"],
         )
         result.success(mapOf("installClaim" to claim))
+    }
+
+    private fun discardUncommittedCredential(call: MethodCall, result: MethodChannel.Result) {
+        requireProcessRoot()
+        val arguments = exactArguments(
+            call.arguments,
+            setOf("attemptId", "processTransportClaim"),
+            "discardUncommittedNativeSessionCredential",
+        )
+        requireProcessTransportClaim(arguments)
+        vault.discardUncommittedCredential(
+            arguments["attemptId"] as? String
+                ?: fail("invalid_native_establishment_cleanup", "The native attempt id is invalid"),
+        )
+        result.success(null)
+    }
+
+    private fun revokeCredential(call: MethodCall, result: MethodChannel.Result) {
+        managedArguments(
+            call,
+            setOf("expectedRevision", "processTransportClaim"),
+            "revokeNativeSessionCredential",
+        )
+        runWorker(result) {
+            mapOf(
+                "status" to when (vault.revokeCredentialOnServer()) {
+                    NativeCredentialServerRevocation.DEFINITIVELY_ABSENT -> "definitivelyAbsent"
+                    NativeCredentialServerRevocation.UNCERTAIN -> "uncertain"
+                },
+            )
+        }
     }
 
     private fun retireCredential(call: MethodCall, result: MethodChannel.Result) {

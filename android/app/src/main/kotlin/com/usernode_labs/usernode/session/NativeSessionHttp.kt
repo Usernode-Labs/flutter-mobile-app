@@ -33,6 +33,9 @@ internal class NativeSessionHttp(
                 .put("delegated", delegated),
         )
 
+    fun logout(bearer: String): NativeHttpResult =
+        request("POST", "auth/logout", bearer)
+
     fun getPushStatus(bearer: String, installationId: String): NativeHttpResult =
         request(
             "GET",

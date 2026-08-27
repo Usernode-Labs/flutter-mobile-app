@@ -21,8 +21,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.webkit.WebStorageCompat
 import androidx.webkit.WebViewFeature
+import com.usernode_labs.usernode.session.AndroidNativeSessionPlatform
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
@@ -578,6 +580,13 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
                 .commit() && durableStateCleared
         }
         durableStateCleared = applicationIncarnationStore.clear() && durableStateCleared
+        durableStateCleared =
+            AndroidNativeSessionPlatform.vault(appContext).clearForTerminalReset() &&
+            durableStateCleared
+        // TODO(session-lifecycle): keep alarm semantics out of this refactor; only
+        // the exact terminal-reset storage boundary belongs here.
+        durableStateCleared = File(appContext.noBackupFilesDir, "native_session_v2")
+            .let { !it.exists() || it.deleteRecursively() } && durableStateCleared
         flutterAlarmEventBuffer.clear()
         return durableStateCleared
     }

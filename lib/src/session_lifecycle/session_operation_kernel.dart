@@ -952,7 +952,7 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
         effects: const _ClosedSessionEffectSink(),
       );
     }
-    transitions.finishEstablish();
+    transitions.finishEstablish(_NativeEstablishOutcome.ready);
     await queuedLogout;
     _expectSelfCheck(
       queuedRoot.view.current.identity.status ==
@@ -993,7 +993,7 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
           );
         }
       }
-      heldWakeTransitions.finishEstablish();
+      heldWakeTransitions.finishEstablish(_NativeEstablishOutcome.ready);
     }();
     await Future<void>.delayed(Duration.zero);
     final establishCompleted = heldWakeTransitions.beginLogout(realm);

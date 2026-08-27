@@ -9,7 +9,12 @@ set(PROJECT_NAME "rust_lib_crypto_mobile_app")
 project(${PROJECT_NAME} LANGUAGES CXX)
 
 include("../cargokit/cmake/cargokit.cmake")
-apply_cargokit(${PROJECT_NAME} ../../../../../../rust rust_lib_crypto_mobile_app "")
+set(RUST_CRATE_DIR "../rust")
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${RUST_CRATE_DIR}/Cargo.toml")
+  message(FATAL_ERROR
+    "[rust_lib_crypto_mobile_app] Could not locate desktop placeholder crate.")
+endif()
+apply_cargokit(${PROJECT_NAME} ${RUST_CRATE_DIR} rust_lib_crypto_mobile_app "")
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an

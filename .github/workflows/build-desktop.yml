@@ -1,0 +1,66 @@
+name: Build Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build-desktop.yml"
+      - "lib/**"
+      - "rust_builder/**"
+      - "windows/**"
+      - "pubspec.lock"
+      - "pubspec.yaml"
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.41.4"
+
+jobs:
+  build-windows:
+    name: Windows x64 release
+    runs-on: windows-latest
+    env:
+      CARGO_BUILD_JOBS: "2"
+      CMAKE_BUILD_PARALLEL_LEVEL: "2"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        run: >-
+          flutter build windows --release
+          --dart-define=APP_ENV=production
+          --dart-define=DAPPS_TAB_URL=https://dapps.usernode.com
+
+      - name: Package Windows release
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build/artifacts | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath build/artifacts/usernode-windows-x64.zip
+          $hash = (Get-FileHash build/artifacts/usernode-windows-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  usernode-windows-x64.zip" | Set-Content -NoNewline build/artifacts/usernode-windows-x64.zip.sha256
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: usernode-windows-x64
+          path: build/artifacts/*
+          if-no-files-found: error
+          retention-days: 14

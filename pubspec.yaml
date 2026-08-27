@@ -38,6 +38,9 @@ dependencies:
   crypto: "^3.0.3"
   url_launcher: "^6.2.0"
   webview_flutter: "^4.10.0"
+  # Desktop web content uses a separate native window. GTK native children
+  # cannot be composed safely into Flutter 3.38's Linux OpenGL surface.
+  desktop_webview_window: "0.3.0"
   # Platform implementations imported directly to enable debug-only webview
   # inspection (Safari Web Inspector / chrome://inspect) in dapp webviews.
   webview_flutter_android: "^4.10.13"

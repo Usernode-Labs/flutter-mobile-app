@@ -73,8 +73,9 @@ void main() {
     expect(listener, contains('final delegate = widget.onSessionEnded;'));
     expect(
       listener,
-      contains('unawaited(_controller.loadRequest(parseDappUrl(widget.url)));'),
+      contains('unawaited(_loadWebUri(parseDappUrl(widget.url)));'),
     );
+    expect(webview, contains('await _controller.loadRequest(uri);'));
     expect(shell, contains('onSessionEnded: _reloadForSessionEnd,'));
   });
 

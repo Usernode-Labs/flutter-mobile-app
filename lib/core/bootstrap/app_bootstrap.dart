@@ -322,6 +322,16 @@ class AppBootstrap {
         'verboseLogging': cfg.verboseLogging,
       });
 
+      // The Usernode Rust crate intentionally exposes its FRB surface only on
+      // Android and iOS. Desktop builds are the SV shell and must not attempt
+      // to initialize the placeholder desktop library as if it were the node.
+      if (Platform.isLinux || Platform.isWindows) {
+        log.info(
+          'Desktop SV shell ready; embedded node backend is unavailable',
+        );
+        return;
+      }
+
       // Initialize FRB for native event delivery. The node is NOT started
       // here: node lifecycle is platform-controlled (SV chrome requests the
       // start over bridge v4 once the shell boots and the identity settles).

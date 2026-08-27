@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
@@ -50,6 +51,7 @@ import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_
     show zkPassportFlowControllerProvider, zkPassportSettingsProvider;
 import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +59,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -86,6 +89,11 @@ extension on WebViewController {
     }
   }
 }
+
+bool get _usesDesktopWebView =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.windows);
 
 /// Full-screen chromeless webview hosting the SV platform (app-as-SV-chrome),
 /// plus the compatibility fallback for pinned URLs that cannot be remapped
@@ -149,6 +157,9 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
 abstract class _DappWebViewScreenStateBase
     extends ConsumerState<DappWebViewScreen> {
   late final WebViewController _controller;
+  Webview? _desktopWebview;
+  String? _desktopCurrentUrl;
+  bool _desktopCanGoBack = false;
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
   late final SessionHandoffGate _sessionHandoffGate;
   late final BridgeAdmissionCoordinator _bridgeAdmissionCoordinator;
@@ -161,6 +172,53 @@ abstract class _DappWebViewScreenStateBase
   ProviderContainer get _providers => _providersContainer!;
 
   static const _jsChannelName = 'Usernode';
+
+  Future<void> _runJavaScript(String script) async {
+    final desktop = _desktopWebview;
+    if (desktop != null) {
+      await desktop.evaluateJavaScript(script);
+      return;
+    }
+    await _controller.runJavaScript(script);
+  }
+
+  Future<Object?> _evaluateJavaScript(String script) async {
+    final desktop = _desktopWebview;
+    if (desktop != null) return desktop.evaluateJavaScript(script);
+    return _controller.runJavaScriptReturningResult(script);
+  }
+
+  Future<void> _loadWebUri(Uri uri) async {
+    final desktop = _desktopWebview;
+    if (desktop != null) {
+      desktop.launch(uri.toString());
+      return;
+    }
+    await _controller.loadRequest(uri);
+  }
+
+  Future<String?> _currentWebUrl() async {
+    final desktop = _desktopWebview;
+    if (desktop != null) {
+      return _desktopCurrentUrl ??
+          await desktop.evaluateJavaScript('window.location.href');
+    }
+    return _controller.currentUrl();
+  }
+
+  Future<bool> _canWebViewGoBack() async {
+    if (_desktopWebview != null) return _desktopCanGoBack;
+    return _controller.canGoBack();
+  }
+
+  Future<void> _goBackInWebView() async {
+    final desktop = _desktopWebview;
+    if (desktop != null) {
+      await desktop.back();
+      return;
+    }
+    await _controller.goBack();
+  }
 
   void _dispatchPendingSocialPushEvents();
   void _recordReadySocialPushReplay(
@@ -353,7 +411,7 @@ abstract class _DappWebViewScreenStateBase
     final js = 'window.__usernodeResolve(${jsonEncode(id)},'
         ' ${jsonEncode(value)}, ${jsonEncode(error)});';
     try {
-      await _controller.runJavaScript(js);
+      await _runJavaScript(js);
     } catch (_) {
       // Ignore callback failures.
     }
@@ -420,6 +478,35 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         _BridgeCapture,
         _BridgeDispatch {
   int _widgetNavigationRevision = 0;
+  bool _desktopOpening = false;
+  bool _desktopSawNavigation = false;
+  VoidCallback? _desktopNavigationListener;
+
+  static const _desktopBridgeBootstrap = '''
+    (function () {
+      if (window.Usernode &&
+          typeof window.Usernode.postMessage === 'function') return;
+      var postMessage = function (message) {
+        var body = typeof message === 'string'
+          ? message
+          : JSON.stringify(message);
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage(body);
+          return;
+        }
+        var handlers = window.webkit && window.webkit.messageHandlers;
+        if (handlers && handlers.Usernode) {
+          handlers.Usernode.postMessage(body);
+        }
+      };
+      Object.defineProperty(window, 'Usernode', {
+        value: Object.freeze({ postMessage: postMessage }),
+        configurable: false,
+        enumerable: true,
+        writable: false
+      });
+    })();
+  ''';
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
   // corrupts WKWebView's gesture recognizer when a translucent modal barrier
@@ -432,37 +519,31 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     _sessionHandoffGate = SessionHandoffGate(
       initiallyBlocked: !widget.standalone,
     );
-    // iOS: opt this webview into App-Bound Domains (WKAppBoundDomains in
-    // Info.plist). This unlocks Service Workers — SV's offline PWA mode —
-    // at the cost of restricting navigation to the bound domains. All dapp
-    // surfaces we host live on those domains; external links route through
-    // the openExternal bridge method / system browser instead.
-    final PlatformWebViewControllerCreationParams creationParams;
-    if (WebViewPlatform.instance is WebKitWebViewPlatform) {
-      creationParams = WebKitWebViewControllerCreationParams(
-        limitsNavigationsToAppBoundDomains: widget.appBoundDomainsOnly,
-      );
-    } else {
-      creationParams = const PlatformWebViewControllerCreationParams();
-    }
-    _controller = WebViewController.fromPlatformCreationParams(creationParams)
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      // Pipe WebView console.* output (including the iframe-relay tracing in
-      // usernode-bridge.js) into Flutter's debug logs so it shows up in
-      // `flutter run` — no Safari/remote inspector required.
-      ..setOnConsoleMessage((msg) {
+    if (!_usesDesktopWebView) {
+      // iOS: opt this webview into App-Bound Domains (WKAppBoundDomains in
+      // Info.plist). This unlocks Service Workers — SV's offline PWA mode —
+      // at the cost of restricting navigation to the bound domains.
+      final PlatformWebViewControllerCreationParams creationParams;
+      if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+        creationParams = WebKitWebViewControllerCreationParams(
+          limitsNavigationsToAppBoundDomains: widget.appBoundDomainsOnly,
+        );
+      } else {
+        creationParams = const PlatformWebViewControllerCreationParams();
+      }
+      _controller = WebViewController.fromPlatformCreationParams(creationParams)
+        ..setJavaScriptMode(JavaScriptMode.unrestricted);
+      _controller.setOnConsoleMessage((msg) {
         debugPrint('[webview ${msg.level.name}] ${msg.message}');
-      })
+      });
       // Debug builds only: allow attaching Safari Web Inspector (iOS 16.4+)
       // and chrome://inspect (Android) to the dapp webview, so bridge
       // methods can be exercised from a desktop console during development.
-      ..setInspectableForDebug()
-      // webview_flutter has NO default UI for window.alert() — without this
-      // handler every page-side alert (dapps report errors this way) is
-      // silently dropped and a failing action looks like a no-op. Surface it
-      // as a SnackBar rather than a dialog: a translucent modal barrier over
-      // the platform view triggers the WKWebView gesture bug described above.
-      ..setOnJavaScriptAlertDialog((request) async {
+      _controller.setInspectableForDebug();
+      // The platform APIs have no default UI for window.alert(). Surface page
+      // errors without a translucent modal barrier, which can interfere with
+      // native webview gesture handling.
+      _controller.setOnJavaScriptAlertDialog((request) async {
         debugPrint('[webview alert] ${request.message}');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -471,36 +552,38 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             duration: const Duration(seconds: 6),
           ),
         );
-      })
-      ..addJavaScriptChannel(
-        _DappWebViewScreenStateBase._jsChannelName,
-        onMessageReceived: _onBridgeMessage,
-      )
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (_) {
-            _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
-          },
-          onPageFinished: (_) {
-            if (!mounted) return;
-            _reportFirstLoadResult(true);
-            _logServiceWorkerStateForDebug();
-          },
-          onWebResourceError: (error) {
-            if (!mounted) return;
-            // Sub-resource failures (an image, a beacon) don't mean the
-            // page failed; only main-frame errors flunk the first-load gate.
-            if (error.isForMainFrame != false) {
-              _reportFirstLoadResult(false);
-            }
-          },
-        ),
-      );
+      });
+      _controller
+        ..addJavaScriptChannel(
+          _DappWebViewScreenStateBase._jsChannelName,
+          onMessageReceived: _onBridgeMessage,
+        )
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onPageStarted: (_) {
+              _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+            },
+            onPageFinished: (_) {
+              if (!mounted) return;
+              _reportFirstLoadResult(true);
+              _logServiceWorkerStateForDebug();
+            },
+            onWebResourceError: (error) {
+              if (!mounted) return;
+              // Sub-resource failures (an image, a beacon) don't mean the
+              // page failed; only main-frame errors flunk the first-load gate.
+              if (error.isForMainFrame != false) {
+                _reportFirstLoadResult(false);
+              }
+            },
+          ),
+        );
+    }
     _privilegedBridgePolicy = PrivilegedBridgePolicy(
       trustedOrigin: Uri.tryParse(AppConfig.dappsTabUrl),
       allowLocalDevelopment:
           kDebugMode && AppConfig.enableLocalPrivilegedBridge,
-      evaluateTopFrame: _controller.runJavaScriptReturningResult,
+      evaluateTopFrame: _evaluateJavaScript,
     );
     _bridgeAdmissionCoordinator = BridgeAdmissionCoordinator(
       policy: _privilegedBridgePolicy,
@@ -508,15 +591,21 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       admitAnonymousSession: _admitAnonymousSession,
       markRealmReady: _seedReadyMainFrame,
     );
-    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+    if (_usesDesktopWebView) {
+      unawaited(_openDesktopWebView());
+    } else {
+      unawaited(_loadWebUri(parseDappUrl(widget.url)));
+    }
     // Android WebView shows no OS file chooser for <input type="file">
     // unless the host app registers one (WebChromeClient.onShowFileChooser)
     // — without this, upload controls in dapps (including cross-origin
     // iframes like staging previews) silently no-op. iOS WKWebView
     // presents its own picker natively, so this is Android-only.
-    final platformController = _controller.platform;
-    if (platformController is AndroidWebViewController) {
-      platformController.setOnShowFileSelector(_showAndroidFileSelector);
+    if (!_usesDesktopWebView) {
+      final platformController = _controller.platform;
+      if (platformController is AndroidWebViewController) {
+        platformController.setOnShowFileSelector(_showAndroidFileSelector);
+      }
     }
     // Push node pill-state transitions into the page (SV header pill).
     // Chrome-level provider only changes on real state flips (hysteresis
@@ -562,7 +651,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       }
       if (!mounted) return;
       _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
-      unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+      unawaited(_loadWebUri(parseDappUrl(widget.url)));
     });
     ref.listenManual(accountReconciliationStatusProvider, (previous, next) {
       if (previous == next) return;
@@ -572,6 +661,104 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     unawaited(_bindTxRecordsToActiveIdentity());
     unawaited(_ensureNodeForStandaloneDappEntry());
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  Future<void> _openDesktopWebView() async {
+    final existing = _desktopWebview;
+    if (existing != null) {
+      if (Platform.isWindows) {
+        await existing.bringToForeground(maximized: true);
+        return;
+      }
+      final navigationListener = _desktopNavigationListener;
+      if (navigationListener != null) {
+        existing.isNavigating.removeListener(navigationListener);
+      }
+      _desktopWebview = null;
+      _desktopNavigationListener = null;
+      existing.close();
+    }
+    if (_desktopOpening) return;
+    _desktopOpening = true;
+    if (mounted) setState(() {});
+
+    try {
+      if (!await WebviewWindow.isWebviewAvailable()) {
+        _reportFirstLoadResult(false);
+        return;
+      }
+      final supportDirectory = await getApplicationSupportDirectory();
+      final webview = await WebviewWindow.create(
+        configuration: CreateConfiguration(
+          title: widget.name,
+          openMaximized: true,
+          userDataFolderWindows:
+              '${supportDirectory.path}${Platform.pathSeparator}webview2',
+        ),
+      );
+      if (!mounted) {
+        webview.close();
+        return;
+      }
+
+      _desktopWebview = webview;
+      if (Platform.isLinux) {
+        webview.registerJavaScriptMessageHandler(
+          _DappWebViewScreenStateBase._jsChannelName,
+          (_, body) {
+            if (body is String) unawaited(_onBridgePayload(body));
+          },
+        );
+      } else {
+        webview.addOnWebMessageReceivedCallback(
+          (message) => unawaited(_onBridgePayload(message)),
+        );
+      }
+      webview
+        ..addScriptToExecuteOnDocumentCreated(_desktopBridgeBootstrap)
+        ..setOnHistoryChangedCallback((canGoBack, _) {
+          _desktopCanGoBack = canGoBack;
+        })
+        ..setOnUrlRequestCallback((url) {
+          _desktopCurrentUrl = url;
+          _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+          return true;
+        });
+
+      void navigationListener() {
+        if (webview.isNavigating.value) {
+          _desktopSawNavigation = true;
+          return;
+        }
+        if (!_desktopSawNavigation || !mounted) return;
+        _reportFirstLoadResult(true);
+        _logServiceWorkerStateForDebug();
+      }
+
+      _desktopNavigationListener = navigationListener;
+      webview.isNavigating.addListener(navigationListener);
+      unawaited(webview.onClose.whenComplete(() {
+        webview.isNavigating.removeListener(navigationListener);
+        if (!mounted || !identical(_desktopWebview, webview)) return;
+        setState(() {
+          _desktopWebview = null;
+          _desktopNavigationListener = null;
+          _desktopCanGoBack = false;
+        });
+      }));
+      webview.launch(parseDappUrl(widget.url).toString());
+      if (Platform.isWindows) {
+        await webview.bringToForeground(maximized: true);
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[desktop webview] failed to open: $error\n$stackTrace');
+      _reportFirstLoadResult(false);
+      _desktopWebview?.close();
+      _desktopWebview = null;
+    } finally {
+      _desktopOpening = false;
+      if (mounted) setState(() {});
+    }
   }
 
   @override
@@ -609,7 +796,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     final next = parseDappUrl(widget.url);
     Uri? current;
     try {
-      final rawCurrent = await _controller.currentUrl();
+      final rawCurrent = await _currentWebUrl();
       current = rawCurrent == null ? null : Uri.tryParse(rawCurrent);
     } catch (_) {
       current = null;
@@ -617,7 +804,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     if (!mounted || revision != _widgetNavigationRevision) return;
     if (current != null && isSameWebDocument(current, next)) {
       final fragment = jsonEncode(next.fragment);
-      await _controller.runJavaScript('''
+      await _runJavaScript('''
         (function () {
           var nextHash = $fragment;
           if (window.location.hash.substring(1) === nextHash) {
@@ -632,7 +819,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       ''').catchError((_) {});
       return;
     }
-    await _controller.loadRequest(next);
+    await _loadWebUri(next);
   }
 
   /// Presents the OS file picker for a WebView `<input type="file">` tap
@@ -688,9 +875,11 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   void didChangeDependencies() {
     super.didChangeDependencies();
     _providersContainer ??= ProviderScope.containerOf(context, listen: false);
-    _controller.setBackgroundColor(
-      Theme.of(context).colorScheme.surfaceContainerLowest,
-    );
+    if (!_usesDesktopWebView) {
+      _controller.setBackgroundColor(
+        Theme.of(context).colorScheme.surfaceContainerLowest,
+      );
+    }
   }
 
   @override
@@ -701,6 +890,13 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     _privilegedBridgePolicy.dispose();
     _disposeSocialPushEvents();
     _confirmPoller?.cancel();
+    final desktop = _desktopWebview;
+    final navigationListener = _desktopNavigationListener;
+    if (desktop != null && navigationListener != null) {
+      desktop.isNavigating.removeListener(navigationListener);
+    }
+    desktop?.close();
+    _desktopWebview = null;
     super.dispose();
   }
 
@@ -710,7 +906,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   /// WKWebView). Output lands in the piped webview console logs.
   void _logServiceWorkerStateForDebug() {
     if (!kDebugMode) return;
-    _controller.runJavaScript('''
+    _runJavaScript('''
       (function () {
         if (!('serviceWorker' in navigator)) {
           console.log('[sw-check] navigator.serviceWorker unavailable');
@@ -733,6 +929,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // platform view inside a scrollable starves it of buffers and ANRs the app
     // (BLASTBufferQueue "can't acquire next buffer").
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return PopScope(
       // Take over the route-pop handler so the device/system back button
@@ -760,12 +957,23 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             : null,
         body: ColoredBox(
           color: colors.surfaceContainerLowest,
-          child: widget.standalone
-              ? WebViewWidget(controller: _controller)
-              : SafeArea(
-                  bottom: false,
-                  child: WebViewWidget(controller: _controller),
-                ),
+          child: _usesDesktopWebView
+              ? Center(
+                  child: _desktopOpening
+                      ? const CircularProgressIndicator()
+                      : Button(
+                          onTap: _openDesktopWebView,
+                          leadingIcon: const Icon(Symbols.open_in_new_sharp),
+                          label: l10n.desktopWebViewOpen,
+                          variant: ButtonVariant.primary,
+                        ),
+                )
+              : widget.standalone
+                  ? WebViewWidget(controller: _controller)
+                  : SafeArea(
+                      bottom: false,
+                      child: WebViewWidget(controller: _controller),
+                    ),
         ),
       ),
     );
@@ -777,8 +985,8 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   // back goes to app, not out of the dapp) and only falls through to
   // popping the Flutter route once the WebView is at its root.
   Future<void> _handleBack() async {
-    if (await _controller.canGoBack()) {
-      await _controller.goBack();
+    if (await _canWebViewGoBack()) {
+      await _goBackInWebView();
       return;
     }
     if (!mounted) return;

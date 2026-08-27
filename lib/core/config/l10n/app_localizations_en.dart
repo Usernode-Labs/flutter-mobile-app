@@ -733,4 +733,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get stakingUndelegateError =>
       'Couldn\'t stop delegating. Check your connection and try again.';
+
+  @override
+  String get desktopWebViewOpen => 'Open web app window';
 }

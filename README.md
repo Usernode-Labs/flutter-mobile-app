@@ -950,6 +950,35 @@ flutter build ios --debug
 flutter run
 ```
 
+#### Desktop Builds
+
+Desktop builds currently provide the Social Vibecoding shell; the embedded
+validator-node backend remains available only on Android and iOS. Web content
+opens in a separate native WebKitGTK (Linux) or WebView2 (Windows) window.
+
+Install Flutter, Rust, CMake, Ninja, and a native compiler first. Linux also
+needs the GTK 3, WebKitGTK 4.1, libsoup 3, and libsecret development packages;
+Windows needs Visual Studio 2022 with **Desktop development with C++**.
+
+```bash
+# Linux
+flutter pub get
+flutter build linux --release \
+  --dart-define=APP_ENV=production \
+  --dart-define=DAPPS_TAB_URL=https://dapps.usernode.com
+```
+
+```powershell
+# Windows (run in a Developer PowerShell)
+flutter pub get
+flutter build windows --release `
+  --dart-define=APP_ENV=production `
+  --dart-define=DAPPS_TAB_URL=https://dapps.usernode.com
+```
+
+The `Build Desktop` GitHub Actions workflow produces a downloadable
+`usernode-windows-x64` artifact without running the Windows executable.
+
 #### Release Build
 
 **Understanding Build Environments:**

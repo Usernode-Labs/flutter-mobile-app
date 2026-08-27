@@ -141,6 +141,14 @@ void main() {
       expect(await service.hasNotificationsPermission(), isFalse);
       expect(calls, ['hasNotificationPermission']);
     });
+
+    test('desktop returns false without channel traffic', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      await setUpService();
+
+      expect(await service.hasNotificationsPermission(), isFalse);
+      expect(calls, isEmpty);
+    });
   });
 
   group('openNotificationSettings', () {

@@ -94,9 +94,12 @@ mixin _BridgeDispatch
   /// Routes every `Usernode` JS-channel message to its domain handler.
   /// Body moved verbatim from the former inline `onMessageReceived`
   /// closure in initState.
-  Future<void> _onBridgeMessage(JavaScriptMessage message) async {
+  Future<void> _onBridgeMessage(JavaScriptMessage message) =>
+      _onBridgePayload(message.message);
+
+  Future<void> _onBridgePayload(String message) async {
     try {
-      final payload = jsonDecode(message.message) as Map<String, dynamic>;
+      final payload = jsonDecode(message) as Map<String, dynamic>;
       final method = payload['method'] as String?;
       final id = payload['id'] as String?;
       debugPrint('[Usernode JS-channel] method=$method id=$id');

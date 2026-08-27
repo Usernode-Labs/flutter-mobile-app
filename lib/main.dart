@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:desktop_webview_window/desktop_webview_window.dart';
 import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
@@ -36,7 +37,11 @@ import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart'
 /// Flutter allows only one WidgetsBinding per process.
 const bool _marionetteEnabled = bool.fromEnvironment('MARIONETTE');
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
+  // Desktop WebView windows host their toolbar in a small secondary Flutter
+  // engine. Handle that entrypoint before initializing the full application.
+  if (runWebViewTitleBarWidget(args)) return;
+
   if (_marionetteEnabled && kDebugMode) {
     MarionetteBinding.ensureInitialized();
     await _runAppBody(logTag: 'usernode/MarionetteBootstrap');

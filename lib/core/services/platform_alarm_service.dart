@@ -691,6 +691,10 @@ class PlatformAlarmService {
 
   /// Whether the OS notification permission is currently granted.
   Future<bool> hasNotificationsPermission() async {
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return false;
+    }
     try {
       final method = defaultTargetPlatform == TargetPlatform.android
           ? 'hasPostNotificationsPermission'

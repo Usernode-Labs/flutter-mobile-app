@@ -971,5 +971,9 @@
   "stakingUndelegateError": "Couldn't stop delegating. Check your connection and try again.",
   "@stakingUndelegateError": {
     "description": "Error shown when undelegation cannot be committed"
+  },
+  "desktopWebViewOpen": "Open web app window",
+  "@desktopWebViewOpen": {
+    "description": "Button that opens or focuses the desktop dapp window"
   }
 }

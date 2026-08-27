@@ -1395,6 +1395,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t stop delegating. Check your connection and try again.'**
   String get stakingUndelegateError;
+
+  /// Button that opens or focuses the desktop dapp window
+  ///
+  /// In en, this message translates to:
+  /// **'Open web app window'**
+  String get desktopWebViewOpen;
 }
 
 class _AppLocalizationsDelegate

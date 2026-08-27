@@ -168,8 +168,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       // terms routes) — no native terms state remains.
       'authStatus': ref.read(authStatusProvider).name,
       'permissions': {
-        'platform':
-            defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+        'platform': defaultTargetPlatform.name,
         'exactAlarmGranted': exactAlarmGranted,
         'notificationsGranted': notificationsGranted,
         'batteryOptDisabled': batteryOptDisabled,

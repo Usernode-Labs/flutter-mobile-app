@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto_mobile_app/design_system/design_system.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -60,11 +61,17 @@ class AppVersionCheck {
 
   Timer? _timer;
 
+  static bool get _supportsStoreUpdates =>
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+
   /// Check version and return result (null on error = fail open).
   /// Returns null if version check is disabled.
   Future<VersionCheckResult?> check() async {
-    if (!AppConfig.versionCheckEnabled) {
-      _log.debug('Version check disabled (no API URL configured)');
+    if (!AppConfig.versionCheckEnabled || !_supportsStoreUpdates) {
+      _log.debug(
+        'Version check disabled for ${defaultTargetPlatform.name}',
+      );
       return null;
     }
 
@@ -114,8 +121,10 @@ class AppVersionCheck {
 
   /// Start periodic checks using configured interval
   void startPeriodicChecks(void Function(VersionCheckResult) onResult) {
-    if (!AppConfig.versionCheckEnabled) {
-      _log.debug('Periodic version checks disabled (no API URL configured)');
+    if (!AppConfig.versionCheckEnabled || !_supportsStoreUpdates) {
+      _log.debug(
+        'Periodic version checks disabled for ${defaultTargetPlatform.name}',
+      );
       return;
     }
 

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
@@ -26,8 +27,10 @@ class SvShellScreen extends ConsumerStatefulWidget {
     super.key,
     this.initialHash,
     this.navigationRequest,
-    this.nativeSessionBridge,
-  });
+    required NativeSessionBridgeIngress nativeSessionBridge,
+    required SessionFeatureAccessView sessionAccess,
+  })  : _nativeSessionBridge = nativeSessionBridge,
+        _sessionAccess = sessionAccess;
 
   /// Optional Social hash route to land on.
   /// — used by the deep-link remap of the retired native tabs.
@@ -37,7 +40,8 @@ class SvShellScreen extends ConsumerStatefulWidget {
   /// the same target, so the live webview can re-assert the requested route.
   final String? navigationRequest;
 
-  final NativeSessionBridgeIngress? nativeSessionBridge;
+  final NativeSessionBridgeIngress _nativeSessionBridge;
+  final SessionFeatureAccessView _sessionAccess;
 
   static const _gatePrefsKey = 'sv_shell_first_load_ok';
 
@@ -142,7 +146,8 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
       navigationRequest: widget.navigationRequest,
       onSessionEnded: _reloadForSessionEnd,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,
-      nativeSessionBridge: widget.nativeSessionBridge,
+      nativeSessionBridge: widget._nativeSessionBridge,
+      sessionAccess: widget._sessionAccess,
     );
 
     final children = <Widget>[

@@ -1,8 +1,19 @@
+import 'dart:async';
+
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
+
 final class NativeSessionException implements Exception {
-  const NativeSessionException(this.code, this.message);
+  const NativeSessionException(
+    this.code,
+    this.message, {
+    this.statusCode,
+    this.latestMutationRevision,
+  });
 
   final String code;
   final String message;
+  final int? statusCode;
+  final int? latestMutationRevision;
 
   @override
   String toString() => 'NativeSessionException($code)';
@@ -11,10 +22,9 @@ final class NativeSessionException implements Exception {
 /// The narrow transport surface admitted into the trusted Social WebView.
 ///
 /// Implementations retain the process root, opaque native session client, and
-/// identity publisher privately. A non-null ingress means protocol 2 has been
-/// selected even when native health is recovery-required; failures reject
-/// through these methods and never reopen the legacy bridge. Feature code
-/// receives neither native authority nor a generic host.
+/// identity publisher privately. Failures remain fail-closed through these
+/// exact methods. Feature code receives neither native authority nor a generic
+/// lifecycle host.
 abstract interface class NativeSessionBridgeIngress {
   Future<Map<String, Object?>> establishNativeSession({
     required Map<String, dynamic> payload,
@@ -22,4 +32,18 @@ abstract interface class NativeSessionBridgeIngress {
   });
 
   Future<void> logoutNativeSession({required String realmMarker});
+
+  /// Admits one feature operation for the exact Social document/session pair.
+  ///
+  /// The opaque realm claim is compared inside the private composition root.
+  /// Callers receive only the immutable identity and an operation-scoped
+  /// facade; native clients and publication authority never cross this seam.
+  Future<T> runSessionOperation<T>({
+    required String realmMarker,
+    required String realmSessionClaim,
+    required FutureOr<T> Function(
+      SessionIdentityProjection identity,
+      SessionOperation operation,
+    ) body,
+  });
 }

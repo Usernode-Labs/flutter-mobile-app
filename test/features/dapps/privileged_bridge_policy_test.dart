@@ -35,9 +35,9 @@ void main() {
     expect(lease!.capability, isNotEmpty);
     expect((await subject.authorize(lease.capability))?.authorized, isTrue);
     expect(topFrame.marker, isNotNull);
-    expect(subject.requiresCapability('completeLogin'), isTrue);
+    expect(subject.requiresCapability('establishNativeSession'), isTrue);
     expect(subject.requiresCapability('getBridgeInfo'), isFalse);
-    expect(subject.requiresCapability('submitTransaction'), isFalse);
+    expect(subject.requiresCapability('submitTransaction'), isTrue);
   });
 
   test('the centralized privileged method set stays explicit', () {
@@ -59,14 +59,14 @@ void main() {
       'requestNotificationPermission',
       'requestAlarmPermissions',
       'openNotificationSettings',
-      'beginSessionHandoff',
-      'enterAnonymousSession',
-      'completeLogin',
-      'startNode',
-      'stopNode',
-      'getAuthStatus',
       'markPrivilegedBridgeReady',
       'logout',
+      'establishNativeSession',
+      'getNodeAddress',
+      'submitTransaction',
+      'signMessage',
+      'getWalletState',
+      'getNodeStatus',
       'getSocialPushState',
       'setSocialPushEnabled',
       'claimPendingSocialNotification',
@@ -238,20 +238,6 @@ void main() {
 
     topFrame.replaceDocument(href: '${trustedUrl}replacement');
     expect(await subject.revalidates(lease), isFalse);
-  });
-
-  test('readiness support is checked only in the exact leased realm', () async {
-    final topFrame = frame();
-    final subject = policy(topFrame);
-    final lease = await subject.bootstrapLease();
-
-    topFrame.supportsExplicitReadiness = true;
-    expect(await subject.supportsExplicitReadiness(lease!), isTrue);
-    topFrame.supportsExplicitReadiness = false;
-    expect(await subject.supportsExplicitReadiness(lease), isFalse);
-
-    topFrame.replaceDocument(href: '${trustedUrl}replacement');
-    expect(await subject.supportsExplicitReadiness(lease), isNull);
   });
 
   test('out-of-order concurrent probes derive one realm token', () async {
@@ -483,7 +469,6 @@ final class _FakeTopFrame {
   bool androidResultEncoding = false;
   bool neverComplete = false;
   bool rejectJsonStringify = false;
-  bool supportsExplicitReadiness = true;
   String? replaceBeforeNextGuard;
   Object? forcedResult = _unset;
   Object? failure;
@@ -509,14 +494,6 @@ final class _FakeTopFrame {
       if (neverComplete) return Completer<Object?>().future;
       if (gate != null) await gate.future;
       return result;
-    }
-
-    if (script.contains('__usernodeExplicitReadinessClient')) {
-      final expectedMarker = _extractExpectedMarker(script);
-      if (marker != expectedMarker) return null;
-      return androidResultEncoding
-          ? jsonEncode(supportsExplicitReadiness)
-          : supportsExplicitReadiness;
     }
 
     final expectedMarker = _extractExpectedMarker(script);

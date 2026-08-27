@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:crypto_mobile_app/src/session_lifecycle/session_operation_kernel.dart';
+import 'package:crypto_mobile_app/main.dart';
 
 void main() {
   test('private lifecycle kernel preserves the hard boundary', () async {
@@ -9,6 +9,7 @@ void main() {
       'child-entered',
       'effect-entered',
       'admission-closed',
+      'closing-child-entered',
       'commit',
       'publish:2',
       'publish:3',
@@ -16,6 +17,10 @@ void main() {
       'expired-effect-rejected',
       'queued-publish:4',
       'queued-runner-rejected',
+      'held-wake-terminal-suppressed',
+      'terminal-retirement-joined-logout',
+      'resume-gate-held',
+      'resume-gate-retired-runner-rejected',
     ]);
   });
 }

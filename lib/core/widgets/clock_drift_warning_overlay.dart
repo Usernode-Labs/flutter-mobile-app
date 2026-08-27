@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:flutter/material.dart';
 
 enum _ClockDriftSeverity { warning, critical }
@@ -18,8 +18,14 @@ class _ClockDriftWarningData {
   final _ClockDriftSeverity severity;
 }
 
+/// Retained clock warning backed only by the exact published session runner.
 class ClockDriftWarningOverlay extends StatefulWidget {
-  const ClockDriftWarningOverlay({super.key});
+  const ClockDriftWarningOverlay({
+    required SessionFeatureAccessView sessionAccess,
+    super.key,
+  }) : _sessionAccess = sessionAccess;
+
+  final SessionFeatureAccessView _sessionAccess;
 
   @override
   State<ClockDriftWarningOverlay> createState() =>
@@ -70,24 +76,36 @@ class _ClockDriftWarningOverlayState extends State<ClockDriftWarningOverlay>
     _refreshTimer = null;
   }
 
+  void _clearDrift() {
+    if (!mounted || _displayedDriftMs == null) return;
+    setState(() => _displayedDriftMs = null);
+  }
+
   Future<void> _refreshClockDrift() async {
     if (_refreshInFlight) return;
-    if (!RustBackendService.instance.isRunning) {
-      if (!mounted || _displayedDriftMs == null) return;
-      setState(() {
-        _displayedDriftMs = null;
-      });
+    final access = widget._sessionAccess.current;
+    if (access.identity.status != SessionProjectionStatus.ready) {
+      _clearDrift();
       return;
     }
 
     _refreshInFlight = true;
     try {
-      final resolvedDriftMs =
-          await RustBackendService.instance.resolveNodeClockDriftMs();
+      final status = await access.operations.run(
+        (operation) => operation.readNodeStatus(),
+      );
       if (!mounted) return;
-      setState(() {
-        _displayedDriftMs = resolvedDriftMs;
-      });
+      final current = widget._sessionAccess.current;
+      if (current.identity.status != SessionProjectionStatus.ready ||
+          current.identity.nativeRevision != access.identity.nativeRevision) {
+        _clearDrift();
+        return;
+      }
+      setState(() => _displayedDriftMs = status.clockDriftMs);
+    } catch (_) {
+      // Status is best-effort. Closed admission and transient runtime errors
+      // both hide the warning; neither can authorize a fallback status read.
+      _clearDrift();
     } finally {
       _refreshInFlight = false;
     }

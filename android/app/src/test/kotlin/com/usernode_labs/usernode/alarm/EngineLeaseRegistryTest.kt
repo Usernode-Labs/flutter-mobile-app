@@ -12,17 +12,14 @@ import java.util.concurrent.atomic.AtomicReference
 
 class EngineLeaseRegistryTest {
     @Test
-    fun `acquire refuses overwrite and stale release cannot clear successor`() {
+    fun `interactive replacement invalidates predecessor and stale release cannot clear successor`() {
         val registry = EngineLeaseRegistry<Any>()
         val firstValue = Any()
-        val first = registry.acquire(EngineRole.HEADLESS, firstValue)!!
-
-        assertNull(registry.acquire(EngineRole.INTERACTIVE, Any()))
+        val first = registry.replace(EngineRole.INTERACTIVE, firstValue)
         assertSame(firstValue, registry.capture()!!.value)
-        assertSame(firstValue, registry.compareRelease(first))
 
         val secondValue = Any()
-        val second = registry.acquire(EngineRole.INTERACTIVE, secondValue)!!
+        val second = registry.replace(EngineRole.INTERACTIVE, secondValue)
         assertNull(registry.compareRelease(first))
         assertTrue(registry.isCurrent(second))
         assertFalse(registry.isCurrent(first))
@@ -34,7 +31,7 @@ class EngineLeaseRegistryTest {
     fun `release linearizes after synchronous dispatch scheduling`() {
         val registry = EngineLeaseRegistry<Any>()
         val value = Any()
-        val lease = registry.acquire(EngineRole.HEADLESS, value)!!
+        val lease = registry.replace(EngineRole.INTERACTIVE, value)
         val dispatchEntered = CountDownLatch(1)
         val allowDispatchToReturn = CountDownLatch(1)
         val dispatchFailure = AtomicReference<Throwable?>()

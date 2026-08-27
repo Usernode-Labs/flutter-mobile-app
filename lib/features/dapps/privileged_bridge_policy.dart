@@ -104,15 +104,14 @@ class PrivilegedBridgePolicy {
     'requestNotificationPermission',
     'requestAlarmPermissions',
     'openNotificationSettings',
-    'beginSessionHandoff',
-    'enterAnonymousSession',
-    'completeLogin',
-    'startNode',
-    'stopNode',
-    'getAuthStatus',
     'markPrivilegedBridgeReady',
     'logout',
     'establishNativeSession',
+    'getNodeAddress',
+    'submitTransaction',
+    'signMessage',
+    'getWalletState',
+    'getNodeStatus',
     'getSocialPushState',
     'setSocialPushEnabled',
     'claimPendingSocialNotification',
@@ -204,26 +203,6 @@ class PrivilegedBridgePolicy {
   Future<bool> revalidates(PrivilegedBridgeLease lease) async {
     final realm = await _probeTopFrameRealm();
     return realm != null && realm.marker == lease.marker;
-  }
-
-  /// Detects whether [lease]'s exact trusted realm implements the explicit
-  /// listener-readiness handshake.
-  ///
-  /// This keeps independently deployed/cached older Social shells compatible:
-  /// they can be promoted on their first authorized call without treating a
-  /// WebView lifecycle callback as proof. A null result means the realm moved
-  /// or the evaluation was inconclusive and must never be promoted.
-  Future<bool?> supportsExplicitReadiness(PrivilegedBridgeLease lease) async {
-    if (_disposed) return null;
-    try {
-      final result = await _evaluateTopFrame(
-        _guardedReadinessSupportScript(lease.marker),
-      ).timeout(probeTimeout);
-      if (_disposed) return null;
-      return _decodeNullableBoolean(result);
-    } catch (_) {
-      return null;
-    }
   }
 
   void dispose() {
@@ -323,15 +302,6 @@ class PrivilegedBridgePolicy {
     })()
   ''';
 
-  String _guardedReadinessSupportScript(String marker) => '''
-    (function () {
-      'use strict';
-      const markerKey = ${jsonEncode(_markerProperty)};
-      if (window[markerKey] !== ${jsonEncode(marker)}) return null;
-      return window.__usernodeExplicitReadinessClient === true;
-    })()
-  ''';
-
   static _TopFrameRealm? _decodeRealm(Object? value) {
     if (value is! String || value.isEmpty) return null;
     var encoded = value;
@@ -379,19 +349,6 @@ class PrivilegedBridgePolicy {
       }
     }
     return false;
-  }
-
-  static bool? _decodeNullableBoolean(Object? value) {
-    if (value == null || value is bool) return value as bool?;
-    if (value is String) {
-      try {
-        final decoded = jsonDecode(value);
-        return decoded == null || decoded is bool ? decoded as bool? : null;
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
   }
 
   bool _allows(Uri uri) {

@@ -4,12 +4,15 @@ import 'dart:convert';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
-import 'package:crypto_mobile_app/src/rust/observability.dart';
 import 'package:flutter/widgets.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Observability');
+
+typedef FlutterObservabilityKind = SessionObservabilityKind;
+typedef FlutterObservabilityRecordResult = SessionObservabilityRecordResult;
 
 typedef ObservabilityRecordClient = FlutterObservabilityRecordResult Function({
   required FlutterObservabilityKind kind,
@@ -25,7 +28,7 @@ typedef NodeRuntimeActiveGetter = bool Function();
 
 class ObservabilityReportingService {
   ObservabilityReportingService._()
-      : _record = observabilityRecord,
+      : _record = null,
         _canRecordOverride = null,
         _isNodeRuntimeActive = null;
 
@@ -49,12 +52,13 @@ class ObservabilityReportingService {
   static const _batteryStateDuplicateWindow = Duration(seconds: 30);
   static const _maxPendingEarlyRecords = 16;
 
-  final ObservabilityRecordClient _record;
+  final ObservabilityRecordClient? _record;
   final bool Function()? _canRecordOverride;
   NodeRuntimeActiveGetter? _isNodeRuntimeActive;
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   MobileContextSnapshotCollector? _collector;
+  SessionFeatureAccess? _session;
 
   String? _lastLifecycleEvent;
   DateTime? _lastLifecycleEventAt;
@@ -87,6 +91,12 @@ class ObservabilityReportingService {
 
   void configureNodeRuntimeActiveGetter(NodeRuntimeActiveGetter getter) {
     _isNodeRuntimeActive = getter;
+  }
+
+  void configureSession(SessionFeatureAccess session) {
+    _session = session;
+    _nodeInitialized = session.identity.status == SessionProjectionStatus.ready;
+    if (_nodeInitialized) _flushPendingEarlyRecords();
   }
 
   Future<void> reportNodeInitialized({
@@ -458,7 +468,7 @@ class ObservabilityReportingService {
   bool get _isNodeRuntimeActiveForMobileContext {
     final isActive = _isNodeRuntimeActive;
     if (isActive == null) {
-      return true;
+      return _session?.identity.status == SessionProjectionStatus.ready;
     }
 
     try {
@@ -575,7 +585,7 @@ class ObservabilityReportingService {
       }
     }
 
-    final result = _record(
+    final result = _recordNow(
       kind: kind,
       event: event,
       payloadJson: payloadJson,
@@ -620,7 +630,7 @@ class ObservabilityReportingService {
     final pending = List<_PendingObservabilityRecord>.of(_pendingEarlyRecords);
     _pendingEarlyRecords.clear();
     for (final record in pending) {
-      final result = _record(
+      final result = _recordNow(
         kind: record.kind,
         event: record.event,
         payloadJson: record.payloadJson,
@@ -628,6 +638,55 @@ class ObservabilityReportingService {
       if (result.discarded && result.reason == 'node_not_running') {
         _retainPendingEarlyRecord(record);
       }
+    }
+  }
+
+  FlutterObservabilityRecordResult _recordNow({
+    required FlutterObservabilityKind kind,
+    required String event,
+    String? payloadJson,
+  }) {
+    final override = _record;
+    if (override != null) {
+      return override(kind: kind, event: event, payloadJson: payloadJson);
+    }
+    final session = _session;
+    if (session == null ||
+        session.identity.status != SessionProjectionStatus.ready) {
+      return const FlutterObservabilityRecordResult(
+        queued: false,
+        discarded: true,
+        reason: 'session_not_ready',
+      );
+    }
+    try {
+      final write = session.operations.run(
+        (operation) => operation.recordObservability(
+          kind: kind,
+          event: event,
+          payloadJson: payloadJson,
+        ),
+      );
+      unawaited(
+        write.catchError((Object error, StackTrace stackTrace) {
+          _log.debug('Observability write failed: $error');
+          return const FlutterObservabilityRecordResult(
+            queued: false,
+            discarded: true,
+            reason: 'write_failed',
+          );
+        }),
+      );
+      return const FlutterObservabilityRecordResult(
+        queued: true,
+        discarded: false,
+      );
+    } catch (_) {
+      return const FlutterObservabilityRecordResult(
+        queued: false,
+        discarded: true,
+        reason: 'session_not_ready',
+      );
     }
   }
 

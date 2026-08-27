@@ -1,17 +1,16 @@
 package com.usernode_labs.usernode.alarm
 
-/** The only two Flutter-engine roles that may own the alarm channel. */
+/** The only Flutter-engine role that may own the alarm channel. */
 internal enum class EngineRole {
     INTERACTIVE,
-    HEADLESS,
 }
 
 /**
  * Opaque reference authorizing one exact Flutter engine binding.
  *
  * Values have no caller-selected identifier and are compared by reference.
- * A lease only becomes authoritative when [EngineLeaseRegistry.acquire]
- * installs that exact instance.
+ * A lease only becomes authoritative when [EngineLeaseRegistry.replace]
+ * installs that exact instance as the current interactive engine.
  */
 internal class EngineLease private constructor(
     internal val role: EngineRole,
@@ -29,15 +28,15 @@ internal class EngineLeaseCapture<T : Any> internal constructor(
 /**
  * Owns one exact engine-bound value and only releases the matching lease.
  *
- * Acquisition fails closed while another engine is bound. Callers must close
- * the predecessor explicitly; there is no overwrite operation.
+ * Interactive replacement invalidates the predecessor synchronously. A stale
+ * dispatch or compare-release can never act on its successor.
  */
 internal class EngineLeaseRegistry<T : Any> {
     private var active: EngineLeaseCapture<T>? = null
 
+    /** Installs an interactive successor and invalidates the predecessor. */
     @Synchronized
-    fun acquire(role: EngineRole, value: T): EngineLease? {
-        if (active != null) return null
+    fun replace(role: EngineRole, value: T): EngineLease {
         val lease = EngineLease.candidate(role)
         active = EngineLeaseCapture(lease, value)
         return lease

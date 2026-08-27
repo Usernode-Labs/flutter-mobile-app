@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/network/logging_http_client.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
@@ -41,52 +40,6 @@ class ZkPassportRegistrationRepository {
   static const _kRequestOutcomeKeyBase = 'zkpassport:request_outcome_v1';
 
   final ZkPassportStringWriter? _stringWriter;
-
-  Future<bool> isRegistered() async {
-    final registration = await getActiveRegistration();
-    return registration.registered;
-  }
-
-  Future<ZkPassportLocalRegistration> getActiveRegistration() async {
-    final accounts = await AccountsRepository.create();
-    final active = await accounts.getActive();
-    if (active == null) {
-      return ZkPassportLocalRegistration.unregistered();
-    }
-
-    return getRegistrationForAccount(
-      accountId: active.id,
-      bucket: NetworkPrefs.activeBucket,
-    );
-  }
-
-  Future<void> storeActiveRegistration({
-    required bool registered,
-    required String? nullifierHex,
-    bool? facematchVerified,
-    int? verifyOuterMs,
-    int? wrapOuterMs,
-    int? verifyWrappedMs,
-    ZkPassportRequestVersion? requestVersion,
-  }) async {
-    final accounts = await AccountsRepository.create();
-    final active = await accounts.getActive();
-    if (active == null) {
-      return;
-    }
-
-    await storeRegistrationForAccount(
-      accountId: active.id,
-      bucket: NetworkPrefs.activeBucket,
-      registered: registered,
-      nullifierHex: nullifierHex,
-      facematchVerified: facematchVerified,
-      verifyOuterMs: verifyOuterMs,
-      wrapOuterMs: wrapOuterMs,
-      verifyWrappedMs: verifyWrappedMs,
-      requestVersion: requestVersion,
-    );
-  }
 
   /// Stores registration state under an explicitly captured account scope.
   /// Identity-sensitive flows use this instead of resolving the ambient
@@ -288,15 +241,15 @@ class ZkPassportRegistrationRepository {
         : NetworkPrefs.prefixAccountKeyFor(key, bucket);
   }
 
-  Future<void> clearActiveRegistration() async {
-    final accounts = await AccountsRepository.create();
-    final active = await accounts.getActive();
-    if (active == null) {
-      return;
+  Future<void> clearRegistrationForAccount({
+    required String accountId,
+    required String bucket,
+  }) async {
+    if (accountId.isEmpty || bucket.isEmpty) {
+      throw ArgumentError('accountId and bucket must not be empty');
     }
-
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_registrationKeyForAccount(active.id));
+    await prefs.remove(_registrationKeyForAccount(accountId, bucket: bucket));
   }
 
   String _registrationKeyForAccount(String accountId, {String? bucket}) {

@@ -19,4 +19,28 @@ internal object NativeSessionRust {
     external fun nativeRevokeProcessRoot()
 
     external fun nativeStageInstalledCredential(frame: ByteArray): ByteArray
+
+    external fun nativeStageColdInstalledCredentialV1(frame: ByteArray): ByteArray
+
+    external fun nativeResolveColdCredentialAbsentV1(expectedRevision: Long): Long
+
+    external fun nativeStageProducerPolicyV1(frame: ByteArray): ByteArray
+
+    /**
+     * Validates and fixes one bounded Present ProducerWake request behind a
+     * one-use opaque claim. The mutable request is wiped by Rust.
+     */
+    external fun nativeStageProducerWakeV1(frame: ByteArray): ByteArray
+
+    /** Consumes one exact claim returned by [nativeStageProducerWakeV1]. */
+    external fun nativeRunProducerWakeClaimV1(claim: ByteArray): ByteArray
+
+    /** Resolves one bounded definitive-absence ProducerWake request. */
+    external fun nativeResolveProducerCredentialAbsentV1(frame: ByteArray): ByteArray
+
+    /** Completes the exact Ready admission retained by the staged wake. */
+    external fun nativeCompleteProducerWakeApplyV1(
+        exactResponse: ByteArray,
+        success: Boolean,
+    ): Boolean
 }

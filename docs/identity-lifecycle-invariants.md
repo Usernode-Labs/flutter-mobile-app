@@ -1,457 +1,180 @@
 # Identity Lifecycle Invariants
 
-The v4 migration made session identity (platform login) and node identity
-(on-chain account) two separate systems that must stay reconciled. This doc
-enumerates the states, the invariants every change must preserve, and where
-each invariant is enforced in code. When touching auth, accounts, storage
-buckets, or the ZK flow, audit your change against this list before review.
+The mobile app is the private composition boundary between Social, the native
+Usernode runtime, and Android/iOS. Login and logout are hard identity
+boundaries: work admitted for session A finishes before A is retired, and
+session B is not published until its native authority is ready.
 
-Code is authoritative; this doc points at it. If they disagree, fix one.
+Code is authoritative. This document names the small set of boundaries that
+must remain true when session, bridge, vault, or background code changes.
 
-## Architecture
+## One owner, one public shape
 
-All identity state is a single immutable snapshot — `Identity`
-(`lib/core/identity/identity.dart`) — owned by the `SessionController`
-(`lib/core/identity/session_controller.dart`, exposed as
-`identityProvider`). Everything else only reads.
+The mounted, library-private `_NativeSessionCompositionRoot` in
+`lib/src/session_lifecycle/native_session_transport.dart` is the sole Flutter
+lifecycle owner. It is created only by the private bootstrap in `lib/main.dart`.
+No provider, service locator, public bootstrap function, or product-feature
+argument contains its root or native session clients.
 
-An `Identity` carries:
+Features receive only `SessionFeatureAccessView` from
+`lib/core/session/session_operation_runner.dart`. Its current value contains:
 
-- **`phase`** — `unknown / transitioning / unauthenticated / guest /
-  reconciling / ready`. `transitioning` closes every account-sensitive gate
-  while credentials and the node runtime are being replaced. `reconciling`
-  means "a session exists but which on-chain account it owns has not been
-  confirmed"; both phases gate wallet routes, dApp signing, and node starts.
-- **`epoch`** — a monotonic counter bumped on every transition (login,
-  logout, guest, 401). Async work captures the epoch it
-  started under and its results are discarded if the epoch moved on.
-- **`participantId` / `accountId` / `address`** — the confirmed bindings,
-  populated as the phase settles.
+- an immutable `SessionIdentityProjection` (`signedOut` or `ready`); and
+- a `SessionOperationRunner` that admits work for exactly that publication.
 
-The controller serializes every transition on an internal queue, publishes
-each snapshot to the ambient `IdentitySnapshots` mirror (for non-Riverpod
-call sites like the node service and dApp bridge), and is the **single
-writer** of `NetworkPrefs.setActiveBucket` — enforced by the
-`single_identity_bucket_writer` ds_lint.
+Signed-out runners reject permanently. A ready runner cannot publish, replace,
+or close a session. Generated FRB clients and the process-root proof never
+cross the private composition root. The sole glue exception is the trusted
+Flutter-to-Social adapter: private widget fields receive the attenuated
+`NativeSessionBridgeIngress` by explicit constructor injection from private
+route-builder closures. It is not stored in Riverpod or exposed as a public
+field, and every call still requires the exact realm marker and realm-session
+claim.
 
-The `IdentityDriver` (`lib/features/auth/providers/post_sign_in_sync.dart`)
-makes the app converge on each published snapshot: a `reconciling` identity
-triggers the `NodeAccountReconciler`
-(`lib/features/onboarding/data/node_account_provisioning.dart`); a
-transition into `ready` retries any pending ZK completion.
+## Boundary ordering
 
-## State model
+`lib/src/session_lifecycle/session_operation_kernel.dart` enforces the temporal
+contract:
 
-| State | Storage | Lifetime |
-|---|---|---|
-| Identity snapshot (`Identity`) | `identityProvider` / `IdentitySnapshots` (in-memory) | Republished on every transition |
-| Session token | Secure storage (`AuthTokenStore`) | Cleared on logout/401 |
-| Reconcile-pending marker | Network-prefixed pref, owned by `SessionController` | Login → reconcile commit |
-| Sign-out fence | Network-scoped FILE in the application support directory (`lib/core/identity/sign_out_fence.dart`), fsynced and verified | Written before the bearer clear, removed once the boundary settles (I16) |
-| Account registry (index + active id) | `AccountsRepository` (`lib/core/providers/accounts_provider.dart`), prefs keyed `<network>:user:<identity hash>:accounts:*` + secure storage | **Persists across sign-out**, addressable again only by the same user (I16) |
-| Storage namespace (`identity_hash`) | Network-prefixed pref, owned by `SessionController` (`lib/core/identity/identity_namespace_store.dart`) | Login → sign-out |
-| Active storage bucket (`guest` or `sha256(address)[..16]`) | `NetworkPrefs.activeBucket` (`lib/core/utils/network_prefs.dart`), in-memory | Recomputed on every identity transition |
-| Participant id | Account-bucket-scoped pref (`lib/core/identity/participant_id_store.dart`) | Staged in guest bucket at login, installed on reconcile |
-| Pending ZK completion | Versioned registration-repository outbox, pinned to an explicit bucket | Hidden by an exact-version terminal outcome |
-| ZK runtime session | Pref in the session's captured LAUNCH bucket, never the ambient one | Launch → finalization/timeout |
-| HTTP debug buffer | `HttpDebugLogStore` (in-memory, process-global, identity-agnostic), generation-stamped per exchange | Cleared at every sign-out; in-flight exchanges from the retired generation are rejected (I16) |
-| Registry adoption marker | Network-prefixed pref (`accounts:adopting`) | Written before the namespaced copy, removed after the bare source is deleted |
-| Native application incarnation | Native pref/UserDefaults token (`ApplicationIncarnationStore`) | Rotated at sign-out, invalidated one-way at terminal reset |
-| ZK request outcome | Append-only request-version/outcome-addressed pref | Permanent terminal decision for one launch |
-| Onboarding-completed flag | Account-bucket-scoped pref (`lib/core/providers/providers.dart`) | Per identity |
-| Node runtime | `RustBackendService` (`lib/features/node/node_service.dart`), binds active account's key **at start time** | Until stop/restart |
+1. A top-level operation is counted before feature code runs.
+2. An admitted operation may add counted child work and exact effects until its
+   callback settles.
+3. Logout closes new top-level admission synchronously.
+4. Logout waits without a timeout for every admitted operation, child, and
+   effect to finish.
+5. Only then may native logout and exact platform-vault retirement commit.
+6. Only after that commit does Flutter publish signed-out or a successor.
 
-## Invariants
+Establishment is serialized with logout. If a same-realm terminal intent
+arrives while establishment is committing, the new Ready remains private and
+is retired with its exact native revision; it is never briefly published.
+Once Rust returns a committed Ready receipt, Flutter retains its private
+session/revision authority until terminal cleanup even if wake or UI
+publication fails.
 
-**I1 — Ownership.** A local account is only treated as the session user's
-after the backend has confirmed it: every reconciling identity resolves
-through `POST /wallet/provision`, activating/importing the returned
-address. The presence of *some* local account (`hasAny()`) is never an
-ownership signal — the registry persists across logout.
-*Enforced by:* `NodeAccountReconciler`, invoked by the `IdentityDriver`
-whenever the identity is `reconciling`, and by `WelcomeSetupScreen`.
+The composition-root resume barrier gates the same runner used by every
+feature. On foreground resume, native credential evidence is resolved before
+ZK recovery, Social push replay, WebView dispatch, node status, or any other
+session operation can enter. UI input is also blocked while this validation is
+pending.
 
-**I2 — Node identity follows the settled identity.** The node binds the
-active account's secret key at start. `RustBackendService.startNode` — the
-chokepoint every start path funnels through (bootstrap, wake, foreground
-task, alarms) — refuses to start while the identity is `transitioning` or
-`reconciling` (`Identity.allowsNodeStart`), and `resumeNode` applies the same
-gate. The gate is airtight against races on both sides:
-`completeLogin` publishes `transitioning` before its first `await`, so a start
-racing login already sees the closed gate. `startNode` re-checks the gate
-after the runtime comes up and tears it down if the identity became unsettled
-mid-start; and
-`stopNode` waits out any in-flight start before stopping, so a suspend can
-never interleave with a start and lose. Before committing a reconciled
-identity, the reconciler waits for any in-flight start and stops a runtime
-bound to the previous account. It does not restart the node; the platform
-requests a fresh start only after the identity is `ready`.
-Entering guest mode also publishes `transitioning`, requests shutdown of the
-observed process-global runtime, and waits for it to disappear before guest
-becomes visible. A guest/view-only start in the same engine never adopts an
-unknown process-global runtime: it shuts that runtime down and rebuilds without
-either a producer key or wallet signer. Cross-engine restart authority remains
-a residual risk below.
-*Enforced by:* the gates in `startNode` / `resumeNode`, the post-start
-re-check and `_teardownRuntimeAfterFailedBind` in
-`RustBackendService._startNodeInternal`, the publish-before-await order
-and `_suspendNode` in `SessionController.completeLogin`, and
-`NodeAccountReconciler._defaultEnsureNodeIdentity` (runs before the
-`reconcileSucceeded` commit).
+Focused deterministic checks live in
+`test/core/session/session_operation_kernel_test.dart` and
+`test/features/dapps/bridge_admission_coordinator_test.dart`.
 
-**I3 — Secrets never reach logs or log exports.** Key material and
-credentials (`secret_key`, `token`, `password` and its aliases, `otp`, …)
-are redacted from captured HTTP bodies before truncation and again at the
-`HttpLogEntry` constructor chokepoint; headers were already redacted.
-Never log a secret value; log lengths or addresses.
-*Enforced by:* `redactSensitiveBodyFields`
-(`lib/core/services/http_debug_log_store.dart`); consumed by
-`LoggingHttpClient`. New sensitive field names must be added to
-`_sensitiveBodyFields`.
+## Native authority and credential custody
 
-**I4 — The guest bucket holds no other user's data in settled states.**
-The participant id is *staged* there between login and reconcile only.
-`installParticipantIdInBucket` deletes the staged source after the
-destination write — and only when the staged value still matches the id
-being installed (a mid-reconcile login stages the NEW user's id, which
-must survive for their own reconcile). Logout and continue-as-guest clear
-any leftover staged id.
-*Enforced by:* `stageParticipantIdInGuestBucket` /
-`installParticipantIdInBucket` / `clearGuestParticipantId`
-(`lib/core/identity/participant_id_store.dart`);
-`SessionController.completeLogin` / `logout` / `continueAsGuest`.
+Android implements the private platform boundary under
+`android/app/src/main/kotlin/com/usernode_labs/usernode/session/`; iOS mirrors
+it in `ios/Runner/NativeSessionPlatform.swift`,
+`ios/Runner/NativeSessionProtocol.swift`, and
+`ios/Runner/NativeSessionVault.swift`.
 
-**I5 — Never read or write identity-scoped data through another user's
-bucket.** Between login and reconcile, the registry's active account may
-still belong to a *previous* user, so the guest bucket stays active until
-the reconcile confirms ownership: boot restore only activates an account
-bucket when its stored participant id proves the last reconcile completed
-under this token's user. Anything persisted in that window must address
-its bucket explicitly (`NetworkPrefs.prefixAccountKeyFor`), not implicitly
-(`prefixAccountKey`). The bucket has exactly one writer.
-*Enforced by:* `SessionController._restoreAuthenticated` / `_publish`, the
-`single_identity_bucket_writer` ds_lint
-(`packages/ds_lints/lib/src/lint_visitor.dart`), plus login staging (I4).
+The following rules are structural, not conventions:
 
-**I6 — Multi-step transitions are resumable.** Provision → import/activate
-→ id install → node bind → commit can be interrupted at any point; because
-the reconcile re-runs whenever a `reconciling` identity is published and
-each step is idempotent, partial state self-heals. Login persists a
-reconcile-pending marker (cleared only by the `reconcileSucceeded` commit)
-so a boot restore routes an interrupted login back into `reconciling`. No
-step may assume a previous run completed.
-*Enforced by:* the marker lifecycle inside `SessionController` (`restore`
-/ `completeLogin` / `reconcileSucceeded`); regression tests in
-`test/features/onboarding/node_account_reconciler_test.dart` and
-`test/core/providers/participant_id_migration_test.dart`.
+- The random platform process-transport claim is bound to the exact current
+  Flutter engine lease. It remains valid for that lease; installing a successor
+  invalidates its predecessor.
+- Rust root/install/wake/apply claims are separately one-use. Root proofs,
+  native session clients, account scalar, and mobile bearer are never returned
+  to Dart features or JavaScript.
+- The account scalar may cross platform-to-Rust once when a proven credential
+  is installed. Warm producer wakes carry only bounded vault evidence.
+- Native vault reads distinguish definitive absence from uncertainty. A
+  Keychain/Keystore error or network/server failure is uncertain and makes no
+  destructive write.
+- An authenticated, exact-credential 401 is definitive only for the credential
+  reference and generation that made that request. Retirement is a
+  compare-delete of that exact vault record.
+- The trusted mobile API base is fixed at bootstrap to a validated HTTPS
+  `/api/v4/mobile` origin selected by the build. There is no generic native
+  HTTP or bearer API.
 
-**I7 — A pending ZK completion is eventually submitted or explicitly
-rolled back, under the identity and request version that own it.** Every
-launch gets a persisted exact version (`request id`, wall-clock creation time,
-and a random 128-bit nonce), which is copied unchanged into its runtime,
-outbox, optimistic registration, and terminal outcome. An outcome for one
-version cannot hide rows tagged with another version. A ZK run is
-also *bound to its launch identity*: `markLaunchStarted` persists the launching
-epoch, bucket, and participant id in the runtime session, and every later stage
-— foreground recovery, server polling, the proof pipeline — re-validates
-the current identity against that launch identity
-(`_checkLaunchIdentity`): a different user's session is discarded, an
-unsettled identity defers rather than proceeding. The pending completion
-record is an identity-keyed outbox row: persisted (pinned to the owning
-identity's bucket) BEFORE both the optimistic registration and the first
-delivery attempt, so killing the app never leaves an earned-looking
-registration without a retry record. The outbox carries the exact account and
-registration payload, allowing retry to repair a crash between those two
-writes. Every completion POST re-checks the exact identity scope
-immediately before the request fires — not just at the retry's entry —
-because retry backoff delays are suspension points a login can pass
-through. Append-only exact-version outcome markers form the crash-consistency
-boundary: `delivered` hides the outbox while preserving registration and takes
-deterministic precedence if concurrent engines also record a rejection;
-`rejected` or `discarded` hides both outbox and registration. Cleanup of the
-source rows is optional and cannot split that decision across a crash.
-Terminal 4xx (except 401/408/429) records `rejected` only when the identity
-that answered is still the identity that submitted. 401 preserves the proof;
-the retry fires when the identity settles to `ready` — not only on cold
-start. The retry never runs under an unsettled identity
-(`Identity.isSettled`), pins reads and clears to the bucket captured at
-start, and epoch-scopes its coalescing so a newer identity's caller never
-joins a stale run.
-*Enforced by:* `markLaunchStarted` / `_checkLaunchIdentity` /
-`isTerminalZkCompletionRejection`, `retryPendingCompletion` /
-`_prepareBackendCompletion` / `_deliverBackendCompletion` /
-`_handleTerminalCompletionRejection`
-(`lib/features/zkpassport/providers/zkpassport_flow_provider.dart`),
-the launch-identity fields on `ZkPassportRuntimeSession`
-(`lib/features/zkpassport/data/models/zkpassport_models.dart`, round-trip
-tests in
-`test/features/zkpassport/data/models/zkpassport_state_models_test.dart`),
-`storePendingCompletion(bucket:)` / `recordRequestOutcome`
-(`lib/features/zkpassport/data/repositories/zkpassport_repositories.dart`),
-and the ready-transition trigger in the `IdentityDriver`.
+Delegation policy and push registration are private platform-vault HTTP calls.
+Flutter can request only their closed, purpose-specific operations. Delegation
+identity is credential-derived by Social; Flutter cannot submit an account.
+Policy writes retain Social's server-generated E+2 effective epoch and
+same-epoch serialization contract.
 
-**I8 — Identity transitions recompute identity-derived state.** Every
-transition publishes a new `Identity` snapshot; providers holding
-identity-derived or bucket-scoped data watch `identityProvider` (e.g.
-`walletProvider`, `recipientHistoryProvider`) or
-are invalidated by the reconciler (`hasAnyAccountProvider`,
-`activeAccountProvider`, `accountsProvider`,
-`hasCompletedOnboardingProvider`). An auth-status watch alone cannot see a
-mid-session bucket switch — watch the snapshot.
-*Enforced by:* `SessionController._publish` + `ref.watch(identityProvider)`
-in account-scoped providers + `NodeAccountReconciler` invalidations.
+## Cold recovery
 
-**I9 — All identity storage is network-prefixed.** Testnet/internal/custom
-data never mix. Account-scoped keys are additionally bucket-prefixed.
-*Enforced by:* `NetworkPrefs.prefixKey*` — never build storage keys by
-hand.
+Rust's durable state is canonical. A cold snapshot may be logged out,
+recoverable Ready, or require an in-progress/terminal recovery decision.
 
-**I10 — Async identity work is epoch-scoped.** Every transition bumps
-`Identity.epoch`, and transitions themselves are serialized on the
-controller's queue so their persistence writes never interleave. In-flight
-async work started under an older epoch must not: join a newer caller's
-coalescing slot (the newer caller waits it out and runs fresh), mutate
-identity state with its now-stale response, clear recovery markers, or
-clear a session token on a late 401. Commits (`reconcileSucceeded`,
-`onUnauthorized`) re-validate the epoch inside the serialized queue. HTTP
-requests retain the exact `(epoch, token)` credential they carried, re-read
-secure storage before sends/retries, and may invalidate only that exact pair.
-This is what stops
-"B's slow provision response activates B's wallet inside C's session".
-*Enforced by:* the epoch guards in `NodeAccountReconciler.reconcile` /
-`_reconcile` (re-checked before every mutation, each `await` being a
-suspension point), `_retryPendingCompletionGuarded`, the epoch-carrying
-credential callbacks in the private `_SessionApiTransport` and
-`AccountApiService.getMe`, and the epoch checks inside
-`SessionController.reconcileSucceeded` / `onUnauthorized`; regression
-tests in `test/features/onboarding/node_account_reconciler_test.dart` and
-`test/features/auth/providers/auth_status_test.dart`.
+- Definitive credential absence resolves cold state to signed-out.
+- Uncertain evidence stays write-free and retryable; it never publishes Ready.
+- Present evidence adopts the exact durable identity. A ColdReady install uses
+  one bounded, one-use credential claim; warm wakes cannot restage the scalar.
+- Cold adoption retains the private root/session authority even if the first
+  post-adoption wake cannot complete, so later exact retirement is possible.
 
-**I11 — Credential replacement has a crash-atomic recovery payload.** Login
-first publishes `transitioning`, then clears the previous credential and
-persists the reconcile-pending marker and staged participant id BEFORE the
-replacement session token. Node shutdown is allowed to fail independently:
-the controller publishes `reconciling` only after both the token is durable
-and the previous runtime is confirmed down, otherwise it stays fail-closed in
-`transitioning`. A crash in this replacement sequence either leaves the device
-signed out (token missing — clean retry) or signed in with the full recovery
-payload present for the boot reconcile. When the payload is nevertheless
-missing (legacy state), the reconciler recovers the participant id from the
-authenticated `/me` endpoint rather than committing without it. The marker is
-only cleared by a commit that confirmed both the account AND the node runtime
-identity, in the same epoch that started it.
-*Enforced by:* the write order in `SessionController.completeLogin` (order
-probe test in `test/features/auth/providers/auth_status_test.dart`),
-`NodeAccountReconciler._resolveParticipantId`, and the commit gating in
-`reconcileSucceeded`.
+A rare Android overlap between an already-starting background runtime and cold
+interactive bootstrap remains deliberately fail-closed and may require a
+natural relaunch. It is documented at the `transitionInProgress` mapping; no
+second recovery coordinator is introduced for this extreme case.
 
-**I12 — Identity is gated until reconciled, and signing authority is
-re-proven at the effect point.** While the identity is `transitioning` or
-`reconciling`, an authenticated session must not sign or spend with the active
-local account — it may still belong to a previous user; guest sessions never
-sign at all (`Identity.allowsSigning` refuses `guest` outright). Three
-independent gates enforce this: the router bounces wallet routes
-(`identityGateRedirect`), the dApp bridge refuses `submitTransaction` /
-`signMessage`, and the node-start chokepoint refuses to start (I2). Entry
-gates alone are not enough: the dApp handlers capture the signing identity when
-the request arrives and re-validate its exact snapshot *after* the user
-confirmation dialog, immediately before loading the secret key or
-issuing the RPC — a login/logout while the dialog is up must not let the
-old confirmation sign under the new identity. All wallet reads exposed to
-dApps (`getNodeAddress` and `getWalletState`)
-derive their address from the same identity snapshot, never from the
-account registry directly. The router re-evaluates on every published
-snapshot.
-*Enforced by:* `identityGateRedirect` (`lib/core/config/app_router.dart`),
-`Identity.allowsSigning` (guest-refusal test in
-`test/features/auth/providers/auth_status_test.dart`),
-`_bridgeWalletIdentity` and the post-confirmation epoch re-checks in
-`DappWebViewScreen._handleSubmitTransaction` / `_handleSignMessage`
-(`lib/features/dapps/dapp_webview_screen.dart`), the identity-derived
-address in `walletProvider` (`lib/core/providers/wallet_provider.dart`),
-and the `startNode` gate.
+## Producer wake and OS ownership
 
-**I14 — Long-lived callbacks retain exact identity authority.** A log-sharing
-session captures one identity and credential, validates both before every
-send/retry and after each response, and never advances its cursor after either
-is replaced. The dApp logout callback captures identity before origin
-validation and re-checks it after that await, so a stale callback cannot log
-out its successor.
-*Enforced by:* `LogShareController` / `LogShareService`, and
-`DappWebViewScreen._handleLogout`.
+`NativeProducerWakeCoordinator.kt` owns Android's native-to-Rust background
+callback. A Present wake is two-step: the platform stages a fixed bounded
+request and receives an opaque one-use claim; only consumption of that claim
+can run the mutation. Definitive absence uses its separate closed command.
+Uncertainty stays platform-local and retryable.
 
-**I16 — Voluntary sign-out is scoped; every other boundary is terminal.**
-`SessionController.logout` does not reset the app. iOS exposes no supported
-self-termination API, so a terminal logout left the user on the inert
-"close and reopen" surface with no way back to the login page. Sign-out
-therefore keeps the process, its one-way process-global fences, and the
-user's local accounts, and ends only the session. Everything the app cannot
-continue from — `session_expired`, `session_credential_missing`,
-`different_participant_login`, `network_change`, `authenticated_to_guest` —
-still takes the terminal path, because the fences those close have no
-reopen path.
+Every Ready-derived Rust directive retains A's operation permit until the
+platform reports exact apply success or failure. Platform code validates the
+revision/wake identity, compare-applies the existing OS effect, then completes
+the one-use apply claim. A failed completion rolls back only the newly applied
+effect and cannot stop or clear a newer session. Rust releases A only after
+completion.
 
-Scoped does not mean partial. Terminal reset used to supply the safety
-property by erasing everything, so a surviving process must close every one
-of those boundaries explicitly. `_endSessionScope` does so in the one order
-that survives a crash at any point:
+Android alarm permissions, `AlarmManager` choice, trigger calculations,
+notifications, foreground-service policy, watchdog/WorkManager behavior, and
+the existing local polling cadence are unchanged. Headless Flutter is removed;
+existing receivers and workers now enter the private native coordinator.
+There is no Rust alarm journal or lifecycle reconciler.
 
-1. **The sign-out fence is durable before the bearer is cleared.** Token
-   retirement and namespace retirement are otherwise not crash-atomic: a boot
-   in between finds no token but still resolves the previous user's active
-   account and publishes it as `unauthenticated` with an address — which
-   `Identity.allowsSigning` admits. `restore` honours the fence BEFORE any
-   account lookup and completes the sign-out instead. It is a file, fsynced
-   and read back before the bearer is touched: `SharedPreferences` documents
-   that a completed write is not guaranteed to have reached disk and must not
-   hold critical data, which is exactly what this is. A fence that cannot be
-   made durable fails the boundary closed rather than proceeding on a pair
-   that is no longer atomic.
-2. **The native generation is rotated** (`rotateApplicationIncarnation`, the
-   reversible twin of the terminal `invalidate`) before the runtime teardown,
-   so an alarm, watchdog tick or headless recovery event landing during it is
-   already stale rather than racing it back into a producer start.
-3. **The producer lifecycle is stood down as a whole**
-   (`NodeLifecycleCoordinator.standDown`, plus the epoch scheduler and the
-   sleep service's resume flags, which sit outside the coordinator by
-   design). Stopping only the Rust backend left coordinator intent, Android
-   monitoring, the foreground service, the wakelock, watchdog recovery and
-   every scheduled alarm armed for the retired account.
+iOS uses the same credential/root/session and staged-wake authority, but makes
+no exact wake-timing claim. Existing callbacks are best-effort. Unsupported
+schedule/retry effects are reported truthfully as failures while an already
+running foreground Ready session remains usable. A warm definitive absence
+closes Rust A, clears the exact vault revision, closes Flutter admission, and
+latches an inert signed-out publication until natural relaunch; the app does
+not call `exit` or `fatalError`.
 
-   Rotating the native token only rejects newly *delivered* events; Dart work
-   that already passed admission keeps running, and its late continuations
-   schedule under the freshly rotated token. So the stand-down also **retires
-   a reversible producer lease** (`AndroidForegroundTaskController`'s
-   monitoring generation, the audit's watchdog lifecycle generation, the sleep
-   service's session generation) synchronously before its first await, every
-   effect point re-checks the lease it started under, and the teardown
-   **drains** what is already executing — the in-flight VRF poll, the in-flight
-   audit, the running sleep transition — before the final cancellations are
-   accepted. Queued sleep transitions captured under the retired generation
-   are dropped rather than run.
+## Feature effects
 
-   The stand-down never destroys the cached headless Flutter engine: native
-   `ForegroundServiceManager.stopForegroundService()` does that synchronously,
-   before the method result is delivered, and this boundary can be running
-   inside that engine (a headless boot repairing an interrupted sign-out), so
-   it would otherwise strand its own caller mid-teardown.
-4. **Session prefs are dropped** — guest flag, reconcile marker, staged
-   guest-bucket participant id, storage namespace — and the bare, unnamespaced
-   registry is retired with them, UNCONDITIONALLY. A non-null namespace does
-   not prove those keys are absent: `identity_hash` is nullable by design, a
-   same-participant renewal can acquire a namespace for a registry that is
-   still bare, and an interrupted adoption leaves both copies. The pending
-   adoption is forced to completion first, while the namespace is still valid,
-   so a wallet that CAN be attributed is moved rather than dropped; adoption
-   itself is now crash-marked so an interrupted one is finished on the next
-   read instead of leaving a duplicate. Namespace and registry writes are
-   verified by re-reading, and an unconfirmed one fails the boundary closed.
-5. **The WebView session jar is cleared, fail-closed.** It is a security
-   boundary — a retained jar silently re-authenticates the next page load —
-   so a `false`, a throw and a timeout are each retried once and then
-   escalated to the terminal reset rather than acknowledged. On Android the
-   only deletion that covers the network cache and the service workers this
-   app enables, and that reports completion, is
-   `WebStorageCompat.deleteBrowsingData`; where it is unsupported the native
-   side reports failure instead of a partial wipe.
-6. **Process state that captured the retired identity is retired**
-   (`resetSessionScopedProcessState`): the identity-agnostic HTTP debug
-   buffer and log-sharing state, the namespace-capturing `AccountsRepository`,
-   the cached zkPassport views AND their presentation state (a pipeline that
-   already reached a terminal phase has no worker left to notice an identity
-   change, so its result message, request id, timings and public inputs would
-   render straight into the successor's flow screen), and the Sentry user
-   scope. The debug buffer is generation-stamped as well as cleared: an
-   exchange that began before the boundary appends only after awaiting
-   transport and body bytes, and would otherwise refill an emptied buffer.
-7. **Delivered notifications are cleared** — content, not authority, so this
-   one warns rather than escalating.
+Session-bound work must be expressed as a purpose-specific method on
+`SessionOperation`; a raw native client, bearer, native HTTP request, or global
+node owner is never an acceptable shortcut. Current closed effects cover:
 
-Every one of those steps is fallible in more ways than a `false` return —
-`RustBackendService.stopNode()` deliberately throws when process-global
-shutdown cannot be confirmed, native replies can simply never arrive — so the
-whole boundary runs under one catch and one timeout. A throw or a hang becomes
-the same `signout_cleanup_unconfirmed` escalation, in THIS process, with the
-fence still raised. Left uncaught it would strand the identity in
-`transitioning` with no completion, no document replacement and no reset.
+- node/status and wallet reads, signing, and transaction submission;
+- delegation reads and E+2 mutations;
+- device benchmark start/cancel/status/result;
+- the retained ZK proof verification/wrapping/completion mechanics;
+- push status/register/unregister using the exact native credential;
+- one exact session-scoped sleep command; and
+- session observability records.
 
-Account-scoped state is deliberately kept: it belongs to the user's on-chain
-account, and it is segregated both by bucket and by the storage namespace, so
-the same user signing back in finds their wallet while a different user never
-resolves it. Anything account-sensitive that was NOT partitioned that way —
-notably the zkPassport runtime row's write target — is bucket-scoped rather
-than retained ambiently. A zkPassport launch is stamped with the identity whose
-wallet and public key the server session was bound to, revalidated before it is
-persisted. Transaction receipt persistence and observation are Social-owned;
-Flutter returns only the authoritative native `txId`.
+The clock-drift warning polls the closed node-status snapshot through the
+published runner. Sentry, metrics, observability, push binding, and ZK recovery
+bind to immutable session publications and clear or reject on sign-out.
 
-The document replacement is driven from `signOutCompletionProvider`, bumped
-once the boundary has settled, and it lives in the shared WebView owner
-(`DappWebViewScreen`) so a standalone same-origin pin cannot be left
-rendering an authenticated page. It must NOT be driven from `authenticated →
-anything else`: `logout` publishes `transitioning` synchronously before its
-first await, so a replacement created on that edge races the very deletion
-that makes the next load render a login page — and that edge also fires for
-terminal boundaries, which have no successor to build.
-*Enforced by:* `SessionController.logout` / `_endSessionScopeGuarded` /
-`_endSessionScope` / `_clearSessionScopedState`, `DurableSignOutFence`,
-`AccountsRepository.retireUnnamespacedRegistry` and its adoption marker,
-`NodeLifecycleCoordinator.standDown`, the producer leases in
-`AndroidForegroundTaskController` / `BlockProductionAlarmAuditService` /
-`AppSleepService`, `resetSessionScopedProcessState`
-(`lib/core/identity/session_scope_reset.dart`),
-`SessionHandoffGate.closeForSignOut`
-(`lib/features/dapps/session_bound_auth_status.dart`), the session-end
-listener in `DappWebViewScreen`, and `DappBridgeAuthNode._handleLogout`,
-which awaits the transition before acknowledging; regression tests in
-`test/core/identity/login_logout_terminal_reset_test.dart` (the surviving
-incarnation and the rotated generation),
-`test/core/identity/session_controller_boundary_test.dart`,
-`test/core/identity/sign_out_fence_test.dart`,
-`test/core/identity/session_scope_reset_test.dart`,
-`test/core/identity/identity_namespace_test.dart`,
-`test/core/identity/native_sign_out_contract_test.dart`,
-`test/core/services/node_lifecycle_coordinator_test.dart`,
-`test/core/services/producer_lease_contract_test.dart`,
-`test/core/services/block_production_alarm_audit_service_test.dart` and
-`test/core/services/app_sleep_service_test.dart`.
+Challenges, Explorer, and Leaderboard integration are intentionally absent
+from Flutter; Social owns those product surfaces. The deferred legacy ZK
+mechanics remain, but their native and completion calls are admitted through
+the exact session runner.
 
-## Known residual risks (accepted for now)
+## Drift alarms
 
-- **Sign-in reconcile costs one `/wallet/provision` round-trip per
-  login** (deliberate: it is the ownership check). Boot restore stays
-  network-free unless the previous session never settled (I6).
-- **Reconcile failure on a switched device** (offline sign-in by user B
-  on user A's device) leaves A's account in the registry until a
-  reconcile succeeds (the persisted `reconciling` phase re-runs on next
-  boot). The node stays down and signing stays refused in the meantime
-  (I2/I12), and B's session stays on the guest bucket (I5), so no
-  cross-identity reads, writes, signatures, or block production occur.
-- **Native producer-host ownership is not yet generation-bound across
-  engines.** This patch shuts down the process-global runtime it observes and
-  makes guest starts in the current engine keyless; a scoped sign-out rotates
-  the native application incarnation so durable work armed by the retired
-  session is rejected, retires a reversible producer lease so already-admitted
-  Dart work stops at its next effect point, and drains what is executing. All
-  of that is process-local: two Flutter engines racing a start within the SAME
-  generation still have no shared authority, and the retired lease in one
-  engine says nothing to the other. That is the next hardening change.
-- **ZK runtime and source-row ownership is still engine-local.** Exact outcome
-  markers are append-only, but runtime, outbox, and registration source rows
-  remain single mutable preferences. Runtime writes are now pinned to the
-  session's captured launch bucket, the launch identity is captured before the
-  session-server call and revalidated before the session is persisted, and
-  every phase write re-checks it — so a mid-proof sign-out cannot write into
-  the guest or successor bucket, and a launch cannot be stamped with a
-  successor. Cross-engine serialization and versioned row selection are still
-  deferred to the follow-up hardening PR.
-- **Sign-out clears the WHOLE WebView store**, so a user is also signed out of
-  unrelated pinned dApps and their local state goes with it. Deliberate: the
-  platform exposes no per-origin guarantee that covers service workers and the
-  network cache, and the shell's own session must not survive. A
-  `deleteBrowsingDataForSite` refinement would need the same completeness
-  guarantee per origin.
-- **A sign-out on a device whose WebView predates
-  `WebStorageCompat.deleteBrowsingData` falls back to the terminal reset**, and
-  therefore erases local accounts. Fail-closed by choice: the alternative is
-  acknowledging a sign-out on a jar that may re-authenticate the next load.
+Lints and surface scans are drift alarms, not lifecycle enforcement. The API
+shape provides the enforcement. Before review, verify that production code has
+no `SessionController`, `identityProvider`, token store, `RustBackendService`,
+raw node/RPC generated module, public lifecycle bootstrap, or headless Flutter
+owner. Regenerate FRB only from the curated `crate::mobile_api` input and delete
+stale generated leaves that codegen no longer owns.
+
+Keep tests compact: deterministic admission/drain ordering, focused bridge and
+platform framing/apply checks, and the first real Social-to-Rust-to-Flutter
+vertical slice. Do not recreate the retired architecture as per-feature
+logout guards, mocks of database/runtime behavior, or reconciliation patches.

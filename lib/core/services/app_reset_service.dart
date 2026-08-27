@@ -1,20 +1,13 @@
 import 'dart:io';
 
 import 'package:crypto_mobile_app/core/config/secure_storage_options.dart';
-import 'package:crypto_mobile_app/core/services/android_foreground_task_controller.dart';
-import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
-import 'package:crypto_mobile_app/core/services/block_production_alarm_audit_service.dart';
-import 'package:crypto_mobile_app/core/services/epoch_slot_scheduler_service.dart';
-import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/utils/lifecycle.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
@@ -33,8 +26,8 @@ typedef ResetDirectoryResolver = Future<List<Directory>> Function();
 /// only its explicit cold-launch input after the same wipe and then terminate
 /// without a second clear-data call.
 ///
-/// Voluntary sign-out does NOT come here — it is scoped and in-process; see
-/// [SessionController.logout]. Every reason that reaches this class is one the
+/// Voluntary sign-out does NOT come here — it is scoped and in-process.
+/// Every reason that reaches this class is one the
 /// app cannot continue from: an expired or unreadable credential, a different
 /// participant replacing the current one, a network change, or the
 /// authenticated-to-guest switch.
@@ -118,17 +111,11 @@ class AppResetService {
       },
     );
 
-    // Close every process-local admission gate before the first await. Any
-    // in-flight producer that reaches a late scheduling/start point therefore
-    // finds either this fence or the invalidated native incarnation below.
-    NodeLifecycleCoordinator.instance.closeForTerminalReset();
-    AndroidForegroundTaskController.instance.closeForTerminalReset();
-    AppSleepService.instance.closeForTerminalReset();
+    // The native platform boundary invalidates the application incarnation
+    // synchronously. Session/runtime authority is owned by the private
+    // composition root and Rust, never by a parallel Dart lifecycle service.
     _platformAlarms.beginTerminalReset();
-    BlockProductionAlarmAuditService.instance.closeForTerminalReset();
-    EpochSlotSchedulerService.instance.closeForTerminalReset();
     AppVersionCheck.instance.stopPeriodicChecks();
-    AppLifecycleLogger.closeForTerminalReset();
     _bestEffortSync(
       'close local reset handlers',
       () => _localResetHandler?.call(),
@@ -144,12 +131,6 @@ class AppResetService {
       resetError = StateError('The functional app graph was not disposed');
       resetStackTrace = StackTrace.current;
     }
-
-    // This both fences every direct Rust start/resume path and sends the
-    // existing synchronous shutdown signal. Do it before the first await:
-    // native WebView/cancellation cleanup can take time, and reset deliberately
-    // does not keep Rust alive while that cleanup runs.
-    RustBackendService.instance.signalShutdownForTerminalReset();
 
     await _bestEffort(
       'clear error-reporting state',

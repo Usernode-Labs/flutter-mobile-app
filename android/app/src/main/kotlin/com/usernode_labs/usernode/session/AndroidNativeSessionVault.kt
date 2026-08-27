@@ -17,6 +17,7 @@ import java.security.interfaces.ECPublicKey
 import java.security.interfaces.RSAPublicKey
 import java.security.spec.ECGenParameterSpec
 import java.security.spec.MGF1ParameterSpec
+import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.OAEPParameterSpec
@@ -38,6 +39,25 @@ internal class AndroidNativeSessionVault(context: Context) {
         Context.MODE_PRIVATE,
     )
     private val secureRandom = SecureRandom()
+    private var http: NativeSessionHttp? = null
+
+    @Synchronized
+    fun configureMobileApiBaseUrl(value: String) {
+        val configured = NativeSessionHttp(value)
+        val existing = http
+        if (existing != null) {
+            // The engine lease may be replaced, but a process may not switch
+            // the credential's authenticated origin underneath a live vault.
+            if (existing.canonicalBaseUrl != configured.canonicalBaseUrl) {
+                fail(
+                    "native_api_origin_conflict",
+                    "The native mobile API origin changed within one process",
+                )
+            }
+            return
+        }
+        http = configured
+    }
 
     @Synchronized
     fun prepareExchange(rawTicket: Any?): Map<String, Any> {
@@ -74,32 +94,35 @@ internal class AndroidNativeSessionVault(context: Context) {
             ticket,
             installation,
         )
+        val binding = NativeSessionProtocol.credentialBinding(
+            ticket,
+            installation,
+            exchange,
+        )
         val plaintextBytes = decryptCompactJwe(exchange.compactJwe, installation)
         val credential = try {
             NativeSessionProtocol.validateCredentialPlaintext(
                 plaintextBytes,
-                ticket,
+                binding,
                 installation,
-                exchange,
             )
         } finally {
             plaintextBytes.fill(0)
         }
 
         return try {
-            val fingerprint = credentialFingerprint(ticket, installation, exchange, credential)
+            val fingerprint = credentialFingerprint(binding, installation, credential)
             try {
                 val commitment = persistCredential(
-                    ticket = ticket,
+                    binding = binding,
                     installation = installation,
                     exchange = exchange,
                     fingerprint = fingerprint,
                 )
                 try {
                     val frame = buildInstallFrame(
-                        ticket = ticket,
+                        binding = binding,
                         installation = installation,
-                        exchange = exchange,
                         credential = credential,
                         commitment = commitment,
                     )
@@ -148,11 +171,529 @@ internal class AndroidNativeSessionVault(context: Context) {
             ) {
                 fail("native_retirement_mismatch", "The native retirement directive is mismatched")
             }
+            if (preferences.getString(CREDENTIAL_RECORD_KEY, null) != storedRaw) {
+                fail("native_retirement_mismatch", "The native credential changed during retirement")
+            }
             if (!preferences.edit().remove(CREDENTIAL_RECORD_KEY).commit()) {
                 fail("native_vault_write_failed", "The native credential could not be retired")
             }
         } finally {
             storedCommitment.fill(0)
+        }
+    }
+
+    /** Closed cold-start result. Credential bytes never cross the Flutter channel. */
+    @Synchronized
+    fun stageColdInstalledCredential(): ColdCredentialStage {
+        return when (val material = authenticatedProducerMaterial()) {
+            is AuthenticatedProducerMaterial.Present -> try {
+                stageColdRecoveredCredential(material.recovered)
+            } finally {
+                material.close()
+            }
+            AuthenticatedProducerMaterial.Absent -> ColdCredentialStage.Absent
+            AuthenticatedProducerMaterial.Uncertain -> ColdCredentialStage.Uncertain
+        }
+    }
+
+    /**
+     * Purpose-specific evidence consumed only by the private ProducerWake port.
+     *
+     * Ordinary foreground VRF polls stay local: they send only the durable
+     * vault binding Rust already knows. Authenticated policy refresh is
+     * reserved for bounded recovery/resume boundaries and delegation writes.
+     */
+    @Synchronized
+    fun producerWakeCredential(
+        refreshPolicy: Boolean,
+        coldInstallClaim: ByteArray? = null,
+    ): ProducerWakeCredential {
+        if (coldInstallClaim != null && coldInstallClaim.size != CLAIM_BYTES) {
+            fail("native_install_claim_invalid", "The native install claim is invalid")
+        }
+        if (!refreshPolicy) {
+            val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
+                ?: return ProducerWakeCredential.Absent
+            return try {
+                ProducerWakeCredential.Present(
+                    vaultEvidenceFrame(storedRaw, coldInstallClaim),
+                    ByteArray(0),
+                )
+            } catch (_: Throwable) {
+                ProducerWakeCredential.Uncertain
+            }
+        }
+
+        return when (val material = authenticatedProducerMaterial()) {
+            is AuthenticatedProducerMaterial.Present -> try {
+                ProducerWakeCredential.Present(
+                    vaultEvidenceFrame(material.recovered.storedRaw, coldInstallClaim),
+                    material.policyFrame.copyOf(),
+                )
+            } finally {
+                material.close()
+            }
+            AuthenticatedProducerMaterial.Absent -> ProducerWakeCredential.Absent
+            AuthenticatedProducerMaterial.Uncertain -> ProducerWakeCredential.Uncertain
+        }
+    }
+
+    /** Scalar-bearing cold stage used only after Rust requests tag-5 install. */
+    @Synchronized
+    fun stageBackgroundColdInstalledCredential(): ColdCredentialStage {
+        val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
+            ?: return ColdCredentialStage.Absent
+        val recovered = try {
+            recoverCredential(storedRaw)
+        } catch (error: NativeSessionProtocolException) {
+            if (error.code == "native_credential_expired") {
+                compareDeleteExact(storedRaw)
+                return ColdCredentialStage.Absent
+            }
+            return ColdCredentialStage.Uncertain
+        } catch (_: Throwable) {
+            return ColdCredentialStage.Uncertain
+        }
+        return try {
+            stageColdRecoveredCredential(recovered)
+        } finally {
+            recovered.close()
+        }
+    }
+
+    /** Fetches and stages one exact policy claim; no bearer or DTO reaches Dart. */
+    @Synchronized
+    fun stageProducerPolicy(delegated: Boolean?): ByteArray {
+        val recovered = recoverCredentialForManagedCall()
+        try {
+            val response = if (delegated == null) {
+                configuredHttp().getProducerPolicy(recovered.credential.bearerToken)
+            } else {
+                configuredHttp().setProducerPolicy(
+                    recovered.credential.bearerToken,
+                    delegated,
+                    randomPolicyRequestId(),
+                )
+            }
+            val success = requireManagedSuccess(response, recovered)
+            val frame = NativeProducerPolicyFrame.encode(
+                success.body,
+                recovered.binding,
+                recovered.credential,
+            )
+            return try {
+                NativeSessionRust.nativeStageProducerPolicyV1(frame).also { claim ->
+                    if (claim.size != CLAIM_BYTES) {
+                        claim.fill(0)
+                        fail("native_policy_claim_invalid", "Rust returned an invalid policy claim")
+                    }
+                }
+            } finally {
+                frame.fill(0)
+            }
+        } finally {
+            recovered.close()
+        }
+    }
+
+    @Synchronized
+    fun getPushStatus(installationId: String): Map<String, Any> {
+        validateInstallationUuid(installationId)
+        val recovered = recoverCredentialForManagedCall()
+        try {
+            val response = requireManagedSuccess(
+                configuredHttp().getPushStatus(recovered.credential.bearerToken, installationId),
+                recovered,
+            )
+            return NativePushResponse.status(response.body)
+        } finally {
+            recovered.close()
+        }
+    }
+
+    @Synchronized
+    fun registerPush(
+        installationId: String,
+        providerToken: String,
+        platform: String,
+        permissionStatus: String,
+        mutationRevision: Long,
+    ): Map<String, Any> {
+        validatePushMutation(
+            installationId,
+            providerToken,
+            platform,
+            permissionStatus,
+            mutationRevision,
+        )
+        val recovered = recoverCredentialForManagedCall()
+        try {
+            val response = requireManagedSuccess(
+                configuredHttp().registerPush(
+                    recovered.credential.bearerToken,
+                    installationId,
+                    providerToken,
+                    platform,
+                    permissionStatus,
+                    mutationRevision,
+                ),
+                recovered,
+            )
+            return NativePushResponse.mutation(
+                response.body,
+                installationId,
+                mutationRevision,
+                registered = true,
+            )
+        } finally {
+            recovered.close()
+        }
+    }
+
+    @Synchronized
+    fun unregisterPush(
+        installationId: String,
+        mutationRevision: Long,
+        reason: String,
+    ): Map<String, Any> {
+        validateInstallationUuid(installationId)
+        if (mutationRevision <= 0 || reason !in PUSH_UNREGISTER_REASONS) {
+            fail("invalid_native_push_request", "The push unregistration request is invalid")
+        }
+        val recovered = recoverCredentialForManagedCall()
+        try {
+            val response = requireManagedSuccess(
+                configuredHttp().unregisterPush(
+                    recovered.credential.bearerToken,
+                    installationId,
+                    mutationRevision,
+                    reason,
+                ),
+                recovered,
+            )
+            return NativePushResponse.mutation(
+                response.body,
+                installationId,
+                mutationRevision,
+                registered = false,
+            )
+        } finally {
+            recovered.close()
+        }
+    }
+
+    /** Retained, authenticated challenge lookup; no bearer/API client enters Dart. */
+    @Synchronized
+    fun resolveLegacyZkPassportChallengeId(): Int {
+        val recovered = recoverCredentialForManagedCall()
+        try {
+            val client = configuredHttp()
+            val bearer = recovered.credential.bearerToken
+            val seasons = requireManagedSuccess(
+                client.getSeasonsForLegacyZkCompletion(bearer),
+                recovered,
+            ).body.optJSONArray("data")
+                ?: fail("invalid_native_zk_completion_response", "The active season response is invalid")
+            val activeSeasonIds = buildList {
+                for (index in 0 until seasons.length()) {
+                    val season = seasons.optJSONObject(index) ?: continue
+                    if (season.opt("is_active") != true) continue
+                    val id = season.optInt("season_id", -1)
+                    if (id <= 0) {
+                        fail("invalid_native_zk_completion_response", "The active season response is invalid")
+                    }
+                    add(id)
+                }
+            }
+            if (activeSeasonIds.size != 1) {
+                throw NativeManagedHttpException(
+                    409,
+                    if (activeSeasonIds.isEmpty()) {
+                        "active_zk_challenge_unavailable"
+                    } else {
+                        "ambiguous_active_zk_challenge"
+                    },
+                    null,
+                )
+            }
+            val challenges = requireManagedSuccess(
+                client.getChallengesForLegacyZkCompletion(bearer, activeSeasonIds.single()),
+                recovered,
+            ).body.optJSONArray("data")
+                ?: fail("invalid_native_zk_completion_response", "The active challenge response is invalid")
+            val challengeIds = buildList {
+                for (index in 0 until challenges.length()) {
+                    val challenge = challenges.optJSONObject(index) ?: continue
+                    if (challenge.optString("kind") != ZK_IDENTITY_KIND ||
+                        challenge.opt("enabled") == false
+                    ) {
+                        continue
+                    }
+                    val id = challenge.optInt("id", -1)
+                    if (id <= 0) {
+                        fail("invalid_native_zk_completion_response", "The active challenge response is invalid")
+                    }
+                    add(id)
+                }
+            }
+            if (challengeIds.size != 1) {
+                throw NativeManagedHttpException(
+                    409,
+                    if (challengeIds.isEmpty()) {
+                        "active_zk_challenge_unavailable"
+                    } else {
+                        "ambiguous_active_zk_challenge"
+                    },
+                    null,
+                )
+            }
+            return challengeIds.single()
+        } finally {
+            recovered.close()
+        }
+    }
+
+    /** Exact vault-bound final write; Social revalidates the credential at commit. */
+    @Synchronized
+    fun completeLegacyZkPassport(
+        challengeId: Int,
+        sessionId: String,
+        nullifierHex: String,
+        completedAt: String?,
+    ): Map<String, Any> {
+        if (challengeId <= 0 ||
+            sessionId.isEmpty() || sessionId.length > 255 || sessionId != sessionId.trim() ||
+            !ZK_NULLIFIER.matches(nullifierHex) || nullifierHex.length > 255 ||
+            (completedAt != null &&
+                (completedAt.isEmpty() || completedAt.length > 64 || completedAt != completedAt.trim()))
+        ) {
+            fail("invalid_native_zk_completion", "The zkPassport completion is invalid")
+        }
+        val recovered = recoverCredentialForManagedCall()
+        try {
+            requireManagedSuccess(
+                configuredHttp().completeLegacyZkPassport(
+                    recovered.credential.bearerToken,
+                    challengeId,
+                    recovered.credential.address,
+                    sessionId,
+                    nullifierHex,
+                    completedAt,
+                ),
+                recovered,
+            )
+            return mapOf("challengeId" to challengeId)
+        } finally {
+            recovered.close()
+        }
+    }
+
+    private fun authenticatedProducerMaterial(): AuthenticatedProducerMaterial {
+        val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
+            ?: return AuthenticatedProducerMaterial.Absent
+        val recovered = try {
+            recoverCredential(storedRaw)
+        } catch (error: NativeSessionProtocolException) {
+            if (error.code == "native_credential_expired") {
+                compareDeleteExact(storedRaw)
+                return AuthenticatedProducerMaterial.Absent
+            }
+            return AuthenticatedProducerMaterial.Uncertain
+        } catch (_: Throwable) {
+            return AuthenticatedProducerMaterial.Uncertain
+        }
+        return when (
+            val response = configuredHttp().getProducerPolicy(recovered.credential.bearerToken)
+        ) {
+            is NativeHttpResult.Success -> try {
+                val policy = NativeProducerPolicyFrame.encode(
+                    response.body,
+                    recovered.binding,
+                    recovered.credential,
+                )
+                AuthenticatedProducerMaterial.Present(recovered, policy)
+            } catch (_: Throwable) {
+                recovered.close()
+                AuthenticatedProducerMaterial.Uncertain
+            }
+            NativeHttpResult.Unauthorized -> {
+                compareDeleteExact(recovered.storedRaw)
+                recovered.close()
+                AuthenticatedProducerMaterial.Absent
+            }
+            is NativeHttpResult.Failure -> {
+                recovered.close()
+                AuthenticatedProducerMaterial.Uncertain
+            }
+        }
+    }
+
+    private fun stageColdRecoveredCredential(
+        recovered: RecoveredCredential,
+    ): ColdCredentialStage {
+        val claim = NativeSessionRust.nativeStageColdInstalledCredentialV1(
+            recovered.installFrame,
+        )
+        if (claim.size != CLAIM_BYTES) {
+            claim.fill(0)
+            fail("native_install_claim_invalid", "Rust returned an invalid install claim")
+        }
+        return ColdCredentialStage.Present(claim)
+    }
+
+    private fun recoverCredentialForManagedCall(): RecoveredCredential {
+        val raw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
+            ?: fail("native_vault_absent", "The native credential is absent")
+        return try {
+            recoverCredential(raw)
+        } catch (error: NativeSessionProtocolException) {
+            if (error.code == "native_credential_expired") compareDeleteExact(raw)
+            throw error
+        }
+    }
+
+    private fun requireManagedSuccess(
+        response: NativeHttpResult,
+        recovered: RecoveredCredential,
+    ): NativeHttpResult.Success = when (response) {
+        is NativeHttpResult.Success -> response
+        NativeHttpResult.Unauthorized -> {
+            compareDeleteExact(recovered.storedRaw)
+            throw NativeManagedHttpException(401, "native_credential_invalid", null)
+        }
+        is NativeHttpResult.Failure -> throw NativeManagedHttpException(
+            response.statusCode,
+            response.code,
+            response.latestMutationRevision,
+        )
+    }
+
+    private fun compareDeleteExact(storedRaw: String): Boolean {
+        if (preferences.getString(CREDENTIAL_RECORD_KEY, null) != storedRaw) return false
+        return preferences.edit().remove(CREDENTIAL_RECORD_KEY).commit()
+    }
+
+    private fun configuredHttp(): NativeSessionHttp = http ?: fail(
+        "native_api_unavailable",
+        "The native mobile API origin has not been configured",
+    )
+
+    private fun randomPolicyRequestId(): String {
+        val bytes = ByteArray(32).also(secureRandom::nextBytes)
+        return try {
+            "ndp_${NativeSessionProtocol.encodeBase64Url(bytes)}"
+        } finally {
+            bytes.fill(0)
+        }
+    }
+
+    private fun validateInstallationUuid(value: String) {
+        val canonical = try {
+            UUID.fromString(value).toString()
+        } catch (_: Exception) {
+            null
+        }
+        if (canonical != value.lowercase()) {
+            fail("invalid_native_push_request", "The push installation id is invalid")
+        }
+    }
+
+    private fun validatePushMutation(
+        installationId: String,
+        providerToken: String,
+        platform: String,
+        permissionStatus: String,
+        mutationRevision: Long,
+    ) {
+        validateInstallationUuid(installationId)
+        if (providerToken.isEmpty() || providerToken.length > 4096 ||
+            platform !in setOf("android", "ios") ||
+            permissionStatus !in PUSH_PERMISSION_STATUSES ||
+            mutationRevision <= 0
+        ) {
+            fail("invalid_native_push_request", "The push registration request is invalid")
+        }
+    }
+
+    private fun recoverCredential(storedRaw: String): RecoveredCredential {
+        val stored = parseStoredRecord(storedRaw)
+        val installation = loadInstallation()
+        if (stored.getString("installationId") != installation.installationId ||
+            stored.getInt("installationGeneration") != installation.keyGeneration ||
+            stored.getString("possessionKeyThumbprint") != installation.possessionThumbprint ||
+            stored.getString("envelopeKeyThumbprint") != installation.envelopeThumbprint ||
+            stored.getString("envelopeKeyId") != installation.envelopeKeyId ||
+            stored.getString("envelopeAlgorithm") != "RSA-OAEP" ||
+            stored.getString("envelopeEncryption") != "A256GCM"
+        ) {
+            fail("native_credential_mismatch", "The stored native installation is mismatched")
+        }
+        val binding = NativeCredentialBinding(
+            attemptId = stored.getString("attemptId"),
+            ticketHash = stored.getString("ticketHash"),
+            requestDigest = stored.getString("requestDigest"),
+            exchangeRequestDigest = stored.getString("exchangeRequestDigest"),
+            exchangeChallenge = stored.getString("exchangeChallenge"),
+            networkId = stored.getString("networkId"),
+            chainId = stored.getString("chainId"),
+            credentialReference = stored.getString("credentialReference"),
+            credentialGeneration = stored.getInt("credentialGeneration"),
+        )
+        // Decode fixed fields up front so malformed durable JSON never reaches
+        // either Rust or an authenticated HTTP request.
+        NativeSessionProtocol.decodeHex32(binding.ticketHash, "stored ticket hash").fill(0)
+        NativeSessionProtocol.decodeHex32(binding.requestDigest, "stored request digest").fill(0)
+        NativeSessionProtocol.decodeHex32(
+            binding.exchangeRequestDigest,
+            "stored exchange digest",
+        ).fill(0)
+        NativeSessionProtocol.decodeCanonicalBase64Url(
+            binding.exchangeChallenge,
+            32,
+            "stored exchange challenge",
+        ).fill(0)
+        val exchange = NativeExchangeEnvelope(
+            binding.credentialReference,
+            binding.credentialGeneration,
+            stored.getString("compactJwe"),
+        )
+        val plaintext = decryptCompactJwe(exchange.compactJwe, installation)
+        val credential = try {
+            NativeSessionProtocol.validateCredentialPlaintext(
+                plaintext,
+                binding,
+                installation,
+            )
+        } finally {
+            plaintext.fill(0)
+        }
+        val commitment = NativeSessionProtocol.decodeCanonicalBase64Url(
+            stored.getString("vaultCommitment"),
+            COMMITMENT_BYTES,
+            "stored vault commitment",
+        )
+        try {
+            val fingerprint = credentialFingerprint(binding, installation, credential)
+            try {
+                val encodedFingerprint = NativeSessionProtocol.encodeBase64Url(fingerprint)
+                if (encodedFingerprint != stored.getString("fingerprint")) {
+                    fail("native_credential_mismatch", "The stored credential fingerprint is mismatched")
+                }
+            } finally {
+                fingerprint.fill(0)
+            }
+            val frame = buildInstallFrame(
+                binding = binding,
+                installation = installation,
+                credential = credential,
+                commitment = commitment,
+            )
+            return RecoveredCredential(storedRaw, binding, frame, credential)
+        } catch (error: Throwable) {
+            credential.accountScalar.fill(0)
+            throw error
+        } finally {
+            commitment.fill(0)
         }
     }
 
@@ -337,23 +878,20 @@ internal class AndroidNativeSessionVault(context: Context) {
     }
 
     private fun credentialFingerprint(
-        ticket: NativeEstablishTicket,
+        binding: NativeCredentialBinding,
         installation: NativeInstallationMaterial,
-        exchange: NativeExchangeEnvelope,
         credential: NativeCredentialPlaintext,
     ): ByteArray {
         val frame = buildFrame("UNVF") {
-            writeString(ticket.attemptId, 64)
-            writeFixed(MessageDigest.getInstance("SHA-256").digest(
-                ticket.ticket.toByteArray(StandardCharsets.UTF_8),
-            ))
-            writeFixed(NativeSessionProtocol.decodeHex32(ticket.requestDigest, "ticket request digest"))
+            writeString(binding.attemptId, 64)
+            writeFixed(NativeSessionProtocol.decodeHex32(binding.ticketHash, "ticket hash"))
+            writeFixed(NativeSessionProtocol.decodeHex32(binding.requestDigest, "ticket request digest"))
             writeFixed(NativeSessionProtocol.decodeHex32(
-                NativeSessionProtocol.exchangeRequestDigest(ticket, installation),
+                binding.exchangeRequestDigest,
                 "exchange request digest",
             ))
-            writeString(ticket.networkId, 32)
-            writeString(ticket.chainId, 96)
+            writeString(binding.networkId, 32)
+            writeString(binding.chainId, 96)
             writeString(installation.installationId, 64)
             writeLong(installation.keyGeneration.toLong())
             writeFixed(NativeSessionProtocol.decodeCanonicalBase64Url(
@@ -366,8 +904,8 @@ internal class AndroidNativeSessionVault(context: Context) {
                 32,
                 "envelope thumbprint",
             ))
-            writeString(exchange.credentialReference, 64)
-            writeLong(exchange.credentialGeneration.toLong())
+            writeString(binding.credentialReference, 64)
+            writeLong(binding.credentialGeneration.toLong())
             writeString(credential.participantId, 32)
             writeString(credential.accountId, 32)
             writeString(credential.address, 128)
@@ -382,7 +920,7 @@ internal class AndroidNativeSessionVault(context: Context) {
     }
 
     private fun persistCredential(
-        ticket: NativeEstablishTicket,
+        binding: NativeCredentialBinding,
         installation: NativeInstallationMaterial,
         exchange: NativeExchangeEnvelope,
         fingerprint: ByteArray,
@@ -405,16 +943,14 @@ internal class AndroidNativeSessionVault(context: Context) {
 
         val commitment = ByteArray(COMMITMENT_BYTES).also(secureRandom::nextBytes)
         val record = JSONObject()
-            .put("version", 2)
-            .put("attemptId", ticket.attemptId)
-            .put(
-                "ticketHash",
-                NativeSessionProtocol.sha256Hex(ticket.ticket.toByteArray(StandardCharsets.UTF_8)),
-            )
-            .put("requestDigest", ticket.requestDigest)
-            .put("exchangeRequestDigest", NativeSessionProtocol.exchangeRequestDigest(ticket, installation))
-            .put("networkId", ticket.networkId)
-            .put("chainId", ticket.chainId)
+            .put("version", 3)
+            .put("attemptId", binding.attemptId)
+            .put("ticketHash", binding.ticketHash)
+            .put("requestDigest", binding.requestDigest)
+            .put("exchangeRequestDigest", binding.exchangeRequestDigest)
+            .put("exchangeChallenge", binding.exchangeChallenge)
+            .put("networkId", binding.networkId)
+            .put("chainId", binding.chainId)
             .put("installationId", installation.installationId)
             .put("installationGeneration", installation.keyGeneration)
             .put("possessionKeyThumbprint", installation.possessionThumbprint)
@@ -438,30 +974,27 @@ internal class AndroidNativeSessionVault(context: Context) {
     }
 
     private fun buildInstallFrame(
-        ticket: NativeEstablishTicket,
+        binding: NativeCredentialBinding,
         installation: NativeInstallationMaterial,
-        exchange: NativeExchangeEnvelope,
         credential: NativeCredentialPlaintext,
         commitment: ByteArray,
     ): ByteArray = buildFrame("UNSI") {
         write(1)
         write(1)
-        writeString(ticket.attemptId, 64)
-        writeFixed(MessageDigest.getInstance("SHA-256").digest(
-            ticket.ticket.toByteArray(StandardCharsets.UTF_8),
-        ))
-        writeFixed(NativeSessionProtocol.decodeHex32(ticket.requestDigest, "ticket request digest"))
+        writeString(binding.attemptId, 64)
+        writeFixed(NativeSessionProtocol.decodeHex32(binding.ticketHash, "ticket hash"))
+        writeFixed(NativeSessionProtocol.decodeHex32(binding.requestDigest, "ticket request digest"))
         writeFixed(NativeSessionProtocol.decodeHex32(
-            NativeSessionProtocol.exchangeRequestDigest(ticket, installation),
+            binding.exchangeRequestDigest,
             "exchange request digest",
         ))
         writeFixed(NativeSessionProtocol.decodeCanonicalBase64Url(
-            ticket.exchangeChallenge,
+            binding.exchangeChallenge,
             32,
             "exchange challenge",
         ))
-        writeString(ticket.networkId, 32)
-        writeString(ticket.chainId, 96)
+        writeString(binding.networkId, 32)
+        writeString(binding.chainId, 96)
         writeString(installation.installationId, 64)
         writeLong(installation.keyGeneration.toLong())
         writeFixed(NativeSessionProtocol.decodeCanonicalBase64Url(
@@ -474,8 +1007,8 @@ internal class AndroidNativeSessionVault(context: Context) {
             32,
             "envelope thumbprint",
         ))
-        writeString(exchange.credentialReference, 64)
-        writeLong(exchange.credentialGeneration.toLong())
+        writeString(binding.credentialReference, 64)
+        writeLong(binding.credentialGeneration.toLong())
         writeString(credential.participantId, 32)
         writeString(credential.accountId, 32)
         writeString(credential.address, 128)
@@ -487,6 +1020,57 @@ internal class AndroidNativeSessionVault(context: Context) {
         if (it.size > MAX_INSTALL_FRAME_BYTES) {
             it.fill(0)
             fail("native_install_frame_too_large", "The native install frame is too large")
+        }
+    }
+
+    private fun vaultEvidenceFrame(
+        storedRaw: String,
+        coldInstallClaim: ByteArray?,
+    ): ByteArray {
+        val stored = parseStoredRecord(storedRaw)
+        val installation = loadInstallation()
+        if (stored.getString("installationId") != installation.installationId ||
+            stored.getInt("installationGeneration") != installation.keyGeneration ||
+            stored.getString("possessionKeyThumbprint") != installation.possessionThumbprint ||
+            stored.getString("envelopeKeyThumbprint") != installation.envelopeThumbprint ||
+            stored.getString("envelopeKeyId") != installation.envelopeKeyId
+        ) {
+            fail("native_credential_mismatch", "The stored native installation is mismatched")
+        }
+        val reference = stored.getString("credentialReference")
+        val generation = stored.getLong("credentialGeneration")
+        if (reference.isEmpty() || reference.toByteArray(StandardCharsets.UTF_8).size > 64 ||
+            generation <= 0
+        ) {
+            fail("native_vault_corrupt", "The native credential record is invalid")
+        }
+        val commitment = NativeSessionProtocol.decodeCanonicalBase64Url(
+            stored.getString("vaultCommitment"),
+            COMMITMENT_BYTES,
+            "stored vault commitment",
+        )
+        val fingerprint = NativeSessionProtocol.decodeCanonicalBase64Url(
+            stored.getString("fingerprint"),
+            32,
+            "stored request fingerprint",
+        )
+        return try {
+            buildFrame("UNVE") {
+                write(1)
+                writeString(reference, 64)
+                writeLong(generation)
+                writeFixed(commitment)
+                writeFixed(fingerprint)
+                if (coldInstallClaim == null) {
+                    write(0)
+                } else {
+                    write(CLAIM_BYTES)
+                    writeFixed(coldInstallClaim)
+                }
+            }
+        } finally {
+            commitment.fill(0)
+            fingerprint.fill(0)
         }
     }
 
@@ -518,7 +1102,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         JSONObject(raw).also { record ->
             val keys = mutableSetOf<String>()
             record.keys().forEachRemaining(keys::add)
-            if (keys != STORED_RECORD_KEYS || record.optInt("version", -1) != 2) {
+            if (keys != STORED_RECORD_KEYS || record.optInt("version", -1) != 3) {
                 fail("native_vault_corrupt", "The native credential record is invalid")
             }
         }
@@ -545,12 +1129,23 @@ internal class AndroidNativeSessionVault(context: Context) {
         const val MAX_PLAINTEXT_BYTES = 32 * 1024
         const val MAX_INSTALL_FRAME_BYTES = 1024
         const val CREDENTIAL_JWE_TYPE = "application/usernode-native-session-credential+jwe"
+        const val ZK_IDENTITY_KIND = "ZK_IDENTITY_VERIFICATION"
+        val ZK_NULLIFIER = Regex("^0x[0-9a-fA-F]+$")
+        val PUSH_PERMISSION_STATUSES = setOf(
+            "authorized", "provisional", "denied", "not_determined",
+        )
+        val PUSH_UNREGISTER_REASONS = setOf(
+            "client_request", "notifications_disabled", "permission_denied", "signed_out",
+            "account_changed", "identity_boundary", "terminal_reset",
+            "configuration_unavailable",
+        )
         val STORED_RECORD_KEYS = setOf(
             "version",
             "attemptId",
             "ticketHash",
             "requestDigest",
             "exchangeRequestDigest",
+            "exchangeChallenge",
             "networkId",
             "chainId",
             "installationId",
@@ -566,5 +1161,66 @@ internal class AndroidNativeSessionVault(context: Context) {
             "fingerprint",
             "vaultCommitment",
         )
+    }
+}
+
+internal sealed interface ColdCredentialStage {
+    data class Present(val installClaim: ByteArray) : ColdCredentialStage
+    object Absent : ColdCredentialStage
+    object Uncertain : ColdCredentialStage
+}
+
+internal sealed interface ProducerWakeCredential {
+    data class Present(
+        val vaultEvidenceFrame: ByteArray,
+        val producerPolicyFrame: ByteArray,
+    ) : ProducerWakeCredential {
+        fun close() {
+            vaultEvidenceFrame.fill(0)
+            producerPolicyFrame.fill(0)
+        }
+    }
+    object Absent : ProducerWakeCredential
+    object Uncertain : ProducerWakeCredential
+}
+
+private sealed interface AuthenticatedProducerMaterial {
+    class Present(
+        val recovered: RecoveredCredential,
+        val policyFrame: ByteArray,
+    ) : AuthenticatedProducerMaterial {
+        fun close() {
+            policyFrame.fill(0)
+            recovered.close()
+        }
+    }
+
+    object Absent : AuthenticatedProducerMaterial
+    object Uncertain : AuthenticatedProducerMaterial
+}
+
+private class RecoveredCredential(
+    val storedRaw: String,
+    val binding: NativeCredentialBinding,
+    val installFrame: ByteArray,
+    val credential: NativeCredentialPlaintext,
+) {
+    fun close() {
+        installFrame.fill(0)
+        credential.accountScalar.fill(0)
+    }
+}
+
+/** One vault instance serializes every decrypt/use/delete transaction in-process. */
+internal object AndroidNativeSessionPlatform {
+    @Volatile
+    private var vault: AndroidNativeSessionVault? = null
+
+    fun vault(context: Context): AndroidNativeSessionVault {
+        val current = vault
+        if (current != null) return current
+        return synchronized(this) {
+            vault ?: AndroidNativeSessionVault(context.applicationContext).also { vault = it }
+        }
     }
 }

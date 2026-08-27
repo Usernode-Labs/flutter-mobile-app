@@ -23,7 +23,7 @@ Helpful entry points
 - `lib/core/services/github_issue_service.dart` — in-app feedback → GitHub issues (needs `GITHUB_TOKEN`).
 - `lib/design_system/tokens/` — AppSpacing, AppRadii, AppSizing, AppBorders, AppOpacity, AppSemanticColors.
 - `lib/core/utils/sentry.dart` — Sentry integration helpers.
-- Rust backend façade — `lib/features/node/data/repositories/rust_backend_service.dart`.
+- Session-bound native effects — `lib/core/session/session_operation_runner.dart`.
 
 ## Build, Test, and Dev
 - Bootstrap harness: `bash tool/agent-setup.sh`
@@ -97,67 +97,27 @@ Common flags
 - Riverpod is the standard for state/DI. Providers are in feature modules and `core/di/providers.dart`.
 - Provider naming: end with `Provider`; async variants expose `AsyncValue<T>` to the UI.
 - Keep features self-contained with Presentation/Domain/Data layers.
+- Session lifecycle is the exception: never place mutable ingress, native
+  clients, or publication authority in a provider. Features receive only the
+  immutable `SessionFeatureAccessView` / exact `SessionOperationRunner`.
 
 ## Rust Backend (flutter_rust_bridge)
-- Rust code and bridge config live in `rust_builder/` with settings in `flutter_rust_bridge.yaml`.
-- The Dart façade for FRB is `RustBackendService`; call it from repositories/providers, not directly from UI.
+- Rust code lives at `../usernode/crates/usernode`; the binding input/root are
+  configured in `flutter_rust_bridge.yaml`.
+- FRB is generated only from the curated `crate::mobile_api` input. Do not
+  expose whole-crate node/RPC builders or retain stale generated leaves.
+- The library-private composition root in
+  `lib/src/session_lifecycle/native_session_transport.dart` is the only owner
+  of process-root/session clients and lifecycle mutation.
+- Features express session-bound work through purpose-specific methods on
+  `SessionOperation`. Do not import generated FRB clients from feature code.
+- Static, authority-free build/device data may remain directly readable.
 - After changing FRB APIs or Rust types:
   - Regenerate: `flutter_rust_bridge_codegen generate`
+  - Verify the pinned flutter_rust_bridge revision in the Rust repository's
+    `Cargo.toml` first.
+  - Delete obsolete generated files that codegen no longer owns.
   - If builds act up: `flutter clean` may help
-
-### FRB Exposed Methods (Generated)
-
-**General / Build Info** (`lib/src/rust/lib.dart`)
-- `buildInfo()` → `BuildInfo` - Get build information
-
-**Account Management** (`lib/src/rust/account.dart`)
-- `accountGenerateRandom()` → `AccountExport` - Generate a random account
-- `accountFromSeed({phrase, passphrase?, index?})` → `AccountExport` - Create account from seed phrase
-- `accountSecretFromSeed({phrase, passphrase?, index?})` → `String` - Get secret key from seed phrase
-- `seedPhraseGenerate({wordCount?})` → `List<String>` - Generate BIP39 seed phrase (returns list of words)
-
-**Node Builder** (`lib/src/rust/node/builder.dart`)
-- `NodeBuilder({customRngSeed?})` - Create a new node builder
-- `build()` → `Node` - Build the node
-- `customInitialTime({time})` - Set custom initial time (testing)
-- `enableBlockProducer()` - Enable block producer
-- `gatherStats()` - Enable statistics gathering
-- `httpServer({port})` - Enable HTTP server
-- `initialPeersFromUrl({url})` - Load initial peers from URL
-- `mempoolAutoinsertInterval({secs})` - Enable auto-insert random transactions
-- `p2PMaxPeers({limit})` - Set max P2P peers
-- `p2PNoDiscovery()` - Disable P2P discovery
-- `p2PSecKey({key})` - Set P2P secret key
-- `p2PSeedNode()` - Configure as seed node
-
-**Node Operations** (`lib/src/rust/node.dart`)
-- `Node.new({rngSeed, initialState, service, overrideEffects?})` - Create new node
-- `rpc()` → `NodeRpcClient` - Get RPC client
-- `runForever()` → `Future<void>` - Run node forever (async)
-- `runForeverInNewThread()` - Run node in background thread
-- `state()` - Get node state
-- `store()` - Get store (immutable)
-- `storeMut()` - Get store (mutable)
-
-**RPC Methods** (`lib/src/rust/rpc.dart` via `NodeRpcClient`)
-- `epochRewards({epoch?, includeWonSlots?})` → `Future<RpcEpochRewardsResp?>` - Get epoch rewards info
-- `listBlockchain({limit?, fromTip?})` → `Future<RpcListBlockchainResp?>` - List blockchain blocks
-- `listMempool({owner?, limit?, idsOnly?, cursorAfter?})` → `Future<RpcListMempoolResp?>` - List mempool transactions
-- `listUtxosByOwner({owner, limit?})` → `Future<RpcListUtxosByOwnerResp?>` - List UTXOs by owner
-- `metrics()` → `Future<RpcMetricsResp?>` - Get node metrics
-- `status()` → `Future<RpcStatusResp?>` - Get node status (blockchain, mempool, peers)
-- `transferFunds({fromPkHash, amount, toPkHash})` → `Future<RpcWalletTxSendResp?>` - Transfer funds
-
-**Key Response Types**
-- `RpcStatusResp` — blockchain info (best tip, sync status), mempool info (entries, orphans, size), peer info
-- `RpcEpochRewardsResp` — epoch rewards, produced/won blocks, earned/expected totals, won slots
-- `RpcListBlockchainResp` — block list with details, root/tip hashes, total count
-- `RpcListMempoolResp` — transaction entries (inputs/outputs), IDs, counts, pagination cursor
-- `RpcListUtxosByOwnerResp` — owned UTXOs with commitments
-- `RpcMetricsResp` — mempool reorg statistics and latency metrics
-- `RpcWalletTxSendResp` — queue status and error (if any)
-
-All FRB bindings are auto-generated by flutter_rust_bridge v2.11.1.
 
 ## Testing
 - Mirror `lib/` paths under `test/`; name tests `*_test.dart`.

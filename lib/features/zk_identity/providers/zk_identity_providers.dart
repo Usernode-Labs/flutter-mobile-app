@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:crypto_mobile_app/design_system/src/zk_identity_flow_page.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
@@ -24,48 +25,11 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
   ProviderSubscription<ZkPassportPipelineState>? _pipelineSubscription;
   Uri? _activeRequestUri;
 
-  /// Moves the flow to its verification slot without starting a proof.
-  ///
-  /// Account reconciliation can finish after the user opens this screen. A
-  /// terminal recovery state still belongs in the verification slot, but it
-  /// must not call zkPassport until the wallet is ready for signing.
-  void prepareForAccountRecovery() {
-    if (state.currentStep != ZkIdentityStep.checkApp &&
-        state.currentStep != ZkIdentityStep.verification) {
-      return;
-    }
-    _pipelineSubscription?.close();
-    _pipelineSubscription = null;
-    _activeRequestUri = null;
-    final verificationIndex = ZkIdentityStep.verification.index;
-    final prepared = state.currentStep == ZkIdentityStep.checkApp
-        ? state.advanceTo(verificationIndex)
-        : state;
-    final updated = List<ZkIdentityStepState>.from(prepared.steps);
-    updated[verificationIndex] = updated[verificationIndex].copyWith(
-      status: ZkIdentityStepVisualStatus.active,
-    );
-    state = ZkIdentityFlowState(
-      steps: updated,
-      currentStepIndex: verificationIndex,
-    );
-    _ref.read(zkIdentityChallengeActiveProvider.notifier).state = false;
-  }
-
-  /// Shows an account-preparation failure in the verification slot without
-  /// attempting to create a proof under an unsettled identity.
-  void showAccountPreparationFailure(String message) {
-    if (state.currentStep != ZkIdentityStep.checkApp &&
-        state.currentStep != ZkIdentityStep.verification) {
-      return;
-    }
-    prepareForAccountRecovery();
-    _failVerification(message);
-  }
-
   /// Starts verification immediately with the passport already stored in the
   /// companion app. No passport scan or readiness confirmation is required.
-  Future<bool> startVerificationFromSavedPassport() async {
+  Future<bool> startVerificationFromSavedPassport(
+    SessionFeatureAccess session,
+  ) async {
     late final bool installed;
     try {
       installed =
@@ -87,7 +51,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
 
     state = state.advanceTo(ZkIdentityStep.verification.index);
     try {
-      await triggerVerification();
+      await triggerVerification(session);
     } catch (_) {
       _failVerification('Unable to start zkPassport verification.');
     }
@@ -102,7 +66,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
         .launchOrOpenStore(launchUri);
   }
 
-  Future<void> triggerVerification() async {
+  Future<void> triggerVerification(SessionFeatureAccess session) async {
     if (state.currentStep != ZkIdentityStep.verification) return;
 
     _ref.read(zkIdentityChallengeActiveProvider.notifier).state = true;
@@ -123,7 +87,7 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
     );
 
     final flowController = _ref.read(zkPassportFlowControllerProvider);
-    final result = await flowController.startRegistrationNonceZero();
+    final result = await flowController.startRegistrationNonceZero(session);
     _activeRequestUri = result.launchUri;
 
     if (!result.started) {
@@ -181,14 +145,14 @@ class ZkIdentityStepController extends StateNotifier<ZkIdentityFlowState> {
     state = ZkIdentityFlowState.initial();
   }
 
-  Future<bool> retryVerification() async {
+  Future<bool> retryVerification(SessionFeatureAccess session) async {
     final discarded = await _ref
         .read(zkPassportPipelineProvider.notifier)
         .discardPendingSession(reason: 'Retrying');
     if (!discarded) return false;
 
     reset();
-    return startVerificationFromSavedPassport();
+    return startVerificationFromSavedPassport(session);
   }
 
   Future<bool> cancelVerification() async {

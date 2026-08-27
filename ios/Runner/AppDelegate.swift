@@ -79,6 +79,7 @@ final class ApplicationIncarnationStore {
   private let screenshotChannelName = "com.usernode.app/screenshot"
   private var alarmChannel: FlutterMethodChannel?
   private var screenshotChannel: FlutterMethodChannel?
+  private var nativeSessionChannel: IOSNativeSessionChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
   private let bgTaskScheduler = BGTaskSchedulerManager()
   private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
@@ -167,6 +168,10 @@ final class ApplicationIncarnationStore {
       self?.captureCurrentScreen(result: result)
     }
     print("[AppDelegate] Method channel '\(screenshotChannelName)' configured")
+
+    nativeSessionChannel?.close()
+    nativeSessionChannel = IOSNativeSessionChannel(messenger: binaryMessenger)
+    print("[AppDelegate] Private native-session channel configured")
   }
 
   override func application(
@@ -252,7 +257,16 @@ final class ApplicationIncarnationStore {
     _ application: UIApplication,
     performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
-    super.application(application, performFetchWithCompletionHandler: completionHandler)
+    IOSNativeProducerWakeCoordinator.shared.runBackground { [weak self] wake in
+      if wake.outcome == "retired", let revision = wake.nativeRevision {
+        self?.nativeSessionChannel?.notifyRetired(nativeRevision: revision)
+      }
+      switch wake.outcome {
+      case "completed", "retired": completionHandler(.newData)
+      case "retry": completionHandler(.failed)
+      default: completionHandler(.noData)
+      }
+    }
   }
 
   private func setupMethodChannelHandlers() {

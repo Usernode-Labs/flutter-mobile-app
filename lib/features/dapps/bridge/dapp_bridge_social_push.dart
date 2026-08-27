@@ -52,20 +52,6 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     _dispatchPendingSocialPushForegroundEvent();
   }
 
-  @override
-  void _recordReadySocialPushReplay(
-    PrivilegedBridgeLease lease,
-    int foregroundRevision,
-  ) {
-    if (foregroundRevision <= 0) return;
-    if (_lastSocialPushForegroundRealmMarker == lease.marker &&
-        foregroundRevision <= _lastSocialPushForegroundRevision) {
-      return;
-    }
-    _lastSocialPushForegroundRealmMarker = lease.marker;
-    _lastSocialPushForegroundRevision = foregroundRevision;
-  }
-
   void _dispatchPendingSocialPushForegroundEvent() {
     if (_socialPushForegroundDispatchInFlight) {
       _socialPushForegroundReplayRequested = true;
@@ -78,9 +64,7 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
             readyLease.marker == _lastSocialPushForegroundRealmMarker
         ? _lastSocialPushForegroundRevision
         : 0;
-    if (revision <= deliveredRevision ||
-        readyLease == null ||
-        _sessionHandoffGate.isAuthenticatedBlocked) {
+    if (revision <= deliveredRevision || readyLease == null) {
       return;
     }
     _socialPushForegroundDispatchInFlight = true;
@@ -105,8 +89,7 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
       );
       if (delivered &&
           mounted &&
-          readyLease.marker == _readyMainFrameLease?.marker &&
-          !_sessionHandoffGate.isAuthenticatedBlocked) {
+          readyLease.marker == _readyMainFrameLease?.marker) {
         _lastSocialPushForegroundRealmMarker = readyLease.marker;
         _lastSocialPushForegroundRevision = revision;
       }
@@ -132,43 +115,22 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     unawaited(_socialPushForegroundSubscription?.cancel());
   }
 
-  Future<void> _handleGetSocialPushState(String id) async {
-    if (!await _requireTrustedChromeOrigin(id, 'getSocialPushState')) return;
-    final identity = ref.read(identityProvider);
-    if (!_sessionHandoffGate.authenticates(identity)) {
-      await _resolveJsPromise(
+  Future<void> _handleGetSocialPushState(
+    String id,
+    Map<String, dynamic> payload,
+  ) =>
+      _resolveClaimedSessionOperation(
         id: id,
-        value: null,
-        error: 'An authenticated session is required',
+        payload: payload,
+        method: 'getSocialPushState',
+        body: (_, __) async =>
+            (await SocialPushService.instance.refreshState()).toBridgeJson(),
       );
-      return;
-    }
-    final state = await SocialPushService.instance.refreshState();
-    if (!_identityScopeIsCurrent(identity)) {
-      await _rejectStaleIdentityScope(id, 'getSocialPushState');
-      return;
-    }
-    await _resolveJsPromise(
-      id: id,
-      value: state.toBridgeJson(),
-      error: null,
-    );
-  }
 
   Future<void> _handleSetSocialPushEnabled(
     String id,
     Map<String, dynamic> payload,
   ) async {
-    if (!await _requireTrustedChromeOrigin(id, 'setSocialPushEnabled')) return;
-    final identity = ref.read(identityProvider);
-    if (!_sessionHandoffGate.authenticates(identity)) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'An authenticated session is required',
-      );
-      return;
-    }
     final args = payload['args'];
     final enabled = args is Map<String, dynamic> ? args['enabled'] : null;
     if (enabled is! bool) {
@@ -179,77 +141,37 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
       );
       return;
     }
-    if (!await _revalidatePrivilegedBridgeLease(id, 'setSocialPushEnabled')) {
-      return;
-    }
-    final state = await SocialPushService.instance.setEnabled(enabled);
-    if (!_identityScopeIsCurrent(identity)) {
-      await _rejectStaleIdentityScope(id, 'setSocialPushEnabled');
-      return;
-    }
-    await _resolveJsPromise(
+    await _resolveClaimedSessionOperation(
       id: id,
-      value: state.toBridgeJson(),
-      error: null,
+      payload: payload,
+      method: 'setSocialPushEnabled',
+      body: (_, __) async =>
+          (await SocialPushService.instance.setEnabled(enabled)).toBridgeJson(),
     );
   }
 
-  Future<void> _handleClaimPendingSocialNotification(String id) async {
-    if (!await _requireTrustedChromeOrigin(
-      id,
-      'claimPendingSocialNotification',
-    )) {
-      return;
-    }
-    final identity = ref.read(identityProvider);
-    final userId = identity.participantId;
-    if (!_sessionHandoffGate.authenticates(identity) || userId == null) {
-      await _resolveJsPromise(
+  Future<void> _handleClaimPendingSocialNotification(
+    String id,
+    Map<String, dynamic> payload,
+  ) =>
+      _resolveClaimedSessionOperation(
         id: id,
-        value: null,
-        error: 'An authenticated session is required',
+        payload: payload,
+        method: 'claimPendingSocialNotification',
+        body: (identity, _) async {
+          final userId = identity.participantId!;
+          final notificationId = await SocialPushService.instance
+              .claimPendingNotification(userId: userId);
+          return notificationId == null
+              ? null
+              : {'notificationId': notificationId};
+        },
       );
-      return;
-    }
-    if (!await _revalidatePrivilegedBridgeLease(
-      id,
-      'claimPendingSocialNotification',
-    )) {
-      return;
-    }
-    final notificationId = await SocialPushService.instance
-        .claimPendingNotification(userId: userId);
-    if (!_identityScopeIsCurrent(identity)) {
-      await _rejectStaleIdentityScope(id, 'claimPendingSocialNotification');
-      return;
-    }
-    await _resolveJsPromise(
-      id: id,
-      value: notificationId == null ? null : {'notificationId': notificationId},
-      error: null,
-    );
-  }
 
   Future<void> _handleAckPendingSocialNotification(
     String id,
     Map<String, dynamic> payload,
   ) async {
-    if (!await _requireTrustedChromeOrigin(
-      id,
-      'ackPendingSocialNotification',
-    )) {
-      return;
-    }
-    final identity = ref.read(identityProvider);
-    final userId = identity.participantId;
-    if (!_sessionHandoffGate.authenticates(identity) || userId == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'An authenticated session is required',
-      );
-      return;
-    }
     final args = payload['args'];
     final rawNotificationId =
         args is Map<String, dynamic> ? args['notificationId'] : null;
@@ -266,25 +188,15 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
       );
       return;
     }
-    if (!await _revalidatePrivilegedBridgeLease(
-      id,
-      'ackPendingSocialNotification',
-    )) {
-      return;
-    }
-    final acknowledged =
-        await SocialPushService.instance.acknowledgePendingNotification(
-      userId: userId,
-      notificationId: notificationId,
-    );
-    if (!_identityScopeIsCurrent(identity)) {
-      await _rejectStaleIdentityScope(id, 'ackPendingSocialNotification');
-      return;
-    }
-    await _resolveJsPromise(
+    await _resolveClaimedSessionOperation(
       id: id,
-      value: acknowledged,
-      error: null,
+      payload: payload,
+      method: 'ackPendingSocialNotification',
+      body: (identity, _) =>
+          SocialPushService.instance.acknowledgePendingNotification(
+        userId: identity.participantId!,
+        notificationId: notificationId,
+      ),
     );
   }
 }

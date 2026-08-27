@@ -1,16 +1,12 @@
 import 'dart:async';
 
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
 import 'package:crypto_mobile_app/features/perf/data/repositories/perf_benchmark_repository.dart';
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as perf_types;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final _log = LoggingService.instance.withTag('usernode/PerfBenchmark');
-
-final perfBenchmarkRepositoryProvider = Provider<PerfBenchmarkRepository>(
-  (ref) => const PerfBenchmarkRepository(),
-);
 
 final perfBenchmarkProvider =
     NotifierProvider<PerfBenchmarkController, PerfBenchmarkState>(
@@ -96,21 +92,45 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
   Timer? _pollTimer;
   bool _catalogRequested = false;
   bool _refreshInFlight = false;
-  bool _pausedNodeForRun = false;
+  SessionFeatureAccess? _session;
 
-  PerfBenchmarkRepository get _repository =>
-      ref.read(perfBenchmarkRepositoryProvider);
+  static const _repository = PerfBenchmarkRepository();
 
   @override
   PerfBenchmarkState build() {
     ref.onDispose(() {
       _stopPolling();
-      unawaited(_resumeNodeIfNeeded());
     });
-    Future<void>(() async {
-      await loadCatalog();
-    });
-    return const PerfBenchmarkState(isLoadingCatalog: true);
+    return const PerfBenchmarkState();
+  }
+
+  void bindSession(SessionFeatureAccess session) {
+    final previous = _session;
+    if (previous?.identity.nativeRevision == session.identity.nativeRevision &&
+        previous?.identity.status == session.identity.status) {
+      return;
+    }
+    _stopPolling();
+    _session = session;
+    _catalogRequested = false;
+    state = PerfBenchmarkState(
+      isLoadingCatalog:
+          session.identity.status == SessionProjectionStatus.ready,
+    );
+    if (session.identity.status == SessionProjectionStatus.ready) {
+      unawaited(loadCatalog());
+    }
+  }
+
+  Future<T> _run<T>(
+    Future<T> Function(SessionOperation operation) body,
+  ) {
+    final session = _session;
+    if (session == null ||
+        session.identity.status != SessionProjectionStatus.ready) {
+      return Future<T>.error(const SessionAdmissionClosedException());
+    }
+    return session.operations.run(body);
   }
 
   Future<void> loadCatalog({bool force = false}) async {
@@ -127,7 +147,7 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
 
     try {
       _log.info('Loading perf catalog');
-      final catalog = await _repository.catalog();
+      final catalog = await _run(_repository.catalog);
       _log.info(
         'Loaded perf catalog',
         context: {
@@ -169,8 +189,9 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
     );
 
     try {
-      await _pauseNodeIfNeeded();
-      final handle = await _repository.startRun(profile);
+      final handle = await _run(
+        (operation) => _repository.startRun(operation, profile),
+      );
       final runId = handle.runId.toInt();
       state = state.copyWith(
         activeRunId: runId,
@@ -184,7 +205,6 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
         error: error,
         stackTrace: stackTrace,
       );
-      await _resumeNodeIfNeeded();
       state = state.copyWith(
         isStartingRun: false,
         clearRequestedProfile: true,
@@ -206,7 +226,9 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
     );
 
     try {
-      final cancelled = await _repository.cancel(runId);
+      final cancelled = await _run(
+        (operation) => _repository.cancel(operation, runId),
+      );
       if (!cancelled) {
         state = state.copyWith(
           isCancelling: false,
@@ -253,10 +275,11 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
 
     _refreshInFlight = true;
     try {
-      final status = await _repository.status(runId);
+      final status = await _run(
+        (operation) => _repository.status(operation, runId),
+      );
       if (status == null) {
         _stopPolling();
-        await _resumeNodeIfNeeded();
         state = state.copyWith(
           isCancelling: false,
           clearStatus: true,
@@ -281,8 +304,9 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
       }
 
       _stopPolling();
-      final report = await _repository.result(runId);
-      await _resumeNodeIfNeeded();
+      final report = await _run(
+        (operation) => _repository.result(operation, runId),
+      );
       state = state.copyWith(
         status: status,
         report: report,
@@ -313,30 +337,5 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
         .replaceFirst('Exception: ', '')
         .replaceFirst('AnyhowException: ', '')
         .trim();
-  }
-
-  Future<void> _pauseNodeIfNeeded() async {
-    if (_pausedNodeForRun) {
-      return;
-    }
-
-    final backend = RustBackendService.instance;
-    if (!backend.isRunning) {
-      return;
-    }
-
-    _log.info('Pausing background node for benchmark run');
-    await backend.pauseNode();
-    _pausedNodeForRun = true;
-  }
-
-  Future<void> _resumeNodeIfNeeded() async {
-    if (!_pausedNodeForRun) {
-      return;
-    }
-
-    _log.info('Resuming background node after benchmark run');
-    await RustBackendService.instance.resumeNode();
-    _pausedNodeForRun = false;
   }
 }

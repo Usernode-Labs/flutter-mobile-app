@@ -82,11 +82,25 @@ internal class NativeCredentialPlaintext(
     val accountId: String,
     val address: String,
     val publicKey: String,
+    val bearerToken: String,
+    val bearerExpiresAt: String,
     val accountScalar: ByteArray,
     val blockProductionReleased: Boolean,
 ) {
     override fun toString(): String = "NativeCredentialPlaintext(<redacted>)"
 }
+
+internal data class NativeCredentialBinding(
+    val attemptId: String,
+    val ticketHash: String,
+    val requestDigest: String,
+    val exchangeRequestDigest: String,
+    val exchangeChallenge: String,
+    val networkId: String,
+    val chainId: String,
+    val credentialReference: String,
+    val credentialGeneration: Int,
+)
 
 internal object NativeSessionProtocol {
     private val hex64Pattern = Regex("^[0-9a-f]{64}$")
@@ -322,11 +336,26 @@ internal object NativeSessionProtocol {
         return NativeExchangeEnvelope(reference, generation, compactJwe)
     }
 
-    fun validateCredentialPlaintext(
-        plaintext: ByteArray,
+    fun credentialBinding(
         ticket: NativeEstablishTicket,
         installation: NativeInstallationMaterial,
         exchange: NativeExchangeEnvelope,
+    ) = NativeCredentialBinding(
+        attemptId = ticket.attemptId,
+        ticketHash = sha256Hex(ticket.ticket.toByteArray(StandardCharsets.UTF_8)),
+        requestDigest = ticket.requestDigest,
+        exchangeRequestDigest = exchangeRequestDigest(ticket, installation),
+        exchangeChallenge = ticket.exchangeChallenge,
+        networkId = ticket.networkId,
+        chainId = ticket.chainId,
+        credentialReference = exchange.credentialReference,
+        credentialGeneration = exchange.credentialGeneration,
+    )
+
+    fun validateCredentialPlaintext(
+        plaintext: ByteArray,
+        binding: NativeCredentialBinding,
+        installation: NativeInstallationMaterial,
     ): NativeCredentialPlaintext {
         val canonicalJson = decodeStrictUtf8(plaintext)
         val root = parseJsonObject(canonicalJson, "native credential")
@@ -338,12 +367,11 @@ internal object NativeSessionProtocol {
             ),
             "native credential",
         )
-        val expectedTicketHash = sha256Hex(ticket.ticket.toByteArray(StandardCharsets.UTF_8))
-        val expectedExchangeDigest = exchangeRequestDigest(ticket, installation)
-        if (jsonInt(root, "protocol") != 2 || jsonString(root, "attemptId") != ticket.attemptId ||
-            jsonString(root, "ticketRequestDigest") != ticket.requestDigest ||
-            jsonString(root, "exchangeRequestDigest") != expectedExchangeDigest ||
-            jsonString(root, "ticketHash") != expectedTicketHash
+        if (jsonInt(root, "protocol") != 2 ||
+            jsonString(root, "attemptId") != binding.attemptId ||
+            jsonString(root, "ticketRequestDigest") != binding.requestDigest ||
+            jsonString(root, "exchangeRequestDigest") != binding.exchangeRequestDigest ||
+            jsonString(root, "ticketHash") != binding.ticketHash
         ) {
             fail("native_credential_mismatch", "The native credential request binding is invalid")
         }
@@ -359,8 +387,8 @@ internal object NativeSessionProtocol {
 
         val network = jsonObject(root, "network")
         exactJsonKeys(network, setOf("id", "chainId"), "native credential network")
-        if (jsonString(network, "id") != ticket.networkId ||
-            jsonString(network, "chainId") != ticket.chainId
+        if (jsonString(network, "id") != binding.networkId ||
+            jsonString(network, "chainId") != binding.chainId
         ) {
             fail("native_credential_mismatch", "The native credential network is invalid")
         }
@@ -394,7 +422,8 @@ internal object NativeSessionProtocol {
         val generation = jsonInt(credential, "generation")
         val bearer = jsonString(credential, "bearerToken")
         val bearerExpiresAt = jsonString(credential, "bearerExpiresAt")
-        if (reference != exchange.credentialReference || generation != exchange.credentialGeneration ||
+        if (reference != binding.credentialReference ||
+            generation != binding.credentialGeneration ||
             !bearerPattern.matches(bearer)
         ) {
             fail("native_credential_mismatch", "The native credential authority is invalid")
@@ -438,6 +467,8 @@ internal object NativeSessionProtocol {
             accountId = accountId,
             address = address,
             publicKey = publicKey,
+            bearerToken = bearer,
+            bearerExpiresAt = bearerExpiresAt,
             accountScalar = accountScalar,
             blockProductionReleased = blockProductionReleased,
         )

@@ -3,16 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 
 import 'social_push_api.dart';
 import 'social_push_messaging.dart';
 import 'social_push_payload.dart';
 import 'social_push_store.dart';
-
-typedef SocialPushUnauthorized = Future<void> Function(
-  AuthCredentialLease credential,
-);
 
 typedef SocialPushRetryTimerFactory = Timer Function(
   Duration delay,
@@ -32,29 +29,26 @@ Timer _defaultRetryTimer(Duration delay, void Function() callback) =>
 
 class SocialPushSession {
   const SocialPushSession({
-    required this.userId,
-    required this.credential,
-    required this.onUnauthorized,
+    required this.access,
   });
 
-  final int userId;
-  final AuthCredentialLease credential;
-  final SocialPushUnauthorized onUnauthorized;
+  final SessionFeatureAccess access;
+  int get userId => access.identity.participantId!;
 
   bool sameCredentialAs(SocialPushSession other) =>
-      userId == other.userId &&
-      credential.epoch == other.credential.epoch &&
-      credential.token == other.credential.token;
+      access.identity.nativeRevision == other.access.identity.nativeRevision &&
+      access.identity.participantId == other.access.identity.participantId &&
+      identical(access.operations, other.access.operations);
 
   @override
-  String toString() => 'SocialPushSession('
-      'userId: $userId, epoch: ${credential.epoch}, token: <redacted>)';
+  String toString() =>
+      'SocialPushSession(userId: $userId, revision: ${access.identity.nativeRevision})';
 }
 
 /// Process-lifetime owner of Firebase Messaging and Social registration.
 ///
 /// Every mutation is serialized through one queue. Identity remains owned by
-/// SessionController; a container-scoped adapter attaches only an immutable
+/// The private session composition root attaches only an immutable
 /// ready-session snapshot and detaches it synchronously at identity boundaries.
 class SocialPushService {
   SocialPushService({
@@ -78,11 +72,7 @@ class SocialPushService {
   static final SocialPushService instance = SocialPushService(
     messaging: FirebaseSocialPushMessaging(),
     persistence: SecureStorageSocialPushPersistence(),
-    api: HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: AppConfig.mobileApiBaseUrl,
-      expectedEnvironment: AppConfig.pushEnvironment,
-      expectedFirebaseProjectId: AppConfig.expectedFirebaseProjectId,
-    ),
+    api: const NativeSessionSocialPushRegistrationApi(),
     environment: AppConfig.pushEnvironment,
     expectedFirebaseProjectId: AppConfig.expectedFirebaseProjectId,
     platform: defaultTargetPlatform == TargetPlatform.android
@@ -699,9 +689,12 @@ class SocialPushService {
           _registeredSession?.sameCredentialAs(session) == true &&
               _registeredProviderToken == token &&
               _registeredPermission == _permission;
-      final status = await _api.getStatus(
-        bearer: session.credential.token,
-        installationId: _record!.installationId,
+      final status = await _withSession(
+        session,
+        (operation) => _api.getStatus(
+          operation: operation,
+          installationId: _record!.installationId,
+        ),
       );
       if (_session?.sameCredentialAs(session) != true) return;
       if (status.registered && signatureMatches) {
@@ -725,13 +718,6 @@ class SocialPushService {
       _registrationStatus = SocialPushRegistrationStatus.registered;
       _deliveryActive = reply.deliveryActive;
     } on SocialPushApiException catch (error) {
-      if (error.statusCode == 401 &&
-          _session?.sameCredentialAs(session) == true) {
-        _runDetached(
-          session.onUnauthorized(session.credential),
-          'unauthorized session handling',
-        );
-      }
       if (_session?.sameCredentialAs(session) == true) {
         _clearRegisteredSignature();
         _registrationStatus = SocialPushRegistrationStatus.error;
@@ -843,13 +829,16 @@ class SocialPushService {
   }) async {
     final revision = await _nextMutationRevision();
     try {
-      return await _api.register(
-        bearer: session.credential.token,
-        installationId: _record!.installationId,
-        registrationToken: token,
-        platform: platform!,
-        permissionStatus: _permission.wireName,
-        mutationRevision: revision,
+      return await _withSession(
+        session,
+        (operation) => _api.register(
+          operation: operation,
+          installationId: _record!.installationId,
+          registrationToken: token,
+          platform: platform!,
+          permissionStatus: _permission.wireName,
+          mutationRevision: revision,
+        ),
       );
     } on SocialPushApiException catch (error) {
       if (retryConflict &&
@@ -872,14 +861,7 @@ class SocialPushService {
         retryConflict: true,
       );
       return true;
-    } on SocialPushApiException catch (error) {
-      if (error.statusCode == 401 &&
-          _session?.sameCredentialAs(session) == true) {
-        _runDetached(
-          session.onUnauthorized(session.credential),
-          'unauthorized session handling',
-        );
-      }
+    } on SocialPushApiException catch (_) {
       // Local opt-out and provider-token deletion are authoritative even when
       // backend cleanup is temporarily unavailable.
       return false;
@@ -896,11 +878,14 @@ class SocialPushService {
   }) async {
     final revision = await _nextMutationRevision();
     try {
-      await _api.unregister(
-        bearer: session.credential.token,
-        installationId: _record!.installationId,
-        mutationRevision: revision,
-        reason: reason,
+      await _withSession(
+        session,
+        (operation) => _api.unregister(
+          operation: operation,
+          installationId: _record!.installationId,
+          mutationRevision: revision,
+          reason: reason,
+        ),
       );
     } on SocialPushApiException catch (error) {
       if (retryConflict &&
@@ -930,6 +915,23 @@ class SocialPushService {
       _deliveryActive = false;
       _registrationStatus = _statusWithoutRegistration();
       _emitState();
+    }
+  }
+
+  Future<T> _withSession<T>(
+    SocialPushSession session,
+    Future<T> Function(SessionOperation operation) body,
+  ) async {
+    try {
+      return await session.access.operations.run(body);
+    } on NativeSessionException catch (error) {
+      throw SocialPushApiException(
+        statusCode: error.statusCode ?? 0,
+        code: error.code,
+        latestMutationRevision: error.latestMutationRevision,
+      );
+    } on SessionAdmissionClosedException {
+      throw const SocialPushApiException(statusCode: 0);
     }
   }
 

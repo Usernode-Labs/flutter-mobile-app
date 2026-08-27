@@ -715,7 +715,7 @@ class PlatformAlarmService {
     }
   }
 
-  /// Current exact-alarm/battery state for the bridge's `startNode` response.
+  /// Current exact-alarm/battery state for the trusted bridge settings.
   /// Off Android both concepts are meaningless: `applicable` is false and the
   /// states are null so SV can skip its sheet.
   Future<Map<String, Object?>> alarmPermissionsSnapshot() async {
@@ -727,7 +727,7 @@ class PlatformAlarmService {
       };
     }
     // Independent probes with a short timeout each: one failing (or a stuck
-    // channel) must neither block startNode's resolution nor mask the other.
+    // channel) must neither block the settings response nor mask the other.
     bool exactAlarm = false;
     bool batteryOptDisabled = false;
     try {

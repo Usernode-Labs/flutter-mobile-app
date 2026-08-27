@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
-import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -31,28 +30,6 @@ void main() {
         same(decision.lease),
       );
     }
-  });
-
-  test('handoff closes before a later wallet admission can overtake it',
-      () async {
-    final frame = _AdmissionTopFrame(trustedUrl);
-    final secrets = _SecretSequence();
-    final policy = _policy(frame, secrets: secrets);
-    final gate = SessionHandoffGate();
-    final coordinator = _coordinator(frame, policy: policy, gate: gate);
-    final lease = await policy.bootstrapLease();
-
-    final handoff = coordinator.admit(
-      'beginSessionHandoff',
-      {'privilegedCapability': lease?.capability},
-    );
-    final wallet = coordinator.admit('getWalletState', const {});
-    final handoffDecision = await handoff;
-    final walletDecision = await wallet;
-    expect(handoffDecision.value, const {'blocked': true});
-    expect(walletDecision.dispatch, isFalse);
-    expect(walletDecision.error, contains('identity transition'));
-    expect(gate.isWalletBlocked, isTrue);
   });
 
   test('page start invalidates an in-flight readiness admission', () async {
@@ -128,34 +105,6 @@ void main() {
     expect(await firstHandler, firstLease?.capability);
   });
 
-  test('cached legacy shell is promoted by its first authorized call',
-      () async {
-    final frame = _AdmissionTopFrame(trustedUrl)
-      ..supportsExplicitReadiness = false;
-    final policy = _policy(frame);
-    final ready = <PrivilegedBridgeLease>[];
-    final coordinator = _coordinator(
-      frame,
-      policy: policy,
-      onReady: ready.add,
-    );
-    final lease = await policy.bootstrapLease();
-
-    final first = await coordinator.admit(
-      'getSettingsState',
-      {'privilegedCapability': lease?.capability},
-    );
-    final second = await coordinator.admit(
-      'openNativeScreen',
-      {'privilegedCapability': lease?.capability},
-    );
-
-    expect(first.dispatch, isTrue);
-    expect(second.dispatch, isTrue);
-    expect(ready, hasLength(1));
-    expect(ready.single.marker, lease?.marker);
-  });
-
   test('current shell waits for its explicit readiness handshake', () async {
     final frame = _AdmissionTopFrame(trustedUrl);
     final policy = _policy(frame);
@@ -193,61 +142,12 @@ void main() {
         reason: 'an explicit same-realm pageshow must replay current state');
   });
 
-  test('mixed-cache handshake falls back to the later legacy call', () async {
-    final frame = _AdmissionTopFrame(trustedUrl)
-      ..supportsExplicitReadiness = false;
-    final policy = _policy(frame);
-    final ready = <PrivilegedBridgeLease>[];
-    final coordinator = _coordinator(
-      frame,
-      policy: policy,
-      onReady: ready.add,
-    );
-    final lease = await policy.bootstrapLease();
-    final payload = {'privilegedCapability': lease?.capability};
-
-    final prematureHandshake = await coordinator.admit(
-      'markPrivilegedBridgeReady',
-      payload,
-    );
-    expect(prematureHandshake.value, const {'ready': false});
-    expect(ready, isEmpty);
-
-    final laterCall = await coordinator.admit('getSettingsState', payload);
-    expect(laterCall.dispatch, isTrue);
-    expect(ready, hasLength(1));
-  });
-
-  test('legacy realm replays after a provisional document load starts',
-      () async {
-    final frame = _AdmissionTopFrame(trustedUrl)
-      ..supportsExplicitReadiness = false;
-    final policy = _policy(frame);
-    final ready = <PrivilegedBridgeLease>[];
-    final coordinator = _coordinator(
-      frame,
-      policy: policy,
-      onReady: ready.add,
-    );
-    final lease = await policy.bootstrapLease();
-    final payload = {'privilegedCapability': lease?.capability};
-
-    expect((await coordinator.admit('getSettingsState', payload)).dispatch,
-        isTrue);
-    coordinator.noteDocumentLoadStarted();
-    expect((await coordinator.admit('getSettingsState', payload)).dispatch,
-        isTrue);
-    expect(ready, hasLength(2));
-  });
-
   test('failed state replay keeps readiness retryable', () async {
     final frame = _AdmissionTopFrame(trustedUrl);
     final policy = _policy(frame);
     var attempts = 0;
     final coordinator = BridgeAdmissionCoordinator(
       policy: policy,
-      sessionGate: SessionHandoffGate(),
-      admitAnonymousSession: () => true,
       markRealmReady: (_) async => ++attempts > 1,
     );
     final lease = await policy.bootstrapLease();
@@ -291,13 +191,10 @@ final class _SecretSequence {
 BridgeAdmissionCoordinator _coordinator(
   _AdmissionTopFrame frame, {
   PrivilegedBridgePolicy? policy,
-  SessionHandoffGate? gate,
   void Function(PrivilegedBridgeLease lease)? onReady,
 }) {
   return BridgeAdmissionCoordinator(
     policy: policy ?? _policy(frame),
-    sessionGate: gate ?? SessionHandoffGate(),
-    admitAnonymousSession: () => true,
     markRealmReady: (lease) async {
       (onReady ?? (_) {})(lease);
       return true;
@@ -310,7 +207,6 @@ final class _AdmissionTopFrame {
 
   String href;
   String? marker;
-  bool supportsExplicitReadiness = true;
   Completer<void>? nextProbeGate;
   Completer<void>? _probeStarted;
   int probeCount = 0;
@@ -336,11 +232,6 @@ final class _AdmissionTopFrame {
       if (gate != null) await gate.future;
       return result;
     }
-    if (script.contains('__usernodeExplicitReadinessClient')) {
-      final expectedMarker = _extractExpectedMarker(script);
-      if (marker != expectedMarker) return null;
-      return supportsExplicitReadiness;
-    }
     throw StateError('Unexpected evaluation');
   }
 
@@ -353,12 +244,5 @@ final class _AdmissionTopFrame {
     final match = RegExp(r'value:\s*"([^"]+)"').firstMatch(script);
     if (match == null) throw StateError('missing marker candidate');
     return jsonDecode('"${match.group(1)}"') as String;
-  }
-
-  static String _extractExpectedMarker(String script) {
-    final match =
-        RegExp(r'window\[markerKey\] !== ("[^"]+")').firstMatch(script);
-    if (match == null) throw StateError('missing marker guard');
-    return jsonDecode(match.group(1)!) as String;
   }
 }

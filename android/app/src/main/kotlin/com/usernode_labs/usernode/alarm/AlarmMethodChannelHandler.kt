@@ -119,15 +119,12 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
     /**
      * Acquires the alarm channel for one exact engine.
      *
-     * There is deliberately no replacement operation. The predecessor must
-     * compare-release its own lease before a successor can bind.
+     * Activity/engine replacement installs a successor lease synchronously;
+     * every callback held by the predecessor then fails the exact-lease check.
      */
     @Synchronized
     fun acquireMethodChannel(role: EngineRole, channel: MethodChannel): EngineLease? {
-        val lease = engineChannels.acquire(role, channel) ?: run {
-            Log.e(TAG, "Refusing $role alarm channel while another engine is bound")
-            return null
-        }
+        val lease = engineChannels.replace(role, channel)
         Log.d(TAG, "Alarm channel acquired by $role engine")
         flushPendingEvents("method_channel_set")
         return lease
@@ -418,7 +415,6 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
                 // // Treat wakelock release as "app suspended" for engine lifecycle:
                 // // destroy engine + remove from cache so next open/alarm starts fresh.
                 // Handler(Looper.getMainLooper()).post {
-                //     BackgroundAlarmEngine.destroyCachedEngine("wakelock_release")
                 // }
             }
             "markFlutterReadyForAlarmEvents" -> {
@@ -471,7 +467,7 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
                 }
             }
             "isAlarmWatchdogDeliveryInProgress" -> {
-                result.success(BackgroundAlarmEngine.isWatchdogDeliveryInProgress())
+                result.success(false)
             }
             else -> {
                 result.notImplemented()
@@ -583,12 +579,10 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
         }
         durableStateCleared = applicationIncarnationStore.clear() && durableStateCleared
         flutterAlarmEventBuffer.clear()
-        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
         return durableStateCleared
     }
 
     private fun enterTerminalReset(clearApplicationData: Boolean) {
-        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
         attachedActivity()?.finishAffinity()
         Handler(Looper.getMainLooper()).post {
             if (clearApplicationData) {

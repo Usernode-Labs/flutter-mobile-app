@@ -4,8 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/identity/participant_id_store.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/features/metrics/models/mobile_context_metrics.dart';
@@ -44,6 +43,7 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
 
   /// Track app startup time
   DateTime? _appStartTime;
+  SessionIdentityProjection? _identity;
 
   /// Track app lifecycle state
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
@@ -75,9 +75,14 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     }
   }
 
+  void configureSession(SessionFeatureAccess access) {
+    _identity = access.identity;
+  }
+
   /// Clears cached state so a subsequent bootstrap starts cleanly.
   void reset() {
     _appStartTime = null;
+    _identity = null;
     _appLifecycleState = AppLifecycleState.resumed;
     _cachedPackageInfo = null;
     _cachedDeviceInfo = null;
@@ -203,24 +208,16 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
       };
 
   Future<Map<String, dynamic>?> _collectMobileContextIdentity() async {
-    final participantId = await _loadParticipantId();
-    if (participantId == null) {
+    final identity = _identity;
+    if (identity == null || identity.status != SessionProjectionStatus.ready) {
       return null;
     }
 
-    return {'participant_id': participantId};
-  }
-
-  Future<int?> _loadParticipantId() async {
-    final participantId = IdentitySnapshots.current.participantId;
-    if (participantId != null) return participantId;
-
-    try {
-      return await loadParticipantId();
-    } catch (e) {
-      _log.debug('Failed to load participant_id from storage: $e');
-      return null;
-    }
+    return {
+      if (identity.participantId != null)
+        'participant_id': identity.participantId,
+      if (identity.accountId != null) 'account_id': identity.accountId,
+    };
   }
 
   /// Collect app runtime and performance metrics

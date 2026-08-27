@@ -16,8 +16,6 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
-import com.usernode_labs.usernode.alarm.ApplicationIncarnationStore
-import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
 import com.usernode_labs.usernode.alarm.EngineLease
 import com.usernode_labs.usernode.alarm.EngineRole
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
@@ -109,7 +107,6 @@ class MainActivity: FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
-        BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
     }
 
     /** Captures the visible app window, including the WebView's real pixels. */
@@ -219,10 +216,6 @@ class MainActivity: FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.i(TAG, "created - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");
-        // Enforce a single-engine policy: if a headless/background engine is running
-        // (e.g., from alarms/boot reschedule), kill it BEFORE FlutterActivity creates
-        // the UI engine to avoid two engines being alive simultaneously.
-        BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
         super.onCreate(savedInstanceState)
 
         // Handle alarm intent if launched from alarm receiver
@@ -333,28 +326,5 @@ class MainActivity: FlutterActivity() {
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
         super.onDestroy()
         Log.i(TAG, "destroyed - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");
-        val replacementActivityAttached = AlarmMethodChannelHandler.getInstance()
-            ?.isActivityAttached() == true
-        if (SlotMonitoringService.isForegroundServiceActive && !replacementActivityAttached) {
-            // A foreground service may outlive the UI engine. Re-enter Dart
-            // only through an exact event; engine creation alone grants no
-            // lifecycle work and terminal reset leaves no current token.
-            val applicationIncarnation =
-                ApplicationIncarnationStore(applicationContext).current()
-            if (applicationIncarnation != null) {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_alarm_recovery_requested",
-                    mapOf(
-                        "reason" to "activity_destroyed_foreground_service",
-                        "source" to "main_activity",
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            applicationIncarnation,
-                    ),
-                )
-            }
-        } else if (SlotMonitoringService.isForegroundServiceActive) {
-            Log.i(TAG, "Skipping headless recovery because a replacement Activity is attached")
-        }
     }
 }

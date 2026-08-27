@@ -128,18 +128,6 @@ class AppConfig {
     defaultValue: false,
   );
 
-  /// Protocol 2 remains dark until the direct background producer cutover is
-  /// complete. On supported Android builds, enabling this selects protocol 2
-  /// even when root bootstrap is unhealthy; operations then fail closed and
-  /// must never fall back to the legacy bridge.
-  // TODO(session-lifecycle-v2): Before enabling by default, retire/privatize
-  // generated FRB NodeBuilder/MobileNode/NodeHandle/RPC authority and replace
-  // legacy interactive/headless owners with runner/ProducerWake equivalents.
-  static const bool enableNativeSessionLifecycleV2 = bool.fromEnvironment(
-    'ENABLE_NATIVE_SESSION_LIFECYCLE_V2',
-    defaultValue: false,
-  );
-
   // Optional display name shown in the AppBar when [dappsTabUrl] is set.
   // Falls back to the URL host when empty.
   static const String dappsTabName = String.fromEnvironment(

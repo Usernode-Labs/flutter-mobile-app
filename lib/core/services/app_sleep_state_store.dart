@@ -1,6 +1,12 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Persisted app sleep flag used by both UI and headless runtimes.
+/// Persisted product sleep preference used by the exact session operation.
+///
+/// TODO(session-power): Reintroduce automatic inactivity/lifecycle driving in
+/// a separately reviewed alarm/power slice. This lifecycle cutover stores the
+/// preference and exposes exact session-scoped sleep operations, but does not
+/// automatically pause the runtime after five minutes or on app lifecycle
+/// changes.
 class AppSleepStateStore {
   AppSleepStateStore._();
 

@@ -90,6 +90,13 @@ internal class NativeCredentialPlaintext(
     override fun toString(): String = "NativeCredentialPlaintext(<redacted>)"
 }
 
+internal data class NativeCredentialLeaseReceipt(
+    val credentialReference: String,
+    val credentialGeneration: Int,
+    val leaseExpiresAt: String,
+    val leaseExpiry: Instant,
+)
+
 internal data class NativeCredentialBinding(
     val attemptId: String,
     val ticketHash: String,
@@ -428,15 +435,7 @@ internal object NativeSessionProtocol {
         ) {
             fail("native_credential_mismatch", "The native credential authority is invalid")
         }
-        try {
-            if (!Instant.parse(bearerExpiresAt).isAfter(Instant.now())) {
-                fail("native_credential_expired", "The native credential is expired")
-            }
-        } catch (error: NativeSessionProtocolException) {
-            throw error
-        } catch (_: Exception) {
-            fail("invalid_native_credential", "The native credential expiry is invalid")
-        }
+        parseCredentialExpiry(bearerExpiresAt)
 
         val account = jsonObject(root, "account")
         exactJsonKeys(
@@ -471,6 +470,49 @@ internal object NativeSessionProtocol {
             bearerExpiresAt = bearerExpiresAt,
             accountScalar = accountScalar,
             blockProductionReleased = blockProductionReleased,
+        )
+    }
+
+    fun requireCredentialLeaseCurrent(value: String): Instant {
+        val expiry = parseCredentialExpiry(value)
+        if (!expiry.isAfter(Instant.now())) {
+            fail("native_credential_expired", "The native credential is expired")
+        }
+        return expiry
+    }
+
+    fun credentialLeaseExpiry(value: String): Instant = parseCredentialExpiry(value)
+
+    fun parseCredentialLeaseReceipt(
+        reference: String?,
+        generation: String?,
+        leaseExpiresAt: String?,
+    ): NativeCredentialLeaseReceipt {
+        if (reference == null || generation == null || leaseExpiresAt == null) {
+            fail("invalid_native_credential_lease_receipt", "The credential lease receipt is missing")
+        }
+        try {
+            validateOpaque(reference, "nsc_", "credential lease reference")
+        } catch (_: NativeSessionProtocolException) {
+            fail("invalid_native_credential_lease_receipt", "The credential lease receipt is invalid")
+        }
+        val parsedGeneration = generation.toIntOrNull()
+        if (parsedGeneration == null || parsedGeneration <= 0 || generation != parsedGeneration.toString()) {
+            fail("invalid_native_credential_lease_receipt", "The credential lease receipt is invalid")
+        }
+        val expiry = try {
+            Instant.parse(leaseExpiresAt)
+        } catch (_: Exception) {
+            fail("invalid_native_credential_lease_receipt", "The credential lease receipt is invalid")
+        }
+        if (!expiry.isAfter(Instant.now())) {
+            fail("invalid_native_credential_lease_receipt", "The credential lease receipt is invalid")
+        }
+        return NativeCredentialLeaseReceipt(
+            credentialReference = reference,
+            credentialGeneration = parsedGeneration,
+            leaseExpiresAt = leaseExpiresAt,
+            leaseExpiry = expiry,
         )
     }
 
@@ -707,6 +749,12 @@ internal object NativeSessionProtocol {
         }
         decodeCanonicalBase64Url(value.substring(prefix.length), 32, label)
             .fill(0)
+    }
+
+    private fun parseCredentialExpiry(value: String): Instant = try {
+        Instant.parse(value)
+    } catch (_: Exception) {
+        fail("invalid_native_credential", "The native credential expiry is invalid")
     }
 
     private fun exactJsonKeys(value: JSONObject, expected: Set<String>, label: String) {

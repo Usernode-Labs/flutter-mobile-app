@@ -144,6 +144,7 @@ internal class NativeSessionHttp(
                 }
             }
             val status = connection.responseCode
+            val leaseReceipt = readCredentialLeaseReceipt(connection)
             val response = readResponse(connection, status)
             if (status == HttpURLConnection.HTTP_UNAUTHORIZED) {
                 NativeHttpResult.Unauthorized
@@ -153,7 +154,7 @@ internal class NativeSessionHttp(
                 } catch (_: Exception) {
                     return NativeHttpResult.Failure(status, null, null)
                 }
-                NativeHttpResult.Success(json)
+                NativeHttpResult.Success(json, leaseReceipt)
             } else {
                 val error = try {
                     JSONObject(response)
@@ -166,6 +167,7 @@ internal class NativeSessionHttp(
                     error?.optString("latest_mutation_revision")
                         ?.takeIf(POSITIVE_DECIMAL::matches)
                         ?.toLongOrNull(),
+                    leaseReceipt,
                 )
             }
         } catch (_: Exception) {
@@ -191,6 +193,18 @@ internal class NativeSessionHttp(
         }
     }
 
+    private fun readCredentialLeaseReceipt(
+        connection: HttpURLConnection,
+    ): NativeCredentialLeaseReceipt? = try {
+        NativeSessionProtocol.parseCredentialLeaseReceipt(
+            connection.getHeaderField(CREDENTIAL_REFERENCE_HEADER),
+            connection.getHeaderField(CREDENTIAL_GENERATION_HEADER),
+            connection.getHeaderField(CREDENTIAL_LEASE_EXPIRES_HEADER),
+        )
+    } catch (_: NativeSessionProtocolException) {
+        null
+    }
+
     private fun urlEncode(value: String): String =
         URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20")
 
@@ -200,6 +214,9 @@ internal class NativeSessionHttp(
         const val MAX_RESPONSE_BYTES = 64 * 1024
         val ERROR_CODE = Regex("^[a-z0-9_]{1,64}$")
         val POSITIVE_DECIMAL = Regex("^[1-9][0-9]{0,18}$")
+        const val CREDENTIAL_REFERENCE_HEADER = "Usernode-Credential-Reference"
+        const val CREDENTIAL_GENERATION_HEADER = "Usernode-Credential-Generation"
+        const val CREDENTIAL_LEASE_EXPIRES_HEADER = "Usernode-Credential-Lease-Expires-At"
 
         fun validateBaseUrl(raw: String): String {
             val url = try {
@@ -227,12 +244,16 @@ internal class NativeSessionHttp(
 }
 
 internal sealed interface NativeHttpResult {
-    data class Success(val body: JSONObject) : NativeHttpResult
+    data class Success(
+        val body: JSONObject,
+        val credentialLease: NativeCredentialLeaseReceipt?,
+    ) : NativeHttpResult
     object Unauthorized : NativeHttpResult
     data class Failure(
         val statusCode: Int,
         val code: String?,
         val latestMutationRevision: Long?,
+        val credentialLease: NativeCredentialLeaseReceipt? = null,
     ) : NativeHttpResult
 }
 

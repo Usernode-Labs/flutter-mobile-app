@@ -79,6 +79,13 @@ struct NativeCredentialPlaintext {
   let blockProductionReleased: Bool
 }
 
+struct NativeCredentialLeaseReceipt {
+  let credentialReference: String
+  let credentialGeneration: UInt64
+  let leaseExpiresAt: String
+  let leaseExpiry: Date
+}
+
 enum NativeSessionProtocol {
   static let storedRecordKeys: Set<String> = [
     "version", "attemptId", "ticketHash", "requestDigest",
@@ -86,7 +93,7 @@ enum NativeSessionProtocol {
     "installationId", "installationGeneration", "possessionKeyThumbprint",
     "envelopeKeyThumbprint", "credentialReference", "credentialGeneration",
     "envelopeAlgorithm", "envelopeEncryption", "envelopeKeyId", "compactJwe",
-    "fingerprint", "vaultCommitment",
+    "leaseExpiresAt", "fingerprint", "vaultCommitment",
   ]
 
   static func fail(_ code: String, _ message: String) throws -> Never {
@@ -371,11 +378,8 @@ enum NativeSessionProtocol {
           bearer.count == 80, bearer.allSatisfy({ $0.isHexDigit && !$0.isUppercase }) else {
       try fail("native_credential_mismatch", "The native credential authority is invalid")
     }
-    guard let expiry = parseDate(expires) else {
+    guard parseDate(expires) != nil else {
       try fail("invalid_native_credential", "The native credential expiry is invalid")
-    }
-    guard expiry > Date() else {
-      try fail("native_credential_expired", "The native credential is expired")
     }
     let account = try exactDictionary(
       root["account"],
@@ -402,6 +406,53 @@ enum NativeSessionProtocol {
       bearerExpiresAt: expires,
       accountScalar: try decodeAccountScalar(secretKey),
       blockProductionReleased: released
+    )
+  }
+
+  static func credentialLeaseExpiry(_ value: String) throws -> Date {
+    guard let expiry = parseDate(value) else {
+      try fail("invalid_native_credential", "The native credential expiry is invalid")
+    }
+    return expiry
+  }
+
+  static func requireCredentialLeaseCurrent(_ value: String) throws -> Date {
+    let expiry = try credentialLeaseExpiry(value)
+    guard expiry > Date() else {
+      try fail("native_credential_expired", "The native credential is expired")
+    }
+    return expiry
+  }
+
+  static func parseCredentialLeaseReceipt(
+    reference: String?,
+    generation: String?,
+    leaseExpiresAt: String?
+  ) throws -> NativeCredentialLeaseReceipt {
+    guard let reference, let generation, let leaseExpiresAt,
+          let parsedGeneration = UInt64(generation), parsedGeneration > 0,
+          String(parsedGeneration) == generation,
+          let expiry = parseDate(leaseExpiresAt), expiry > Date() else {
+      try fail(
+        "invalid_native_credential_lease_receipt",
+        "The credential lease receipt is invalid"
+      )
+    }
+    do {
+      try validateOpaque(
+        reference, prefix: "nsc_", label: "credential lease reference"
+      )
+    } catch {
+      try fail(
+        "invalid_native_credential_lease_receipt",
+        "The credential lease receipt is invalid"
+      )
+    }
+    return NativeCredentialLeaseReceipt(
+      credentialReference: reference,
+      credentialGeneration: parsedGeneration,
+      leaseExpiresAt: leaseExpiresAt,
+      leaseExpiry: expiry
     )
   }
 

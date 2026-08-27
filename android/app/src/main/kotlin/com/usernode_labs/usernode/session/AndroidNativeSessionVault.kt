@@ -109,6 +109,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         } finally {
             plaintextBytes.fill(0)
         }
+        NativeSessionProtocol.requireCredentialLeaseCurrent(credential.bearerExpiresAt)
 
         return try {
             val fingerprint = credentialFingerprint(binding, installation, credential)
@@ -118,6 +119,7 @@ internal class AndroidNativeSessionVault(context: Context) {
                     installation = installation,
                     exchange = exchange,
                     fingerprint = fingerprint,
+                    credential = credential,
                 )
                 try {
                     val frame = buildInstallFrame(
@@ -158,7 +160,15 @@ internal class AndroidNativeSessionVault(context: Context) {
             fail("invalid_native_retirement", "The native retirement directive is invalid")
         }
         val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null) ?: return
-        val stored = parseStoredRecord(storedRaw)
+        val stored = try {
+            parseStoredRecord(storedRaw)
+        } catch (error: NativeSessionProtocolException) {
+            if (shouldDiscardCredential(error)) {
+                compareDeleteExact(storedRaw)
+                return
+            }
+            throw error
+        }
         val storedCommitment = NativeSessionProtocol.decodeCanonicalBase64Url(
             stored.getString("vaultCommitment"),
             COMMITMENT_BYTES,
@@ -219,6 +229,13 @@ internal class AndroidNativeSessionVault(context: Context) {
                     vaultEvidenceFrame(storedRaw, coldInstallClaim),
                     ByteArray(0),
                 )
+            } catch (error: NativeSessionProtocolException) {
+                if (shouldDiscardCredential(error)) {
+                    compareDeleteExact(storedRaw)
+                    ProducerWakeCredential.Absent
+                } else {
+                    ProducerWakeCredential.Uncertain
+                }
             } catch (_: Throwable) {
                 ProducerWakeCredential.Uncertain
             }
@@ -246,7 +263,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         val recovered = try {
             recoverCredential(storedRaw)
         } catch (error: NativeSessionProtocolException) {
-            if (error.code == "native_credential_expired") {
+            if (shouldDiscardCredential(error)) {
                 compareDeleteExact(storedRaw)
                 return ColdCredentialStage.Absent
             }
@@ -494,7 +511,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         val recovered = try {
             recoverCredential(storedRaw)
         } catch (error: NativeSessionProtocolException) {
-            if (error.code == "native_credential_expired") {
+            if (shouldDiscardCredential(error)) {
                 compareDeleteExact(storedRaw)
                 return AuthenticatedProducerMaterial.Absent
             }
@@ -506,6 +523,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             val response = configuredHttp().getProducerPolicy(recovered.credential.bearerToken)
         ) {
             is NativeHttpResult.Success -> try {
+                applyCredentialLease(response.credentialLease, recovered, required = true)
                 val policy = NativeProducerPolicyFrame.encode(
                     response.body,
                     recovered.binding,
@@ -522,6 +540,12 @@ internal class AndroidNativeSessionVault(context: Context) {
                 AuthenticatedProducerMaterial.Absent
             }
             is NativeHttpResult.Failure -> {
+                try {
+                    applyCredentialLease(response.credentialLease, recovered, required = false)
+                } catch (_: Throwable) {
+                    recovered.close()
+                    return AuthenticatedProducerMaterial.Uncertain
+                }
                 recovered.close()
                 AuthenticatedProducerMaterial.Uncertain
             }
@@ -547,7 +571,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         return try {
             recoverCredential(raw)
         } catch (error: NativeSessionProtocolException) {
-            if (error.code == "native_credential_expired") compareDeleteExact(raw)
+            if (shouldDiscardCredential(error)) compareDeleteExact(raw)
             throw error
         }
     }
@@ -556,16 +580,75 @@ internal class AndroidNativeSessionVault(context: Context) {
         response: NativeHttpResult,
         recovered: RecoveredCredential,
     ): NativeHttpResult.Success = when (response) {
-        is NativeHttpResult.Success -> response
+        is NativeHttpResult.Success -> response.also {
+            applyCredentialLease(it.credentialLease, recovered, required = true)
+        }
         NativeHttpResult.Unauthorized -> {
             compareDeleteExact(recovered.storedRaw)
             throw NativeManagedHttpException(401, "native_credential_invalid", null)
         }
-        is NativeHttpResult.Failure -> throw NativeManagedHttpException(
-            response.statusCode,
-            response.code,
-            response.latestMutationRevision,
+        is NativeHttpResult.Failure -> {
+            applyCredentialLease(response.credentialLease, recovered, required = false)
+            throw NativeManagedHttpException(
+                response.statusCode,
+                response.code,
+                response.latestMutationRevision,
+            )
+        }
+    }
+
+    private fun applyCredentialLease(
+        receipt: NativeCredentialLeaseReceipt?,
+        recovered: RecoveredCredential,
+        required: Boolean,
+    ) {
+        if (receipt == null) {
+            if (required) {
+                fail(
+                    "invalid_native_credential_lease_receipt",
+                    "The authenticated response has no credential lease receipt",
+                )
+            }
+            return
+        }
+        if (receipt.credentialReference != recovered.binding.credentialReference ||
+            receipt.credentialGeneration != recovered.binding.credentialGeneration
+        ) {
+            fail(
+                "native_credential_lease_mismatch",
+                "The credential lease receipt is bound to another credential",
+            )
+        }
+
+        val currentRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
+            ?: fail("native_vault_absent", "The native credential is absent")
+        val current = parseStoredRecord(currentRaw)
+        if (current.getString("credentialReference") != receipt.credentialReference ||
+            current.getInt("credentialGeneration") != receipt.credentialGeneration
+        ) {
+            fail(
+                "native_credential_lease_mismatch",
+                "The installed credential changed before lease persistence",
+            )
+        }
+        val currentExpiry = NativeSessionProtocol.credentialLeaseExpiry(
+            current.getString("leaseExpiresAt"),
         )
+        if (!receipt.leaseExpiry.isAfter(currentExpiry)) {
+            recovered.storedRaw = currentRaw
+            return
+        }
+
+        val updatedRaw = JSONObject(currentRaw)
+            .put("leaseExpiresAt", receipt.leaseExpiresAt)
+            .toString()
+        if (preferences.getString(CREDENTIAL_RECORD_KEY, null) != currentRaw ||
+            !preferences.edit().putString(CREDENTIAL_RECORD_KEY, updatedRaw).commit() ||
+            preferences.getString(CREDENTIAL_RECORD_KEY, null) != updatedRaw
+        ) {
+            fail("native_vault_write_failed", "The credential lease could not be persisted")
+        }
+        recovered.storedRaw = updatedRaw
     }
 
     private fun compareDeleteExact(storedRaw: String): Boolean {
@@ -617,6 +700,9 @@ internal class AndroidNativeSessionVault(context: Context) {
 
     private fun recoverCredential(storedRaw: String): RecoveredCredential {
         val stored = parseStoredRecord(storedRaw)
+        NativeSessionProtocol.requireCredentialLeaseCurrent(
+            stored.getString("leaseExpiresAt"),
+        )
         val installation = loadInstallation()
         if (stored.getString("installationId") != installation.installationId ||
             stored.getInt("installationGeneration") != installation.keyGeneration ||
@@ -924,6 +1010,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         installation: NativeInstallationMaterial,
         exchange: NativeExchangeEnvelope,
         fingerprint: ByteArray,
+        credential: NativeCredentialPlaintext,
     ): ByteArray {
         val fingerprintText = NativeSessionProtocol.encodeBase64Url(fingerprint)
         val existingRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
@@ -943,7 +1030,7 @@ internal class AndroidNativeSessionVault(context: Context) {
 
         val commitment = ByteArray(COMMITMENT_BYTES).also(secureRandom::nextBytes)
         val record = JSONObject()
-            .put("version", 3)
+            .put("version", 4)
             .put("attemptId", binding.attemptId)
             .put("ticketHash", binding.ticketHash)
             .put("requestDigest", binding.requestDigest)
@@ -961,6 +1048,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             .put("envelopeEncryption", "A256GCM")
             .put("envelopeKeyId", installation.envelopeKeyId)
             .put("compactJwe", exchange.compactJwe)
+            .put("leaseExpiresAt", credential.bearerExpiresAt)
             .put("fingerprint", fingerprintText)
             .put("vaultCommitment", NativeSessionProtocol.encodeBase64Url(commitment))
         val encoded = record.toString()
@@ -1100,9 +1188,15 @@ internal class AndroidNativeSessionVault(context: Context) {
 
     private fun parseStoredRecord(raw: String): JSONObject = try {
         JSONObject(raw).also { record ->
+            if (record.optInt("version", -1) != 4) {
+                fail(
+                    "native_credential_relogin_required",
+                    "The native credential record requires login",
+                )
+            }
             val keys = mutableSetOf<String>()
             record.keys().forEachRemaining(keys::add)
-            if (keys != STORED_RECORD_KEYS || record.optInt("version", -1) != 3) {
+            if (keys != STORED_RECORD_KEYS) {
                 fail("native_vault_corrupt", "The native credential record is invalid")
             }
         }
@@ -1114,6 +1208,10 @@ internal class AndroidNativeSessionVault(context: Context) {
 
     private fun fail(code: String, message: String): Nothing =
         throw NativeSessionProtocolException(code, message)
+
+    private fun shouldDiscardCredential(error: NativeSessionProtocolException): Boolean =
+        error.code == "native_credential_expired" ||
+            error.code == "native_credential_relogin_required"
 
     private companion object {
         const val PREFERENCES_NAME = "native_session_v2"
@@ -1158,6 +1256,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             "envelopeEncryption",
             "envelopeKeyId",
             "compactJwe",
+            "leaseExpiresAt",
             "fingerprint",
             "vaultCommitment",
         )
@@ -1200,7 +1299,7 @@ private sealed interface AuthenticatedProducerMaterial {
 }
 
 private class RecoveredCredential(
-    val storedRaw: String,
+    var storedRaw: String,
     val binding: NativeCredentialBinding,
     val installFrame: ByteArray,
     val credential: NativeCredentialPlaintext,

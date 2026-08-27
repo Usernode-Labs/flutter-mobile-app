@@ -14,11 +14,23 @@ enum IOSProducerWakeCredential {
   case uncertain
 }
 
-private struct IOSRecoveredCredential {
-  let storedRaw: Data
+private final class IOSRecoveredCredential {
+  var storedRaw: Data
   let binding: NativeCredentialBinding
   let installFrame: Data
   var credential: NativeCredentialPlaintext
+
+  init(
+    storedRaw: Data,
+    binding: NativeCredentialBinding,
+    installFrame: Data,
+    credential: NativeCredentialPlaintext
+  ) {
+    self.storedRaw = storedRaw
+    self.binding = binding
+    self.installFrame = installFrame
+    self.credential = credential
+  }
 }
 
 /// The sole iOS owner of installation keys, the encrypted credential, and
@@ -91,6 +103,7 @@ final class IOSNativeSessionVault {
     var credential = try NativeSessionProtocol.validateCredential(
       plaintext, binding: binding, installation: installation
     )
+    _ = try NativeSessionProtocol.requireCredentialLeaseCurrent(credential.bearerExpiresAt)
     defer { credential.accountScalar.resetBytes(in: 0..<credential.accountScalar.count) }
     let fingerprint = try credentialFingerprint(
       binding: binding, installation: installation, credential: credential
@@ -99,7 +112,8 @@ final class IOSNativeSessionVault {
       binding: binding,
       installation: installation,
       exchange: exchange,
-      fingerprint: fingerprint
+      fingerprint: fingerprint,
+      credential: credential
     )
     var frame = try buildInstallFrame(
       binding: binding,
@@ -124,7 +138,14 @@ final class IOSNativeSessionVault {
       )
     }
     if let raw = try readKeychain(account: Self.credentialAccount) {
-      let record = try parseStoredRecord(raw)
+      let record: [String: Any]
+      do {
+        record = try parseStoredRecord(raw)
+      } catch let error as NativeSessionProtocolError where shouldDiscardCredential(error) {
+        try deleteKeychain(account: Self.credentialAccount, expected: raw)
+        try clearReadyRevision(expected: readyRevision)
+        return
+      }
       guard record["credentialReference"] as? String == reference,
             try NativeSessionProtocol.exactUInt64(
               record["credentialGeneration"], "stored credential generation"
@@ -165,9 +186,12 @@ final class IOSNativeSessionVault {
       var frame = recovered.installFrame
       defer { frame.resetBytes(in: 0..<frame.count) }
       return .present(try IOSNativeSessionRust.stageColdInstalledCredential(&frame))
-    } catch let error as NativeSessionProtocolError where error.code == "native_credential_expired" {
-      try? deleteKeychain(account: Self.credentialAccount, expected: raw)
-      return .absent
+    } catch let error as NativeSessionProtocolError {
+      if shouldDiscardCredential(error) {
+        try? deleteKeychain(account: Self.credentialAccount, expected: raw)
+        return .absent
+      }
+      return .uncertain
     } catch {
       return .uncertain
     }
@@ -194,6 +218,9 @@ final class IOSNativeSessionVault {
           evidence: try vaultEvidenceFrame(raw, coldInstallClaim: coldInstallClaim),
           policy: Data()
         )
+      } catch let error as NativeSessionProtocolError where shouldDiscardCredential(error) {
+        try? deleteKeychain(account: Self.credentialAccount, expected: raw)
+        return .absent
       } catch {
         return .uncertain
       }
@@ -206,9 +233,12 @@ final class IOSNativeSessionVault {
         )
       }
       switch try http().getProducerPolicy(bearer: recovered.credential.bearerToken) {
-      case .success(let body):
+      case .success(let body, let lease):
+        try applyCredentialLease(lease, recovered: recovered, required: true)
         return .present(
-          evidence: try vaultEvidenceFrame(raw, coldInstallClaim: coldInstallClaim),
+          evidence: try vaultEvidenceFrame(
+            recovered.storedRaw, coldInstallClaim: coldInstallClaim
+          ),
           policy: try producerPolicyFrame(
             body, binding: recovered.binding, credential: recovered.credential
           )
@@ -216,12 +246,16 @@ final class IOSNativeSessionVault {
       case .unauthorized:
         try? deleteKeychain(account: Self.credentialAccount, expected: raw)
         return .absent
-      case .failure:
+      case .failure(_, _, _, let lease):
+        try applyCredentialLease(lease, recovered: recovered, required: false)
         return .uncertain
       }
-    } catch let error as NativeSessionProtocolError where error.code == "native_credential_expired" {
-      try? deleteKeychain(account: Self.credentialAccount, expected: raw)
-      return .absent
+    } catch let error as NativeSessionProtocolError {
+      if shouldDiscardCredential(error) {
+        try? deleteKeychain(account: Self.credentialAccount, expected: raw)
+        return .absent
+      }
+      return .uncertain
     } catch {
       return .uncertain
     }
@@ -465,8 +499,10 @@ final class IOSNativeSessionVault {
     }
     do {
       return try recoverCredential(raw)
-    } catch let error as NativeSessionProtocolError where error.code == "native_credential_expired" {
-      try? deleteKeychain(account: Self.credentialAccount, expected: raw)
+    } catch let error as NativeSessionProtocolError {
+      if shouldDiscardCredential(error) {
+        try? deleteKeychain(account: Self.credentialAccount, expected: raw)
+      }
       throw error
     }
   }
@@ -476,21 +512,82 @@ final class IOSNativeSessionVault {
     recovered: IOSRecoveredCredential
   ) throws -> [String: Any] {
     switch response {
-    case .success(let body): return body
+    case .success(let body, let lease):
+      try applyCredentialLease(lease, recovered: recovered, required: true)
+      return body
     case .unauthorized:
       try? deleteKeychain(account: Self.credentialAccount, expected: recovered.storedRaw)
       throw IOSNativeManagedHTTPError(
         statusCode: 401, errorCode: "native_credential_invalid", latestMutationRevision: nil
       )
-    case .failure(let status, let code, let latest):
+    case .failure(let status, let code, let latest, let lease):
+      try applyCredentialLease(lease, recovered: recovered, required: false)
       throw IOSNativeManagedHTTPError(
         statusCode: status, errorCode: code, latestMutationRevision: latest
       )
     }
   }
 
+  private func applyCredentialLease(
+    _ receipt: NativeCredentialLeaseReceipt?,
+    recovered: IOSRecoveredCredential,
+    required: Bool
+  ) throws {
+    guard let receipt else {
+      if required {
+        try NativeSessionProtocol.fail(
+          "invalid_native_credential_lease_receipt",
+          "The authenticated response has no credential lease receipt"
+        )
+      }
+      return
+    }
+    guard receipt.credentialReference == recovered.binding.credentialReference,
+          receipt.credentialGeneration == recovered.binding.credentialGeneration else {
+      try NativeSessionProtocol.fail(
+        "native_credential_lease_mismatch",
+        "The credential lease receipt is bound to another credential"
+      )
+    }
+    guard let currentRaw = try readKeychain(account: Self.credentialAccount) else {
+      try NativeSessionProtocol.fail("native_vault_absent", "The native credential is absent")
+    }
+    var current = try parseStoredRecord(currentRaw)
+    guard current["credentialReference"] as? String == receipt.credentialReference,
+          try NativeSessionProtocol.exactUInt64(
+            current["credentialGeneration"], "stored credential generation"
+          ) == receipt.credentialGeneration else {
+      try NativeSessionProtocol.fail(
+        "native_credential_lease_mismatch",
+        "The installed credential changed before lease persistence"
+      )
+    }
+    let currentExpiry = try NativeSessionProtocol.credentialLeaseExpiry(
+      try NativeSessionProtocol.canonicalString(
+        current["leaseExpiresAt"], "stored credential lease expiry"
+      )
+    )
+    guard receipt.leaseExpiry > currentExpiry else {
+      recovered.storedRaw = currentRaw
+      return
+    }
+    current["leaseExpiresAt"] = receipt.leaseExpiresAt
+    let updatedRaw = try JSONSerialization.data(withJSONObject: current, options: [.sortedKeys])
+    try replaceKeychain(
+      account: Self.credentialAccount,
+      expected: currentRaw,
+      value: updatedRaw
+    )
+    recovered.storedRaw = updatedRaw
+  }
+
   private func recoverCredential(_ raw: Data) throws -> IOSRecoveredCredential {
     let stored = try parseStoredRecord(raw)
+    _ = try NativeSessionProtocol.requireCredentialLeaseCurrent(
+      try NativeSessionProtocol.canonicalString(
+        stored["leaseExpiresAt"], "stored credential lease expiry"
+      )
+    )
     let installation = try loadInstallation()
     guard stored["installationId"] as? String == installation.installationId,
           try NativeSessionProtocol.exactInt(
@@ -699,7 +796,8 @@ final class IOSNativeSessionVault {
     binding: NativeCredentialBinding,
     installation: NativeInstallationMaterial,
     exchange: NativeExchangeEnvelope,
-    fingerprint: Data
+    fingerprint: Data,
+    credential: NativeCredentialPlaintext
   ) throws -> Data {
     if let existingRaw = try readKeychain(account: Self.credentialAccount) {
       let existing = try parseStoredRecord(existingRaw)
@@ -717,7 +815,7 @@ final class IOSNativeSessionVault {
     }
     let commitment = try randomData(count: 32)
     let record: [String: Any] = [
-      "version": 3,
+      "version": 4,
       "attemptId": binding.attemptId,
       "ticketHash": binding.ticketHash,
       "requestDigest": binding.requestDigest,
@@ -735,6 +833,7 @@ final class IOSNativeSessionVault {
       "envelopeEncryption": "A256GCM",
       "envelopeKeyId": installation.envelopeKeyId,
       "compactJwe": exchange.compactJwe,
+      "leaseExpiresAt": credential.bearerExpiresAt,
       "fingerprint": NativeSessionProtocol.base64Url(fingerprint),
       "vaultCommitment": NativeSessionProtocol.base64Url(commitment),
     ]
@@ -921,14 +1020,28 @@ final class IOSNativeSessionVault {
   }
 
   private func parseStoredRecord(_ raw: Data) throws -> [String: Any] {
-    guard let record = try JSONSerialization.jsonObject(with: raw) as? [String: Any],
-          Set(record.keys) == NativeSessionProtocol.storedRecordKeys,
-          try NativeSessionProtocol.exactInt(record["version"], "stored version") == 3 else {
+    guard let record = try JSONSerialization.jsonObject(with: raw) as? [String: Any] else {
+      try NativeSessionProtocol.fail(
+        "native_vault_corrupt", "The native credential record is invalid"
+      )
+    }
+    guard try NativeSessionProtocol.exactInt(record["version"], "stored version") == 4 else {
+      try NativeSessionProtocol.fail(
+        "native_credential_relogin_required",
+        "The native credential record requires login"
+      )
+    }
+    guard Set(record.keys) == NativeSessionProtocol.storedRecordKeys else {
       try NativeSessionProtocol.fail(
         "native_vault_corrupt", "The native credential record is invalid"
       )
     }
     return record
+  }
+
+  private func shouldDiscardCredential(_ error: NativeSessionProtocolError) -> Bool {
+    error.code == "native_credential_expired" ||
+      error.code == "native_credential_relogin_required"
   }
 
   private func http() throws -> IOSNativeSessionHTTP {
@@ -1045,6 +1158,27 @@ final class IOSNativeSessionVault {
     }
   }
 
+  private func replaceKeychain(account: String, expected: Data, value: Data) throws {
+    guard try readKeychain(account: account) == expected else {
+      try NativeSessionProtocol.fail(
+        "native_credential_lease_mismatch",
+        "The native credential changed during lease persistence"
+      )
+    }
+    let query: [CFString: Any] = [
+      kSecClass: kSecClassGenericPassword,
+      kSecAttrService: Self.keychainService,
+      kSecAttrAccount: account,
+    ]
+    let update: [CFString: Any] = [kSecValueData: value]
+    guard SecItemUpdate(query as CFDictionary, update as CFDictionary) == errSecSuccess,
+          try readKeychain(account: account) == value else {
+      try NativeSessionProtocol.fail(
+        "native_vault_write_failed", "The credential lease could not be persisted"
+      )
+    }
+  }
+
   private func deleteKeychain(account: String, expected: Data) throws {
     guard try readKeychain(account: account) == expected else {
       try NativeSessionProtocol.fail(
@@ -1078,9 +1212,9 @@ struct IOSNativeManagedHTTPError: Error {
 }
 
 private enum IOSNativeHTTPResult {
-  case success([String: Any])
+  case success([String: Any], NativeCredentialLeaseReceipt?)
   case unauthorized
-  case failure(Int, String?, UInt64?)
+  case failure(Int, String?, UInt64?, NativeCredentialLeaseReceipt?)
 }
 
 private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
@@ -1198,7 +1332,7 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
     body: [String: Any]? = nil
   ) -> IOSNativeHTTPResult {
     guard let url = URL(string: "\(canonicalBaseUrl)/\(path)"), url.scheme == "https" else {
-      return .failure(0, nil, nil)
+      return .failure(0, nil, nil, nil)
     }
     var request = URLRequest(url: url, timeoutInterval: 15)
     request.httpMethod = method
@@ -1207,7 +1341,7 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
     request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
     if let body {
       guard let encoded = try? JSONSerialization.data(withJSONObject: body), encoded.count <= 16 * 1024 else {
-        return .failure(0, nil, nil)
+        return .failure(0, nil, nil, nil)
       }
       request.httpBody = encoded
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -1217,26 +1351,33 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
     configuration.timeoutIntervalForResource = 15
     let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
     let semaphore = DispatchSemaphore(value: 0)
-    var result: IOSNativeHTTPResult = .failure(0, nil, nil)
+    var result: IOSNativeHTTPResult = .failure(0, nil, nil, nil)
     session.dataTask(with: request) { data, response, _ in
       defer { semaphore.signal() }
       guard let response = response as? HTTPURLResponse,
             let data, data.count <= 64 * 1024 else { return }
       if response.statusCode == 401 { result = .unauthorized; return }
+      let lease = try? NativeSessionProtocol.parseCredentialLeaseReceipt(
+        reference: response.value(forHTTPHeaderField: "Usernode-Credential-Reference"),
+        generation: response.value(forHTTPHeaderField: "Usernode-Credential-Generation"),
+        leaseExpiresAt: response.value(
+          forHTTPHeaderField: "Usernode-Credential-Lease-Expires-At"
+        )
+      )
       let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
       if (200..<300).contains(response.statusCode), let json {
-        result = .success(json)
+        result = .success(json, lease)
       } else {
         let code = (json?["code"] as? String).flatMap {
           $0.range(of: "^[a-z0-9_]{1,64}$", options: .regularExpression) == nil ? nil : $0
         }
         let latest = (json?["latest_mutation_revision"] as? String).flatMap(UInt64.init)
-        result = .failure(response.statusCode, code, latest)
+        result = .failure(response.statusCode, code, latest, lease)
       }
     }.resume()
     guard semaphore.wait(timeout: .now() + 20) == .success else {
       session.invalidateAndCancel()
-      return .failure(0, nil, nil)
+      return .failure(0, nil, nil, nil)
     }
     session.finishTasksAndInvalidate()
     return result

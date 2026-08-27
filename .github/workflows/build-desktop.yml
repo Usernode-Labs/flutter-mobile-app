@@ -63,7 +63,6 @@ jobs:
         run: >-
           flutter build windows --release
           --dart-define=APP_ENV=production
-          --dart-define=DAPPS_TAB_URL=https://dapps.usernode.com
 
       - name: Package Windows release
         shell: pwsh

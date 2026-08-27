@@ -7,6 +7,12 @@ void main() {
     expect(uri.path, '/api/v4/mobile');
     expect(uri.host, 'social-vibecoding.usernodelabs.org');
   });
+  test('dappsTabUrl defaults to the Social Vibecoding shell', () {
+    expect(
+      AppConfig.dappsTabUrl,
+      'https://social-vibecoding.usernodelabs.org/',
+    );
+  });
   test('authApiBaseUrl is the /auth sibling of the mobile API base', () {
     expect(AppConfig.authApiBaseUrl, '${AppConfig.mobileApiBaseUrl}/auth');
   });

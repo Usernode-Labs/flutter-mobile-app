@@ -967,16 +967,14 @@ Windows needs Visual Studio 2022 with **Desktop development with C++**.
 # Linux
 flutter pub get
 flutter build linux --release \
-  --dart-define=APP_ENV=production \
-  --dart-define=DAPPS_TAB_URL=https://dapps.usernode.com
+  --dart-define=APP_ENV=production
 ```
 
 ```powershell
 # Windows (run in a Developer PowerShell)
 flutter pub get
 flutter build windows --release `
-  --dart-define=APP_ENV=production `
-  --dart-define=DAPPS_TAB_URL=https://dapps.usernode.com
+  --dart-define=APP_ENV=production
 ```
 
 The `Build Desktop` GitHub Actions workflow produces a downloadable

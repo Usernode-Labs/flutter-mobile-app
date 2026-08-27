@@ -73,7 +73,8 @@ jobs:
         run: flutter pub get
 
       - name: Run unit tests
-        run: flutter test --coverage --reporter expanded 
+        run: flutter test --coverage --reporter expanded
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
@@ -81,11 +82,6 @@ jobs:
           flags: unittests
           name: codecov-unit
 
-      - name: Run widget tests
-        run: flutter test --coverage test/widget_test.dart --reporter expanded
-
-      - name: Generate coverage
-        run: flutter test --coverage 
       - name: Check coverage threshold
         run: |
           # Install lcov

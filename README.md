@@ -956,6 +956,9 @@ Desktop builds currently provide the Social Vibecoding shell; the embedded
 validator-node backend remains available only on Android and iOS. Web content
 opens in a separate native WebKitGTK (Linux) or WebView2 (Windows) window.
 
+Complete the [installation and setup](#installation--setup), including the
+sibling `../usernode` checkout and FRB binding generation, before building.
+
 Install Flutter, Rust, CMake, Ninja, and a native compiler first. Linux also
 needs the GTK 3, WebKitGTK 4.1, libsoup 3, and libsecret development packages;
 Windows needs Visual Studio 2022 with **Desktop development with C++**.

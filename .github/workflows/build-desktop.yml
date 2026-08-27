@@ -14,19 +14,35 @@ on:
 permissions:
   contents: read
 
-env:
-  FLUTTER_VERSION: "3.41.4"
-
 jobs:
+  prepare-frb-bindings:
+    name: Prepare FRB Bindings
+    uses: ./.github/workflows/prepare-frb-bindings.yml
+    secrets: inherit
+
   build-windows:
     name: Windows x64 release
     runs-on: windows-latest
+    needs: prepare-frb-bindings
     env:
       CARGO_BUILD_JOBS: "2"
       CMAKE_BUILD_PARALLEL_LEVEL: "2"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Download generated bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare-frb-bindings.outputs.artifact_name }}
+          path: ${{ runner.temp }}/frb-bindings-artifact
+
+      - name: Restore generated Dart bindings
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force lib/src/rust -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force lib/src/rust | Out-Null
+          Copy-Item -Recurse -Force "$env:RUNNER_TEMP/frb-bindings-artifact/dart/*" lib/src/rust/
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -36,7 +52,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
+          flutter-version: ${{ needs.prepare-frb-bindings.outputs.flutter_version }}
           channel: stable
           cache: true
 

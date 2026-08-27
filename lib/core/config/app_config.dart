@@ -316,11 +316,11 @@ class AppConfig {
   // migration.
   static const String primaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_PRIMARY_URL',
-    defaultValue: 'https://preseason-testnet.apps.beta.usernodelabs.org/api',
+    defaultValue: 'https://testnet-explorer.usernodelabs.org/api',
   );
   static const String secondaryExplorerUrl = String.fromEnvironment(
     'EXPLORER_SECONDARY_URL',
-    defaultValue: 'https://preseason-testnet.apps.beta.usernodelabs.org/api',
+    defaultValue: 'https://testnet-explorer.usernodelabs.org/api',
   );
   static const int explorerTimeoutSeconds = int.fromEnvironment(
     'EXPLORER_TIMEOUT_SECONDS',

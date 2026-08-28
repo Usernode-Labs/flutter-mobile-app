@@ -774,20 +774,28 @@ final class _NativeSessionEffects implements _SessionEffectSink {
     required native.SessionNativeClient session,
     required _NativeSessionPlatformPort platform,
     required SessionIdentityProjection identity,
+    required void Function(Object error, StackTrace stackTrace) onFailure,
   })  : _root = root,
         _session = session,
         _platform = platform,
         _identity = identity,
+        _onFailure = onFailure,
         _revision = _platformRevision(BigInt.parse(identity.nativeRevision));
 
   final native.ProcessRootClient _root;
   final native.SessionNativeClient _session;
   final _NativeSessionPlatformPort _platform;
   final SessionIdentityProjection _identity;
+  final void Function(Object error, StackTrace stackTrace) _onFailure;
   final int _revision;
   final Stopwatch _stallClock = Stopwatch()..start();
   _NativeSyncProgress? _lastSyncProgress;
   int? _unchangedSinceMs;
+
+  @override
+  void reportFailure(Object error, StackTrace stackTrace) {
+    _onFailure(error, stackTrace);
+  }
 
   @override
   Future<SessionNodeStatus> readNodeStatus() async {
@@ -1156,17 +1164,16 @@ final class _NativeReadyBinding {
     required this.readyRevision,
     required this.projection,
     required this.effects,
-    this.attemptId,
+    required this.attemptId,
     this.realmMarker,
     this.realmClaim,
-  })  : assert((realmMarker == null) == (realmClaim == null)),
-        assert(realmMarker == null || attemptId != null);
+  }) : assert((realmMarker == null) == (realmClaim == null));
 
   final native.SessionNativeClient session;
   final int readyRevision;
   final SessionIdentityProjection projection;
   final _SessionEffectSink effects;
-  final String? attemptId;
+  final String attemptId;
   final String? realmMarker;
   final String? realmClaim;
 
@@ -1197,8 +1204,7 @@ final class _NativeEstablishAttempt {
       : disposition = priorBinding == null
             ? _NativeCommitDisposition.notCommitted
             : _NativeCommitDisposition.ready,
-        binding = priorBinding,
-        published = priorBinding != null;
+        binding = priorBinding;
 
   final String realmMarker;
   final _NativeReadyBinding? priorBinding;
@@ -1206,7 +1212,6 @@ final class _NativeEstablishAttempt {
   _NativeCommitDisposition disposition;
   _NativeReadyBinding? binding;
   _NativeTerminalIntent? terminalIntent;
-  bool published;
 
   void markUncertain() {
     disposition = _NativeCommitDisposition.uncertain;
@@ -1217,7 +1222,6 @@ final class _NativeEstablishAttempt {
         ? _NativeCommitDisposition.notCommitted
         : _NativeCommitDisposition.ready;
     binding = priorBinding;
-    published = priorBinding != null;
   }
 
   void retainReady(_NativeReadyBinding value) {
@@ -1241,10 +1245,9 @@ final class _NativeEstablishing extends _NativeAuthorityState {
 }
 
 final class _NativeReady extends _NativeAuthorityState {
-  const _NativeReady(this.binding, {required this.published});
+  const _NativeReady(this.binding);
 
   final _NativeReadyBinding binding;
-  final bool published;
 }
 
 final class _NativeClosing extends _NativeAuthorityState {
@@ -1275,7 +1278,7 @@ _NativeAuthorityState _settledEstablishState(
       final binding = attempt.binding;
       if (binding == null) return const _NativeRecoveryRequired();
       return terminal == null
-          ? _NativeReady(binding, published: attempt.published)
+          ? _NativeReady(binding)
           : _NativeClosing(intent: terminal, binding: binding);
   }
 }
@@ -1404,7 +1407,7 @@ final class _NativeSessionCompositionRoot
             authority: const _NativeSignedOut(),
           );
         },
-        ready: (nativeRevision, identity, _) async {
+        ready: (nativeRevision, attemptId, identity, _) async {
           final session = native.currentNativeSession(
             root: root,
             expectedRevision: nativeRevision,
@@ -1414,11 +1417,12 @@ final class _NativeSessionCompositionRoot
             platform: platform,
             exchange: exchange,
             nativeRevision: nativeRevision,
+            attemptId: attemptId,
             identity: identity,
             session: session,
           );
         },
-        recoverableReady: (nativeRevision, identity) async {
+        recoverableReady: (nativeRevision, attemptId, identity) async {
           final recovery = await platform.recoverSession(
             expectedRevision: _platformRevision(nativeRevision),
           );
@@ -1455,7 +1459,12 @@ final class _NativeSessionCompositionRoot
               } finally {
                 claim.fillRange(0, claim.length, 0);
               }
-              _validateAdoption(adopted, nativeRevision, identity);
+              _validateAdoption(
+                adopted,
+                nativeRevision,
+                attemptId,
+                identity,
+              );
               final session = native.currentNativeSession(
                 root: root,
                 expectedRevision: nativeRevision,
@@ -1465,6 +1474,7 @@ final class _NativeSessionCompositionRoot
                 platform: platform,
                 exchange: exchange,
                 nativeRevision: nativeRevision,
+                attemptId: attemptId,
                 identity: identity,
                 session: session,
               );
@@ -1498,15 +1508,19 @@ final class _NativeSessionCompositionRoot
     required _NativeSessionPlatformPort platform,
     required _NativeSessionExchangeTransport exchange,
     required BigInt nativeRevision,
+    required String attemptId,
     required native.NativeIdentity identity,
     required native.SessionNativeClient session,
   }) async {
     final projection = _readyProjection(nativeRevision, identity);
+    late final _NativeSessionCompositionRoot runtime;
     final effects = _NativeSessionEffects(
       root: root,
       session: session,
       platform: platform,
       identity: projection,
+      onFailure: (error, stackTrace) =>
+          runtime._handleEffectFailure(error, stackTrace),
     );
     final readyRevision = _platformRevision(nativeRevision);
     final binding = _NativeReadyBinding(
@@ -1514,13 +1528,14 @@ final class _NativeSessionCompositionRoot
       readyRevision: readyRevision,
       projection: projection,
       effects: effects,
+      attemptId: attemptId,
     );
-    final runtime = _NativeSessionCompositionRoot._(
+    runtime = _NativeSessionCompositionRoot._(
       root: root,
       platform: platform,
       exchange: exchange,
       sessions: _SessionCompositionRoot(projection, readyEffects: effects),
-      authority: _NativeReady(binding, published: true),
+      authority: _NativeReady(binding),
     );
     try {
       final retiredRevision = await platform.runInteractiveProducerWake(
@@ -1579,7 +1594,7 @@ final class _NativeSessionCompositionRoot
 
   Future<void> _performForegroundResume() async {
     final authority = _authority;
-    if (authority is! _NativeReady || !authority.published) return;
+    if (authority is! _NativeReady) return;
     try {
       final retiredRevision = await _platform.runInteractiveProducerWake(
         expectedRevision: authority.binding.readyRevision,
@@ -1630,10 +1645,35 @@ final class _NativeSessionCompositionRoot
     _terminalRetirements.add(null);
   }
 
-  Future<void> _retireDefinitivelyAbsent(String realmMarker) async {
-    if (_authority is _NativeRecoveryRequired) return;
+  void _handleEffectFailure(Object error, StackTrace _) {
+    final sessionError = _asNativeSessionException(error);
+    if (_authority is! _NativeReady ||
+        !const {
+          'native_credential_definitively_absent',
+          'native_credential_expired',
+        }.contains(sessionError.code)) {
+      return;
+    }
+    // Close admission before releasing the failing effect lease. Retirement
+    // then drains that exact scope without any per-feature failure guards.
+    unawaited(_sessions.closeAndDrain());
+    unawaited(
+      _retireDefinitivelyAbsent().catchError(
+        (Object retirementError, StackTrace _) {
+          LoggingService.instance.warn(
+            'Definitive native credential retirement failed '
+            '(${retirementError.runtimeType})',
+            tag: 'usernode/NativeSession',
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _retireDefinitivelyAbsent() async {
+    if (_authority is! _NativeReady) return;
     try {
-      await logoutNativeSession(realmMarker: realmMarker);
+      await _retireAuthority(const _NativeTerminalIntent.processRoot());
     } finally {
       // Even an unexpected local retirement failure must not reopen a process
       // whose server credential is definitively absent.
@@ -1656,7 +1696,7 @@ final class _NativeSessionCompositionRoot
     if (authority is _NativeRecoveryRequired) {
       _throwTerminallyRetired();
     }
-    if (authority is! _NativeReady || !authority.published) {
+    if (authority is! _NativeReady) {
       throw const NativeSessionException(
         'native_session_not_ready',
         'There is no ready native session.',
@@ -1672,21 +1712,9 @@ final class _NativeSessionCompositionRoot
       );
     }
     final access = _sessions.view.current;
-    try {
-      return await access.operations.run(
-        (operation) => body(access.identity, operation),
-      );
-    } catch (error) {
-      final sessionError = _asNativeSessionException(error);
-      if (const {
-        'native_credential_definitively_absent',
-        'native_credential_expired',
-      }.contains(sessionError.code)) {
-        await _retireDefinitivelyAbsent(realmMarker);
-        throw sessionError;
-      }
-      rethrow;
-    }
+    return access.operations.run(
+      (operation) => body(access.identity, operation),
+    );
   }
 
   @override
@@ -1756,6 +1784,7 @@ final class _NativeSessionCompositionRoot
             session: session,
             platform: _platform,
             identity: projection,
+            onFailure: _handleEffectFailure,
           );
       final binding = _NativeReadyBinding(
         session: session,
@@ -1768,29 +1797,37 @@ final class _NativeSessionCompositionRoot
       );
       final response = _establishResponse(receipt, realmClaim);
 
-      // Retain one complete private authority bundle before any fallible wake
-      // or synchronous publication. From here a failure remains explicit
-      // Ready; it can never be inferred as SignedOut.
+      // The committed Rust receipt is the publication boundary. Publish its
+      // complete authority bundle before the best-effort producer wake so a
+      // retryable scheduling failure cannot create a second Ready sub-state.
       attempt.retainReady(binding);
-      if (prior == null && attempt.terminalIntent == null) {
-        final retiredRevision = await _platform.runInteractiveProducerWake(
-          expectedRevision: binding.readyRevision,
-          refreshPolicy: true,
-        );
+      final publish = prior == null && attempt.terminalIntent == null;
+      if (publish) {
+        _sessions.publishReady(projection, effects: effects);
+      }
+      // Settle synchronously with publication. A terminal call during the
+      // following wake therefore observes Ready and closes its admission.
+      _finishEstablish(attempt);
+
+      if (publish) {
+        int? retiredRevision;
+        try {
+          retiredRevision = await _platform.runInteractiveProducerWake(
+            expectedRevision: binding.readyRevision,
+            refreshPolicy: true,
+          );
+        } catch (error) {
+          LoggingService.instance.warn(
+            'Native producer wake will retry (${error.runtimeType})',
+            tag: 'usernode/NativeSession',
+          );
+        }
         if (retiredRevision != null) {
           await _retireFromNative(retiredRevision);
           throw const NativeSessionException(
             'native_session_not_ready',
             'The native credential was retired during establishment.',
           );
-        }
-        // No await is allowed between this final intent check and publication.
-        final currentAuthority = _authority;
-        if (attempt.terminalIntent == null &&
-            currentAuthority is _NativeEstablishing &&
-            identical(currentAuthority.attempt, attempt)) {
-          _sessions.publishReady(projection, effects: effects);
-          attempt.published = true;
         }
       }
 
@@ -1851,7 +1888,7 @@ final class _NativeSessionCompositionRoot
 
     _NativeReadyBinding? prior;
     if (current is _NativeReady) {
-      if (!current.published || current.binding.attemptId != intent.attemptId) {
+      if (current.binding.attemptId != intent.attemptId) {
         throw const NativeSessionException(
           'native_session_not_ready',
           'The existing native session must be retired before establishment.',
@@ -1907,7 +1944,7 @@ final class _NativeSessionCompositionRoot
         );
       }
       attempt.terminalIntent = intent;
-      if (attempt.published) {
+      if (attempt.priorBinding != null) {
         // A replay may keep Ready published while it refreshes the realm claim.
         // Close that exact admission before waiting for the replay to settle.
         _sessions.closeAndDrain();
@@ -2157,10 +2194,12 @@ void _validateReceipt(
 void _validateAdoption(
   native.NativeEstablishResult receipt,
   BigInt expectedRevision,
+  String expectedAttemptId,
   native.NativeIdentity expectedIdentity,
 ) {
   if (receipt.protocol != 2 ||
       receipt.nativeRevision != expectedRevision ||
+      receipt.attemptId != expectedAttemptId ||
       receipt.receiptStatus != native.NativeReceiptStatus.committedReady ||
       receipt.identity.participantId != expectedIdentity.participantId ||
       receipt.identity.accountId != expectedIdentity.accountId ||

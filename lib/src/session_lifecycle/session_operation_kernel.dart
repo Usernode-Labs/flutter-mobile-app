@@ -203,10 +203,22 @@ final class _SessionOperation implements SessionOperation {
     try {
       result = body(_scope.effects);
     } catch (error, stackTrace) {
+      _scope.effects.reportFailure(error, stackTrace);
       lease.release();
       return Future<T>.error(error, stackTrace);
     }
-    return result.whenComplete(lease.release);
+    return _observeEffect(result, lease);
+  }
+
+  Future<T> _observeEffect<T>(Future<T> result, _EffectLease lease) async {
+    try {
+      return await result;
+    } catch (error, stackTrace) {
+      _scope.effects.reportFailure(error, stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      lease.release();
+    }
   }
 
   @override
@@ -424,6 +436,8 @@ final class _EffectLease {
 }
 
 abstract interface class _SessionEffectSink {
+  void reportFailure(Object error, StackTrace stackTrace);
+
   Future<SessionNodeStatus> readNodeStatus();
 
   Future<SessionWalletSnapshot> readWallet();
@@ -502,7 +516,14 @@ abstract interface class _SessionEffectSink {
 }
 
 final class _ClosedSessionEffectSink implements _SessionEffectSink {
-  const _ClosedSessionEffectSink();
+  const _ClosedSessionEffectSink([this._failureHandler]);
+
+  final void Function(Object error, StackTrace stackTrace)? _failureHandler;
+
+  @override
+  void reportFailure(Object error, StackTrace stackTrace) {
+    _failureHandler?.call(error, stackTrace);
+  }
 
   Never _closed() => throw const SessionAdmissionClosedException();
 
@@ -866,25 +887,6 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
     realmMarker: realm,
     realmClaim: 'self-check-claim',
   );
-  final heldWake = _NativeEstablishAttempt(realm)..retainReady(binding);
-  final wakeRelease = Completer<void>();
-  final establishing = () async {
-    await wakeRelease.future;
-    if (heldWake.terminalIntent == null) heldWake.published = true;
-    return _settledEstablishState(heldWake);
-  }();
-  await Future<void>.delayed(Duration.zero);
-  heldWake.terminalIntent = const _NativeTerminalIntent.realm(realm);
-  wakeRelease.complete();
-  final heldWakeState = await establishing;
-  _expectSelfCheck(
-    heldWakeState is _NativeClosing &&
-        identical(heldWakeState.binding, binding) &&
-        !heldWake.published,
-    'terminal intent queued during wake published Ready',
-  );
-  events.add('held-wake-terminal-suppressed');
-
   final uncertain = _NativeEstablishAttempt(realm)..markUncertain();
   _expectSelfCheck(
     _settledEstablishState(uncertain) is _NativeRecoveryRequired,
@@ -896,11 +898,27 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
   final committedState = _settledEstablishState(committed);
   _expectSelfCheck(
     committedState is _NativeReady &&
-        !committedState.published &&
         identical(committedState.binding, binding),
-    'committed Ready was forgotten before publication',
+    'committed receipt did not have one complete Ready state',
   );
-  events.add('committed-ready-retained-private');
+  events.add('committed-ready-single-state');
+
+  final wakeRoot = _SessionCompositionRoot(signedOut);
+  try {
+    wakeRoot.publishReady(identityB, effects: const _ClosedSessionEffectSink());
+    try {
+      await Future<void>.error(StateError('retry producer wake'));
+    } catch (_) {
+      // A retryable wake is scheduling state, not identity authority.
+    }
+    _expectSelfCheck(
+      wakeRoot.view.current.identity == identityB,
+      'retryable producer wake failure withdrew committed Ready',
+    );
+    events.add('wake-failure-preserved-ready');
+  } finally {
+    wakeRoot.dispose();
+  }
 
   final precommitTerminal = _NativeEstablishAttempt(realm)
     ..terminalIntent = const _NativeTerminalIntent.realm(realm);
@@ -910,6 +928,40 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
     'precommit terminal intent did not retain transition ownership',
   );
   events.add('precommit-terminal-retained');
+
+  late final _SessionCompositionRoot terminalRoot;
+  terminalRoot = _SessionCompositionRoot(
+    identityA,
+    readyEffects: _ClosedSessionEffectSink((error, _) {
+      if (error is NativeSessionException &&
+          error.code == 'native_credential_definitively_absent') {
+        unawaited(terminalRoot.closeAndDrain());
+      }
+    }),
+  );
+  try {
+    try {
+      await terminalRoot.view.current.operations.run<void>(
+        (operation) => _SessionEffectSelfCheckSink.run<void>(
+          operation,
+          () => throw const NativeSessionException(
+            'native_credential_definitively_absent',
+            'self-check terminal effect',
+          ),
+        ),
+      );
+    } on NativeSessionException {
+      // The original terminal failure remains the operation result.
+    }
+    _expectSelfCheckThrows<SessionAdmissionClosedException>(
+      () => terminalRoot.view.current.operations.run<void>((_) {}),
+      'terminal effect failure did not close admission centrally',
+    );
+    events.add('terminal-effect-closed-admission');
+  } finally {
+    await terminalRoot.closeAndDrain();
+    terminalRoot.dispose();
+  }
 
   final gatedRoot = _SessionCompositionRoot(
     identityA,
@@ -976,15 +1028,7 @@ abstract final class _SessionEffectSelfCheckSink {
     if (operation is! _SessionOperation) {
       throw const SessionOperationExpiredException();
     }
-    final lease = operation.acquireEffect();
-    late FutureOr<T> result;
-    try {
-      result = body();
-    } catch (error, stackTrace) {
-      lease.release();
-      return Future<T>.error(error, stackTrace);
-    }
-    return Future<T>.value(result).whenComplete(lease.release);
+    return operation._runEffect((_) => Future<T>.value(body()));
   }
 }
 

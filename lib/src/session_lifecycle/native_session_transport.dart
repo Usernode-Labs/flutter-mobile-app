@@ -379,6 +379,10 @@ final class _NativeSessionPlatformPort {
             value['nativeRevision'] is! int) {
           break;
         }
+        // `absent` means Rust has durably committed LoggedOut. Complete the
+        // same process-root cleanup as a cold LoggedOut snapshot before this
+        // API lets its caller publish signed-out.
+        await clearOrphanedSessionState();
         return value;
       case 'uncertain':
         if (value.keys.toSet().difference(const {'status'}).isEmpty &&

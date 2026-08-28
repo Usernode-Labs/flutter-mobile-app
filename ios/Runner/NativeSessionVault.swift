@@ -486,6 +486,15 @@ final class IOSNativeSessionVault {
     }
   }
 
+  /// Rust LoggedOut authoritatively makes every persisted session state stale.
+  func clearOrphanedSessionState() throws {
+    lock.lock(); defer { lock.unlock() }
+    if let raw = try readKeychain(account: Self.credentialAccount) {
+      try deleteKeychain(account: Self.credentialAccount, expected: raw)
+    }
+    defaults.removeObject(forKey: Self.readyRevisionKey)
+  }
+
   func resolveLegacyZkPassportChallengeId() throws -> Int {
     lock.lock(); defer { lock.unlock() }
     let recovered = try recoverForManagedCall()

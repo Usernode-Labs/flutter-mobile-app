@@ -101,6 +101,9 @@ same-epoch serialization contract.
 Rust's durable state is canonical. A cold snapshot may be logged out,
 recoverable Ready, or require an in-progress/terminal recovery decision.
 
+- A LoggedOut snapshot invokes one process-root-only platform cleanup before
+  Flutter publishes signed-out, removing any credential or producer selector
+  orphaned by a crash between Rust commit and platform retirement.
 - Definitive credential absence resolves cold state to signed-out.
 - Uncertain evidence stays write-free and retryable; it never publishes Ready.
 - Present evidence adopts the exact durable identity. A ColdReady install uses

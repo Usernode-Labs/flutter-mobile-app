@@ -100,6 +100,21 @@ internal object NativeProducerWakeCoordinator {
         }
     }
 
+    fun clearOrphanedState(context: Context) {
+        synchronized(runLock) {
+            val appContext = context.applicationContext
+            val store = NativeProducerWakeStore(appContext)
+            val retired = store.clearAll()
+            retired?.wakeIdentity?.let { wakeId ->
+                alarmScheduler(appContext).cancelAlarm(alarmId(wakeId))
+            }
+            AlarmWatchdogScheduler.cancel(appContext)
+            ApplicationIncarnationStore(appContext).rotate()
+            SlotMonitoringService.stopNativeProducerMonitoring(appContext)
+            NativeWakeLockManager.release()
+        }
+    }
+
     fun isReady(context: Context, expectedRevision: Long): Boolean = synchronized(runLock) {
         NativeProducerWakeStore(context.applicationContext).current()?.readyRevision ==
             expectedRevision
@@ -829,6 +844,14 @@ private class NativeProducerWakeStore(context: Context) {
         val current = current() ?: return null
         if (!expected.sameAs(current)) return null
         return current.takeIf { preferences.edit().clear().commit() }
+    }
+
+    fun clearAll(): NativeProducerWakeState? {
+        val current = current()
+        check(preferences.edit().clear().commit()) {
+            "orphaned native producer clear failed"
+        }
+        return current
     }
 
     private companion object {

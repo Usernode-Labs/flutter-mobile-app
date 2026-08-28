@@ -1333,245 +1333,198 @@ class ZkPassportPipelineController
     List<String>? outerPublicInputsHex;
     try {
       await exactSession.operations.run((operation) async {
-        // Bind this run to the identity that launched the request, not to a
-        // successor that happens to be current when the server result lands.
-        final runtimeAtStart = _runtimeSession;
-        if (runtimeAtStart == null || runtimeAtStart.requestId != requestId) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: 'The zkPassport request generation could not be verified. '
-                'Please retry the verification.',
-          );
-          return;
-        }
-        final requestVersion = runtimeAtStart.requestVersion;
-        if (requestVersion == null) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message:
-                'This zkPassport request predates exact completion tracking. '
-                'Please retry the verification.',
-          );
-          return;
-        }
-        if (_checkLaunchIdentity(runtimeAtStart) !=
-            _LaunchIdentityCheck.match) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: 'The signed-in identity changed while the proof was being '
-                'produced. Please retry the verification.',
-          );
-          return;
-        }
-
-        _log.warn(
-          'Starting zkPassport pipeline from session server result',
-          context: {
-            'requestId': requestId,
-            'outerProofLen': outerProofB64Url.length,
-          },
-        );
-        final outerProof = outerProofB64Url.trim();
-        if (outerProof.isEmpty) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: 'Session server returned an empty outer proof payload.',
-            fetchOuterProofMs: fetchOuterProofMs,
-          );
-          return;
-        }
-
-        final outerProofPrefixedBytes =
-            _ensurePrefixedBbHonkProofBlobBytes(outerProof);
-        final facematchStrict = runtimeAtStart.facematchStrict;
-
-        if (requestId.isNotEmpty) {
-          await _updateRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.verifyingOuter,
-            resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
-          );
-        }
-        _setState(
-          status: ZkPassportPipelineStatus.processing,
-          phase: ZkPassportPipelinePhase.verifyingOuter,
-          message: 'Verifying outer proof...',
-          requestId: requestId,
-          resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
-        );
-        final verifyOuter = await operation.verifyZkPassportOuter(
-          outerProof: outerProofPrefixedBytes,
-          facematchStrict: facematchStrict,
-        );
-        final verifyOuterMs = verifyOuter.elapsedMs;
-        if (!verifyOuter.verified) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: verifyOuter.error ?? 'Outer proof verification failed.',
-            fetchOuterProofMs: fetchOuterProofMs,
-            verifyOuterMs: verifyOuterMs,
-          );
-          return;
-        }
-        outerPublicInputsHex = verifyOuter.publicInputsHex;
-
-        final outerInputValidation = ZkPassportOuterProofValidation.validate(
-          publicInputsHex: verifyOuter.publicInputsHex,
-          facematchStrict: facematchStrict,
-          bridgeNullifierHex: serverNullifierHex,
-        );
-        if (!outerInputValidation.isValid) {
-          _log.error(
-            'Outer proof public input validation failed',
-            context: {
-              'requestId': requestId,
-              'error': outerInputValidation.errorMessage,
-              'serverNullifierHex':
-                  outerInputValidation.normalizedBridgeNullifierHex,
-              'publicInputsLen': verifyOuter.publicInputsHex?.length,
-            },
-          );
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: outerInputValidation.errorMessage ??
-                'Outer proof verified, but its v0.20 public inputs were invalid.',
-            fetchOuterProofMs: fetchOuterProofMs,
-            verifyOuterMs: verifyOuterMs,
-            outerPublicInputsHex: outerPublicInputsHex,
-          );
-          return;
-        }
-
-        final derivedNullifierHex =
-            outerInputValidation.publicInputs!.scopedNullifierHex;
-
-        if (requestId.isNotEmpty) {
-          await _updateRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.wrapping,
-            resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
-          );
-        }
-        _setState(
-          status: ZkPassportPipelineStatus.processing,
-          phase: ZkPassportPipelinePhase.wrapping,
-          message: 'Wrapping proof into mega-compatible shape...',
-          requestId: requestId,
-          verifyOuterMs: verifyOuterMs,
-          resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
-        );
-        final wrapOuter = await operation.wrapZkPassportOuter(
-          outerProof: outerProofPrefixedBytes,
-          facematchStrict: facematchStrict,
-        );
-        final wrapOuterMs = wrapOuter.elapsedMs;
-        final wrappedProof = wrapOuter.wrappedProofB64Url;
-        if (!wrapOuter.wrapped ||
-            wrappedProof == null ||
-            wrappedProof.isEmpty) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: wrapOuter.error ?? 'Proof wrapping failed.',
-            fetchOuterProofMs: fetchOuterProofMs,
-            verifyOuterMs: verifyOuterMs,
-            wrapOuterMs: wrapOuterMs,
-            outerPublicInputsHex: outerPublicInputsHex,
-          );
-          return;
-        }
-
-        if (requestId.isNotEmpty) {
-          await _updateRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.verifyingWrapped,
-            resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
-          );
-        }
-        _setState(
-          status: ZkPassportPipelineStatus.processing,
-          phase: ZkPassportPipelinePhase.verifyingWrapped,
-          message: 'Verifying wrapped mega proof...',
-          requestId: requestId,
-          verifyOuterMs: verifyOuterMs,
-          wrapOuterMs: wrapOuterMs,
-          resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
-        );
-        final verifyWrapped = await operation.verifyZkPassportWrapped(
-          wrappedProof: _decodeB64UrlToBytes(wrappedProof),
-          facematchStrict: facematchStrict,
-        );
-        final verifyWrappedMs = verifyWrapped.elapsedMs;
-        if (!verifyWrapped.verified) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message:
-                verifyWrapped.error ?? 'Wrapped proof verification failed.',
-            fetchOuterProofMs: fetchOuterProofMs,
-            verifyOuterMs: verifyOuterMs,
-            wrapOuterMs: wrapOuterMs,
-            verifyWrappedMs: verifyWrappedMs,
-            outerPublicInputsHex: outerPublicInputsHex,
-          );
-          return;
-        }
-
-        if (!pipelineIdentity.sameScopeAs(currentIdentity)) {
-          await _finalizeRuntimeSession(
-            requestId: requestId,
-            phase: ZkPassportPipelinePhase.failed,
-            status: ZkPassportPipelineStatus.failure,
-            message: 'The signed-in identity changed while the proof was being '
-                'verified. Please retry the verification.',
-            fetchOuterProofMs: fetchOuterProofMs,
-            verifyOuterMs: verifyOuterMs,
-            wrapOuterMs: wrapOuterMs,
-            verifyWrappedMs: verifyWrappedMs,
-            outerPublicInputsHex: outerPublicInputsHex,
-          );
-          return;
-        }
-
-        final flowController = _ref.read(zkPassportFlowControllerProvider);
-        _PreparedBackendCompletion? completion;
-        if (AppConfig.viewOnly) {
-          await flowController.storeSuccessfulRegistration(
-            nullifierHex: derivedNullifierHex,
-            requestVersion: requestVersion,
-            facematchVerified: runtimeAtStart.facematchStrict,
-            verifyOuterMs: verifyOuterMs,
-            wrapOuterMs: wrapOuterMs,
-            verifyWrappedMs: verifyWrappedMs,
-          );
-        } else {
-          completion = await _prepareBackendCompletion(
-            operation: operation,
-            sessionId: requestId,
-            nullifierHex: derivedNullifierHex,
-            requestVersion: requestVersion,
-          );
-          if (completion == null) {
+        try {
+          // Bind this run to the identity that launched the request, not to a
+          // successor that happens to be current when the server result lands.
+          final runtimeAtStart = _runtimeSession;
+          if (runtimeAtStart == null || runtimeAtStart.requestId != requestId) {
             await _finalizeRuntimeSession(
               requestId: requestId,
               phase: ZkPassportPipelinePhase.failed,
               status: ZkPassportPipelineStatus.failure,
-              message: 'The verified proof could not be queued for delivery. '
+              message:
+                  'The zkPassport request generation could not be verified. '
                   'Please retry the verification.',
+            );
+            return;
+          }
+          final requestVersion = runtimeAtStart.requestVersion;
+          if (requestVersion == null) {
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message:
+                  'This zkPassport request predates exact completion tracking. '
+                  'Please retry the verification.',
+            );
+            return;
+          }
+          if (_checkLaunchIdentity(runtimeAtStart) !=
+              _LaunchIdentityCheck.match) {
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message:
+                  'The signed-in identity changed while the proof was being '
+                  'produced. Please retry the verification.',
+            );
+            return;
+          }
+
+          _log.warn(
+            'Starting zkPassport pipeline from session server result',
+            context: {
+              'requestId': requestId,
+              'outerProofLen': outerProofB64Url.length,
+            },
+          );
+          final outerProof = outerProofB64Url.trim();
+          if (outerProof.isEmpty) {
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message: 'Session server returned an empty outer proof payload.',
+              fetchOuterProofMs: fetchOuterProofMs,
+            );
+            return;
+          }
+
+          final outerProofPrefixedBytes =
+              _ensurePrefixedBbHonkProofBlobBytes(outerProof);
+          final facematchStrict = runtimeAtStart.facematchStrict;
+
+          if (requestId.isNotEmpty) {
+            await _updateRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.verifyingOuter,
+              resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+            );
+          }
+          _setState(
+            status: ZkPassportPipelineStatus.processing,
+            phase: ZkPassportPipelinePhase.verifyingOuter,
+            message: 'Verifying outer proof...',
+            requestId: requestId,
+            resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+          );
+          final verifyOuter = await operation.verifyZkPassportOuter(
+            outerProof: outerProofPrefixedBytes,
+            facematchStrict: facematchStrict,
+          );
+          final verifyOuterMs = verifyOuter.elapsedMs;
+          if (!verifyOuter.verified) {
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message: verifyOuter.error ?? 'Outer proof verification failed.',
+              fetchOuterProofMs: fetchOuterProofMs,
+              verifyOuterMs: verifyOuterMs,
+            );
+            return;
+          }
+          outerPublicInputsHex = verifyOuter.publicInputsHex;
+
+          final outerInputValidation = ZkPassportOuterProofValidation.validate(
+            publicInputsHex: verifyOuter.publicInputsHex,
+            facematchStrict: facematchStrict,
+            bridgeNullifierHex: serverNullifierHex,
+          );
+          if (!outerInputValidation.isValid) {
+            _log.error(
+              'Outer proof public input validation failed',
+              context: {
+                'requestId': requestId,
+                'error': outerInputValidation.errorMessage,
+                'serverNullifierHex':
+                    outerInputValidation.normalizedBridgeNullifierHex,
+                'publicInputsLen': verifyOuter.publicInputsHex?.length,
+              },
+            );
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message: outerInputValidation.errorMessage ??
+                  'Outer proof verified, but its v0.20 public inputs were invalid.',
+              fetchOuterProofMs: fetchOuterProofMs,
+              verifyOuterMs: verifyOuterMs,
+              outerPublicInputsHex: outerPublicInputsHex,
+            );
+            return;
+          }
+
+          final derivedNullifierHex =
+              outerInputValidation.publicInputs!.scopedNullifierHex;
+
+          if (requestId.isNotEmpty) {
+            await _updateRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.wrapping,
+              resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+            );
+          }
+          _setState(
+            status: ZkPassportPipelineStatus.processing,
+            phase: ZkPassportPipelinePhase.wrapping,
+            message: 'Wrapping proof into mega-compatible shape...',
+            requestId: requestId,
+            verifyOuterMs: verifyOuterMs,
+            resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+          );
+          final wrapOuter = await operation.wrapZkPassportOuter(
+            outerProof: outerProofPrefixedBytes,
+            facematchStrict: facematchStrict,
+          );
+          final wrapOuterMs = wrapOuter.elapsedMs;
+          final wrappedProof = wrapOuter.wrappedProofB64Url;
+          if (!wrapOuter.wrapped ||
+              wrappedProof == null ||
+              wrappedProof.isEmpty) {
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message: wrapOuter.error ?? 'Proof wrapping failed.',
+              fetchOuterProofMs: fetchOuterProofMs,
+              verifyOuterMs: verifyOuterMs,
+              wrapOuterMs: wrapOuterMs,
+              outerPublicInputsHex: outerPublicInputsHex,
+            );
+            return;
+          }
+
+          if (requestId.isNotEmpty) {
+            await _updateRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.verifyingWrapped,
+              resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+            );
+          }
+          _setState(
+            status: ZkPassportPipelineStatus.processing,
+            phase: ZkPassportPipelinePhase.verifyingWrapped,
+            message: 'Verifying wrapped mega proof...',
+            requestId: requestId,
+            verifyOuterMs: verifyOuterMs,
+            wrapOuterMs: wrapOuterMs,
+            resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+          );
+          final verifyWrapped = await operation.verifyZkPassportWrapped(
+            wrappedProof: _decodeB64UrlToBytes(wrappedProof),
+            facematchStrict: facematchStrict,
+          );
+          final verifyWrappedMs = verifyWrapped.elapsedMs;
+          if (!verifyWrapped.verified) {
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message:
+                  verifyWrapped.error ?? 'Wrapped proof verification failed.',
               fetchOuterProofMs: fetchOuterProofMs,
               verifyOuterMs: verifyOuterMs,
               wrapOuterMs: wrapOuterMs,
@@ -1580,70 +1533,127 @@ class ZkPassportPipelineController
             );
             return;
           }
-          final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
-          await persistZkCompletionInOrder(
-            persistOutbox: () => repo.storePendingCompletion(
-              participantId: completion!.participantId,
-              challengeId: completion.challengeId,
-              walletAddress: completion.walletAddress,
-              sessionId: completion.sessionId,
-              nullifierHex: completion.nullifierHex,
-              requestVersion: completion.requestVersion,
-              accountId: completion.accountId,
+
+          if (!pipelineIdentity.sameScopeAs(currentIdentity)) {
+            await _finalizeRuntimeSession(
+              requestId: requestId,
+              phase: ZkPassportPipelinePhase.failed,
+              status: ZkPassportPipelineStatus.failure,
+              message:
+                  'The signed-in identity changed while the proof was being '
+                  'verified. Please retry the verification.',
+              fetchOuterProofMs: fetchOuterProofMs,
+              verifyOuterMs: verifyOuterMs,
+              wrapOuterMs: wrapOuterMs,
+              verifyWrappedMs: verifyWrappedMs,
+              outerPublicInputsHex: outerPublicInputsHex,
+            );
+            return;
+          }
+
+          final flowController = _ref.read(zkPassportFlowControllerProvider);
+          _PreparedBackendCompletion? completion;
+          if (AppConfig.viewOnly) {
+            await flowController.storeSuccessfulRegistration(
+              nullifierHex: derivedNullifierHex,
+              requestVersion: requestVersion,
               facematchVerified: runtimeAtStart.facematchStrict,
               verifyOuterMs: verifyOuterMs,
               wrapOuterMs: wrapOuterMs,
               verifyWrappedMs: verifyWrappedMs,
-              bucket: completion.bucket,
-            ),
-            persistRegistration: () {
-              if (!completion!.identity.sameScopeAs(currentIdentity)) {
-                throw const SessionAdmissionClosedException();
-              }
-              return flowController.storeSuccessfulRegistrationForAccount(
+            );
+          } else {
+            completion = await _prepareBackendCompletion(
+              operation: operation,
+              sessionId: requestId,
+              nullifierHex: derivedNullifierHex,
+              requestVersion: requestVersion,
+            );
+            if (completion == null) {
+              await _finalizeRuntimeSession(
+                requestId: requestId,
+                phase: ZkPassportPipelinePhase.failed,
+                status: ZkPassportPipelineStatus.failure,
+                message: 'The verified proof could not be queued for delivery. '
+                    'Please retry the verification.',
+                fetchOuterProofMs: fetchOuterProofMs,
+                verifyOuterMs: verifyOuterMs,
+                wrapOuterMs: wrapOuterMs,
+                verifyWrappedMs: verifyWrappedMs,
+                outerPublicInputsHex: outerPublicInputsHex,
+              );
+              return;
+            }
+            final repo = _ref.read(zkPassportRegistrationRepositoryProvider);
+            await persistZkCompletionInOrder(
+              persistOutbox: () => repo.storePendingCompletion(
+                participantId: completion!.participantId,
+                challengeId: completion.challengeId,
+                walletAddress: completion.walletAddress,
+                sessionId: completion.sessionId,
+                nullifierHex: completion.nullifierHex,
+                requestVersion: completion.requestVersion,
                 accountId: completion.accountId,
-                bucket: completion.bucket,
-                nullifierHex: derivedNullifierHex,
-                requestVersion: requestVersion,
                 facematchVerified: runtimeAtStart.facematchStrict,
                 verifyOuterMs: verifyOuterMs,
                 wrapOuterMs: wrapOuterMs,
                 verifyWrappedMs: verifyWrappedMs,
-              );
-            },
+                bucket: completion.bucket,
+              ),
+              persistRegistration: () {
+                if (!completion!.identity.sameScopeAs(currentIdentity)) {
+                  throw const SessionAdmissionClosedException();
+                }
+                return flowController.storeSuccessfulRegistrationForAccount(
+                  accountId: completion.accountId,
+                  bucket: completion.bucket,
+                  nullifierHex: derivedNullifierHex,
+                  requestVersion: requestVersion,
+                  facematchVerified: runtimeAtStart.facematchStrict,
+                  verifyOuterMs: verifyOuterMs,
+                  wrapOuterMs: wrapOuterMs,
+                  verifyWrappedMs: verifyWrappedMs,
+                );
+              },
+            );
+          }
+
+          if (completion != null) {
+            unawaited(_deliverBackendCompletion(completion));
+          }
+
+          await _finalizeRuntimeSession(
+            requestId: requestId,
+            phase: ZkPassportPipelinePhase.success,
+            status: ZkPassportPipelineStatus.success,
+            message: 'zkPassport proof accepted and wrapped successfully.',
+            fetchOuterProofMs: fetchOuterProofMs,
+            verifyOuterMs: verifyOuterMs,
+            wrapOuterMs: wrapOuterMs,
+            verifyWrappedMs: verifyWrappedMs,
+            outerPublicInputsHex: outerPublicInputsHex,
           );
+        } on SessionAdmissionClosedException {
+          rethrow;
+        } catch (e) {
+          await _finalizeRuntimeSession(
+            requestId: requestId,
+            phase: ZkPassportPipelinePhase.failed,
+            status: ZkPassportPipelineStatus.failure,
+            message: 'zkPassport pipeline failed: $e',
+            fetchOuterProofMs: fetchOuterProofMs,
+            outerPublicInputsHex: outerPublicInputsHex,
+          );
+        } finally {
+          _inFlight = false;
         }
-
-        if (completion != null) {
-          unawaited(_deliverBackendCompletion(completion));
-        }
-
-        await _finalizeRuntimeSession(
-          requestId: requestId,
-          phase: ZkPassportPipelinePhase.success,
-          status: ZkPassportPipelineStatus.success,
-          message: 'zkPassport proof accepted and wrapped successfully.',
-          fetchOuterProofMs: fetchOuterProofMs,
-          verifyOuterMs: verifyOuterMs,
-          wrapOuterMs: wrapOuterMs,
-          verifyWrappedMs: verifyWrappedMs,
-          outerPublicInputsHex: outerPublicInputsHex,
-        );
       });
     } on SessionAdmissionClosedException {
       // The exact admission closed before this pipeline could finish. Leave
       // its identity-scoped state untouched for that identity's retry; never
       // publish an A failure into successor B.
-    } catch (e) {
-      await _finalizeRuntimeSession(
-        requestId: requestId,
-        phase: ZkPassportPipelinePhase.failed,
-        status: ZkPassportPipelineStatus.failure,
-        message: 'zkPassport pipeline failed: $e',
-        fetchOuterProofMs: fetchOuterProofMs,
-        outerPublicInputsHex: outerPublicInputsHex,
-      );
-    } finally {
+      // Admission can close before the callback starts, so its finally block
+      // may not run.
       _inFlight = false;
     }
   }

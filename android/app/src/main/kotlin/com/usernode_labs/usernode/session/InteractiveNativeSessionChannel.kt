@@ -57,6 +57,7 @@ internal class InteractiveNativeSessionChannel(
                 "prepareNativeSessionExchange" -> prepareExchange(call, result)
                 "installNativeSessionCredential" -> installCredential(call, result)
                 "discardUncommittedNativeSessionCredential" -> discardUncommittedCredential(call, result)
+                "clearOrphanedNativeSessionState" -> clearOrphanedState(call, result)
                 "retireNativeSessionCredential" -> retireCredential(call, result)
                 "revokeNativeSessionCredential" -> revokeCredential(call, result)
                 "recoverNativeSession" -> recoverNativeSession(call, result)
@@ -181,6 +182,19 @@ internal class InteractiveNativeSessionChannel(
             arguments["attemptId"] as? String
                 ?: fail("invalid_native_establishment_cleanup", "The native attempt id is invalid"),
         )
+        result.success(null)
+    }
+
+    private fun clearOrphanedState(call: MethodCall, result: MethodChannel.Result) {
+        requireProcessRoot()
+        val arguments = exactArguments(
+            call.arguments,
+            setOf("processTransportClaim"),
+            "clearOrphanedNativeSessionState",
+        )
+        requireProcessTransportClaim(arguments)
+        vault.clearOrphanedCredential()
+        NativeProducerWakeCoordinator.clearOrphanedState(applicationContext)
         result.success(null)
     }
 

@@ -261,6 +261,10 @@ final class _NativeSessionPlatformPort {
     return _stringMap(raw, 'native handoff ticket');
   }
 
+  Future<void> clearOrphanedSessionState() async {
+    await _invoke('clearOrphanedNativeSessionState', const {});
+  }
+
   Future<Uint8List> installCredential({
     required _NativeSessionTicketEnvelope ticket,
     required Map<String, Object?> exchange,
@@ -1184,18 +1188,24 @@ final class _NativeSessionCompositionRoot
       );
       final snapshot = native.processRootSnapshot(root: root);
       return await snapshot.when(
-        loggedOut: (nativeRevision) async => _NativeSessionCompositionRoot._(
-          root: root,
-          platform: platform,
-          exchange: exchange,
-          sessions: _SessionCompositionRoot(
-            SessionIdentityProjection.signedOut(
-              nativeRevision: _canonicalRevision(nativeRevision),
+        loggedOut: (nativeRevision) async {
+          // Rust LoggedOut is the authoritative crash-recovery boundary. Do
+          // not publish signed-out state while an orphaned platform credential
+          // or producer selector can still survive from an interrupted close.
+          await platform.clearOrphanedSessionState();
+          return _NativeSessionCompositionRoot._(
+            root: root,
+            platform: platform,
+            exchange: exchange,
+            sessions: _SessionCompositionRoot(
+              SessionIdentityProjection.signedOut(
+                nativeRevision: _canonicalRevision(nativeRevision),
+              ),
             ),
-          ),
-          nativeSession: null,
-          nativeReadyRevision: null,
-        ),
+            nativeSession: null,
+            nativeReadyRevision: null,
+          );
+        },
         ready: (nativeRevision, identity, _) async {
           final session = native.currentNativeSession(
             root: root,

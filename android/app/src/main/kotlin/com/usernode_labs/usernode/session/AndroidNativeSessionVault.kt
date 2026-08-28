@@ -508,6 +508,18 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
+    /** Rust LoggedOut authoritatively makes every persisted credential stale. */
+    @Synchronized
+    fun clearOrphanedCredential() {
+        val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null) ?: return
+        if (!compareDeleteExact(storedRaw)) {
+            fail(
+                "native_vault_write_failed",
+                "The orphaned native credential could not be discarded",
+            )
+        }
+    }
+
     /** Retained, authenticated challenge lookup; no bearer/API client enters Dart. */
     @Synchronized
     fun resolveLegacyZkPassportChallengeId(): Int {

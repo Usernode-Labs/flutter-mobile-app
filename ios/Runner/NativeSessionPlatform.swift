@@ -510,6 +510,7 @@ final class IOSNativeSessionChannel {
       case "prepareNativeSessionExchange": try prepare(call, result)
       case "installNativeSessionCredential": try install(call, result)
       case "discardUncommittedNativeSessionCredential": try discardUncommitted(call, result)
+      case "clearOrphanedNativeSessionState": try clearOrphaned(call, result)
       case "retireNativeSessionCredential": try retire(call, result)
       case "revokeNativeSessionCredential": try revoke(call, result)
       case "recoverNativeSession": try recover(call, result)
@@ -620,6 +621,15 @@ final class IOSNativeSessionChannel {
       )
     }
     try vault.discardUncommittedCredential(attemptId: attemptId)
+    result(nil)
+  }
+
+  private func clearOrphaned(
+    _ call: FlutterMethodCall,
+    _ result: @escaping FlutterResult
+  ) throws {
+    _ = try authorized(call, keys: ["processTransportClaim"])
+    try vault.clearOrphanedSessionState()
     result(nil)
   }
 

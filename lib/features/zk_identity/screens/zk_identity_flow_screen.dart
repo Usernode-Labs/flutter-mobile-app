@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/identity/identity.dart';
 import 'package:crypto_mobile_app/core/identity/session_controller.dart';
@@ -50,6 +51,14 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
   bool _waitingForAccount = false;
   String? _claimError;
   Timer? _accountSessionTimer;
+
+  void _leaveFlow() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go(AppRoutes.zkIdentityDetail);
+  }
 
   @override
   void initState() {
@@ -262,7 +271,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
         pipelineState,
         walletRecoveryRequired: walletRecoveryRequired,
       ),
-      onBack: () => context.pop(),
+      onBack: _leaveFlow,
     );
   }
 
@@ -419,7 +428,7 @@ class _ZkIdentityFlowScreenState extends ConsumerState<ZkIdentityFlowScreen>
           variant: ButtonVariant.primary,
           size: ButtonSize.large,
           label: l10n.zkIdentityDone,
-          onTap: () => context.pop(),
+          onTap: _leaveFlow,
         ),
     };
   }

@@ -542,58 +542,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get buildInfoBuildNumber => 'Build Number';
 
   @override
-  String get networkSwitcherTitle => 'Network Switcher';
-
-  @override
-  String get networkSelectNetwork => 'SELECT NETWORK';
-
-  @override
-  String get networkTestnetDesc => 'Default network';
-
-  @override
-  String get networkInternalDesc => 'Development network';
-
-  @override
-  String get networkActive => 'Active';
-
-  @override
-  String get networkNoChange => 'No Change';
-
-  @override
-  String get networkSwitch => 'Switch Network';
-
-  @override
-  String get networkEnterCode => 'Enter Code';
-
-  @override
-  String get networkCodeHint => '4-digit code';
-
-  @override
-  String get networkRestartRequired => 'Restart Required';
-
-  @override
-  String get networkSwitchRequiresSignOut =>
-      'Sign out before switching networks.';
-
-  @override
-  String get networkRestartPreparing =>
-      'Preparing the selected network. Do not close the app yet.';
-
-  @override
-  String get networkRestartFailed =>
-      'The network change could not be saved. Close and reopen Usernode, then try again.';
-
-  @override
-  String networkSwitchedRestartIos(String network) {
-    return 'Network switched to $network. Please manually close and reopen the app to connect to the new network.';
-  }
-
-  @override
-  String networkSwitchedRestartAndroid(String network) {
-    return 'Network switched to $network. The app will now close. Please reopen it to connect to the new network.';
-  }
-
-  @override
   String get settingsDebugMode => 'Debug Mode';
 
   @override

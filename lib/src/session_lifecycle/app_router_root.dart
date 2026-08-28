@@ -20,9 +20,8 @@ String _withPinnedLaunchRevision(String route) {
 /// projection and exact-session runner surface selected by those closures.
 GoRouter _createAppRouter(
   WidgetRef ref,
-  _NativeSessionRuntime nativeSession, {
-  required bool Function(String network) requestNetworkRestart,
-}) {
+  _NativeSessionRuntime nativeSession,
+) {
   return GoRouter(
     navigatorKey: appNavigatorKey,
     observers: SentryUtil.navigatorObservers(),
@@ -52,9 +51,7 @@ GoRouter _createAppRouter(
       ),
       GoRoute(
         path: AppRoutes.diagnostics,
-        builder: (context, state) => DiagnosticsScreen(
-          onNetworkRestartRequested: requestNetworkRestart,
-        ),
+        builder: (context, state) => const DiagnosticsScreen(),
       ),
       GoRoute(
         path: AppRoutes.deviceBenchmark,

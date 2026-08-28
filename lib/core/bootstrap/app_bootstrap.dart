@@ -5,7 +5,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 
 final class AppBootstrapResult {
@@ -31,7 +30,6 @@ abstract final class AppBootstrap {
     required String logTag,
     bool installErrorHandlers = true,
   }) async {
-    await NetworkPrefs.init();
     await LoggingService.initialize();
     await DebugModeStorage.init();
     await AppSleepStateStore.load();

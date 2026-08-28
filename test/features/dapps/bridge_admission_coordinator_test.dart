@@ -15,20 +15,19 @@ void main() {
     final coordinator = _coordinator(frame, policy: policy);
 
     for (final capability in <Object?>[null, '', 'guessed']) {
-      final decision = await coordinator.admit(
-        'getSettingsState',
-        {'privilegedCapability': capability},
+      PrivilegedBridgeLease? requestLease;
+      final decision = await coordinator.runRequest(
+        method: 'getSettingsState',
+        payload: {'privilegedCapability': capability},
+        body: (admission) async {
+          requestLease = PrivilegedBridgeRequestContext.currentLease;
+          return admission;
+        },
       );
       expect(decision.dispatch, isFalse);
       expect(decision.lease, isNotNull);
       expect(decision.error, contains('requires a trusted'));
-      expect(
-        await coordinator.runInRequestContext(
-          admission: decision,
-          body: () async => PrivilegedBridgeRequestContext.currentLease,
-        ),
-        same(decision.lease),
-      );
+      expect(requestLease, same(decision.lease));
     }
   });
 
@@ -46,7 +45,8 @@ void main() {
     final releaseAuthorization = Completer<void>();
     frame.nextProbeGate = releaseAuthorization;
 
-    final admission = coordinator.admit(
+    final admission = _admit(
+      coordinator,
       'markPrivilegedBridgeReady',
       {'privilegedCapability': lease?.capability},
     );
@@ -71,29 +71,26 @@ void main() {
     final policy = _policy(frame, secrets: secrets);
     final coordinator = _coordinator(frame, policy: policy);
     final firstLease = await policy.bootstrapLease();
-    final first = await coordinator.admit(
-      'getSettingsState',
-      {'privilegedCapability': firstLease?.capability},
-    );
-    frame.replaceDocument('${trustedUrl}settings');
-    final secondLease = await policy.bootstrapLease();
-    final second = await coordinator.admit(
-      'getSettingsState',
-      {'privilegedCapability': secondLease?.capability},
-    );
+    final firstStarted = Completer<void>();
     final releaseFirst = Completer<void>();
     final releaseSecond = Completer<void>();
 
-    final firstHandler = coordinator.runInRequestContext(
-      admission: first,
-      body: () async {
+    final firstHandler = coordinator.runRequest(
+      method: 'getSettingsState',
+      payload: {'privilegedCapability': firstLease?.capability},
+      body: (_) async {
+        firstStarted.complete();
         await releaseFirst.future;
         return PrivilegedBridgeRequestContext.currentLease?.capability;
       },
     );
-    final secondHandler = coordinator.runInRequestContext(
-      admission: second,
-      body: () async {
+    await firstStarted.future;
+    frame.replaceDocument('${trustedUrl}settings');
+    final secondLease = await policy.bootstrapLease();
+    final secondHandler = coordinator.runRequest(
+      method: 'getSettingsState',
+      payload: {'privilegedCapability': secondLease?.capability},
+      body: (_) async {
         await releaseSecond.future;
         return PrivilegedBridgeRequestContext.currentLease?.capability;
       },
@@ -103,6 +100,42 @@ void main() {
     expect(await secondHandler, secondLease?.capability);
     releaseFirst.complete();
     expect(await firstHandler, firstLease?.capability);
+  });
+
+  test('lifecycle handler blocks every later bridge admission', () async {
+    for (final lifecycleMethod in ['logout', 'establishNativeSession']) {
+      final frame = _AdmissionTopFrame(trustedUrl);
+      final policy = _policy(frame);
+      final coordinator = _coordinator(frame, policy: policy);
+      final lease = await policy.bootstrapLease();
+      final lifecycleStarted = Completer<void>();
+      final releaseLifecycle = Completer<void>();
+      var laterHandlerStarted = false;
+
+      final lifecycle = coordinator.runRequest(
+        method: lifecycleMethod,
+        payload: {'privilegedCapability': lease?.capability},
+        body: (_) async {
+          lifecycleStarted.complete();
+          await releaseLifecycle.future;
+        },
+      );
+      await lifecycleStarted.future;
+      final later = coordinator.runRequest(
+        method: 'getSettingsState',
+        payload: {'privilegedCapability': lease?.capability},
+        body: (_) async {
+          laterHandlerStarted = true;
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(laterHandlerStarted, isFalse, reason: lifecycleMethod);
+
+      releaseLifecycle.complete();
+      await lifecycle;
+      await later;
+      expect(laterHandlerStarted, isTrue, reason: lifecycleMethod);
+    }
   });
 
   test('current shell waits for its explicit readiness handshake', () async {
@@ -117,7 +150,8 @@ void main() {
     final lease = await policy.bootstrapLease();
 
     expect(
-      (await coordinator.admit(
+      (await _admit(
+        coordinator,
         'getSettingsState',
         {'privilegedCapability': lease?.capability},
       ))
@@ -126,14 +160,16 @@ void main() {
     );
     expect(ready, isEmpty);
 
-    final handshake = await coordinator.admit(
+    final handshake = await _admit(
+      coordinator,
       'markPrivilegedBridgeReady',
       {'privilegedCapability': lease?.capability},
     );
     expect(handshake.value, const {'ready': true});
     expect(ready, hasLength(1));
 
-    final restoredHandshake = await coordinator.admit(
+    final restoredHandshake = await _admit(
+      coordinator,
       'markPrivilegedBridgeReady',
       {'privilegedCapability': lease?.capability},
     );
@@ -153,11 +189,13 @@ void main() {
     final lease = await policy.bootstrapLease();
     final payload = {'privilegedCapability': lease?.capability};
 
-    final first = await coordinator.admit(
+    final first = await _admit(
+      coordinator,
       'markPrivilegedBridgeReady',
       payload,
     );
-    final second = await coordinator.admit(
+    final second = await _admit(
+      coordinator,
       'markPrivilegedBridgeReady',
       payload,
     );
@@ -167,6 +205,17 @@ void main() {
     expect(attempts, 2);
   });
 }
+
+Future<BridgeAdmissionDecision> _admit(
+  BridgeAdmissionCoordinator coordinator,
+  String method,
+  Map<String, dynamic> payload,
+) =>
+    coordinator.runRequest(
+      method: method,
+      payload: payload,
+      body: (admission) async => admission,
+    );
 
 PrivilegedBridgePolicy _policy(
   _AdmissionTopFrame frame, {

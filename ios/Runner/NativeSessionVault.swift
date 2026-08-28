@@ -87,6 +87,49 @@ final class IOSNativeSessionVault {
     }
   }
 
+  func redeemHandoff(attemptId: String, cookies: [HTTPCookie]) throws -> [String: Any] {
+    lock.lock(); defer { lock.unlock() }
+    try NativeSessionProtocol.validateHandoffAttemptId(attemptId)
+    let client = try http()
+    guard let host = client.nativeHandoffTicketUrl.host?.lowercased() else {
+      try NativeSessionProtocol.fail(
+        "native_api_unavailable", "The native mobile API origin is unavailable"
+      )
+    }
+    let now = Date()
+    let matches = cookies.filter { cookie in
+      let domain = cookie.domain.lowercased().trimmingCharacters(
+        in: CharacterSet(charactersIn: ".")
+      )
+      let domainMatches = host == domain || host.hasSuffix(".\(domain)")
+      return cookie.name == Self.handoffCookieName &&
+        cookie.path == client.nativeHandoffTicketUrl.path &&
+        cookie.isHTTPOnly && domainMatches &&
+        (cookie.expiresDate == nil || cookie.expiresDate! > now)
+    }
+    guard matches.count == 1 else {
+      try NativeSessionProtocol.fail(
+        "native_handoff_cookie_invalid", "The native handoff cookie is invalid"
+      )
+    }
+    let handoffToken = matches[0].value
+    try NativeSessionProtocol.validateHandoffToken(handoffToken)
+    switch client.redeemHandoff(attemptId: attemptId, handoffToken: handoffToken) {
+    case .success(let body, _):
+      return try NativeSessionProtocol.parseTicketResponse(
+        body, expectedAttemptId: attemptId
+      )
+    case .unauthorized:
+      try NativeSessionProtocol.fail(
+        "invalid_native_session_handoff", "The native handoff was rejected"
+      )
+    case .failure(let status, let code, let latest, _):
+      throw IOSNativeManagedHTTPError(
+        statusCode: status, errorCode: code, latestMutationRevision: latest
+      )
+    }
+  }
+
   func prepareExchange(_ rawTicket: Any?) throws -> [String: Any] {
     lock.lock(); defer { lock.unlock() }
     let ticket = try NativeSessionProtocol.parseTicket(rawTicket)
@@ -1389,6 +1432,7 @@ final class IOSNativeSessionVault {
   private static let mobileApiBaseUrlKey = "native_session_v2_mobile_api_base_url"
   private static let readyRevisionKey = "native_session_v2_ready_revision"
   private static let installationMarkerKey = "native_session_v2_installation_marker"
+  private static let handoffCookieName = "usernode_native_session_handoff"
 }
 
 struct IOSNativeManagedHTTPError: Error {
@@ -1405,6 +1449,7 @@ private enum IOSNativeHTTPResult {
 
 private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
   let canonicalBaseUrl: String
+  let nativeHandoffTicketUrl: URL
 
   init(_ raw: String) throws {
     let trimmed = raw.hasSuffix("/") ? String(raw.dropLast()) : raw
@@ -1418,6 +1463,22 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
       )
     }
     canonicalBaseUrl = trimmed
+    guard let ticketUrl = URL(string: "\(trimmed)/auth/native-establish-ticket") else {
+      try NativeSessionProtocol.fail(
+        "invalid_native_api_base_url", "The native mobile API base URL is invalid"
+      )
+    }
+    nativeHandoffTicketUrl = ticketUrl
+  }
+
+  func redeemHandoff(attemptId: String, handoffToken: String) -> IOSNativeHTTPResult {
+    request(
+      method: "POST",
+      path: "auth/native-establish-ticket",
+      bearer: nil,
+      body: ["protocol": 2, "attemptId": attemptId, "desiredRuntime": "running"],
+      nativeHandoff: handoffToken
+    )
   }
 
   func getProducerPolicy(bearer: String) -> IOSNativeHTTPResult {
@@ -1518,8 +1579,9 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
   private func request(
     method: String,
     path: String,
-    bearer: String,
-    body: [String: Any]? = nil
+    bearer: String?,
+    body: [String: Any]? = nil,
+    nativeHandoff: String? = nil
   ) -> IOSNativeHTTPResult {
     guard let url = URL(string: "\(canonicalBaseUrl)/\(path)"), url.scheme == "https" else {
       return .failure(0, nil, nil, nil)
@@ -1528,7 +1590,12 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
     request.httpMethod = method
     request.cachePolicy = .reloadIgnoringLocalCacheData
     request.setValue("application/json", forHTTPHeaderField: "Accept")
-    request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+    if let bearer {
+      request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+    }
+    if let nativeHandoff {
+      request.setValue(nativeHandoff, forHTTPHeaderField: "Usernode-Native-Handoff")
+    }
     if let body {
       guard let encoded = try? JSONSerialization.data(withJSONObject: body), encoded.count <= 16 * 1024 else {
         return .failure(0, nil, nil, nil)

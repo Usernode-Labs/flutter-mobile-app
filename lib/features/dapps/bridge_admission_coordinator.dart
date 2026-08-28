@@ -4,9 +4,9 @@ import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 /// The ordered, testable admission phase of the JavaScript bridge.
 ///
 /// Capability probing, identity fences, and the required listener-readiness
-/// handshake happen here before domain handlers run. Only admission is FIFO;
-/// [runInRequestContext] lets admitted handlers remain concurrent while their
-/// asynchronous replies retain the correct realm lease.
+/// handshake happen here before domain handlers run. Ordinary admitted
+/// handlers remain concurrent. A lifecycle handler holds the FIFO through its
+/// completion so no later bridge request can enter during a session boundary.
 final class BridgeAdmissionCoordinator {
   BridgeAdmissionCoordinator({
     required PrivilegedBridgePolicy policy,
@@ -20,19 +20,40 @@ final class BridgeAdmissionCoordinator {
   int _readinessEpoch = 0;
   bool _disposed = false;
 
-  Future<BridgeAdmissionDecision> admit(
-    String method,
-    Map<String, dynamic> payload,
-  ) =>
-      _queue.run(() => _admitInOrder(method, payload));
+  static const _lifecycleMethods = {'logout', 'establishNativeSession'};
 
-  Future<T> runInRequestContext<T>({
+  Future<T> runRequest<T>({
+    required String method,
+    required Map<String, dynamic> payload,
+    required Future<T> Function(BridgeAdmissionDecision admission) body,
+  }) {
+    if (_lifecycleMethods.contains(method)) {
+      return _queue.run(
+        () async => _runInRequestContext(
+          admission: await _admitInOrder(method, payload),
+          body: body,
+        ),
+      );
+    }
+    return _runConcurrentRequest(method: method, payload: payload, body: body);
+  }
+
+  Future<T> _runConcurrentRequest<T>({
+    required String method,
+    required Map<String, dynamic> payload,
+    required Future<T> Function(BridgeAdmissionDecision admission) body,
+  }) async {
+    final admission = await _queue.run(() => _admitInOrder(method, payload));
+    return _runInRequestContext(admission: admission, body: body);
+  }
+
+  Future<T> _runInRequestContext<T>({
     required BridgeAdmissionDecision admission,
-    required Future<T> Function() body,
+    required Future<T> Function(BridgeAdmissionDecision admission) body,
   }) =>
       PrivilegedBridgeRequestContext.run(
         lease: admission.lease,
-        body: body,
+        body: () => body(admission),
       );
 
   /// Invalidates a readiness proof that is currently awaiting a realm probe.

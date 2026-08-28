@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.webkit.CookieManager
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.nio.charset.StandardCharsets
@@ -78,6 +79,41 @@ internal class AndroidNativeSessionVault(context: Context) {
             preferences.getString(MOBILE_API_BASE_URL_KEY, null) != canonicalBaseUrl
         ) {
             fail("native_api_unavailable", "The native mobile API origin could not be persisted")
+        }
+    }
+
+    @Synchronized
+    fun redeemHandoff(attemptId: String): Map<String, Any> {
+        NativeSessionProtocol.validateHandoffAttemptId(attemptId)
+        val client = configuredHttp()
+        val cookieHeader = CookieManager.getInstance().getCookie(client.nativeHandoffTicketUrl)
+            ?: fail("native_handoff_cookie_absent", "The native handoff cookie is absent")
+        val handoffTokens = cookieHeader.split(';').mapNotNull { part ->
+            val pair = part.trim()
+            val separator = pair.indexOf('=')
+            if (separator <= 0 || pair.substring(0, separator) != HANDOFF_COOKIE_NAME) {
+                null
+            } else {
+                pair.substring(separator + 1)
+            }
+        }
+        if (handoffTokens.size != 1) {
+            fail("native_handoff_cookie_invalid", "The native handoff cookie is invalid")
+        }
+        val handoffToken = handoffTokens.single()
+        NativeSessionProtocol.validateHandoffToken(handoffToken)
+        return when (val response = client.redeemHandoff(attemptId, handoffToken)) {
+            is NativeHttpResult.Success ->
+                NativeSessionProtocol.parseTicketResponse(response.body, attemptId)
+            NativeHttpResult.Unauthorized -> fail(
+                "invalid_native_session_handoff",
+                "The native handoff was rejected",
+            )
+            is NativeHttpResult.Failure -> throw NativeManagedHttpException(
+                response.statusCode,
+                response.code,
+                response.latestMutationRevision,
+            )
         }
     }
 
@@ -1350,6 +1386,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             error.code == "native_credential_relogin_required"
 
     private companion object {
+        const val HANDOFF_COOKIE_NAME = "usernode_native_session_handoff"
         const val PREFERENCES_NAME = "native_session_v2"
         const val INSTALLATION_ID_KEY = "installation_id"
         const val CREDENTIAL_RECORD_KEY = "credential_record"

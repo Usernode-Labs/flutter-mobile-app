@@ -122,18 +122,13 @@ mixin _BridgeDispatch
         return;
       }
 
-      // Admission is ordered by channel arrival, but handlers run concurrently
-      // after admission. A begin-handoff/logout fence therefore closes before
-      // any later wallet/social request can overtake it, without making a long
-      // login or permission dialog stall unrelated bridge responses.
-      final admission = await _bridgeAdmissionCoordinator.admit(
-        method,
-        payload,
-      );
-
-      await _bridgeAdmissionCoordinator.runInRequestContext(
-        admission: admission,
-        body: () async {
+      // Ordinary handlers remain concurrent after ordered admission. Logout
+      // and establishment retain the FIFO through their complete handler, so
+      // no later bridge request can cross the lifecycle boundary.
+      await _bridgeAdmissionCoordinator.runRequest(
+        method: method,
+        payload: payload,
+        body: (admission) async {
           if (!admission.dispatch) {
             await _resolveBridgePromise(
               id: id,

@@ -53,6 +53,7 @@ internal class InteractiveNativeSessionChannel(
         try {
             when (call.method) {
                 "bootstrapInteractiveRoot" -> bootstrapInteractiveRoot(call, result)
+                "redeemNativeSessionHandoff" -> redeemHandoff(call, result)
                 "prepareNativeSessionExchange" -> prepareExchange(call, result)
                 "installNativeSessionCredential" -> installCredential(call, result)
                 "discardUncommittedNativeSessionCredential" -> discardUncommittedCredential(call, result)
@@ -127,6 +128,19 @@ internal class InteractiveNativeSessionChannel(
                 "processTransportClaim" to processTransportClaim.copyOf(),
             ),
         )
+    }
+
+    private fun redeemHandoff(call: MethodCall, result: MethodChannel.Result) {
+        requireProcessRoot()
+        val arguments = exactArguments(
+            call.arguments,
+            setOf("attemptId", "processTransportClaim"),
+            "redeemNativeSessionHandoff",
+        )
+        requireProcessTransportClaim(arguments)
+        val attemptId = arguments["attemptId"] as? String
+            ?: fail("native_establish_request_invalid", "The native attempt id is invalid")
+        runWorker(result) { vault.redeemHandoff(attemptId) }
     }
 
     private fun prepareExchange(call: MethodCall, result: MethodChannel.Result) {

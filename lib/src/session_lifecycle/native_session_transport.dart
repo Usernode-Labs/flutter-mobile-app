@@ -1,5 +1,30 @@
 part of 'package:crypto_mobile_app/main.dart';
 
+final class _NativeSessionEstablishIntent {
+  const _NativeSessionEstablishIntent._({required this.attemptId});
+
+  final String attemptId;
+
+  factory _NativeSessionEstablishIntent.fromBridgePayload(
+    Map<String, dynamic> payload,
+  ) {
+    final args = _exactMap(
+      payload['args'],
+      const {'attemptId', 'desiredRuntime'},
+      'establishNativeSession args',
+    );
+    final attemptId = _canonicalString(args['attemptId'], 'attemptId');
+    if (args['desiredRuntime'] != 'running' ||
+        !RegExp(r'^nsa_[A-Za-z0-9_-]{43}$').hasMatch(attemptId)) {
+      throw const NativeSessionException(
+        'native_establish_request_invalid',
+        'The native establishment request is invalid.',
+      );
+    }
+    return _NativeSessionEstablishIntent._(attemptId: attemptId);
+  }
+}
+
 final class _NativeSessionTicketEnvelope {
   _NativeSessionTicketEnvelope._({
     required this.protocol,
@@ -64,20 +89,12 @@ final class _NativeSessionTicketEnvelope {
     'expiresAt',
   };
 
-  factory _NativeSessionTicketEnvelope.fromBridgePayload(
-    Map<String, dynamic> payload,
-  ) {
-    final args = _exactMap(
-      payload['args'],
-      const {
-        'attemptId',
-        'nativeEstablishTicket',
-        'desiredRuntime',
-      },
-      'establishNativeSession args',
-    );
+  factory _NativeSessionTicketEnvelope.fromNativeHandoff(
+    Object? raw, {
+    required String expectedAttemptId,
+  }) {
     final ticket = _exactMap(
-      args['nativeEstablishTicket'],
+      raw,
       _ticketKeys,
       'nativeEstablishTicket',
     );
@@ -86,9 +103,8 @@ final class _NativeSessionTicketEnvelope {
       const {'id', 'chainId'},
       'nativeEstablishTicket.network',
     );
-    final attemptId = _canonicalString(args['attemptId'], 'attemptId');
     final protocol = ticket['protocol'];
-    final ticketAttemptId = _canonicalString(
+    final attemptId = _canonicalString(
       ticket['attemptId'],
       'nativeEstablishTicket.attemptId',
     );
@@ -100,15 +116,14 @@ final class _NativeSessionTicketEnvelope {
       network['id'],
       'nativeEstablishTicket.network.id',
     );
-    if (args['desiredRuntime'] != 'running' ||
-        protocol is! int ||
+    if (protocol is! int ||
         protocol != 2 ||
-        ticketAttemptId != attemptId ||
+        attemptId != expectedAttemptId ||
         desiredRuntime != 'running' ||
         networkId != 'testnet') {
       throw const NativeSessionException(
         'native_establish_request_mismatch',
-        'The native establishment request does not match its ticket.',
+        'The native handoff ticket does not match its request.',
       );
     }
     return _NativeSessionTicketEnvelope._(
@@ -236,6 +251,14 @@ final class _NativeSessionPlatformPort {
       {'nativeEstablishTicket': ticket.platformValue},
     );
     return _stringMap(raw, 'native exchange request');
+  }
+
+  Future<Map<String, Object?>> redeemHandoff(String attemptId) async {
+    final raw = await _invoke(
+      'redeemNativeSessionHandoff',
+      {'attemptId': attemptId},
+    );
+    return _stringMap(raw, 'native handoff ticket');
   }
 
   Future<Uint8List> installCredential({
@@ -1483,7 +1506,12 @@ final class _NativeSessionCompositionRoot
         : _NativeEstablishOutcome.ready;
     String? installedAttemptId;
     try {
-      final ticket = _NativeSessionTicketEnvelope.fromBridgePayload(payload);
+      final intent = _NativeSessionEstablishIntent.fromBridgePayload(payload);
+      final rawTicket = await _platform.redeemHandoff(intent.attemptId);
+      final ticket = _NativeSessionTicketEnvelope.fromNativeHandoff(
+        rawTicket,
+        expectedAttemptId: intent.attemptId,
+      );
       final exchangeRequest = await _platform.prepareExchange(ticket);
       final exchangeResult = await _exchange.exchange(exchangeRequest);
       final claimBytes = await _platform.installCredential(

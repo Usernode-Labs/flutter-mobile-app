@@ -122,53 +122,60 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
     }
   }
 
-  Future<T> _run<T>(
-    Future<T> Function(SessionOperation operation) body,
-  ) {
+  SessionFeatureAccess? _readySession() {
     final session = _session;
     if (session == null ||
         session.identity.status != SessionProjectionStatus.ready) {
-      return Future<T>.error(const SessionAdmissionClosedException());
+      return null;
     }
-    return session.operations.run(body);
+    return session;
   }
 
   Future<void> loadCatalog({bool force = false}) async {
     if (_catalogRequested && !force) {
       return;
     }
+    final session = _readySession();
+    if (session == null) return;
 
     _catalogRequested = true;
-    state = state.copyWith(
-      isLoadingCatalog: true,
-      clearErrorMessage: true,
-      clearUiError: true,
-    );
-
     try {
-      _log.info('Loading perf catalog');
-      final catalog = await _run(_repository.catalog);
-      _log.info(
-        'Loaded perf catalog',
-        context: {
-          'profiles': catalog.profiles.length,
-          'measurements': catalog.measurements.length,
-        },
-      );
-      state = state.copyWith(
-        catalog: catalog,
-        isLoadingCatalog: false,
-      );
-    } catch (error, stackTrace) {
-      _log.error(
-        'Failed to load perf catalog',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      state = state.copyWith(
-        isLoadingCatalog: false,
-        errorMessage: _cleanErrorMessage(error),
-      );
+      await session.operations.run((operation) async {
+        state = state.copyWith(
+          isLoadingCatalog: true,
+          clearErrorMessage: true,
+          clearUiError: true,
+        );
+        try {
+          _log.info('Loading perf catalog');
+          final catalog = await _repository.catalog(operation);
+          _log.info(
+            'Loaded perf catalog',
+            context: {
+              'profiles': catalog.profiles.length,
+              'measurements': catalog.measurements.length,
+            },
+          );
+          state = state.copyWith(
+            catalog: catalog,
+            isLoadingCatalog: false,
+          );
+        } on SessionAdmissionClosedException {
+          rethrow;
+        } catch (error, stackTrace) {
+          _log.error(
+            'Failed to load perf catalog',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          state = state.copyWith(
+            isLoadingCatalog: false,
+            errorMessage: _cleanErrorMessage(error),
+          );
+        }
+      });
+    } on SessionAdmissionClosedException {
+      // The replacement session owns all subsequent UI publication.
     }
   }
 
@@ -176,41 +183,51 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
     if (state.isRunning || state.isStartingRun) {
       return;
     }
+    final session = _readySession();
+    if (session == null) return;
 
-    state = state.copyWith(
-      isStartingRun: true,
-      isCancelling: false,
-      clearErrorMessage: true,
-      clearUiError: true,
-      clearReport: true,
-      clearStatus: true,
-      clearActiveRunId: true,
-      requestedProfile: profile,
-    );
-
+    int? startedRunId;
     try {
-      final handle = await _run(
-        (operation) => _repository.startRun(operation, profile),
-      );
-      final runId = handle.runId.toInt();
-      state = state.copyWith(
-        activeRunId: runId,
-        isStartingRun: false,
-      );
-      _startPolling(runId);
-      await _refreshRun(runId);
-    } catch (error, stackTrace) {
-      _log.error(
-        'Failed to start perf benchmark run',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      state = state.copyWith(
-        isStartingRun: false,
-        clearRequestedProfile: true,
-        errorMessage: _cleanErrorMessage(error),
-      );
+      await session.operations.run((operation) async {
+        state = state.copyWith(
+          isStartingRun: true,
+          isCancelling: false,
+          clearErrorMessage: true,
+          clearUiError: true,
+          clearReport: true,
+          clearStatus: true,
+          clearActiveRunId: true,
+          requestedProfile: profile,
+        );
+        try {
+          final handle = await _repository.startRun(operation, profile);
+          final runId = handle.runId.toInt();
+          startedRunId = runId;
+          state = state.copyWith(
+            activeRunId: runId,
+            isStartingRun: false,
+          );
+          _startPolling(runId, session);
+        } on SessionAdmissionClosedException {
+          rethrow;
+        } catch (error, stackTrace) {
+          _log.error(
+            'Failed to start perf benchmark run',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          state = state.copyWith(
+            isStartingRun: false,
+            clearRequestedProfile: true,
+            errorMessage: _cleanErrorMessage(error),
+          );
+        }
+      });
+    } on SessionAdmissionClosedException {
+      return;
     }
+    final runId = startedRunId;
+    if (runId != null) await _refreshRun(runId, session);
   }
 
   Future<void> cancelRun() async {
@@ -218,48 +235,54 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
     if (runId == null || !state.isRunning || state.isCancelling) {
       return;
     }
-
-    state = state.copyWith(
-      isCancelling: true,
-      clearErrorMessage: true,
-      clearUiError: true,
-    );
+    final session = _readySession();
+    if (session == null) return;
 
     try {
-      final cancelled = await _run(
-        (operation) => _repository.cancel(operation, runId),
-      );
-      if (!cancelled) {
+      await session.operations.run((operation) async {
         state = state.copyWith(
-          isCancelling: false,
-          uiError: PerfBenchmarkUiError.cancelFailed,
+          isCancelling: true,
+          clearErrorMessage: true,
+          clearUiError: true,
         );
-      }
-    } catch (error, stackTrace) {
-      _log.error(
-        'Failed to cancel perf benchmark run',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      state = state.copyWith(
-        isCancelling: false,
-        errorMessage: _cleanErrorMessage(error),
-      );
+        try {
+          final cancelled = await _repository.cancel(operation, runId);
+          if (!cancelled) {
+            state = state.copyWith(
+              isCancelling: false,
+              uiError: PerfBenchmarkUiError.cancelFailed,
+            );
+          }
+        } on SessionAdmissionClosedException {
+          rethrow;
+        } catch (error, stackTrace) {
+          _log.error(
+            'Failed to cancel perf benchmark run',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          state = state.copyWith(
+            isCancelling: false,
+            errorMessage: _cleanErrorMessage(error),
+          );
+        }
+      });
+    } on SessionAdmissionClosedException {
+      // The replacement session owns all subsequent UI publication.
     }
   }
 
   Future<void> refreshCurrentRun() async {
     final runId = state.activeRunId;
-    if (runId == null) {
-      return;
-    }
-    await _refreshRun(runId);
+    final session = _readySession();
+    if (runId == null || session == null) return;
+    await _refreshRun(runId, session);
   }
 
-  void _startPolling(int runId) {
+  void _startPolling(int runId, SessionFeatureAccess session) {
     _stopPolling();
     _pollTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      unawaited(_refreshRun(runId));
+      unawaited(_refreshRun(runId, session));
     });
   }
 
@@ -268,63 +291,74 @@ class PerfBenchmarkController extends Notifier<PerfBenchmarkState> {
     _pollTimer = null;
   }
 
-  Future<void> _refreshRun(int runId) async {
+  Future<void> _refreshRun(
+    int runId,
+    SessionFeatureAccess session,
+  ) async {
     if (_refreshInFlight) {
       return;
     }
 
     _refreshInFlight = true;
     try {
-      final status = await _run(
-        (operation) => _repository.status(operation, runId),
-      );
-      if (status == null) {
-        _stopPolling();
-        state = state.copyWith(
-          isCancelling: false,
-          clearStatus: true,
-          clearActiveRunId: true,
-          clearRequestedProfile: true,
-          uiError: PerfBenchmarkUiError.runUnavailable,
-        );
-        return;
-      }
+      await session.operations.run((operation) async {
+        try {
+          final status = await _repository.status(operation, runId);
+          if (status == null) {
+            _stopPolling();
+            state = state.copyWith(
+              isCancelling: false,
+              clearStatus: true,
+              clearActiveRunId: true,
+              clearRequestedProfile: true,
+              uiError: PerfBenchmarkUiError.runUnavailable,
+            );
+            return;
+          }
 
-      state = state.copyWith(
-        status: status,
-        activeRunId: runId,
-        isCancelling: false,
-        clearRequestedProfile: true,
-        clearErrorMessage: true,
-        clearUiError: true,
-      );
+          state = state.copyWith(
+            status: status,
+            activeRunId: runId,
+            isCancelling: false,
+            clearRequestedProfile: true,
+            clearErrorMessage: true,
+            clearUiError: true,
+          );
 
-      if (status.state == perf_types.PerfRunState.running) {
-        return;
-      }
+          if (status.state == perf_types.PerfRunState.running) return;
 
-      _stopPolling();
-      final report = await _run(
-        (operation) => _repository.result(operation, runId),
-      );
-      state = state.copyWith(
-        status: status,
-        report: report,
-        activeRunId: runId,
-        isCancelling: false,
-        errorMessage: status.state == perf_types.PerfRunState.failed
-            ? status.error
-            : null,
-        clearErrorMessage: status.state != perf_types.PerfRunState.failed,
-      );
+          _stopPolling();
+          final report = await _repository.result(operation, runId);
+          state = state.copyWith(
+            status: status,
+            report: report,
+            activeRunId: runId,
+            isCancelling: false,
+            errorMessage: status.state == perf_types.PerfRunState.failed
+                ? status.error
+                : null,
+            clearErrorMessage: status.state != perf_types.PerfRunState.failed,
+          );
+        } on SessionAdmissionClosedException {
+          rethrow;
+        } catch (error, stackTrace) {
+          _log.error(
+            'Failed to refresh perf benchmark run',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          state = state.copyWith(
+            errorMessage: _cleanErrorMessage(error),
+          );
+        }
+      });
+    } on SessionAdmissionClosedException {
+      // The captured runner closed; never retry the run id through B.
     } catch (error, stackTrace) {
       _log.error(
-        'Failed to refresh perf benchmark run',
+        'Perf benchmark session runner failed',
         error: error,
         stackTrace: stackTrace,
-      );
-      state = state.copyWith(
-        errorMessage: _cleanErrorMessage(error),
       );
     } finally {
       _refreshInFlight = false;

@@ -210,6 +210,49 @@ internal object NativeSessionProtocol {
         )
     }
 
+    fun parseTicketResponse(raw: JSONObject, expectedAttemptId: String): Map<String, Any> {
+        if (jsonKeys(raw) != setOf("success", "data") || raw.opt("success") != true) {
+            fail("invalid_native_establish_ticket", "The native ticket response is invalid")
+        }
+        val data = raw.optJSONObject("data")
+            ?: fail("invalid_native_establish_ticket", "The native ticket response is invalid")
+        if (jsonKeys(data) != ticketKeys) {
+            fail("invalid_native_establish_ticket", "The native ticket response is invalid")
+        }
+        val network = data.optJSONObject("network")
+            ?: fail("invalid_native_establish_ticket", "The native ticket response is invalid")
+        if (jsonKeys(network) != setOf("id", "chainId")) {
+            fail("invalid_native_establish_ticket", "The native ticket response is invalid")
+        }
+        val ticketMap = linkedMapOf<String, Any>(
+            "protocol" to data.get("protocol"),
+            "attemptId" to data.get("attemptId"),
+            "desiredRuntime" to data.get("desiredRuntime"),
+            "ticket" to data.get("ticket"),
+            "requestDigest" to data.get("requestDigest"),
+            "exchangeChallenge" to data.get("exchangeChallenge"),
+            "network" to linkedMapOf(
+                "id" to network.get("id"),
+                "chainId" to network.get("chainId"),
+            ),
+            "issuedAt" to data.get("issuedAt"),
+            "expiresAt" to data.get("expiresAt"),
+        )
+        val parsed = parseTicket(ticketMap)
+        if (parsed.attemptId != expectedAttemptId) {
+            fail("native_establish_request_mismatch", "The native ticket does not match its handoff")
+        }
+        return ticketMap
+    }
+
+    fun validateHandoffAttemptId(value: String) {
+        validateOpaque(value, "nsa_", "native handoff attempt id")
+    }
+
+    fun validateHandoffToken(value: String) {
+        validateOpaque(value, "nsh_", "native handoff token")
+    }
+
     fun installationMaterial(
         installationId: String,
         keyGeneration: Int,
@@ -758,12 +801,16 @@ internal object NativeSessionProtocol {
     }
 
     private fun exactJsonKeys(value: JSONObject, expected: Set<String>, label: String) {
+        if (jsonKeys(value) != expected) {
+            fail("invalid_native_credential", "$label has unexpected fields")
+        }
+    }
+
+    private fun jsonKeys(value: JSONObject): Set<String> {
         val actual = mutableSetOf<String>()
         val keys = value.keys()
         while (keys.hasNext()) actual += keys.next()
-        if (actual != expected) {
-            fail("invalid_native_credential", "$label has unexpected fields")
-        }
+        return actual
     }
 
     private fun jsonObject(parent: JSONObject, key: String): JSONObject =

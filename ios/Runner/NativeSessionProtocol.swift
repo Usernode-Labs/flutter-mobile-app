@@ -184,6 +184,39 @@ enum NativeSessionProtocol {
     )
   }
 
+  static func parseTicketResponse(
+    _ raw: [String: Any],
+    expectedAttemptId: String
+  ) throws -> [String: Any] {
+    let root = try exactDictionary(
+      raw, keys: ["success", "data"], label: "native ticket response"
+    )
+    guard root["success"] as? Bool == true else {
+      try fail("invalid_native_establish_ticket", "The native ticket response is invalid")
+    }
+    let data = try exactDictionary(
+      root["data"],
+      keys: [
+        "protocol", "attemptId", "desiredRuntime", "ticket", "requestDigest",
+        "exchangeChallenge", "network", "issuedAt", "expiresAt",
+      ],
+      label: "native ticket response data"
+    )
+    let ticket = try parseTicket(data)
+    guard ticket.attemptId == expectedAttemptId else {
+      try fail("native_establish_request_mismatch", "The native ticket does not match its handoff")
+    }
+    return data
+  }
+
+  static func validateHandoffAttemptId(_ value: String) throws {
+    try validateOpaque(value, prefix: "nsa_", label: "native handoff attempt id")
+  }
+
+  static func validateHandoffToken(_ value: String) throws {
+    try validateOpaque(value, prefix: "nsh_", label: "native handoff token")
+  }
+
   static func possessionTranscript(
     _ ticket: NativeEstablishTicket,
     _ installation: NativeInstallationMaterial

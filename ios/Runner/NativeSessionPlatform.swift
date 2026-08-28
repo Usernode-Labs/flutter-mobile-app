@@ -1,6 +1,7 @@
 import Flutter
 import Foundation
 import Security
+import WebKit
 
 private enum IOSProducerWakeSource: UInt8 {
   case foregroundResume = 5
@@ -493,6 +494,7 @@ final class IOSNativeSessionChannel {
     do {
       switch call.method {
       case "bootstrapInteractiveRoot": try bootstrap(call, result)
+      case "redeemNativeSessionHandoff": try redeemHandoff(call, result)
       case "prepareNativeSessionExchange": try prepare(call, result)
       case "installNativeSessionCredential": try install(call, result)
       case "discardUncommittedNativeSessionCredential": try discardUncommitted(call, result)
@@ -544,6 +546,43 @@ final class IOSNativeSessionChannel {
   private func prepare(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {
     let arguments = try authorized(call, keys: ["nativeEstablishTicket", "processTransportClaim"])
     result(try vault.prepareExchange(arguments["nativeEstablishTicket"]))
+  }
+
+  private func redeemHandoff(
+    _ call: FlutterMethodCall,
+    _ result: @escaping FlutterResult
+  ) throws {
+    let arguments = try authorized(
+      call, keys: ["attemptId", "processTransportClaim"]
+    )
+    guard let attemptId = arguments["attemptId"] as? String else {
+      try NativeSessionProtocol.fail(
+        "native_establish_request_invalid", "The native attempt id is invalid"
+      )
+    }
+    WKWebsiteDataStore.default().httpCookieStore.getAllCookies { [weak self] cookies in
+      guard let self else {
+        result(FlutterError(
+          code: "stale_interactive_engine",
+          message: "The Flutter engine no longer owns native session authority",
+          details: nil
+        ))
+        return
+      }
+      self.worker.async {
+        do {
+          self.finish(
+            result,
+            value: try self.vault.redeemHandoff(
+              attemptId: attemptId, cookies: cookies
+            ),
+            error: nil
+          )
+        } catch {
+          self.finish(result, value: nil, error: error)
+        }
+      }
+    }
   }
 
   private func install(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {

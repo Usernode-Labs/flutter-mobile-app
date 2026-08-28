@@ -20,6 +20,20 @@ internal class NativeSessionHttp(
     mobileApiBaseUrl: String,
 ) {
     internal val canonicalBaseUrl = validateBaseUrl(mobileApiBaseUrl)
+    internal val nativeHandoffTicketUrl = "$canonicalBaseUrl/auth/native-establish-ticket"
+
+    fun redeemHandoff(attemptId: String, handoffToken: String): NativeHttpResult =
+        request(
+            "POST",
+            "auth/native-establish-ticket",
+            null,
+            JSONObject()
+                .put("protocol", 2)
+                .put("attemptId", attemptId)
+                .put("desiredRuntime", "running"),
+            handoffToken,
+        )
+
     fun getProducerPolicy(bearer: String): NativeHttpResult =
         request("GET", "native/delegation", bearer)
 
@@ -114,8 +128,9 @@ internal class NativeSessionHttp(
     private fun request(
         method: String,
         relativePath: String,
-        bearer: String,
+        bearer: String?,
         body: JSONObject? = null,
+        nativeHandoff: String? = null,
     ): NativeHttpResult {
         val url = URL("$canonicalBaseUrl/$relativePath")
         if (url.protocol != "https") {
@@ -128,7 +143,12 @@ internal class NativeSessionHttp(
             readTimeout = TIMEOUT_MS
             useCaches = false
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("Authorization", "Bearer $bearer")
+            if (bearer != null) {
+                setRequestProperty("Authorization", "Bearer $bearer")
+            }
+            if (nativeHandoff != null) {
+                setRequestProperty("Usernode-Native-Handoff", nativeHandoff)
+            }
             if (body != null) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")

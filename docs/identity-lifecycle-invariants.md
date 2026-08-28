@@ -16,6 +16,12 @@ lifecycle owner. It is created only by the private bootstrap in `lib/main.dart`.
 No provider, service locator, public bootstrap function, or product-feature
 argument contains its root or native session clients.
 
+The root keeps exactly one closed `_NativeAuthorityState`. A complete
+`_NativeReadyBinding` owns the session client, native revision, projection,
+effects, establishment attempt, and optional realm binding as one value.
+Publication and operation draining are mechanisms beneath that state; they do
+not maintain a second logout or transition coordinator.
+
 Features receive only `SessionFeatureAccessView` from
 `lib/core/session/session_operation_runner.dart`. Its current value contains:
 
@@ -50,13 +56,19 @@ arrives while establishment is committing, the new Ready remains private and
 is retired with its exact native revision; it is never briefly published.
 Once Rust returns a committed Ready receipt, Flutter retains its private
 session/revision authority until terminal cleanup even if wake or UI
-publication fails.
+publication fails. Invoking either the platform credential install or Rust
+establishment mutation first enters an explicit uncertain state: failure may
+resolve to signed-out only after exact pre-commit cleanup proves that outcome;
+otherwise the process requires cold recovery and cannot admit another login.
 
 The composition-root resume barrier gates the same runner used by every
-feature. On foreground resume, native credential evidence is resolved before
-ZK recovery, Social push replay, WebView dispatch, node status, or any other
-session operation can enter. UI input is also blocked while this validation is
-pending.
+feature. Leaving the foreground suspends admission. The process root consumes
+the next OS resume event and installs its validation barrier synchronously,
+before metrics or observability receive that event. Native credential evidence
+is then resolved before ZK recovery, Social push replay, WebView dispatch, node
+status, or any other session operation can enter. UI input is also blocked
+while this validation is pending. Native background production uses separate
+opaque authority and is unaffected by this foreground gate.
 
 Focused deterministic checks live in
 `test/core/session/session_operation_kernel_test.dart` and

@@ -83,6 +83,8 @@ final class _SessionScope {
     return _drained.future;
   }
 
+  bool get isRevoked => _state == _ScopeState.revoked;
+
   void release(_CountedKind kind) {
     switch (kind) {
       case _CountedKind.operation:
@@ -136,8 +138,9 @@ final class _SessionOperationRunner implements SessionOperationRunner {
     FutureOr<T> Function(SessionOperation operation) body,
   ) async {
     await barrier;
-    final operation = _scope.admitOperation();
-    return operation.invoke(body);
+    // Re-read the root gate after every await. A background or terminal event
+    // may have replaced the barrier while validation was in flight.
+    return run(body);
   }
 }
 
@@ -650,8 +653,6 @@ final class _SessionCompositionRoot {
   late _PublishedSession _published;
   late final _ReadOnlySessionView _view;
   _TopLevelAdmissionGate? _topLevelAdmissionGate;
-  var _logoutInFlight = false;
-  Completer<void>? _logoutSettled;
   var _disposed = false;
 
   SessionFeatureAccessView get view => _view;
@@ -661,83 +662,12 @@ final class _SessionCompositionRoot {
     _published.scope.bindTopLevelAdmissionGate(gate);
   }
 
-  Future<void> logout(SessionIdentityProjection signedOut) {
-    if (signedOut.status != SessionProjectionStatus.signedOut) {
-      throw ArgumentError.value(
-        signedOut.status,
-        'signedOut',
-        'Logout requires a signed-out projection.',
-      );
-    }
-    return logoutAfterDrain(() => signedOut);
-  }
-
-  Future<void> logoutAfterDrain(
-    FutureOr<SessionIdentityProjection> Function() commit,
-  ) async {
+  Future<void> closeAndDrain() {
     _checkActive();
-    if (_logoutInFlight) {
-      throw StateError('Session logout is already in progress.');
-    }
-    if (_published.featureAccess.identity.status ==
-        SessionProjectionStatus.signedOut) {
-      return;
-    }
-    _logoutInFlight = true;
-    final settlement = Completer<void>();
-    _logoutSettled = settlement;
-
-    // Closing admission is synchronous. Publication remains on A until this
-    // exact drain completes; there is no timeout or forced publication.
-    final drain = _published.scope.closeAndDrain();
-    try {
-      await drain;
-      final signedOut = await commit();
-      if (signedOut.status != SessionProjectionStatus.signedOut) {
-        throw ArgumentError.value(
-          signedOut.status,
-          'commit',
-          'Logout commit must return a signed-out projection.',
-        );
-      }
-      if (_disposed) return;
-      final publication = _createSignedOutSession(signedOut);
-      _published = publication;
-      _view.publish(publication.featureAccess);
-    } finally {
-      _logoutInFlight = false;
-      if (identical(_logoutSettled, settlement)) _logoutSettled = null;
-      if (!settlement.isCompleted) settlement.complete();
-    }
+    return _published.scope.closeAndDrain();
   }
 
-  /// Publishes a native terminal outcome after joining any explicit logout.
-  ///
-  /// Native definitive absence may win Rust's transition lane while an
-  /// explicit logout is already draining. That logout can then fail its Rust
-  /// commit with RecoveryRequired; terminal publication must still settle to
-  /// the inert signed-out projection instead of leaving closed Ready visible.
-  Future<void> retireAfterDrain(SessionIdentityProjection signedOut) async {
-    if (signedOut.status != SessionProjectionStatus.signedOut) {
-      throw ArgumentError.value(
-        signedOut.status,
-        'signedOut',
-        'Retirement requires a signed-out projection.',
-      );
-    }
-    _checkActive();
-    final activeLogout = _logoutSettled;
-    if (activeLogout != null) await activeLogout.future;
-    if (_disposed) return;
-    if (_published.featureAccess.identity.status ==
-        SessionProjectionStatus.ready) {
-      await logout(signedOut);
-      return;
-    }
-    replaceSignedOut(signedOut);
-  }
-
-  void login(
+  void publishReady(
     SessionIdentityProjection ready, {
     required _SessionEffectSink effects,
   }) {
@@ -749,10 +679,9 @@ final class _SessionCompositionRoot {
       );
     }
     _checkActive();
-    if (_logoutInFlight ||
-        _published.featureAccess.identity.status !=
-            SessionProjectionStatus.signedOut) {
-      throw StateError('Logout must drain and publish before login.');
+    if (_published.featureAccess.identity.status !=
+        SessionProjectionStatus.signedOut) {
+      throw StateError('Ready requires a signed-out publication.');
     }
 
     final publication = _createOpenSession(ready, effects);
@@ -760,7 +689,7 @@ final class _SessionCompositionRoot {
     _view.publish(publication.featureAccess);
   }
 
-  void replaceSignedOut(SessionIdentityProjection signedOut) {
+  void publishSignedOut(SessionIdentityProjection signedOut) {
     if (signedOut.status != SessionProjectionStatus.signedOut) {
       throw ArgumentError.value(
         signedOut.status,
@@ -769,10 +698,10 @@ final class _SessionCompositionRoot {
       );
     }
     _checkActive();
-    if (_logoutInFlight ||
-        _published.featureAccess.identity.status !=
-            SessionProjectionStatus.signedOut) {
-      throw StateError('Only a closed signed-out projection can be replaced.');
+    if (_published.featureAccess.identity.status ==
+            SessionProjectionStatus.ready &&
+        !_published.scope.isRevoked) {
+      throw StateError('Signed-out publication requires a complete drain.');
     }
 
     final publication = _createSignedOutSession(signedOut);
@@ -874,10 +803,11 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
       return operationRelease.future;
     });
 
-    final logout = root.logoutAfterDrain(() {
+    final logout = () async {
+      await root.closeAndDrain();
       events.add('commit');
-      return signedOut;
-    });
+      root.publishSignedOut(signedOut);
+    }();
     _expectSelfCheckThrows<SessionAdmissionClosedException>(
       () => runnerA.run<void>((_) {}),
       'close must reject new admission synchronously',
@@ -910,7 +840,7 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
       'signed-out publication must follow commit',
     );
 
-    root.login(identityB, effects: const _ClosedSessionEffectSink());
+    root.publishReady(identityB, effects: const _ClosedSessionEffectSink());
     _expectSelfCheckThrows<SessionAdmissionClosedException>(
       () => runnerA.run<void>((_) {}),
       'retired runner reopened',
@@ -926,169 +856,116 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
     root.dispose();
   }
 
-  final queuedRoot = _SessionCompositionRoot(
-    SessionIdentityProjection.signedOut(nativeRevision: '0'),
+  const realm = 'trusted-realm';
+  final binding = _NativeReadyBinding(
+    session: _SelfCheckNativeSession(),
+    readyRevision: 3,
+    projection: identityB,
+    effects: const _ClosedSessionEffectSink(),
+    attemptId: 'self-check-attempt',
+    realmMarker: realm,
+    realmClaim: 'self-check-claim',
   );
-  final transitions = _NativeSessionTransitionSlot();
-  final queuedPublication = queuedRoot.view.changes.listen(
-    (next) => events.add('queued-publish:${next.identity.nativeRevision}'),
-  );
-  try {
-    const realm = 'trusted-realm';
-    transitions.beginEstablish(realm);
-    final establishCompleted = transitions.beginLogout(realm);
-    _expectSelfCheck(
-        establishCompleted != null, 'logout did not join establish');
-    final queuedLogout = () async {
-      await establishCompleted;
-      queuedRoot.replaceSignedOut(
-        SessionIdentityProjection.signedOut(nativeRevision: '4'),
-      );
-      transitions.finishLogout(succeeded: true);
-    }();
-    if (!transitions.hasTerminalIntentFor(realm)) {
-      queuedRoot.login(
-        identityB,
-        effects: const _ClosedSessionEffectSink(),
-      );
-    }
-    transitions.finishEstablish(_NativeEstablishOutcome.ready);
-    await queuedLogout;
-    _expectSelfCheck(
-      queuedRoot.view.current.identity.status ==
-          SessionProjectionStatus.signedOut,
-      'queued logout published Ready',
-    );
-    _expectSelfCheckThrows<SessionAdmissionClosedException>(
-      () => queuedRoot.view.current.operations.run<void>((_) {}),
-      'queued logout opened admission',
-    );
-    events.add('queued-runner-rejected');
-  } finally {
-    await queuedPublication.cancel();
-    queuedRoot.dispose();
-  }
-
-  final heldWakeRoot = _SessionCompositionRoot(
-    SessionIdentityProjection.signedOut(nativeRevision: '0'),
-  );
-  final heldWakeTransitions = _NativeSessionTransitionSlot();
+  final heldWake = _NativeEstablishAttempt(realm)..retainReady(binding);
   final wakeRelease = Completer<void>();
-  var heldWakePublishedReady = false;
-  final heldWakePublication = heldWakeRoot.view.changes.listen((next) {
-    if (next.identity.status == SessionProjectionStatus.ready) {
-      heldWakePublishedReady = true;
-    }
-  });
-  try {
-    const realm = 'held-wake-realm';
-    heldWakeTransitions.beginEstablish(realm);
-    final establishing = () async {
-      if (!heldWakeTransitions.hasTerminalIntentFor(realm)) {
-        await wakeRelease.future;
-        if (!heldWakeTransitions.hasTerminalIntentFor(realm)) {
-          heldWakeRoot.login(
-            identityB,
-            effects: const _ClosedSessionEffectSink(),
-          );
-        }
-      }
-      heldWakeTransitions.finishEstablish(_NativeEstablishOutcome.ready);
-    }();
-    await Future<void>.delayed(Duration.zero);
-    final establishCompleted = heldWakeTransitions.beginLogout(realm);
-    _expectSelfCheck(
-      establishCompleted != null,
-      'held-wake logout did not join establish',
-    );
-    final queuedLogout = () async {
-      await establishCompleted;
-      heldWakeRoot.replaceSignedOut(
-        SessionIdentityProjection.signedOut(nativeRevision: '5'),
-      );
-      heldWakeTransitions.finishLogout(succeeded: true);
-    }();
-    wakeRelease.complete();
-    await Future.wait<void>([establishing, queuedLogout]);
-    _expectSelfCheck(
-      !heldWakePublishedReady,
-      'terminal intent queued during wake published Ready',
-    );
-    events.add('held-wake-terminal-suppressed');
-  } finally {
-    if (!wakeRelease.isCompleted) wakeRelease.complete();
-    await heldWakePublication.cancel();
-    heldWakeRoot.dispose();
-  }
-
-  final terminalRoot = _SessionCompositionRoot(
-    identityA,
-    readyEffects: const _ClosedSessionEffectSink(),
+  final establishing = () async {
+    await wakeRelease.future;
+    if (heldWake.terminalIntent == null) heldWake.published = true;
+    return _settledEstablishState(heldWake);
+  }();
+  await Future<void>.delayed(Duration.zero);
+  heldWake.terminalIntent = const _NativeTerminalIntent.realm(realm);
+  wakeRelease.complete();
+  final heldWakeState = await establishing;
+  _expectSelfCheck(
+    heldWakeState is _NativeClosing &&
+        identical(heldWakeState.binding, binding) &&
+        !heldWake.published,
+    'terminal intent queued during wake published Ready',
   );
-  final explicitCommitEntered = Completer<void>();
-  final explicitCommitRelease = Completer<void>();
-  try {
-    final explicitLogout = terminalRoot.logoutAfterDrain(() async {
-      explicitCommitEntered.complete();
-      await explicitCommitRelease.future;
-      throw StateError('simulated native RecoveryRequired');
-    });
-    await explicitCommitEntered.future;
-    final nativeRetirement = terminalRoot.retireAfterDrain(
-      SessionIdentityProjection.signedOut(nativeRevision: '6'),
-    );
-    explicitCommitRelease.complete();
-    try {
-      await explicitLogout;
-      throw StateError('explicit logout unexpectedly committed');
-    } on StateError catch (error) {
-      _expectSelfCheck(
-        error.message == 'simulated native RecoveryRequired',
-        'unexpected explicit logout failure',
-      );
-    }
-    await nativeRetirement;
-    _expectSelfCheck(
-      terminalRoot.view.current.identity.status ==
-              SessionProjectionStatus.signedOut &&
-          terminalRoot.view.current.identity.nativeRevision == '6',
-      'native retirement did not settle concurrent logout to signed-out',
-    );
-    events.add('terminal-retirement-joined-logout');
-  } finally {
-    if (!explicitCommitRelease.isCompleted) explicitCommitRelease.complete();
-    terminalRoot.dispose();
-  }
+  events.add('held-wake-terminal-suppressed');
+
+  final uncertain = _NativeEstablishAttempt(realm)..markUncertain();
+  _expectSelfCheck(
+    _settledEstablishState(uncertain) is _NativeRecoveryRequired,
+    'commit uncertainty reopened SignedOut',
+  );
+  events.add('uncertain-establish-failed-closed');
+
+  final committed = _NativeEstablishAttempt(realm)..retainReady(binding);
+  final committedState = _settledEstablishState(committed);
+  _expectSelfCheck(
+    committedState is _NativeReady &&
+        !committedState.published &&
+        identical(committedState.binding, binding),
+    'committed Ready was forgotten before publication',
+  );
+  events.add('committed-ready-retained-private');
+
+  final precommitTerminal = _NativeEstablishAttempt(realm)
+    ..terminalIntent = const _NativeTerminalIntent.realm(realm);
+  final precommitState = _settledEstablishState(precommitTerminal);
+  _expectSelfCheck(
+    precommitState is _NativeClosing && precommitState.binding == null,
+    'precommit terminal intent did not retain transition ownership',
+  );
+  events.add('precommit-terminal-retained');
 
   final gatedRoot = _SessionCompositionRoot(
     identityA,
     readyEffects: const _ClosedSessionEffectSink(),
   );
+  final admission = _ForegroundAdmissionGate();
   final resumeGate = Completer<void>();
-  gatedRoot.bindTopLevelAdmissionGate(() => resumeGate.future);
+  gatedRoot.bindTopLevelAdmissionGate(admission.barrier);
+  admission.suspend();
+  _expectSelfCheckThrows<SessionAdmissionClosedException>(
+    () => gatedRoot.view.current.operations.run<void>((_) {}),
+    'background admission remained open',
+  );
+  events.add('background-gate-closed');
+  final resumeValidation = admission.resume(() => resumeGate.future);
   try {
     var entered = false;
-    final gatedOperation = gatedRoot.view.current.operations.run<void>((_) {
-      entered = true;
-    });
+    final gatedOperationRejected = () async {
+      try {
+        await gatedRoot.view.current.operations.run<void>((_) {
+          entered = true;
+        });
+        return false;
+      } on SessionAdmissionClosedException {
+        return true;
+      }
+    }();
     await Future<void>.delayed(Duration.zero);
     _expectSelfCheck(!entered, 'resume validation did not gate admission');
     events.add('resume-gate-held');
 
-    await gatedRoot.logout(signedOut);
+    await gatedRoot.closeAndDrain();
+    gatedRoot.publishSignedOut(signedOut);
     resumeGate.complete();
-    try {
-      await gatedOperation;
-      throw StateError('retired runner admitted after resume validation');
-    } on SessionAdmissionClosedException {
-      events.add('resume-gate-retired-runner-rejected');
-    }
+    await resumeValidation;
+    _expectSelfCheck(
+      await gatedOperationRejected,
+      'retired runner admitted after resume validation',
+    );
+    events.add('resume-gate-retired-runner-rejected');
   } finally {
     if (!resumeGate.isCompleted) resumeGate.complete();
     gatedRoot.dispose();
   }
 
   return List<String>.unmodifiable(events);
+}
+
+final class _SelfCheckNativeSession implements native.SessionNativeClient {
+  bool _disposed = false;
+
+  @override
+  void dispose() => _disposed = true;
+
+  @override
+  bool get isDisposed => _disposed;
 }
 
 abstract final class _SessionEffectSelfCheckSink {

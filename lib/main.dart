@@ -205,6 +205,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   final Object _socialPushOwner = Object();
   bool _versionCheckShown = false;
   bool _resumeValidationPending = false;
+  int _lifecycleGeneration = 0;
   StreamSubscription<void>? _socialPushTapSubscription;
   StreamSubscription<SessionFeatureAccess>? _sessionSubscription;
   String? _boundReadyRevision;
@@ -233,24 +234,39 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // The process root changes feature admission synchronously before any
+    // lifecycle consumer can enter the session runner.
+    final lifecycleTransition =
+        widget._nativeSession.appLifecycleStateChanged(state);
+    final lifecycleGeneration = ++_lifecycleGeneration;
     MetricsCollectorService.instance.updateAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      if (!_resumeValidationPending) {
+        setState(() => _resumeValidationPending = true);
+      }
+      unawaited(
+        _finishForegroundResume(lifecycleTransition, lifecycleGeneration),
+      );
+    }
     unawaited(
       ObservabilityReportingService.instance.reportLifecycleStateChanged(
         state,
       ),
     );
-    if (state == AppLifecycleState.resumed) {
-      if (!_resumeValidationPending) {
-        setState(() => _resumeValidationPending = true);
-        unawaited(_finishForegroundResume());
-      }
-    }
   }
 
-  Future<void> _finishForegroundResume() async {
+  Future<void> _finishForegroundResume(
+    Future<void> validation,
+    int lifecycleGeneration,
+  ) async {
     try {
-      await widget._nativeSession.foregroundResume();
-      if (!mounted) return;
+      await validation;
+      if (!mounted ||
+          lifecycleGeneration != _lifecycleGeneration ||
+          widget._nativeSession.bridge.terminallyRetired ||
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        return;
+      }
       final access = widget._nativeSession.sessions.current;
       _bindSessionFeatures(access);
       if (access.identity.status != SessionProjectionStatus.ready) return;
@@ -261,7 +277,9 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       ref.invalidate(appVersionCheckProvider);
       _checkInitialVersion();
     } finally {
-      if (mounted) setState(() => _resumeValidationPending = false);
+      if (mounted && lifecycleGeneration == _lifecycleGeneration) {
+        setState(() => _resumeValidationPending = false);
+      }
     }
   }
 

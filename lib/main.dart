@@ -301,7 +301,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     ref.invalidate(zkPassportRegistrationProvider);
     ref.read(perfBenchmarkProvider.notifier).bindSession(access);
     ObservabilityReportingService.instance.configureSession(access);
-    MetricsCollectorService.instance.configureSession(access);
     if (access.identity.status == SessionProjectionStatus.ready) {
       unawaited(
         SentryUtil.setUser(

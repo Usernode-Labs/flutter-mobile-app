@@ -416,6 +416,9 @@ final class ApplicationIncarnationStore {
   /// Removes this app's delivered notifications and the pending requests
   /// behind them. A scoped sign-out keeps the process, so nothing else takes
   /// the retired session's Social/slot text off the lock screen.
+  // TODO(session-lifecycle follow-up): replace this app-wide, completionless
+  // cleanup with incarnation-scoped removal confirmed before a successor may
+  // schedule. Keep that work with the alarm/notification subsystem refactor.
   private func clearSessionNotifications(result: @escaping FlutterResult) {
     let center = UNUserNotificationCenter.current()
     center.removeAllPendingNotificationRequests()

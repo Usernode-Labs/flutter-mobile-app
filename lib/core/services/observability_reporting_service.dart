@@ -21,6 +21,7 @@ typedef ObservabilityRecordClient = FlutterObservabilityRecordResult Function({
 });
 
 typedef _MobileContextCollectorCall = Future<Map<String, dynamic>> Function({
+  required SessionIdentityProjection identity,
   Map<String, dynamic>? eventData,
 });
 
@@ -34,7 +35,7 @@ class ObservabilityReportingService {
 
   ObservabilityReportingService.test({
     required MobileContextSnapshotCollector collector,
-    required ObservabilityRecordClient record,
+    ObservabilityRecordClient? record,
     bool Function()? canRecord,
     NodeRuntimeActiveGetter? isNodeRuntimeActive,
   })  : _collector = collector,
@@ -517,36 +518,53 @@ class ObservabilityReportingService {
     if (!_canReportMobileContextSnapshots) {
       return false;
     }
+    final session = _session;
+    if (session == null ||
+        session.identity.status != SessionProjectionStatus.ready) {
+      return false;
+    }
 
     try {
-      final details = await collect(
-        eventData: {
-          'snapshot_reason': reason,
-          if (eventData != null) ...eventData,
-        },
-      );
-      if (includeBatteryUsage) {
-        final batteryUsage = _batteryUsageDetails(details);
-        if (batteryUsage != null) {
-          details['battery_usage'] = batteryUsage;
-        }
-      }
-
-      final result = recordEvent(
-        event: 'app_mobile_context_snapshot',
-        details: details,
-      );
-
-      if (result.discarded) {
-        _log.debug(
-          'Observability mobile context snapshot discarded',
-          context: {
-            'reason': reason,
-            if (result.reason != null) 'discard_reason': result.reason,
+      return await session.operations.run((operation) async {
+        final details = await collect(
+          identity: session.identity,
+          eventData: {
+            'snapshot_reason': reason,
+            if (eventData != null) ...eventData,
           },
         );
-      }
-      return result.queued || !result.discarded;
+        if (includeBatteryUsage) {
+          final batteryUsage = _batteryUsageDetails(details);
+          if (batteryUsage != null) {
+            details['battery_usage'] = batteryUsage;
+          }
+        }
+
+        final payloadJson = jsonEncode(details);
+        final override = _record;
+        final result = override != null
+            ? override(
+                kind: FlutterObservabilityKind.event,
+                event: 'app_mobile_context_snapshot',
+                payloadJson: payloadJson,
+              )
+            : await operation.recordObservability(
+                kind: FlutterObservabilityKind.event,
+                event: 'app_mobile_context_snapshot',
+                payloadJson: payloadJson,
+              );
+
+        if (result.discarded) {
+          _log.debug(
+            'Observability mobile context snapshot discarded',
+            context: {
+              'reason': reason,
+              if (result.reason != null) 'discard_reason': result.reason,
+            },
+          );
+        }
+        return result.queued || !result.discarded;
+      });
     } catch (e) {
       _log.warn(
         'Failed to record observability mobile context snapshot: $e',

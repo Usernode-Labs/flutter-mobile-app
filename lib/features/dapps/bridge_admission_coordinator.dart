@@ -20,7 +20,11 @@ final class BridgeAdmissionCoordinator {
   int _readinessEpoch = 0;
   bool _disposed = false;
 
-  static const _lifecycleMethods = {'logout', 'establishNativeSession'};
+  static const _lifecycleMethods = {
+    'prepareForLogin',
+    'logout',
+    'establishNativeSession',
+  };
 
   Future<T> runRequest<T>({
     required String method,

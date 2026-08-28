@@ -39,6 +39,13 @@ abstract interface class NativeSessionBridgeIngress {
     required String realmMarker,
   });
 
+  /// Retires any process-private native session before an anonymous Social
+  /// realm is allowed to request a new web session.
+  ///
+  /// This is root-owned rather than realm-session-owned because recovered
+  /// native authority may predate the current JavaScript document.
+  Future<void> prepareForLogin({required String realmMarker});
+
   Future<void> logoutNativeSession({required String realmMarker});
 
   /// Admits one feature operation for the exact Social document/session pair.

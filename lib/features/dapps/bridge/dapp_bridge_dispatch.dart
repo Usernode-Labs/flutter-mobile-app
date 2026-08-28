@@ -53,6 +53,7 @@ mixin _BridgeDispatch
     'requestNotificationPermission',
     'requestAlarmPermissions',
     'openNotificationSettings',
+    'prepareForLogin',
     'logout',
     'establishNativeSession',
     // The trusted shell emits this after its native-event listeners exist.
@@ -287,6 +288,10 @@ mixin _BridgeDispatch
 
     if (method == 'logout') {
       await _handleLogout(id);
+    }
+
+    if (method == 'prepareForLogin') {
+      await _handlePrepareForLogin(id);
     }
 
     if (method == 'establishNativeSession') {

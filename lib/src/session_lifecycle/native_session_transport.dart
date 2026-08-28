@@ -1625,6 +1625,62 @@ final class _NativeSessionCompositionRoot
   }
 
   @override
+  Future<void> prepareForLogin({required String realmMarker}) async {
+    _validateRealmMarker(realmMarker);
+    if (_terminallyRetired) {
+      throw const NativeSessionException(
+        'native_session_terminally_retired',
+        'The native session was retired; relaunch is required.',
+      );
+    }
+    final currentStatus = _sessions.view.current.identity.status;
+    if (currentStatus == SessionProjectionStatus.signedOut &&
+        _nativeSession == null &&
+        !_transitions.establishmentInFlight) {
+      return;
+    }
+
+    // Unlike explicit logout, this root terminal does not require the old
+    // realm claim. A recovered Ready may have been created before this Social
+    // document existed. The trusted caller marker proves only that the new
+    // request comes from the configured top frame.
+    final establishCompleted = _transitions.beginRootLogout();
+    try {
+      if (currentStatus == SessionProjectionStatus.ready) {
+        await _sessions.logoutAfterDrain(() async {
+          if (establishCompleted != null) await establishCompleted;
+          return _commitRootNativeLogout();
+        });
+      } else {
+        final outcome = establishCompleted == null
+            ? _NativeEstablishOutcome.ready
+            : await establishCompleted;
+        if (outcome == _NativeEstablishOutcome.notCommitted &&
+            _nativeSession == null) {
+          _nativeReadyRevision = null;
+          _realmMarker = null;
+          _realmClaim = null;
+          _transitions.finishLogout(succeeded: true);
+          return;
+        }
+        final signedOut = await _commitRootNativeLogout();
+        _sessions.replaceSignedOut(signedOut);
+      }
+
+      _nativeSession = null;
+      _nativeReadyRevision = null;
+      _realmMarker = null;
+      _realmClaim = null;
+      _transitions.finishLogout(succeeded: true);
+    } catch (error) {
+      // Keep the root terminal intent closed so only this preflight can retry;
+      // no successor establishment may pass a failed retirement boundary.
+      _transitions.finishLogout(succeeded: false);
+      throw _asNativeSessionException(error);
+    }
+  }
+
+  @override
   Future<void> logoutNativeSession({required String realmMarker}) async {
     _validateRealmMarker(realmMarker);
     if (_terminallyRetired) {
@@ -1661,7 +1717,7 @@ final class _NativeSessionCompositionRoot
       if (currentStatus == SessionProjectionStatus.ready) {
         await _sessions.logoutAfterDrain(() async {
           if (establishCompleted != null) await establishCompleted;
-          return _commitNativeLogout(realmMarker);
+          return _commitRealmNativeLogout(realmMarker);
         });
       } else {
         final outcome = establishCompleted == null
@@ -1675,7 +1731,7 @@ final class _NativeSessionCompositionRoot
           _transitions.finishLogout(succeeded: true);
           return;
         }
-        final signedOut = await _commitNativeLogout(realmMarker);
+        final signedOut = await _commitRealmNativeLogout(realmMarker);
         _sessions.replaceSignedOut(
           signedOut,
         );
@@ -1694,9 +1750,9 @@ final class _NativeSessionCompositionRoot
     }
   }
 
-  Future<SessionIdentityProjection> _commitNativeLogout(
+  Future<SessionIdentityProjection> _commitRealmNativeLogout(
     String realmMarker,
-  ) async {
+  ) {
     if (!_transitions.hasTerminalIntentFor(realmMarker) ||
         _realmClaim == null) {
       throw const NativeSessionException(
@@ -1704,6 +1760,20 @@ final class _NativeSessionCompositionRoot
         'The native session belongs to a different page realm.',
       );
     }
+    return _commitNativeLogout();
+  }
+
+  Future<SessionIdentityProjection> _commitRootNativeLogout() {
+    if (!_transitions.hasRootTerminalIntent) {
+      throw const NativeSessionException(
+        'native_session_transition_in_progress',
+        'Native login preparation does not own the terminal transition.',
+      );
+    }
+    return _commitNativeLogout();
+  }
+
+  Future<SessionIdentityProjection> _commitNativeLogout() async {
     final session = _nativeSession;
     if (session == null) {
       throw const NativeSessionException(
@@ -1764,24 +1834,30 @@ final class _NativeSessionCompositionRoot
 }
 
 /// The single accepted establishment and the single terminal intent behind it.
-/// This is deliberately not a queue: a second establishment or logout is
-/// rejected, while an exact-realm logout may wait for the accepted attempt.
+/// This is deliberately not a queue: a second transition is rejected, while
+/// either the exact realm or the trusted process root may retire the accepted
+/// attempt.
 enum _NativeEstablishOutcome { notCommitted, ready }
 
 final class _NativeSessionTransitionSlot {
   Completer<_NativeEstablishOutcome>? _establish;
   String? _establishRealm;
   String? _terminalRealm;
+  var _rootTerminalIntent = false;
   var _logoutInFlight = false;
+
+  bool get establishmentInFlight => _establish != null;
+
+  bool get hasRootTerminalIntent => _rootTerminalIntent;
 
   bool authorizesLogoutRealm(String realmMarker) =>
       _establishRealm == realmMarker || _terminalRealm == realmMarker;
 
   bool hasTerminalIntentFor(String realmMarker) =>
-      _terminalRealm == realmMarker;
+      _rootTerminalIntent || _terminalRealm == realmMarker;
 
   void beginEstablish(String realmMarker) {
-    if (_terminalRealm != null) {
+    if (_rootTerminalIntent || _terminalRealm != null) {
       throw const NativeSessionException(
         'native_session_logout_pending',
         'Native logout must finish before another session can be established.',
@@ -1813,6 +1889,12 @@ final class _NativeSessionTransitionSlot {
         'A native session transition is already in progress.',
       );
     }
+    if (_rootTerminalIntent) {
+      throw const NativeSessionException(
+        'native_session_logout_pending',
+        'Native login preparation must finish before another transition.',
+      );
+    }
     if ((_establishRealm != null && _establishRealm != realmMarker) ||
         (_terminalRealm != null && _terminalRealm != realmMarker)) {
       throw const NativeSessionException(
@@ -1825,9 +1907,24 @@ final class _NativeSessionTransitionSlot {
     return _establish?.future;
   }
 
+  Future<_NativeEstablishOutcome>? beginRootLogout() {
+    if (_logoutInFlight) {
+      throw const NativeSessionException(
+        'native_session_transition_in_progress',
+        'A native session transition is already in progress.',
+      );
+    }
+    _rootTerminalIntent = true;
+    _logoutInFlight = true;
+    return _establish?.future;
+  }
+
   void finishLogout({required bool succeeded}) {
     _logoutInFlight = false;
-    if (succeeded) _terminalRealm = null;
+    if (succeeded) {
+      _terminalRealm = null;
+      _rootTerminalIntent = false;
+    }
   }
 }
 
@@ -1862,6 +1959,10 @@ final class _FailingNativeSessionBridgeIngress
     required String realmMarker,
   }) =>
       Future<Map<String, Object?>>.error(_failure);
+
+  @override
+  Future<void> prepareForLogin({required String realmMarker}) =>
+      Future<void>.error(_failure);
 
   @override
   Future<void> logoutNativeSession({required String realmMarker}) =>

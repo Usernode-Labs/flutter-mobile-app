@@ -105,6 +105,7 @@ class PrivilegedBridgePolicy {
     'requestAlarmPermissions',
     'openNotificationSettings',
     'markPrivilegedBridgeReady',
+    'prepareForLogin',
     'logout',
     'establishNativeSession',
     'getNodeAddress',

@@ -60,6 +60,7 @@ void main() {
       'requestAlarmPermissions',
       'openNotificationSettings',
       'markPrivilegedBridgeReady',
+      'prepareForLogin',
       'logout',
       'establishNativeSession',
       'getNodeAddress',

@@ -84,6 +84,49 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     }
   }
 
+  /// An anonymous trusted Social realm has no claim for a native session
+  /// recovered before this document existed. The privileged process-root
+  /// ingress may retire that private authority, but exposes nothing about it
+  /// to JavaScript and does not replace the document on success.
+  Future<void> _handlePrepareForLogin(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'prepareForLogin')) return;
+    final lease = _activePrivilegedBridgeLease;
+    if (lease == null) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Secure native login preparation is unavailable',
+      );
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(id, 'prepareForLogin')) {
+      return;
+    }
+    try {
+      await widget._nativeSessionBridge.prepareForLogin(
+        realmMarker: lease.marker,
+      );
+      await _resolveJsPromise(id: id, value: true, error: null);
+    } on NativeSessionException catch (error) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: error.message,
+        errorInfo: {'code': error.code},
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[Usernode JS-channel] native login preparation failed: '
+        '$error\n$stackTrace',
+      );
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'Secure native login preparation failed',
+      );
+    }
+  }
+
   /// Social closes its page-side admission first. Native then closes runner
   /// admission synchronously, drains every admitted child/effect, commits the
   /// durable logout, retires the vault record, and only then acknowledges.

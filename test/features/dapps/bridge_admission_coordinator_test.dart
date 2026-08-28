@@ -103,7 +103,11 @@ void main() {
   });
 
   test('lifecycle handler blocks every later bridge admission', () async {
-    for (final lifecycleMethod in ['logout', 'establishNativeSession']) {
+    for (final lifecycleMethod in [
+      'prepareForLogin',
+      'logout',
+      'establishNativeSession',
+    ]) {
       final frame = _AdmissionTopFrame(trustedUrl);
       final policy = _policy(frame);
       final coordinator = _coordinator(frame, policy: policy);

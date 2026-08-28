@@ -21,9 +21,12 @@ class NetworkPrefs {
 
   static const _allowedNetworks = {'testnet', 'internal', 'custom'};
 
+  static bool isSupportedNetwork(String network) =>
+      _allowedNetworks.contains(network);
+
   static String _normalizeNetwork(String? network) {
     if (network == null || network.isEmpty) return 'testnet';
-    return _allowedNetworks.contains(network) ? network : 'testnet';
+    return isSupportedNetwork(network) ? network : 'testnet';
   }
 
   /// Get the current network type synchronously (after initialization).
@@ -40,14 +43,6 @@ class NetworkPrefs {
     final prefs = await SharedPreferences.getInstance();
     _cachedNetwork = _normalizeNetwork(prefs.getString(networkKey));
     return _cachedNetwork!;
-  }
-
-  /// Drops process-local routing state after the durable preference wipe.
-  /// The next cold launch therefore starts from the same default network and
-  /// guest bucket that an empty preference store represents.
-  static void resetForApplicationReset() {
-    _cachedNetwork = null;
-    _activeBucket = guestBucket;
   }
 
   /// Prefix a key with the current network name.

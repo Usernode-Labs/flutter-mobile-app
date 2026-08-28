@@ -16,7 +16,6 @@ enum SocialPushUnregisterReason {
   signedOut('signed_out'),
   accountChanged('account_changed'),
   identityBoundary('identity_boundary'),
-  terminalReset('terminal_reset'),
   configurationUnavailable('configuration_unavailable');
 
   const SocialPushUnregisterReason(this.wireName);

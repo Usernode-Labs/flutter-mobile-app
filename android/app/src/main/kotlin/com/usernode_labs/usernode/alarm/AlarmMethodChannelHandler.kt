@@ -15,18 +15,11 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-import android.webkit.CookieManager
-import android.webkit.WebStorage
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.webkit.WebStorageCompat
-import androidx.webkit.WebViewFeature
-import com.usernode_labs.usernode.session.AndroidNativeSessionPlatform
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import java.io.File
 import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -216,17 +209,9 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
             "clearSessionNotifications" -> {
                 result.success(clearSessionNotifications())
             }
-            "clearWebSessionData" -> {
-                clearWebSessionData(result)
-            }
-            "clearNativeResetState" -> {
-                result.success(clearNativeResetState())
-            }
-            "enterTerminalReset" -> {
-                val clearApplicationData =
-                    call.argument<Boolean>("clearApplicationData") ?: true
+            "terminateForNetworkChange" -> {
                 result.success(null)
-                enterTerminalReset(clearApplicationData)
+                terminateForNetworkChange()
             }
             "hasExactAlarmPermission" -> {
                 result.success(hasExactAlarmPermission())
@@ -496,58 +481,6 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
     }
 
     /**
-     * Deletes everything the WebView holds for the retired session.
-     *
-     * The framework `WebStorage.deleteAllData()` has no completion callback and
-     * makes no guarantee about the network cache or installed service workers —
-     * and this app deliberately enables service workers for the SV shell — so it
-     * cannot back a security boundary. `WebStorageCompat.deleteBrowsingData`
-     * (androidx.webkit 1.13.0+) covers cache, cookies, JS-readable storage and
-     * service workers, and reports completion.
-     *
-     * When that API is unavailable this reports failure rather than a partial
-     * wipe: a scoped sign-out must not be acknowledged on a jar that may still
-     * re-authenticate the next page load. The Dart side escalates to the
-     * terminal reset, whose clear-application-data wipe does cover it.
-     */
-    private fun clearWebSessionData(result: MethodChannel.Result) {
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) {
-            Log.e(
-                TAG,
-                "Comprehensive WebView deletion is unsupported by the installed " +
-                    "WebView; refusing to report a partial session clear"
-            )
-            result.success(false)
-            return
-        }
-        val answered = AtomicBoolean(false)
-        fun answer(success: Boolean) {
-            if (answered.compareAndSet(false, true)) result.success(success)
-        }
-        try {
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    WebStorageCompat.deleteBrowsingData(WebStorage.getInstance()) {
-                        // Cookies live in their own store; flush them to disk so the
-                        // deletion survives a process death immediately after this.
-                        val cookies = CookieManager.getInstance()
-                        cookies.removeAllCookies {
-                            cookies.flush()
-                            answer(true)
-                        }
-                    }
-                } catch (error: Exception) {
-                    Log.e(TAG, "Failed to clear WebView browsing data", error)
-                    answer(false)
-                }
-            }
-        } catch (error: Exception) {
-            Log.e(TAG, "Failed to clear WebView session data", error)
-            answer(false)
-        }
-    }
-
-    /**
      * Removes the notifications this app has already posted. A scoped sign-out
      * keeps the process, so nothing else would take the retired session's
      * Social/slot text off the tray or lock screen.
@@ -563,42 +496,9 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
         }
     }
 
-    private fun clearNativeResetState(): Boolean {
-        var durableStateCleared = alarmScheduler.cancelAllAlarms("terminal_reset")
-        durableStateCleared =
-            AlarmWatchdogScheduler.cancel(appContext) && durableStateCleared
-        durableStateCleared =
-            foregroundServiceManager.stopForegroundService() && durableStateCleared
-        appContext.stopService(Intent(appContext, SlotMonitoringService::class.java))
-        NativeWakeLockManager.release()
-        (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .cancelAll()
-        for (name in listOf("alarm_prefs", "alarm_watchdog_prefs", "background_task_stats")) {
-            durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
-                .edit()
-                .clear()
-                .commit() && durableStateCleared
-        }
-        durableStateCleared = applicationIncarnationStore.clear() && durableStateCleared
-        durableStateCleared =
-            AndroidNativeSessionPlatform.vault(appContext).clearForTerminalReset() &&
-            durableStateCleared
-        // TODO(session-lifecycle): keep alarm semantics out of this refactor; only
-        // the exact terminal-reset storage boundary belongs here.
-        durableStateCleared = File(appContext.noBackupFilesDir, "native_session_v2")
-            .let { !it.exists() || it.deleteRecursively() } && durableStateCleared
-        flutterAlarmEventBuffer.clear()
-        return durableStateCleared
-    }
-
-    private fun enterTerminalReset(clearApplicationData: Boolean) {
+    private fun terminateForNetworkChange() {
         attachedActivity()?.finishAffinity()
         Handler(Looper.getMainLooper()).post {
-            if (clearApplicationData) {
-                val activityManager =
-                    appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                if (activityManager.clearApplicationUserData()) return@post
-            }
             android.os.Process.killProcess(android.os.Process.myPid())
         }
     }

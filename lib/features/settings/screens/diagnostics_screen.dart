@@ -3,13 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
@@ -22,7 +21,12 @@ import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dia
 /// native-only tooling, reachable from the SV debug escape hatch or
 /// `openNativeScreen('diagnostics')`.
 class DiagnosticsScreen extends ConsumerStatefulWidget {
-  const DiagnosticsScreen({super.key});
+  const DiagnosticsScreen({
+    required this.onNetworkRestartRequested,
+    super.key,
+  });
+
+  final bool Function(String network) onNetworkRestartRequested;
 
   @override
   ConsumerState<DiagnosticsScreen> createState() => _DiagnosticsScreenState();
@@ -148,11 +152,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   }
 
   Future<void> _showNetworkSwitcherDialog() async {
-    final prefs = await SharedPreferences.getInstance();
-    const allowedNetworks = {'testnet', 'internal', 'custom'};
-    final storedNetwork = prefs.getString('network:type');
-    final currentNetwork =
-        allowedNetworks.contains(storedNetwork) ? storedNetwork! : 'testnet';
+    final currentNetwork = await NetworkPrefs.getNetwork();
 
     if (!mounted) return;
 
@@ -165,15 +165,14 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     );
 
     if (result != null && result != currentNetwork && mounted) {
-      await AppResetService.instance.resetAndTerminate(
-        reason: 'network_change',
-        prepareNextLaunch: () async {
-          final emptyPrefs = await SharedPreferences.getInstance();
-          if (!await emptyPrefs.setString('network:type', result)) {
-            throw StateError('Could not persist the selected network');
-          }
-        },
-      );
+      final accepted = widget.onNetworkRestartRequested(result);
+      if (!accepted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(
+                  AppLocalizations.of(context).networkSwitchRequiresSignOut)),
+        );
+      }
     }
   }
 

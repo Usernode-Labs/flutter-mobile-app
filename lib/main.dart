@@ -28,8 +28,10 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
+import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
@@ -50,9 +52,11 @@ import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_
 import 'package:crypto_mobile_app/src/rust/mobile_api.dart' as native;
 import 'package:crypto_mobile_app/src/rust/frb_types.dart' as perf_types;
 import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 part 'src/session_lifecycle/session_operation_kernel.dart';
 part 'src/session_lifecycle/native_session_transport.dart';
+part 'src/session_lifecycle/network_restart_boundary.dart';
 part 'src/session_lifecycle/app_router_root.dart';
 
 /// Marionette MCP mode initializes MarionetteBinding for runtime inspection
@@ -135,16 +139,26 @@ class _CryptoMobileApp extends ConsumerStatefulWidget {
 
 class _CryptoMobileAppState extends ConsumerState<_CryptoMobileApp> {
   late final GoRouter _router;
+  late final _NetworkRestartBoundary _networkRestart;
 
   @override
   void initState() {
     super.initState();
-    _router = _createAppRouter(ref, widget._nativeSession);
+    _networkRestart = _NetworkRestartBoundary(
+      nativeSession: widget._nativeSession,
+      platformAlarms: PlatformAlarmService.instance,
+    );
+    _router = _createAppRouter(
+      ref,
+      widget._nativeSession,
+      requestNetworkRestart: _networkRestart.request,
+    );
   }
 
   @override
   void dispose() {
     _router.dispose();
+    _networkRestart.dispose();
     super.dispose();
   }
 
@@ -176,10 +190,19 @@ class _CryptoMobileAppState extends ConsumerState<_CryptoMobileApp> {
       routerConfig: _router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => _AppWrapper(
-        router: _router,
-        nativeSession: widget._nativeSession,
+      builder: (context, child) => ListenableBuilder(
+        listenable: _networkRestart,
         child: child,
+        builder: (context, child) {
+          if (_networkRestart.active) {
+            return _NetworkRestartSurface(boundary: _networkRestart);
+          }
+          return _AppWrapper(
+            router: _router,
+            nativeSession: widget._nativeSession,
+            child: child,
+          );
+        },
       ),
     );
   }

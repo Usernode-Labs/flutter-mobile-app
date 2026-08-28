@@ -171,11 +171,16 @@ internal class InteractiveNativeSessionChannel(
     }
 
     private fun revokeCredential(call: MethodCall, result: MethodChannel.Result) {
-        managedArguments(
-            call,
+        // Terminal intent may already have cleared the producer Ready selector.
+        // The private process-root transport claim is the authority for teardown.
+        requireProcessRoot()
+        val arguments = exactArguments(
+            call.arguments,
             setOf("expectedRevision", "processTransportClaim"),
             "revokeNativeSessionCredential",
         )
+        requireProcessTransportClaim(arguments)
+        exactLong(arguments["expectedRevision"], "expected revision")
         runWorker(result) {
             mapOf(
                 "status" to when (vault.revokeCredentialOnServer()) {

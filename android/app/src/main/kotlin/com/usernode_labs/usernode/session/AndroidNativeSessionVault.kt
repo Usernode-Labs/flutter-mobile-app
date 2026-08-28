@@ -472,24 +472,6 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
-    /** Clears the exact native-session vault and installation keys on terminal reset. */
-    @Synchronized
-    fun clearForTerminalReset(): Boolean {
-        var cleared = preferences.edit().clear().commit()
-        http = null
-        cleared = try {
-            KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.let { keyStore ->
-                for (alias in listOf(POSSESSION_ALIAS, ENVELOPE_ALIAS)) {
-                    if (keyStore.containsAlias(alias)) keyStore.deleteEntry(alias)
-                }
-            }
-            cleared
-        } catch (_: Throwable) {
-            false
-        }
-        return cleared
-    }
-
     /** Retained, authenticated challenge lookup; no bearer/API client enters Dart. */
     @Synchronized
     fun resolveLegacyZkPassportChallengeId(): Int {

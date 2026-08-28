@@ -573,7 +573,14 @@ final class IOSNativeSessionChannel {
   }
 
   private func revoke(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {
-    _ = try managed(call, keys: ["expectedRevision", "processTransportClaim"])
+    // Terminal intent may already have cleared the producer Ready selector.
+    // The private process-root transport claim is the authority for teardown.
+    let arguments = try authorized(
+      call, keys: ["expectedRevision", "processTransportClaim"]
+    )
+    _ = try NativeSessionProtocol.exactUInt64(
+      arguments["expectedRevision"], "expected revision"
+    )
     work(result) {
       let status: String
       switch self.vault.revokeCredentialOnServer() {

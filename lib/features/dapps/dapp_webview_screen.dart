@@ -139,6 +139,7 @@ abstract class _DappWebViewScreenStateBase
   late final BridgeAdmissionCoordinator _bridgeAdmissionCoordinator;
   PrivilegedBridgeLease? _readyMainFrameLease;
   StreamSubscription<void>? _nativeTerminalRetirementSubscription;
+  bool _terminallyInert = false;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
   /// the WebView can invoke after this screen is disposed — read through it
@@ -166,7 +167,7 @@ abstract class _DappWebViewScreenStateBase
 
   void _replaceRetiredSessionDocument() {
     if (widget._nativeSessionBridge.terminallyRetired) {
-      unawaited(_makeTerminalSessionDocumentInert());
+      _latchTerminalSessionDocument();
       return;
     }
     final delegate = widget.onSessionEnded;
@@ -179,18 +180,16 @@ abstract class _DappWebViewScreenStateBase
     unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
   }
 
-  Future<void> _makeTerminalSessionDocumentInert() async {
-    if (!mounted) return;
+  void _latchTerminalSessionDocument({bool notify = true}) {
+    if (_terminallyInert) return;
     _readyMainFrameLease = null;
     _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
-    try {
-      await _controller.loadHtmlString(
-        '<!doctype html><html><head><meta name="viewport" '
-        'content="width=device-width,initial-scale=1"></head>'
-        '<body></body></html>',
-      );
-    } catch (_) {
-      // Admission is already permanently closed in the composition root.
+    if (notify && mounted) {
+      setState(() {
+        _terminallyInert = true;
+      });
+    } else {
+      _terminallyInert = true;
     }
   }
 
@@ -466,10 +465,10 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     );
     _nativeTerminalRetirementSubscription =
         widget._nativeSessionBridge.terminalRetirements.listen((_) {
-      unawaited(_makeTerminalSessionDocumentInert());
+      _latchTerminalSessionDocument();
     });
     if (widget._nativeSessionBridge.terminallyRetired) {
-      unawaited(_makeTerminalSessionDocumentInert());
+      _latchTerminalSessionDocument(notify: false);
     } else {
       unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
     }
@@ -508,7 +507,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
 
   Future<void> _applyWidgetNavigation(int revision) async {
     if (widget._nativeSessionBridge.terminallyRetired) {
-      await _makeTerminalSessionDocumentInert();
+      _latchTerminalSessionDocument();
       return;
     }
     final next = parseDappUrl(widget.url);
@@ -637,6 +636,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // platform view inside a scrollable starves it of buffers and ANRs the app
     // (BLASTBufferQueue "can't acquire next buffer").
     final colors = Theme.of(context).colorScheme;
+    final webView = _terminallyInert
+        ? const SizedBox.expand()
+        : WebViewWidget(controller: _controller);
 
     return PopScope(
       // Take over the route-pop handler so the device/system back button
@@ -665,10 +667,10 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         body: ColoredBox(
           color: colors.surfaceContainerLowest,
           child: widget.standalone
-              ? WebViewWidget(controller: _controller)
+              ? webView
               : SafeArea(
                   bottom: false,
-                  child: WebViewWidget(controller: _controller),
+                  child: webView,
                 ),
         ),
       ),
@@ -681,7 +683,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   // back goes to app, not out of the dapp) and only falls through to
   // popping the Flutter route once the WebView is at its root.
   Future<void> _handleBack() async {
-    if (await _controller.canGoBack()) {
+    if (!_terminallyInert && await _controller.canGoBack()) {
       await _controller.goBack();
       return;
     }

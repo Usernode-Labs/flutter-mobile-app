@@ -79,17 +79,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
     _identity = access.identity;
   }
 
-  /// Clears cached state so a subsequent bootstrap starts cleanly.
-  void reset() {
-    _appStartTime = null;
-    _identity = null;
-    _appLifecycleState = AppLifecycleState.resumed;
-    _cachedPackageInfo = null;
-    _cachedDeviceInfo = null;
-    _batteryOptimizationCacheTime = null;
-    _cachedBatteryOptimization = null;
-  }
-
   /// Update the current app lifecycle state
   void updateAppLifecycleState(AppLifecycleState state) {
     _appLifecycleState = state;

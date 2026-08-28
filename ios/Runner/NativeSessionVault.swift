@@ -63,23 +63,28 @@ final class IOSNativeSessionVault {
     try ensureInstallationBoundary()
     let next = try IOSNativeSessionHTTP(raw)
     if let configuredHTTP {
-      guard configuredHTTP.canonicalBaseUrl == next.canonicalBaseUrl else {
-        try NativeSessionProtocol.fail(
-          "native_api_origin_conflict",
-          "The native mobile API origin changed within one process"
-        )
+      if configuredHTTP.canonicalBaseUrl != next.canonicalBaseUrl {
+        try requireCredentialAbsentForOriginChange()
+        defaults.set(next.canonicalBaseUrl, forKey: Self.mobileApiBaseUrlKey)
+        self.configuredHTTP = next
       }
       return
     }
     if let persisted = defaults.string(forKey: Self.mobileApiBaseUrlKey),
        persisted != next.canonicalBaseUrl {
-      try NativeSessionProtocol.fail(
-        "native_api_origin_conflict",
-        "The native mobile API origin changed within one installation"
-      )
+      try requireCredentialAbsentForOriginChange()
     }
     defaults.set(next.canonicalBaseUrl, forKey: Self.mobileApiBaseUrlKey)
     configuredHTTP = next
+  }
+
+  private func requireCredentialAbsentForOriginChange() throws {
+    guard try readKeychain(account: Self.credentialAccount) == nil else {
+      try NativeSessionProtocol.fail(
+        "native_api_origin_conflict",
+        "The native mobile API origin changed underneath a live credential"
+      )
+    }
   }
 
   func prepareExchange(_ rawTicket: Any?) throws -> [String: Any] {
@@ -436,22 +441,6 @@ final class IOSNativeSessionVault {
     if stored["attemptId"] as? String == attemptId {
       try deleteKeychain(account: Self.credentialAccount, expected: raw)
     }
-  }
-
-  /// Clears the exact native-session vault and installation keys on terminal reset.
-  func clearForTerminalReset() -> Bool {
-    lock.lock(); defer { lock.unlock() }
-    var cleared = true
-    for query in installationBoundaryDeletionQueries() {
-      let status = SecItemDelete(query as CFDictionary)
-      cleared = (status == errSecSuccess || status == errSecItemNotFound) && cleared
-    }
-    defaults.removeObject(forKey: Self.mobileApiBaseUrlKey)
-    defaults.removeObject(forKey: Self.readyRevisionKey)
-    defaults.removeObject(forKey: Self.installationMarkerKey)
-    configuredHTTP = nil
-    installationBoundaryChecked = false
-    return defaults.synchronize() && cleared
   }
 
   func resolveLegacyZkPassportChallengeId() throws -> Int {

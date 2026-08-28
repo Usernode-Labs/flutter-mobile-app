@@ -108,7 +108,6 @@ class SocialPushService {
   SocialPushRecord? _record;
   bool _recordPersisted = false;
   bool _available = false;
-  bool _resetting = false;
   Object? _sessionOwner;
   SocialPushSession? _session;
   SocialPushSession? _cleanedSession;
@@ -151,10 +150,6 @@ class SocialPushService {
   Future<void> _initializeOnce() async {
     try {
       final loaded = await _persistence.load();
-      if (_resetting) {
-        await _persistence.clear();
-        return;
-      }
       _record = loaded;
       if (_tapCaptureBlocked && _record!.pending != null) {
         _record = _record!.copyWith(clearPending: true);
@@ -167,12 +162,6 @@ class SocialPushService {
       // queued boundary must rewrite its cleared record.
       _recordPersisted = identical(_record, recordBeingSaved);
     } catch (error) {
-      if (_resetting) {
-        try {
-          await _persistence.clear();
-        } catch (_) {}
-        return;
-      }
       _record = SocialPushRecord.fresh();
       _recordPersisted = false;
       _registrationStatus = SocialPushRegistrationStatus.error;
@@ -206,10 +195,6 @@ class SocialPushService {
         '[SocialPush] Firebase unavailable (${error.runtimeType})',
       );
       _emitState();
-      return;
-    }
-    if (_resetting) {
-      await _disableInitializedProviderState();
       return;
     }
     if (projectId != expectedFirebaseProjectId) {
@@ -335,7 +320,6 @@ class SocialPushService {
   /// Attaches the exact ready bearer owned by the active provider container.
   /// Calling this with a renewed same-user bearer simply queues another PUT.
   void attachSession(Object owner, SocialPushSession session) {
-    if (_resetting) return;
     final previousSession = _session;
     final crossUserBoundary =
         previousSession != null && previousSession.userId != session.userId;
@@ -474,49 +458,7 @@ class SocialPushService {
     });
   }
 
-  /// Fences process-local push delivery for a terminal application reset.
-  ///
-  /// Persistent push state is erased by the reset service's secure-storage
-  /// wipe. Network unregister/rotation is intentionally not awaited because
-  /// remote cleanup may never delay the local terminal boundary.
-  void closeForTerminalReset() {
-    _cancelRegistrationRetry(resetAttempts: true);
-    _fenceTapCaptureAtAccountBoundary();
-    _sessionOwner = null;
-    _session = null;
-    _clearRegisteredSignature();
-    _resetting = true;
-    _installFreshResetState();
-    _runDetached(_finishTerminalResetCleanup(), 'terminal push cleanup');
-  }
-
-  Future<void> _finishTerminalResetCleanup() async {
-    await _openedSubscription?.cancel();
-    await _foregroundSubscription?.cancel();
-    await _tokenSubscription?.cancel();
-    _openedSubscription = null;
-    _foregroundSubscription = null;
-    _tokenSubscription = null;
-    try {
-      await _persistence.clear();
-    } catch (_) {}
-    await _disableInitializedProviderState(force: true);
-  }
-
-  void _installFreshResetState() {
-    _record = SocialPushRecord.fresh();
-    _recordPersisted = false;
-    _cleanedSession = null;
-    _permission = SocialPushPermission.notDetermined;
-    _registrationStatus = SocialPushRegistrationStatus.disabled;
-    _deliveryActive = false;
-    _tapCaptureBlocked = true;
-    _providerRotationBoundaryGeneration = null;
-    _emitState();
-  }
-
   Future<void> _setEnabledNow(bool enabled) async {
-    if (_resetting) return;
     _cancelRegistrationRetry(resetAttempts: true);
     await _ensureRecordPersisted();
     final record = _record!;
@@ -568,9 +510,7 @@ class SocialPushService {
   }
 
   Future<void> _reconcileNow({bool refreshPermission = true}) async {
-    if (_disposed ||
-        _resetting ||
-        _providerRotationBoundaryGeneration != null) {
+    if (_disposed || _providerRotationBoundaryGeneration != null) {
       return;
     }
     await _ensureRecordPersisted();
@@ -745,7 +685,6 @@ class SocialPushService {
   }) {
     if (expectedSession == null ||
         _disposed ||
-        _resetting ||
         !_available ||
         _providerRotationBoundaryGeneration != null ||
         _record?.optedIn != true) {
@@ -939,9 +878,7 @@ class SocialPushService {
     Map<String, Object?> message,
     int captureGeneration,
   ) async {
-    if (_resetting ||
-        _tapCaptureBlocked ||
-        captureGeneration != _tapCaptureGeneration) {
+    if (_tapCaptureBlocked || captureGeneration != _tapCaptureGeneration) {
       return;
     }
     final payload = parseSocialPushPayload(
@@ -1039,11 +976,10 @@ class SocialPushService {
     _providerRotationBoundaryGeneration = null;
     if (pendingClearPersisted &&
         boundaryGeneration == _tapCaptureGeneration &&
-        _session != null &&
-        !_resetting) {
+        _session != null) {
       _tapCaptureBlocked = false;
     }
-    if (_session != null && !_resetting) {
+    if (_session != null) {
       await _reconcileNow();
     }
   }
@@ -1098,15 +1034,7 @@ class SocialPushService {
   }
 
   Future<bool> _persistRecord(SocialPushRecord record) async {
-    if (_resetting) {
-      await _persistence.clear();
-      return false;
-    }
     await _persistence.save(record);
-    if (_resetting) {
-      await _persistence.clear();
-      return false;
-    }
     return true;
   }
 

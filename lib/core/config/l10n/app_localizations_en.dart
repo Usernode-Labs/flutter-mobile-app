@@ -572,6 +572,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get networkRestartRequired => 'Restart Required';
 
   @override
+  String get networkSwitchRequiresSignOut =>
+      'Sign out before switching networks.';
+
+  @override
+  String get networkRestartPreparing =>
+      'Preparing the selected network. Do not close the app yet.';
+
+  @override
+  String get networkRestartFailed =>
+      'The network change could not be saved. Close and reopen Usernode, then try again.';
+
+  @override
   String networkSwitchedRestartIos(String network) {
     return 'Network switched to $network. Please manually close and reopen the app to connect to the new network.';
   }
@@ -580,9 +592,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String networkSwitchedRestartAndroid(String network) {
     return 'Network switched to $network. The app will now close. Please reopen it to connect to the new network.';
   }
-
-  @override
-  String get networkCloseApp => 'Close App';
 
   @override
   String get settingsDebugMode => 'Debug Mode';
@@ -665,54 +674,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetInstructionsDone => 'Done';
-
-  @override
-  String get appResetCompleteTitle => 'Reset complete';
-
-  @override
-  String get appResetCompleteBody => 'Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetLogoutTitle => 'Signed out';
-
-  @override
-  String get appResetLogoutBody =>
-      'You signed out, and your local data was cleared. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetSessionExpiredTitle => 'Session expired';
-
-  @override
-  String get appResetSessionExpiredBody =>
-      'Your session is no longer valid, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetCredentialMissingTitle => 'Signed out';
-
-  @override
-  String get appResetCredentialMissingBody =>
-      'Your saved sign-in could not be read, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetAccountChangedTitle => 'Account changed';
-
-  @override
-  String get appResetAccountChangedBody =>
-      'You signed in with a different account, so the previous account\'s local data was cleared. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetGuestTitle => 'Switched to guest';
-
-  @override
-  String get appResetGuestBody =>
-      'You switched to guest mode, and your account\'s local data was cleared. Close and reopen Usernode to continue.';
-
-  @override
-  String get appResetNetworkChangeTitle => 'Network changed';
-
-  @override
-  String get appResetNetworkChangeBody =>
-      'Usernode will start on the selected network. Close and reopen Usernode to continue.';
 
   @override
   String get svShellConnectingTitle => 'Connecting to Usernode…';

@@ -291,10 +291,22 @@ final class IOSNativeProducerWakeCoordinator {
     source: IOSProducerWakeSource
   ) throws -> IOSProducerWakeResult {
     switch directive {
-    case .cancel(let revision, _, let applyRequired):
-      guard !applyRequired else {
-        try IOSNativeSessionRust.completeProducerWakeApply(exactResponse, success: false)
-        return IOSProducerWakeResult(outcome: "retry", nativeRevision: nil)
+    case .cancel(let revision, let terminateProcess, let applyRequired):
+      if applyRequired {
+        guard revision == expectedRevision, !terminateProcess else {
+          try IOSNativeSessionRust.completeProducerWakeApply(exactResponse, success: false)
+          return IOSProducerWakeResult(outcome: "retry", nativeRevision: nil)
+        }
+        if let current = vault.readyRevision(), current != expectedRevision {
+          try IOSNativeSessionRust.completeProducerWakeApply(exactResponse, success: false)
+          return IOSProducerWakeResult(outcome: "retry", nativeRevision: nil)
+        }
+        // Delegation stops producer scheduling, not the retained native
+        // session. Persist Ready before releasing Rust's apply claim so
+        // managed session operations remain available after this boundary.
+        vault.setReadyRevision(revision)
+        try IOSNativeSessionRust.completeProducerWakeApply(exactResponse, success: true)
+        return IOSProducerWakeResult(outcome: "completed", nativeRevision: nil)
       }
       if let current = vault.readyRevision(), current != expectedRevision {
         return IOSProducerWakeResult(outcome: "retry", nativeRevision: nil)

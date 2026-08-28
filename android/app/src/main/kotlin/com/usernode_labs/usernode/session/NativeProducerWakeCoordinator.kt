@@ -373,19 +373,32 @@ internal object NativeProducerWakeCoordinator {
         previous: NativeProducerWakeState?,
         directive: ProducerWakeDirective,
     ) {
-        if (directive !is ProducerWakeDirective.ScheduleExact) return
-        if (previous?.wakeIdentity != null &&
-            !previous.wakeIdentity.contentEquals(directive.wakeIdentity)
-        ) {
-            alarmScheduler(context).cancelAlarm(alarmId(previous.wakeIdentity))
-        }
-        // Completion releases A's Rust permit. A successor may become Ready
-        // immediately, so never let stale A stop a newly-started B service.
-        val appliedStillCurrent = store.current()
-            ?.sameAs(NativeProducerWakeState.from(directive)) == true
-        if (directive.pauseRuntime && appliedStillCurrent) {
-            SlotMonitoringService.stopNativeProducerMonitoring(context)
-            NativeWakeLockManager.release()
+        when (directive) {
+            is ProducerWakeDirective.ScheduleExact -> {
+                if (previous?.wakeIdentity != null &&
+                    !previous.wakeIdentity.contentEquals(directive.wakeIdentity)
+                ) {
+                    alarmScheduler(context).cancelAlarm(alarmId(previous.wakeIdentity))
+                }
+                // Completion releases A's Rust permit. A successor may become
+                // Ready immediately, so stale A may stop only its own runtime.
+                val appliedStillCurrent = store.current()
+                    ?.sameAs(NativeProducerWakeState.from(directive)) == true
+                if (directive.pauseRuntime && appliedStillCurrent) {
+                    SlotMonitoringService.stopNativeProducerMonitoring(context)
+                    NativeWakeLockManager.release()
+                }
+            }
+            is ProducerWakeDirective.CancelAndStop -> {
+                val appliedStillCurrent = store.current()
+                    ?.sameAs(NativeProducerWakeState.ready(directive.revision)) == true
+                if (appliedStillCurrent) {
+                    AlarmWatchdogScheduler.cancel(context)
+                    SlotMonitoringService.stopNativeProducerMonitoring(context)
+                    NativeWakeLockManager.release()
+                }
+            }
+            else -> Unit
         }
     }
 
@@ -411,11 +424,9 @@ internal object NativeProducerWakeCoordinator {
         directive: ProducerWakeDirective.CancelAndStop,
     ): Boolean {
         if (directive.terminateProcess) return false
-        val retired = previous?.let(store::compareClear) ?: return false
-        retired.wakeIdentity?.let { alarmScheduler(context).cancelAlarm(alarmId(it)) }
-        AlarmWatchdogScheduler.cancel(context)
-        SlotMonitoringService.stopNativeProducerMonitoring(context)
-        NativeWakeLockManager.release()
+        val applied = NativeProducerWakeState.ready(directive.revision)
+        if (!store.replace(previous, applied)) return false
+        previous?.wakeIdentity?.let { alarmScheduler(context).cancelAlarm(alarmId(it)) }
         return true
     }
 
@@ -438,7 +449,8 @@ internal object NativeProducerWakeCoordinator {
                 }
             }
             is ProducerWakeDirective.CancelAndStop -> {
-                if (store.replace(null, previous)) {
+                val applied = NativeProducerWakeState.ready(directive.revision)
+                if (store.replace(applied, previous)) {
                     previous?.wakeIdentity?.let { restoreExact(context, previous) }
                 }
             }

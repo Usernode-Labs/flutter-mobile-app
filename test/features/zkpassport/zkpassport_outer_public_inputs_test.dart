@@ -4,11 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('ZkPassportOuterProofPublicInputs', () {
     test('extracts outer_count_4 scoped nullifier with semantic count 9', () {
-      final inputs = _publicInputs(12)
+      final inputs = _publicInputs(9)
         ..[6] = _field(4)
         ..[7] = _scopedNullifier
-        ..[8] = _oprfPkHash
-        ..[11] = _recursiveVerifierInput;
+        ..[8] = _oprfPkHash;
 
       final parsed = ZkPassportOuterProofPublicInputs.fromPublicInputsHex(
         inputs,
@@ -26,11 +25,10 @@ void main() {
     });
 
     test('extracts outer_count_5 scoped nullifier with semantic count 10', () {
-      final inputs = _publicInputs(13)
+      final inputs = _publicInputs(10)
         ..[7] = _field(5)
         ..[8] = _scopedNullifier
-        ..[9] = _oprfPkHash
-        ..[12] = _recursiveVerifierInput;
+        ..[9] = _oprfPkHash;
 
       final parsed = ZkPassportOuterProofPublicInputs.fromPublicInputsHex(
         inputs,
@@ -48,11 +46,10 @@ void main() {
     });
 
     test('does not mistake oprf_pk_hash for scoped_nullifier', () {
-      final inputs = _publicInputs(10)
+      final inputs = _publicInputs(9)
         ..[6] = _field(4)
         ..[7] = _scopedNullifier
-        ..[8] = _oprfPkHash
-        ..[9] = _recursiveVerifierInput;
+        ..[8] = _oprfPkHash;
 
       final parsed = ZkPassportOuterProofPublicInputs.fromPublicInputsHex(
         inputs,
@@ -113,6 +110,21 @@ void main() {
       expect(validation.publicInputs, isNull);
       expect(validation.errorMessage, contains('oprf_pk_hash'));
     });
+
+    test(
+        'rejects verifier-visible outer_count_4 inputs at the Flutter boundary',
+        () {
+      final validation = ZkPassportOuterProofValidation.validate(
+        publicInputsHex: _publicInputs(
+          ZkPassportOuterProofVariant
+              .outerCount4.verifierVisiblePublicInputCount,
+        ),
+        facematchStrict: false,
+      );
+
+      expect(validation.isValid, isFalse);
+      expect(validation.errorMessage, contains('expected 9'));
+    });
   });
 
   group('ZkPassportSessionResultResponse', () {
@@ -122,6 +134,10 @@ void main() {
         'status': 'result_ok',
         'proof': 'proof-payload',
         'result': {
+          'proof_name': ZkPassportOuterProofVariant.outerCount5.proofName,
+          'proof_version': ZkPassportOuterProofVariant.outerCount5.proofVersion,
+          'proof_vkey_hash':
+              ZkPassportOuterProofVariant.outerCount5.proofVkeyHash,
           'nullifier_hex': _scopedNullifier,
           'nullifier_type': 4,
           'unique_identifier_type': 2,
@@ -130,9 +146,48 @@ void main() {
       });
 
       expect(result.nullifierHex, _scopedNullifier);
+      expect(result.proofName, 'outer_count_5');
+      expect(result.proofVersion, '0.20.0');
+      expect(
+        result.proofVkeyHash,
+        ZkPassportOuterProofVariant.outerCount5.proofVkeyHash,
+      );
+      expect(result.validateOuterProofVariant(facematchStrict: true), isNull);
       expect(result.nullifierType, 4);
       expect(result.uniqueIdentifierType, 2);
       expect(result.oprfPkHash, _oprfPkHash);
+    });
+
+    test('rejects a strict proof for a non-strict request', () {
+      final result = ZkPassportSessionResultResponse.fromJson({
+        'session_id': 'session-1',
+        'status': 'result_ok',
+        'proof': 'proof-payload',
+        'result': {
+          'proof_name': ZkPassportOuterProofVariant.outerCount5.proofName,
+          'proof_version': ZkPassportOuterProofVariant.outerCount5.proofVersion,
+          'proof_vkey_hash':
+              ZkPassportOuterProofVariant.outerCount5.proofVkeyHash,
+        },
+      });
+
+      expect(
+        result.validateOuterProofVariant(facematchStrict: false),
+        contains('requires outer_count_4@0.20.0'),
+      );
+    });
+
+    test('rejects missing proof variant metadata', () {
+      final result = ZkPassportSessionResultResponse.fromJson({
+        'session_id': 'session-1',
+        'status': 'result_ok',
+        'proof': 'proof-payload',
+      });
+
+      expect(
+        result.validateOuterProofVariant(facematchStrict: false),
+        contains('without complete variant metadata'),
+      );
     });
   });
 }
@@ -147,4 +202,3 @@ String _field(int value) {
 
 final _scopedNullifier = _field(0xabc);
 final _oprfPkHash = _field(0xdef);
-final _recursiveVerifierInput = _field(0x999);

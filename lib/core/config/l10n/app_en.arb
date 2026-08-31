@@ -482,11 +482,11 @@
   "@zkIdentityInstallCta": {
     "description": "Button label to open the store listing for ZK Passport"
   },
-  "zkIdentityStepLabelOpenApp": "Open ZK Passport",
+  "zkIdentityStepLabelOpenApp": "Opening ZK Passport",
   "@zkIdentityStepLabelOpenApp": {
     "description": "Step label for the check-app step in the stepper"
   },
-  "zkIdentityStepDescOpenApp": "Make sure ZK Passport is installed",
+  "zkIdentityStepDescOpenApp": "Preparing a proof request with your saved passport",
   "@zkIdentityStepDescOpenApp": {
     "description": "Step description for the check-app step in the stepper"
   },
@@ -494,15 +494,27 @@
   "@zkIdentityCheckAppCta": {
     "description": "Button label that triggers the install-check"
   },
-  "zkIdentityStepLabelScan": "Scan your passport",
+  "zkIdentityAccountPreparingTitle": "Preparing your account",
+  "@zkIdentityAccountPreparingTitle": {
+    "description": "Step label shown while the signed-in Social account is being prepared for ZK verification"
+  },
+  "zkIdentityAccountPreparingDescription": "Connecting your signed-in Social Vibecoding account",
+  "@zkIdentityAccountPreparingDescription": {
+    "description": "Step description shown while native account reconciliation is still running"
+  },
+  "zkIdentityAccountUnavailable": "Sign in to Social Vibecoding before starting verification.",
+  "@zkIdentityAccountUnavailable": {
+    "description": "Error shown when no signed-in Social account reaches the native app before ZK verification"
+  },
+  "zkIdentityStepLabelScan": "Use saved passport",
   "@zkIdentityStepLabelScan": {
     "description": "Step label for the confirm-scanned step in the stepper"
   },
-  "zkIdentityStepDescScan": "Scan once in ZK Passport. It's saved for next time.",
+  "zkIdentityStepDescScan": "Uses the passport already stored in ZK Passport",
   "@zkIdentityStepDescScan": {
     "description": "Step description for the confirm-scanned step in the stepper"
   },
-  "zkIdentityConfirmScannedBody": "Already scanned?",
+  "zkIdentityConfirmScannedBody": "Your saved passport will be used.",
   "@zkIdentityConfirmScannedBody": {
     "description": "Body prompt for the confirm-scanned step"
   },
@@ -514,15 +526,15 @@
   "@zkIdentityConfirmScannedNoCta": {
     "description": "Decline button on the confirm-scanned step"
   },
-  "zkIdentityStepLabelReady": "Ready to verify",
+  "zkIdentityStepLabelReady": "Create proof",
   "@zkIdentityStepLabelReady": {
     "description": "Step label for the ready-to-verify step in the stepper"
   },
-  "zkIdentityStepDescReady": "Switch to ZK Passport to build your proof",
+  "zkIdentityStepDescReady": "ZK Passport will ask you to approve and create the proof",
   "@zkIdentityStepDescReady": {
     "description": "Step description for the ready-to-verify step in the stepper"
   },
-  "zkIdentityReadyBody": "Switch to ZK Passport. It builds your proof in about a minute.",
+  "zkIdentityReadyBody": "ZK Passport builds the proof from your saved passport in about a minute.",
   "@zkIdentityReadyBody": {
     "description": "Body for the ready-to-verify step"
   },
@@ -614,6 +626,62 @@
   "@zkIdentityTryAgain": {
     "description": "Button label for retrying a failed ZK identity verification"
   },
+  "zkIdentityWalletClaimTitle": "Connect your programme wallet",
+  "@zkIdentityWalletClaimTitle": {
+    "description": "Title shown when a social account must recover its existing programme wallet before ZK verification"
+  },
+  "zkIdentityWalletClaimDescription": "This Social account is different from the account that holds your existing wallet. Verify your original programme email once to connect it.",
+  "@zkIdentityWalletClaimDescription": {
+    "description": "Explanation for the legacy programme wallet recovery step"
+  },
+  "zkIdentityWalletClaimEmailLabel": "Original programme email",
+  "@zkIdentityWalletClaimEmailLabel": {
+    "description": "Email field label for programme wallet recovery"
+  },
+  "zkIdentityWalletClaimEmailHelper": "Use the email from your original Usernode programme registration.",
+  "@zkIdentityWalletClaimEmailHelper": {
+    "description": "Help text under the legacy programme email field"
+  },
+  "zkIdentityWalletClaimSendCode": "Send verification code",
+  "@zkIdentityWalletClaimSendCode": {
+    "description": "Button label that sends the wallet recovery email code"
+  },
+  "zkIdentityWalletClaimSendingCode": "Sending code…",
+  "@zkIdentityWalletClaimSendingCode": {
+    "description": "Busy button label while requesting a wallet recovery code"
+  },
+  "zkIdentityWalletClaimCodeSent": "Enter the 6-digit code sent to that email.",
+  "@zkIdentityWalletClaimCodeSent": {
+    "description": "Instructions shown after requesting a wallet recovery code"
+  },
+  "zkIdentityWalletClaimCodeLabel": "Verification code",
+  "@zkIdentityWalletClaimCodeLabel": {
+    "description": "One-time code field label for programme wallet recovery"
+  },
+  "zkIdentityWalletClaimConnect": "Connect wallet and continue",
+  "@zkIdentityWalletClaimConnect": {
+    "description": "Button label that claims the existing wallet and resumes ZK verification"
+  },
+  "zkIdentityWalletClaimConnecting": "Connecting wallet…",
+  "@zkIdentityWalletClaimConnecting": {
+    "description": "Busy button label while claiming and reconciling the existing wallet"
+  },
+  "zkIdentityWalletClaimChangeEmail": "Use a different email",
+  "@zkIdentityWalletClaimChangeEmail": {
+    "description": "Button label that returns from code entry to the wallet recovery email field"
+  },
+  "zkIdentityWalletClaimEmailRequired": "Enter a valid email address.",
+  "@zkIdentityWalletClaimEmailRequired": {
+    "description": "Validation message for the programme wallet recovery email"
+  },
+  "zkIdentityWalletClaimCodeRequired": "Enter the 6-digit code.",
+  "@zkIdentityWalletClaimCodeRequired": {
+    "description": "Validation message for the programme wallet recovery code"
+  },
+  "zkIdentityWalletClaimRetryFailed": "Your wallet was connected, but the app could not finish preparing it. Try again.",
+  "@zkIdentityWalletClaimRetryFailed": {
+    "description": "Error shown when reconciliation still fails after a successful wallet claim"
+  },
   "zkIdentityDone": "Done",
   "@zkIdentityDone": {
     "description": "Button label to dismiss the ZK identity result screen on success"
@@ -665,6 +733,10 @@
   "commonRetry": "Retry",
   "@commonRetry": {
     "description": "Retry button text"
+  },
+  "commonCopied": "Copied",
+  "@commonCopied": {
+    "description": "Confirmation shown after copying a value to the clipboard"
   },
   "buildInfoAppVersion": "App Version",
   "@buildInfoAppVersion": {

@@ -39,6 +39,13 @@ class AuthRepository {
     'Accept': 'application/json',
   };
 
+  /// Sends the shared mobile one-time code used for passwordless sign-in and
+  /// legacy programme-wallet recovery. The backend deliberately returns the
+  /// same success response whether or not the email belongs to an account.
+  Future<void> requestOtp(String email) async {
+    await _post('/otp/request', body: {'email': email.trim().toLowerCase()});
+  }
+
   Future<void> logout(String sessionToken) async {
     try {
       await _post('/logout', body: const {}, bearer: sessionToken);

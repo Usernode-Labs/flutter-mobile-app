@@ -163,11 +163,13 @@ class ZkPassportLaunchResult {
     required this.started,
     required this.requestId,
     required this.message,
+    this.launchUri,
   });
 
   final bool started;
   final String? requestId;
   final String message;
+  final Uri? launchUri;
 }
 
 class ZkPassportFlowController {
@@ -346,30 +348,35 @@ class ZkPassportFlowController {
 
     final launchService = _ref.read(zkPassportLaunchServiceProvider);
     final launched = await launchService.launchOrOpenStore(launchUri);
-    if (!launched) {
-      await pipelineController.markLaunchFailed(
-        requestId: requestId,
-        message: 'Unable to open zkPassport or app store listing.',
-      );
-      return ZkPassportLaunchResult(
-        started: false,
-        requestId: requestId,
-        message: 'Unable to open zkPassport or app store listing.',
-      );
-    }
-
     await pipelineController.markLaunchDispatched(
       requestId: requestId,
+      message: launched
+          ? 'zkPassport launch requested.'
+          : 'zkPassport is ready. Switch to the app to continue.',
     );
     pipelineController.startServerResultPolling(
       requestId: requestId,
       immediate: true,
     );
 
+    if (!launched) {
+      // The bridge session is already live, so an OS-level handoff refusal is
+      // recoverable. iOS can reject external launches while the phone is
+      // mirrored or locked; retaining the session lets the existing manual
+      // "Switch to ZK Passport" action (or a physical app switch) complete it.
+      _log.warn(
+        'zkPassport automatic handoff failed; waiting for manual handoff',
+        context: {'requestId': requestId},
+      );
+    }
+
     return ZkPassportLaunchResult(
       started: true,
       requestId: requestId,
-      message: 'zkPassport launch requested.',
+      message: launched
+          ? 'zkPassport launch requested.'
+          : 'zkPassport is ready. Switch to the app to continue.',
+      launchUri: launchUri,
     );
   }
 
@@ -454,10 +461,16 @@ class ZkPassportFlowController {
     return true;
   }
 
-  Future<void> setFacematchStrict(bool value) async {
+  Future<bool> getFacematchStrict() async {
+    final repo = _ref.read(zkPassportSettingsRepositoryProvider);
+    return (await repo.load()).facematchStrict;
+  }
+
+  Future<bool> setFacematchStrict(bool value) async {
     final repo = _ref.read(zkPassportSettingsRepositoryProvider);
     await repo.setFacematchStrict(value);
     _ref.invalidate(zkPassportSettingsProvider);
+    return (await repo.load()).facematchStrict;
   }
 }
 
@@ -757,6 +770,7 @@ class ZkPassportPipelineController
 
   Future<void> markLaunchDispatched({
     required String requestId,
+    String message = 'zkPassport launch requested.',
   }) async {
     await _startupResetFuture;
     await _updateRuntimeSession(
@@ -767,7 +781,7 @@ class ZkPassportPipelineController
     _setState(
       status: ZkPassportPipelineStatus.processing,
       phase: ZkPassportPipelinePhase.waiting,
-      message: 'zkPassport launch requested.',
+      message: message,
       requestId: requestId,
       resumeAttemptCount: 0,
     );
@@ -1139,6 +1153,30 @@ class ZkPassportPipelineController
           return;
         }
 
+        final variantError = readyResult.validateOuterProofVariant(
+          facematchStrict: runtime.facematchStrict,
+        );
+        if (variantError != null) {
+          _log.error(
+            'zkPassport outer proof variant did not match the launched request',
+            context: {
+              'requestId': requestId,
+              'facematchStrict': runtime.facematchStrict,
+              'proofName': readyResult.proofName,
+              'proofVersion': readyResult.proofVersion,
+              'proofVkeyHash': readyResult.proofVkeyHash,
+            },
+          );
+          await _finalizeRuntimeSession(
+            requestId: requestId,
+            phase: ZkPassportPipelinePhase.failed,
+            status: ZkPassportPipelineStatus.failure,
+            message: variantError,
+            fetchOuterProofMs: fetchStopwatch.elapsedMilliseconds,
+          );
+          return;
+        }
+
         _stopServerPollingWorker();
         unawaited(
           _runPipeline(
@@ -1341,7 +1379,7 @@ class ZkPassportPipelineController
 
       final outerProofPrefixedBytes =
           _ensurePrefixedBbHonkProofBlobBytes(outerProof);
-      final facematchStrict = _runtimeSession?.facematchStrict ?? false;
+      final facematchStrict = runtimeAtStart.facematchStrict;
 
       if (requestId.isNotEmpty) {
         await _updateRuntimeSession(
@@ -1406,7 +1444,7 @@ class ZkPassportPipelineController
           phase: ZkPassportPipelinePhase.failed,
           status: ZkPassportPipelineStatus.failure,
           message: outerInputValidation.errorMessage ??
-              'Outer proof verified, but SDK 0.14 public inputs were invalid.',
+              'Outer proof verified, but its v0.20 public inputs were invalid.',
           fetchOuterProofMs: fetchOuterProofMs,
           verifyOuterMs: verifyOuterMs,
           outerPublicInputsHex: outerPublicInputsHex,
@@ -1535,7 +1573,7 @@ class ZkPassportPipelineController
         await flowController.storeSuccessfulRegistration(
           nullifierHex: derivedNullifierHex,
           requestVersion: requestVersion,
-          facematchVerified: _runtimeSession?.facematchStrict,
+          facematchVerified: runtimeAtStart.facematchStrict,
           verifyOuterMs: verifyOuterMs,
           wrapOuterMs: wrapOuterMs,
           verifyWrappedMs: verifyWrappedMs,

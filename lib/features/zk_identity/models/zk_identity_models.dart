@@ -70,8 +70,10 @@ class ZkIdentityFlowState {
 
   ZkIdentityFlowState advanceTo(int nextIndex) {
     final updated = List<ZkIdentityStepState>.from(steps);
-    updated[currentStepIndex] = updated[currentStepIndex]
-        .copyWith(status: ZkIdentityStepVisualStatus.completed);
+    for (var index = 0; index < nextIndex; index++) {
+      updated[index] =
+          updated[index].copyWith(status: ZkIdentityStepVisualStatus.completed);
+    }
     updated[nextIndex] =
         updated[nextIndex].copyWith(status: ZkIdentityStepVisualStatus.active);
     return ZkIdentityFlowState(

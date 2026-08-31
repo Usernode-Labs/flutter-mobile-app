@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
+import 'package:crypto_mobile_app/features/zkpassport/services/zkpassport_services.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -13,16 +14,40 @@ import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_
 
 class _FakeFlowController implements ZkPassportFlowController {
   bool startCalled = false;
-  ZkPassportLaunchResult nextResult = const ZkPassportLaunchResult(
+  Future<void> Function()? whileStarting;
+  ZkPassportLaunchResult nextResult = ZkPassportLaunchResult(
     started: true,
     requestId: 'req-1',
     message: 'ok',
+    launchUri: Uri.parse('https://zkpassport.id/r?t=req-1'),
   );
 
   @override
   Future<ZkPassportLaunchResult> startRegistrationNonceZero() async {
     startCalled = true;
+    await whileStarting?.call();
     return nextResult;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeLaunchService implements ZkPassportLaunchService {
+  _FakeLaunchService({required this.installed});
+
+  bool installed;
+  int launchCalls = 0;
+  Uri? lastLaunchUri;
+
+  @override
+  Future<bool> isInstalled() async => installed;
+
+  @override
+  Future<bool> launchOrOpenStore(Uri launchUri) async {
+    launchCalls++;
+    lastLaunchUri = launchUri;
+    return true;
   }
 
   @override
@@ -77,15 +102,21 @@ class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
   ZkIdentityStepController controller,
   _FakeFlowController flowController,
   _FakePipelineController pipelineController,
-}) _setup({ZkPassportLaunchResult? launchResult}) {
+  _FakeLaunchService launchService,
+}) _setup({
+  ZkPassportLaunchResult? launchResult,
+  bool appInstalled = true,
+}) {
   final fakeFlow = _FakeFlowController();
   if (launchResult != null) fakeFlow.nextResult = launchResult;
   final fakePipeline = _FakePipelineController();
+  final fakeLaunch = _FakeLaunchService(installed: appInstalled);
 
   final container = ProviderContainer(
     overrides: [
       zkPassportFlowControllerProvider.overrideWithValue(fakeFlow),
       zkPassportPipelineProvider.overrideWith((_) => fakePipeline),
+      zkPassportLaunchServiceProvider.overrideWithValue(fakeLaunch),
     ],
   );
 
@@ -96,6 +127,7 @@ class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
     controller: controller,
     flowController: fakeFlow,
     pipelineController: fakePipeline,
+    launchService: fakeLaunch,
   );
 }
 
@@ -117,48 +149,79 @@ void main() {
       expect(state.resultMessage, isNull);
     });
 
-    test('confirmPassportScanned advances from confirmScanned to readyToVerify',
-        () {
+    test('saved-passport flow skips setup and starts verification immediately',
+        () async {
       final s = _setup();
       addTearDown(s.container.dispose);
 
-      // First advance to confirmScanned.
-      final state = s.container.read(zkIdentityStepControllerProvider);
-      // Simulate checkApp → confirmScanned via advanceTo.
-      s.controller
-        ..state = state.advanceTo(ZkIdentityStep.confirmScanned.index)
-        ..confirmPassportScanned();
+      expect(await s.controller.startVerificationFromSavedPassport(), isTrue);
 
       final updated = s.container.read(zkIdentityStepControllerProvider);
-      expect(updated.currentStep, ZkIdentityStep.readyToVerify);
+      expect(updated.currentStep, ZkIdentityStep.verification);
+      expect(s.flowController.startCalled, isTrue);
+      expect(updated.steps[ZkIdentityStep.checkApp.index].status,
+          ZkIdentityStepVisualStatus.completed);
       expect(updated.steps[ZkIdentityStep.confirmScanned.index].status,
           ZkIdentityStepVisualStatus.completed);
       expect(updated.steps[ZkIdentityStep.readyToVerify.index].status,
+          ZkIdentityStepVisualStatus.completed);
+      expect(updated.steps[ZkIdentityStep.verification.index].status,
           ZkIdentityStepVisualStatus.active);
     });
 
-    test('confirmPassportScanned is no-op when not on confirmScanned step', () {
-      final s = _setup();
+    test('saved-passport flow stays put when ZK Passport is not installed',
+        () async {
+      final s = _setup(appInstalled: false);
       addTearDown(s.container.dispose);
 
-      // Still on checkApp.
-      s.controller.confirmPassportScanned();
+      expect(await s.controller.startVerificationFromSavedPassport(), isFalse);
+
       final state = s.container.read(zkIdentityStepControllerProvider);
       expect(state.currentStep, ZkIdentityStep.checkApp);
+      expect(s.flowController.startCalled, isFalse);
     });
 
-    test('confirmReady advances from readyToVerify to verification', () {
+    test('account recovery enters verification without starting a proof', () {
       final s = _setup();
       addTearDown(s.container.dispose);
 
-      // Walk to readyToVerify.
-      final initial = s.container.read(zkIdentityStepControllerProvider);
-      s.controller.state =
-          initial.advanceTo(ZkIdentityStep.readyToVerify.index);
+      s.controller.prepareForAccountRecovery();
 
-      s.controller.confirmReady();
       final state = s.container.read(zkIdentityStepControllerProvider);
       expect(state.currentStep, ZkIdentityStep.verification);
+      expect(state.resultMessage, isNull);
+      expect(state.steps[ZkIdentityStep.verification.index].status,
+          ZkIdentityStepVisualStatus.active);
+      expect(s.flowController.startCalled, isFalse);
+    });
+
+    test('account preparation failure does not attempt to create a proof', () {
+      final s = _setup();
+      addTearDown(s.container.dispose);
+
+      s.controller.showAccountPreparationFailure('Wallet unavailable');
+
+      final state = s.container.read(zkIdentityStepControllerProvider);
+      expect(state.currentStep, ZkIdentityStep.verification);
+      expect(state.resultMessage, 'Wallet unavailable');
+      expect(state.steps[ZkIdentityStep.verification.index].status,
+          ZkIdentityStepVisualStatus.failed);
+      expect(s.flowController.startCalled, isFalse);
+    });
+
+    test('reopen sends the complete active proof request back to ZK Passport',
+        () async {
+      final s = _setup();
+      addTearDown(s.container.dispose);
+
+      await s.controller.startVerificationFromSavedPassport();
+      expect(await s.controller.reopenVerificationRequest(), isTrue);
+
+      expect(s.launchService.launchCalls, 1);
+      expect(
+        s.launchService.lastLaunchUri,
+        Uri.parse('https://zkpassport.id/r?t=req-1'),
+      );
     });
 
     test('triggerVerification calls startRegistrationNonceZero', () async {
@@ -227,6 +290,24 @@ void main() {
           ZkIdentityStepVisualStatus.completed);
       expect(state.steps[ZkIdentityStep.result.index].status,
           ZkIdentityStepVisualStatus.active);
+    });
+
+    test('observes proof completion that arrives during the app handoff',
+        () async {
+      final s = _setup();
+      addTearDown(s.container.dispose);
+      final initial = s.container.read(zkIdentityStepControllerProvider);
+      s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
+      s.flowController.whileStarting = () async {
+        s.pipelineController.emitSuccess();
+        await Future<void>.delayed(Duration.zero);
+      };
+
+      await s.controller.triggerVerification();
+
+      final state = s.container.read(zkIdentityStepControllerProvider);
+      expect(state.currentStep, ZkIdentityStep.result);
+      expect(state.isSuccess, isTrue);
     });
 
     test('pipeline failure sets verification step to failed', () async {

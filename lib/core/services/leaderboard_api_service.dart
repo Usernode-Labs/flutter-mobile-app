@@ -180,8 +180,30 @@ class LeaderboardApiService {
   /// exhausted; 422 means no active season exists.
   Future<WalletProvisionResult> provisionWallet() async {
     _ensureWritesEnabled();
-    final data = await _post('/wallet/provision', body: const {});
+    final data = await _post(
+      '/wallet/provision',
+      body: const {},
+      expectedStatuses: const {409},
+    );
     return WalletProvisionResult.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Moves an existing current-season programme wallet to the authenticated
+  /// social account after the user proves control of its legacy email.
+  ///
+  /// The claim response intentionally contains no secret key. A successful
+  /// caller must run normal wallet reconciliation again so the existing,
+  /// audited provisioning path imports the transferred key.
+  Future<void> claimExistingWallet({
+    required String email,
+    required String code,
+  }) async {
+    _ensureWritesEnabled();
+    await _post(
+      '/wallet/claim',
+      body: {'email': email, 'code': code},
+      expectedStatuses: const {409, 422},
+    );
   }
 
   /// Reads delegation state for an account owned by the authenticated user.
@@ -436,9 +458,11 @@ class LeaderboardApiService {
     }
 
     final message = _friendlyErrorMessage(resp);
+    final responseCode = _responseErrorCode(resp);
     _log.warn('API error: $message', context: {
       'statusCode': resp.statusCode,
       'url': url.toString(),
+      if (responseCode != null) 'code': responseCode,
     });
 
     if (!expectedStatuses.contains(resp.statusCode)) {
@@ -461,7 +485,12 @@ class LeaderboardApiService {
       _detachSessionInvalidation(_onUnauthorized?.call(credential));
     }
 
-    throw LeaderboardApiException(resp.statusCode, message, body: resp.body);
+    throw LeaderboardApiException(
+      resp.statusCode,
+      message,
+      body: resp.body,
+      code: responseCode,
+    );
   }
 
   void _detachSessionInvalidation(Future<void>? invalidation) {
@@ -504,6 +533,19 @@ class LeaderboardApiService {
       default:
         return detail ?? 'Request failed (HTTP ${resp.statusCode}).';
     }
+  }
+
+  String? _responseErrorCode(http.Response resp) {
+    try {
+      final parsed = jsonDecode(resp.body);
+      if (parsed is Map && parsed['code'] is String) {
+        final code = (parsed['code'] as String).trim();
+        return code.isEmpty ? null : code;
+      }
+    } catch (_) {
+      // The friendly-message parser handles malformed response bodies.
+    }
+    return null;
   }
 }
 

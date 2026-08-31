@@ -703,13 +703,13 @@ abstract class AppLocalizations {
   /// Step label for the check-app step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Open ZK Passport'**
+  /// **'Opening ZK Passport'**
   String get zkIdentityStepLabelOpenApp;
 
   /// Step description for the check-app step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Make sure ZK Passport is installed'**
+  /// **'Preparing a proof request with your saved passport'**
   String get zkIdentityStepDescOpenApp;
 
   /// Button label that triggers the install-check
@@ -718,22 +718,40 @@ abstract class AppLocalizations {
   /// **'Continue'**
   String get zkIdentityCheckAppCta;
 
+  /// Step label shown while the signed-in Social account is being prepared for ZK verification
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing your account'**
+  String get zkIdentityAccountPreparingTitle;
+
+  /// Step description shown while native account reconciliation is still running
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting your signed-in Social Vibecoding account'**
+  String get zkIdentityAccountPreparingDescription;
+
+  /// Error shown when no signed-in Social account reaches the native app before ZK verification
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to Social Vibecoding before starting verification.'**
+  String get zkIdentityAccountUnavailable;
+
   /// Step label for the confirm-scanned step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Scan your passport'**
+  /// **'Use saved passport'**
   String get zkIdentityStepLabelScan;
 
   /// Step description for the confirm-scanned step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Scan once in ZK Passport. It\'s saved for next time.'**
+  /// **'Uses the passport already stored in ZK Passport'**
   String get zkIdentityStepDescScan;
 
   /// Body prompt for the confirm-scanned step
   ///
   /// In en, this message translates to:
-  /// **'Already scanned?'**
+  /// **'Your saved passport will be used.'**
   String get zkIdentityConfirmScannedBody;
 
   /// Affirmative button on the confirm-scanned step
@@ -751,19 +769,19 @@ abstract class AppLocalizations {
   /// Step label for the ready-to-verify step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Ready to verify'**
+  /// **'Create proof'**
   String get zkIdentityStepLabelReady;
 
   /// Step description for the ready-to-verify step in the stepper
   ///
   /// In en, this message translates to:
-  /// **'Switch to ZK Passport to build your proof'**
+  /// **'ZK Passport will ask you to approve and create the proof'**
   String get zkIdentityStepDescReady;
 
   /// Body for the ready-to-verify step
   ///
   /// In en, this message translates to:
-  /// **'Switch to ZK Passport. It builds your proof in about a minute.'**
+  /// **'ZK Passport builds the proof from your saved passport in about a minute.'**
   String get zkIdentityReadyBody;
 
   /// First privacy bullet on the ready-to-verify step
@@ -898,6 +916,90 @@ abstract class AppLocalizations {
   /// **'Try again'**
   String get zkIdentityTryAgain;
 
+  /// Title shown when a social account must recover its existing programme wallet before ZK verification
+  ///
+  /// In en, this message translates to:
+  /// **'Connect your programme wallet'**
+  String get zkIdentityWalletClaimTitle;
+
+  /// Explanation for the legacy programme wallet recovery step
+  ///
+  /// In en, this message translates to:
+  /// **'This Social account is different from the account that holds your existing wallet. Verify your original programme email once to connect it.'**
+  String get zkIdentityWalletClaimDescription;
+
+  /// Email field label for programme wallet recovery
+  ///
+  /// In en, this message translates to:
+  /// **'Original programme email'**
+  String get zkIdentityWalletClaimEmailLabel;
+
+  /// Help text under the legacy programme email field
+  ///
+  /// In en, this message translates to:
+  /// **'Use the email from your original Usernode programme registration.'**
+  String get zkIdentityWalletClaimEmailHelper;
+
+  /// Button label that sends the wallet recovery email code
+  ///
+  /// In en, this message translates to:
+  /// **'Send verification code'**
+  String get zkIdentityWalletClaimSendCode;
+
+  /// Busy button label while requesting a wallet recovery code
+  ///
+  /// In en, this message translates to:
+  /// **'Sending code…'**
+  String get zkIdentityWalletClaimSendingCode;
+
+  /// Instructions shown after requesting a wallet recovery code
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the 6-digit code sent to that email.'**
+  String get zkIdentityWalletClaimCodeSent;
+
+  /// One-time code field label for programme wallet recovery
+  ///
+  /// In en, this message translates to:
+  /// **'Verification code'**
+  String get zkIdentityWalletClaimCodeLabel;
+
+  /// Button label that claims the existing wallet and resumes ZK verification
+  ///
+  /// In en, this message translates to:
+  /// **'Connect wallet and continue'**
+  String get zkIdentityWalletClaimConnect;
+
+  /// Busy button label while claiming and reconciling the existing wallet
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting wallet…'**
+  String get zkIdentityWalletClaimConnecting;
+
+  /// Button label that returns from code entry to the wallet recovery email field
+  ///
+  /// In en, this message translates to:
+  /// **'Use a different email'**
+  String get zkIdentityWalletClaimChangeEmail;
+
+  /// Validation message for the programme wallet recovery email
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address.'**
+  String get zkIdentityWalletClaimEmailRequired;
+
+  /// Validation message for the programme wallet recovery code
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the 6-digit code.'**
+  String get zkIdentityWalletClaimCodeRequired;
+
+  /// Error shown when reconciliation still fails after a successful wallet claim
+  ///
+  /// In en, this message translates to:
+  /// **'Your wallet was connected, but the app could not finish preparing it. Try again.'**
+  String get zkIdentityWalletClaimRetryFailed;
+
   /// Button label to dismiss the ZK identity result screen on success
   ///
   /// In en, this message translates to:
@@ -975,6 +1077,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get commonRetry;
+
+  /// Confirmation shown after copying a value to the clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get commonCopied;
 
   /// App version label in build info sheet
   ///

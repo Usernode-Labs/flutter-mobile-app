@@ -352,23 +352,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityInstallCta => 'Install';
 
   @override
-  String get zkIdentityStepLabelOpenApp => 'Open ZK Passport';
+  String get zkIdentityStepLabelOpenApp => 'Opening ZK Passport';
 
   @override
-  String get zkIdentityStepDescOpenApp => 'Make sure ZK Passport is installed';
+  String get zkIdentityStepDescOpenApp =>
+      'Preparing a proof request with your saved passport';
 
   @override
   String get zkIdentityCheckAppCta => 'Continue';
 
   @override
-  String get zkIdentityStepLabelScan => 'Scan your passport';
+  String get zkIdentityAccountPreparingTitle => 'Preparing your account';
+
+  @override
+  String get zkIdentityAccountPreparingDescription =>
+      'Connecting your signed-in Social Vibecoding account';
+
+  @override
+  String get zkIdentityAccountUnavailable =>
+      'Sign in to Social Vibecoding before starting verification.';
+
+  @override
+  String get zkIdentityStepLabelScan => 'Use saved passport';
 
   @override
   String get zkIdentityStepDescScan =>
-      'Scan once in ZK Passport. It\'s saved for next time.';
+      'Uses the passport already stored in ZK Passport';
 
   @override
-  String get zkIdentityConfirmScannedBody => 'Already scanned?';
+  String get zkIdentityConfirmScannedBody =>
+      'Your saved passport will be used.';
 
   @override
   String get zkIdentityConfirmScannedYesCta => 'Continue';
@@ -377,15 +390,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityConfirmScannedNoCta => 'Not yet';
 
   @override
-  String get zkIdentityStepLabelReady => 'Ready to verify';
+  String get zkIdentityStepLabelReady => 'Create proof';
 
   @override
   String get zkIdentityStepDescReady =>
-      'Switch to ZK Passport to build your proof';
+      'ZK Passport will ask you to approve and create the proof';
 
   @override
   String get zkIdentityReadyBody =>
-      'Switch to ZK Passport. It builds your proof in about a minute.';
+      'ZK Passport builds the proof from your saved passport in about a minute.';
 
   @override
   String get zkIdentityReadyBullet1 => 'No name, photo, or ID is shared';
@@ -456,6 +469,53 @@ class AppLocalizationsEn extends AppLocalizations {
   String get zkIdentityTryAgain => 'Try again';
 
   @override
+  String get zkIdentityWalletClaimTitle => 'Connect your programme wallet';
+
+  @override
+  String get zkIdentityWalletClaimDescription =>
+      'This Social account is different from the account that holds your existing wallet. Verify your original programme email once to connect it.';
+
+  @override
+  String get zkIdentityWalletClaimEmailLabel => 'Original programme email';
+
+  @override
+  String get zkIdentityWalletClaimEmailHelper =>
+      'Use the email from your original Usernode programme registration.';
+
+  @override
+  String get zkIdentityWalletClaimSendCode => 'Send verification code';
+
+  @override
+  String get zkIdentityWalletClaimSendingCode => 'Sending code…';
+
+  @override
+  String get zkIdentityWalletClaimCodeSent =>
+      'Enter the 6-digit code sent to that email.';
+
+  @override
+  String get zkIdentityWalletClaimCodeLabel => 'Verification code';
+
+  @override
+  String get zkIdentityWalletClaimConnect => 'Connect wallet and continue';
+
+  @override
+  String get zkIdentityWalletClaimConnecting => 'Connecting wallet…';
+
+  @override
+  String get zkIdentityWalletClaimChangeEmail => 'Use a different email';
+
+  @override
+  String get zkIdentityWalletClaimEmailRequired =>
+      'Enter a valid email address.';
+
+  @override
+  String get zkIdentityWalletClaimCodeRequired => 'Enter the 6-digit code.';
+
+  @override
+  String get zkIdentityWalletClaimRetryFailed =>
+      'Your wallet was connected, but the app could not finish preparing it. Try again.';
+
+  @override
   String get zkIdentityDone => 'Done';
 
   @override
@@ -494,6 +554,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get commonRetry => 'Retry';
+
+  @override
+  String get commonCopied => 'Copied';
 
   @override
   String get buildInfoAppVersion => 'App Version';

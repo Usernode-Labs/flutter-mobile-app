@@ -477,6 +477,9 @@ class ZkPassportSessionResultResponse {
     required this.sessionId,
     required this.status,
     required this.outerProofB64Url,
+    required this.proofName,
+    required this.proofVersion,
+    required this.proofVkeyHash,
     required this.nullifierHex,
     required this.nullifierType,
     required this.uniqueIdentifierType,
@@ -488,6 +491,9 @@ class ZkPassportSessionResultResponse {
   final String sessionId;
   final String status;
   final String? outerProofB64Url;
+  final String? proofName;
+  final String? proofVersion;
+  final String? proofVkeyHash;
   final String? nullifierHex;
   final int? nullifierType;
   final int? uniqueIdentifierType;
@@ -496,6 +502,27 @@ class ZkPassportSessionResultResponse {
   final int finalizedAtMs;
 
   bool get success => status == 'result_ok' && outerProofB64Url != null;
+
+  String? validateOuterProofVariant({required bool facematchStrict}) {
+    final expected = ZkPassportOuterProofVariant.forFacematch(
+      facematchStrict: facematchStrict,
+    );
+    final normalizedVkeyHash = _normalizeHexField(proofVkeyHash);
+    if (proofName == null ||
+        proofVersion == null ||
+        normalizedVkeyHash == null) {
+      return 'Session server returned a proof without complete variant metadata. '
+          'Start a new zkPassport verification.';
+    }
+    if (proofName != expected.proofName ||
+        proofVersion != expected.proofVersion ||
+        normalizedVkeyHash != expected.proofVkeyHash) {
+      return 'Session server returned ${proofName!}@${proofVersion!}, but this '
+          'request requires ${expected.proofName}@${expected.proofVersion}. '
+          'Start a new zkPassport verification.';
+    }
+    return null;
+  }
 
   factory ZkPassportSessionResultResponse.fromJson(Map<String, dynamic> json) {
     final proof = _extractOuterProof(
@@ -513,6 +540,20 @@ class ZkPassportSessionResultResponse {
               .trim(),
       status: (json['status'] as String? ?? '').trim(),
       outerProofB64Url: proof,
+      proofName: _extractStringField(json, const [
+        'proof_name',
+        'proofName',
+      ]),
+      proofVersion: _extractStringField(json, const [
+        'proof_version',
+        'proofVersion',
+      ]),
+      proofVkeyHash: _extractStringField(json, const [
+        'proof_vkey_hash',
+        'proofVkeyHash',
+        'vkey_hash',
+        'vkeyHash',
+      ]),
       nullifierHex: nullifierHex,
       nullifierType: nullifierType,
       uniqueIdentifierType: uniqueIdentifierType,
@@ -668,6 +709,45 @@ class ZkPassportSessionResultResponse {
   }
 }
 
+class ZkPassportOuterProofVariant {
+  const ZkPassportOuterProofVariant({
+    required this.proofName,
+    required this.proofVersion,
+    required this.proofVkeyHash,
+    required this.semanticPublicInputCount,
+    required this.verifierVisiblePublicInputCount,
+  });
+
+  static const outerCount4 = ZkPassportOuterProofVariant(
+    proofName: 'outer_count_4',
+    proofVersion: '0.20.0',
+    proofVkeyHash:
+        '0x24008eb2af8d866780091c60d602215f5650e50a6c45c992c50ffb0957b1e115',
+    semanticPublicInputCount: 9,
+    verifierVisiblePublicInputCount: 17,
+  );
+  static const outerCount5 = ZkPassportOuterProofVariant(
+    proofName: 'outer_count_5',
+    proofVersion: '0.20.0',
+    proofVkeyHash:
+        '0x1198dfebe80606e31ccabb351a7f27a9dfc1160e36614523a19a0c3648de2c24',
+    semanticPublicInputCount: 10,
+    verifierVisiblePublicInputCount: 18,
+  );
+
+  final String proofName;
+  final String proofVersion;
+  final String proofVkeyHash;
+  final int semanticPublicInputCount;
+  final int verifierVisiblePublicInputCount;
+
+  static ZkPassportOuterProofVariant forFacematch({
+    required bool facematchStrict,
+  }) {
+    return facematchStrict ? outerCount5 : outerCount4;
+  }
+}
+
 class ZkPassportOuterProofPublicInputs {
   const ZkPassportOuterProofPublicInputs({
     required this.semanticInputCount,
@@ -676,10 +756,12 @@ class ZkPassportOuterProofPublicInputs {
     required this.oprfPkHashHex,
   });
 
-  // SDK 0.14 / utils 0.36 trailing semantic public input layout:
+  // SDK 0.16.2 / utils 0.37.5 / circuit v0.20 trailing semantic layout:
   // nullifier_type, scoped_nullifier, oprf_pk_hash.
-  static const int outerCount4SemanticPublicInputCount = 9;
-  static const int outerCount5SemanticPublicInputCount = 10;
+  static final int outerCount4SemanticPublicInputCount =
+      ZkPassportOuterProofVariant.outerCount4.semanticPublicInputCount;
+  static final int outerCount5SemanticPublicInputCount =
+      ZkPassportOuterProofVariant.outerCount5.semanticPublicInputCount;
 
   final int semanticInputCount;
   final String nullifierTypeHex;
@@ -738,11 +820,12 @@ class ZkPassportOuterProofValidation {
     final nullifierTypeIndex = semanticInputCount - 3;
     final scopedNullifierIndex = semanticInputCount - 2;
     final oprfPkHashIndex = semanticInputCount - 1;
-    if (inputs.length <= oprfPkHashIndex) {
-      return const ZkPassportOuterProofValidation._(
+    if (inputs.length != semanticInputCount) {
+      return ZkPassportOuterProofValidation._(
         publicInputs: null,
-        errorMessage:
-            'Outer proof verified, but SDK 0.14 public inputs were incomplete; cannot derive scoped nullifier and OPRF public key hash.',
+        errorMessage: 'Outer proof verified, but ${inputs.length} semantic '
+            'public inputs were returned; expected $semanticInputCount for '
+            '${facematchStrict ? 'outer_count_5' : 'outer_count_4'}.',
         normalizedBridgeNullifierHex: null,
       );
     }
@@ -752,7 +835,7 @@ class ZkPassportOuterProofValidation {
       return const ZkPassportOuterProofValidation._(
         publicInputs: null,
         errorMessage:
-            'Outer proof verified, but nullifier_type was missing from SDK 0.14 public inputs.',
+            'Outer proof verified, but nullifier_type was missing from the v0.20 public inputs.',
         normalizedBridgeNullifierHex: null,
       );
     }
@@ -764,7 +847,7 @@ class ZkPassportOuterProofValidation {
       return const ZkPassportOuterProofValidation._(
         publicInputs: null,
         errorMessage:
-            'Outer proof verified, but scoped_nullifier was missing from SDK 0.14 public inputs.',
+            'Outer proof verified, but scoped_nullifier was missing from the v0.20 public inputs.',
         normalizedBridgeNullifierHex: null,
       );
     }
@@ -774,7 +857,7 @@ class ZkPassportOuterProofValidation {
       return const ZkPassportOuterProofValidation._(
         publicInputs: null,
         errorMessage:
-            'Outer proof verified, but oprf_pk_hash was missing from SDK 0.14 public inputs.',
+            'Outer proof verified, but oprf_pk_hash was missing from the v0.20 public inputs.',
         normalizedBridgeNullifierHex: null,
       );
     }
@@ -810,8 +893,8 @@ String? _normalizeHexField(String? raw) {
   }
   final lower = trimmed.toLowerCase();
   final hex = lower.startsWith('0x') ? lower.substring(2) : lower;
-  if (hex.isEmpty) {
+  if (hex.isEmpty || hex.length > 64 || !RegExp(r'^[0-9a-f]+$').hasMatch(hex)) {
     return null;
   }
-  return '0x$hex';
+  return '0x${hex.padLeft(64, '0')}';
 }

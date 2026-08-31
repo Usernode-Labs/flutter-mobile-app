@@ -21,6 +21,27 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+internal fun armForegroundProducerOwnership(
+    pollAfterMs: Long,
+    ensureWatchdog: () -> Unit,
+    isWakeLockHeld: () -> Boolean,
+    acquireWakeLock: () -> Boolean,
+    releaseWakeLock: () -> Unit,
+    startMonitoring: (Long) -> Unit,
+): Boolean {
+    require(pollAfterMs >= 0)
+    ensureWatchdog()
+    val wakeLockWasHeld = isWakeLockHeld()
+    if (!acquireWakeLock()) return false
+    return try {
+        startMonitoring(pollAfterMs)
+        true
+    } catch (_: Throwable) {
+        if (!wakeLockWasHeld) releaseWakeLock()
+        false
+    }
+}
+
 /**
  * Single serialized native owner for Android producer wake callbacks.
  *
@@ -31,6 +52,7 @@ import java.util.concurrent.Executors
  */
 internal object NativeProducerWakeCoordinator {
     private const val TAG = "usernode/ProducerWake"
+    private const val FALLBACK_POLL_AFTER_MS = 30_000L
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { task ->
         Thread(task, "usernode-producer-wake").apply { isDaemon = true }
     }
@@ -46,6 +68,7 @@ internal object NativeProducerWakeCoordinator {
         completion: ((ProducerWakeOutcome) -> Unit)? = null,
     ) {
         val applicationContext = context.applicationContext
+        val applicationIncarnation = ApplicationIncarnationStore(applicationContext).ensure()
         executor.execute {
             val outcome = run(
                 applicationContext,
@@ -54,6 +77,7 @@ internal object NativeProducerWakeCoordinator {
                 expectedRevision,
                 refreshPolicy,
                 monitoringIntent,
+                applicationIncarnation,
             )
             completion?.invoke(outcome)
         }
@@ -67,14 +91,18 @@ internal object NativeProducerWakeCoordinator {
         expectedRevision: Long? = null,
         refreshPolicy: Boolean = true,
         monitoringIntent: Intent? = null,
-    ): ProducerWakeOutcome = run(
-        context.applicationContext,
-        source,
-        alarm,
-        expectedRevision,
-        refreshPolicy,
-        monitoringIntent,
-    )
+    ): ProducerWakeOutcome {
+        val applicationContext = context.applicationContext
+        return run(
+            applicationContext,
+            source,
+            alarm,
+            expectedRevision,
+            refreshPolicy,
+            monitoringIntent,
+            ApplicationIncarnationStore(applicationContext).ensure(),
+        )
+    }
 
     fun clearReady(context: Context, expectedRevision: Long) {
         synchronized(runLock) {
@@ -127,32 +155,71 @@ internal object NativeProducerWakeCoordinator {
         expectedRevision: Long?,
         refreshPolicy: Boolean,
         monitoringIntent: Intent?,
+        applicationIncarnation: String?,
     ): ProducerWakeOutcome = synchronized(runLock) wake@{
-        var coldInstallClaim: ByteArray? = null
-        try {
-            installAuthority(context)
-            val store = NativeProducerWakeStore(context)
-            val current = store.current()
-            val revision = expectedRevision ?: current?.readyRevision
-                ?: return@wake ProducerWakeOutcome.Ignored
-            if (revision < 0) return@wake ProducerWakeOutcome.Ignored
-            if (source == ProducerWakeSource.EXACT_ALARM &&
-                (alarm == null || current == null || !current.matches(alarm, revision))
-            ) {
-                Log.i(TAG, "Ignoring stale exact-alarm callback")
-                return@wake ProducerWakeOutcome.Ignored
+        if (!ApplicationIncarnationStore(context).matches(applicationIncarnation)) {
+            Log.i(TAG, "Ignoring producer wake for a stale application incarnation")
+            return@wake ProducerWakeOutcome.Ignored
+        }
+        val store = NativeProducerWakeStore(context)
+        val current = store.current()
+        val revision = expectedRevision ?: current?.readyRevision
+            ?: return@wake ProducerWakeOutcome.Ignored
+        if (revision < 0) return@wake ProducerWakeOutcome.Ignored
+        if (source == ProducerWakeSource.EXACT_ALARM &&
+            (alarm == null || current == null || !current.matches(alarm, revision))
+        ) {
+            Log.i(TAG, "Ignoring stale exact-alarm callback")
+            return@wake ProducerWakeOutcome.Ignored
+        }
+
+        val outcome = runCurrentWake(
+            context,
+            store,
+            source,
+            alarm,
+            revision,
+            refreshPolicy,
+            monitoringIntent,
+        )
+        if (outcome == ProducerWakeOutcome.Retry) {
+            try {
+                ensureForegroundRetryOwnership(
+                    context,
+                    store,
+                    revision,
+                    FALLBACK_POLL_AFTER_MS,
+                )
+            } catch (error: Throwable) {
+                Log.w(TAG, "Could not retain producer retry (${error.javaClass.simpleName})")
             }
+        }
+        outcome
+    }
+
+    private fun runCurrentWake(
+        context: Context,
+        store: NativeProducerWakeStore,
+        source: ProducerWakeSource,
+        alarm: NativeScheduledWake?,
+        revision: Long,
+        refreshPolicy: Boolean,
+        monitoringIntent: Intent?,
+    ): ProducerWakeOutcome {
+        var coldInstallClaim: ByteArray? = null
+        return try {
+            installAuthority(context)
             if (source == ProducerWakeSource.EXACT_ALARM &&
                 !beginExactAlarmOwnership(context, monitoringIntent)
             ) {
-                return@wake ProducerWakeOutcome.Retry
+                return ProducerWakeOutcome.Retry
             }
 
             for (attempt in 0..1) {
                 val credential = AndroidNativeSessionPlatform.vault(context)
                     .producerWakeCredential(refreshPolicy, coldInstallClaim)
                 if (credential is ProducerWakeCredential.Uncertain) {
-                    return@wake ProducerWakeOutcome.Retry
+                    return ProducerWakeOutcome.Retry
                 }
                 val request = ProducerWakeFrame.encode(source, revision, alarm, credential)
                 val response = try {
@@ -183,9 +250,9 @@ internal object NativeProducerWakeCoordinator {
                 }
                 try {
                     val directive = ProducerWakeFrame.decode(response)
-                    if (directive.revision < 0) return@wake ProducerWakeOutcome.Retry
+                    if (directive.revision < 0) return ProducerWakeOutcome.Retry
                     if (directive !is ProducerWakeDirective.InstallCredential) {
-                        return@wake applyDirective(
+                        return applyDirective(
                             context,
                             store,
                             directive,
@@ -193,7 +260,7 @@ internal object NativeProducerWakeCoordinator {
                             revision,
                         )
                     }
-                    if (attempt != 0) return@wake ProducerWakeOutcome.Retry
+                    if (attempt != 0) return ProducerWakeOutcome.Retry
                     when (
                         val stage = AndroidNativeSessionPlatform.vault(context)
                             .stageBackgroundColdInstalledCredential()
@@ -203,7 +270,7 @@ internal object NativeProducerWakeCoordinator {
                         }
                         ColdCredentialStage.Absent -> Unit
                         ColdCredentialStage.Uncertain ->
-                            return@wake ProducerWakeOutcome.Retry
+                            return ProducerWakeOutcome.Retry
                     }
                 } finally {
                     response.fill(0)
@@ -282,7 +349,7 @@ internal object NativeProducerWakeCoordinator {
                 is ProducerWakeDirective.ScheduleExact ->
                     applyScheduleExact(context, store, previous, directive)
                 is ProducerWakeDirective.RetryLater ->
-                    applyRetryLater(context, directive)
+                    applyRetryLater(context, store, directive)
                 is ProducerWakeDirective.CancelAndStop ->
                     applyCancelAndStop(context, store, previous, directive)
                 is ProducerWakeDirective.InstallCredential -> false
@@ -344,15 +411,10 @@ internal object NativeProducerWakeCoordinator {
         directive: ProducerWakeDirective.KeepForeground,
     ): Boolean {
         val incarnation = ApplicationIncarnationStore(context).ensure() ?: return false
-        SlotMonitoringService.startNativeProducerMonitoring(
-            context,
-            incarnation,
-            directive.pollAfterMs.toLong(),
-        )
+        if (!armForegroundOwnership(context, incarnation, directive.pollAfterMs.toLong())) {
+            return false
+        }
         if (!store.replace(previous, NativeProducerWakeState.ready(directive.revision))) {
-            if (!SlotMonitoringService.isForegroundServiceActive) {
-                SlotMonitoringService.stopNativeProducerMonitoring(context)
-            }
             return false
         }
         previous?.wakeIdentity?.let { alarmScheduler(context).cancelAlarm(alarmId(it)) }
@@ -419,17 +481,65 @@ internal object NativeProducerWakeCoordinator {
 
     private fun applyRetryLater(
         context: Context,
+        store: NativeProducerWakeStore,
         directive: ProducerWakeDirective.RetryLater,
+    ): Boolean = ensureForegroundRetryOwnership(
+        context,
+        store,
+        directive.revision,
+        directive.retryAfterMs.toLong(),
+    )
+
+    private fun ensureForegroundRetryOwnership(
+        context: Context,
+        store: NativeProducerWakeStore,
+        expectedRevision: Long,
+        pollAfterMs: Long,
     ): Boolean {
-        val incarnation = ApplicationIncarnationStore(context).current()
-        if (SlotMonitoringService.isForegroundServiceActive && incarnation != null) {
-            SlotMonitoringService.startNativeProducerMonitoring(
-                context,
-                incarnation,
-                directive.retryAfterMs.toLong(),
-            )
+        val incarnation = ApplicationIncarnationStore(context).current() ?: return false
+        val current = store.current()
+        if (current != null && current.readyRevision != expectedRevision) return false
+        if (current == null &&
+            !store.replace(null, NativeProducerWakeState.ready(expectedRevision))
+        ) {
+            return false
         }
-        return true
+        return armForegroundOwnership(context, incarnation, pollAfterMs)
+    }
+
+    private fun armForegroundOwnership(
+        context: Context,
+        incarnation: String,
+        pollAfterMs: Long,
+    ): Boolean {
+        val armed = armForegroundProducerOwnership(
+            pollAfterMs = pollAfterMs,
+            ensureWatchdog = {
+                try {
+                    if (!AlarmWatchdogScheduler.isEnabled(context)) {
+                        AlarmWatchdogScheduler.ensurePeriodic(
+                            context,
+                            "native_producer_foreground",
+                            incarnation,
+                        )
+                    }
+                } catch (error: Throwable) {
+                    Log.w(TAG, "Could not retain producer watchdog (${error.javaClass.simpleName})")
+                }
+            },
+            isWakeLockHeld = NativeWakeLockManager::isHeld,
+            acquireWakeLock = { NativeWakeLockManager.acquire(context, incarnation) },
+            releaseWakeLock = NativeWakeLockManager::release,
+            startMonitoring = { delay ->
+                SlotMonitoringService.startNativeProducerMonitoring(
+                    context,
+                    incarnation,
+                    delay,
+                )
+            },
+        )
+        if (!armed) Log.w(TAG, "Could not retain foreground producer ownership")
+        return armed
     }
 
     private fun applyCancelAndStop(

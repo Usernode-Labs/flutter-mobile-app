@@ -88,6 +88,35 @@ def commit_version_bump(paths, message)
   end
 end
 
+def upload_ipa_to_testflight(ipa_path)
+  if ipa_path.nil? || ipa_path.empty?
+    UI.user_error!("An IPA path is required. Pass ipa:<path> or set IPA_PATH.")
+  end
+
+  resolved_ipa_path = File.expand_path(ipa_path, PROJECT_ROOT)
+  unless File.file?(resolved_ipa_path)
+    UI.user_error!("IPA not found: #{resolved_ipa_path}")
+  end
+
+  api_key_config = if ENV['APP_STORE_CONNECT_API_KEY_ID'] && ENV['APP_STORE_CONNECT_ISSUER_ID'] && ENV['APP_STORE_CONNECT_API_KEY']
+    app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
+      key_content: ENV['APP_STORE_CONNECT_API_KEY'],
+      is_key_content_base64: false
+    )
+  end
+
+  upload_params = {
+    skip_waiting_for_build_processing: true,
+    app_identifier: "org.usernode.app",
+    ipa: resolved_ipa_path
+  }
+  upload_params[:api_key] = api_key_config if api_key_config
+
+  upload_to_testflight(upload_params)
+end
+
 # iOS Platform
 platform :ios do
   desc "Build and upload iOS app to TestFlight"
@@ -143,35 +172,18 @@ platform :ios do
       output_name: "Usernode-#{env_type}-#{version_string}.ipa"
     )
 
-    # Upload to TestFlight
-    # Use API key from environment variables if available
-    api_key_config = if ENV['APP_STORE_CONNECT_API_KEY_ID'] && ENV['APP_STORE_CONNECT_ISSUER_ID'] && ENV['APP_STORE_CONNECT_API_KEY']
-      app_store_connect_api_key(
-        key_id: ENV['APP_STORE_CONNECT_API_KEY_ID'],
-        issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
-        key_content: ENV['APP_STORE_CONNECT_API_KEY'],
-        is_key_content_base64: false
-      )
-    else
-      nil
-    end
-
-    upload_params = {
-      skip_waiting_for_build_processing: true,
-      app_identifier: "org.usernode.app",
-      ipa: "build/ios/Usernode-#{env_type}-#{version_string}.ipa"
-    }
-
-    # Add api_key only if it's available
-    upload_params[:api_key] = api_key_config if api_key_config
-
-    upload_to_testflight(upload_params)
+    upload_ipa_to_testflight("build/ios/Usernode-#{env_type}-#{version_string}.ipa")
 
     # Commit version bump
     commit_version_bump(
       ["pubspec.yaml"],
       "Bump iOS #{env_type} build to #{build_number}"
     )
+  end
+
+  desc "Upload an already-built iOS IPA to TestFlight"
+  lane :upload_existing_ipa do |options|
+    upload_ipa_to_testflight(options[:ipa] || ENV['IPA_PATH'])
   end
 
   desc "Build iOS app for internal testing"

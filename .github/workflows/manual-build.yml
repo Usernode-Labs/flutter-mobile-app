@@ -101,10 +101,6 @@ jobs:
       - name: Restore generated Rust binding
         run: cp "$RUNNER_TEMP/frb-bindings-artifact/rust/frb_generated.rs" ../usernode/crates/usernode/src/frb_generated.rs
 
-      - name: Resolve usernode target path
-        id: usernode-paths
-        run: echo "target=$(cd ../usernode && pwd -P)/target" >> "$GITHUB_OUTPUT"
-
       - name: Determine environment from ref
         id: env_config
         run: |
@@ -123,15 +119,6 @@ jobs:
               echo "📦 Building for NON-PRODUCTION ($REF)"
               ;;
           esac
-
-      - name: Cache usernode Rust target artifacts
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.usernode-paths.outputs.target }}
-          key: ${{ runner.os }}-usernode-target-android-v1-${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
-          restore-keys: |
-            ${{ runner.os }}-usernode-target-frb-v1-${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
-            ${{ runner.os }}-usernode-target-android-v1-
 
       - name: Create .env file from secrets
         run: |
@@ -205,13 +192,14 @@ jobs:
         with:
           distribution: "zulu"
           java-version: ${{ env.JAVA_VERSION }}
+          cache: "gradle"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ needs.prepare-frb-bindings.outputs.flutter_version }}
           channel: "stable"
-          cache: false
+          cache: true
 
       - name: Install Flutter dependencies
         run: flutter pub get
@@ -236,22 +224,16 @@ jobs:
           echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
           echo "Using NDK at $NDK_ROOT"
 
-      # - name: Setup sccache for Rust compilation
-      #   uses: mozilla-actions/sccache-action@v0.0.3
-      #   continue-on-error: true
-      #   id: sccache-android
-      #
-      # - name: Configure Rust to use sccache
-      #   if: steps.sccache-android.outcome == 'success'
-      #   run: |
-      #     echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-      #     echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
-      #     echo "✅ sccache enabled for Rust compilation"
-      #
-      # - name: Rust compilation without sccache
-      #   if: steps.sccache-android.outcome != 'success'
-      #   run: |
-      #     echo "⚠️  sccache setup failed, building without cache"
+      - name: Setup sccache for Rust compilation
+        id: sccache-android
+        uses: mozilla-actions/sccache-action@v0.0.11
+        continue-on-error: true
+
+      - name: Configure Rust compiler cache
+        if: steps.sccache-android.outcome == 'success'
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
 
       - name: Decode keystore
         env:
@@ -394,18 +376,6 @@ jobs:
       - name: Restore generated Rust binding
         run: cp "$RUNNER_TEMP/frb-bindings-artifact/rust/frb_generated.rs" ../usernode/crates/usernode/src/frb_generated.rs
 
-      - name: Resolve usernode target path
-        id: usernode-paths
-        run: echo "target=$(cd ../usernode && pwd -P)/target" >> "$GITHUB_OUTPUT"
-
-      - name: Cache usernode Rust target artifacts
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.usernode-paths.outputs.target }}
-          key: ${{ runner.os }}-usernode-target-ios-v1-${{ needs.prepare-frb-bindings.outputs.usernode_sha }}
-          restore-keys: |
-            ${{ runner.os }}-usernode-target-ios-v1-
-
       - name: Determine environment from ref
         id: env_config
         run: |
@@ -452,7 +422,7 @@ jobs:
         with:
           flutter-version: ${{ needs.prepare-frb-bindings.outputs.flutter_version }}
           channel: "stable"
-          cache: false
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
@@ -462,22 +432,16 @@ jobs:
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
 
-      # - name: Setup sccache for Rust compilation
-      #   uses: mozilla-actions/sccache-action@v0.0.3
-      #   continue-on-error: true
-      #   id: sccache-ios
-      #
-      # - name: Configure Rust to use sccache
-      #   if: steps.sccache-ios.outcome == 'success'
-      #   run: |
-      #     echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-      #     echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
-      #     echo "✅ sccache enabled for Rust compilation"
-      #
-      # - name: Rust compilation without sccache
-      #   if: steps.sccache-ios.outcome != 'success'
-      #   run: |
-      #     echo "⚠️  sccache setup failed, building without cache"
+      - name: Setup sccache for Rust compilation
+        id: sccache-ios
+        uses: mozilla-actions/sccache-action@v0.0.11
+        continue-on-error: true
+
+      - name: Configure Rust compiler cache
+        if: steps.sccache-ios.outcome == 'success'
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -586,41 +550,50 @@ jobs:
           NONPROD_FIREBASE_CLIENT_CONFIG_BASE64: ${{ secrets.NONPROD_FIREBASE_IOS_CONFIG_BASE64 }}
         run: bash tool/provision-social-push-build.sh ios
 
-      - name: Build iOS app (no codesign)
+      - name: Build signed iOS IPA
+        env:
+          # Flutter forwards FLUTTER_XCODE_* variables to xcodebuild as build
+          # settings. Match the distribution-signing overrides previously used
+          # by Fastlane so the archive does not request a development identity.
+          FLUTTER_XCODE_DEVELOPMENT_TEAM: "785Y2C9VG2"
+          FLUTTER_XCODE_CODE_SIGN_IDENTITY: "iPhone Distribution"
         run: |
           set -euo pipefail
-          flutter build ios \
+          flutter build ipa \
             --release \
-            --no-codesign \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version_number }} \
-            --dart-define-from-file=.env
+            --dart-define-from-file=.env \
+            --export-options-plist=ios/ExportOptions.plist
 
-      - name: Build and upload via Fastlane
+      - name: Locate built IPA
+        id: ipa
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          IPAS=(build/ios/ipa/*.ipa)
+          if [ "${#IPAS[@]}" -ne 1 ]; then
+            echo "Expected exactly one IPA in build/ios/ipa, found ${#IPAS[@]}" >&2
+            exit 1
+          fi
+          echo "ipa_path=${IPAS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload existing IPA via Fastlane
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
           DELIVER_ALTOOL_ADDITIONAL_UPLOAD_PARAMETERS: "--use-old-altool"
-        run: |
-          # Always run the fastlane ios lane in PROD mode, matching the
-          # de-facto behavior of build-and-deploy.yml (its BUILD_ENV line is
-          # Ruby syntax in a shell step, so fastlane has always defaulted to
-          # PROD). The NONPROD path is broken on two counts: the "Usernode
-          # Internal" profiles are no longer installed on CI, and the
-          # "-internal" version suffix is rejected by App Store Connect
-          # (CFBundleShortVersionString must be numeric). The app's .env
-          # (dart-defines) is still selected by env_type above.
-          export BUILD_ENV=PROD
-          bundle exec fastlane ios release
+          IPA_PATH: ${{ steps.ipa.outputs.ipa_path }}
+        run: bundle exec fastlane ios upload_existing_ipa
 
       - name: Upload IPA artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ios-release-manual-${{ github.event.inputs.version }}
-          path: build/ios/*.ipa
+          path: build/ios/ipa/*.ipa
           retention-days: 90
 
   tag:
@@ -650,7 +623,7 @@ jobs:
 
   notify:
     name: Send Notification
-    runs-on: ubuntu-20.04-16core2
+    runs-on: ubuntu-latest
     needs: [build-android, build-ios, tag]
     if: always()
     steps:

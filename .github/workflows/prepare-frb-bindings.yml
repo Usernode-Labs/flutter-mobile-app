@@ -113,12 +113,69 @@ jobs:
           echo "Usernode commit: $USERNODE_SHA"
           echo "flutter_rust_bridge revision: $FRB_REV"
 
-  prepare:
-    name: Generate or restore FRB bindings
+  restore:
+    name: Restore cached FRB bindings
     needs: resolve
+    runs-on: ubuntu-latest
+    outputs:
+      cache_hit: ${{ steps.cache-frb-bindings.outputs.cache-hit }}
+    steps:
+      - name: Restore generated bindings
+        id: cache-frb-bindings
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/frb-bindings-artifact
+          key: ${{ runner.os }}-frb-bindings-${{ needs.resolve.outputs.binding_fingerprint }}
+
+      - name: Validate cached bindings
+        if: steps.cache-frb-bindings.outputs.cache-hit == 'true'
+        env:
+          BINDING_FINGERPRINT: ${{ needs.resolve.outputs.binding_fingerprint }}
+        run: |
+          BUNDLE_DIR="$RUNNER_TEMP/frb-bindings-artifact"
+          for file in \
+            "$BUNDLE_DIR/dart/frb_generated.dart" \
+            "$BUNDLE_DIR/dart/frb_generated.io.dart" \
+            "$BUNDLE_DIR/dart/frb_generated.web.dart" \
+            "$BUNDLE_DIR/dart/frb_types.dart" \
+            "$BUNDLE_DIR/rust/frb_generated.rs"; do
+            if [ ! -s "$file" ]; then
+              echo "::error::Missing cached binding: $file"
+              exit 1
+            fi
+          done
+
+          if [ "$(cat "$BUNDLE_DIR/fingerprint")" != "$BINDING_FINGERPRINT" ]; then
+            echo "::error::Cached bindings do not match the requested input fingerprint"
+            exit 1
+          fi
+
+      - name: Upload cached bindings for this run
+        if: steps.cache-frb-bindings.outputs.cache-hit == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.resolve.outputs.artifact_name }}
+          path: ${{ runner.temp }}/frb-bindings-artifact
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Report cache hit
+        if: steps.cache-frb-bindings.outputs.cache-hit == 'true'
+        run: |
+          echo "### FRB bindings" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source: \`actions-cache\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Input fingerprint: \`${{ needs.resolve.outputs.binding_fingerprint }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Usernode commit: \`${{ needs.resolve.outputs.usernode_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- FRB revision: \`${{ needs.resolve.outputs.frb_rev }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- cargo-expand version: \`${{ needs.resolve.outputs.cargo_expand_version }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  prepare:
+    name: Generate FRB bindings
+    needs: [resolve, restore]
+    if: needs.restore.outputs.cache_hit != 'true'
     runs-on: ubuntu-20.04-16core2
     concurrency:
-      group: frb-bindings-${{ needs.resolve.outputs.binding_fingerprint }}-${{ needs.resolve.outputs.mobile_app_sha }}
+      group: frb-bindings-${{ needs.resolve.outputs.binding_fingerprint }}
       cancel-in-progress: false
     steps:
       - name: Restore generated bindings
@@ -162,7 +219,7 @@ jobs:
         with:
           flutter-version: ${{ needs.resolve.outputs.flutter_version }}
           channel: "stable"
-          cache: false
+          cache: true
 
       - name: Cache cargo registry and git dependencies
         if: steps.cache-frb-bindings.outputs.cache-hit != 'true'

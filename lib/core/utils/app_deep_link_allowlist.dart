@@ -1,8 +1,7 @@
 /// Routes that may be opened from backend-provided app CTAs or external
 /// `usernode://app/...` links.
 bool isAllowedAppDeepLinkPath(String path) {
-  if (path == '/challenges/leaderboard' ||
-      path == '/challenges/zk-identity' ||
+  if (path == '/challenges/zk-identity' ||
       path == '/challenges/zk-identity/flow' ||
       path == '/dapps') {
     return true;

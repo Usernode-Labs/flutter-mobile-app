@@ -3,16 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/identity/identity.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 
 import 'social_push_api.dart';
 import 'social_push_messaging.dart';
 import 'social_push_payload.dart';
 import 'social_push_store.dart';
-
-typedef SocialPushUnauthorized = Future<void> Function(
-  AuthCredentialLease credential,
-);
 
 typedef SocialPushRetryTimerFactory = Timer Function(
   Duration delay,
@@ -32,29 +29,26 @@ Timer _defaultRetryTimer(Duration delay, void Function() callback) =>
 
 class SocialPushSession {
   const SocialPushSession({
-    required this.userId,
-    required this.credential,
-    required this.onUnauthorized,
+    required this.access,
   });
 
-  final int userId;
-  final AuthCredentialLease credential;
-  final SocialPushUnauthorized onUnauthorized;
+  final SessionFeatureAccess access;
+  int get userId => access.identity.participantId!;
 
   bool sameCredentialAs(SocialPushSession other) =>
-      userId == other.userId &&
-      credential.epoch == other.credential.epoch &&
-      credential.token == other.credential.token;
+      access.identity.nativeRevision == other.access.identity.nativeRevision &&
+      access.identity.participantId == other.access.identity.participantId &&
+      identical(access.operations, other.access.operations);
 
   @override
-  String toString() => 'SocialPushSession('
-      'userId: $userId, epoch: ${credential.epoch}, token: <redacted>)';
+  String toString() =>
+      'SocialPushSession(userId: $userId, revision: ${access.identity.nativeRevision})';
 }
 
 /// Process-lifetime owner of Firebase Messaging and Social registration.
 ///
 /// Every mutation is serialized through one queue. Identity remains owned by
-/// SessionController; a container-scoped adapter attaches only an immutable
+/// The private session composition root attaches only an immutable
 /// ready-session snapshot and detaches it synchronously at identity boundaries.
 class SocialPushService {
   SocialPushService({
@@ -78,11 +72,7 @@ class SocialPushService {
   static final SocialPushService instance = SocialPushService(
     messaging: FirebaseSocialPushMessaging(),
     persistence: SecureStorageSocialPushPersistence(),
-    api: HttpSocialPushRegistrationApi(
-      mobileApiBaseUrl: AppConfig.mobileApiBaseUrl,
-      expectedEnvironment: AppConfig.pushEnvironment,
-      expectedFirebaseProjectId: AppConfig.expectedFirebaseProjectId,
-    ),
+    api: const NativeSessionSocialPushRegistrationApi(),
     environment: AppConfig.pushEnvironment,
     expectedFirebaseProjectId: AppConfig.expectedFirebaseProjectId,
     platform: defaultTargetPlatform == TargetPlatform.android
@@ -118,7 +108,6 @@ class SocialPushService {
   SocialPushRecord? _record;
   bool _recordPersisted = false;
   bool _available = false;
-  bool _resetting = false;
   Object? _sessionOwner;
   SocialPushSession? _session;
   SocialPushSession? _cleanedSession;
@@ -161,10 +150,6 @@ class SocialPushService {
   Future<void> _initializeOnce() async {
     try {
       final loaded = await _persistence.load();
-      if (_resetting) {
-        await _persistence.clear();
-        return;
-      }
       _record = loaded;
       if (_tapCaptureBlocked && _record!.pending != null) {
         _record = _record!.copyWith(clearPending: true);
@@ -177,12 +162,6 @@ class SocialPushService {
       // queued boundary must rewrite its cleared record.
       _recordPersisted = identical(_record, recordBeingSaved);
     } catch (error) {
-      if (_resetting) {
-        try {
-          await _persistence.clear();
-        } catch (_) {}
-        return;
-      }
       _record = SocialPushRecord.fresh();
       _recordPersisted = false;
       _registrationStatus = SocialPushRegistrationStatus.error;
@@ -216,10 +195,6 @@ class SocialPushService {
         '[SocialPush] Firebase unavailable (${error.runtimeType})',
       );
       _emitState();
-      return;
-    }
-    if (_resetting) {
-      await _disableInitializedProviderState();
       return;
     }
     if (projectId != expectedFirebaseProjectId) {
@@ -345,7 +320,6 @@ class SocialPushService {
   /// Attaches the exact ready bearer owned by the active provider container.
   /// Calling this with a renewed same-user bearer simply queues another PUT.
   void attachSession(Object owner, SocialPushSession session) {
-    if (_resetting) return;
     final previousSession = _session;
     final crossUserBoundary =
         previousSession != null && previousSession.userId != session.userId;
@@ -484,49 +458,7 @@ class SocialPushService {
     });
   }
 
-  /// Fences process-local push delivery for a terminal application reset.
-  ///
-  /// Persistent push state is erased by the reset service's secure-storage
-  /// wipe. Network unregister/rotation is intentionally not awaited because
-  /// remote cleanup may never delay the local terminal boundary.
-  void closeForTerminalReset() {
-    _cancelRegistrationRetry(resetAttempts: true);
-    _fenceTapCaptureAtAccountBoundary();
-    _sessionOwner = null;
-    _session = null;
-    _clearRegisteredSignature();
-    _resetting = true;
-    _installFreshResetState();
-    _runDetached(_finishTerminalResetCleanup(), 'terminal push cleanup');
-  }
-
-  Future<void> _finishTerminalResetCleanup() async {
-    await _openedSubscription?.cancel();
-    await _foregroundSubscription?.cancel();
-    await _tokenSubscription?.cancel();
-    _openedSubscription = null;
-    _foregroundSubscription = null;
-    _tokenSubscription = null;
-    try {
-      await _persistence.clear();
-    } catch (_) {}
-    await _disableInitializedProviderState(force: true);
-  }
-
-  void _installFreshResetState() {
-    _record = SocialPushRecord.fresh();
-    _recordPersisted = false;
-    _cleanedSession = null;
-    _permission = SocialPushPermission.notDetermined;
-    _registrationStatus = SocialPushRegistrationStatus.disabled;
-    _deliveryActive = false;
-    _tapCaptureBlocked = true;
-    _providerRotationBoundaryGeneration = null;
-    _emitState();
-  }
-
   Future<void> _setEnabledNow(bool enabled) async {
-    if (_resetting) return;
     _cancelRegistrationRetry(resetAttempts: true);
     await _ensureRecordPersisted();
     final record = _record!;
@@ -578,9 +510,7 @@ class SocialPushService {
   }
 
   Future<void> _reconcileNow({bool refreshPermission = true}) async {
-    if (_disposed ||
-        _resetting ||
-        _providerRotationBoundaryGeneration != null) {
+    if (_disposed || _providerRotationBoundaryGeneration != null) {
       return;
     }
     await _ensureRecordPersisted();
@@ -699,9 +629,12 @@ class SocialPushService {
           _registeredSession?.sameCredentialAs(session) == true &&
               _registeredProviderToken == token &&
               _registeredPermission == _permission;
-      final status = await _api.getStatus(
-        bearer: session.credential.token,
-        installationId: _record!.installationId,
+      final status = await _withSession(
+        session,
+        (operation) => _api.getStatus(
+          operation: operation,
+          installationId: _record!.installationId,
+        ),
       );
       if (_session?.sameCredentialAs(session) != true) return;
       if (status.registered && signatureMatches) {
@@ -725,13 +658,6 @@ class SocialPushService {
       _registrationStatus = SocialPushRegistrationStatus.registered;
       _deliveryActive = reply.deliveryActive;
     } on SocialPushApiException catch (error) {
-      if (error.statusCode == 401 &&
-          _session?.sameCredentialAs(session) == true) {
-        _runDetached(
-          session.onUnauthorized(session.credential),
-          'unauthorized session handling',
-        );
-      }
       if (_session?.sameCredentialAs(session) == true) {
         _clearRegisteredSignature();
         _registrationStatus = SocialPushRegistrationStatus.error;
@@ -759,7 +685,6 @@ class SocialPushService {
   }) {
     if (expectedSession == null ||
         _disposed ||
-        _resetting ||
         !_available ||
         _providerRotationBoundaryGeneration != null ||
         _record?.optedIn != true) {
@@ -843,13 +768,16 @@ class SocialPushService {
   }) async {
     final revision = await _nextMutationRevision();
     try {
-      return await _api.register(
-        bearer: session.credential.token,
-        installationId: _record!.installationId,
-        registrationToken: token,
-        platform: platform!,
-        permissionStatus: _permission.wireName,
-        mutationRevision: revision,
+      return await _withSession(
+        session,
+        (operation) => _api.register(
+          operation: operation,
+          installationId: _record!.installationId,
+          registrationToken: token,
+          platform: platform!,
+          permissionStatus: _permission.wireName,
+          mutationRevision: revision,
+        ),
       );
     } on SocialPushApiException catch (error) {
       if (retryConflict &&
@@ -872,14 +800,7 @@ class SocialPushService {
         retryConflict: true,
       );
       return true;
-    } on SocialPushApiException catch (error) {
-      if (error.statusCode == 401 &&
-          _session?.sameCredentialAs(session) == true) {
-        _runDetached(
-          session.onUnauthorized(session.credential),
-          'unauthorized session handling',
-        );
-      }
+    } on SocialPushApiException catch (_) {
       // Local opt-out and provider-token deletion are authoritative even when
       // backend cleanup is temporarily unavailable.
       return false;
@@ -896,11 +817,14 @@ class SocialPushService {
   }) async {
     final revision = await _nextMutationRevision();
     try {
-      await _api.unregister(
-        bearer: session.credential.token,
-        installationId: _record!.installationId,
-        mutationRevision: revision,
-        reason: reason,
+      await _withSession(
+        session,
+        (operation) => _api.unregister(
+          operation: operation,
+          installationId: _record!.installationId,
+          mutationRevision: revision,
+          reason: reason,
+        ),
       );
     } on SocialPushApiException catch (error) {
       if (retryConflict &&
@@ -933,13 +857,28 @@ class SocialPushService {
     }
   }
 
+  Future<T> _withSession<T>(
+    SocialPushSession session,
+    Future<T> Function(SessionOperation operation) body,
+  ) async {
+    try {
+      return await session.access.operations.run(body);
+    } on NativeSessionException catch (error) {
+      throw SocialPushApiException(
+        statusCode: error.statusCode ?? 0,
+        code: error.code,
+        latestMutationRevision: error.latestMutationRevision,
+      );
+    } on SessionAdmissionClosedException {
+      throw const SocialPushApiException(statusCode: 0);
+    }
+  }
+
   Future<void> _captureTapNow(
     Map<String, Object?> message,
     int captureGeneration,
   ) async {
-    if (_resetting ||
-        _tapCaptureBlocked ||
-        captureGeneration != _tapCaptureGeneration) {
+    if (_tapCaptureBlocked || captureGeneration != _tapCaptureGeneration) {
       return;
     }
     final payload = parseSocialPushPayload(
@@ -1037,11 +976,10 @@ class SocialPushService {
     _providerRotationBoundaryGeneration = null;
     if (pendingClearPersisted &&
         boundaryGeneration == _tapCaptureGeneration &&
-        _session != null &&
-        !_resetting) {
+        _session != null) {
       _tapCaptureBlocked = false;
     }
-    if (_session != null && !_resetting) {
+    if (_session != null) {
       await _reconcileNow();
     }
   }
@@ -1096,15 +1034,7 @@ class SocialPushService {
   }
 
   Future<bool> _persistRecord(SocialPushRecord record) async {
-    if (_resetting) {
-      await _persistence.clear();
-      return false;
-    }
     await _persistence.save(record);
-    if (_resetting) {
-      await _persistence.clear();
-      return false;
-    }
     return true;
   }
 

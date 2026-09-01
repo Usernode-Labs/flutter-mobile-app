@@ -12,14 +12,14 @@ class ApplicationIncarnationStore(context: Context) {
         private val lock = Any()
 
         @Volatile
-        private var terminalResetRequested = false
+        private var processRestartRequested = false
     }
 
     private val prefs = context.applicationContext
         .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     fun ensure(): String? = synchronized(lock) {
-        if (terminalResetRequested) return@synchronized null
+        if (processRestartRequested) return@synchronized null
         val existing = storedCurrent()
         if (existing != null) return@synchronized existing
         UUID.randomUUID().toString().also { created ->
@@ -30,7 +30,7 @@ class ApplicationIncarnationStore(context: Context) {
     }
 
     fun current(): String? = synchronized(lock) {
-        if (terminalResetRequested) null else storedCurrent()
+        if (processRestartRequested) null else storedCurrent()
     }
 
     fun matches(captured: String?): Boolean {
@@ -44,11 +44,11 @@ class ApplicationIncarnationStore(context: Context) {
      * The reversible twin of [invalidate], for the one boundary that keeps the
      * process alive: a scoped sign-out. Durable work scheduled by the retired
      * session no longer [matches], while this process can keep scheduling
-     * under the returned token. Returns null once a terminal reset has latched
-     * the store shut.
+     * under the returned token. Returns null once a process restart has
+     * latched the store shut.
      */
     fun rotate(): String? = synchronized(lock) {
-        if (terminalResetRequested) return@synchronized null
+        if (processRestartRequested) return@synchronized null
         UUID.randomUUID().toString().also { created ->
             check(prefs.edit().putString(TOKEN_KEY, created).commit()) {
                 "Could not persist the rotated application incarnation"
@@ -57,12 +57,8 @@ class ApplicationIncarnationStore(context: Context) {
     }
 
     fun invalidate(): Boolean = synchronized(lock) {
-        terminalResetRequested = true
+        processRestartRequested = true
         prefs.edit().remove(TOKEN_KEY).commit()
-    }
-
-    fun clear(): Boolean = synchronized(lock) {
-        prefs.edit().clear().commit()
     }
 
     private fun storedCurrent(): String? =

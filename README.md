@@ -116,7 +116,6 @@ This is **not a light client** - it's a full validator node with consensus parti
 - Real-time blockchain synchronization
 - Consensus participation and block validation
 - Network peer management
-- Light Blockchain explorer with block/transaction details
 
 ### Wallet & Asset Management
 

@@ -5,51 +5,29 @@ import 'dart:typed_data';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/core/providers/accounts_provider.dart';
-import 'package:crypto_mobile_app/core/providers/node_provider.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart'
     show buildEnvProvider, debugModeProvider;
-import 'package:crypto_mobile_app/core/providers/top_status_node_status_provider.dart';
-import 'package:crypto_mobile_app/core/providers/wallet_provider.dart';
-import 'package:crypto_mobile_app/core/services/app_sleep_service.dart';
-import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
-import 'package:crypto_mobile_app/core/services/node_lifecycle_coordinator.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
-import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/features/auth/data/models/auth_models.dart'
-    show AuthSession;
-import 'package:crypto_mobile_app/features/auth/providers/auth_providers.dart'
-    show
-        authRepositoryProvider,
-        authStatusProvider,
-        identityProvider,
-        signOutCompletionProvider;
-import 'package:crypto_mobile_app/features/auth/providers/post_sign_in_sync.dart'
-    show accountReconciliationStatusProvider, identityDriverProvider;
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
 import 'package:crypto_mobile_app/features/dapps/native_screen_capture.dart';
-import 'package:crypto_mobile_app/features/dapps/node_status_snapshot.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
-import 'package:crypto_mobile_app/features/dapps/session_bound_auth_status.dart';
+import 'package:crypto_mobile_app/features/dapps/submit_transaction_contract.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_store.dart'
     show SocialPushState;
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
-import 'package:crypto_mobile_app/features/node/node_service.dart';
-import 'package:crypto_mobile_app/core/providers/staking_provider.dart';
 import 'package:crypto_mobile_app/features/zkpassport/zk_challenge_reset.dart'
     show resetChallengeState;
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart'
     show zkPassportFlowControllerProvider;
-import 'package:crypto_mobile_app/src/rust/account.dart' as frb_account;
-import 'package:crypto_mobile_app/src/rust/frb_types.dart' as frb_types;
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -57,14 +35,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
-part 'bridge/dapp_bridge_records.dart';
 part 'bridge/dapp_bridge_auth_node.dart';
 part 'bridge/dapp_bridge_wallet.dart';
 part 'bridge/dapp_bridge_shortcuts.dart';
@@ -127,6 +103,13 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   /// first-launch gate ("has SV ever rendered on this install?").
   final void Function(bool ok)? onFirstLoadResult;
 
+  /// Private composition-root ingress. It exposes no native/root authority.
+  final NativeSessionBridgeIngress _nativeSessionBridge;
+
+  /// Immutable identity plus the exact session's one-shot operation runner.
+  /// This view has no lifecycle mutation or publication authority.
+  final SessionFeatureAccessView _sessionAccess;
+
   const DappWebViewScreen({
     super.key,
     required this.url,
@@ -136,7 +119,10 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
     this.standalone = false,
     this.onSessionEnded,
     this.onFirstLoadResult,
-  });
+    required NativeSessionBridgeIngress nativeSessionBridge,
+    required SessionFeatureAccessView sessionAccess,
+  })  : _nativeSessionBridge = nativeSessionBridge,
+        _sessionAccess = sessionAccess;
 
   @override
   ConsumerState<DappWebViewScreen> createState() => _DappWebViewScreenState();
@@ -150,9 +136,10 @@ abstract class _DappWebViewScreenStateBase
     extends ConsumerState<DappWebViewScreen> {
   late final WebViewController _controller;
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
-  late final SessionHandoffGate _sessionHandoffGate;
   late final BridgeAdmissionCoordinator _bridgeAdmissionCoordinator;
   PrivilegedBridgeLease? _readyMainFrameLease;
+  StreamSubscription<void>? _nativeTerminalRetirementSubscription;
+  bool _terminallyInert = false;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
   /// the WebView can invoke after this screen is disposed — read through it
@@ -163,93 +150,11 @@ abstract class _DappWebViewScreenStateBase
   static const _jsChannelName = 'Usernode';
 
   void _dispatchPendingSocialPushEvents();
-  void _recordReadySocialPushReplay(
-    PrivilegedBridgeLease lease,
-    int foregroundRevision,
-  );
-  Map<String, dynamic> _nodeStatusSnapshot();
-  Map<String, dynamic> _authStatusSnapshot();
-
-  String _readyMainFrameReplayScript({
-    required SocialPushService service,
-    required int foregroundRevision,
-    required bool canReplayForeground,
-  }) {
-    final script = StringBuffer()
-      ..write('window.dispatchEvent(new CustomEvent(')
-      ..write(jsonEncode('usernode:node-status'))
-      ..write(', { detail: ${jsonEncode(_nodeStatusSnapshot())} }));')
-      ..write('window.dispatchEvent(new CustomEvent(')
-      ..write(jsonEncode('usernode:auth-status'))
-      ..write(', { detail: ${jsonEncode(_authStatusSnapshot())} }));')
-      ..write('window.dispatchEvent(new CustomEvent(')
-      ..write(jsonEncode('usernode:social-push-native-state-changed'))
-      ..write('));');
-    if (service.hasPendingTap) {
-      script
-        ..write('window.dispatchEvent(new CustomEvent(')
-        ..write(jsonEncode('usernode:social-push-pending'))
-        ..write('));');
-    }
-    if (foregroundRevision > 0 && canReplayForeground) {
-      script
-        ..write('window.dispatchEvent(new CustomEvent(')
-        ..write(jsonEncode('usernode:social-push-foreground'))
-        ..write('));');
-    }
-    return script.toString();
-  }
-
   Future<bool> _seedReadyMainFrame(PrivilegedBridgeLease lease) async {
-    // The trusted shell calls markPrivilegedBridgeReady only after installing
-    // its native-event listeners. The handler binds this lease to that exact
-    // realm before replaying state, without relying on WebView finish callbacks.
-    final service = SocialPushService.instance;
-    final foregroundRevision = service.foregroundInvalidationRevision;
-    final canReplayForeground = !_sessionHandoffGate.isAuthenticatedBlocked;
-    final delivered = await _privilegedBridgePolicy.runInLease(
-      lease,
-      _readyMainFrameReplayScript(
-        service: service,
-        foregroundRevision: foregroundRevision,
-        canReplayForeground: canReplayForeground,
-      ),
-    );
+    final delivered =
+        await _privilegedBridgePolicy.runInLease(lease, 'void 0;');
     if (!delivered || !mounted) return false;
     _readyMainFrameLease = lease;
-    _recordReadySocialPushReplay(
-      lease,
-      canReplayForeground ? foregroundRevision : 0,
-    );
-
-    // Auth/node/push state can advance while the first guarded evaluation is
-    // awaiting the WebView. Snapshot it again only after installing this lease
-    // and require that authoritative replay to land before acknowledging page
-    // readiness. Live transitions that follow are queued behind this script in
-    // the same exact realm.
-    final latestForegroundRevision = service.foregroundInvalidationRevision;
-    final latestCanReplayForeground =
-        !_sessionHandoffGate.isAuthenticatedBlocked;
-    final replayed = await _privilegedBridgePolicy.runInLease(
-      lease,
-      _readyMainFrameReplayScript(
-        service: service,
-        foregroundRevision: latestForegroundRevision,
-        canReplayForeground: latestCanReplayForeground,
-      ),
-    );
-    if (!replayed || !mounted || _readyMainFrameLease?.marker != lease.marker) {
-      if (_readyMainFrameLease?.marker == lease.marker) {
-        _readyMainFrameLease = null;
-      }
-      return false;
-    }
-    _recordReadySocialPushReplay(
-      lease,
-      latestCanReplayForeground ? latestForegroundRevision : 0,
-    );
-    // Retained taps or a foreground revision may have arrived during the
-    // second evaluation. Their dispatchers are idempotent/coalesced.
     _dispatchPendingSocialPushEvents();
     return true;
   }
@@ -260,19 +165,32 @@ abstract class _DappWebViewScreenStateBase
     return _privilegedBridgePolicy.runInLease(lease, javaScriptBody);
   }
 
-  bool _admitAuthenticatedSession(Identity identity) {
-    if (!_sessionHandoffGate.admitAuthenticated(identity)) return false;
-    _dispatchPendingSocialPushEvents();
-    return true;
+  void _replaceRetiredSessionDocument() {
+    if (widget._nativeSessionBridge.terminallyRetired) {
+      _latchTerminalSessionDocument();
+      return;
+    }
+    final delegate = widget.onSessionEnded;
+    if (delegate != null) {
+      delegate();
+      return;
+    }
+    if (!mounted) return;
+    _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
   }
 
-  bool _admitWalletSession(Identity identity) =>
-      _sessionHandoffGate.admitWallet(identity);
-
-  bool _admitAnonymousSession() {
-    if (!_sessionHandoffGate.admitAnonymous()) return false;
-    _dispatchPendingSocialPushEvents();
-    return true;
+  void _latchTerminalSessionDocument({bool notify = true}) {
+    if (_terminallyInert) return;
+    _readyMainFrameLease = null;
+    _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+    if (notify && mounted) {
+      setState(() {
+        _terminallyInert = true;
+      });
+    } else {
+      _terminallyInert = true;
+    }
   }
 
   // First main-frame load outcome has been reported via
@@ -290,18 +208,6 @@ abstract class _DappWebViewScreenStateBase
       error: '$method is only available to the dapps home',
     );
     return false;
-  }
-
-  bool _identityScopeIsCurrent(Identity identity) =>
-      mounted && identity.sameScopeAs(ref.read(identityProvider));
-
-  Future<void> _rejectStaleIdentityScope(String id, String method) async {
-    if (!mounted) return;
-    await _resolveJsPromise(
-      id: id,
-      value: null,
-      error: '$method was cancelled because the active identity changed',
-    );
   }
 
   /// Extracts a required bool from `payload.args[key]`; rejects the promise
@@ -322,23 +228,11 @@ abstract class _DappWebViewScreenStateBase
     return null;
   }
 
-  /// The identity whose wallet this bridge may expose, or null when there is
-  /// none: reconciling/unknown (account ownership unsettled) and guest
-  /// sessions (the active registry account may belong to a previously
-  /// signed-in user) get nothing. When non-null, [Identity.address] is the
-  /// confirmed wallet address — handlers use it instead of reading the
-  /// registry's active account, so a mid-transition registry state can never
-  /// leak another identity's address.
-  Identity? _bridgeWalletIdentity() {
-    final identity = IdentitySnapshots.current;
-    if (!identity.allowsSigning) return null;
-    return identity;
-  }
-
   Future<void> _resolveJsPromise({
     required String id,
     required Object? value,
     required String? error,
+    Map<String, Object?>? errorInfo,
   }) async {
     final lease = _activePrivilegedBridgeLease;
     if (lease != null) {
@@ -347,11 +241,13 @@ abstract class _DappWebViewScreenStateBase
         id: id,
         value: value,
         error: error,
+        errorInfo: errorInfo,
       );
       return;
     }
     final js = 'window.__usernodeResolve(${jsonEncode(id)},'
-        ' ${jsonEncode(value)}, ${jsonEncode(error)});';
+        ' ${jsonEncode(value)}, ${jsonEncode(error)},'
+        ' ${jsonEncode(errorInfo)});';
     try {
       await _controller.runJavaScript(js);
     } catch (_) {
@@ -400,18 +296,82 @@ abstract class _DappWebViewScreenStateBase
     required String id,
     required Object? value,
     required String? error,
+    Map<String, Object?>? errorInfo,
   }) async {
-    await _resolveJsPromise(id: id, value: value, error: error);
+    await _resolveJsPromise(
+      id: id,
+      value: value,
+      error: error,
+      errorInfo: errorInfo,
+    );
   }
 
   PrivilegedBridgeLease? get _activePrivilegedBridgeLease =>
       PrivilegedBridgeRequestContext.currentLease;
+
+  Future<void> _resolveClaimedSessionOperation({
+    required String id,
+    required Map<String, dynamic> payload,
+    required String method,
+    required FutureOr<Object?> Function(
+      SessionIdentityProjection identity,
+      SessionOperation operation,
+    ) body,
+  }) async {
+    final lease = _activePrivilegedBridgeLease;
+    final claim = payload['realmSessionClaim'];
+    if (lease == null ||
+        claim is! String ||
+        claim.isEmpty ||
+        claim.length > 256 ||
+        claim.trim() != claim) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: '$method requires the exact native session realm',
+        errorInfo: const {'code': 'native_session_realm_mismatch'},
+      );
+      return;
+    }
+    if (!await _revalidatePrivilegedBridgeLease(id, method)) return;
+    try {
+      final value = await widget._nativeSessionBridge.runSessionOperation(
+        realmMarker: lease.marker,
+        realmSessionClaim: claim,
+        body: body,
+      );
+      await _resolveJsPromise(id: id, value: value, error: null);
+    } on NativeSessionException catch (error) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: error.message,
+        errorInfo: {'code': error.code},
+      );
+    } on SessionAdmissionClosedException {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The native session is closing',
+        errorInfo: const {'code': 'native_session_admission_closed'},
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[Usernode JS-channel] session operation failed '
+        'method=$method: $error\n$stackTrace',
+      );
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'The native session operation failed',
+        errorInfo: const {'code': 'native_session_operation_failed'},
+      );
+    }
+  }
 }
 
 class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     with
-        WidgetsBindingObserver,
-        _BridgeTxRecords,
         _BridgeAuthNode,
         _BridgeWallet,
         _BridgeShortcuts,
@@ -429,9 +389,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void initState() {
     super.initState();
-    _sessionHandoffGate = SessionHandoffGate(
-      initiallyBlocked: !widget.standalone,
-    );
     // iOS: opt this webview into App-Bound Domains (WKAppBoundDomains in
     // Info.plist). This unlocks Service Workers — SV's offline PWA mode —
     // at the cost of restricting navigation to the bound domains. All dapp
@@ -504,11 +461,17 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     );
     _bridgeAdmissionCoordinator = BridgeAdmissionCoordinator(
       policy: _privilegedBridgePolicy,
-      sessionGate: _sessionHandoffGate,
-      admitAnonymousSession: _admitAnonymousSession,
       markRealmReady: _seedReadyMainFrame,
     );
-    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+    _nativeTerminalRetirementSubscription =
+        widget._nativeSessionBridge.terminalRetirements.listen((_) {
+      _latchTerminalSessionDocument();
+    });
+    if (widget._nativeSessionBridge.terminallyRetired) {
+      _latchTerminalSessionDocument(notify: false);
+    } else {
+      unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
+    }
     // Android WebView shows no OS file chooser for <input type="file">
     // unless the host app registers one (WebChromeClient.onShowFileChooser)
     // — without this, upload controls in dapps (including cross-origin
@@ -518,70 +481,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     if (platformController is AndroidWebViewController) {
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
     }
-    // Push node pill-state transitions into the page (SV header pill).
-    // Chrome-level provider only changes on real state flips (hysteresis
-    // inside), so this doesn't spam the page with the 1s status poll.
-    // Subscription is auto-closed when this State is disposed.
-    ref.listenManual(
-      topStatusChromeNodeStatusProvider,
-      (_, __) => _dispatchNodeStatusEvent(),
-    );
-    // Push identity phase transitions into the page (bridge v4) so SV
-    // chrome can render login/provisioning progress and request node
-    // start once the identity settles.
-    ref.listenManual(identityProvider, (previous, next) {
-      if (previous?.phase == next.phase &&
-          previous?.address == next.address &&
-          previous?.participantId == next.participantId &&
-          previous?.epoch == next.epoch) {
-        return;
-      }
-      _dispatchAuthStatusEvent();
-      if (next.phase == IdentityPhase.ready) {
-        _admitWalletSession(next);
-        unawaited(_ensureNodeForStandaloneDappEntry());
-      } else if (next.phase == IdentityPhase.reconciling) {
-        _sessionHandoffGate.restrictWallet(next);
-      } else if (!next.isAuthenticated) {
-        _sessionHandoffGate.begin();
-      }
-      // Receipts are account-scoped: drop the previous identity's receipts
-      // from memory and reload this one's before anything can read them back.
-      unawaited(_bindTxRecordsToActiveIdentity());
-    });
-    // A settled sign-out must leave no trusted document rendering the retired
-    // session. This is the shared WebView owner, so it happens here for every
-    // realm — the SV shell just supplies a colder replacement than an in-place
-    // load can be.
-    ref.listenManual<int>(signOutCompletionProvider, (previous, next) {
-      if (previous != null && next <= previous) return;
-      final delegate = widget.onSessionEnded;
-      if (delegate != null) {
-        delegate();
-        return;
-      }
-      if (!mounted) return;
-      _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
-      unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
-    });
-    ref.listenManual(accountReconciliationStatusProvider, (previous, next) {
-      if (previous == next) return;
-      _dispatchAuthStatusEvent();
-    });
     _listenForSocialPushEvents();
-    unawaited(_bindTxRecordsToActiveIdentity());
-    unawaited(_ensureNodeForStandaloneDappEntry());
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed || !mounted) return;
-    // The identity itself may not change while the WebView is backgrounded.
-    // Re-emit authoritative native state so a page whose secure handoff
-    // previously failed can retry after the app returns to the foreground.
-    _dispatchAuthStatusEvent();
-    _dispatchPendingSocialPushEvents();
   }
 
   /// Reacts to a changed [DappWebViewScreen.url] on a *live* webview. Most
@@ -606,6 +506,10 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   }
 
   Future<void> _applyWidgetNavigation(int revision) async {
+    if (widget._nativeSessionBridge.terminallyRetired) {
+      _latchTerminalSessionDocument();
+      return;
+    }
     final next = parseDappUrl(widget.url);
     Uri? current;
     try {
@@ -695,12 +599,11 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    unawaited(_nativeTerminalRetirementSubscription?.cancel());
     _bridgeAdmissionCoordinator.dispose();
     _readyMainFrameLease = null;
     _privilegedBridgePolicy.dispose();
     _disposeSocialPushEvents();
-    _confirmPoller?.cancel();
     super.dispose();
   }
 
@@ -733,6 +636,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // platform view inside a scrollable starves it of buffers and ANRs the app
     // (BLASTBufferQueue "can't acquire next buffer").
     final colors = Theme.of(context).colorScheme;
+    final webView = _terminallyInert
+        ? const SizedBox.expand()
+        : WebViewWidget(controller: _controller);
 
     return PopScope(
       // Take over the route-pop handler so the device/system back button
@@ -761,10 +667,10 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         body: ColoredBox(
           color: colors.surfaceContainerLowest,
           child: widget.standalone
-              ? WebViewWidget(controller: _controller)
+              ? webView
               : SafeArea(
                   bottom: false,
-                  child: WebViewWidget(controller: _controller),
+                  child: webView,
                 ),
         ),
       ),
@@ -777,7 +683,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   // back goes to app, not out of the dapp) and only falls through to
   // popping the Flutter route once the WebView is at its root.
   Future<void> _handleBack() async {
-    if (await _controller.canGoBack()) {
+    if (!_terminallyInert && await _controller.canGoBack()) {
       await _controller.goBack();
       return;
     }

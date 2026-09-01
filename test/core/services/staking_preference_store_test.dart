@@ -2,12 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/services/staking_preference_store.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 void main() {
-  setUp(() async {
+  setUp(() {
     SharedPreferences.setMockInitialValues({});
-    await NetworkPrefs.init();
   });
 
   test('defaults to self-staking', () async {

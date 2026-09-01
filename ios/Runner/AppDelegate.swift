@@ -2,21 +2,20 @@ import UIKit
 import Flutter
 import BackgroundTasks
 import UserNotifications
-import WebKit
 
 final class ApplicationIncarnationStore {
   static let shared = ApplicationIncarnationStore()
   static let eventKey = "applicationIncarnation"
   private static let defaultsKey = "application_incarnation"
   private let lock = NSLock()
-  private var terminalResetRequested = false
+  private var processRestartRequested = false
 
   private init() {}
 
   func ensure() -> String? {
     lock.lock()
     defer { lock.unlock() }
-    guard !terminalResetRequested else { return nil }
+    guard !processRestartRequested else { return nil }
     if let current = storedCurrent() { return current }
     let created = UUID().uuidString
     UserDefaults.standard.set(created, forKey: Self.defaultsKey)
@@ -26,7 +25,7 @@ final class ApplicationIncarnationStore {
   func current() -> String? {
     lock.lock()
     defer { lock.unlock() }
-    guard !terminalResetRequested else { return nil }
+    guard !processRestartRequested else { return nil }
     return storedCurrent()
   }
 
@@ -46,7 +45,7 @@ final class ApplicationIncarnationStore {
   func invalidate() -> Bool {
     lock.lock()
     defer { lock.unlock() }
-    terminalResetRequested = true
+    processRestartRequested = true
     UserDefaults.standard.removeObject(forKey: Self.defaultsKey)
     return UserDefaults.standard.synchronize() && storedCurrent() == nil
   }
@@ -56,12 +55,12 @@ final class ApplicationIncarnationStore {
   /// The reversible twin of `invalidate()`, for the one boundary that keeps
   /// the process alive: a scoped sign-out. Work scheduled by the retired
   /// session no longer `matches`, while this process keeps scheduling under
-  /// the returned token. Returns nil once a terminal reset has latched the
+  /// the returned token. Returns nil once a process restart has latched the
   /// store shut.
   func rotate() -> String? {
     lock.lock()
     defer { lock.unlock() }
-    guard !terminalResetRequested else { return nil }
+    guard !processRestartRequested else { return nil }
     let created = UUID().uuidString
     UserDefaults.standard.set(created, forKey: Self.defaultsKey)
     guard UserDefaults.standard.synchronize(), storedCurrent() == created else {
@@ -79,6 +78,7 @@ final class ApplicationIncarnationStore {
   private let screenshotChannelName = "com.usernode.app/screenshot"
   private var alarmChannel: FlutterMethodChannel?
   private var screenshotChannel: FlutterMethodChannel?
+  private var nativeSessionChannel: IOSNativeSessionChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
   private let bgTaskScheduler = BGTaskSchedulerManager()
   private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
@@ -167,6 +167,10 @@ final class ApplicationIncarnationStore {
       self?.captureCurrentScreen(result: result)
     }
     print("[AppDelegate] Method channel '\(screenshotChannelName)' configured")
+
+    nativeSessionChannel?.close()
+    nativeSessionChannel = IOSNativeSessionChannel(messenger: binaryMessenger)
+    print("[AppDelegate] Private native-session channel configured")
   }
 
   override func application(
@@ -252,7 +256,16 @@ final class ApplicationIncarnationStore {
     _ application: UIApplication,
     performFetchWithCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
   ) {
-    super.application(application, performFetchWithCompletionHandler: completionHandler)
+    IOSNativeProducerWakeCoordinator.shared.runBackground { [weak self] wake in
+      if wake.outcome == "retired", let revision = wake.nativeRevision {
+        self?.nativeSessionChannel?.notifyRetired(nativeRevision: revision)
+      }
+      switch wake.outcome {
+      case "completed", "retired": completionHandler(.newData)
+      case "retry": completionHandler(.failed)
+      default: completionHandler(.noData)
+      }
+    }
   }
 
   private func setupMethodChannelHandlers() {
@@ -277,15 +290,9 @@ final class ApplicationIncarnationStore {
     case "clearSessionNotifications":
       clearSessionNotifications(result: result)
 
-    case "clearWebSessionData":
-      clearWebSessionData(result: result)
-
-    case "clearNativeResetState":
-      result(clearNativeResetState())
-
-    case "enterTerminalReset":
+    case "terminateForNetworkChange":
       // iOS does not expose a supported self-termination API. Dart has already
-      // replaced the functional app with the inert reset-complete surface.
+      // replaced the functional app with the inert restart-required surface.
       result(nil)
 
     case "registerBGTasks":
@@ -409,6 +416,9 @@ final class ApplicationIncarnationStore {
   /// Removes this app's delivered notifications and the pending requests
   /// behind them. A scoped sign-out keeps the process, so nothing else takes
   /// the retired session's Social/slot text off the lock screen.
+  // TODO(session-lifecycle follow-up): replace this app-wide, completionless
+  // cleanup with incarnation-scoped removal confirmed before a successor may
+  // schedule. Keep that work with the alarm/notification subsystem refactor.
   private func clearSessionNotifications(result: @escaping FlutterResult) {
     let center = UNUserNotificationCenter.current()
     center.removeAllPendingNotificationRequests()
@@ -424,18 +434,6 @@ final class ApplicationIncarnationStore {
       }
     }
     result(true)
-  }
-
-  private func clearWebSessionData(result: @escaping FlutterResult) {
-    let dataStore = WKWebsiteDataStore.default()
-    dataStore.removeData(
-      ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-      modifiedSince: .distantPast
-    ) {
-      DispatchQueue.main.async {
-        result(true)
-      }
-    }
   }
 
   /// Captures the visible app window after the feedback dialog has hidden.
@@ -498,24 +496,6 @@ final class ApplicationIncarnationStore {
       }
     }
     return nil
-  }
-
-  private func clearNativeResetState() -> Bool {
-    if #available(iOS 13.0, *) {
-      bgTaskScheduler.cancelAllBGTasks()
-    }
-    endTransientBackgroundTask()
-    let center = UNUserNotificationCenter.current()
-    center.removeAllPendingNotificationRequests()
-    center.removeAllDeliveredNotifications()
-    var durableStateCleared = homeShortcutsChannel.clearForTerminalReset()
-
-    let defaults = UserDefaults.standard
-    for key in defaults.dictionaryRepresentation().keys {
-      defaults.removeObject(forKey: key)
-    }
-    durableStateCleared = defaults.synchronize() && durableStateCleared
-    return durableStateCleared
   }
 
   private func beginTransientBackgroundTask(result: @escaping FlutterResult) {

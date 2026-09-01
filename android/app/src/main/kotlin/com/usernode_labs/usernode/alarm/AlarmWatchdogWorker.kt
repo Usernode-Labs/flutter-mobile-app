@@ -5,6 +5,11 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.usernode_labs.usernode.session.NativeProducerWakeCoordinator
+import com.usernode_labs.usernode.session.ProducerWakeOutcome
+import com.usernode_labs.usernode.session.ProducerWakeSource
 
 class AlarmWatchdogWorker(
     context: Context,
@@ -41,18 +46,13 @@ class AlarmWatchdogWorker(
         )
 
         return try {
-            val acknowledged = BackgroundAlarmEngine.sendAlarmEventAwaitAcknowledgement(
-                applicationContext,
-                "android_workmanager_watchdog",
-                mapOf(
-                    "reason" to reason,
-                    "startedAtMs" to startedAtMs,
-                    "runAttemptCount" to attempt,
-                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                        applicationIncarnation,
+            val outcome = withContext(Dispatchers.IO) {
+                NativeProducerWakeCoordinator.runBlocking(
+                    applicationContext,
+                    ProducerWakeSource.WATCHDOG,
                 )
-            )
-            if (acknowledged) {
+            }
+            if (outcome != ProducerWakeOutcome.Retry) {
                 Result.success()
             } else if (!incarnationStore.matches(applicationIncarnation)) {
                 Log.i(TAG, "Application incarnation changed while watchdog ran")
@@ -61,7 +61,7 @@ class AlarmWatchdogWorker(
                 Log.i(TAG, "Alarm watchdog was disabled while running; skipping retry")
                 Result.success()
             } else {
-                Log.w(TAG, "Alarm watchdog event was not acknowledged; retrying")
+                Log.w(TAG, "Native producer watchdog requested a retry")
                 Result.retry()
             }
         } catch (e: CancellationException) {

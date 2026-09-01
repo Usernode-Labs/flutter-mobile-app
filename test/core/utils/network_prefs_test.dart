@@ -2,64 +2,28 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
   tearDown(() => NetworkPrefs.setActiveBucket(null, guest: true));
 
-  group('getNetwork / normalization', () {
-    test('valid network is used, invalid/absent falls back to testnet',
-        () async {
-      SharedPreferences.setMockInitialValues(
-          {'flutter.${NetworkPrefs.networkKey}': 'internal'});
-      expect(await NetworkPrefs.getNetwork(), 'internal');
-      expect(NetworkPrefs.currentNetwork, 'internal');
-
-      SharedPreferences.setMockInitialValues(
-          {'flutter.${NetworkPrefs.networkKey}': 'bogus'});
-      expect(await NetworkPrefs.getNetwork(), 'testnet');
-
-      SharedPreferences.setMockInitialValues({});
-      expect(await NetworkPrefs.getNetwork(), 'testnet');
-    });
-
-    test('init() primes the synchronous cache', () async {
-      SharedPreferences.setMockInitialValues(
-          {'flutter.${NetworkPrefs.networkKey}': 'custom'});
-      await NetworkPrefs.init();
-      expect(NetworkPrefs.currentNetwork, 'custom');
-    });
-  });
-
   group('key prefixing', () {
-    setUp(() async {
-      SharedPreferences.setMockInitialValues(
-          {'flutter.${NetworkPrefs.networkKey}': 'testnet'});
-      await NetworkPrefs.getNetwork();
-    });
-
     test('global keys pass through unchanged', () {
-      expect(NetworkPrefs.prefixKey(NetworkPrefs.networkKey),
-          NetworkPrefs.networkKey);
-      expect(NetworkPrefs.prefixKeyWith('app:theme_mode', 'internal'),
-          'app:theme_mode');
+      expect(NetworkPrefs.prefixKey('app:theme_mode'), 'app:theme_mode');
     });
 
-    test('prefixKey / prefixKeyWith add the network', () {
+    test('prefixKey retains the fixed testnet storage namespace', () {
+      expect(NetworkPrefs.currentNetwork, 'testnet');
       expect(NetworkPrefs.prefixKey('foo'), 'testnet:foo');
-      expect(NetworkPrefs.prefixKeyWith('foo', 'internal'), 'internal:foo');
     });
 
     test('prefixAccountKey includes network + active bucket', () {
       NetworkPrefs.setActiveBucket(null, guest: true);
       expect(NetworkPrefs.prefixAccountKey('k'),
           'testnet:acct:${NetworkPrefs.guestBucket}:k');
-      expect(NetworkPrefs.prefixAccountKey(NetworkPrefs.networkKey),
-          NetworkPrefs.networkKey); // global passthrough
+      expect(NetworkPrefs.prefixAccountKey('app:theme_mode'),
+          'app:theme_mode'); // global passthrough
     });
   });
 

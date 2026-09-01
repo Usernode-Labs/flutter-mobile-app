@@ -80,25 +80,6 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 
-  /// `getProfileInfo`: the leaderboard participant id SV's #profile screen
-  /// needs to query /me/ranking and /me/breakdown. Null when this install
-  /// hasn't registered with the leaderboard yet.
-  Future<void> _handleGetProfileInfo(String id) async {
-    final identity = ref.read(identityProvider);
-    if (!await _requireTrustedChromeOrigin(id, 'getProfileInfo')) return;
-    if (!_identityScopeIsCurrent(identity)) {
-      await _rejectStaleIdentityScope(id, 'getProfileInfo');
-      return;
-    }
-    await _resolveJsPromise(
-      id: id,
-      // Use only the captured identity. The participant-id provider may still
-      // hold the previous bucket's value while an identity transition settles.
-      value: {'participantId': identity.participantId},
-      error: null,
-    );
-  }
-
   /// Public, device-local build metadata. `getBridgeInfo` includes these two
   /// fields so the Social Vibecoding shell can identify the installed Flutter
   /// binary even on a staging origin, where privileged settings access is
@@ -124,6 +105,8 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// single source of truth). Mirrors what the native settings screen shows.
   Future<Map<String, dynamic>> _settingsStateSnapshot({
     bool? facematchStrictOverride,
+    required SessionIdentityProjection identity,
+    required SessionSleepSnapshot sleep,
   }) async {
     // Live probes, not the service's cached combined flag: the granular
     // request methods don't refresh `hasPermissions`, and its legacy
@@ -179,12 +162,14 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
         'commitHash': commitHash,
         'branch': branch,
       },
-      'nodeSleepEnabled': AppSleepService.instance.isEnabled,
+      'nodeSleepEnabled': sleep.enabled,
       'debugMode': ref.read(debugModeProvider),
       'facematchStrict': facematchStrict,
       // Terms moved to the SV web settings (session-authed /challenges-api
       // terms routes) — no native terms state remains.
-      'authStatus': ref.read(authStatusProvider).name,
+      'authStatus': identity.status == SessionProjectionStatus.ready
+          ? 'ready'
+          : 'unauthenticated',
       'permissions': {
         'platform':
             defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
@@ -196,28 +181,51 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     };
   }
 
-  Future<void> _handleGetSettingsState(String id) async {
-    if (!await _requireTrustedChromeOrigin(id, 'getSettingsState')) return;
-    await _resolveJsPromise(
-      id: id,
-      value: await _settingsStateSnapshot(),
-      error: null,
-    );
-  }
+  Future<void> _handleGetSettingsState(
+    String id,
+    Map<String, dynamic> payload,
+  ) =>
+      _resolveClaimedSessionOperation(
+        id: id,
+        payload: payload,
+        method: 'getSettingsState',
+        body: (identity, operation) async => _settingsStateSnapshot(
+          identity: identity,
+          sleep: await operation.readSleep(),
+        ),
+      );
 
   Future<void> _handleSetNodeSleepEnabled(
       String id, Map<String, dynamic> payload) async {
-    if (!await _requireTrustedChromeOrigin(id, 'setNodeSleepEnabled')) return;
     final enabled = await _requireBoolArg(id, payload, 'enabled');
     if (enabled == null) return;
-    if (!await _revalidatePrivilegedBridgeLease(id, 'setNodeSleepEnabled')) {
-      return;
-    }
-    await AppSleepService.instance.setEnabled(enabled);
-    await _resolveJsPromise(
+    await _resolveClaimedSessionOperation(
       id: id,
-      value: await _settingsStateSnapshot(),
-      error: null,
+      payload: payload,
+      method: 'setNodeSleepEnabled',
+      body: (identity, operation) async => _settingsStateSnapshot(
+        identity: identity,
+        sleep: await operation.setSleepEnabled(enabled),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> _settingsStateForCurrentSession({
+    bool? facematchStrictOverride,
+  }) async {
+    final access = widget._sessionAccess.current;
+    if (access.identity.status != SessionProjectionStatus.ready) {
+      throw const NativeSessionException(
+        'native_session_not_ready',
+        'There is no ready native session.',
+      );
+    }
+    return access.operations.run(
+      (operation) async => _settingsStateSnapshot(
+        identity: access.identity,
+        sleep: await operation.readSleep(),
+        facematchStrictOverride: facematchStrictOverride,
+      ),
     );
   }
 
@@ -230,7 +238,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     await ref.read(debugModeProvider.notifier).set(enabled);
     await _resolveJsPromise(
       id: id,
-      value: await _settingsStateSnapshot(),
+      value: await _settingsStateForCurrentSession(),
       error: null,
     );
   }
@@ -248,7 +256,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
         .setFacematchStrict(enabled);
     await _resolveJsPromise(
       id: id,
-      value: await _settingsStateSnapshot(
+      value: await _settingsStateForCurrentSession(
         facematchStrictOverride: facematchStrict,
       ),
       error: null,
@@ -257,28 +265,35 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
 
   /// `resetZkChallenge`: same reset the native settings screen offers.
   /// Confirmation happens web-side; this is the commit.
-  Future<void> _handleResetZkChallenge(String id) async {
-    if (!await _requireTrustedChromeOrigin(id, 'resetZkChallenge')) return;
-    if (!mounted) return;
-    if (!await _revalidatePrivilegedBridgeLease(id, 'resetZkChallenge')) {
-      return;
-    }
-    if (!mounted) return;
-    final reset = await resetChallengeState(ref, context);
-    if (!reset) {
-      await _resolveJsPromise(
+  Future<void> _handleResetZkChallenge(
+    String id,
+    Map<String, dynamic> payload,
+  ) =>
+      _resolveClaimedSessionOperation(
         id: id,
-        value: null,
-        error:
-            'A zkPassport proof is still being processed. Try again shortly.',
+        payload: payload,
+        method: 'resetZkChallenge',
+        body: (_, __) async {
+          if (!mounted) {
+            throw const NativeSessionException(
+              'native_ui_unavailable',
+              'The device proof UI is unavailable.',
+            );
+          }
+          final reset = await resetChallengeState(ref, context);
+          if (!reset) {
+            throw const NativeSessionException(
+              'native_zk_busy',
+              'A zkPassport proof is still being processed. '
+                  'Try again shortly.',
+            );
+          }
+          if (mounted) {
+            context.push(AppRoutes.zkIdentityDetail);
+          }
+          return true;
+        },
       );
-      return;
-    }
-    await _resolveJsPromise(id: id, value: true, error: null);
-    if (mounted) {
-      context.push(AppRoutes.zkIdentityDetail);
-    }
-  }
 
   Future<void> _handleRequestPermissions(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'requestPermissions')) return;
@@ -286,7 +301,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       return;
     }
     final granted = await PlatformAlarmService.instance.requestPermissions();
-    final state = await _settingsStateSnapshot();
+    final state = await _settingsStateForCurrentSession();
     await _resolveJsPromise(
       id: id,
       value: {...state, 'granted': granted},
@@ -319,7 +334,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     }
     final granted =
         await PlatformAlarmService.instance.requestNotificationsPermission();
-    final state = await _settingsStateSnapshot();
+    final state = await _settingsStateForCurrentSession();
     await _resolveJsPromise(
       id: id,
       value: {...state, 'granted': granted},
@@ -327,8 +342,8 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     );
   }
 
-  /// Granular variant of `requestPermissions`: exact-alarm + battery only,
-  /// for the post-`startNode` sheet. Never shows the notification dialog.
+  /// Granular variant of `requestPermissions`: exact-alarm + battery only.
+  /// Never shows the notification dialog.
   Future<void> _handleRequestAlarmPermissions(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'requestAlarmPermissions')) {
       return;
@@ -341,7 +356,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     }
     final granted =
         await PlatformAlarmService.instance.requestAlarmPermissions();
-    final state = await _settingsStateSnapshot();
+    final state = await _settingsStateForCurrentSession();
     await _resolveJsPromise(
       id: id,
       value: {...state, 'granted': granted},

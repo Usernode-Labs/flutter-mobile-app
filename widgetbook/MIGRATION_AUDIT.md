@@ -12,17 +12,10 @@ intentional DS surface.
 
 | Old v3 entry | v4 story | Decision rationale |
 |---|---|---|
-| `block_production_status_card_use_case.dart` | `block_production_status_card.stories.dart` | Real DS status surface used by node/challenge flows; scenarios cover pipeline health. |
+| `block_production_status_card_use_case.dart` | `block_production_status_card.stories.dart` | Real DS status surface used by node flows; scenarios cover pipeline health. |
 | `bottom_nav_use_case.dart` | `bottom_nav.stories.dart` | Shared navigation primitive used by app shell/page demos; keep for viewport and badge states. |
 | `burst_pulse_illustration_use_case.dart` | `burst_pulse_illustration.stories.dart` | Real outcome illustration used by wallet/result surfaces; keep animation states explicit. |
 | `button_use_case.dart` | `button.stories.dart` | Core action primitive; v4 args/scenarios cover size, variant, icon, and loading states. |
-| `challenge_activity_summary_use_case.dart` | `challenge_activity_summary.stories.dart` | Challenge-adjacent DS surface; keep scenario coverage for counts and edge values. |
-| `challenge_card_use_case.dart` | `challenge_card.stories.dart` | Primary Challenges card; high-value agent/human reference. |
-| `challenge_category_icon_use_case.dart` | `challenge_category_icon.stories.dart` | Shared slot widget for challenge surfaces; keep semantic category coverage. |
-| `challenge_category_tile_use_case.dart` | `challenge_category_tile.stories.dart` | Real challenge navigation/filter pattern; keep selected and category states. |
-| `challenge_detail_page_use_case.dart` | `challenge_detail_page.stories.dart` | Presentational DS page; useful as a full-surface review scenario. |
-| `challenge_event_group_use_case.dart` | `challenge_event_group.stories.dart` | Real grouped challenge event pattern; keep multiple-event states. |
-| `challenge_reward_card_use_case.dart` | `challenge_reward_card.stories.dart` | Challenge reward calculation surface; keep simple and block-production data states. |
 | `dapp_card_use_case.dart` | `dapp_card.stories.dart` | Real dApps list card; keep enabled, disabled, stats, and long-copy states. |
 | `dropdown_chain_use_case.dart` | `dropdown_chain.stories.dart` | Shared dropdown entrypoint for chain selection; keep selected/disabled/list states. |
 | `dropdown_chip_use_case.dart` | `dropdown_chip.stories.dart` | Shared chip primitive; keep size and variant states. |
@@ -32,10 +25,7 @@ intentional DS surface.
 | `full_page_error_state_use_case.dart` | `full_page_error_state.stories.dart` | Core error state used broadly; keep retry/minimal states. |
 | `icon_badge_use_case.dart` | `icon_badge.stories.dart` | Shared M3 slot widget; keep semantic and inset states. |
 | `info_row_use_case.dart` | `info_row.stories.dart` | Shared data-display row; keep value/copy/action variants. |
-| `leaderboard_stats_card_use_case.dart` | `leaderboard_stats_card.stories.dart` | Real leaderboard summary card; keep chart and data edge scenarios. |
 | `list_section_header_use_case.dart` | `list_section_header.stories.dart` | Small shared list primitive; keep as a stable composition part. |
-| `rank_badge_use_case.dart` | `rank_badge.stories.dart` | Shared leaderboard slot widget; keep rank pattern states. |
-| `score_header_use_case.dart` | `score_header.stories.dart` | Real score/KPI header; keep score, countdown, and variant states. |
 | `sheet_layout_use_case.dart` | `sheet_layout.stories.dart` | Shared sheet composition primitive. |
 | `shimmer_use_case.dart` | `shimmer_block.stories.dart`, `shimmer_card_skeleton.stories.dart`, `shimmer_list_tile.stories.dart` | Split the old mixed playground into stories for the actual shimmer widgets. |
 | `slot_assignments_page_use_case.dart` | `slot_assignments_page.stories.dart` | Presentational DS page for block-production detail review. |
@@ -59,9 +49,7 @@ intentional DS surface.
 | `dapp_avatar_use_case.dart` | Deferred | `DappAvatar` has no current production or DS composition usage on `develop`, and `DappCard` does not compose it. |
 | `list_tile_use_case.dart` | Dropped | It documented M3 `ListTile` composition, not a real DS widget. Keep this guidance in DS docs/playbooks instead of Widgetbook components. |
 | `parallax_surface_layout_use_case.dart` | Deferred | The real widget uses a `Flow`-based parallax layer that currently segfaults Widgetbook v4 beta scenario capture in `flutter test`; keep root widget tests and revisit when v4 stabilizes. |
-| `challenges_page_use_case.dart` | Deferred | Hand-built feature-page replica; component stories plus real app/widget tests give cleaner coverage. |
 | `dapps_page_use_case.dart` | Deferred | Hand-built feature-page replica; keep `DappCard`/dropdown stories and revisit when a presentational page shell exists. |
-| `leaderboard_page_use_case.dart` | Deferred | Hand-built page composition; current value is covered by leaderboard stats/rank/score stories. |
 | `settings_page_use_case.dart` | Deferred | Imports feature widgets and platform settings panels; not a presentation-only DS story. |
 | `wallet_page_use_case.dart` | Deferred | Imports feature wallet delegates and manually recreates page states; migrate only after a presentational wallet surface exists. |
 | `registration_errors_use_case.dart` | Deferred | Mixed form/error playground with hard-coded localization stand-ins; keep only the stale-screen wrapper for now. |

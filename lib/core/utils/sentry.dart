@@ -225,11 +225,4 @@ class SentryUtil {
   static Future<void> clearUser() async {
     await Sentry.configureScope((scope) => scope.setUser(null));
   }
-
-  static Future<void> closeForTerminalReset() async {
-    _enabled = false;
-    _breadcrumbsEnabled = false;
-    _performanceTrackingEnabled = false;
-    await Sentry.configureScope((scope) => scope.clear());
-  }
 }

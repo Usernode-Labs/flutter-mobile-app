@@ -18,10 +18,6 @@ export 'tokens/app_typography.dart';
 // Widgets
 export 'src/full_page_error_state.dart';
 export 'src/button.dart';
-export 'src/challenge_card.dart';
-export 'src/challenge_category_icon.dart';
-export 'src/challenge_detail_page.dart';
-export 'src/challenge_reward_card.dart';
 export 'src/icon_badge.dart';
 export 'src/info_row.dart';
 export 'src/list_section_header.dart';

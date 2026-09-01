@@ -7,8 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
+import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 
 /// Full-screen SV shell (app-as-SV-chrome migration, flag `shell.sv`).
 ///
@@ -21,15 +23,25 @@ import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 /// (after which the service worker owns offline), a native connecting
 /// screen covers the webview. Later launches enter the shell immediately.
 class SvShellScreen extends ConsumerStatefulWidget {
-  const SvShellScreen({super.key, this.initialHash, this.navigationRequest});
+  const SvShellScreen({
+    super.key,
+    this.initialHash,
+    this.navigationRequest,
+    required NativeSessionBridgeIngress nativeSessionBridge,
+    required SessionFeatureAccessView sessionAccess,
+  })  : _nativeSessionBridge = nativeSessionBridge,
+        _sessionAccess = sessionAccess;
 
-  /// Optional SV hash route to land on (e.g. `challenges`, `leaderboard`)
+  /// Optional Social hash route to land on.
   /// — used by the deep-link remap of the retired native tabs.
   final String? initialHash;
 
   /// Changes for each external shortcut launch, including repeat launches of
   /// the same target, so the live webview can re-assert the requested route.
   final String? navigationRequest;
+
+  final NativeSessionBridgeIngress _nativeSessionBridge;
+  final SessionFeatureAccessView _sessionAccess;
 
   static const _gatePrefsKey = 'sv_shell_first_load_ok';
 
@@ -134,6 +146,8 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
       navigationRequest: widget.navigationRequest,
       onSessionEnded: _reloadForSessionEnd,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,
+      nativeSessionBridge: widget._nativeSessionBridge,
+      sessionAccess: widget._sessionAccess,
     );
 
     final children = <Widget>[

@@ -437,39 +437,6 @@
   "@retry": {
     "description": "Retry button label"
   },
-  "challengeTotalReward": "Total Reward {reward}",
-  "@challengeTotalReward": {
-    "description": "Detail screen total reward heading",
-    "placeholders": {
-      "reward": {
-        "type": "String"
-      }
-    }
-  },
-  "challengeSectionTheWhy": "Why it matters",
-  "@challengeSectionTheWhy": {
-    "description": "Section title for challenge description"
-  },
-  "challengeSectionTask": "Task",
-  "@challengeSectionTask": {
-    "description": "Section title for challenge task"
-  },
-  "challengeSectionRequirements": "Requirements",
-  "@challengeSectionRequirements": {
-    "description": "Section title for challenge requirements"
-  },
-  "zkIdentityChallengeTitle": "Prove you're a unique human",
-  "@zkIdentityChallengeTitle": {
-    "description": "Detail screen title for the ZK identity challenge"
-  },
-  "zkIdentityDetailStartCta": "Start",
-  "@zkIdentityDetailStartCta": {
-    "description": "Detail screen CTA shown before the user has begun the flow"
-  },
-  "zkIdentityDetailContinueCta": "Continue",
-  "@zkIdentityDetailContinueCta": {
-    "description": "Detail screen CTA shown when the user resumes an in-progress flow"
-  },
   "zkIdentityAppNotFoundTitle": "Install ZK Passport first",
   "@zkIdentityAppNotFoundTitle": {
     "description": "Title shown when the ZK Passport companion app is not installed"
@@ -746,68 +713,6 @@
   "@buildInfoBuildNumber": {
     "description": "Build number label in build info sheet"
   },
-  "networkSwitcherTitle": "Network Switcher",
-  "@networkSwitcherTitle": {
-    "description": "Network switcher dialog title"
-  },
-  "networkSelectNetwork": "SELECT NETWORK",
-  "@networkSelectNetwork": {
-    "description": "Network switcher section label"
-  },
-  "networkTestnetDesc": "Default network",
-  "@networkTestnetDesc": {
-    "description": "Testnet network option description"
-  },
-  "networkInternalDesc": "Development network",
-  "@networkInternalDesc": {
-    "description": "Internal network option description"
-  },
-  "networkActive": "Active",
-  "@networkActive": {
-    "description": "Currently active network badge label"
-  },
-  "networkNoChange": "No Change",
-  "@networkNoChange": {
-    "description": "Network switcher button when same network selected"
-  },
-  "networkSwitch": "Switch Network",
-  "@networkSwitch": {
-    "description": "Network switcher confirm button"
-  },
-  "networkEnterCode": "Enter Code",
-  "@networkEnterCode": {
-    "description": "PIN dialog title for network switcher"
-  },
-  "networkCodeHint": "4-digit code",
-  "@networkCodeHint": {
-    "description": "PIN dialog input hint"
-  },
-  "networkRestartRequired": "Restart Required",
-  "@networkRestartRequired": {
-    "description": "Restart dialog title after network switch"
-  },
-  "networkSwitchedRestartIos": "Network switched to {network}. Please manually close and reopen the app to connect to the new network.",
-  "@networkSwitchedRestartIos": {
-    "description": "iOS restart dialog message after network switch",
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "networkSwitchedRestartAndroid": "Network switched to {network}. The app will now close. Please reopen it to connect to the new network.",
-  "@networkSwitchedRestartAndroid": {
-    "description": "Android restart dialog message after network switch",
-    "placeholders": {
-      "network": {
-        "type": "String"
-      }
-    }
-  },
-  "networkCloseApp": "Close App",
-  "@networkCloseApp": {
-    "description": "Close app button in restart dialog"
-  },
   "settingsDebugMode": "Debug Mode",
   "@settingsDebugMode": {
     "description": "Diagnostics toggle that enables in-memory HTTP request logging"
@@ -916,62 +821,6 @@
   "widgetInstructionsDone": "Done",
   "@widgetInstructionsDone": {
     "description": "Dismiss button of the iOS widget-setup instructions screen"
-  },
-  "appResetCompleteTitle": "Reset complete",
-  "@appResetCompleteTitle": {
-    "description": "Title of the inert terminal screen shown after application reset"
-  },
-  "appResetCompleteBody": "Close and reopen Usernode to continue.",
-  "@appResetCompleteBody": {
-    "description": "Instruction on the inert terminal screen shown after application reset"
-  },
-  "appResetLogoutTitle": "Signed out",
-  "@appResetLogoutTitle": {
-    "description": "Terminal reset screen title after a user-initiated logout"
-  },
-  "appResetLogoutBody": "You signed out, and your local data was cleared. Close and reopen Usernode to continue.",
-  "@appResetLogoutBody": {
-    "description": "Terminal reset screen body after a user-initiated logout"
-  },
-  "appResetSessionExpiredTitle": "Session expired",
-  "@appResetSessionExpiredTitle": {
-    "description": "Terminal reset screen title after the backend rejected the session token"
-  },
-  "appResetSessionExpiredBody": "Your session is no longer valid, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.",
-  "@appResetSessionExpiredBody": {
-    "description": "Terminal reset screen body after the backend rejected the session token"
-  },
-  "appResetCredentialMissingTitle": "Signed out",
-  "@appResetCredentialMissingTitle": {
-    "description": "Terminal reset screen title after the stored sign-in credential could not be read"
-  },
-  "appResetCredentialMissingBody": "Your saved sign-in could not be read, so Usernode signed you out and cleared local data. Close and reopen Usernode to continue.",
-  "@appResetCredentialMissingBody": {
-    "description": "Terminal reset screen body after the stored sign-in credential could not be read"
-  },
-  "appResetAccountChangedTitle": "Account changed",
-  "@appResetAccountChangedTitle": {
-    "description": "Terminal reset screen title after signing in with a different account"
-  },
-  "appResetAccountChangedBody": "You signed in with a different account, so the previous account's local data was cleared. Close and reopen Usernode to continue.",
-  "@appResetAccountChangedBody": {
-    "description": "Terminal reset screen body after signing in with a different account"
-  },
-  "appResetGuestTitle": "Switched to guest",
-  "@appResetGuestTitle": {
-    "description": "Terminal reset screen title after switching from an account to guest mode"
-  },
-  "appResetGuestBody": "You switched to guest mode, and your account's local data was cleared. Close and reopen Usernode to continue.",
-  "@appResetGuestBody": {
-    "description": "Terminal reset screen body after switching from an account to guest mode"
-  },
-  "appResetNetworkChangeTitle": "Network changed",
-  "@appResetNetworkChangeTitle": {
-    "description": "Terminal reset screen title after selecting a different network in diagnostics"
-  },
-  "appResetNetworkChangeBody": "Usernode will start on the selected network. Close and reopen Usernode to continue.",
-  "@appResetNetworkChangeBody": {
-    "description": "Terminal reset screen body after selecting a different network in diagnostics"
   },
   "svShellConnectingTitle": "Connecting to Usernode…",
   "@svShellConnectingTitle": {

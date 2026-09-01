@@ -4,13 +4,12 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
 import 'package:crypto_mobile_app/features/metrics/models/mobile_context_metrics.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -42,9 +41,6 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   final Connectivity _connectivity = Connectivity();
   final DeviceInfoPlugin _deviceInfo = DeviceInfoPlugin();
 
-  /// Provider container for reading the participant id.
-  static ProviderContainer? _container;
-
   /// Track app startup time
   DateTime? _appStartTime;
 
@@ -69,25 +65,13 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   }
 
   /// Initialize the service (call at app startup)
-  void initialize(ProviderContainer container) {
-    _container = container;
+  void initialize() {
     _appStartTime = DateTime.now();
     // Initialize to actual current state if available
     final currentState = WidgetsBinding.instance.lifecycleState;
     if (currentState != null) {
       _appLifecycleState = currentState;
     }
-  }
-
-  /// Clears cached state so a subsequent bootstrap starts cleanly.
-  void reset() {
-    _container = null;
-    _appStartTime = null;
-    _appLifecycleState = AppLifecycleState.resumed;
-    _cachedPackageInfo = null;
-    _cachedDeviceInfo = null;
-    _batteryOptimizationCacheTime = null;
-    _cachedBatteryOptimization = null;
   }
 
   /// Update the current app lifecycle state
@@ -101,23 +85,27 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   /// not the raw platform device id.
   @override
   Future<Map<String, dynamic>> collectStaticMobileContextSnapshot({
+    required SessionIdentityProjection identity,
     Map<String, dynamic>? eventData,
   }) async {
     final results = await Future.wait<Object?>([
-      _safeMobileContextField('identity', _collectMobileContextIdentity),
+      _safeMobileContextField(
+        'identity',
+        () => _collectMobileContextIdentity(identity),
+      ),
       _safeMobileContextField('runtime', _collectRuntimeMetrics),
       _safeMobileContextField('platform', _collectPlatformMetrics),
       _safeMobileContextField('device', _collectDeviceMetrics),
     ]);
 
-    final identity = results[0] as Map<String, dynamic>?;
+    final identityContext = results[0] as Map<String, dynamic>?;
     final runtime = results[1] as RuntimeMetrics?;
     final platform = results[2] as PlatformMetrics?;
     final device = results[3] as DeviceMetrics?;
 
     return {
       if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
-      if (identity != null) 'identity': identity,
+      if (identityContext != null) 'identity': identityContext,
       if (runtime != null) 'runtime': _staticRuntimeJson(runtime),
       if (platform != null) 'platform': platform.toJson(),
       if (device != null) 'device': _staticDeviceJson(device),
@@ -127,19 +115,23 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   /// Collect runtime/app-state mobile context used by observability.
   @override
   Future<Map<String, dynamic>> collectRuntimeMobileContextSnapshot({
+    required SessionIdentityProjection identity,
     Map<String, dynamic>? eventData,
   }) async {
     final results = await Future.wait<Object?>([
-      _safeMobileContextField('identity', _collectMobileContextIdentity),
+      _safeMobileContextField(
+        'identity',
+        () => _collectMobileContextIdentity(identity),
+      ),
       _safeMobileContextField('runtime', _collectRuntimeMetrics),
     ]);
 
-    final identity = results[0] as Map<String, dynamic>?;
+    final identityContext = results[0] as Map<String, dynamic>?;
     final runtime = results[1] as RuntimeMetrics?;
 
     return {
       if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
-      if (identity != null) 'identity': identity,
+      if (identityContext != null) 'identity': identityContext,
       if (runtime != null) 'runtime': _dynamicRuntimeJson(runtime),
     };
   }
@@ -147,10 +139,14 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
   /// Collect power, network, and foreground-service mobile context.
   @override
   Future<Map<String, dynamic>> collectPowerNetworkServiceContextSnapshot({
+    required SessionIdentityProjection identity,
     Map<String, dynamic>? eventData,
   }) async {
     final results = await Future.wait<Object?>([
-      _safeMobileContextField('identity', _collectMobileContextIdentity),
+      _safeMobileContextField(
+        'identity',
+        () => _collectMobileContextIdentity(identity),
+      ),
       _safeMobileContextField('battery', _collectBatteryMetrics),
       _safeMobileContextField('network', _collectNetworkMetrics),
       Platform.isAndroid
@@ -161,14 +157,14 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
           : Future<Object?>.value(null),
     ]);
 
-    final identity = results[0] as Map<String, dynamic>?;
+    final identityContext = results[0] as Map<String, dynamic>?;
     final battery = results[1] as BatteryMetrics?;
     final network = results[2] as NetworkMetrics?;
     final foregroundService = results[3] as ForegroundServiceMetrics?;
 
     return {
       if (eventData != null && eventData.isNotEmpty) 'event_data': eventData,
-      if (identity != null) 'identity': identity,
+      if (identityContext != null) 'identity': identityContext,
       if (battery != null) 'battery': battery.toJson(),
       if (network != null) 'network': network.toJson(),
       if (foregroundService != null)
@@ -207,34 +203,18 @@ class MetricsCollectorService implements MobileContextSnapshotCollector {
         'is_physical_device': device.isPhysicalDevice,
       };
 
-  Future<Map<String, dynamic>?> _collectMobileContextIdentity() async {
-    final participantId = await _loadParticipantId();
-    if (participantId == null) {
+  Future<Map<String, dynamic>?> _collectMobileContextIdentity(
+    SessionIdentityProjection identity,
+  ) async {
+    if (identity.status != SessionProjectionStatus.ready) {
       return null;
     }
 
-    return {'participant_id': participantId};
-  }
-
-  Future<int?> _loadParticipantId() async {
-    if (_container != null) {
-      try {
-        final participantId =
-            await _container!.read(participantIdProvider.future);
-        if (participantId != null) {
-          return participantId;
-        }
-      } catch (e) {
-        _log.debug('Failed to get participant_id from provider: $e');
-      }
-    }
-
-    try {
-      return await loadParticipantId();
-    } catch (e) {
-      _log.debug('Failed to load participant_id from storage: $e');
-      return null;
-    }
+    return {
+      if (identity.participantId != null)
+        'participant_id': identity.participantId,
+      if (identity.accountId != null) 'account_id': identity.accountId,
+    };
   }
 
   /// Collect app runtime and performance metrics

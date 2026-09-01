@@ -11,7 +11,7 @@ const meta = Meta<TopAppBar>(path: 'live app/widgets/navigation');
 final $Small = _Story(
   name: 'Small',
   args: _Args(
-    title: StringArg('Challenges'),
+    title: StringArg('Details'),
     size: EnumArg(TopAppBarSize.small, values: TopAppBarSize.values),
     onLeadingTap: Arg.fixed(() {}),
     actions: Arg.fixed([

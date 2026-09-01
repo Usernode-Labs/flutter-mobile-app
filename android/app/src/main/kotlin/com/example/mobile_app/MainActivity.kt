@@ -16,10 +16,11 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.usernode_labs.usernode.alarm.AlarmMethodChannelHandler
-import com.usernode_labs.usernode.alarm.ApplicationIncarnationStore
-import com.usernode_labs.usernode.alarm.BackgroundAlarmEngine
+import com.usernode_labs.usernode.alarm.EngineLease
+import com.usernode_labs.usernode.alarm.EngineRole
 import com.usernode_labs.usernode.alarm.SlotMonitoringService
 import com.usernode_labs.usernode.shortcuts.HomeShortcutsHandler
+import com.usernode_labs.usernode.session.InteractiveNativeSessionChannel
 import java.io.ByteArrayOutputStream
 
 private const val TAG = "usernode/MainActivity"
@@ -31,6 +32,8 @@ class MainActivity: FlutterActivity() {
     private val SCREENSHOT_CHANNEL = "com.usernode.app/screenshot"
     private val screenshotMaxBytes = 4 * 1024 * 1024
     private lateinit var alarmHandler: AlarmMethodChannelHandler
+    private var alarmEngineLease: EngineLease? = null
+    private var nativeSessionChannel: InteractiveNativeSessionChannel? = null
     private val backgroundStopHandler = Handler(Looper.getMainLooper())
     private val backgroundStopTimeoutMs = 5 * 60 * 1000L
     private val backgroundStopRunnable = Runnable {
@@ -49,14 +52,26 @@ class MainActivity: FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
 
         alarmHandler = AlarmMethodChannelHandler.getOrCreate(applicationContext)
-        alarmHandler.attachActivity(this)
 
         val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-        alarmHandler.setMethodChannel(channel)
+        val engineLease = alarmHandler.acquireMethodChannel(EngineRole.INTERACTIVE, channel)
+            ?: throw IllegalStateException("Another Flutter engine owns the alarm channel")
+        alarmEngineLease = engineLease
+        if (!alarmHandler.attachActivity(this, engineLease)) {
+            alarmHandler.compareReleaseMethodChannel(engineLease, "activity_attach_failed")
+            alarmEngineLease = null
+            throw IllegalStateException("Interactive engine could not attach its Activity")
+        }
 
         channel.setMethodCallHandler { call, result ->
-            alarmHandler.handleMethodCall(call, result)
+            alarmHandler.handleMethodCall(engineLease, call, result)
         }
+        nativeSessionChannel = InteractiveNativeSessionChannel(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger,
+            engineLease,
+            alarmHandler,
+        )
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -92,7 +107,6 @@ class MainActivity: FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
-        BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
     }
 
     /** Captures the visible app window, including the WebView's real pixels. */
@@ -202,10 +216,6 @@ class MainActivity: FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         Log.i(TAG, "created - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");
-        // Enforce a single-engine policy: if a headless/background engine is running
-        // (e.g., from alarms/boot reschedule), kill it BEFORE FlutterActivity creates
-        // the UI engine to avoid two engines being alive simultaneously.
-        BackgroundAlarmEngine.destroyCachedEngine("ui_activity_onCreate")
         super.onCreate(savedInstanceState)
 
         // Handle alarm intent if launched from alarm receiver
@@ -303,36 +313,18 @@ class MainActivity: FlutterActivity() {
 
     override fun onDestroy() {
         val ownsAlarmChannel = ::alarmHandler.isInitialized &&
-            alarmHandler.isActivityAttached(this)
+            alarmEngineLease?.let(alarmHandler::isCurrentEngine) == true
         if (ownsAlarmChannel) {
-            alarmHandler.clearMethodChannel("ui_activity_onDestroy")
-            alarmHandler.detachActivity(this)
+            nativeSessionChannel?.closeIfCurrent()
+            alarmHandler.compareReleaseMethodChannel(
+                alarmEngineLease!!,
+                "ui_activity_onDestroy",
+            )
         }
+        nativeSessionChannel = null
+        alarmEngineLease = null
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
         super.onDestroy()
         Log.i(TAG, "destroyed - foreground service active: ${SlotMonitoringService.isForegroundServiceActive}");
-        val replacementActivityAttached = AlarmMethodChannelHandler.getInstance()
-            ?.isActivityAttached() == true
-        if (SlotMonitoringService.isForegroundServiceActive && !replacementActivityAttached) {
-            // A foreground service may outlive the UI engine. Re-enter Dart
-            // only through an exact event; engine creation alone grants no
-            // lifecycle work and terminal reset leaves no current token.
-            val applicationIncarnation =
-                ApplicationIncarnationStore(applicationContext).current()
-            if (applicationIncarnation != null) {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_alarm_recovery_requested",
-                    mapOf(
-                        "reason" to "activity_destroyed_foreground_service",
-                        "source" to "main_activity",
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            applicationIncarnation,
-                    ),
-                )
-            }
-        } else if (SlotMonitoringService.isForegroundServiceActive) {
-            Log.i(TAG, "Skipping headless recovery because a replacement Activity is attached")
-        }
     }
 }

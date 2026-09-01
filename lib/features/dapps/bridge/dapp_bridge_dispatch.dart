@@ -6,7 +6,6 @@ part of '../dapp_webview_screen.dart';
 mixin _BridgeDispatch
     on
         _DappWebViewScreenStateBase,
-        _BridgeTxRecords,
         _BridgeAuthNode,
         _BridgeWallet,
         _BridgeShortcuts,
@@ -16,12 +15,14 @@ mixin _BridgeDispatch
   /// Bridge protocol version. Bump only on breaking changes; additive
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
-  static const int _bridgeVersion = 4;
-  static final List<String> _staticBridgeCapabilities = [
+  // Version 5 removes native product receipt/profile ownership and installs
+  // the exact tx-id-returning submitTransaction contract.
+  // It does not advertise the later sessionLifecycleProtocol.
+  static const int _bridgeVersion = 5;
+  static final List<String> _bridgeCapabilities = [
     'getNodeAddress',
-    'sendTransaction',
+    'submitTransaction',
     'signMessage',
-    'txObserved',
     'getHomeScreenShortcutSupport',
     'addHomeScreenShortcut',
     'getHomeScreenShortcuts',
@@ -38,10 +39,8 @@ mixin _BridgeDispatch
     'nodeStatusEvents',
     'getWalletState',
     'manageStaking',
-    'getTransactionRecords',
     'openNativeScreen',
     zkIdentityFlowCapability,
-    'getProfileInfo',
     'getSettingsState',
     'setNodeSleepEnabled',
     'setDebugMode',
@@ -49,23 +48,14 @@ mixin _BridgeDispatch
     'resetZkChallenge',
     'requestPermissions',
     'openBatterySettings',
-    // Granular permission surface (Option B): node-coupled alarm/battery
-    // prompt after startNode, notification prompt at SV product moments.
+    // Granular permission surface: producer alarm/battery prompts remain
+    // separate from notification prompts at Social product moments.
     'requestNotificationPermission',
     'requestAlarmPermissions',
     'openNotificationSettings',
-    // Flag-only: `startNode` responses carry an `alarmPermissions` block.
-    'startNodeAlarmPermissions',
+    'prepareForLogin',
     'logout',
-    // Bridge v4 (thin-shell migration): platform login + node lifecycle.
-    'beginSessionHandoff',
-    'enterAnonymousSession',
-    'completeLogin',
-    'startNode',
-    'stopNode',
-    'getAuthStatus',
-    'authStatusEvents',
-    'sessionBoundAuthStatus',
+    'establishNativeSession',
     // The trusted shell emits this after its native-event listeners exist.
     'privilegedBridgeReady',
     // Social remote notifications (additive bridge-v4 capabilities).
@@ -75,8 +65,8 @@ mixin _BridgeDispatch
     'ackPendingSocialNotification',
   ];
 
-  /// Platform-aware capability list. Additive, feature-named entries only
-  /// (same convention as `completeLogin` etc.) — no `_bridgeVersion` bump.
+  /// Platform-aware capability list. Additive, feature-named entries only;
+  /// adding a capability does not bump `_bridgeVersion`.
   ///
   /// `homeScreenShortcutDarkIcon` — `addHomeScreenShortcut` accepts an
   /// optional `icon_url_dark` and the WidgetKit tiles select it per system
@@ -87,8 +77,8 @@ mixin _BridgeDispatch
   /// and Android's pinned launcher shortcuts are static bitmaps that can
   /// never flip, so advertising there would make the page ship an asset
   /// that is silently dropped.
-  List<String> get _bridgeCapabilities => [
-        ..._staticBridgeCapabilities,
+  List<String> get _platformBridgeCapabilities => [
+        ..._bridgeCapabilities,
         if (HomeShortcutsChannel.isIOS) 'homeScreenShortcutDarkIcon',
       ];
 
@@ -133,18 +123,13 @@ mixin _BridgeDispatch
         return;
       }
 
-      // Admission is ordered by channel arrival, but handlers run concurrently
-      // after admission. A begin-handoff/logout fence therefore closes before
-      // any later wallet/social request can overtake it, without making a long
-      // login or permission dialog stall unrelated bridge responses.
-      final admission = await _bridgeAdmissionCoordinator.admit(
-        method,
-        payload,
-      );
-
-      await _bridgeAdmissionCoordinator.runInRequestContext(
-        admission: admission,
-        body: () async {
+      // Ordinary handlers remain concurrent after ordered admission. Logout
+      // and establishment retain the FIFO through their complete handler, so
+      // no later bridge request can cross the lifecycle boundary.
+      await _bridgeAdmissionCoordinator.runRequest(
+        method: method,
+        payload: payload,
+        body: (admission) async {
           if (!admission.dispatch) {
             await _resolveBridgePromise(
               id: id,
@@ -193,28 +178,20 @@ mixin _BridgeDispatch
     Map<String, dynamic> payload,
   ) async {
     if (method == 'getNodeAddress') {
-      final address = _bridgeWalletIdentity()?.address;
-      if (address == null || address.isEmpty) {
-        await _resolveBridgePromise(
-          id: id,
-          value: null,
-          error: 'No active account/address available',
-        );
-      } else {
-        await _resolveBridgePromise(id: id, value: address, error: null);
-      }
+      await _resolveClaimedSessionOperation(
+        id: id,
+        payload: payload,
+        method: 'getNodeAddress',
+        body: (identity, _) => identity.address,
+      );
     }
 
-    if (method == 'sendTransaction') {
-      await _handleSendTransaction(id, payload);
+    if (method == 'submitTransaction') {
+      await _handleSubmitTransaction(id, payload);
     }
 
     if (method == 'signMessage') {
       await _handleSignMessage(id, payload);
-    }
-
-    if (method == 'txObserved') {
-      await _handleTxObserved(payload);
     }
 
     if (method == 'getHomeScreenShortcutSupport') {
@@ -254,35 +231,23 @@ mixin _BridgeDispatch
     }
 
     if (method == 'getNodeStatus') {
-      await _resolveBridgePromise(
-        id: id,
-        value: _nodeStatusSnapshot(),
-        error: null,
-      );
+      await _handleGetNodeStatus(id, payload);
     }
 
     if (method == 'getWalletState') {
-      await _handleGetWalletState(id);
+      await _handleGetWalletState(id, payload);
     }
 
     if (method == 'manageStaking') {
-      await _handleManageStaking(id);
-    }
-
-    if (method == 'getTransactionRecords') {
-      await _handleGetTransactionRecords(id);
+      await _handleManageStaking(id, payload);
     }
 
     if (method == 'openNativeScreen') {
       await _handleOpenNativeScreen(id, payload);
     }
 
-    if (method == 'getProfileInfo') {
-      await _handleGetProfileInfo(id);
-    }
-
     if (method == 'getSettingsState') {
-      await _handleGetSettingsState(id);
+      await _handleGetSettingsState(id, payload);
     }
 
     if (method == 'setNodeSleepEnabled') {
@@ -298,7 +263,7 @@ mixin _BridgeDispatch
     }
 
     if (method == 'resetZkChallenge') {
-      await _handleResetZkChallenge(id);
+      await _handleResetZkChallenge(id, payload);
     }
 
     if (method == 'requestPermissions') {
@@ -325,24 +290,16 @@ mixin _BridgeDispatch
       await _handleLogout(id);
     }
 
-    if (method == 'completeLogin') {
-      await _handleCompleteLogin(id, payload);
+    if (method == 'prepareForLogin') {
+      await _handlePrepareForLogin(id);
     }
 
-    if (method == 'startNode') {
-      await _handleStartNode(id, payload);
-    }
-
-    if (method == 'stopNode') {
-      await _handleStopNode(id);
-    }
-
-    if (method == 'getAuthStatus') {
-      await _handleGetAuthStatus(id);
+    if (method == 'establishNativeSession') {
+      await _handleEstablishNativeSession(id, payload);
     }
 
     if (method == 'getSocialPushState') {
-      await _handleGetSocialPushState(id);
+      await _handleGetSocialPushState(id, payload);
     }
 
     if (method == 'setSocialPushEnabled') {
@@ -350,7 +307,7 @@ mixin _BridgeDispatch
     }
 
     if (method == 'claimPendingSocialNotification') {
-      await _handleClaimPendingSocialNotification(id);
+      await _handleClaimPendingSocialNotification(id, payload);
     }
 
     if (method == 'ackPendingSocialNotification') {
@@ -360,7 +317,8 @@ mixin _BridgeDispatch
 
   Future<Map<String, dynamic>> _bridgeInfoValue() async => {
         'version': _bridgeVersion,
-        'capabilities': _bridgeCapabilities,
+        'capabilities': _platformBridgeCapabilities,
+        'sessionLifecycleProtocol': 2,
         // Public release identifiers belong in this discovery probe: SV
         // staging cannot bootstrap the production-origin authority but still
         // needs to show which Flutter binary hosts the page.

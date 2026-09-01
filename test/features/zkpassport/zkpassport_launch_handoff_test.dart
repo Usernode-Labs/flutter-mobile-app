@@ -1,13 +1,10 @@
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:crypto_mobile_app/core/identity/identity.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
-import 'package:crypto_mobile_app/features/wallet/models/account.dart';
-import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/repositories/zkpassport_repositories.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
@@ -60,43 +57,37 @@ class _RefusedLaunchService extends ZkPassportLaunchService {
   Future<bool> launchOrOpenStore(Uri launchUri) async => false;
 }
 
+final _session = SessionFeatureAccess(
+  identity: SessionIdentityProjection.ready(
+    nativeRevision: '1',
+    participantId: 1,
+    accountId: 'account-1',
+    address: 'ut1-test-account',
+    publicKey: 'utpk1-test-account',
+  ),
+  operations: _UnusedSessionRunner(),
+);
+
+class _UnusedSessionRunner implements SessionOperationRunner {
+  @override
+  Future<T> run<T>(
+    FutureOr<T> Function(SessionOperation operation) body,
+  ) =>
+      Future<T>.error(
+          StateError('The waiting flow must not run an operation.'));
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() async {
-    final account = AccountMeta(
-      id: 'account-1',
-      name: 'Test account',
-      createdAt: DateTime.fromMillisecondsSinceEpoch(1),
-      derivationPath: "m/44'/60'/0'/0/0",
-      hdIndex: 0,
-      address: 'ut1-test-account',
-      publicKey: 'utpk1-test-account',
-      backupConfirmed: true,
-    );
-    SharedPreferences.setMockInitialValues({
-      'testnet:accounts:index': jsonEncode([account.toJson()]),
-      'testnet:accounts:activeId': account.id,
-    });
-    NetworkPrefs.resetForApplicationReset();
-    await NetworkPrefs.init();
-    NetworkPrefs.setActiveBucket(account.address, guest: false);
-    IdentitySnapshots.reset();
-    IdentitySnapshots.publish(const Identity(
-      epoch: 1,
-      phase: IdentityPhase.unauthenticated,
-      accountId: 'account-1',
-      address: 'ut1-test-account',
-    ));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
   });
-
-  tearDown(IdentitySnapshots.reset);
 
   test('keeps the bridge session alive when automatic app handoff is refused',
       () async {
     final server = _PendingSessionServer();
     final container = ProviderContainer(overrides: [
-      zkIdentityChallengeIdProvider.overrideWithValue(null),
       zkPassportSessionServerRepositoryProvider.overrideWithValue(server),
       zkPassportLaunchServiceProvider.overrideWithValue(
         _RefusedLaunchService(),
@@ -109,7 +100,7 @@ void main() {
 
     final result = await container
         .read(zkPassportFlowControllerProvider)
-        .startRegistrationNonceZero();
+        .startRegistrationNonceZero(_session);
 
     expect(result.started, isTrue);
     expect(result.requestId, 'session-1');

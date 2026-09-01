@@ -29,9 +29,6 @@ use this style for consistent visual weight across the app.
 | Slot Production Stats | `displaySmall` | Success rate % |
 | Produced Blocks | `displaySmall` | Success rate % |
 | ScoreHeader (DS) | `displaySmall` | Score value |
-| LeaderboardStatsCard (DS) | various | Stat values |
-| ChallengeCategoryTile (DS) | `titleMedium` | Progress fraction |
-| ChallengeRewardCard (DS) | various | Token amounts |
 
 ### When to use
 

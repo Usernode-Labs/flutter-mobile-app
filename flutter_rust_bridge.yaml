@@ -1,4 +1,4 @@
-rust_input: crate
+rust_input: crate::mobile_api
 rust_root: ../usernode/crates/usernode
 dart_output: lib/src/rust
 default_dart_async: false

@@ -278,7 +278,7 @@ class PlatformAlarmService {
   final bool _isIOS;
 
   bool _initialized = false;
-  bool _terminalResetRequested = false;
+  bool _processRestartRequested = false;
   bool _permissionsGranted = false;
   String? _applicationIncarnation;
   String? _lastAlarmFiredEventKey;
@@ -294,7 +294,7 @@ class PlatformAlarmService {
 
   /// Initialize the platform alarm service
   Future<bool> initialize() async {
-    if (_terminalResetRequested) return false;
+    if (_processRestartRequested) return false;
     if (_initialized) return true;
 
     try {
@@ -310,12 +310,12 @@ class PlatformAlarmService {
         await _initializeIOS();
       }
 
-      if (_terminalResetRequested) return false;
+      if (_processRestartRequested) return false;
 
       if (_isAndroid || _isIOS) {
         final incarnation =
             await _channel.invokeMethod<String>('ensureApplicationIncarnation');
-        if (_terminalResetRequested) return false;
+        if (_processRestartRequested) return false;
         if (incarnation == null || incarnation.isEmpty) {
           throw StateError('Native application incarnation is unavailable');
         }
@@ -367,7 +367,7 @@ class PlatformAlarmService {
 
       final data = eventData ?? <String, dynamic>{};
       if (_requiresApplicationIncarnation(eventType) &&
-          (_terminalResetRequested ||
+          (_processRestartRequested ||
               _applicationIncarnation == null ||
               data[applicationIncarnationKey] != _applicationIncarnation)) {
         _log.warn(
@@ -536,11 +536,11 @@ class PlatformAlarmService {
   }
 
   Future<void> markReadyForNativeEvents() async {
-    if (!Platform.isAndroid || _terminalResetRequested) return;
+    if (!Platform.isAndroid || _processRestartRequested) return;
 
     try {
       await _channel.invokeMethod<bool>('markFlutterReadyForAlarmEvents');
-      if (_terminalResetRequested) return;
+      if (_processRestartRequested) return;
       _log.debug('Marked Flutter alarm channel ready on native side');
     } on PlatformException catch (e) {
       _log.warn(
@@ -715,7 +715,7 @@ class PlatformAlarmService {
     }
   }
 
-  /// Current exact-alarm/battery state for the bridge's `startNode` response.
+  /// Current exact-alarm/battery state for the trusted bridge settings.
   /// Off Android both concepts are meaningless: `applicable` is false and the
   /// states are null so SV can skip its sheet.
   Future<Map<String, Object?>> alarmPermissionsSnapshot() async {
@@ -727,7 +727,7 @@ class PlatformAlarmService {
       };
     }
     // Independent probes with a short timeout each: one failing (or a stuck
-    // channel) must neither block startNode's resolution nor mask the other.
+    // channel) must neither block the settings response nor mask the other.
     bool exactAlarm = false;
     bool batteryOptDisabled = false;
     try {
@@ -997,7 +997,7 @@ class PlatformAlarmService {
   Future<bool> ensureAlarmWatchdogScheduled({required String reason}) async {
     if (!Platform.isAndroid) return false;
     final incarnation = _applicationIncarnation;
-    if (!_initialized || _terminalResetRequested || incarnation == null) {
+    if (!_initialized || _processRestartRequested || incarnation == null) {
       _log.debug('Cannot schedule alarm watchdog: service not initialized');
       return false;
     }
@@ -1042,7 +1042,7 @@ class PlatformAlarmService {
   Future<bool> requestAlarmWatchdogRun({required String reason}) async {
     if (!Platform.isAndroid) return false;
     final incarnation = _applicationIncarnation;
-    if (!_initialized || _terminalResetRequested || incarnation == null) {
+    if (!_initialized || _processRestartRequested || incarnation == null) {
       _log.debug('Cannot request alarm watchdog run: service not initialized');
       return false;
     }
@@ -1205,7 +1205,7 @@ class PlatformAlarmService {
       );
     }
 
-    if (!_initialized || _terminalResetRequested || incarnation == null) {
+    if (!_initialized || _processRestartRequested || incarnation == null) {
       _log.warn('Cannot schedule alarm: service not initialized');
       recordScheduleResult(
         success: false,
@@ -1449,7 +1449,7 @@ class PlatformAlarmService {
       return false;
     }
     final incarnation = _applicationIncarnation;
-    if (_terminalResetRequested || incarnation == null) return false;
+    if (_processRestartRequested || incarnation == null) return false;
 
     try {
       final params = {
@@ -1526,7 +1526,7 @@ class PlatformAlarmService {
       return false;
     }
     final incarnation = _applicationIncarnation;
-    if (_terminalResetRequested || incarnation == null) return false;
+    if (_processRestartRequested || incarnation == null) return false;
 
     try {
       final success = await _channel.invokeMethod<bool>(
@@ -1673,7 +1673,7 @@ class PlatformAlarmService {
   Future<bool> acquireWakelock() async {
     if (!Platform.isAndroid) return false;
     final incarnation = _applicationIncarnation;
-    if (_terminalResetRequested || incarnation == null) return false;
+    if (_processRestartRequested || incarnation == null) return false;
     try {
       final acquired = await _channel.invokeMethod<bool>(
             'acquireWakelock',
@@ -1724,7 +1724,7 @@ class PlatformAlarmService {
   /// confirmed — callers must then treat the boundary as failed rather than
   /// acknowledging a sign-out whose durable work is still armed.
   Future<bool> rotateApplicationIncarnation() async {
-    if (_terminalResetRequested) return false;
+    if (_processRestartRequested) return false;
     if (!_isAndroid && !_isIOS) return true;
     // Stop scheduling under the retired token before asking for the new one:
     // a concurrent schedule that reads this field must never re-arm work with
@@ -1743,7 +1743,7 @@ class PlatformAlarmService {
       _log.error('Native application incarnation rotation returned no token');
       return false;
     }
-    if (_terminalResetRequested) return false;
+    if (_processRestartRequested) return false;
     _applicationIncarnation = rotated;
     return true;
   }
@@ -1765,41 +1765,21 @@ class PlatformAlarmService {
     }
   }
 
-  Future<bool> clearWebSessionData() async {
-    if (!_isAndroid && !_isIOS) return true;
-    return await _channel
-            .invokeMethod<bool>('clearWebSessionData')
-            .timeout(const Duration(seconds: 5)) ??
-        false;
-  }
-
-  Future<bool> clearNativeResetState() async {
-    if (!_isAndroid && !_isIOS) return true;
-    return await _channel.invokeMethod<bool>('clearNativeResetState') ?? false;
-  }
-
-  Future<void> enterTerminalReset({
-    required bool clearApplicationData,
-  }) async {
+  Future<void> terminateForNetworkChange() async {
     if (!_isAndroid && !_isIOS) return;
-    await _channel.invokeMethod<void>('enterTerminalReset', {
-      'clearApplicationData': clearApplicationData,
-    });
+    await _channel.invokeMethod<void>('terminateForNetworkChange');
   }
 
-  /// Closes scheduling/event admission synchronously while leaving native
-  /// cancellation callable for the remainder of terminal reset.
-  void beginTerminalReset() {
-    _terminalResetRequested = true;
+  /// Closes all Dart scheduling and native-event admission synchronously.
+  ///
+  /// The process is not reusable after this call. Native incarnation
+  /// invalidation and process termination remain callable so a network change
+  /// can commit its sole next-launch input without wiping application data.
+  void beginProcessRestart() {
+    _processRestartRequested = true;
     _applicationIncarnation = null;
     _onBootReschedule = null;
     _onNativeEvent = null;
-  }
-
-  /// Clears Dart callbacks while retaining the channel handler so late native
-  /// events are still explicitly rejected by the invalidated incarnation.
-  void closeForTerminalReset() {
-    beginTerminalReset();
     _initialized = false;
     _permissionsGranted = false;
   }

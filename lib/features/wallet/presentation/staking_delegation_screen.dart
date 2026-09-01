@@ -1,31 +1,64 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/core/providers/staking_provider.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/widgets/app_card.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 
-class StakingDelegationScreen extends ConsumerStatefulWidget {
-  const StakingDelegationScreen({super.key});
+const _serverDelegateAddress =
+    'B62qiTKpEPjGTSHZrtM8uXiKgn8So916pLmNJKDhKeyBQL9TDb3nvBG';
+
+class StakingDelegationScreen extends StatefulWidget {
+  const StakingDelegationScreen({
+    super.key,
+    required this.session,
+  });
+
+  final SessionFeatureAccess session;
 
   @override
-  ConsumerState<StakingDelegationScreen> createState() =>
+  State<StakingDelegationScreen> createState() =>
       _StakingDelegationScreenState();
 }
 
-class _StakingDelegationScreenState
-    extends ConsumerState<StakingDelegationScreen> {
+class _StakingDelegationScreenState extends State<StakingDelegationScreen> {
   bool _submitting = false;
   bool _showSuccess = false;
+  SessionDelegationSnapshot? _delegation;
+  Object? _loadError;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final value = await widget.session.operations.run(
+        (operation) => operation.readDelegation(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _delegation = value;
+        _loadError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadError = error);
+    }
+  }
 
   Future<void> _delegate() async {
     if (_submitting) return;
     setState(() => _submitting = true);
     try {
-      await ref.read(stakingProvider.notifier).delegate();
+      final value = await widget.session.operations.run(
+        (operation) => operation.setDelegated(true),
+      );
+      if (!mounted) return;
+      _delegation = value;
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -71,7 +104,9 @@ class _StakingDelegationScreenState
 
     setState(() => _submitting = true);
     try {
-      await ref.read(stakingProvider.notifier).undelegate();
+      await widget.session.operations.run(
+        (operation) => operation.setDelegated(false),
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
@@ -80,13 +115,13 @@ class _StakingDelegationScreenState
       ).showSnackBar(SnackBar(content: Text(l10n.stakingUndelegateError)));
       return;
     }
-    if (mounted) context.pop();
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final delegated = ref.watch(stakingProvider).isDelegated;
+    final delegated = _delegation?.delegated == true;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: !_showSuccess,
@@ -97,11 +132,20 @@ class _StakingDelegationScreenState
         ),
       ),
       body: SafeArea(
-        child: _showSuccess
-            ? _buildSuccess(context)
-            : delegated
-                ? _buildDelegated(context)
-                : _buildReview(context),
+        child: _loadError != null
+            ? Center(
+                child: Button(
+                  label: l10n.commonRetry,
+                  onTap: _load,
+                ),
+              )
+            : _delegation == null
+                ? const Center(child: CircularProgressIndicator())
+                : _showSuccess
+                    ? _buildSuccess(context)
+                    : delegated
+                        ? _buildDelegated(context)
+                        : _buildReview(context),
       ),
     );
   }
@@ -241,7 +285,7 @@ class _StakingDelegationScreenState
               label: l10n.stakingDone,
               variant: ButtonVariant.primary,
               size: ButtonSize.large,
-              onTap: () => context.pop(),
+              onTap: () => Navigator.of(context).pop(),
             ),
           ),
         ],
@@ -262,7 +306,9 @@ class _StakingDelegationScreenState
         leading: const IconBadge(icon: Symbols.dns_sharp),
         title: Text(l10n.stakingServerName),
         subtitle: Text(
-          _shortenAddress(kServerDelegateAddress),
+          _shortenAddress(
+            _delegation?.delegateAddress ?? _serverDelegateAddress,
+          ),
           style: theme.textTheme.bodySmall?.copyWith(
             fontFamily: kMonoFontFamily,
             color: colors.onSurfaceVariant,

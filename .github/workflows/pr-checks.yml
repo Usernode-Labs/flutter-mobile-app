@@ -14,9 +14,29 @@ env:
   NDK_VERSION: "29.0.14206865"
 
 jobs:
+  resolve-usernode-ref:
+    name: Resolve Usernode Ref
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.usernode-ref.outputs.ref }}
+    steps:
+      - name: Resolve usernode ref
+        id: usernode-ref
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+        run: |
+          REF=$(printf '%s\n' "$PR_BODY" | sed -n 's/^Usernode-Ref:[[:space:]]*//p' | tail -n 1)
+          REF=${REF:-main}
+          git check-ref-format --branch "$REF" >/dev/null
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "Usernode ref: $REF"
+
   prepare-frb-bindings:
     name: Prepare FRB Bindings
+    needs: resolve-usernode-ref
     uses: ./.github/workflows/prepare-frb-bindings.yml
+    with:
+      usernode_ref: ${{ needs.resolve-usernode-ref.outputs.ref }}
     secrets: inherit
 
   analyze:
@@ -191,10 +211,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           else
             cat > .env << EOF
@@ -216,10 +232,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -386,10 +398,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           else
             cat > .env << EOF
@@ -404,10 +412,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"

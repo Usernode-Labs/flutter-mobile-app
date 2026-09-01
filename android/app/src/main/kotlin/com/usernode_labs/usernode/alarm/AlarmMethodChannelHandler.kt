@@ -15,16 +15,11 @@ import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
-import android.webkit.CookieManager
-import android.webkit.WebStorage
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.webkit.WebStorageCompat
-import androidx.webkit.WebViewFeature
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,13 +32,18 @@ import kotlinx.coroutines.launch
  * - Constructed with an application [Context] so it can exist in background-only processes.
  * - Optionally an [Activity] can be attached for UI-only operations (permission prompts / settings).
  */
-class AlarmMethodChannelHandler(context: Context) {
+internal class AlarmMethodChannelHandler private constructor(context: Context) {
 
     private val appContext: Context = context.applicationContext
 
-    // Activity is optional; only required for UI-only flows like permission prompts.
+    private class ActivityBinding(
+        val engineLease: EngineLease,
+        val activityRef: WeakReference<Activity>,
+    )
+
+    // Activity access is bound to the exact interactive engine lease.
     @Volatile
-    private var activityRef: WeakReference<Activity>? = null
+    private var activityBinding: ActivityBinding? = null
 
     private val alarmManager: AlarmManager = appContext.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val alarmScheduler: AlarmScheduler = AlarmScheduler(appContext, alarmManager)
@@ -51,7 +51,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private val applicationIncarnationStore = ApplicationIncarnationStore(appContext)
     private val powerManager: PowerManager = appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
 
-    private var methodChannel: MethodChannel? = null
+    private val engineChannels = EngineLeaseRegistry<MethodChannel>()
     private val flutterAlarmEventBuffer = FlutterAlarmEventBuffer()
     private var lastKnownExactAlarmPermission: Boolean? = null
     private val methodScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -81,27 +81,17 @@ class AlarmMethodChannelHandler(context: Context) {
             }
         }
 
-        internal fun setInstance(handler: AlarmMethodChannelHandler) {
-            instance = handler
+    }
+
+    @Synchronized
+    fun attachActivity(activity: Activity, expected: EngineLease): Boolean {
+        if (expected.role != EngineRole.INTERACTIVE || !engineChannels.isCurrent(expected)) {
+            Log.w(TAG, "Refusing Activity attachment for a stale or non-interactive engine")
+            return false
         }
-    }
-
-    init {
-        setInstance(this)
-        Log.d(TAG, "Handler initialized")
-    }
-
-    fun attachActivity(activity: Activity) {
-        activityRef = WeakReference(activity)
+        activityBinding = ActivityBinding(expected, WeakReference(activity))
         Log.d(TAG, "Activity attached (${activity::class.java.simpleName})")
-    }
-
-    fun detachActivity(activity: Activity? = null) {
-        val current = activityRef?.get()
-        if (activity == null || current === activity) {
-            activityRef = null
-            Log.d(TAG, "Activity detached")
-        }
+        return true
     }
 
     /**
@@ -110,27 +100,66 @@ class AlarmMethodChannelHandler(context: Context) {
      * @return true if an Activity is attached and not garbage collected, false otherwise
      */
     fun isActivityAttached(): Boolean {
-        return activityRef?.get() != null
+        val current = activityBinding ?: return false
+        return current.activityRef.get() != null &&
+            engineChannels.isCurrent(current.engineLease)
     }
 
-    fun isActivityAttached(activity: Activity): Boolean {
-        return activityRef?.get() === activity
+    private fun attachedActivity(): Activity? {
+        val current = activityBinding ?: return null
+        if (!engineChannels.isCurrent(current.engineLease)) return null
+        return current.activityRef.get()
     }
 
-    /// Set the method channel for bidirectional communication
-    fun setMethodChannel(channel: MethodChannel) {
-        methodChannel = channel
-        Log.d(TAG, "Method channel set")
+    /**
+     * Acquires the alarm channel for one exact engine.
+     *
+     * Activity/engine replacement installs a successor lease synchronously;
+     * every callback held by the predecessor then fails the exact-lease check.
+     */
+    @Synchronized
+    fun acquireMethodChannel(role: EngineRole, channel: MethodChannel): EngineLease? {
+        val lease = engineChannels.replace(role, channel)
+        Log.d(TAG, "Alarm channel acquired by $role engine")
         flushPendingEvents("method_channel_set")
+        return lease
     }
 
-    fun clearMethodChannel(reason: String) {
-        methodChannel = null
+    @Synchronized
+    fun compareReleaseMethodChannel(expected: EngineLease, reason: String): Boolean {
+        if (engineChannels.compareRelease(expected) == null) {
+            Log.w(TAG, "Ignoring stale alarm channel release (reason=$reason)")
+            return false
+        }
+        if (activityBinding?.engineLease === expected) {
+            activityBinding = null
+        }
         flutterAlarmEventBuffer.markFlutterNotReady()
-        Log.d(TAG, "Method channel cleared (reason=$reason)")
+        Log.d(TAG, "Alarm channel released (role=${expected.role}, reason=$reason)")
+        return true
     }
 
-    fun markFlutterReadyForAlarmEvents(): Boolean {
+    fun isCurrentEngine(expected: EngineLease): Boolean = engineChannels.isCurrent(expected)
+
+    fun handleMethodCall(
+        expected: EngineLease,
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
+        if (!engineChannels.isCurrent(expected)) {
+            result.error(
+                "STALE_ENGINE",
+                "The Flutter engine no longer owns the native alarm channel",
+                null,
+            )
+            return
+        }
+        handleCurrentMethodCall(expected, call, result)
+    }
+
+    @Synchronized
+    private fun markFlutterReadyForAlarmEvents(expected: EngineLease): Boolean {
+        if (!engineChannels.isCurrent(expected)) return false
         Log.d(TAG, "Flutter marked alarm channel ready")
         val pendingEvents = flutterAlarmEventBuffer.markFlutterReady()
         flushEventsToCurrentChannel(pendingEvents, "flutter_ready")
@@ -162,7 +191,11 @@ class AlarmMethodChannelHandler(context: Context) {
         flushEventsToCurrentChannel(listOf(event), "immediate_dispatch")
     }
 
-    fun handleMethodCall(call: MethodCall, result: MethodChannel.Result) {
+    private fun handleCurrentMethodCall(
+        expected: EngineLease,
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
         when (call.method) {
             "ensureApplicationIncarnation" -> {
                 result.success(applicationIncarnationStore.ensure())
@@ -176,17 +209,9 @@ class AlarmMethodChannelHandler(context: Context) {
             "clearSessionNotifications" -> {
                 result.success(clearSessionNotifications())
             }
-            "clearWebSessionData" -> {
-                clearWebSessionData(result)
-            }
-            "clearNativeResetState" -> {
-                result.success(clearNativeResetState())
-            }
-            "enterTerminalReset" -> {
-                val clearApplicationData =
-                    call.argument<Boolean>("clearApplicationData") ?: true
+            "terminateForNetworkChange" -> {
                 result.success(null)
-                enterTerminalReset(clearApplicationData)
+                terminateForNetworkChange()
             }
             "hasExactAlarmPermission" -> {
                 result.success(hasExactAlarmPermission())
@@ -377,11 +402,10 @@ class AlarmMethodChannelHandler(context: Context) {
                 // // Treat wakelock release as "app suspended" for engine lifecycle:
                 // // destroy engine + remove from cache so next open/alarm starts fresh.
                 // Handler(Looper.getMainLooper()).post {
-                //     BackgroundAlarmEngine.destroyCachedEngine("wakelock_release")
                 // }
             }
             "markFlutterReadyForAlarmEvents" -> {
-                result.success(markFlutterReadyForAlarmEvents())
+                result.success(markFlutterReadyForAlarmEvents(expected))
             }
             "wasForceStoppedOnStartup" -> {
                 result.success(wasForceStoppedOnStartup())
@@ -430,7 +454,7 @@ class AlarmMethodChannelHandler(context: Context) {
                 }
             }
             "isAlarmWatchdogDeliveryInProgress" -> {
-                result.success(BackgroundAlarmEngine.isWatchdogDeliveryInProgress())
+                result.success(false)
             }
             else -> {
                 result.notImplemented()
@@ -457,58 +481,6 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     /**
-     * Deletes everything the WebView holds for the retired session.
-     *
-     * The framework `WebStorage.deleteAllData()` has no completion callback and
-     * makes no guarantee about the network cache or installed service workers —
-     * and this app deliberately enables service workers for the SV shell — so it
-     * cannot back a security boundary. `WebStorageCompat.deleteBrowsingData`
-     * (androidx.webkit 1.13.0+) covers cache, cookies, JS-readable storage and
-     * service workers, and reports completion.
-     *
-     * When that API is unavailable this reports failure rather than a partial
-     * wipe: a scoped sign-out must not be acknowledged on a jar that may still
-     * re-authenticate the next page load. The Dart side escalates to the
-     * terminal reset, whose clear-application-data wipe does cover it.
-     */
-    private fun clearWebSessionData(result: MethodChannel.Result) {
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.DELETE_BROWSING_DATA)) {
-            Log.e(
-                TAG,
-                "Comprehensive WebView deletion is unsupported by the installed " +
-                    "WebView; refusing to report a partial session clear"
-            )
-            result.success(false)
-            return
-        }
-        val answered = AtomicBoolean(false)
-        fun answer(success: Boolean) {
-            if (answered.compareAndSet(false, true)) result.success(success)
-        }
-        try {
-            Handler(Looper.getMainLooper()).post {
-                try {
-                    WebStorageCompat.deleteBrowsingData(WebStorage.getInstance()) {
-                        // Cookies live in their own store; flush them to disk so the
-                        // deletion survives a process death immediately after this.
-                        val cookies = CookieManager.getInstance()
-                        cookies.removeAllCookies {
-                            cookies.flush()
-                            answer(true)
-                        }
-                    }
-                } catch (error: Exception) {
-                    Log.e(TAG, "Failed to clear WebView browsing data", error)
-                    answer(false)
-                }
-            }
-        } catch (error: Exception) {
-            Log.e(TAG, "Failed to clear WebView session data", error)
-            answer(false)
-        }
-    }
-
-    /**
      * Removes the notifications this app has already posted. A scoped sign-out
      * keeps the process, so nothing else would take the retired session's
      * Social/slot text off the tray or lock screen.
@@ -524,37 +496,9 @@ class AlarmMethodChannelHandler(context: Context) {
         }
     }
 
-    private fun clearNativeResetState(): Boolean {
-        var durableStateCleared = alarmScheduler.cancelAllAlarms("terminal_reset")
-        durableStateCleared =
-            AlarmWatchdogScheduler.cancel(appContext) && durableStateCleared
-        durableStateCleared =
-            foregroundServiceManager.stopForegroundService() && durableStateCleared
-        appContext.stopService(Intent(appContext, SlotMonitoringService::class.java))
-        NativeWakeLockManager.release()
-        (appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-            .cancelAll()
-        for (name in listOf("alarm_prefs", "alarm_watchdog_prefs", "background_task_stats")) {
-            durableStateCleared = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
-                .edit()
-                .clear()
-                .commit() && durableStateCleared
-        }
-        durableStateCleared = applicationIncarnationStore.clear() && durableStateCleared
-        flutterAlarmEventBuffer.clear()
-        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
-        return durableStateCleared
-    }
-
-    private fun enterTerminalReset(clearApplicationData: Boolean) {
-        BackgroundAlarmEngine.destroyCachedEngine("terminal_reset")
-        activityRef?.get()?.finishAffinity()
+    private fun terminateForNetworkChange() {
+        attachedActivity()?.finishAffinity()
         Handler(Looper.getMainLooper()).post {
-            if (clearApplicationData) {
-                val activityManager =
-                    appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                if (activityManager.clearApplicationUserData()) return@post
-            }
             android.os.Process.killProcess(android.os.Process.myPid())
         }
     }
@@ -572,7 +516,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private fun requestExactAlarmPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (!alarmManager.canScheduleExactAlarms()) {
-                val activity = activityRef?.get()
+                val activity = attachedActivity()
                 if (activity == null) {
                     Log.w(TAG, "Cannot request exact alarm permission - no Activity attached")
                     return false
@@ -637,7 +581,7 @@ class AlarmMethodChannelHandler(context: Context) {
     private fun requestPostNotificationsPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (!hasPostNotificationsPermission()) {
-                val activity = activityRef?.get()
+                val activity = attachedActivity()
                 if (activity == null) {
                     Log.w(TAG, "Cannot request POST_NOTIFICATIONS permission - no Activity attached")
                     return false
@@ -699,7 +643,7 @@ class AlarmMethodChannelHandler(context: Context) {
     }
 
     private fun openAppNotificationSettings(): Boolean {
-        val activity = activityRef?.get()
+        val activity = attachedActivity()
         if (activity == null) {
             Log.w(TAG, "Cannot open notification settings - no Activity attached")
             return false
@@ -728,7 +672,7 @@ class AlarmMethodChannelHandler(context: Context) {
 
     private fun openBatteryOptimizationSettings(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val activity = activityRef?.get()
+            val activity = attachedActivity()
             if (activity == null) {
                 Log.w(TAG, "Cannot open battery settings - no Activity attached")
                 return false
@@ -757,7 +701,7 @@ class AlarmMethodChannelHandler(context: Context) {
 
     private fun requestBatteryOptimizationExemption(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val activity = activityRef?.get()
+            val activity = attachedActivity()
             if (activity == null) {
                 Log.w(TAG, "Cannot request battery optimization exemption - no Activity attached")
                 return false
@@ -871,8 +815,8 @@ class AlarmMethodChannelHandler(context: Context) {
             return
         }
 
-        val channel = methodChannel
-        if (channel == null) {
+        val captured = engineChannels.capture()
+        if (captured == null) {
             Log.w(TAG, "Cannot flush ${events.size} event(s) - method channel not set (reason=$reason)")
             events.forEach { it.completion?.invoke(false) }
             return
@@ -889,37 +833,49 @@ class AlarmMethodChannelHandler(context: Context) {
                 "eventData" to event.eventData
             )
             val completion = event.completion
-            if (completion == null) {
-                channel.invokeMethod("onBlockProductionEvent", args)
-                continue
+            val dispatched = engineChannels.runIfCurrent(captured.lease) { channel ->
+                if (completion == null) {
+                    channel.invokeMethod("onBlockProductionEvent", args)
+                } else {
+                    channel.invokeMethod(
+                        "onBlockProductionEvent",
+                        args,
+                        object : MethodChannel.Result {
+                            override fun success(result: Any?) {
+                                // Scheduling was admitted atomically under the
+                                // captured lease. A later handoff cannot revoke
+                                // this exact correlated completion.
+                                completion(result == true)
+                            }
+
+                            override fun error(
+                                errorCode: String,
+                                errorMessage: String?,
+                                errorDetails: Any?,
+                            ) {
+                                Log.w(
+                                    TAG,
+                                    "Flutter rejected ${event.eventType}: " +
+                                        "$errorCode $errorMessage",
+                                )
+                                completion(false)
+                            }
+
+                            override fun notImplemented() {
+                                Log.w(
+                                    TAG,
+                                    "Flutter did not implement ${event.eventType}",
+                                )
+                                completion(false)
+                            }
+                        },
+                    )
+                }
             }
-
-            channel.invokeMethod(
-                "onBlockProductionEvent",
-                args,
-                object : MethodChannel.Result {
-                    override fun success(result: Any?) {
-                        completion(result == true)
-                    }
-
-                    override fun error(
-                        errorCode: String,
-                        errorMessage: String?,
-                        errorDetails: Any?,
-                    ) {
-                        Log.w(
-                            TAG,
-                            "Flutter rejected ${event.eventType}: $errorCode $errorMessage",
-                        )
-                        completion(false)
-                    }
-
-                    override fun notImplemented() {
-                        Log.w(TAG, "Flutter did not implement ${event.eventType}")
-                        completion(false)
-                    }
-                },
-            )
+            if (!dispatched) {
+                Log.w(TAG, "Alarm channel changed while flushing events (reason=$reason)")
+                completion?.invoke(false)
+            }
         }
     }
 }

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/design_system/src/zk_identity_flow_page.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/features/zk_identity/models/zk_identity_models.dart';
 import 'package:crypto_mobile_app/features/zk_identity/providers/zk_identity_providers.dart';
 import 'package:crypto_mobile_app/features/zkpassport/data/models/zkpassport_models.dart';
@@ -23,7 +26,9 @@ class _FakeFlowController implements ZkPassportFlowController {
   );
 
   @override
-  Future<ZkPassportLaunchResult> startRegistrationNonceZero() async {
+  Future<ZkPassportLaunchResult> startRegistrationNonceZero(
+    SessionFeatureAccess session,
+  ) async {
     startCalled = true;
     await whileStarting?.call();
     return nextResult;
@@ -52,6 +57,25 @@ class _FakeLaunchService implements ZkPassportLaunchService {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final _session = SessionFeatureAccess(
+  identity: SessionIdentityProjection.ready(
+    nativeRevision: '1',
+    participantId: 1,
+    accountId: 'account-1',
+    address: 'address-1',
+    publicKey: 'public-key-1',
+  ),
+  operations: _UnusedSessionRunner(),
+);
+
+class _UnusedSessionRunner implements SessionOperationRunner {
+  @override
+  Future<T> run<T>(
+    FutureOr<T> Function(SessionOperation operation) body,
+  ) =>
+      Future<T>.error(StateError('The fake flow must not run an operation.'));
 }
 
 class _FakePipelineController extends StateNotifier<ZkPassportPipelineState>
@@ -154,7 +178,10 @@ void main() {
       final s = _setup();
       addTearDown(s.container.dispose);
 
-      expect(await s.controller.startVerificationFromSavedPassport(), isTrue);
+      expect(
+        await s.controller.startVerificationFromSavedPassport(_session),
+        isTrue,
+      );
 
       final updated = s.container.read(zkIdentityStepControllerProvider);
       expect(updated.currentStep, ZkIdentityStep.verification);
@@ -174,38 +201,13 @@ void main() {
       final s = _setup(appInstalled: false);
       addTearDown(s.container.dispose);
 
-      expect(await s.controller.startVerificationFromSavedPassport(), isFalse);
+      expect(
+        await s.controller.startVerificationFromSavedPassport(_session),
+        isFalse,
+      );
 
       final state = s.container.read(zkIdentityStepControllerProvider);
       expect(state.currentStep, ZkIdentityStep.checkApp);
-      expect(s.flowController.startCalled, isFalse);
-    });
-
-    test('account recovery enters verification without starting a proof', () {
-      final s = _setup();
-      addTearDown(s.container.dispose);
-
-      s.controller.prepareForAccountRecovery();
-
-      final state = s.container.read(zkIdentityStepControllerProvider);
-      expect(state.currentStep, ZkIdentityStep.verification);
-      expect(state.resultMessage, isNull);
-      expect(state.steps[ZkIdentityStep.verification.index].status,
-          ZkIdentityStepVisualStatus.active);
-      expect(s.flowController.startCalled, isFalse);
-    });
-
-    test('account preparation failure does not attempt to create a proof', () {
-      final s = _setup();
-      addTearDown(s.container.dispose);
-
-      s.controller.showAccountPreparationFailure('Wallet unavailable');
-
-      final state = s.container.read(zkIdentityStepControllerProvider);
-      expect(state.currentStep, ZkIdentityStep.verification);
-      expect(state.resultMessage, 'Wallet unavailable');
-      expect(state.steps[ZkIdentityStep.verification.index].status,
-          ZkIdentityStepVisualStatus.failed);
       expect(s.flowController.startCalled, isFalse);
     });
 
@@ -214,7 +216,7 @@ void main() {
       final s = _setup();
       addTearDown(s.container.dispose);
 
-      await s.controller.startVerificationFromSavedPassport();
+      await s.controller.startVerificationFromSavedPassport(_session);
       expect(await s.controller.reopenVerificationRequest(), isTrue);
 
       expect(s.launchService.launchCalls, 1);
@@ -232,7 +234,7 @@ void main() {
       final initial = s.container.read(zkIdentityStepControllerProvider);
       s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
 
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
       expect(s.flowController.startCalled, true);
     });
 
@@ -241,7 +243,7 @@ void main() {
       final s = _setup();
       addTearDown(s.container.dispose);
 
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
       expect(s.flowController.startCalled, false);
     });
 
@@ -258,7 +260,7 @@ void main() {
       final initial = s.container.read(zkIdentityStepControllerProvider);
       s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
 
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
 
       final state = s.container.read(zkIdentityStepControllerProvider);
       expect(state.currentStep, ZkIdentityStep.verification);
@@ -275,7 +277,7 @@ void main() {
       final initial = s.container.read(zkIdentityStepControllerProvider);
       s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
 
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
 
       // Simulate pipeline emitting success.
       s.pipelineController.emitSuccess();
@@ -303,7 +305,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       };
 
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
 
       final state = s.container.read(zkIdentityStepControllerProvider);
       expect(state.currentStep, ZkIdentityStep.result);
@@ -317,7 +319,7 @@ void main() {
       final initial = s.container.read(zkIdentityStepControllerProvider);
       s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
 
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
 
       s.pipelineController.emitFailure('Timeout');
       await Future<void>.delayed(Duration.zero);
@@ -404,7 +406,7 @@ void main() {
       s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
 
       expect(s.container.read(zkIdentityChallengeActiveProvider), false);
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
       expect(s.container.read(zkIdentityChallengeActiveProvider), true);
     });
 
@@ -416,7 +418,7 @@ void main() {
       final initial = s.container.read(zkIdentityStepControllerProvider);
       s.controller.state = initial.advanceTo(ZkIdentityStep.verification.index);
 
-      await s.controller.triggerVerification();
+      await s.controller.triggerVerification(_session);
       expect(s.container.read(zkIdentityChallengeActiveProvider), true);
 
       s.pipelineController.emitSuccess();

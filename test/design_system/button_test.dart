@@ -8,10 +8,10 @@ void main() {
   group('Button', () {
     testWidgets('renders label text', (tester) async {
       await tester.pumpWidget(wrap(
-        const Button(label: 'View in Leaderboard'),
+        const Button(label: 'Continue'),
       ));
 
-      expect(find.text('View in Leaderboard'), findsOneWidget);
+      expect(find.text('Continue'), findsOneWidget);
     });
 
     testWidgets('onTap fires callback', (tester) async {

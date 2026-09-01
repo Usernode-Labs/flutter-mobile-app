@@ -264,7 +264,7 @@ void main() {
       expect(callbackCalls, 1);
     });
 
-    test('permission events remain unscoped and terminal reset rejects work',
+    test('permission events remain unscoped and process restart rejects work',
         () async {
       await setUpService();
       service.setApplicationIncarnationForTesting('current');
@@ -281,7 +281,7 @@ void main() {
         ),
         isTrue,
       );
-      service.beginTerminalReset();
+      service.beginProcessRestart();
       expect(
         await service.dispatchNativeEventForTesting(
           'android_alarm_fired',

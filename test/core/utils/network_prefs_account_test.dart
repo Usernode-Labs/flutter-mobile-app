@@ -28,7 +28,7 @@ void main() {
     expect(NetworkPrefs.activeBucket.length, 16);
   });
 
-  test('prefixAccountKey buckets by network + identity', () {
+  test('prefixAccountKey buckets by fixed testnet namespace + identity', () {
     NetworkPrefs.setActiveBucket(null, guest: true);
     final key = NetworkPrefs.prefixAccountKey('onboarding:completed');
     expect(key,
@@ -41,7 +41,6 @@ void main() {
   });
 
   test('global keys pass through prefixAccountKey unchanged', () {
-    expect(NetworkPrefs.prefixAccountKey(NetworkPrefs.networkKey),
-        NetworkPrefs.networkKey);
+    expect(NetworkPrefs.prefixAccountKey('app:theme_mode'), 'app:theme_mode');
   });
 }

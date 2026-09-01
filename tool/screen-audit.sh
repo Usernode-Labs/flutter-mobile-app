@@ -61,14 +61,11 @@ HAS_CUSTOM_SCROLL=$(grep -c 'CustomScrollView' "$FILE" 2>/dev/null || true)
 HAS_LISTVIEW=$(grep -c 'ListView' "$FILE" 2>/dev/null || true)
 HAS_GRIDVIEW=$(grep -c 'GridView' "$FILE" 2>/dev/null || true)
 HAS_SINGLE_SCROLL=$(grep -c 'SingleChildScrollView' "$FILE" 2>/dev/null || true)
-HAS_ATOMIC_CHALLENGE_DETAIL=$(grep -c 'AtomicChallengeDetailPage' "$FILE" 2>/dev/null || true)
 
 SCREEN_TYPE="tab"
 if [ "$HAS_PSL" -gt 0 ]; then
   SCREEN_TYPE="psl"
 elif [ "$HAS_TOP_APP_BAR" -gt 0 ] || [ "$HAS_SLIVER_APP_BAR" -gt 0 ]; then
-  SCREEN_TYPE="detail"
-elif [ "$HAS_ATOMIC_CHALLENGE_DETAIL" -gt 0 ]; then
   SCREEN_TYPE="detail"
 elif [ "$HAS_MODAL" -gt 0 ] && [ "$HAS_SAFE_AREA" -eq 0 ] && [ "$HAS_CUSTOM_SCROLL" -eq 0 ]; then
   SCREEN_TYPE="modal"
@@ -78,7 +75,7 @@ REPORT="${REPORT}  INFO  Detected screen type: ${SCREEN_TYPE}\n"
 check "Screen type detected ($SCREEN_TYPE)" 0 ""
 
 scroll_issue=""
-if [ "$HAS_NESTED_SCROLL" -gt 0 ] || [ "$HAS_CUSTOM_SCROLL" -gt 0 ] || [ "$HAS_LISTVIEW" -gt 0 ] || [ "$HAS_SINGLE_SCROLL" -gt 0 ] || [ "$HAS_PSL" -gt 0 ] || [ "$HAS_MODAL" -gt 0 ] || [ "$HAS_ATOMIC_CHALLENGE_DETAIL" -gt 0 ]; then
+if [ "$HAS_NESTED_SCROLL" -gt 0 ] || [ "$HAS_CUSTOM_SCROLL" -gt 0 ] || [ "$HAS_LISTVIEW" -gt 0 ] || [ "$HAS_SINGLE_SCROLL" -gt 0 ] || [ "$HAS_PSL" -gt 0 ] || [ "$HAS_MODAL" -gt 0 ]; then
   :
 else
   scroll_issue="No scroll container found"

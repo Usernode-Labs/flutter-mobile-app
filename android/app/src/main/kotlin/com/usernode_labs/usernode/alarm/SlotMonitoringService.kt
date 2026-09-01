@@ -4,10 +4,14 @@ import android.app.*
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.usernode_labs.usernode.R
+import com.usernode_labs.usernode.session.NativeProducerWakeCoordinator
+import com.usernode_labs.usernode.session.ProducerWakeSource
 
 class SlotMonitoringService : Service() {
     companion object {
@@ -16,6 +20,9 @@ class SlotMonitoringService : Service() {
         const val ACTION_STOP_MONITORING = "com.usernode.app.STOP_MONITORING"
         const val ACTION_START_PERSISTENT = "com.usernode.app.START_PERSISTENT"
         const val ACTION_STOP_PERSISTENT = "com.usernode.app.STOP_PERSISTENT"
+        private const val ACTION_NATIVE_PRODUCER_MONITORING =
+            "com.usernode.app.NATIVE_PRODUCER_MONITORING"
+        private const val EXTRA_NATIVE_POLL_AFTER_MS = "nativePollAfterMs"
 
         private const val NOTIFICATION_ID = 1001
         private const val CHANNEL_ID = "slot_monitoring_channel"
@@ -29,11 +36,43 @@ class SlotMonitoringService : Service() {
         @Volatile
         var isForegroundServiceActive = false
             private set
+
+        fun startNativeProducerMonitoring(
+            context: Context,
+            applicationIncarnation: String,
+            pollAfterMs: Long,
+        ) {
+            val intent = Intent(context, SlotMonitoringService::class.java).apply {
+                action = ACTION_NATIVE_PRODUCER_MONITORING
+                putExtra(
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                    applicationIncarnation,
+                )
+                putExtra(EXTRA_NATIVE_POLL_AFTER_MS, pollAfterMs.coerceAtLeast(0))
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        fun stopNativeProducerMonitoring(context: Context) {
+            context.stopService(Intent(context, SlotMonitoringService::class.java))
+        }
     }
 
     private var currentGlobalSlot: Int? = null
     private var currentApplicationIncarnation: String? = null
     private var isPersistentMode = false
+    private val producerHandler = Handler(Looper.getMainLooper())
+    private val producerPoll = Runnable {
+        NativeProducerWakeCoordinator.submit(
+            applicationContext,
+            ProducerWakeSource.WATCHDOG,
+            refreshPolicy = false,
+        )
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -81,6 +120,26 @@ class SlotMonitoringService : Service() {
             ACTION_STOP_MONITORING -> {
                 Log.d(TAG, "[SlotMonitoringService] STOP_MONITORING action received")
                 stopMonitoring()
+            }
+            ACTION_NATIVE_PRODUCER_MONITORING -> {
+                val applicationIncarnation = intent.getStringExtra(
+                    ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION,
+                )
+                if (!ApplicationIncarnationStore(this).matches(applicationIncarnation)) {
+                    Log.w(TAG, "Ignoring stale native producer monitoring command")
+                    stopIfNotServingCurrentIncarnation(startId)
+                    return START_NOT_STICKY
+                }
+                startMonitoring(
+                    globalSlot = 0,
+                    nodeRunning = true,
+                    applicationIncarnation = applicationIncarnation!!,
+                )
+                producerHandler.removeCallbacks(producerPoll)
+                producerHandler.postDelayed(
+                    producerPoll,
+                    intent.getLongExtra(EXTRA_NATIVE_POLL_AFTER_MS, 0).coerceAtLeast(0),
+                )
             }
             ACTION_START_PERSISTENT -> {
                 val applicationIncarnation = intent.getStringExtra(
@@ -145,23 +204,6 @@ class SlotMonitoringService : Service() {
             Log.d(TAG, "[SlotMonitoringService] Foreground service started with notification ID $NOTIFICATION_ID")
             isForegroundServiceActive = true
 
-            // Send event to Flutter
-            Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_started event to Flutter")
-            val eventData = mapOf(
-                "globalSlot" to globalSlot,
-                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                    applicationIncarnation,
-            )
-            val handler = AlarmMethodChannelHandler.getInstance()
-            if (handler != null && handler.isActivityAttached()) {
-                handler.sendEventToFlutter("android_foreground_service_started", eventData)
-            } else {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_foreground_service_started",
-                    eventData
-                )
-            }
         } catch (e: Exception) {
             Log.e(TAG, "[SlotMonitoringService] Failed to start foreground service", e)
         }
@@ -177,23 +219,7 @@ class SlotMonitoringService : Service() {
             Log.d(TAG, "[SlotMonitoringService] Foreground service stopped, notification removed")
             isForegroundServiceActive = false
 
-            // Send event to Flutter
-            Log.d(TAG, "[SlotMonitoringService] Sending android_foreground_service_stopped event to Flutter")
-            val eventData = mapOf(
-                "globalSlot" to globalSlotBeingStopped,
-                ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                    currentApplicationIncarnation,
-            )
-            val handler = AlarmMethodChannelHandler.getInstance()
-            if (handler != null && handler.isActivityAttached()) {
-                handler.sendEventToFlutter("android_foreground_service_stopped", eventData)
-            } else {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_foreground_service_stopped",
-                    eventData
-                )
-            }
+            producerHandler.removeCallbacks(producerPoll)
         } catch (e: Exception) {
             Log.e(TAG, "[SlotMonitoringService] Error stopping foreground", e)
         }
@@ -243,27 +269,6 @@ class SlotMonitoringService : Service() {
             startForeground(NOTIFICATION_ID, notification)
             Log.d(TAG, "[SlotMonitoringService] Persistent foreground service started with notification ID $NOTIFICATION_ID")
 
-            // Send event to Flutter
-            Log.d(TAG, "[SlotMonitoringService] Sending android_persistent_foreground_started event to Flutter")
-            val handler = AlarmMethodChannelHandler.getInstance()
-            if (handler != null && handler.isActivityAttached()) {
-                handler.sendEventToFlutter(
-                    "android_persistent_foreground_started",
-                    mapOf(
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            applicationIncarnation,
-                    )
-                )
-            } else {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_persistent_foreground_started",
-                    mapOf(
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            applicationIncarnation,
-                    )
-                )
-            }
         } catch (e: Exception) {
             Log.e(TAG, "[SlotMonitoringService] Failed to start persistent foreground service", e)
             isPersistentMode = false
@@ -281,27 +286,7 @@ class SlotMonitoringService : Service() {
             Log.d(TAG, "[SlotMonitoringService] Persistent foreground service stopped, notification removed")
             isForegroundServiceActive = false
 
-            // Send event to Flutter
-            Log.d(TAG, "[SlotMonitoringService] Sending android_persistent_foreground_stopped event to Flutter")
-            val handler = AlarmMethodChannelHandler.getInstance()
-            if (handler != null && handler.isActivityAttached()) {
-                handler.sendEventToFlutter(
-                    "android_persistent_foreground_stopped",
-                    mapOf(
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            currentApplicationIncarnation,
-                    )
-                )
-            } else {
-                BackgroundAlarmEngine.sendAlarmEvent(
-                    applicationContext,
-                    "android_persistent_foreground_stopped",
-                    mapOf(
-                        ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                            currentApplicationIncarnation,
-                    )
-                )
-            }
+            producerHandler.removeCallbacks(producerPoll)
         } catch (e: Exception) {
             Log.e(TAG, "[SlotMonitoringService] Error stopping persistent foreground", e)
         }
@@ -321,6 +306,7 @@ class SlotMonitoringService : Service() {
     }
 
     override fun onDestroy() {
+        producerHandler.removeCallbacks(producerPoll)
         super.onDestroy()
         Log.i(TAG, "[SlotMonitoringService] Service onDestroy() - GlobalSlot: $currentGlobalSlot, Time: ${System.currentTimeMillis()}")
         Log.d(TAG, "[SlotMonitoringService] Service destroyed, monitoring ended")

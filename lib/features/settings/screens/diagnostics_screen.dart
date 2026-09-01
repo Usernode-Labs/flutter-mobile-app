@@ -3,24 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
-import 'package:crypto_mobile_app/core/services/app_reset_service.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/build_info_sheet.dart';
 import 'package:crypto_mobile_app/features/settings/widgets/diagnostics_settings_section.dart';
-import 'package:crypto_mobile_app/features/settings/widgets/network_switcher_dialog.dart';
 
 /// Minimal native diagnostics surface for the thin shell: device benchmark,
-/// HTTP debug logs, build info, and the hidden network switcher. All user
-/// settings live in the SV web settings modal; this screen only carries
-/// native-only tooling, reachable from the SV debug escape hatch or
-/// `openNativeScreen('diagnostics')`.
+/// HTTP debug logs, and build info. All user settings live in the SV web
+/// settings modal; this screen only carries native-only tooling, reachable
+/// from the SV debug escape hatch or `openNativeScreen('diagnostics')`.
 class DiagnosticsScreen extends ConsumerStatefulWidget {
   const DiagnosticsScreen({super.key});
 
@@ -100,83 +95,6 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     );
   }
 
-  // --- Network switcher (hidden easter egg, behind long-press + PIN) ---
-
-  Future<void> _showPinDialog() async {
-    final pinController = TextEditingController();
-    final l10n = AppLocalizations.of(context);
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.networkEnterCode),
-        content: TextField(
-          controller: pinController,
-          keyboardType: TextInputType.number,
-          maxLength: 4,
-          obscureText: true,
-          autofocus: true,
-          decoration: InputDecoration(
-            hintText: l10n.networkCodeHint,
-            counterText: '',
-          ),
-        ),
-        actions: [
-          Button(
-            label: l10n.commonCancel,
-            size: ButtonSize.small,
-            variant: ButtonVariant.outlined,
-            onTap: () => Navigator.of(ctx).pop(false),
-          ),
-          Button(
-            label: l10n.commonOk,
-            size: ButtonSize.small,
-            onTap: () {
-              if (pinController.text == AppConfig.networkSwitcherCode) {
-                Navigator.of(ctx).pop(true);
-              } else {
-                Navigator.of(ctx).pop(false);
-              }
-            },
-          ),
-        ],
-      ),
-    );
-
-    if (result == true && mounted) {
-      _showNetworkSwitcherDialog();
-    }
-  }
-
-  Future<void> _showNetworkSwitcherDialog() async {
-    final prefs = await SharedPreferences.getInstance();
-    const allowedNetworks = {'testnet', 'internal', 'custom'};
-    final storedNetwork = prefs.getString('network:type');
-    final currentNetwork =
-        allowedNetworks.contains(storedNetwork) ? storedNetwork! : 'testnet';
-
-    if (!mounted) return;
-
-    final result = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => NetworkSwitcherDialog(
-        currentNetwork: currentNetwork,
-      ),
-    );
-
-    if (result != null && result != currentNetwork && mounted) {
-      await AppResetService.instance.resetAndTerminate(
-        reason: 'network_change',
-        prepareNextLaunch: () async {
-          final emptyPrefs = await SharedPreferences.getInstance();
-          if (!await emptyPrefs.setString('network:type', result)) {
-            throw StateError('Could not persist the selected network');
-          }
-        },
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -219,8 +137,6 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                   size: sizing.iconSmall,
                 ),
                 onTap: _showBuildInfo,
-                // Network switcher stays a hidden, PIN-gated easter egg.
-                onLongPress: _showPinDialog,
               ),
             ),
             SizedBox(height: spacing.space32),

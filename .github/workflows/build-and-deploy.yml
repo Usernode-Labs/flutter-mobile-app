@@ -128,10 +128,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           else
             cat > .env << EOF
@@ -154,10 +150,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -554,10 +546,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           else
             cat > .env << EOF
@@ -580,10 +568,6 @@ jobs:
           VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
           DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
-          EXPLORER_PRIMARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_SECONDARY_URL=https://testnet-explorer.usernodelabs.org/api
-          EXPLORER_TIMEOUT_SECONDS=10
-          EXPLORER_CACHE_TTL_MINUTES=5
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config_ios.outputs.env_type }} secrets"

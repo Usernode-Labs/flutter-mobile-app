@@ -1,15 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/utils/network_prefs.dart';
-import 'package:crypto_mobile_app/core/providers/leaderboard_participant_provider.dart';
-import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
-import 'package:crypto_mobile_app/src/rust/observability.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -51,65 +47,6 @@ void main() {
         'device_manufacturer': 'ExampleCo',
         'device_model': 'Example Phone',
         'is_physical_device': true,
-      });
-    });
-
-    test('node initialization static context includes persisted participant id',
-        () async {
-      SharedPreferences.setMockInitialValues({
-        NetworkPrefs.networkKey: 'testnet',
-        'testnet:acct:guest:leaderboard:participant_id': 123,
-      });
-      await NetworkPrefs.init();
-
-      final records = <_CapturedObservabilityRecord>[];
-      final container = ProviderContainer(
-        overrides: [
-          participantIdProvider.overrideWith((ref) => loadParticipantId()),
-        ],
-      );
-      final collector = MetricsCollectorService.instance;
-      collector.reset();
-      collector.initialize(container);
-
-      final service = ObservabilityReportingService.test(
-        collector: collector,
-        canRecord: () => records.isEmpty,
-        record: ({
-          required FlutterObservabilityKind kind,
-          required String event,
-          String? payloadJson,
-        }) {
-          records.add(
-            _CapturedObservabilityRecord(
-              kind: kind,
-              event: event,
-              payload: jsonDecode(payloadJson ?? '{}') as Map<String, dynamic>,
-            ),
-          );
-          return const FlutterObservabilityRecordResult(
-            queued: true,
-            discarded: false,
-          );
-        },
-      );
-
-      addTearDown(() async {
-        await service.stopMobileContextSnapshotReporting();
-        container.dispose();
-        collector.reset();
-      });
-
-      await service.reportNodeInitialized(resetStaticContext: true);
-
-      final firstMobileContextRecord = records.firstWhere(
-        (record) => record.event == 'app_mobile_context_snapshot',
-      );
-      expect(firstMobileContextRecord.payload['event_data'], {
-        'snapshot_reason': 'node_initialized',
-      });
-      expect(firstMobileContextRecord.payload['identity'], {
-        'participant_id': 123,
       });
     });
 
@@ -198,6 +135,46 @@ void main() {
       expect(powerPayload.containsKey('runtime'), isFalse);
       expect(powerPayload.containsKey('platform'), isFalse);
       expect(powerPayload.containsKey('device'), isFalse);
+    });
+
+    test('collection and write remain admitted to one exact session', () async {
+      final collector = _BlockingMobileContextCollector();
+      final writesA = <_CapturedObservabilityRecord>[];
+      final writesB = <_CapturedObservabilityRecord>[];
+      final runnerA = _TestSessionRunner(writesA);
+      final runnerB = _TestSessionRunner(writesB);
+      final service = ObservabilityReportingService.test(
+        collector: collector,
+        canRecord: () => true,
+        isNodeRuntimeActive: () => true,
+      );
+      service.configureSession(
+        _readySession(runnerA, revision: '1', participantId: 1, accountId: 'A'),
+      );
+
+      final report = service.reportRuntimeMobileContextSnapshot(
+        reason: 'race',
+      );
+      await collector.started.future;
+
+      var drainCompleted = false;
+      final drain = runnerA.closeAndDrain().then((_) {
+        drainCompleted = true;
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(drainCompleted, isFalse);
+
+      service.configureSession(
+        _readySession(runnerB, revision: '2', participantId: 2, accountId: 'B'),
+      );
+      collector.release.complete();
+      await report;
+      await drain;
+
+      expect(collector.identity?.accountId, 'A');
+      expect(writesA, hasLength(1));
+      expect(writesA.single.payload['identity'], {'account_id': 'A'});
+      expect(writesB, isEmpty);
     });
 
     test('mobile context snapshots are suppressed while node runtime sleeps',
@@ -514,7 +491,7 @@ ObservabilityReportingService _service(
   final service = ObservabilityReportingService.test(
     collector: _FakeMobileContextCollector(),
     canRecord: () => true,
-    isNodeRuntimeActive: isNodeRuntimeActive,
+    isNodeRuntimeActive: isNodeRuntimeActive ?? () => true,
     record: record ??
         ({
           required FlutterObservabilityKind kind,
@@ -534,10 +511,41 @@ ObservabilityReportingService _service(
           );
         },
   );
-  if (nodeInitialized) {
-    service.markNodeInitialized();
-  }
+  final runner = _TestSessionRunner();
+  service.configureSession(
+    nodeInitialized
+        ? _readySession(
+            runner,
+            revision: '1',
+            participantId: 1,
+            accountId: 'test-account',
+          )
+        : SessionFeatureAccess(
+            identity: SessionIdentityProjection.signedOut(
+              nativeRevision: '0',
+            ),
+            operations: runner,
+          ),
+  );
   return service;
+}
+
+SessionFeatureAccess _readySession(
+  SessionOperationRunner operations, {
+  required String revision,
+  required int participantId,
+  required String accountId,
+}) {
+  return SessionFeatureAccess(
+    identity: SessionIdentityProjection.ready(
+      nativeRevision: revision,
+      participantId: participantId,
+      accountId: accountId,
+      address: 'address-$accountId',
+      publicKey: 'public-key-$accountId',
+    ),
+    operations: operations,
+  );
 }
 
 class _CapturedObservabilityRecord {
@@ -555,6 +563,7 @@ class _CapturedObservabilityRecord {
 class _FakeMobileContextCollector implements MobileContextSnapshotCollector {
   @override
   Future<Map<String, dynamic>> collectStaticMobileContextSnapshot({
+    required SessionIdentityProjection identity,
     Map<String, dynamic>? eventData,
   }) async {
     return {
@@ -579,6 +588,7 @@ class _FakeMobileContextCollector implements MobileContextSnapshotCollector {
 
   @override
   Future<Map<String, dynamic>> collectRuntimeMobileContextSnapshot({
+    required SessionIdentityProjection identity,
     Map<String, dynamic>? eventData,
   }) async {
     return {
@@ -594,6 +604,7 @@ class _FakeMobileContextCollector implements MobileContextSnapshotCollector {
 
   @override
   Future<Map<String, dynamic>> collectPowerNetworkServiceContextSnapshot({
+    required SessionIdentityProjection identity,
     Map<String, dynamic>? eventData,
   }) async {
     return {
@@ -615,4 +626,98 @@ class _FakeMobileContextCollector implements MobileContextSnapshotCollector {
       },
     };
   }
+}
+
+class _BlockingMobileContextCollector
+    implements MobileContextSnapshotCollector {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  SessionIdentityProjection? identity;
+
+  @override
+  Future<Map<String, dynamic>> collectRuntimeMobileContextSnapshot({
+    required SessionIdentityProjection identity,
+    Map<String, dynamic>? eventData,
+  }) async {
+    this.identity = identity;
+    started.complete();
+    await release.future;
+    return {
+      if (eventData != null) 'event_data': eventData,
+      'identity': {'account_id': identity.accountId},
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> collectStaticMobileContextSnapshot({
+    required SessionIdentityProjection identity,
+    Map<String, dynamic>? eventData,
+  }) async =>
+      {};
+
+  @override
+  Future<Map<String, dynamic>> collectPowerNetworkServiceContextSnapshot({
+    required SessionIdentityProjection identity,
+    Map<String, dynamic>? eventData,
+  }) async =>
+      {};
+}
+
+class _TestSessionRunner implements SessionOperationRunner {
+  _TestSessionRunner([List<_CapturedObservabilityRecord>? writes])
+      : _writes = writes ?? <_CapturedObservabilityRecord>[];
+
+  final List<_CapturedObservabilityRecord> _writes;
+  bool _accepting = true;
+  int _active = 0;
+  Completer<void>? _drained;
+
+  @override
+  Future<T> run<T>(
+    FutureOr<T> Function(SessionOperation operation) body,
+  ) async {
+    if (!_accepting) throw const SessionAdmissionClosedException();
+    _active++;
+    try {
+      return await body(_TestSessionOperation(_writes));
+    } finally {
+      _active--;
+      if (!_accepting && _active == 0) _drained?.complete();
+    }
+  }
+
+  Future<void> closeAndDrain() {
+    _accepting = false;
+    if (_active == 0) return Future<void>.value();
+    return (_drained ??= Completer<void>()).future;
+  }
+}
+
+class _TestSessionOperation implements SessionOperation {
+  const _TestSessionOperation(this._writes);
+
+  final List<_CapturedObservabilityRecord> _writes;
+
+  @override
+  Future<SessionObservabilityRecordResult> recordObservability({
+    required SessionObservabilityKind kind,
+    required String event,
+    String? payloadJson,
+  }) async {
+    _writes.add(
+      _CapturedObservabilityRecord(
+        kind: kind,
+        event: event,
+        payload: jsonDecode(payloadJson ?? '{}') as Map<String, dynamic>,
+      ),
+    );
+    return const SessionObservabilityRecordResult(
+      queued: true,
+      discarded: false,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnimplementedError(invocation.memberName.toString());
 }

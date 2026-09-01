@@ -1,315 +1,107 @@
 part of '../dapp_webview_screen.dart';
 
-/// Wallet-facing bridge methods: `getWalletState`, `sendTransaction`
-/// (with the native confirmation flow and receipt records), and
-/// `signMessage` (identity capture-and-revalidate around the
-/// user-paced confirmation).
-mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
-  Future<void> _handleGetWalletState(String id) async {
-    // Unavailable-shaped response (all nulls) unless the identity owns a
-    // wallet: mid-reconcile and guest sessions must not be served the
-    // registry's active account or its cached balance.
-    final identity = _bridgeWalletIdentity();
-    if (identity == null) {
-      await _resolveJsPromise(
+/// Wallet and delegation bridge methods. Every native effect is admitted by
+/// the exact realm/session runner; Flutter owns only the user confirmation UI.
+mixin _BridgeWallet on _DappWebViewScreenStateBase {
+  Future<void> _handleGetWalletState(
+    String id,
+    Map<String, dynamic> payload,
+  ) =>
+      _resolveClaimedSessionOperation(
         id: id,
-        value: {
-          'address': null,
-          'balance': null,
-          'tokenAmount': null,
-          'tokenSymbol': null,
-          'lastUpdatedMs': null,
-          'staking': null,
+        payload: payload,
+        method: 'getWalletState',
+        body: (_, operation) async =>
+            (await operation.readWallet()).toBridgeJson(),
+      );
+
+  Future<void> _handleManageStaking(
+    String id,
+    Map<String, dynamic> payload,
+  ) =>
+      _resolveClaimedSessionOperation(
+        id: id,
+        payload: payload,
+        method: 'manageStaking',
+        body: (_, operation) async {
+          if (!mounted) {
+            throw const NativeSessionException(
+              'native_ui_unavailable',
+              'Delegation UI is unavailable.',
+            );
+          }
+          await context.push(AppRoutes.walletStaking);
+          return (await operation.readDelegation()).toBridgeJson();
         },
-        error: null,
       );
-      return;
-    }
-    final address = identity.address;
-    // The bridge snapshot must not expose the controller's optimistic default
-    // before the identity-scoped preference/backend state has hydrated.
+
+  Future<void> _handleSubmitTransaction(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    late final SubmitTransactionRequest request;
     try {
-      await ref
-          .read(stakingProvider.notifier)
-          .ready
-          .timeout(const Duration(seconds: 10));
-    } catch (_) {
-      // Wallet data remains usable if delegation reconciliation is offline.
+      request = SubmitTransactionRequest.fromBridgeArgs(payload['args']);
+    } on FormatException catch (error) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: error.message.toString(),
+      );
+      return;
     }
-    // First read lazily initializes the provider; wait briefly for the
-    // initial load so a fresh page doesn't always see nulls, but never
-    // hang the page's promise on a slow node.
-    WalletState? wallet;
-    try {
-      wallet = await ref
-          .read(walletProvider.future)
-          .timeout(const Duration(seconds: 10));
-    } catch (_) {
-      wallet = ref.read(walletProvider).valueOrNull;
-    }
-    final balance = wallet?.balance;
-    await _resolveJsPromise(
+
+    await _resolveClaimedSessionOperation(
       id: id,
-      value: {
-        'address': address,
-        // Base units as a string (BigInt-safe for JS consumers).
-        'balance': balance?.totalBalance.toString(),
-        'tokenAmount': balance?.tokenAmount,
-        'tokenSymbol': balance?.tokenSymbol,
-        'lastUpdatedMs': balance?.lastUpdated?.millisecondsSinceEpoch,
-        'staking': ref.read(stakingProvider).toBridgeJson(),
-      },
-      error: null,
-    );
-  }
-
-  Future<void> _handleManageStaking(String id) async {
-    final identity = _bridgeWalletIdentity();
-    if (identity == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Delegation requires a ready authenticated wallet.',
-      );
-      return;
-    }
-
-    if (!await _revalidatePrivilegedBridgeLease(id, 'manageStaking')) return;
-    if (!mounted) return;
-    await context.push(AppRoutes.walletStaking);
-
-    if (!mounted ||
-        !identity.sameScopeAs(IdentitySnapshots.current) ||
-        _bridgeWalletIdentity() == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'The signed-in account changed; refresh wallet state.',
-      );
-      return;
-    }
-
-    await _resolveJsPromise(
-      id: id,
-      value: ref.read(stakingProvider).toBridgeJson(),
-      error: null,
-    );
-  }
-
-  Future<void> _handleSendTransaction(
-      String id, Map<String, dynamic> payload) async {
-    // Route-level gating cannot cover this bridge (every dApp webview can
-    // request a send) — enforce identity readiness at the signing chokepoint
-    // itself. While a reconcile is pending the active account may still
-    // belong to a previous user; guests never sign. The snapshot is CAPTURED
-    // here and revalidated right before the RPC send: this handler spans a
-    // user-paced confirmation dialog, during which a login/logout/rollover
-    // can replace the identity out from under the entry check.
-    final signingIdentity = _bridgeWalletIdentity();
-    if (signingIdentity == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Account is being set up; please retry in a moment.',
-      );
-      return;
-    }
-    final args = payload['args'];
-    if (args is! Map<String, dynamic>) {
-      await _resolveJsPromise(id: id, value: null, error: 'Missing args');
-      return;
-    }
-
-    final destinationPubkey = (args['destination_pubkey'] as String?)?.trim();
-    final amountRaw = args['amount'];
-    final memoString = _parseMemoString(args['memo']);
-    final confirmTitle = (args['confirm_title'] as String?)?.trim();
-    final confirmSubtitle = (args['confirm_subtitle'] as String?)?.trim();
-
-    if (destinationPubkey == null || destinationPubkey.isEmpty) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'destination_pubkey is required',
-      );
-      return;
-    }
-
-    final amount = _parseAmountToBigInt(amountRaw);
-    if (amount == null) {
-      await _resolveJsPromise(id: id, value: null, error: 'Invalid amount');
-      return;
-    }
-
-    if (memoString == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Invalid memo; expected UTF-8 string',
-      );
-      return;
-    }
-    final memo = frb_types.Memo.fromUtf8Str(s: memoString);
-
-    // The sender is the CAPTURED identity's confirmed address — never the
-    // registry's active account, which a mid-transition reconcile may have
-    // already switched to another user's.
-    final fromAddress = signingIdentity.address;
-    if (fromAddress == null || fromAddress.isEmpty) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'No active account/address available',
-      );
-      return;
-    }
-
-    // The receipt's owner, captured before the confirmation dialog (unbounded
-    // user time) and the RPC below. `_recordsBucket` is rebound on every
-    // identity edge, so reading it after those awaits could file A's transfer
-    // under guest or under B.
-    final recordsBucket = _activeRecordsBucket;
-
-    final userConfirmed = await _requestTransactionConfirmation(
-      from: fromAddress,
-      to: destinationPubkey,
-      amount: amount,
-      memo: memoString,
-      confirmTitle: confirmTitle,
-      confirmSubtitle: confirmSubtitle,
-    );
-
-    if (!userConfirmed) {
-      _addRecord(
-          _TxRecord(
-            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-            sentAt: DateTime.now(),
-            from: fromAddress,
-            to: destinationPubkey,
-            amount: amount,
-            memo: memoString,
-            status: _TxStatus.denied,
-          ),
-          bucket: recordsBucket);
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'User denied the transaction',
-      );
-      return;
-    }
-
-    if (AppConfig.viewOnly) {
-      const errorMessage = 'Transactions are disabled in view-only mode.';
-      _addRecord(
-          _TxRecord(
-            id: 'local_${DateTime.now().millisecondsSinceEpoch}',
-            sentAt: DateTime.now(),
-            from: fromAddress,
-            to: destinationPubkey,
-            amount: amount,
-            memo: memoString,
-            status: _TxStatus.error,
-            errorMessage: errorMessage,
-          ),
-          bucket: recordsBucket);
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: errorMessage,
-      );
-      return;
-    }
-
-    // Effect-point revalidation: the confirmation dialog above is unbounded
-    // user time. If the identity transitioned since capture, the runtime's
-    // wallet signer no longer (or may no longer) belong to the identity the
-    // user confirmed for — refuse instead of signing as someone else.
-    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'The signed-in account changed; please retry the transaction.',
-      );
-      return;
-    }
-
-    final fromPkHash = frb_types.publicKeyHashFromString(s: fromAddress);
-    final toPkHash = frb_types.publicKeyHashFromString(s: destinationPubkey);
-
-    final rpc = RustBackendService.instance.rpc;
-    if (rpc == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Node RPC unavailable',
-      );
-      return;
-    }
-
-    final resp = await rpc.wallet().txSendResult(
-          fromPkHash: fromPkHash,
-          amount: amount,
-          toPkHash: toPkHash,
-          memo: memo,
+      payload: payload,
+      method: 'submitTransaction',
+      body: (identity, operation) async {
+        final from = identity.address;
+        if (from == null || from.isEmpty) {
+          throw const NativeSessionException(
+            'native_wallet_unavailable',
+            'No active account/address is available.',
+          );
+        }
+        final confirmed = await _requestTransactionConfirmation(
+          from: from,
+          to: request.destinationPubkey,
+          amount: request.amount,
+          memo: request.memo,
+          confirmTitle: request.confirmation?.title,
+          confirmSubtitle: request.confirmation?.subtitle,
         );
-
-    final rpcError = resp?.error;
-    final isQueued = resp?.queued ?? false;
-    final recordId =
-        resp?.txId ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
-    _addRecord(
-        _TxRecord(
-          id: recordId,
-          sentAt: DateTime.now(),
-          from: fromAddress,
-          to: destinationPubkey,
-          amount: amount,
-          memo: memoString,
-          status: isQueued ? _TxStatus.queued : _TxStatus.error,
-          errorMessage: rpcError,
-        ),
-        bucket: recordsBucket);
-
-    if (isQueued &&
-        resp?.txId != null &&
-        recordsBucket == _activeRecordsBucket) {
-      _ensureConfirmPoller();
-    }
-
-    await _resolveJsPromise(
-      id: id,
-      value: <String, dynamic>{
-        'queued': isQueued,
-        'error': rpcError,
+        if (!confirmed) {
+          throw const NativeSessionException(
+            'native_user_denied',
+            'User denied the transaction.',
+          );
+        }
+        if (AppConfig.viewOnly) {
+          throw const NativeSessionException(
+            'native_view_only',
+            'Transactions are disabled in view-only mode.',
+          );
+        }
+        final result = await operation.submitTransaction(
+          destinationAddress: request.destinationPubkey,
+          amount: request.amount,
+          memo: request.memo,
+        );
+        return SubmitTransactionResult(
+          txId: result.transactionId,
+        ).toBridgeJson();
       },
-      error: null,
     );
   }
 
   Future<void> _handleSignMessage(
-      String id, Map<String, dynamic> payload) async {
-    // Same identity gate as _handleSendTransaction: this handler loads the
-    // active account's private key, which must never happen while account
-    // ownership is unsettled or for a guest. Captured once, revalidated at
-    // the key-load effect point below.
-    final signingIdentity = _bridgeWalletIdentity();
-    if (signingIdentity == null) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Account is being set up; please retry in a moment.',
-      );
-      return;
-    }
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     final args = payload['args'];
-    if (args is! Map<String, dynamic>) {
-      await _resolveJsPromise(id: id, value: null, error: 'Missing args');
-      return;
-    }
-
-    final message = (args['message'] as String?)?.trim();
-    if (message == null || message.isEmpty) {
+    final message = args is Map<String, dynamic> ? args['message'] : null;
+    if (message is! String || message.trim().isEmpty) {
       await _resolveJsPromise(
         id: id,
         value: null,
@@ -317,81 +109,26 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       );
       return;
     }
-
-    final repo = await _providers.read(accountsProvider.future);
-    final active = await repo.getActive();
-    if (active == null || active.address != signingIdentity.address) {
-      // The registry's active account must be the captured identity's — a
-      // mismatch means a transition is mutating the registry mid-request.
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'No active account available',
-      );
-      return;
-    }
-
-    final confirmed = await _requestSignatureConfirmation();
-    if (!confirmed) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'User denied the signature request',
-      );
-      return;
-    }
-
-    // Effect-point revalidation after the user-paced confirmation dialog —
-    // the private key is loaded on the next line.
-    if (IdentitySnapshots.current.epoch != signingIdentity.epoch) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'The signed-in account changed; please retry the request.',
-      );
-      return;
-    }
-
-    final secretKey = await repo.getSecretKey(active.id);
-    if (secretKey == null || secretKey.isEmpty) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Secret key unavailable',
-      );
-      return;
-    }
-
-    if (!signingIdentity.sameScopeAs(IdentitySnapshots.current)) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'The signed-in account changed; please retry the request.',
-      );
-      return;
-    }
-
-    try {
-      final signature = frb_account.signMessage(
-        secretKey: secretKey,
-        message: message,
-      );
-      await _resolveJsPromise(
-        id: id,
-        value: <String, dynamic>{
-          'pubkey': active.address,
-          'publicKey': active.publicKey,
-          'signature': signature,
-        },
-        error: null,
-      );
-    } catch (e) {
-      await _resolveJsPromise(
-        id: id,
-        value: null,
-        error: 'Signing failed: $e',
-      );
-    }
+    await _resolveClaimedSessionOperation(
+      id: id,
+      payload: payload,
+      method: 'signMessage',
+      body: (identity, operation) async {
+        final confirmed = await _requestSignatureConfirmation();
+        if (!confirmed) {
+          throw const NativeSessionException(
+            'native_user_denied',
+            'User denied the signature request.',
+          );
+        }
+        final result = await operation.signMessage(message);
+        return <String, Object?>{
+          'pubkey': identity.address,
+          'publicKey': result.publicKey,
+          'signature': result.signature,
+        };
+      },
+    );
   }
 
   Future<bool> _requestSignatureConfirmation() async {
@@ -485,8 +222,6 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
     return result ?? false;
   }
 
-  /// Pushes a full-screen opaque route for transaction confirmation.
-  /// Returns `true` if confirmed, `false` if denied.
   Future<bool> _requestTransactionConfirmation({
     required String from,
     required String to,
@@ -496,7 +231,6 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
     String? confirmSubtitle,
   }) async {
     if (!mounted) return false;
-
     return requestTransactionConfirmation(
       context,
       from: from,
@@ -506,23 +240,5 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase, _BridgeTxRecords {
       confirmTitle: confirmTitle,
       confirmSubtitle: confirmSubtitle,
     );
-  }
-
-  BigInt? _parseAmountToBigInt(Object? amountRaw) {
-    if (amountRaw is num) return BigInt.from(amountRaw.round());
-    if (amountRaw is String) {
-      final trimmed = amountRaw.trim();
-      if (trimmed.isEmpty) return null;
-      final parsed = double.tryParse(trimmed);
-      if (parsed == null) return null;
-      return BigInt.from(parsed.round());
-    }
-    return null;
-  }
-
-  String? _parseMemoString(Object? memoRaw) {
-    if (memoRaw is String) return memoRaw.trim();
-    if (memoRaw == null) return '';
-    return null;
   }
 }

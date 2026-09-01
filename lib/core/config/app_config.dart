@@ -49,8 +49,7 @@ class AppConfig {
       );
 
   // Token-scoped mobile API (data + auth). Default is the Social Vibecoding
-  // platform's v4 mobile API, which replaced topochain's v2/v3 leaderboard
-  // API after the account/leaderboard data migration. `MOBILE_API_BASE_URL`
+  // platform's v4 mobile API. `MOBILE_API_BASE_URL`
   // overrides (e.g. a staging deployment of the same v4 API). The retired
   // topochain v3 backend is NOT supported: onboarding depends on the
   // v4-only `/wallet/provision`, so a v3-pointed build could never onboard
@@ -88,21 +87,11 @@ class AppConfig {
       defaultValue: 'Bootstrap Account');
   static const String _bootstrapParticipantIdRaw =
       String.fromEnvironment('BOOTSTRAP_PARTICIPANT_ID', defaultValue: '');
-  static const String _bootstrapSeasonIdRaw =
-      String.fromEnvironment('BOOTSTRAP_SEASON_ID', defaultValue: '');
-  static const String bootstrapSeasonName =
-      String.fromEnvironment('BOOTSTRAP_SEASON_NAME', defaultValue: '');
-  static const String _bootstrapEventIdRaw =
-      String.fromEnvironment('BOOTSTRAP_EVENT_ID', defaultValue: '');
-  static const String bootstrapEventName =
-      String.fromEnvironment('BOOTSTRAP_EVENT_NAME', defaultValue: '');
 
   static String get bootstrapSecretKey => _bootstrapSecretKey.trim();
   static bool get hasBootstrapSecretKey => bootstrapSecretKey.isNotEmpty;
   static int? get bootstrapParticipantId =>
       _parseOptionalInt(_bootstrapParticipantIdRaw);
-  static int? get bootstrapSeasonId => _parseOptionalInt(_bootstrapSeasonIdRaw);
-  static int? get bootstrapEventId => _parseOptionalInt(_bootstrapEventIdRaw);
 
   // Global gate for remote/backend mutations and producer-side node behavior.
   // Defaults to normal behavior; pass `--dart-define=VIEW_ONLY=true`
@@ -117,8 +106,8 @@ class AppConfig {
   // off by default (so the tab opens to the original list of dapps);
   // long-press flips it on and the dapps tab re-renders as a single
   // full-bleed WebView pointing at this URL. The page still receives
-  // the native Usernode JS bridge (sendTransaction, signMessage,
-  // txObserved) and tx-confirmation chrome, so any dapp hub hosted
+  // the native Usernode JS bridge (submitTransaction and signMessage) and
+  // tx-confirmation chrome, so any dapp hub hosted
   // here behaves like a native-installed dapp.
   //
   // Set to an empty string to disable the toggle entirely (long-press
@@ -165,81 +154,6 @@ class AppConfig {
   static const String githubOwner = 'Usernode-Labs';
   static const String githubRepo = 'flutter-mobile-app';
 
-  // Default URLs (used as fallbacks when env vars are empty)
-  static const String _defaultTestnetSeedlistUrl =
-      'https://static.usernodelabs.org/testnet/seedlist.txt';
-  static const String _defaultTestnetGenesisUrl =
-      'https://static.usernodelabs.org/testnet/genesis.json';
-  static const String _defaultInternalSeedlistUrl =
-      'https://static.usernodelabs.org/catdog9000/seedlist.txt';
-  static const String _defaultInternalGenesisUrl =
-      'https://static.usernodelabs.org/catdog9000/genesis.json';
-  static const String _defaultCustomSeedlistUrl =
-      'https://static.usernodelabs.org/custom/seedlist.txt';
-  static const String _defaultCustomGenesisUrl =
-      'https://static.usernodelabs.org/custom/genesis.json';
-  static const String _defaultNetworkSwitcherCode = '2107';
-  static const int _defaultLoadGenesisNbRetries = 3;
-
-  // Raw environment values (may be empty)
-  static const String _rawSeedlistUrl = String.fromEnvironment('SEEDLIST_URL');
-  static const String _rawGenesisUrl = String.fromEnvironment('GENESIS_URL');
-  static const String _rawCustomSeedlistUrl =
-      String.fromEnvironment('CUSTOM_SEEDLIST_URL');
-  static const String _rawCustomGenesisUrl =
-      String.fromEnvironment('CUSTOM_GENESIS_URL');
-  static const String _rawTestnetSeedlistUrl =
-      String.fromEnvironment('TESTNET_SEEDLIST_URL');
-  static const String _rawTestnetGenesisUrl =
-      String.fromEnvironment('TESTNET_GENESIS_URL');
-  static const String _rawInternalSeedlistUrl =
-      String.fromEnvironment('INTERNAL_SEEDLIST_URL');
-  static const String _rawInternalGenesisUrl =
-      String.fromEnvironment('INTERNAL_GENESIS_URL');
-  static const String _rawNetworkSwitcherCode =
-      String.fromEnvironment('NETWORK_SWITCHER_CODE');
-  static const int _rawLoadGenesisNbRetries =
-      int.fromEnvironment('LOAD_GENESIS_NB_RETRIES');
-
-  // Number of retries when fetching genesis/seedlist URLs
-  // Falls back to 3 if 0 or not set
-  static int get loadGenesisNbRetries => _rawLoadGenesisNbRetries > 0
-      ? _rawLoadGenesisNbRetries
-      : _defaultLoadGenesisNbRetries;
-
-  // Network switcher configuration
-  // Testnet URLs (default network) - falls back to defaults if empty
-  static String get testnetSeedlistUrl => _rawTestnetSeedlistUrl.isNotEmpty
-      ? _rawTestnetSeedlistUrl
-      : _defaultTestnetSeedlistUrl;
-  static String get testnetGenesisUrl => _rawTestnetGenesisUrl.isNotEmpty
-      ? _rawTestnetGenesisUrl
-      : _defaultTestnetGenesisUrl;
-
-  // Internal network URLs - falls back to defaults if empty
-  static String get internalSeedlistUrl => _rawInternalSeedlistUrl.isNotEmpty
-      ? _rawInternalSeedlistUrl
-      : _defaultInternalSeedlistUrl;
-  static String get internalGenesisUrl => _rawInternalGenesisUrl.isNotEmpty
-      ? _rawInternalGenesisUrl
-      : _defaultInternalGenesisUrl;
-
-  // Custom test network URLs - falls back to defaults if empty
-  static String get customSeedlistUrl => _rawCustomSeedlistUrl.isNotEmpty
-      ? _rawCustomSeedlistUrl
-      : _rawSeedlistUrl.isNotEmpty
-          ? _rawSeedlistUrl
-          : _defaultCustomSeedlistUrl;
-  static String get customGenesisUrl => _rawCustomGenesisUrl.isNotEmpty
-      ? _rawCustomGenesisUrl
-      : _rawGenesisUrl.isNotEmpty
-          ? _rawGenesisUrl
-          : _defaultCustomGenesisUrl;
-
-  // Secret code for network switcher access - falls back to default if empty
-  static String get networkSwitcherCode => _rawNetworkSwitcherCode.isNotEmpty
-      ? _rawNetworkSwitcherCode
-      : _defaultNetworkSwitcherCode;
   // Node prover configuration
   static const bool enableRealProver =
       bool.fromEnvironment('ENABLE_REAL_PROVER', defaultValue: false);
@@ -281,61 +195,13 @@ class AppConfig {
     return Uri.tryParse(versionCheckApiUrl)?.host ?? '<unparsed>';
   }
 
-  // Leaderboard API v2
-  static const int leaderboardApiTimeoutSeconds = int.fromEnvironment(
-    'LEADERBOARD_API_TIMEOUT_SECONDS',
+  // Session-scoped Social mobile API transport.
+  static const int mobileApiTimeoutSeconds = int.fromEnvironment(
+    'MOBILE_API_TIMEOUT_SECONDS',
     defaultValue: 30,
   );
-  static Duration get leaderboardApiTimeout =>
-      const Duration(seconds: leaderboardApiTimeoutSeconds);
-
-  static const String leaderboardApiBaseUrl = String.fromEnvironment(
-    'LEADERBOARD_API_BASE_URL',
-    defaultValue: 'https://leaderboard.usernodelabs.org/api/v2/mobile',
-  );
-
-  // Challenge point tracker configuration
-  static const int challengePointMaxAgeHours = int.fromEnvironment(
-    'CHALLENGE_POINT_MAX_AGE_HOURS',
-    defaultValue: 48,
-  );
-  static const int challengePointDiffWindowHours = int.fromEnvironment(
-    'CHALLENGE_POINT_DIFF_WINDOW_HOURS',
-    defaultValue: 24,
-  );
-  static Duration get challengePointMaxAge =>
-      const Duration(hours: challengePointMaxAgeHours);
-  static Duration get challengePointDiffWindow =>
-      const Duration(hours: challengePointDiffWindowHours);
-
-  // Explorer API configuration. Both default to the same canonical
-  // testnet explorer host; the primary/secondary split is a fallback
-  // mechanism for ops to point one at a backup if/when one exists. The
-  // legacy alpha1/alpha2.usernodelabs.org hosts have been retired (502
-  // / 503); the path prefix moved from /explorer/api to /api in the same
-  // migration.
-  static const String primaryExplorerUrl = String.fromEnvironment(
-    'EXPLORER_PRIMARY_URL',
-    defaultValue: 'https://testnet-explorer.usernodelabs.org/api',
-  );
-  static const String secondaryExplorerUrl = String.fromEnvironment(
-    'EXPLORER_SECONDARY_URL',
-    defaultValue: 'https://testnet-explorer.usernodelabs.org/api',
-  );
-  static const int explorerTimeoutSeconds = int.fromEnvironment(
-    'EXPLORER_TIMEOUT_SECONDS',
-    defaultValue: 5,
-  );
-  static const int explorerCacheTtlMinutes = int.fromEnvironment(
-    'EXPLORER_CACHE_TTL_MINUTES',
-    defaultValue: 5,
-  );
-
-  // Convert to Duration for convenience
-  static Duration get explorerTimeout =>
-      const Duration(seconds: explorerTimeoutSeconds);
-  static Duration get explorerCacheTtl =>
-      const Duration(minutes: explorerCacheTtlMinutes);
+  static Duration get mobileApiTimeout =>
+      const Duration(seconds: mobileApiTimeoutSeconds);
 
   // === Community ===
   static const String discordInviteUrl =

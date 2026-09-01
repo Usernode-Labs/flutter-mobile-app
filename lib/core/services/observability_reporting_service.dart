@@ -4,12 +4,15 @@ import 'dart:convert';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/features/metrics/mobile_context_snapshot_collector.dart';
-import 'package:crypto_mobile_app/src/rust/observability.dart';
 import 'package:flutter/widgets.dart';
 
 final _log = LoggingService.instance.withTag('usernode/Observability');
+
+typedef FlutterObservabilityKind = SessionObservabilityKind;
+typedef FlutterObservabilityRecordResult = SessionObservabilityRecordResult;
 
 typedef ObservabilityRecordClient = FlutterObservabilityRecordResult Function({
   required FlutterObservabilityKind kind,
@@ -18,6 +21,7 @@ typedef ObservabilityRecordClient = FlutterObservabilityRecordResult Function({
 });
 
 typedef _MobileContextCollectorCall = Future<Map<String, dynamic>> Function({
+  required SessionIdentityProjection identity,
   Map<String, dynamic>? eventData,
 });
 
@@ -25,13 +29,13 @@ typedef NodeRuntimeActiveGetter = bool Function();
 
 class ObservabilityReportingService {
   ObservabilityReportingService._()
-      : _record = observabilityRecord,
+      : _record = null,
         _canRecordOverride = null,
         _isNodeRuntimeActive = null;
 
   ObservabilityReportingService.test({
     required MobileContextSnapshotCollector collector,
-    required ObservabilityRecordClient record,
+    ObservabilityRecordClient? record,
     bool Function()? canRecord,
     NodeRuntimeActiveGetter? isNodeRuntimeActive,
   })  : _collector = collector,
@@ -49,12 +53,13 @@ class ObservabilityReportingService {
   static const _batteryStateDuplicateWindow = Duration(seconds: 30);
   static const _maxPendingEarlyRecords = 16;
 
-  final ObservabilityRecordClient _record;
+  final ObservabilityRecordClient? _record;
   final bool Function()? _canRecordOverride;
   NodeRuntimeActiveGetter? _isNodeRuntimeActive;
   final Battery _battery = Battery();
   final Connectivity _connectivity = Connectivity();
   MobileContextSnapshotCollector? _collector;
+  SessionFeatureAccess? _session;
 
   String? _lastLifecycleEvent;
   DateTime? _lastLifecycleEventAt;
@@ -87,6 +92,12 @@ class ObservabilityReportingService {
 
   void configureNodeRuntimeActiveGetter(NodeRuntimeActiveGetter getter) {
     _isNodeRuntimeActive = getter;
+  }
+
+  void configureSession(SessionFeatureAccess session) {
+    _session = session;
+    _nodeInitialized = session.identity.status == SessionProjectionStatus.ready;
+    if (_nodeInitialized) _flushPendingEarlyRecords();
   }
 
   Future<void> reportNodeInitialized({
@@ -458,7 +469,7 @@ class ObservabilityReportingService {
   bool get _isNodeRuntimeActiveForMobileContext {
     final isActive = _isNodeRuntimeActive;
     if (isActive == null) {
-      return true;
+      return _session?.identity.status == SessionProjectionStatus.ready;
     }
 
     try {
@@ -507,36 +518,53 @@ class ObservabilityReportingService {
     if (!_canReportMobileContextSnapshots) {
       return false;
     }
+    final session = _session;
+    if (session == null ||
+        session.identity.status != SessionProjectionStatus.ready) {
+      return false;
+    }
 
     try {
-      final details = await collect(
-        eventData: {
-          'snapshot_reason': reason,
-          if (eventData != null) ...eventData,
-        },
-      );
-      if (includeBatteryUsage) {
-        final batteryUsage = _batteryUsageDetails(details);
-        if (batteryUsage != null) {
-          details['battery_usage'] = batteryUsage;
-        }
-      }
-
-      final result = recordEvent(
-        event: 'app_mobile_context_snapshot',
-        details: details,
-      );
-
-      if (result.discarded) {
-        _log.debug(
-          'Observability mobile context snapshot discarded',
-          context: {
-            'reason': reason,
-            if (result.reason != null) 'discard_reason': result.reason,
+      return await session.operations.run((operation) async {
+        final details = await collect(
+          identity: session.identity,
+          eventData: {
+            'snapshot_reason': reason,
+            if (eventData != null) ...eventData,
           },
         );
-      }
-      return result.queued || !result.discarded;
+        if (includeBatteryUsage) {
+          final batteryUsage = _batteryUsageDetails(details);
+          if (batteryUsage != null) {
+            details['battery_usage'] = batteryUsage;
+          }
+        }
+
+        final payloadJson = jsonEncode(details);
+        final override = _record;
+        final result = override != null
+            ? override(
+                kind: FlutterObservabilityKind.event,
+                event: 'app_mobile_context_snapshot',
+                payloadJson: payloadJson,
+              )
+            : await operation.recordObservability(
+                kind: FlutterObservabilityKind.event,
+                event: 'app_mobile_context_snapshot',
+                payloadJson: payloadJson,
+              );
+
+        if (result.discarded) {
+          _log.debug(
+            'Observability mobile context snapshot discarded',
+            context: {
+              'reason': reason,
+              if (result.reason != null) 'discard_reason': result.reason,
+            },
+          );
+        }
+        return result.queued || !result.discarded;
+      });
     } catch (e) {
       _log.warn(
         'Failed to record observability mobile context snapshot: $e',
@@ -575,7 +603,7 @@ class ObservabilityReportingService {
       }
     }
 
-    final result = _record(
+    final result = _recordNow(
       kind: kind,
       event: event,
       payloadJson: payloadJson,
@@ -620,7 +648,7 @@ class ObservabilityReportingService {
     final pending = List<_PendingObservabilityRecord>.of(_pendingEarlyRecords);
     _pendingEarlyRecords.clear();
     for (final record in pending) {
-      final result = _record(
+      final result = _recordNow(
         kind: record.kind,
         event: record.event,
         payloadJson: record.payloadJson,
@@ -628,6 +656,55 @@ class ObservabilityReportingService {
       if (result.discarded && result.reason == 'node_not_running') {
         _retainPendingEarlyRecord(record);
       }
+    }
+  }
+
+  FlutterObservabilityRecordResult _recordNow({
+    required FlutterObservabilityKind kind,
+    required String event,
+    String? payloadJson,
+  }) {
+    final override = _record;
+    if (override != null) {
+      return override(kind: kind, event: event, payloadJson: payloadJson);
+    }
+    final session = _session;
+    if (session == null ||
+        session.identity.status != SessionProjectionStatus.ready) {
+      return const FlutterObservabilityRecordResult(
+        queued: false,
+        discarded: true,
+        reason: 'session_not_ready',
+      );
+    }
+    try {
+      final write = session.operations.run(
+        (operation) => operation.recordObservability(
+          kind: kind,
+          event: event,
+          payloadJson: payloadJson,
+        ),
+      );
+      unawaited(
+        write.catchError((Object error, StackTrace stackTrace) {
+          _log.debug('Observability write failed: $error');
+          return const FlutterObservabilityRecordResult(
+            queued: false,
+            discarded: true,
+            reason: 'write_failed',
+          );
+        }),
+      );
+      return const FlutterObservabilityRecordResult(
+        queued: true,
+        discarded: false,
+      );
+    } catch (_) {
+      return const FlutterObservabilityRecordResult(
+        queued: false,
+        discarded: true,
+        reason: 'session_not_ready',
+      );
     }
   }
 

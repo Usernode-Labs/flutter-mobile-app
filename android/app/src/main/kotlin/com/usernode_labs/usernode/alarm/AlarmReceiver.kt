@@ -13,6 +13,10 @@ import android.app.NotificationChannel
 import android.app.PendingIntent
 import com.usernode_labs.usernode.MainActivity
 import com.usernode_labs.usernode.R
+import com.usernode_labs.usernode.session.NativeProducerWakeCoordinator
+import com.usernode_labs.usernode.session.NativeScheduledWake
+import com.usernode_labs.usernode.session.ProducerWakeSource
+import android.util.Base64
 
 class AlarmReceiver : BroadcastReceiver() {
     companion object {
@@ -96,51 +100,15 @@ class AlarmReceiver : BroadcastReceiver() {
         )
         Log.i(TAG, "[AlarmReceiver] ✓ Slot alarm FIRED for global slot $globalSlot (latency: ${latencyMs}ms)")
 
-        // Take the native wakelock before handing control to Flutter so the
-        // inactivity sleep path cannot win a race against alarm recovery.
-        if (!NativeWakeLockManager.acquire(context, applicationIncarnation!!)) {
-            Log.w(TAG, "Could not acquire wakelock for current application incarnation")
+        // Only the exact opaque selector persisted by the native coordinator
+        // may acquire background runtime ownership. Old/pre-cutover alarms are
+        // still recorded above for diagnostics, but cannot strand a wakelock
+        // or foreground service.
+        val scheduledWake = readNativeScheduledWake(intent, globalSlot)
+        if (scheduledWake == null) {
+            Log.w(TAG, "Ignoring an alarm without an exact native wake selector")
             return
         }
-
-        val eventData = mutableMapOf<String, Any?>(
-            "alarmId" to alarmId,
-            "globalSlot" to globalSlot,
-            "alarmTimeMs" to scheduledTimeMs,
-            "firedAtMs" to currentTime,
-            "latencyMs" to latencyMs,
-            "batteryLevel" to 0,
-            "networkState" to "unknown",
-            "nodeRunning" to nodeRunning,
-            ApplicationIncarnationStore.EXTRA_APPLICATION_INCARNATION to
-                applicationIncarnation,
-        )
-        nativeScheduledAtMs?.let { eventData["nativeScheduledAtMs"] = it }
-        scheduledElapsedRealtimeMs?.let { eventData["scheduledElapsedRealtimeMs"] = it }
-        nativeTriggerAtMs?.let { eventData["nativeTriggerAtMs"] = it }
-        triggerElapsedRealtimeMs?.let { eventData["triggerElapsedRealtimeMs"] = it }
-        eventData["receiverElapsedRealtimeMs"] = receiverElapsedRealtimeMs
-        nativeDeliveryLatencyMs?.let { eventData["nativeDeliveryLatencyMs"] = it }
-        elapsedDeliveryLatencyMs?.let { eventData["elapsedDeliveryLatencyMs"] = it }
-        reason?.let { eventData["reason"] = it }
-        purpose?.let { eventData["purpose"] = it }
-
-        val handler = AlarmMethodChannelHandler.getInstance()
-        if (handler != null && handler.isActivityAttached()) {
-            Log.d(TAG, "[AlarmReceiver] Sending android_alarm_fired event to attached Flutter activity")
-            handler.sendEventToFlutter("android_alarm_fired", eventData)
-        } else {
-            Log.d(TAG, "[AlarmReceiver] Delivering android_alarm_fired via background engine")
-            BackgroundAlarmEngine.sendAlarmEvent(
-                context,
-                "android_alarm_fired",
-                eventData
-            )
-        }
-        AlarmStateStore(context).recordFlutterEventSent(alarmId, System.currentTimeMillis())
-
-        // Start foreground service to keep app alive during monitoring
-        Log.d(TAG, "[AlarmReceiver] Starting SlotMonitoringService")
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
@@ -161,18 +129,18 @@ class AlarmReceiver : BroadcastReceiver() {
             reason?.let { putExtra("reason", it) }
             purpose?.let { putExtra("purpose", it) }
         }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Log.d(TAG, "[AlarmReceiver] Using startForegroundService (API >= 26)")
-                context.startForegroundService(serviceIntent)
-            } else {
-                Log.d(TAG, "[AlarmReceiver] Using startService (API < 26)")
-                context.startService(serviceIntent)
-            }
-            Log.d(TAG, "[AlarmReceiver] SlotMonitoringService start command sent")
-        } catch (e: Exception) {
-            Log.e(TAG, "[AlarmReceiver] Failed to start SlotMonitoringService", e)
+        val pending = goAsync()
+        NativeProducerWakeCoordinator.submit(
+            context,
+            ProducerWakeSource.EXACT_ALARM,
+            scheduledWake,
+            monitoringIntent = serviceIntent,
+        ) {
+            pending.finish()
         }
+        // Retain the existing diagnostic timestamp; the event is now handed
+        // to the private native coordinator instead of a Flutter engine.
+        AlarmStateStore(context).recordFlutterEventSent(alarmId, System.currentTimeMillis())
     }
 
     private fun handleBootCompleted(context: Context) {
@@ -197,7 +165,6 @@ class AlarmReceiver : BroadcastReceiver() {
             "boot_completed",
             applicationIncarnation,
         )
-        sendAuditRecoveryEvent(context, "boot_completed", applicationIncarnation)
         startMonitoringService(
             context = context,
             alarmId = "boot_completed",
@@ -205,6 +172,7 @@ class AlarmReceiver : BroadcastReceiver() {
             nodeRunning = false,
             applicationIncarnation = applicationIncarnation,
         )
+        NativeProducerWakeCoordinator.submit(context, ProducerWakeSource.BOOT)
     }
 
     private fun handlePackageReplaced(context: Context) {
@@ -229,7 +197,6 @@ class AlarmReceiver : BroadcastReceiver() {
             "package_replaced",
             applicationIncarnation,
         )
-        sendAuditRecoveryEvent(context, "package_replaced", applicationIncarnation)
         startMonitoringService(
             context = context,
             alarmId = "package_replaced",
@@ -237,6 +204,7 @@ class AlarmReceiver : BroadcastReceiver() {
             nodeRunning = false,
             applicationIncarnation = applicationIncarnation,
         )
+        NativeProducerWakeCoordinator.submit(context, ProducerWakeSource.PACKAGE_REPLACED)
     }
 
     private fun handleExactAlarmPermissionStateChanged(context: Context) {
@@ -306,7 +274,7 @@ class AlarmReceiver : BroadcastReceiver() {
             return
         }
 
-        BackgroundAlarmEngine.sendAlarmEvent(context, eventType, eventData)
+        // Permission UI events are best effort and have no headless owner.
     }
 
     private fun startMonitoringService(
@@ -334,6 +302,30 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         Log.i(TAG, "SlotMonitoringService started (alarmId=$alarmId, globalSlot=$globalSlot)")
+    }
+
+    private fun readNativeScheduledWake(
+        intent: Intent,
+        globalSlot: Int,
+    ): NativeScheduledWake? {
+        val revision = intent.getLongExtra("nativeReadyRevision", -1L)
+        val triggerAtMs = intent.getLongExtra("nativeWakeTriggerAtMs", -1L)
+        val encodedIdentity = intent.getStringExtra("nativeWakeIdentity") ?: return null
+        val identity = try {
+            Base64.decode(
+                encodedIdentity,
+                Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING,
+            )
+        } catch (_: Exception) {
+            return null
+        }
+        if (revision < 0 || triggerAtMs <= 0 || identity.size != 32 ||
+            identity.all { it == 0.toByte() }
+        ) {
+            identity.fill(0)
+            return null
+        }
+        return NativeScheduledWake(revision, identity, globalSlot, triggerAtMs)
     }
 
     private fun showFallbackNotification(

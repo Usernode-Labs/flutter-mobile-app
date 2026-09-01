@@ -93,7 +93,6 @@ class PrivilegedBridgePolicy {
     'reorderHomeScreenShortcuts',
     'openNativeScreen',
     'captureScreenshot',
-    'getProfileInfo',
     'getSettingsState',
     'manageStaking',
     'setNodeSleepEnabled',
@@ -105,14 +104,15 @@ class PrivilegedBridgePolicy {
     'requestNotificationPermission',
     'requestAlarmPermissions',
     'openNotificationSettings',
-    'beginSessionHandoff',
-    'enterAnonymousSession',
-    'completeLogin',
-    'startNode',
-    'stopNode',
-    'getAuthStatus',
     'markPrivilegedBridgeReady',
+    'prepareForLogin',
     'logout',
+    'establishNativeSession',
+    'getNodeAddress',
+    'submitTransaction',
+    'signMessage',
+    'getWalletState',
+    'getNodeStatus',
     'getSocialPushState',
     'setSocialPushEnabled',
     'claimPendingSocialNotification',
@@ -157,11 +157,12 @@ class PrivilegedBridgePolicy {
     required String id,
     required Object? value,
     required String? error,
+    Map<String, Object?>? errorInfo,
   }) async {
     if (_disposed) return false;
     try {
       final result = await _evaluateTopFrame(
-        _guardedResolveScript(lease, id, value, error),
+        _guardedResolveScript(lease, id, value, error, errorInfo),
       ).timeout(probeTimeout);
       return !_disposed && _decodeBoolean(result);
     } catch (_) {
@@ -203,26 +204,6 @@ class PrivilegedBridgePolicy {
   Future<bool> revalidates(PrivilegedBridgeLease lease) async {
     final realm = await _probeTopFrameRealm();
     return realm != null && realm.marker == lease.marker;
-  }
-
-  /// Detects whether [lease]'s exact trusted realm implements the explicit
-  /// listener-readiness handshake.
-  ///
-  /// This keeps independently deployed/cached older Social shells compatible:
-  /// they can be promoted on their first authorized call without treating a
-  /// WebView lifecycle callback as proof. A null result means the realm moved
-  /// or the evaluation was inconclusive and must never be promoted.
-  Future<bool?> supportsExplicitReadiness(PrivilegedBridgeLease lease) async {
-    if (_disposed) return null;
-    try {
-      final result = await _evaluateTopFrame(
-        _guardedReadinessSupportScript(lease.marker),
-      ).timeout(probeTimeout);
-      if (_disposed) return null;
-      return _decodeNullableBoolean(result);
-    } catch (_) {
-      return null;
-    }
   }
 
   void dispose() {
@@ -297,6 +278,7 @@ class PrivilegedBridgePolicy {
     String id,
     Object? value,
     String? error,
+    Map<String, Object?>? errorInfo,
   ) =>
       '''
     (function () {
@@ -305,7 +287,8 @@ class PrivilegedBridgePolicy {
       if (window[markerKey] !== ${jsonEncode(lease.marker)}) return false;
       const resolver = window.__usernodeResolve;
       if (typeof resolver !== 'function') return false;
-      resolver(${jsonEncode(id)}, ${jsonEncode(value)}, ${jsonEncode(error)});
+      resolver(${jsonEncode(id)}, ${jsonEncode(value)}, ${jsonEncode(error)},
+        ${jsonEncode(errorInfo)});
       return true;
     })()
   ''';
@@ -317,15 +300,6 @@ class PrivilegedBridgePolicy {
       if (window[markerKey] !== ${jsonEncode(marker)}) return false;
       $javaScriptBody
       return true;
-    })()
-  ''';
-
-  String _guardedReadinessSupportScript(String marker) => '''
-    (function () {
-      'use strict';
-      const markerKey = ${jsonEncode(_markerProperty)};
-      if (window[markerKey] !== ${jsonEncode(marker)}) return null;
-      return window.__usernodeExplicitReadinessClient === true;
     })()
   ''';
 
@@ -376,19 +350,6 @@ class PrivilegedBridgePolicy {
       }
     }
     return false;
-  }
-
-  static bool? _decodeNullableBoolean(Object? value) {
-    if (value == null || value is bool) return value as bool?;
-    if (value is String) {
-      try {
-        final decoded = jsonDecode(value);
-        return decoded == null || decoded is bool ? decoded as bool? : null;
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
   }
 
   bool _allows(Uri uri) {

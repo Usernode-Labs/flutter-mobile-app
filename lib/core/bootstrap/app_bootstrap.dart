@@ -1,5 +1,9 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show ExternalLibrary;
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
@@ -52,7 +56,13 @@ abstract final class AppBootstrap {
 
   static Future<void> _initializeRust(TaggedLogger log) async {
     try {
-      await RustLib.init();
+      await RustLib.init(
+        // The Apple pod links Rust statically into the application binary, so
+        // its symbols must be resolved from the process rather than dlopen.
+        externalLibrary: Platform.isIOS || Platform.isMacOS
+            ? ExternalLibrary.process(iKnowHowToUseIt: true)
+            : null,
+      );
       log.info('Restricted native API initialized');
     } catch (error, stackTrace) {
       log.error(

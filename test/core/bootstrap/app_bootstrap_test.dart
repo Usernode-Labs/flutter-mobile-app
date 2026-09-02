@@ -10,7 +10,12 @@ void main() {
     ).readAsString();
 
     expect(source, contains('await AppSleepStateStore.load()'));
-    expect(source, contains('await RustLib.init()'));
+    expect(source, contains('await RustLib.init('));
+    expect(source, contains('Platform.isIOS || Platform.isMacOS'));
+    expect(
+      source,
+      contains('ExternalLibrary.process(iKnowHowToUseIt: true)'),
+    );
     expect(source, isNot(contains('RustBackendService')));
     expect(source, isNot(contains('identityProvider')));
     expect(source, isNot(contains('SessionController')));

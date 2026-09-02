@@ -214,7 +214,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _bindSessionFeatures(widget._nativeSession.sessions.current);
     _sessionSubscription = widget._nativeSession.sessions.changes.listen(
       _bindSessionFeatures,
     );
@@ -227,6 +226,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     AppVersionCheck.instance.startPeriodicChecks(_handleVersionCheckResult);
     // Check version after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _bindSessionFeatures(widget._nativeSession.sessions.current);
       _checkInitialVersion();
       _openPendingSocialNotification();
     });

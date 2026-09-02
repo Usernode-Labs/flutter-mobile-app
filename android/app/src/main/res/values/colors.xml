@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ground the Usernode shell opens on, in both appearances.
+     These are the SAME two values the SV web shell paints
+     (frontend/src/head.html's critical <style>, and the Tailwind
+     zinc-100 / zinc-950 on <body>): the launch window, the Flutter
+     splash and the WebView all have to agree, or the seam between
+     them reads as a flash. -->
+<resources>
+    <color name="launch_background">#eaeaea</color>
+</resources>

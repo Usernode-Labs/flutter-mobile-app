@@ -384,4 +384,53 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       error: opened ? null : 'Could not open notification settings',
     );
   }
+
+  /// `setAppearance` JS-channel method: SV tells us which appearance it
+  /// resolved to, so the NEXT cold launch can open in it.
+  ///
+  /// THE ONE UNPRIVILEGED METHOD IN THIS MIXIN, deliberately. Every other
+  /// one reads or mutates native settings or account state and is gated on
+  /// the trusted-origin lease. This carries neither: two enum-ish values
+  /// describing a colour. And the launch it exists to fix is the one BEFORE
+  /// sign-in — gating it on a privileged lease would make it unavailable in
+  /// exactly the case it was added for, which is the whole feature.
+  ///
+  /// The blast radius of accepting it unprivileged is bounded to a wrong
+  /// launch tint for one launch: no data is exposed, the write is
+  /// idempotent, and the trusted shell republishes on every boot, so any
+  /// value a hosted app managed to set is corrected the next time SV loads.
+  ///
+  /// `scheme` is RESOLVED by SV (it has already folded its own `system` mode
+  /// against the OS preference) and must not be re-resolved here.
+  Future<void> _handleSetAppearance(
+      String id, Map<String, dynamic> payload) async {
+    final args = payload['args'];
+    final rawScheme =
+        args is Map<String, dynamic> ? args['scheme']?.toString() : null;
+    if (rawScheme != 'dark' && rawScheme != 'light') {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: "args.scheme must be 'dark' or 'light'",
+      );
+      return;
+    }
+    final scheme =
+        rawScheme == 'dark' ? Brightness.dark : Brightness.light;
+    // An unparseable colour is not an error: the scheme alone already stops
+    // the flash, and SV omits the field when it could not read its own
+    // ground. Store null rather than keeping a colour from the old theme.
+    final background = AppearanceStorage.parseBackground(
+      args is Map<String, dynamic> ? args['background'] : null,
+    );
+    await AppearanceStorage.save(scheme: scheme, background: background);
+    if (mounted) {
+      // Adopt it live too, so the native surfaces around the WebView match
+      // the page the user is already looking at rather than only matching
+      // from the next launch.
+      ref.read(themeModeProvider.notifier).adoptPublishedAppearance();
+      _applyWebViewBackground();
+    }
+    await _resolveJsPromise(id: id, value: true, error: null);
+  }
 }

@@ -8,7 +8,13 @@ import 'package:crypto/crypto.dart';
 /// runtime network selection is no longer supported.
 class NetworkPrefs {
   static const currentNetwork = 'testnet';
-  static const _globalKeys = {'app:theme_mode'};
+  // Appearance is a property of the person, not of a chain identity: the
+  // launch screen has to be right before any account is restored.
+  static const _globalKeys = {
+    'app:theme_mode',
+    'app:sv_appearance_scheme',
+    'app:sv_appearance_background',
+  };
 
   /// Reserved bucket for a guest / no active on-chain account.
   static const guestBucket = 'guest';

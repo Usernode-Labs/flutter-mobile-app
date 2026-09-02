@@ -3,11 +3,12 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart'
-    show buildEnvProvider, debugModeProvider;
+    show buildEnvProvider, debugModeProvider, themeModeProvider;
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
@@ -196,6 +197,29 @@ abstract class _DappWebViewScreenStateBase
   // First main-frame load outcome has been reported via
   // widget.onFirstLoadResult (shell first-launch gate). Never reset.
   bool _firstLoadReported = false;
+
+  /// The colour the WebView itself paints between navigation start and the
+  /// page's first painted frame.
+  ///
+  /// This is the LAST white surface in the cold-launch sequence, after the
+  /// OS launch screen and the Flutter splash: the WebView's own background,
+  /// shown while the document is still fetching its render-blocking
+  /// stylesheets. A theme colour is close, but SV publishes the exact ground
+  /// it is about to paint (`#eaeaea` / `#0b0b0c`), so prefer that and the
+  /// seam disappears entirely instead of merely darkening.
+  ///
+  /// Falls back to the theme for a fresh install and for every build before
+  /// SV had a way to tell us — which is what shipped before this.
+  ///
+  /// Lives on the BASE class, not on _DappWebViewScreenState, because
+  /// _BridgeSettings (`on _DappWebViewScreenStateBase`) calls it when
+  /// `setAppearance` arrives.
+  void _applyWebViewBackground() {
+    _controller.setBackgroundColor(
+      AppearanceStorage.background ??
+          Theme.of(context).colorScheme.surfaceContainerLowest,
+    );
+  }
 
   /// Shared gate for the bridge v3 profile/settings methods: they read and
   /// mutate app-level native state, so only the trusted SV origin may call
@@ -592,9 +616,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   void didChangeDependencies() {
     super.didChangeDependencies();
     _providersContainer ??= ProviderScope.containerOf(context, listen: false);
-    _controller.setBackgroundColor(
-      Theme.of(context).colorScheme.surfaceContainerLowest,
-    );
+    _applyWebViewBackground();
   }
 
   @override

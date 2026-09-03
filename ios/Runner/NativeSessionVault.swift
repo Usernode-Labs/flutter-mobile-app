@@ -1295,11 +1295,6 @@ final class IOSNativeSessionVault {
       }
     }
     defaults.set(true, forKey: Self.installationMarkerKey)
-    guard defaults.synchronize() else {
-      try NativeSessionProtocol.fail(
-        "native_vault_write_failed", "The native installation marker could not be persisted"
-      )
-    }
     installationBoundaryChecked = true
   }
 

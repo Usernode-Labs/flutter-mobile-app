@@ -1,6 +1,7 @@
 import Flutter
 import Foundation
 import Security
+import UIKit
 import WebKit
 
 private enum IOSProducerWakeSource: UInt8 {
@@ -532,6 +533,13 @@ final class IOSNativeSessionChannel {
           let baseUrl = arguments["mobileApiBaseUrl"] as? String else {
       try NativeSessionProtocol.fail(
         "process_root_proof_already_issued", "The process-root proof was already issued"
+      )
+    }
+    guard UIApplication.shared.applicationState == .active,
+          UIApplication.shared.isProtectedDataAvailable else {
+      try NativeSessionProtocol.fail(
+        "native_interactive_bootstrap_unavailable",
+        "Interactive protected data is unavailable"
       )
     }
     let support = try FileManager.default.url(

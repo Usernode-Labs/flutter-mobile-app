@@ -219,7 +219,7 @@ final class _NativeSessionPlatformPort {
         'The native process root was already claimed.',
       );
     }
-    final raw = await _channel.invokeMethod<Object?>(
+    final raw = await _invokePlatform(
       'bootstrapInteractiveRoot',
       <String, Object?>{'mobileApiBaseUrl': mobileApiBaseUrl},
     );
@@ -618,14 +618,21 @@ final class _NativeSessionPlatformPort {
         'The native process root is unavailable.',
       );
     }
+    return _invokePlatform(
+      method,
+      <String, Object?>{
+        ...arguments,
+        'processTransportClaim': claim,
+      },
+    );
+  }
+
+  Future<Object?> _invokePlatform(
+    String method,
+    Map<String, Object?> arguments,
+  ) async {
     try {
-      return await _channel.invokeMethod<Object?>(
-        method,
-        <String, Object?>{
-          ...arguments,
-          'processTransportClaim': claim,
-        },
-      );
+      return await _channel.invokeMethod<Object?>(method, arguments);
     } on PlatformException catch (error) {
       final details = error.details is Map
           ? (error.details! as Map).cast<Object?, Object?>()
@@ -750,6 +757,7 @@ abstract interface class _NativeSessionRuntime {
 }
 
 Future<_NativeSessionRuntime> _bootstrapNativeSessionRuntime() async {
+  await _waitForInteractiveSessionBootstrapAdmission();
   final platform = _NativeSessionPlatformPort();
   final exchange = _NativeSessionExchangeTransport(
     mobileApiBaseUrl: AppConfig.mobileApiBaseUrl,
@@ -759,9 +767,39 @@ Future<_NativeSessionRuntime> _bootstrapNativeSessionRuntime() async {
       platform: platform,
       exchange: exchange,
     );
-  } catch (error) {
+  } catch (error, stackTrace) {
     exchange.close();
-    return _FailingNativeSessionBridgeIngress(_asNativeSessionException(error));
+    final failure = _asNativeSessionException(error);
+    LoggingService.instance.error(
+      'Native session bootstrap failed (${failure.code})',
+      tag: 'usernode/NativeSession',
+      error: failure,
+      stackTrace: stackTrace,
+    );
+    return _FailingNativeSessionBridgeIngress(failure);
+  }
+}
+
+Future<void> _waitForInteractiveSessionBootstrapAdmission() async {
+  if (!Platform.isIOS ||
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+    return;
+  }
+
+  final resumed = Completer<void>();
+  late final AppLifecycleListener listener;
+  listener = AppLifecycleListener(
+    onResume: () {
+      if (!resumed.isCompleted) resumed.complete();
+    },
+  );
+  try {
+    // Close the gap between the initial check and observer registration.
+    if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      await resumed.future;
+    }
+  } finally {
+    listener.dispose();
   }
 }
 

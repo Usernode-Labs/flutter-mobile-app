@@ -24,7 +24,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// system browser. Non-web schemes are rejected so pages can't silently
   /// fire intent://, tel:, etc. through this path.
   Future<void> _handleOpenExternal(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     final args = payload['args'];
     final url = args is Map<String, dynamic> ? args['url']?.toString() : null;
     final uri = url == null ? null : Uri.tryParse(url);
@@ -49,7 +51,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// that stay native. Only the trusted SV origin may drive native navigation
   /// — sub-apps get a rejection.
   Future<void> _handleOpenNativeScreen(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     final args = payload['args'];
     final screen =
         args is Map<String, dynamic> ? args['screen']?.toString() : null;
@@ -93,10 +97,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
         'buildNumber': packageInfo.buildNumber,
       };
     } catch (_) {
-      return const {
-        'appVersion': null,
-        'buildNumber': null,
-      };
+      return const {'appVersion': null, 'buildNumber': null};
     }
   }
 
@@ -196,7 +197,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       );
 
   Future<void> _handleSetNodeSleepEnabled(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     final enabled = await _requireBoolArg(id, payload, 'enabled');
     if (enabled == null) return;
     await _resolveClaimedSessionOperation(
@@ -230,7 +233,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   }
 
   Future<void> _handleSetDebugMode(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     if (!await _requireTrustedChromeOrigin(id, 'setDebugMode')) return;
     final enabled = await _requireBoolArg(id, payload, 'enabled');
     if (enabled == null) return;
@@ -244,7 +249,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   }
 
   Future<void> _handleSetFacematchStrict(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     if (!await _requireTrustedChromeOrigin(id, 'setFacematchStrict')) return;
     final enabled = await _requireBoolArg(id, payload, 'enabled');
     if (enabled == null) return;
@@ -323,7 +330,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// dragging the user through the alarm/battery chain.
   Future<void> _handleRequestNotificationPermission(String id) async {
     if (!await _requireTrustedChromeOrigin(
-        id, 'requestNotificationPermission')) {
+      id,
+      'requestNotificationPermission',
+    )) {
       return;
     }
     if (!await _revalidatePrivilegedBridgeLease(
@@ -403,7 +412,9 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// `scheme` is RESOLVED by SV (it has already folded its own `system` mode
   /// against the OS preference) and must not be re-resolved here.
   Future<void> _handleSetAppearance(
-      String id, Map<String, dynamic> payload) async {
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
     final args = payload['args'];
     final rawScheme =
         args is Map<String, dynamic> ? args['scheme']?.toString() : null;
@@ -415,8 +426,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       );
       return;
     }
-    final scheme =
-        rawScheme == 'dark' ? Brightness.dark : Brightness.light;
+    final scheme = rawScheme == 'dark' ? Brightness.dark : Brightness.light;
     // An unparseable colour is not an error: the scheme alone already stops
     // the flash, and SV omits the field when it could not read its own
     // ground. Store null rather than keeping a colour from the old theme.

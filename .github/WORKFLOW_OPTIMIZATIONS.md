@@ -43,9 +43,17 @@ misses for the same fingerprint from doing duplicate work.
 
 - `subosito/flutter-action` caches the pinned Flutter SDK and pub packages.
 - `actions/setup-java` caches Gradle dependencies for Android builds.
-- `sccache` caches Rust compiler outputs across Cargokit's per-platform target
-  directories. Its setup is best-effort, so a cache service problem does not
-  prevent a release.
+- `sccache` caches native compiler outputs for iOS, where controlled runs show
+  that it removes several minutes from a warm build. Its version is pinned and
+  setup remains best-effort, so a cache service problem does not prevent a
+  release.
+- Cargokit uses the exact Rust version selected by the checked-out Usernode
+  repository's `rust-toolchain.toml`, including its `rustfmt` build-time
+  component. This prevents a moving `stable` channel from periodically
+  invalidating all iOS Rust compiler-cache entries.
+- Android does not use `sccache`. Its measured cross-run reuse was too low to
+  affect the critical path, and disabling it prevents Android cache writes
+  from competing with iOS for GitHub's repository-wide cache service limits.
 - FRB bindings, codegen binaries, the Cargo registry, and the codegen Cargo
   target remain keyed by their exact source and tool inputs.
 - The ineffective `../usernode/target` caches were removed from the Android
@@ -82,6 +90,29 @@ The warm result is below the original 38-minute median even before accounting
 for normal variance. Publishing-enabled runs also include store upload time, so
 multiple real releases are still needed to establish the new production
 median.
+
+The Android archive experiment was rejected after two implementations failed
+to improve elapsed time. [Run
+244](https://github.com/Usernode-Labs/flutter-mobile-app/actions/runs/33784339963)
+created the first archive and [run
+245](https://github.com/Usernode-Labs/flutter-mobile-app/actions/runs/33785615929)
+restored it, but the AAB step stayed effectively flat at 6 minutes 31 seconds
+and 6 minutes 30 seconds, with only a 7.02% hit rate in the warm run. [Run
+246](https://github.com/Usernode-Labs/flutter-mobile-app/actions/runs/33788622771)
+created the revised archive and [run
+247](https://github.com/Usernode-Labs/flutter-mobile-app/actions/runs/33790373627)
+restored all 198 MiB successfully, but reached only a 6.77% hit rate while the
+AAB step changed from 7 minutes 33 seconds to 7 minutes 26 seconds. Seven
+seconds does not justify the archive complexity or cache-service traffic,
+especially because iOS determines the workflow's wall time.
+
+The iOS result is materially different. Run 239 had a cold compiler cache and
+took 19 minutes 41 seconds to build the signed IPA. On the same commit, run 240
+hit 99.76% and took 12 minutes 42 seconds: 6 minutes 59 seconds faster. Runs 246
+and 247 both retained a 99.88% iOS hit rate with no cache read or write errors.
+Although runner variation means the full difference cannot be attributed to a
+single mechanism, this is enough evidence to retain the iOS cache and remove
+the Android one.
 
 ## Validation
 

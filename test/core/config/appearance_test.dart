@@ -33,12 +33,18 @@ void main() {
 
   group('parseBackground', () {
     test('accepts the #rrggbb form SV sends', () {
-      expect(AppearanceStorage.parseBackground('#0b0b0c'),
-          const Color(0xFF0B0B0C));
-      expect(AppearanceStorage.parseBackground('#EAEAEA'),
-          const Color(0xFFEAEAEA));
-      expect(AppearanceStorage.parseBackground('  #eaeaea  '),
-          const Color(0xFFEAEAEA));
+      expect(
+        AppearanceStorage.parseBackground('#0b0b0c'),
+        const Color(0xFF0B0B0C),
+      );
+      expect(
+        AppearanceStorage.parseBackground('#EAEAEA'),
+        const Color(0xFFEAEAEA),
+      );
+      expect(
+        AppearanceStorage.parseBackground('  #eaeaea  '),
+        const Color(0xFFEAEAEA),
+      );
     });
 
     test('rejects everything else rather than guessing', () {
@@ -55,8 +61,11 @@ void main() {
         'black',
         11,
       ]) {
-        expect(AppearanceStorage.parseBackground(bad), isNull,
-            reason: 'should reject $bad');
+        expect(
+          AppearanceStorage.parseBackground(bad),
+          isNull,
+          reason: 'should reject $bad',
+        );
       }
     });
   });
@@ -107,11 +116,15 @@ void main() {
 
     test('re-saving the same value is a no-op, not a flicker', () async {
       await AppearanceStorage.save(
-          scheme: Brightness.dark, background: const Color(0xFF0B0B0C));
+        scheme: Brightness.dark,
+        background: const Color(0xFF0B0B0C),
+      );
       final scheme = AppearanceStorage.scheme;
       final background = AppearanceStorage.background;
       await AppearanceStorage.save(
-          scheme: Brightness.dark, background: const Color(0xFF0B0B0C));
+        scheme: Brightness.dark,
+        background: const Color(0xFF0B0B0C),
+      );
       expect(AppearanceStorage.scheme, scheme);
       expect(AppearanceStorage.background, background);
     });
@@ -138,9 +151,7 @@ void main() {
       // mode on a light phone repainted the splash a beat after it
       // appeared. Bootstrap primes both caches, and the getter must read
       // them without awaiting anything.
-      SharedPreferences.setMockInitialValues({
-        'app:theme_mode': 'dark',
-      });
+      SharedPreferences.setMockInitialValues({'app:theme_mode': 'dark'});
       await ThemeModeStorage.init();
       expect(ThemeModeController.initialThemeMode, ThemeMode.dark);
     });
@@ -153,9 +164,13 @@ void main() {
     // them back.
 
     test('the iOS launch storyboard uses the adaptive colour asset', () {
-      final storyboard =
-          File('ios/Runner/Base.lproj/LaunchScreen.storyboard').readAsStringSync();
-      expect(storyboard, contains('<color key="backgroundColor" name="LaunchBackground"/>'));
+      final storyboard = File(
+        'ios/Runner/Base.lproj/LaunchScreen.storyboard',
+      ).readAsStringSync();
+      expect(
+        storyboard,
+        contains('<color key="backgroundColor" name="LaunchBackground"/>'),
+      );
       // The literal it replaced: red/green/blue all 1, i.e. pure white,
       // with no dark variant possible.
       expect(
@@ -196,9 +211,9 @@ void main() {
       ]) {
         final xml = File(path).readAsStringSync();
         expect(
-          RegExp(r'android:colorBackground">@color/launch_background<')
-              .allMatches(xml)
-              .length,
+          RegExp(
+            r'android:colorBackground">@color/launch_background<',
+          ).allMatches(xml).length,
           2,
           reason: '$path must pin it on LaunchTheme AND NormalTheme',
         );
@@ -208,8 +223,9 @@ void main() {
         contains('#eaeaea'),
       );
       expect(
-        File('android/app/src/main/res/values-night/colors.xml')
-            .readAsStringSync(),
+        File(
+          'android/app/src/main/res/values-night/colors.xml',
+        ).readAsStringSync(),
         contains('#0b0b0c'),
       );
     });
@@ -219,13 +235,14 @@ void main() {
     // SV feature-detects the capability string before it will call; and the
     // whole point is that it works before sign-in, so it must NOT be behind
     // the trusted-origin lease every other settings method uses.
-    final dispatch =
-        File('lib/features/dapps/bridge/dapp_bridge_dispatch.dart')
-            .readAsStringSync();
+    final dispatch = File(
+      'lib/features/dapps/bridge/dapp_bridge_dispatch.dart',
+    ).readAsStringSync();
     expect(dispatch, contains("'setAppearance'"));
 
-    final handler = File('lib/features/dapps/bridge/dapp_bridge_settings.dart')
-        .readAsStringSync();
+    final handler = File(
+      'lib/features/dapps/bridge/dapp_bridge_settings.dart',
+    ).readAsStringSync();
     final body = handler.substring(handler.indexOf('_handleSetAppearance'));
     final end = body.indexOf('\n  }\n');
     expect(

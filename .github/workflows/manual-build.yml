@@ -19,6 +19,7 @@ permissions:
 env:
   JAVA_VERSION: "17"
   NDK_VERSION: "29.0.14206865"
+  SCCACHE_VERSION: "0.17.0"
   XCODE_VERSION: "26.5"
 
 jobs:
@@ -224,17 +225,6 @@ jobs:
           echo "ndk_root=$NDK_ROOT" >> "$GITHUB_OUTPUT"
           echo "Using NDK at $NDK_ROOT"
 
-      - name: Setup sccache for Rust compilation
-        id: sccache-android
-        uses: mozilla-actions/sccache-action@v0.0.11
-        continue-on-error: true
-
-      - name: Configure Rust compiler cache
-        if: steps.sccache-android.outcome == 'success'
-        run: |
-          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
-          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
-
       - name: Decode keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -427,15 +417,35 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Setup Rust for iOS
-        uses: dtolnay/rust-toolchain@stable
+      - name: Resolve pinned Rust toolchain
+        id: rust-toolchain
+        working-directory: ../usernode
+        run: |
+          set -euo pipefail
+          TOOLCHAIN=$(awk -F '"' '/^[[:space:]]*channel[[:space:]]*=/{print $2; exit}' rust-toolchain.toml)
+          if [ -z "$TOOLCHAIN" ]; then
+            echo "Unable to resolve channel from usernode/rust-toolchain.toml" >&2
+            exit 1
+          fi
+          echo "toolchain=$TOOLCHAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pinned Rust for iOS
+        id: rust-toolchain-ios
+        uses: dtolnay/rust-toolchain@d1031067263f94b142dd6c0ce24c5eb9d02d52a0 # master
         with:
+          toolchain: ${{ steps.rust-toolchain.outputs.toolchain }}
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          components: rustfmt
+
+      - name: Configure pinned Rust for Cargokit
+        run: echo "RUSTUP_TOOLCHAIN=${{ steps.rust-toolchain-ios.outputs.name }}" >> "$GITHUB_ENV"
 
       - name: Setup sccache for Rust compilation
         id: sccache-ios
         uses: mozilla-actions/sccache-action@v0.0.11
         continue-on-error: true
+        with:
+          version: v${{ env.SCCACHE_VERSION }}
 
       - name: Configure Rust compiler cache
         if: steps.sccache-ios.outcome == 'success'

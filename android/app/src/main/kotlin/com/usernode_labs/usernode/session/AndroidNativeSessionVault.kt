@@ -249,18 +249,10 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
-    /** Closed cold-start result. Credential bytes never cross the Flutter channel. */
+    /** Closed cold-start result from local vault evidence; no service needs to be online. */
     @Synchronized
     fun stageColdInstalledCredential(): ColdCredentialStage {
-        return when (val material = authenticatedProducerMaterial()) {
-            is AuthenticatedProducerMaterial.Present -> try {
-                stageColdRecoveredCredential(material.recovered)
-            } finally {
-                material.close()
-            }
-            AuthenticatedProducerMaterial.Absent -> ColdCredentialStage.Absent
-            AuthenticatedProducerMaterial.Uncertain -> ColdCredentialStage.Uncertain
-        }
+        return stageLocalColdInstalledCredential()
     }
 
     /**
@@ -315,6 +307,10 @@ internal class AndroidNativeSessionVault(context: Context) {
     /** Scalar-bearing cold stage used only after Rust requests tag-5 install. */
     @Synchronized
     fun stageBackgroundColdInstalledCredential(): ColdCredentialStage {
+        return stageLocalColdInstalledCredential()
+    }
+
+    private fun stageLocalColdInstalledCredential(): ColdCredentialStage {
         val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
             ?: return ColdCredentialStage.Absent
         val recovered = try {

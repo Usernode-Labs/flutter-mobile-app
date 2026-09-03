@@ -63,6 +63,10 @@ mixin _BridgeDispatch
     'setSocialPushEnabled',
     'claimPendingSocialNotification',
     'ackPendingSocialNotification',
+    // Presentation only, and UNPRIVILEGED unlike everything above it: the
+    // cold launch it fixes is the one before sign-in, where a privileged
+    // lease does not exist yet. See _handleSetAppearance.
+    'setAppearance',
   ];
 
   /// Platform-aware capability list. Additive, feature-named entries only;
@@ -252,6 +256,10 @@ mixin _BridgeDispatch
 
     if (method == 'setNodeSleepEnabled') {
       await _handleSetNodeSleepEnabled(id, payload);
+    }
+
+    if (method == 'setAppearance') {
+      await _handleSetAppearance(id, payload);
     }
 
     if (method == 'setDebugMode') {

@@ -64,13 +64,14 @@ class Rustup {
 
     final res = runCommand("rustup", ['toolchain', 'list']);
 
-    // To list all non-custom toolchains, we need to filter out lines that
-    // don't start with "stable", "beta", or "nightly".
-    Pattern nonCustom = RegExp(r"^(stable|beta|nightly)");
+    // Ignore custom linked toolchains, but retain both named channels and
+    // pinned release versions such as 1.97.1-aarch64-apple-darwin.
+    final officialToolchain =
+        RegExp(r'^(stable|beta|nightly|[0-9]+\.[0-9]+(\.[0-9]+)?)(-|$)');
     final lines = res.stdout
         .toString()
         .split('\n')
-        .where((e) => e.isNotEmpty && e.startsWith(nonCustom))
+        .where((e) => e.isNotEmpty && e.startsWith(officialToolchain))
         .map(extractToolchainName)
         .toList(growable: true);
 

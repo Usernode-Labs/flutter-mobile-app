@@ -47,11 +47,13 @@ class ThemeModeStorage {
     cached = mode;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_key, switch (mode) {
-        ThemeMode.light => 'light',
-        ThemeMode.dark => 'dark',
-        ThemeMode.system => 'system',
-      });
+      await prefs.setString(
+          _key,
+          switch (mode) {
+            ThemeMode.light => 'light',
+            ThemeMode.dark => 'dark',
+            ThemeMode.system => 'system',
+          });
     } catch (e, st) {
       await SentryUtil.captureError(e, st, tag: 'theme_save');
     }

@@ -685,7 +685,7 @@ final class IOSNativeSessionChannel {
     let arguments = try authorized(call, keys: ["expectedRevision", "processTransportClaim"])
     let revision = try NativeSessionProtocol.exactUInt64(arguments["expectedRevision"], "expected revision")
     work(result) {
-      switch self.vault.stageColdInstalledCredential() {
+      switch self.vault.stageInteractiveColdInstalledCredential() {
       case .present(let claim):
         return ["status": "present", "installClaim": FlutterStandardTypedData(bytes: claim)]
       case .absent:

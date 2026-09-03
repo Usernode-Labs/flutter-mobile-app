@@ -249,10 +249,12 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
-    /** Closed cold-start result from local vault evidence; no service needs to be online. */
+    /** Interactive-root cold recovery from local vault evidence. */
     @Synchronized
-    fun stageColdInstalledCredential(): ColdCredentialStage {
-        return stageLocalColdInstalledCredential()
+    fun stageInteractiveColdInstalledCredential(): ColdCredentialStage {
+        return stageLocalInstalledCredential { frame ->
+            NativeSessionRust.nativeStageInstalledCredential(frame)
+        }
     }
 
     /**
@@ -307,10 +309,14 @@ internal class AndroidNativeSessionVault(context: Context) {
     /** Scalar-bearing cold stage used only after Rust requests tag-5 install. */
     @Synchronized
     fun stageBackgroundColdInstalledCredential(): ColdCredentialStage {
-        return stageLocalColdInstalledCredential()
+        return stageLocalInstalledCredential { frame ->
+            NativeSessionRust.nativeStageColdInstalledCredentialV1(frame)
+        }
     }
 
-    private fun stageLocalColdInstalledCredential(): ColdCredentialStage {
+    private fun stageLocalInstalledCredential(
+        stageCredential: (ByteArray) -> ByteArray,
+    ): ColdCredentialStage {
         val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
             ?: return ColdCredentialStage.Absent
         val recovered = try {
@@ -325,7 +331,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             return ColdCredentialStage.Uncertain
         }
         return try {
-            stageColdRecoveredCredential(recovered)
+            stageRecoveredCredential(recovered, stageCredential)
         } finally {
             recovered.close()
         }
@@ -669,12 +675,11 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
-    private fun stageColdRecoveredCredential(
+    private fun stageRecoveredCredential(
         recovered: RecoveredCredential,
+        stageCredential: (ByteArray) -> ByteArray,
     ): ColdCredentialStage {
-        val claim = NativeSessionRust.nativeStageColdInstalledCredentialV1(
-            recovered.installFrame,
-        )
+        val claim = stageCredential(recovered.installFrame)
         if (claim.size != CLAIM_BYTES) {
             claim.fill(0)
             fail("native_install_claim_invalid", "Rust returned an invalid install claim")

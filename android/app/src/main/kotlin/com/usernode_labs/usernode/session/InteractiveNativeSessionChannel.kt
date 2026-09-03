@@ -260,7 +260,7 @@ internal class InteractiveNativeSessionChannel(
         requireProcessTransportClaim(arguments)
         val expectedRevision = exactLong(arguments["expectedRevision"], "expected revision")
         runWorker(result) {
-            when (val stage = vault.stageColdInstalledCredential()) {
+            when (val stage = vault.stageInteractiveColdInstalledCredential()) {
                 is ColdCredentialStage.Present -> mapOf(
                     "status" to "present",
                     "installClaim" to stage.installClaim,

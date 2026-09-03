@@ -226,7 +226,15 @@ final class IOSNativeSessionVault {
     try clearReadyRevision(expected: readyRevision)
   }
 
-  func stageColdInstalledCredential() -> IOSColdCredentialStage {
+  func stageInteractiveColdInstalledCredential() -> IOSColdCredentialStage {
+    stageLocalInstalledCredential { frame in
+      try IOSNativeSessionRust.stageInstalledCredential(&frame)
+    }
+  }
+
+  private func stageLocalInstalledCredential(
+    _ stageCredential: (inout Data) throws -> Data
+  ) -> IOSColdCredentialStage {
     lock.lock(); defer { lock.unlock() }
     let raw: Data
     do {
@@ -246,7 +254,7 @@ final class IOSNativeSessionVault {
         )
       }
       defer { frame.resetBytes(in: 0..<frame.count) }
-      return .present(try IOSNativeSessionRust.stageColdInstalledCredential(&frame))
+      return .present(try stageCredential(&frame))
     } catch let error as NativeSessionProtocolError {
       if shouldDiscardCredential(error) {
         try? deleteKeychain(account: Self.credentialAccount, expected: raw)
@@ -319,7 +327,9 @@ final class IOSNativeSessionVault {
   }
 
   func stageBackgroundColdInstalledCredential() -> IOSColdCredentialStage {
-    stageColdInstalledCredential()
+    stageLocalInstalledCredential { frame in
+      try IOSNativeSessionRust.stageColdInstalledCredential(&frame)
+    }
   }
 
   func stageProducerPolicy(delegated: Bool?) throws -> Data {

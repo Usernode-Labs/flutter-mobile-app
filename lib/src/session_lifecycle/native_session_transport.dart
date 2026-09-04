@@ -833,8 +833,20 @@ final class _NativeSessionEffects implements _SessionEffectSink {
     _onFailure(error, stackTrace);
   }
 
+  void _requireWallet() {
+    if (!_identity.hasWallet) {
+      throw const NativeSessionException(
+        'native_wallet_unavailable',
+        'This session has no wallet.',
+      );
+    }
+  }
+
   @override
   Future<SessionNodeStatus> readNodeStatus() async {
+    if (!_identity.hasWallet) {
+      return const SessionNodeStatus(status: 'unavailable');
+    }
     final status = await native.nativeNodeStatus(
       root: _root,
       session: _session,
@@ -874,6 +886,7 @@ final class _NativeSessionEffects implements _SessionEffectSink {
 
   @override
   Future<SessionWalletSnapshot> readWallet() async {
+    _requireWallet();
     final balance = await native.nativeWalletBalance(
       root: _root,
       session: _session,
@@ -896,6 +909,7 @@ final class _NativeSessionEffects implements _SessionEffectSink {
     required BigInt amount,
     required String memo,
   }) async {
+    _requireWallet();
     final result = await native.nativeWalletSend(
       root: _root,
       session: _session,
@@ -922,6 +936,7 @@ final class _NativeSessionEffects implements _SessionEffectSink {
 
   @override
   Future<SessionMessageSignature> signMessage(String message) async {
+    _requireWallet();
     final result = await native.nativeSignMessage(
       root: _root,
       session: _session,
@@ -1078,11 +1093,14 @@ final class _NativeSessionEffects implements _SessionEffectSink {
       );
 
   @override
-  Future<SessionDelegationSnapshot> readDelegation() async =>
-      _delegationSnapshot();
+  Future<SessionDelegationSnapshot> readDelegation() async {
+    _requireWallet();
+    return _delegationSnapshot();
+  }
 
   @override
   Future<SessionDelegationSnapshot> setDelegated(bool delegated) async {
+    _requireWallet();
     final claim = await _platform.stageProducerPolicy(
       expectedRevision: _revision,
       delegated: delegated,
@@ -1128,7 +1146,7 @@ final class _NativeSessionEffects implements _SessionEffectSink {
   @override
   Future<SessionSleepSnapshot> setSleepEnabled(bool enabled) async {
     await AppSleepStateStore.setEnabled(enabled);
-    if (!enabled) {
+    if (!enabled && _identity.hasWallet) {
       await native.setNativeRuntimePaused(
         root: _root,
         session: _session,
@@ -1141,6 +1159,10 @@ final class _NativeSessionEffects implements _SessionEffectSink {
   @override
   Future<SessionSleepSnapshot> setSleeping(bool sleeping) async {
     final effective = sleeping && AppSleepStateStore.isEnabled;
+    if (!_identity.hasWallet) {
+      await AppSleepStateStore.setSleeping(false);
+      return SessionSleepSnapshot(enabled: AppSleepStateStore.isEnabled);
+    }
     await native.setNativeRuntimePaused(
       root: _root,
       session: _session,
@@ -1573,24 +1595,26 @@ final class _NativeSessionCompositionRoot
       sessions: _SessionCompositionRoot(projection, readyEffects: effects),
       authority: _NativeReady(binding),
     );
-    try {
-      final retiredRevision = await platform.runInteractiveProducerWake(
-        expectedRevision: readyRevision,
-        refreshPolicy: true,
-      );
-      if (retiredRevision != null) {
-        await runtime._retireFromNative(retiredRevision);
+    if (projection.hasWallet) {
+      try {
+        final retiredRevision = await platform.runInteractiveProducerWake(
+          expectedRevision: readyRevision,
+          refreshPolicy: true,
+        );
+        if (retiredRevision != null) {
+          await runtime._retireFromNative(retiredRevision);
+        }
+      } catch (error) {
+        // Rust has already recovered/adopted this exact Ready. Keep its private
+        // session and revision so foreground resume can retry and an exact
+        // realm can still retire it; replacing this runtime with a failing
+        // signed-out ingress would strand native authority.
+        LoggingService.instance.warn(
+          'Recovered native Ready; producer wake will retry on foreground resume '
+          '(${error.runtimeType})',
+          tag: 'usernode/NativeSession',
+        );
       }
-    } catch (error) {
-      // Rust has already recovered/adopted this exact Ready. Keep its private
-      // session and revision so foreground resume can retry and an exact realm
-      // can still retire it; replacing this runtime with a failing signed-out
-      // ingress would strand native authority.
-      LoggingService.instance.warn(
-        'Recovered native Ready; producer wake will retry on foreground resume '
-        '(${error.runtimeType})',
-        tag: 'usernode/NativeSession',
-      );
     }
     return runtime;
   }
@@ -1631,6 +1655,7 @@ final class _NativeSessionCompositionRoot
   Future<void> _performForegroundResume() async {
     final authority = _authority;
     if (authority is! _NativeReady) return;
+    if (!authority.binding.projection.hasWallet) return;
     try {
       final retiredRevision = await _platform.runInteractiveProducerWake(
         expectedRevision: authority.binding.readyRevision,
@@ -1845,7 +1870,7 @@ final class _NativeSessionCompositionRoot
       // following wake therefore observes Ready and closes its admission.
       _finishEstablish(attempt);
 
-      if (publish) {
+      if (publish && projection.hasWallet) {
         int? retiredRevision;
         try {
           retiredRevision = await _platform.runInteractiveProducerWake(
@@ -2206,9 +2231,15 @@ SessionIdentityProjection _readyProjection(
   return SessionIdentityProjection.ready(
     nativeRevision: _canonicalRevision(nativeRevision),
     participantId: participantId,
-    accountId: _canonicalString(identity.accountId, 'native account id'),
-    address: _canonicalString(identity.address, 'native address'),
-    publicKey: _canonicalString(identity.publicKey, 'native public key'),
+    accountId: identity.accountId == null
+        ? null
+        : _canonicalString(identity.accountId, 'native account id'),
+    address: identity.address == null
+        ? null
+        : _canonicalString(identity.address, 'native address'),
+    publicKey: identity.publicKey == null
+        ? null
+        : _canonicalString(identity.publicKey, 'native public key'),
   );
 }
 
@@ -2262,6 +2293,7 @@ Map<String, Object?> _establishResponse(
       }),
       'runtimeStatus': Map<String, Object?>.unmodifiable(
         receipt.runtimeStatus.when(
+          notStarted: () => const <String, Object?>{'state': 'notStarted'},
           running: () => const <String, Object?>{'state': 'running'},
           startFailed: (validatedCode) => <String, Object?>{
             'state': 'startFailed',

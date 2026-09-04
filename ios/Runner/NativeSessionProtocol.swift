@@ -70,11 +70,21 @@ struct NativeCredentialBinding {
 
 struct NativeCredentialPlaintext {
   let participantId: String
+  let bearerToken: String
+  let bearerExpiresAt: String
+  var account: NativeCredentialAccount?
+
+  mutating func clearAccountScalar() {
+    guard var account else { return }
+    account.accountScalar.resetBytes(in: 0..<account.accountScalar.count)
+    self.account = account
+  }
+}
+
+struct NativeCredentialAccount {
   let accountId: String
   let address: String
   let publicKey: String
-  let bearerToken: String
-  let bearerExpiresAt: String
   var accountScalar: Data
   let blockProductionReleased: Bool
 }
@@ -414,31 +424,39 @@ enum NativeSessionProtocol {
     guard parseDate(expires) != nil else {
       try fail("invalid_native_credential", "The native credential expiry is invalid")
     }
-    let account = try exactDictionary(
-      root["account"],
-      keys: [
-        "accountId", "address", "publicKey", "secretKey", "seasonId",
-        "seasonEventId", "newlyAllocated", "blockProductionReleased",
-      ],
-      label: "native credential account"
-    )
-    let accountId = try canonicalString(account["accountId"], "account.accountId")
-    let address = try boundedString(account["address"], "account.address", 128)
-    let publicKey = try boundedString(account["publicKey"], "account.publicKey", 128)
-    let secretKey = try boundedString(account["secretKey"], "account.secretKey", 128)
-    guard isPositiveDecimal(accountId), accountId.utf8.count <= 32,
-          let released = account["blockProductionReleased"] as? Bool else {
-      try fail("invalid_native_credential", "The native credential account is invalid")
+    let account: NativeCredentialAccount?
+    if root["account"] is NSNull {
+      account = nil
+    } else {
+      let value = try exactDictionary(
+        root["account"],
+        keys: [
+          "accountId", "address", "publicKey", "secretKey", "seasonId",
+          "seasonEventId", "newlyAllocated", "blockProductionReleased",
+        ],
+        label: "native credential account"
+      )
+      let accountId = try canonicalString(value["accountId"], "account.accountId")
+      let address = try boundedString(value["address"], "account.address", 128)
+      let publicKey = try boundedString(value["publicKey"], "account.publicKey", 128)
+      let secretKey = try boundedString(value["secretKey"], "account.secretKey", 128)
+      guard isPositiveDecimal(accountId), accountId.utf8.count <= 32,
+            let released = value["blockProductionReleased"] as? Bool else {
+        try fail("invalid_native_credential", "The native credential account is invalid")
+      }
+      account = NativeCredentialAccount(
+        accountId: accountId,
+        address: address,
+        publicKey: publicKey,
+        accountScalar: try decodeAccountScalar(secretKey),
+        blockProductionReleased: released
+      )
     }
     return NativeCredentialPlaintext(
       participantId: participantId,
-      accountId: accountId,
-      address: address,
-      publicKey: publicKey,
       bearerToken: bearer,
       bearerExpiresAt: expires,
-      accountScalar: try decodeAccountScalar(secretKey),
-      blockProductionReleased: released
+      account: account
     )
   }
 

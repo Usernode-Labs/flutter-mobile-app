@@ -292,6 +292,7 @@ internal object NativeProducerPolicyFrame {
         binding: NativeCredentialBinding,
         credential: NativeCredentialPlaintext,
     ): ByteArray {
+        val credentialAccount = credential.account ?: invalid()
         if (response.opt("success") != true) invalid()
         val data = response.optJSONObject("data") ?: invalid()
         val protocol = exactInt(data, "protocol")
@@ -309,8 +310,8 @@ internal object NativeProducerPolicyFrame {
         if (protocol != 1 ||
             credentialReference != binding.credentialReference ||
             credentialGeneration != binding.credentialGeneration.toLong() ||
-            accountId != credential.accountId ||
-            address != credential.address ||
+            accountId != credentialAccount.accountId ||
+            address != credentialAccount.address ||
             networkId != binding.networkId ||
             chainId != binding.chainId ||
             observedEpoch < 0 ||

@@ -79,15 +79,21 @@ internal class NativeExchangeEnvelope(
 
 internal class NativeCredentialPlaintext(
     val participantId: String,
+    val bearerToken: String,
+    val bearerExpiresAt: String,
+    val account: NativeCredentialAccount?,
+) {
+    override fun toString(): String = "NativeCredentialPlaintext(<redacted>)"
+}
+
+internal class NativeCredentialAccount(
     val accountId: String,
     val address: String,
     val publicKey: String,
-    val bearerToken: String,
-    val bearerExpiresAt: String,
     val accountScalar: ByteArray,
     val blockProductionReleased: Boolean,
 ) {
-    override fun toString(): String = "NativeCredentialPlaintext(<redacted>)"
+    override fun toString(): String = "NativeCredentialAccount(<redacted>)"
 }
 
 internal data class NativeCredentialLeaseReceipt(
@@ -480,39 +486,47 @@ internal object NativeSessionProtocol {
         }
         parseCredentialExpiry(bearerExpiresAt)
 
-        val account = jsonObject(root, "account")
-        exactJsonKeys(
-            account,
-            setOf(
-                "accountId", "address", "publicKey", "secretKey", "seasonId",
-                "seasonEventId", "newlyAllocated", "blockProductionReleased",
-            ),
-            "native credential account",
-        )
-        val accountId = jsonString(account, "accountId")
-        val address = boundedCanonicalJsonString(account, "address", 128)
-        val publicKey = boundedCanonicalJsonString(account, "publicKey", 128)
-        val secretKey = boundedCanonicalJsonString(account, "secretKey", 128)
-        if (!positiveDecimalPattern.matches(accountId) ||
-            accountId.toByteArray(StandardCharsets.UTF_8).size > 32
-        ) {
-            fail("invalid_native_credential", "The native credential account is invalid")
+        val account = if (root.isNull("account")) {
+            null
+        } else {
+            val accountJson = jsonObject(root, "account")
+            exactJsonKeys(
+                accountJson,
+                setOf(
+                    "accountId", "address", "publicKey", "secretKey", "seasonId",
+                    "seasonEventId", "newlyAllocated", "blockProductionReleased",
+                ),
+                "native credential account",
+            )
+            val accountId = jsonString(accountJson, "accountId")
+            val address = boundedCanonicalJsonString(accountJson, "address", 128)
+            val publicKey = boundedCanonicalJsonString(accountJson, "publicKey", 128)
+            val secretKey = boundedCanonicalJsonString(accountJson, "secretKey", 128)
+            if (!positiveDecimalPattern.matches(accountId) ||
+                accountId.toByteArray(StandardCharsets.UTF_8).size > 32
+            ) {
+                fail("invalid_native_credential", "The native credential account is invalid")
+            }
+            // Season allocation metadata is authenticated by the JWE but is
+            // not installed into this native-session slice. Rust independently
+            // checks every account field that does cross the JNI frame.
+            NativeCredentialAccount(
+                accountId = accountId,
+                address = address,
+                publicKey = publicKey,
+                accountScalar = decodeAccountScalar(secretKey),
+                blockProductionReleased = jsonBoolean(
+                    accountJson,
+                    "blockProductionReleased",
+                ),
+            )
         }
-        // Season allocation metadata is authenticated by the JWE but is not
-        // installed into this native-session slice. Rust independently checks
-        // every account field that does cross the JNI frame.
-        val blockProductionReleased = jsonBoolean(account, "blockProductionReleased")
-        val accountScalar = decodeAccountScalar(secretKey)
 
         return NativeCredentialPlaintext(
             participantId = participantId,
-            accountId = accountId,
-            address = address,
-            publicKey = publicKey,
             bearerToken = bearer,
             bearerExpiresAt = bearerExpiresAt,
-            accountScalar = accountScalar,
-            blockProductionReleased = blockProductionReleased,
+            account = account,
         )
     }
 

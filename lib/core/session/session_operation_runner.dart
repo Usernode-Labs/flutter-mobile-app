@@ -365,9 +365,9 @@ final class SessionIdentityProjection {
   factory SessionIdentityProjection.ready({
     required String nativeRevision,
     required int participantId,
-    required String accountId,
-    required String address,
-    required String publicKey,
+    String? accountId,
+    String? address,
+    String? publicKey,
   }) {
     _validateNativeRevision(nativeRevision);
     if (participantId <= 0) {
@@ -377,14 +377,13 @@ final class SessionIdentityProjection {
         'Must be positive.',
       );
     }
-    if (accountId.isEmpty) {
-      throw ArgumentError.value(accountId, 'accountId', 'Must be nonempty.');
+    final accountFields = [accountId, address, publicKey];
+    final hasWallet = accountFields.every((value) => value != null);
+    if (!hasWallet && accountFields.any((value) => value != null)) {
+      throw ArgumentError('Wallet identity fields must be present together.');
     }
-    if (address.isEmpty) {
-      throw ArgumentError.value(address, 'address', 'Must be nonempty.');
-    }
-    if (publicKey.isEmpty) {
-      throw ArgumentError.value(publicKey, 'publicKey', 'Must be nonempty.');
+    if (hasWallet && accountFields.any((value) => value!.isEmpty)) {
+      throw ArgumentError('Wallet identity fields must be nonempty.');
     }
     return SessionIdentityProjection._(
       nativeRevision: nativeRevision,
@@ -418,6 +417,8 @@ final class SessionIdentityProjection {
   final String? accountId;
   final String? address;
   final String? publicKey;
+
+  bool get hasWallet => accountId != null;
 }
 
 /// The one immutable feature publication for an exact session state.

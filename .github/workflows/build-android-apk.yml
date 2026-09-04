@@ -240,6 +240,9 @@ jobs:
       - name: Build Android APK
         env:
           NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         run: |
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
@@ -255,7 +258,20 @@ jobs:
             --split-debug-info="$SPLIT_DEBUG_INFO_DIR" \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \
+            --dart-define=SENTRY_RELEASE=com.usernode_labs.usernode@${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }} \
+            --dart-define=SENTRY_DIST=${{ steps.version.outputs.build_number }} \
             --dart-define-from-file=.env
+
+      - name: Upload Android release debug files to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        run: >-
+          bash tool/upload-sentry-symbols.sh android
+          "${{ steps.version.outputs.version }}"
+          "${{ steps.version.outputs.build_number }}"
+          "build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -265,11 +281,13 @@ jobs:
           retention-days: 90
 
       - name: Upload Flutter split debug info (Dart/AOT)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: android-flutter-symbols-${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
           path: build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
           retention-days: 90
+          if-no-files-found: error
 
       - name: Build summary
         run: |

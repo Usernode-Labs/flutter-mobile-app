@@ -9,6 +9,9 @@ void main() {
     );
     expect(walletless.status, SessionProjectionStatus.ready);
     expect(walletless.hasWallet, isFalse);
+    expect(walletless.accountId, isNull);
+    expect(walletless.address, isNull);
+    expect(walletless.publicKey, isNull);
 
     final wallet = SessionIdentityProjection.ready(
       nativeRevision: '2',
@@ -18,6 +21,9 @@ void main() {
       publicKey: 'public-key',
     );
     expect(wallet.hasWallet, isTrue);
+    expect(wallet.accountId, '7');
+    expect(wallet.address, 'address');
+    expect(wallet.publicKey, 'public-key');
   });
 
   test('ready identity rejects partial wallet authority', () {

@@ -41,7 +41,7 @@ private final class IOSRecoveredCredential {
     let installFrameCount = installFrame?.count ?? 0
     installFrame?.resetBytes(in: 0..<installFrameCount)
     installFrame = nil
-    credential.accountScalar.resetBytes(in: 0..<credential.accountScalar.count)
+    credential.clearAccountScalar()
   }
 }
 
@@ -165,7 +165,7 @@ final class IOSNativeSessionVault {
     var credential = try NativeSessionProtocol.validateCredential(
       plaintext, binding: binding, installation: installation
     )
-    defer { credential.accountScalar.resetBytes(in: 0..<credential.accountScalar.count) }
+    defer { credential.clearAccountScalar() }
     let fingerprint = try credentialFingerprint(
       binding: binding, installation: installation, credential: credential
     )
@@ -297,6 +297,7 @@ final class IOSNativeSessionVault {
     do {
       let recovered = try recoverCredential(raw, includeInstallFrame: false)
       defer { recovered.close() }
+      guard recovered.credential.account != nil else { return .uncertain }
       switch try http().getProducerPolicy(bearer: recovered.credential.bearerToken) {
       case .success(let body, let lease):
         try applyCredentialLease(lease, recovered: recovered, required: true)
@@ -336,6 +337,9 @@ final class IOSNativeSessionVault {
     lock.lock(); defer { lock.unlock() }
     let recovered = try recoverForManagedCall()
     defer { recovered.close() }
+    guard recovered.credential.account != nil else {
+      try NativeSessionProtocol.fail("native_wallet_unavailable", "This session has no wallet")
+    }
     let response: IOSNativeHTTPResult
     if let delegated {
       response = try http().setProducerPolicy(
@@ -583,11 +587,14 @@ final class IOSNativeSessionVault {
     }
     let recovered = try recoverForManagedCall()
     defer { recovered.close() }
+    guard let account = recovered.credential.account else {
+      try NativeSessionProtocol.fail("native_wallet_unavailable", "This session has no wallet")
+    }
     _ = try requireManagedSuccess(
       http().completeZkPassport(
         bearer: recovered.credential.bearerToken,
         challengeId: challengeId,
-        walletAddress: recovered.credential.address,
+        walletAddress: account.address,
         sessionId: sessionId,
         nullifierHex: nullifierHex,
         completedAt: completedAt
@@ -819,7 +826,7 @@ final class IOSNativeSessionVault {
         storedRaw: raw, binding: binding, installFrame: frame, credential: credential
       )
     } catch {
-      credential.accountScalar.resetBytes(in: 0..<credential.accountScalar.count)
+      credential.clearAccountScalar()
       throw error
     }
   }
@@ -958,10 +965,15 @@ final class IOSNativeSessionVault {
     try NativeSessionProtocol.appendString(binding.credentialReference, maximum: 64, to: &frame)
     frame.appendUInt64(binding.credentialGeneration)
     try NativeSessionProtocol.appendString(credential.participantId, maximum: 32, to: &frame)
-    try NativeSessionProtocol.appendString(credential.accountId, maximum: 32, to: &frame)
-    try NativeSessionProtocol.appendString(credential.address, maximum: 128, to: &frame)
-    try NativeSessionProtocol.appendString(credential.publicKey, maximum: 128, to: &frame)
-    frame.append(credential.blockProductionReleased ? 1 : 0)
+    if let account = credential.account {
+      // Preserve the deployed wallet-backed fingerprint byte-for-byte.
+      try NativeSessionProtocol.appendString(account.accountId, maximum: 32, to: &frame)
+      try NativeSessionProtocol.appendString(account.address, maximum: 128, to: &frame)
+      try NativeSessionProtocol.appendString(account.publicKey, maximum: 128, to: &frame)
+      frame.append(account.blockProductionReleased ? 1 : 0)
+    } else {
+      frame.append(0)
+    }
     return NativeSessionProtocol.sha256(frame)
   }
 
@@ -1031,7 +1043,7 @@ final class IOSNativeSessionVault {
     commitment: Data
   ) throws -> Data {
     var frame = Data("UNSI".utf8)
-    frame.append(1); frame.append(1)
+    frame.append(2); frame.append(1)
     try NativeSessionProtocol.appendString(binding.attemptId, maximum: 64, to: &frame)
     frame.append(try NativeSessionProtocol.decodeHex32(binding.ticketHash, label: "ticket hash"))
     frame.append(try NativeSessionProtocol.decodeHex32(binding.requestDigest, label: "ticket request digest"))
@@ -1046,15 +1058,20 @@ final class IOSNativeSessionVault {
     try NativeSessionProtocol.appendString(binding.credentialReference, maximum: 64, to: &frame)
     frame.appendUInt64(binding.credentialGeneration)
     try NativeSessionProtocol.appendString(credential.participantId, maximum: 32, to: &frame)
-    try NativeSessionProtocol.appendString(credential.accountId, maximum: 32, to: &frame)
-    try NativeSessionProtocol.appendString(credential.address, maximum: 128, to: &frame)
-    try NativeSessionProtocol.appendString(credential.publicKey, maximum: 128, to: &frame)
     frame.appendUInt64(try epochMilliseconds(
       NativeSessionProtocol.requireCredentialLeaseCurrent(leaseExpiresAt)
     ))
-    frame.append(credential.blockProductionReleased ? 1 : 0)
     frame.append(commitment)
-    frame.append(credential.accountScalar)
+    if let account = credential.account {
+      frame.append(1)
+      try NativeSessionProtocol.appendString(account.accountId, maximum: 32, to: &frame)
+      try NativeSessionProtocol.appendString(account.address, maximum: 128, to: &frame)
+      try NativeSessionProtocol.appendString(account.publicKey, maximum: 128, to: &frame)
+      frame.append(account.blockProductionReleased ? 1 : 0)
+      frame.append(account.accountScalar)
+    } else {
+      frame.append(0)
+    }
     guard frame.count <= 1024 else {
       try NativeSessionProtocol.fail(
         "native_install_frame_too_large", "The native install frame is too large"
@@ -1105,6 +1122,9 @@ final class IOSNativeSessionVault {
     binding: NativeCredentialBinding,
     credential: NativeCredentialPlaintext
   ) throws -> Data {
+    guard let credentialAccount = credential.account else {
+      try NativeSessionProtocol.fail("native_wallet_unavailable", "This session has no wallet")
+    }
     guard response["success"] as? Bool == true,
           let data = response["data"] as? [String: Any],
           try NativeSessionProtocol.exactInt(data["protocol"], "policy protocol") == 1,
@@ -1126,8 +1146,8 @@ final class IOSNativeSessionVault {
     guard policyRevision.utf8.count <= 32,
           reference == binding.credentialReference,
           generation == binding.credentialGeneration,
-          accountId == credential.accountId,
-          address == credential.address,
+          accountId == credentialAccount.accountId,
+          address == credentialAccount.address,
           networkId == binding.networkId,
           chainId == binding.chainId,
           observed >= 0,

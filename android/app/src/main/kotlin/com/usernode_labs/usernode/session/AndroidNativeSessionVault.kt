@@ -205,7 +205,7 @@ internal class AndroidNativeSessionVault(context: Context) {
                 fingerprint.fill(0)
             }
         } finally {
-            credential.accountScalar.fill(0)
+            credential.account?.accountScalar?.fill(0)
         }
     }
 
@@ -342,6 +342,9 @@ internal class AndroidNativeSessionVault(context: Context) {
     fun stageProducerPolicy(delegated: Boolean?): ByteArray {
         val recovered = recoverCredentialForManagedCall()
         try {
+            if (recovered.credential.account == null) {
+                fail("native_wallet_unavailable", "This session has no wallet")
+            }
             val response = if (delegated == null) {
                 configuredHttp().getProducerPolicy(recovered.credential.bearerToken)
             } else {
@@ -611,11 +614,13 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
         val recovered = recoverCredentialForManagedCall()
         try {
+            val account = recovered.credential.account
+                ?: fail("native_wallet_unavailable", "This session has no wallet")
             requireManagedSuccess(
                 configuredHttp().completeLegacyZkPassport(
                     recovered.credential.bearerToken,
                     challengeId,
-                    recovered.credential.address,
+                    account.address,
                     sessionId,
                     nullifierHex,
                     completedAt,
@@ -640,6 +645,10 @@ internal class AndroidNativeSessionVault(context: Context) {
             }
             return AuthenticatedProducerMaterial.Uncertain
         } catch (_: Throwable) {
+            return AuthenticatedProducerMaterial.Uncertain
+        }
+        if (recovered.credential.account == null) {
+            recovered.close()
             return AuthenticatedProducerMaterial.Uncertain
         }
         return when (
@@ -945,7 +954,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             )
             return RecoveredCredential(storedRaw, binding, frame, credential)
         } catch (error: Throwable) {
-            credential.accountScalar.fill(0)
+            credential.account?.accountScalar?.fill(0)
             throw error
         } finally {
             commitment.fill(0)
@@ -1162,10 +1171,15 @@ internal class AndroidNativeSessionVault(context: Context) {
             writeString(binding.credentialReference, 64)
             writeLong(binding.credentialGeneration.toLong())
             writeString(credential.participantId, 32)
-            writeString(credential.accountId, 32)
-            writeString(credential.address, 128)
-            writeString(credential.publicKey, 128)
-            write(if (credential.blockProductionReleased) 1 else 0)
+            val account = credential.account
+            if (account == null) {
+                write(0)
+            } else {
+                writeString(account.accountId, 32)
+                writeString(account.address, 128)
+                writeString(account.publicKey, 128)
+                write(if (account.blockProductionReleased) 1 else 0)
+            }
         }
         return try {
             MessageDigest.getInstance("SHA-256").digest(frame)
@@ -1243,7 +1257,7 @@ internal class AndroidNativeSessionVault(context: Context) {
         leaseExpiresAt: String,
         commitment: ByteArray,
     ): ByteArray = buildFrame("UNSI") {
-        write(1)
+        write(2)
         write(1)
         writeString(binding.attemptId, 64)
         writeFixed(NativeSessionProtocol.decodeHex32(binding.ticketHash, "ticket hash"))
@@ -1274,17 +1288,23 @@ internal class AndroidNativeSessionVault(context: Context) {
         writeString(binding.credentialReference, 64)
         writeLong(binding.credentialGeneration.toLong())
         writeString(credential.participantId, 32)
-        writeString(credential.accountId, 32)
-        writeString(credential.address, 128)
-        writeString(credential.publicKey, 128)
         writeLong(
             NativeSessionProtocol.requireCredentialLeaseCurrent(
                 leaseExpiresAt,
             ).toEpochMilli(),
         )
-        write(if (credential.blockProductionReleased) 1 else 0)
         writeFixed(commitment)
-        writeFixed(credential.accountScalar)
+        val account = credential.account
+        if (account == null) {
+            write(0)
+        } else {
+            write(1)
+            writeString(account.accountId, 32)
+            writeString(account.address, 128)
+            writeString(account.publicKey, 128)
+            write(if (account.blockProductionReleased) 1 else 0)
+            writeFixed(account.accountScalar)
+        }
     }.also {
         if (it.size > MAX_INSTALL_FRAME_BYTES) {
             it.fill(0)
@@ -1503,7 +1523,7 @@ private class RecoveredCredential(
 ) {
     fun close() {
         installFrame.fill(0)
-        credential.accountScalar.fill(0)
+        credential.account?.accountScalar?.fill(0)
     }
 }
 

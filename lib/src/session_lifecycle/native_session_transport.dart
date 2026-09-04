@@ -228,17 +228,16 @@ final class _NativeSessionPlatformPort {
       const {'processRootProof', 'processTransportClaim'},
       'native process root bootstrap',
     );
-    final proof = value['processRootProof'];
-    final transportClaim = value['processTransportClaim'];
-    if (proof is! Uint8List ||
-        proof.length != 32 ||
-        transportClaim is! Uint8List ||
-        transportClaim.length != 32) {
-      throw const NativeSessionException(
-        'process_root_proof_invalid',
-        'The native process-root proof is invalid.',
-      );
-    }
+    final proof = _ownedNativeSecret(
+      value['processRootProof'],
+      code: 'process_root_proof_invalid',
+      message: 'The native process-root proof is invalid.',
+    );
+    final transportClaim = _ownedNativeSecret(
+      value['processTransportClaim'],
+      code: 'process_root_proof_invalid',
+      message: 'The native process-root proof is invalid.',
+    );
     _processTransportClaim = transportClaim;
     return proof;
   }
@@ -278,14 +277,11 @@ final class _NativeSessionPlatformPort {
     );
     final result =
         _exactMap(raw, const {'installClaim'}, 'native install result');
-    final claim = result['installClaim'];
-    if (claim is! Uint8List || claim.length != 32) {
-      throw const NativeSessionException(
-        'native_install_claim_invalid',
-        'The native credential install claim is invalid.',
-      );
-    }
-    return claim;
+    return _ownedNativeSecret(
+      result['installClaim'],
+      code: 'native_install_claim_invalid',
+      message: 'The native credential install claim is invalid.',
+    );
   }
 
   Future<void> discardUncommittedCredential({
@@ -365,12 +361,17 @@ final class _NativeSessionPlatformPort {
         if (value.keys
                 .toSet()
                 .difference(const {'status', 'installClaim'}).isNotEmpty ||
-            value.length != 2 ||
-            value['installClaim'] is! Uint8List ||
-            (value['installClaim']! as Uint8List).length != 32) {
+            value.length != 2) {
           break;
         }
-        return value;
+        return {
+          'status': 'present',
+          'installClaim': _ownedNativeSecret(
+            value['installClaim'],
+            code: 'native_recovery_result_invalid',
+            message: 'The native recovery result is invalid.',
+          ),
+        };
       case 'absent':
         if (value.keys
                 .toSet()
@@ -457,14 +458,11 @@ final class _NativeSessionPlatformPort {
       const {'installClaim'},
       'native producer policy stage',
     );
-    final claim = value['installClaim'];
-    if (claim is! Uint8List || claim.length != 32) {
-      throw const NativeSessionException(
-        'native_policy_claim_invalid',
-        'The native producer policy claim is invalid.',
-      );
-    }
-    return claim;
+    return _ownedNativeSecret(
+      value['installClaim'],
+      code: 'native_policy_claim_invalid',
+      message: 'The native producer policy claim is invalid.',
+    );
   }
 
   Future<SessionSocialPushStatus> readPushStatus({
@@ -2385,4 +2383,18 @@ String _canonicalString(Object? raw, String label) {
 String _canonicalErrorCode(Object? raw) {
   if (raw is String && RegExp(r'^[a-z0-9_]{1,64}$').hasMatch(raw)) return raw;
   return 'native_session_failed';
+}
+
+/// StandardMethodCodec may expose typed-data results as unmodifiable views.
+/// Copy opaque native values at the platform boundary so their sole Dart owner
+/// can reliably wipe them after the one authorized use.
+Uint8List _ownedNativeSecret(
+  Object? raw, {
+  required String code,
+  required String message,
+}) {
+  if (raw is! Uint8List || raw.length != 32) {
+    throw NativeSessionException(code, message);
+  }
+  return Uint8List.fromList(raw);
 }

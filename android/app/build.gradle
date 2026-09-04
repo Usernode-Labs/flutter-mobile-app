@@ -126,8 +126,7 @@ if (keystorePropertiesFile.exists()) {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             ndk {
-                // Generate and package native debug symbols (separate from the AAB),
-                // so Play Console can symbolicate native crash backtraces.
+                // Embed native debug symbols in AABs and generate the sidecar archive for APKs.
                 debugSymbolLevel 'FULL'
             }
         }

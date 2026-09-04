@@ -57,6 +57,7 @@ require_sentry_environment() {
 
 validate_android_symbols() {
   local symbols_dir="$1"
+  local release_artifact="$2"
   local symbol
   local dart_symbol_found=false
   local rust_symbol_found=false
@@ -76,11 +77,28 @@ validate_android_symbols() {
     fail "no non-empty app.*.symbols file found in $symbols_dir"
 
   require_file "$ANDROID_MAPPING" "Android R8 mapping"
-  require_file "$ANDROID_NATIVE_SYMBOLS" "Android native debug-symbol archive"
+  require_file "$release_artifact" "Android release artifact"
 
-  native_entries="$(unzip -Z1 "$ANDROID_NATIVE_SYMBOLS")"
-  [[ "$native_entries" == *"arm64-v8a/libusernode.so.dbg"* ]] ||
-    fail "$ANDROID_NATIVE_SYMBOLS does not contain the arm64 Rust debug companion"
+  case "$release_artifact" in
+    *.aab)
+      if ! native_entries="$(unzip -Z1 "$release_artifact")"; then
+        fail "Android App Bundle is not a readable ZIP archive at $release_artifact"
+      fi
+      [[ "$native_entries" == *"BUNDLE-METADATA/com.android.tools.build.debugsymbols/arm64-v8a/libusernode.so.dbg"* ]] ||
+        fail "$release_artifact does not contain the arm64 Rust debug companion"
+      ;;
+    *.apk)
+      require_file "$ANDROID_NATIVE_SYMBOLS" "Android native debug-symbol archive"
+      if ! native_entries="$(unzip -Z1 "$ANDROID_NATIVE_SYMBOLS")"; then
+        fail "Android native debug-symbol archive is not readable at $ANDROID_NATIVE_SYMBOLS"
+      fi
+      [[ "$native_entries" == *"arm64-v8a/libusernode.so.dbg"* ]] ||
+        fail "$ANDROID_NATIVE_SYMBOLS does not contain the arm64 Rust debug companion"
+      ;;
+    *)
+      fail "unsupported Android release artifact: $release_artifact"
+      ;;
+  esac
 
   while IFS= read -r symbol; do
     if [[ -s "$symbol" ]]; then
@@ -100,8 +118,8 @@ validate_ios_symbols() {
   require_dsym "rust_lib_crypto_mobile_app.framework.dSYM"
 }
 
-if (( $# < 3 || $# > 4 )); then
-  fail "usage: $0 <android|ios> <version> <build-number> [android-symbols-directory]"
+if (( $# < 3 || $# > 5 )); then
+  fail "usage: $0 <android|ios> <version> <build-number> [android-symbols-directory android-release-artifact]"
 fi
 
 readonly platform="$1"
@@ -116,13 +134,14 @@ require_sentry_environment
 
 case "$platform" in
   android)
-    (( $# == 4 )) || fail "Android upload requires the split-debug-info directory"
+    (( $# == 5 )) || fail "Android upload requires the split-debug-info directory and release artifact"
     readonly symbols_path="$4"
+    readonly release_artifact_path="$5"
     readonly package_id="$ANDROID_APPLICATION_ID"
-    validate_android_symbols "$symbols_path"
+    validate_android_symbols "$symbols_path" "$release_artifact_path"
     ;;
   ios)
-    (( $# == 3 )) || fail "iOS upload does not accept an Android symbols directory"
+    (( $# == 3 )) || fail "iOS upload does not accept Android-specific arguments"
     readonly symbols_path="$IOS_DSYMS"
     readonly package_id="$IOS_BUNDLE_ID"
     validate_ios_symbols

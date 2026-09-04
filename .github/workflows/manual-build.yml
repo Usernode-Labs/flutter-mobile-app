@@ -275,6 +275,7 @@ jobs:
           "${{ steps.version.outputs.version_number }}"
           "${{ steps.version.outputs.build_number }}"
           "build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}"
+          "${{ steps.env_config.outputs.aab_path }}"
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
@@ -299,7 +300,6 @@ jobs:
           packageName: com.usernode_labs.usernode
           releaseFiles: ${{ steps.env_config.outputs.aab_path }}
           mappingFile: build/app/outputs/mapping/release/mapping.txt
-          debugSymbols: build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip
           track: ${{ steps.env_config.outputs.track }}
           status: draft
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}

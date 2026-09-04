@@ -239,6 +239,9 @@ jobs:
       - name: Build Android AAB
         env:
           NDK_ROOT: ${{ steps.ndk.outputs.ndk_root }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         run: |
           export BINDGEN_EXTRA_CLANG_ARGS="--sysroot=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
           export CARGO_TARGET_AARCH64_LINUX_ANDROID_CC="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
@@ -256,10 +259,23 @@ jobs:
             --split-debug-info="$SPLIT_DEBUG_INFO_DIR" \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \
+            --dart-define=SENTRY_RELEASE=com.usernode_labs.usernode@${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }} \
+            --dart-define=SENTRY_DIST=${{ steps.version.outputs.build_number }} \
             --dart-define-from-file=.env
 
       - name: Verify Android AAB
         run: test -s "${{ steps.env_config.outputs.aab_path }}"
+
+      - name: Upload Android release debug files to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        run: >-
+          bash tool/upload-sentry-symbols.sh android
+          "${{ steps.version.outputs.version }}"
+          "${{ steps.version.outputs.build_number }}"
+          "build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}"
 
       - name: Report build-only run
         if: inputs.publish_release == false
@@ -278,38 +294,13 @@ jobs:
           retention-days: 90
 
       - name: Upload Flutter split debug info (Dart/AOT)
-        if: inputs.publish_release
+        if: inputs.publish_release && always()
         uses: actions/upload-artifact@v4
         with:
           name: android-flutter-symbols-${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
           path: build/flutter_symbols/android/${{ steps.env_config.outputs.env_type }}-${{ steps.version.outputs.build_number }}
           retention-days: 90
-
-      # FIXME(2025-12-17): Temporarily disable Play Console symbol uploads.
-      # This step hard-fails the workflow when the expected files are not generated:
-      # - android/app/build/outputs/mapping/<variant>/mapping.txt
-      # - android/app/build/outputs/native-debug-symbols/<variant>/native-debug-symbols.zip
-      # Re-enable once the Android Gradle Plugin/Flutter build is confirmed to generate these
-      # outputs for our release variants (e.g. internalRelease) in CI.
-      # - name: Locate Play Console symbol files
-      #   id: play_symbols
-      #   run: |
-      #     set -euo pipefail
-      #     VARIANT="Release"
-      #     MAPPING="android/app/build/outputs/mapping/$VARIANT/mapping.txt"
-      #     SYMBOLS="android/app/build/outputs/native-debug-symbols/$VARIANT/native-debug-symbols.zip"
-      #     if [ ! -f "$MAPPING" ]; then
-      #       echo "R8 mapping.txt not found at $MAPPING" >&2
-      #       ls -la "android/app/build/outputs/mapping" || true
-      #       exit 1
-      #     fi
-      #     if [ ! -f "$SYMBOLS" ]; then
-      #       echo "native-debug-symbols.zip not found at $SYMBOLS" >&2
-      #       ls -la "android/app/build/outputs/native-debug-symbols" || true
-      #       exit 1
-      #     fi
-      #     echo "mapping=$MAPPING" >> "$GITHUB_OUTPUT"
-      #     echo "symbols=$SYMBOLS" >> "$GITHUB_OUTPUT"
+          if-no-files-found: error
 
       - name: Deploy to Track
         if: inputs.publish_release
@@ -318,9 +309,8 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.usernode_labs.usernode
           releaseFiles: ${{ steps.env_config.outputs.aab_path }}
-          # FIXME(2025-12-17): Re-enable when `Locate Play Console symbol files` is restored.
-          # mappingFile: ${{ steps.play_symbols.outputs.mapping }}
-          # debugSymbols: ${{ steps.play_symbols.outputs.symbols }}
+          mappingFile: build/app/outputs/mapping/release/mapping.txt
+          debugSymbols: build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip
           track: ${{ steps.env_config.outputs.track }}
           status: draft
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}
@@ -600,6 +590,8 @@ jobs:
             --release
             --build-number=${{ steps.version.outputs.build_number }}
             --build-name=${{ steps.version.outputs.version }}
+            --dart-define=SENTRY_RELEASE=org.usernode.app@${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }}
+            --dart-define=SENTRY_DIST=${{ steps.version.outputs.build_number }}
             --dart-define-from-file=.env
             --export-options-plist=ios/ExportOptions.plist
           )
@@ -620,6 +612,25 @@ jobs:
             exit 1
           fi
           echo "ipa_path=${IPAS[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload iOS release debug files to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        run: >-
+          bash tool/upload-sentry-symbols.sh ios
+          "${{ steps.version.outputs.version }}"
+          "${{ steps.version.outputs.build_number }}"
+
+      - name: Upload iOS debug symbols artifact
+        if: inputs.publish_release && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-debug-symbols-${{ steps.version.outputs.build_number }}
+          path: build/ios/archive/Runner.xcarchive/dSYMs
+          retention-days: 90
+          if-no-files-found: error
 
       - name: Report build-only run
         if: inputs.publish_release == false

@@ -4,6 +4,18 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+def sentryAuthToken = System.getenv('SENTRY_AUTH_TOKEN')
+def sentryOrg = System.getenv('SENTRY_ORG')
+def sentryProject = System.getenv('SENTRY_PROJECT')
+def sentryCiConfigured = [sentryAuthToken, sentryOrg, sentryProject]
+    .every { value -> value != null && !value.trim().isEmpty() }
+
+if (sentryCiConfigured) {
+    apply plugin: 'io.sentry.android.gradle'
+} else {
+    logger.lifecycle('Sentry CI upload environment is incomplete; skipping Sentry Android build tooling.')
+}
+
 // Firebase identity is provisioned by the build environment. Keep local
 // checkouts without a client file buildable; Dart then exposes push as
 // unavailable instead of silently targeting an unintended project.
@@ -122,6 +134,34 @@ if (keystorePropertiesFile.exists()) {
     }
 
 
+}
+
+if (sentryCiConfigured) {
+    sentry {
+        org = sentryOrg
+        projectName = sentryProject
+        authToken = sentryAuthToken
+
+        includeProguardMapping = true
+        autoUploadProguardMapping = true
+        uploadNativeSymbols = true
+        autoUploadNativeSymbols = true
+        includeNativeSources = false
+        includeSourceContext = false
+
+        // Symbol publication must not add SDKs or change runtime behavior.
+        tracingInstrumentation {
+            enabled = false
+        }
+        runtimeOptimizations {
+            enabled = false
+        }
+        autoInstallation {
+            enabled = false
+        }
+        includeDependenciesReport = false
+        telemetry = false
+    }
 }
 
 flutter {

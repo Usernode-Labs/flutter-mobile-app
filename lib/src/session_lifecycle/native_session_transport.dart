@@ -1688,8 +1688,8 @@ final class _NativeSessionCompositionRoot
 
   Future<void> _commitNativeRetirement(int nativeRevision) async {
     // Rust deliberately leaves warm definitive absence as RecoveryRequired so
-    // Android wake paths can terminate. The process latch also covers iOS and
-    // foreground Android paths with an inert surface until natural relaunch.
+    // Android wake paths can terminate. The process latch also closes native
+    // operations on iOS and foreground Android until natural relaunch.
     _enterRecoveryRequired();
     final signedOut = SessionIdentityProjection.signedOut(
       nativeRevision: nativeRevision.toString(),

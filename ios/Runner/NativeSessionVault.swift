@@ -604,6 +604,8 @@ final class IOSNativeSessionVault {
     return ["challengeId": challengeId]
   }
 
+  // Producer scheduling bookkeeping only; account authorization reads Rust's
+  // authenticated session directly, including when no producer exists.
   func setReadyRevision(_ revision: UInt64) {
     lock.lock(); defer { lock.unlock() }
     defaults.set(String(revision), forKey: Self.readyRevisionKey)
@@ -614,8 +616,6 @@ final class IOSNativeSessionVault {
     guard let raw = defaults.string(forKey: Self.readyRevisionKey) else { return nil }
     return UInt64(raw)
   }
-
-  func isReadyRevision(_ revision: UInt64) -> Bool { readyRevision() == revision }
 
   func clearReadyRevision(expected: UInt64) throws {
     lock.lock(); defer { lock.unlock() }

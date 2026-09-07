@@ -143,11 +143,6 @@ internal object NativeProducerWakeCoordinator {
         }
     }
 
-    fun isReady(context: Context, expectedRevision: Long): Boolean = synchronized(runLock) {
-        NativeProducerWakeStore(context.applicationContext).current()?.readyRevision ==
-            expectedRevision
-    }
-
     private fun run(
         context: Context,
         source: ProducerWakeSource,

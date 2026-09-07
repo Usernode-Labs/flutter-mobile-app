@@ -415,7 +415,7 @@ internal class InteractiveNativeSessionChannel(
         val arguments = exactArguments(call.arguments, expected, label)
         requireProcessTransportClaim(arguments)
         val revision = exactLong(arguments["expectedRevision"], "expected revision")
-        if (!NativeProducerWakeCoordinator.isReady(applicationContext, revision)) {
+        if (!NativeSessionRust.nativeIsManagedSessionCurrentV1(revision)) {
             fail("native_session_not_current", "The native session is not current")
         }
         return arguments

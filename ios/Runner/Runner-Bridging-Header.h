@@ -9,6 +9,7 @@ int32_t usernode_mobile_issue_process_root_proof_v1(
     uint8_t *output,
     size_t capacity);
 int32_t usernode_mobile_revoke_process_root_v1(void);
+int32_t usernode_mobile_validate_managed_session_revision_v1(uint64_t expected_revision);
 int32_t usernode_mobile_stage_installed_credential_v1(
     uint8_t *mutable_frame,
     size_t length,

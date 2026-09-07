@@ -659,6 +659,10 @@ class SocialPushService {
       _deliveryActive = reply.deliveryActive;
     } on SocialPushApiException catch (error) {
       if (_session?.sameCredentialAs(session) == true) {
+        debugPrint(
+          '[SocialPush] Registration failed '
+          '(status=${error.statusCode}, code=${error.code ?? 'unknown'})',
+        );
         _clearRegisteredSignature();
         _registrationStatus = SocialPushRegistrationStatus.error;
         _deliveryActive = false;

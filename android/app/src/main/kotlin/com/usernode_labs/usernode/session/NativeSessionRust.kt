@@ -18,6 +18,9 @@ internal object NativeSessionRust {
 
     external fun nativeRevokeProcessRoot()
 
+    /** Authenticated session readiness does not require a wallet or producer. */
+    external fun nativeIsManagedSessionCurrentV1(expectedRevision: Long): Boolean
+
     external fun nativeStageInstalledCredential(frame: ByteArray): ByteArray
 
     external fun nativeStageColdInstalledCredentialV1(frame: ByteArray): ByteArray

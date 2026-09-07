@@ -60,6 +60,10 @@ enum IOSNativeSessionRust {
 
   static func revokeProcessRoot() { _ = usernode_mobile_revoke_process_root_v1() }
 
+  static func isManagedSessionCurrent(_ revision: UInt64) -> Bool {
+    usernode_mobile_validate_managed_session_revision_v1(revision) == 0
+  }
+
   static func stageInstalledCredential(_ frame: inout Data) throws -> Data {
     try mutableInputOutput(&frame, capacity: 32, code: "native_install_claim_invalid") {
       usernode_mobile_stage_installed_credential_v1($0, $1, $2, $3)
@@ -838,7 +842,7 @@ final class IOSNativeSessionChannel {
   private func managed(_ call: FlutterMethodCall, keys: Set<String>) throws -> [String: Any] {
     let arguments = try authorized(call, keys: keys)
     let revision = try NativeSessionProtocol.exactUInt64(arguments["expectedRevision"], "expected revision")
-    guard vault.isReadyRevision(revision) else {
+    guard IOSNativeSessionRust.isManagedSessionCurrent(revision) else {
       try NativeSessionProtocol.fail("native_session_not_current", "The native session is not current")
     }
     return arguments

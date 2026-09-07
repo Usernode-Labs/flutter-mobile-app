@@ -299,7 +299,6 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.usernode_labs.usernode
           releaseFiles: ${{ steps.env_config.outputs.aab_path }}
-          mappingFile: build/app/outputs/mapping/release/mapping.txt
           track: ${{ steps.env_config.outputs.track }}
           status: draft
           inAppUpdatePriority: ${{ steps.env_config.outputs.track == 'production' && '5' || '2' }}

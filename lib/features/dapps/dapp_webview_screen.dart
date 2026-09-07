@@ -139,8 +139,6 @@ abstract class _DappWebViewScreenStateBase
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
   late final BridgeAdmissionCoordinator _bridgeAdmissionCoordinator;
   PrivilegedBridgeLease? _readyMainFrameLease;
-  StreamSubscription<void>? _nativeTerminalRetirementSubscription;
-  bool _terminallyInert = false;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
   /// the WebView can invoke after this screen is disposed — read through it
@@ -167,10 +165,6 @@ abstract class _DappWebViewScreenStateBase
   }
 
   void _replaceRetiredSessionDocument() {
-    if (widget._nativeSessionBridge.terminallyRetired) {
-      _latchTerminalSessionDocument();
-      return;
-    }
     final delegate = widget.onSessionEnded;
     if (delegate != null) {
       delegate();
@@ -179,19 +173,6 @@ abstract class _DappWebViewScreenStateBase
     if (!mounted) return;
     _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
     unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
-  }
-
-  void _latchTerminalSessionDocument({bool notify = true}) {
-    if (_terminallyInert) return;
-    _readyMainFrameLease = null;
-    _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
-    if (notify && mounted) {
-      setState(() {
-        _terminallyInert = true;
-      });
-    } else {
-      _terminallyInert = true;
-    }
   }
 
   // First main-frame load outcome has been reported via
@@ -487,15 +468,13 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       policy: _privilegedBridgePolicy,
       markRealmReady: _seedReadyMainFrame,
     );
-    _nativeTerminalRetirementSubscription =
-        widget._nativeSessionBridge.terminalRetirements.listen((_) {
-      _latchTerminalSessionDocument();
-    });
-    if (widget._nativeSessionBridge.terminallyRetired) {
-      _latchTerminalSessionDocument(notify: false);
-    } else {
-      unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
-    }
+    // TODO(native-session-recovery): Temporary white-screen hotfix. Restore
+    // terminal document retirement only after the initiating native failure is
+    // fixed and retirement can show a usable recovery/sign-in successor. For
+    // now the authenticated web session intentionally survives native failure;
+    // native operations stay closed, but web/native sign-out is not atomic.
+    // Keep the document and bridge replies alive so Social can show the error.
+    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
     // Android WebView shows no OS file chooser for <input type="file">
     // unless the host app registers one (WebChromeClient.onShowFileChooser)
     // — without this, upload controls in dapps (including cross-origin
@@ -530,10 +509,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   }
 
   Future<void> _applyWidgetNavigation(int revision) async {
-    if (widget._nativeSessionBridge.terminallyRetired) {
-      _latchTerminalSessionDocument();
-      return;
-    }
     final next = parseDappUrl(widget.url);
     Uri? current;
     try {
@@ -621,7 +596,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
 
   @override
   void dispose() {
-    unawaited(_nativeTerminalRetirementSubscription?.cancel());
     _bridgeAdmissionCoordinator.dispose();
     _readyMainFrameLease = null;
     _privilegedBridgePolicy.dispose();
@@ -658,9 +632,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // platform view inside a scrollable starves it of buffers and ANRs the app
     // (BLASTBufferQueue "can't acquire next buffer").
     final colors = Theme.of(context).colorScheme;
-    final webView = _terminallyInert
-        ? const SizedBox.expand()
-        : WebViewWidget(controller: _controller);
+    final webView = WebViewWidget(controller: _controller);
 
     return PopScope(
       // Take over the route-pop handler so the device/system back button
@@ -705,7 +677,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   // back goes to app, not out of the dapp) and only falls through to
   // popping the Flutter route once the WebView is at its root.
   Future<void> _handleBack() async {
-    if (!_terminallyInert && await _controller.canGoBack()) {
+    if (await _controller.canGoBack()) {
       await _controller.goBack();
       return;
     }

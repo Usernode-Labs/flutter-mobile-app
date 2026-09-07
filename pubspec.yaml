@@ -49,6 +49,7 @@ dependencies:
   firebase_core: ^4.12.1
   firebase_messaging: ^16.4.3
 dev_dependencies:
+  webview_flutter_platform_interface: ^2.14.0
   flutter_lints: "^5.0.0"
   flutter_test:
     sdk: flutter

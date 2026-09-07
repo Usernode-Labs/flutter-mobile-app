@@ -118,7 +118,7 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   }
 
   String get _shellUrl {
-    final base = AppConfig.dappsTabUrl.trim();
+    final base = AppConfig.platformBaseUrl.trim();
     final hash = widget.initialHash;
     if (hash == null || hash.isEmpty) return base;
     return '$base#$hash';

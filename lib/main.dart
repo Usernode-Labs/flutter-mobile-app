@@ -32,8 +32,6 @@ import 'package:crypto_mobile_app/core/services/observability_reporting_service.
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
-import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
-import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';

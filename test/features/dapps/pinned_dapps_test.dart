@@ -21,20 +21,46 @@ void main() {
   });
 
   group('PinnedDapp.routeForUrl', () {
-    test('takes the platform hash route out of a pin URL', () {
+    // The regression this exists for: the platform pins clean app URLs
+    // (`<origin>/app/<slug>`). Reading only the fragment saw '' here, the old
+    // remap saw "not a platform URL", and the tile opened in native browser
+    // chrome over the platform's own header — issue #1489's double headers.
+    test('reads a clean app URL, the shape the platform pins today', () {
+      expect(
+        PinnedDapp.routeForUrl('https://sv.example.org/app/echo'),
+        'app/echo',
+      );
+    });
+
+    test('reads the legacy fragment form too', () {
       expect(
         PinnedDapp.routeForUrl('https://sv.example.org/#app/echo'),
         'app/echo',
       );
     });
 
-    test('a URL with no fragment addresses the platform root', () {
+    test('a fragment wins over the path, as in the platform router', () {
+      expect(
+        PinnedDapp.routeForUrl('https://sv.example.org/app/echo#settings'),
+        'settings',
+      );
+    });
+
+    test('deeper app routes survive intact', () {
+      expect(
+        PinnedDapp.routeForUrl('https://sv.example.org/app/echo/board'),
+        'app/echo/board',
+      );
+    });
+
+    test('a bare origin or unreadable URL addresses the platform root', () {
       expect(PinnedDapp.routeForUrl('https://sv.example.org/'), '');
+      expect(PinnedDapp.routeForUrl('https://sv.example.org'), '');
       expect(PinnedDapp.routeForUrl('not a url'), '');
       expect(PinnedDapp.routeForUrl(''), '');
     });
 
-    test('the route is origin-independent', () {
+    test('the route is origin-independent, in both shapes', () {
       // Same tile, three deployments. The recorded route is identical, which
       // is what lets a tile outlive a change of platform base URL.
       for (final origin in [
@@ -42,6 +68,7 @@ void main() {
         'https://staging.example.org:8443',
         'http://localhost:8000',
       ]) {
+        expect(PinnedDapp.routeForUrl('$origin/app/echo'), 'app/echo');
         expect(PinnedDapp.routeForUrl('$origin/#app/echo'), 'app/echo');
       }
     });
@@ -80,15 +107,17 @@ void main() {
       expect(restored.route, 'app/echo');
     });
 
-    test('a legacy entry with no fragment migrates to the platform root', () {
+    test('a legacy clean-app-URL entry migrates to its app route', () {
+      // These are the tiles actually stranded today: pinned after clean app
+      // URLs shipped, stored with no route, and unreadable by the old remap.
       final restored = PinnedDapp.fromJson({
         'id': 'abc123def456',
         'name': 'Echo',
-        'url': 'https://dead-origin.example.org/echo',
+        'url': 'https://dead-origin.example.org/app/echo',
         'iconUrl': '',
         'pinnedAtMs': 1,
       });
-      expect(restored.route, '');
+      expect(restored.route, 'app/echo');
     });
   });
 
@@ -215,7 +244,8 @@ void main() {
 
       final pinned = await container.read(pinnedDappsProvider.notifier).pin(
             name: 'Echo',
-            url: 'https://sv.example.org/#app/echo',
+            // The shape the platform actually sends today.
+            url: 'https://sv.example.org/app/echo',
             iconUrl: '',
           );
       expect(pinned.route, 'app/echo');

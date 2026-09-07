@@ -11,8 +11,9 @@ class PinnedDapp {
   final String name;
   final String url;
 
-  /// The platform hash route this tile opens (`app/<slug>`), without the
-  /// leading `#`. Empty means the platform root.
+  /// The platform route this tile opens (`app/<slug>`), in the fragment form
+  /// the shell navigates by — no leading `#` or `/`. Empty means the platform
+  /// root.
   ///
   /// This — not [url] — is what a launch resolves through, and it is the whole
   /// reason a tile survives an origin change. Pinning is gated on a privileged
@@ -45,14 +46,40 @@ class PinnedDapp {
   static String idForUrl(String url) =>
       sha256.convert(utf8.encode(url)).toString().substring(0, 12);
 
-  /// The platform hash route [url] addresses, without the leading `#`.
+  /// The platform route [url] addresses, in the fragment form the shell
+  /// navigates by — no leading `#` or `/`.
   ///
-  /// The platform pins its apps as `<origin>/#app/<slug>`, so the fragment is
-  /// exactly the origin-independent half. A URL carrying no fragment yields
-  /// `''` — the platform root, which is where a tile predating hash-route
-  /// pinning should land rather than in a browser.
-  static String routeForUrl(String url) =>
-      Uri.tryParse(url.trim())?.fragment ?? '';
+  /// The platform has pinned two shapes over its life, and both are still live
+  /// routes in its own router:
+  ///
+  ///   - `<origin>/app/<slug>` — clean app URLs, what it pins today.
+  ///   - `<origin>/#app/<slug>` — the legacy fragment form.
+  ///
+  /// A fragment wins when a URL somehow carries both, matching the platform
+  /// router's own rule that a hash beats the pathname.
+  ///
+  /// Reading only the fragment is what the previous remap did, and it is why a
+  /// path-form pin — every tile pinned since clean app URLs shipped — was read
+  /// as "not a platform URL" and dead-ended in native browser chrome.
+  ///
+  /// Anything without a host (a bare slug, an unparseable string) yields `''`,
+  /// the platform root: the right landing for a tile this app cannot read, and
+  /// never a browser.
+  static String routeForUrl(String url) {
+    final uri = Uri.tryParse(url.trim());
+    if (uri == null || uri.host.isEmpty) return '';
+    final fragment = _stripLeadingSlashes(uri.fragment.trim());
+    if (fragment.isNotEmpty) return fragment;
+    return _stripLeadingSlashes(uri.path);
+  }
+
+  static String _stripLeadingSlashes(String value) {
+    var index = 0;
+    while (index < value.length && value[index] == '/') {
+      index++;
+    }
+    return value.substring(index);
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,

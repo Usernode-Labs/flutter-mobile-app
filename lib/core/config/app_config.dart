@@ -101,21 +101,32 @@ class AppConfig {
     defaultValue: false,
   );
 
-  // URL used by the dApps tab when the user toggles it into "external
-  // hub" mode by long-pressing the bottom-nav Dapps icon. The toggle is
-  // off by default (so the tab opens to the original list of dapps);
-  // long-press flips it on and the dapps tab re-renders as a single
-  // full-bleed WebView pointing at this URL. The page still receives
-  // the native Usernode JS bridge (submitTransaction and signMessage) and
-  // tx-confirmation chrome, so any dapp hub hosted
-  // here behaves like a native-installed dapp.
-  //
-  // Set to an empty string to disable the toggle entirely (long-press
-  // becomes a no-op).
-  //
-  // Example:
-  //   flutter run --dart-define=DAPPS_TAB_URL=https://some.other.hub/
-  static const String dappsTabUrl = String.fromEnvironment(
+  /// Base URL of the platform web app. This is the app: the SV shell loads it
+  /// full-bleed as the home route, and its *origin* is the trust boundary the
+  /// privileged bridge admits (see `PrivilegedBridgePolicy.trustedOrigin`).
+  ///
+  /// It is deliberately NOT a routing oracle. Nothing compares a stored URL
+  /// against this constant to decide where a launch goes — homescreen tiles
+  /// record their platform-relative route at pin time instead
+  /// (`PinnedDapp.route`), so changing this value can no longer strand tiles
+  /// that were pinned under the previous one.
+  ///
+  /// A path is honoured (the shell loads `<base>#<route>`), so the platform
+  /// may be mounted at a subpath.
+  ///
+  /// Example:
+  ///   flutter run --dart-define=PLATFORM_BASE_URL=https://some.other.host/
+  static String get platformBaseUrl =>
+      _platformBaseUrl.isNotEmpty ? _platformBaseUrl : _legacyDappsTabUrl;
+
+  static const String _platformBaseUrl = String.fromEnvironment(
+    'PLATFORM_BASE_URL',
+  );
+
+  /// Deprecated alias for `PLATFORM_BASE_URL`, still read so existing build
+  /// `.env` files and CI pipelines keep working. Remove after those have
+  /// migrated to the new name.
+  static const String _legacyDappsTabUrl = String.fromEnvironment(
     'DAPPS_TAB_URL',
     defaultValue: 'https://social-vibecoding.usernodelabs.org/',
   );
@@ -126,13 +137,6 @@ class AppConfig {
   static const bool enableLocalPrivilegedBridge = bool.fromEnvironment(
     'ENABLE_LOCAL_PRIVILEGED_BRIDGE',
     defaultValue: false,
-  );
-
-  // Optional display name shown in the AppBar when [dappsTabUrl] is set.
-  // Falls back to the URL host when empty.
-  static const String dappsTabName = String.fromEnvironment(
-    'DAPPS_TAB_NAME',
-    defaultValue: '',
   );
 
   // Observability hub intake base URL for node startup.

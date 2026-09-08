@@ -64,10 +64,10 @@ extension on WebViewController {
   }
 }
 
-/// Full-screen chromeless webview hosting the SV platform (app-as-SV-chrome),
-/// plus the compatibility fallback for pinned URLs that cannot be remapped
-/// into SV's fragment router. Native code contributes the JS bridge,
-/// system-back handling, and transaction-confirmation chrome.
+/// Full-screen chromeless webview hosting the SV platform (app-as-SV-chrome).
+/// Native code contributes the JS bridge, system-back handling, and
+/// transaction-confirmation chrome — never a title bar: the page owns its own
+/// header on every surface, homescreen-tile launches included.
 class DappWebViewScreen extends ConsumerStatefulWidget {
   final String url;
 
@@ -79,16 +79,6 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   /// shell distinguish a repeat shortcut tap from an unrelated rebuild with
   /// unchanged widget properties.
   final Object? navigationRequest;
-
-  /// Whether iOS restricts this webview to WKAppBoundDomains. The SV shell
-  /// needs this for service workers; compatibility fallback pins must disable
-  /// it so their exact non-SV URL can load.
-  final bool appBoundDomainsOnly;
-
-  /// Restores the compatibility browser contract for pins that cannot be
-  /// folded into the SV shell: visible home chrome, an admitted ordinary
-  /// dapp session, and standalone node lifecycle handling.
-  final bool standalone;
 
   /// Invoked when a voluntary sign-out has fully settled, for owners that can
   /// replace this screen with a colder successor than an in-place document
@@ -116,8 +106,6 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
     required this.url,
     required this.name,
     this.navigationRequest,
-    this.appBoundDomainsOnly = true,
-    this.standalone = false,
     this.onSessionEnded,
     this.onFirstLoadResult,
     required NativeSessionBridgeIngress nativeSessionBridge,
@@ -402,7 +390,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     final PlatformWebViewControllerCreationParams creationParams;
     if (WebViewPlatform.instance is WebKitWebViewPlatform) {
       creationParams = WebKitWebViewControllerCreationParams(
-        limitsNavigationsToAppBoundDomains: widget.appBoundDomainsOnly,
+        limitsNavigationsToAppBoundDomains: true,
       );
     } else {
       creationParams = const PlatformWebViewControllerCreationParams();
@@ -459,7 +447,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         ),
       );
     _privilegedBridgePolicy = PrivilegedBridgePolicy(
-      trustedOrigin: Uri.tryParse(AppConfig.dappsTabUrl),
+      trustedOrigin: Uri.tryParse(AppConfig.platformBaseUrl),
       allowLocalDevelopment:
           kDebugMode && AppConfig.enableLocalPrivilegedBridge,
       evaluateTopFrame: _controller.runJavaScriptReturningResult,
@@ -648,24 +636,15 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       },
       child: Scaffold(
         backgroundColor: colors.surfaceContainerLowest,
-        appBar: widget.standalone
-            ? AppBar(
-                leading: IconButton(
-                  tooltip: 'Home',
-                  onPressed: _leaveStandaloneBrowser,
-                  icon: const Icon(Symbols.home_sharp),
-                ),
-                title: Text(widget.name),
-              )
-            : null,
+        // No appBar, on any surface. The page owns its own header; the only
+        // native chrome over this webview is the transaction confirmation
+        // sheet. SafeArea keeps it out from under the OS status bar.
         body: ColoredBox(
           color: colors.surfaceContainerLowest,
-          child: widget.standalone
-              ? webView
-              : SafeArea(
-                  bottom: false,
-                  child: webView,
-                ),
+          child: SafeArea(
+            bottom: false,
+            child: webView,
+          ),
         ),
       ),
     );
@@ -682,14 +661,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       return;
     }
     if (!mounted) return;
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    } else {
-      context.go(AppRoutes.home);
-    }
-  }
-
-  void _leaveStandaloneBrowser() {
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
     } else {

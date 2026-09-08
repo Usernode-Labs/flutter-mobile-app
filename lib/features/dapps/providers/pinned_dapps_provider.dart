@@ -50,6 +50,10 @@ class PinnedDappsNotifier extends AsyncNotifier<List<PinnedDapp>> {
       id: PinnedDapp.idForUrl(url),
       name: name,
       url: url,
+      // The caller has already been proven to be on the platform origin by
+      // the privileged bridge lease, so the fragment is recorded here
+      // unconditionally — no origin comparison now, and none later at launch.
+      route: PinnedDapp.routeForUrl(url),
       iconUrl: iconUrl,
       pinnedAtMs: DateTime.now().millisecondsSinceEpoch,
     );

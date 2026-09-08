@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
-
 class AppRoutes {
   // Core routes. Login/onboarding is platform-owned (SV web) — the app has
   // no native auth or onboarding routes; splash goes straight to home, which
@@ -33,36 +31,22 @@ class AppRoutes {
   static const zkIdentityFlow = '/challenges/zk-identity/flow';
 }
 
-/// Remaps a pinned dapp's URL into the SV-shell home route when the URL
-/// lives on the trusted SV origin, or returns null when it should open in
-/// the standalone dapp browser instead.
+/// The SV-shell location a pinned homescreen tile opens.
 ///
-/// SV pins its apps as `https://<sv-origin>/#app/<slug>` — a hash route of
-/// the platform SPA. Opening that in the standalone browser shows the
-/// pre-thin-shell UI (native app bar over a second SV boot). Folding it
-/// into `/home?sv=<fragment>` reuses the same shell (and, when the app is
-/// warm, the same *running* webview) that every other surface uses.
-/// Non-SV origins keep the standalone browser: that's what it's for.
-String? svShellRouteForPinnedDappUrl({
-  required String pinnedUrl,
-  required String dappsTabUrl,
-}) {
-  final pinned = Uri.tryParse(pinnedUrl.trim());
-  final trusted = Uri.tryParse(dappsTabUrl.trim());
-  if (pinned == null || trusted == null) return null;
-  if (pinned.host.isEmpty || trusted.host.isEmpty) return null;
-  if (!isSameWebOrigin(pinned, trusted)) {
-    return null;
-  }
-  // The SV remap is a fragment-router optimization, not a general URL
-  // rewrite. Preserve path/query-routed pins by opening their exact URL in
-  // the standalone fallback instead of silently sending them to shell home.
-  final pinnedPath = pinned.path.isEmpty ? '/' : pinned.path;
-  final trustedPath = trusted.path.isEmpty ? '/' : trusted.path;
-  if (pinnedPath != trustedPath || pinned.query != trusted.query) return null;
-  final fragment = pinned.fragment;
-  if (fragment.isEmpty) return AppRoutes.home;
-  return '${AppRoutes.home}?sv=${Uri.encodeQueryComponent(fragment)}';
+/// [route] is the platform hash route recorded at pin time
+/// (`PinnedDapp.route`, e.g. `app/<slug>`). Folding it into
+/// `/home?sv=<route>` reuses the same shell — and, when the app is warm, the
+/// same *running* webview — that every other surface uses.
+///
+/// There is deliberately no "this pin isn't ours" answer. Pinning is gated on
+/// a privileged bridge lease that requires the platform origin, so every tile
+/// is a platform tile by construction; the origin was settled when the tile
+/// was created and is not re-litigated here. An empty route means the tile
+/// addresses the platform root.
+String svShellRouteForPinnedRoute(String route) {
+  final target = route.trim();
+  if (target.isEmpty) return AppRoutes.home;
+  return '${AppRoutes.home}?sv=${Uri.encodeQueryComponent(target)}';
 }
 
 // Inert navigation handle used by notification and clock-warning UI. Session

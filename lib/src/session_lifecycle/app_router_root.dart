@@ -98,28 +98,29 @@ GoRouter _createAppRouter(
       ),
       GoRoute(
         path: AppRoutes.dappPinned,
+        // Homescreen tiles always fold into the shell: the route they open was
+        // recorded when the tile was created, at which point the privileged
+        // bridge lease had already proven the pinning page was on the platform
+        // origin. There is no browser fallback left to dead-end in — a tile
+        // whose id no longer resolves lands on the shell root instead.
         redirect: (context, state) async {
           final id = state.pathParameters['id'];
           if (id == null) return AppRoutes.home;
           try {
             final dapps = await ref.read(pinnedDappsProvider.future);
             final dapp = dapps.where((d) => d.id == id).firstOrNull;
-            if (dapp == null) return AppRoutes.home;
-            final shellRoute = svShellRouteForPinnedDappUrl(
-              pinnedUrl: dapp.url,
-              dappsTabUrl: AppConfig.dappsTabUrl,
+            if (dapp == null) {
+              _routerLog.warn('Pinned dapp $id is no longer in the registry');
+              return AppRoutes.home;
+            }
+            return _withPinnedLaunchRevision(
+              svShellRouteForPinnedRoute(dapp.route),
             );
-            if (shellRoute == null) return null;
-            return _withPinnedLaunchRevision(shellRoute);
           } catch (error) {
-            _routerLog.warn('Pinned dapp shell remap failed: $error');
+            _routerLog.warn('Pinned dapp launch failed to resolve: $error');
             return AppRoutes.home;
           }
         },
-        builder: (context, state) => _PinnedDappFallbackScreen(
-          id: state.pathParameters['id'],
-          nativeSession: nativeSession,
-        ),
       ),
       GoRoute(
         path: AppRoutes.dappDetail,
@@ -142,41 +143,4 @@ GoRouter _createAppRouter(
       return null;
     },
   );
-}
-
-class _PinnedDappFallbackScreen extends ConsumerWidget {
-  const _PinnedDappFallbackScreen({
-    required this.id,
-    required _NativeSessionRuntime nativeSession,
-  }) : _nativeSession = nativeSession;
-
-  final String? id;
-  final _NativeSessionRuntime _nativeSession;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return ref.watch(pinnedDappsProvider).when(
-          loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (dapps) {
-            final dapp = dapps.where((d) => d.id == id).firstOrNull;
-            if (dapp == null) return const SizedBox.shrink();
-            final dappUri = Uri.tryParse(dapp.url);
-            final svUri = Uri.tryParse(AppConfig.dappsTabUrl);
-            final usesAppBoundOrigin = dappUri != null &&
-                svUri != null &&
-                isSameWebOrigin(dappUri, svUri);
-            return DappWebViewScreen(
-              key: ValueKey('pinned:${dapp.url}'),
-              url: dapp.url,
-              name: dapp.name,
-              appBoundDomainsOnly: usesAppBoundOrigin,
-              standalone: true,
-              nativeSessionBridge: _nativeSession.bridge,
-              sessionAccess: _nativeSession.sessions,
-            );
-          },
-        );
-  }
 }

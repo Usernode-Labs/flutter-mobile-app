@@ -20,12 +20,67 @@ void main() {
     });
   });
 
+  group('PinnedDapp.routeForUrl', () {
+    // The regression this exists for: the platform pins clean app URLs
+    // (`<origin>/app/<slug>`). Reading only the fragment saw '' here, the old
+    // remap saw "not a platform URL", and the tile opened in native browser
+    // chrome over the platform's own header — issue #1489's double headers.
+    test('reads a clean app URL, the shape the platform pins today', () {
+      expect(
+        PinnedDapp.routeForUrl('https://sv.example.org/app/echo'),
+        'app/echo',
+      );
+    });
+
+    test('reads the legacy fragment form too', () {
+      expect(
+        PinnedDapp.routeForUrl('https://sv.example.org/#app/echo'),
+        'app/echo',
+      );
+    });
+
+    test('a fragment wins over the path, as in the platform router', () {
+      expect(
+        PinnedDapp.routeForUrl('https://sv.example.org/app/echo#settings'),
+        'settings',
+      );
+    });
+
+    test('deeper app routes survive intact', () {
+      expect(
+        PinnedDapp.routeForUrl('https://sv.example.org/app/echo/board'),
+        'app/echo/board',
+      );
+    });
+
+    test('a bare origin or unreadable URL addresses the platform root', () {
+      expect(PinnedDapp.routeForUrl('https://sv.example.org/'), '');
+      expect(PinnedDapp.routeForUrl('https://sv.example.org'), '');
+      expect(PinnedDapp.routeForUrl('not a url'), '');
+      expect(PinnedDapp.routeForUrl(''), '');
+    });
+
+    test('the route is origin-independent, in both shapes', () {
+      // Same tile, three deployments. The recorded route is identical, which
+      // is what lets a tile outlive a change of platform base URL.
+      for (final origin in [
+        'https://sv.example.org',
+        'https://staging.example.org:8443',
+        'http://localhost:8000',
+      ]) {
+        expect(PinnedDapp.routeForUrl('$origin/app/echo'), 'app/echo');
+        expect(PinnedDapp.routeForUrl('$origin/#app/echo'), 'app/echo');
+      }
+    });
+  });
+
   group('PinnedDapp json round-trip', () {
     test('serializes and deserializes all fields', () {
       const dapp = PinnedDapp(
         id: 'abc123def456',
         name: 'Echo',
-        url: 'https://echo.example.org',
+        url: 'https://echo.example.org/#app/echo',
+        route: 'app/echo',
         iconUrl: 'https://echo.example.org/icon.png',
         pinnedAtMs: 1234567890,
       );
@@ -33,8 +88,36 @@ void main() {
       expect(restored.id, dapp.id);
       expect(restored.name, dapp.name);
       expect(restored.url, dapp.url);
+      expect(restored.route, dapp.route);
       expect(restored.iconUrl, dapp.iconUrl);
       expect(restored.pinnedAtMs, dapp.pinnedAtMs);
+    });
+
+    // Tiles pinned before `route` existed are already on people's
+    // homescreens, and re-pinning mints a new id rather than repairing the
+    // old one — so the migration has to happen on read or not at all.
+    test('legacy entries without a route derive one from the url', () {
+      final restored = PinnedDapp.fromJson({
+        'id': 'abc123def456',
+        'name': 'Echo',
+        'url': 'https://sv.example.org/#app/echo',
+        'iconUrl': '',
+        'pinnedAtMs': 1234567890,
+      });
+      expect(restored.route, 'app/echo');
+    });
+
+    test('a legacy clean-app-URL entry migrates to its app route', () {
+      // These are the tiles actually stranded today: pinned after clean app
+      // URLs shipped, stored with no route, and unreadable by the old remap.
+      final restored = PinnedDapp.fromJson({
+        'id': 'abc123def456',
+        'name': 'Echo',
+        'url': 'https://dead-origin.example.org/app/echo',
+        'iconUrl': '',
+        'pinnedAtMs': 1,
+      });
+      expect(restored.route, 'app/echo');
     });
   });
 
@@ -61,6 +144,7 @@ void main() {
       );
 
       expect(pinned.id, PinnedDapp.idForUrl('https://echo.example.org'));
+      expect(pinned.route, '');
       expect(container.read(pinnedDappByIdProvider(pinned.id))?.name, 'Echo');
 
       final prefs = await SharedPreferences.getInstance();
@@ -151,6 +235,27 @@ void main() {
       final dapps = await second.read(pinnedDappsProvider.future);
       expect(dapps, hasLength(1));
       expect(dapps.single.name, 'Echo');
+    });
+
+    test('pin records the platform route the tile will launch', () async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      final pinned = await container.read(pinnedDappsProvider.notifier).pin(
+            name: 'Echo',
+            // The shape the platform actually sends today.
+            url: 'https://sv.example.org/app/echo',
+            iconUrl: '',
+          );
+      expect(pinned.route, 'app/echo');
+
+      // And it survives the trip through storage, which is what a launch
+      // reads back.
+      final reloaded = ProviderContainer();
+      addTearDown(reloaded.dispose);
+      final dapps = await reloaded.read(pinnedDappsProvider.future);
+      expect(dapps.single.route, 'app/echo');
     });
   });
 }

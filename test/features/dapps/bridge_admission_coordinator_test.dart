@@ -105,6 +105,7 @@ void main() {
   test('lifecycle handler blocks every later bridge admission', () async {
     for (final lifecycleMethod in [
       'prepareForLogin',
+      'restoreWebSession',
       'logout',
       'establishNativeSession',
     ]) {

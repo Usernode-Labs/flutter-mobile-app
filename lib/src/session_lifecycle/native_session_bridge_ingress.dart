@@ -47,6 +47,10 @@ abstract interface class NativeSessionBridgeIngress {
   /// native authority may predate the current JavaScript document.
   Future<void> prepareForLogin({required String realmMarker});
 
+  /// Restore the web cookie from the exact retained native session. Only
+  /// public replay metadata crosses this port; cookie authority stays native.
+  Future<Map<String, Object?>> restoreWebSession({required String realmMarker});
+
   Future<void> logoutNativeSession({required String realmMarker});
 
   /// Admits one feature operation for the exact Social document/session pair.

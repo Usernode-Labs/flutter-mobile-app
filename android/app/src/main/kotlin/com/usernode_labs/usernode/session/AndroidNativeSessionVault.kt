@@ -731,6 +731,38 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
+    @Synchronized
+    fun restoreWebSession(): NativeWebSessionRestoration {
+        val recovered = recoverCredentialForManagedCall()
+        try {
+            val client = configuredHttp()
+            val origin = java.net.URI(client.canonicalBaseUrl).let { "${it.scheme}://${it.rawAuthority}/" }
+            val currentToken = CookieManager.getInstance().getCookie(origin)
+                ?.split(';')?.map { it.trim() }?.singleOrNull { it.startsWith("session=") }
+                ?.removePrefix("session=")?.takeIf { it.matches(Regex("[a-f0-9]{64}")) }
+            val body = requireManagedSuccess(
+                client.restoreWebSession(recovered.credential.bearerToken, currentToken), recovered,
+            )
+            val data = body.body.getJSONObject("data")
+            val token = data.getString("sessionToken")
+            val expiry = NativeSessionProtocol.requireCredentialLeaseCurrent(data.getString("expiresAt"))
+            if (data.getInt("protocol") != 2 ||
+                data.getString("userId") != recovered.credential.participantId ||
+                data.getString("attemptId") != recovered.binding.attemptId ||
+                !token.matches(Regex("[a-f0-9]{64}"))
+            ) fail("invalid_native_web_session", "The restored web session does not match native authority")
+            val expires = java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME
+                .format(expiry.atZone(java.time.ZoneOffset.UTC))
+            return NativeWebSessionRestoration(
+                origin, "session=$token; Path=/; Secure; HttpOnly; SameSite=Lax; Expires=$expires",
+                mapOf("status" to "restored", "protocol" to 2,
+                    "userId" to recovered.credential.participantId, "attemptId" to recovered.binding.attemptId),
+            )
+        } finally {
+            recovered.close()
+        }
+    }
+
     private fun applyCredentialLease(
         receipt: NativeCredentialLeaseReceipt?,
         recovered: RecoveredCredential,
@@ -1539,4 +1571,13 @@ internal object AndroidNativeSessionPlatform {
             vault ?: AndroidNativeSessionVault(context.applicationContext).also { vault = it }
         }
     }
+}
+
+/** Cookie authority stays inside the native channel; only publicResult crosses it. */
+internal class NativeWebSessionRestoration(
+    val origin: String,
+    val cookie: String,
+    val publicResult: Map<String, Any>,
+) {
+    override fun toString(): String = "NativeWebSessionRestoration(<redacted>)"
 }

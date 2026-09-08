@@ -84,6 +84,29 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     }
   }
 
+  Future<void> _handleRestoreWebSession(String id) async {
+    if (!await _requireTrustedChromeOrigin(id, 'restoreWebSession')) return;
+    final lease = _activePrivilegedBridgeLease;
+    if (lease == null ||
+        !await _revalidatePrivilegedBridgeLease(id, 'restoreWebSession')) {
+      return;
+    }
+    try {
+      final response = await widget._nativeSessionBridge
+          .restoreWebSession(realmMarker: lease.marker);
+      await _resolveJsPromise(id: id, value: response, error: null);
+    } on NativeSessionException catch (error) {
+      await _resolveJsPromise(
+          id: id,
+          value: null,
+          error: error.message,
+          errorInfo: {'code': error.code});
+    } catch (_) {
+      await _resolveJsPromise(
+          id: id, value: null, error: 'Secure web session recovery failed');
+    }
+  }
+
   /// An anonymous trusted Social realm has no claim for a native session
   /// recovered before this document existed. The privileged process-root
   /// ingress may retire that private authority, but exposes nothing about it

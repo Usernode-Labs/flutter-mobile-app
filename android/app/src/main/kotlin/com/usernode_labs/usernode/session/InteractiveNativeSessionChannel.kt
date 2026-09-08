@@ -61,6 +61,7 @@ internal class InteractiveNativeSessionChannel(
                 "retireNativeSessionCredential" -> retireCredential(call, result)
                 "revokeNativeSessionCredential" -> revokeCredential(call, result)
                 "recoverNativeSession" -> recoverNativeSession(call, result)
+                "restoreNativeWebSession" -> restoreWebSession(call, result)
                 "runInteractiveProducerWake" -> runInteractiveProducerWake(call, result)
                 "stageNativeProducerPolicy" -> stageProducerPolicy(call, result)
                 "getNativePushStatus" -> getPushStatus(call, result)
@@ -403,6 +404,36 @@ internal class InteractiveNativeSessionChannel(
         )
         runWorker(result) {
             mapOf("challengeId" to vault.resolveLegacyZkPassportChallengeId())
+        }
+    }
+
+    private fun restoreWebSession(call: MethodCall, result: MethodChannel.Result) {
+        val arguments = managedArguments(call,
+            setOf("expectedRevision", "processTransportClaim"), "restoreNativeWebSession")
+        val revision = exactLong(arguments["expectedRevision"], "expected revision")
+        worker.execute {
+            try {
+                val restored = vault.restoreWebSession()
+                mainHandler.post {
+                    if (closed || !alarmHandler.isCurrentEngine(engineLease) ||
+                        !NativeSessionRust.nativeIsManagedSessionCurrentV1(revision)) {
+                        result.error("native_session_not_current", "The native session is not current", null)
+                    } else {
+                        android.webkit.CookieManager.getInstance().setCookie(restored.origin, restored.cookie) { stored ->
+                            if (!stored) {
+                                result.error("native_web_cookie_failed", "The web session could not be stored", null)
+                            } else {
+                                runWorker(result) {
+                                    android.webkit.CookieManager.getInstance().flush()
+                                    restored.publicResult
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error: Throwable) {
+                finishWorker(result, null, error)
+            }
         }
     }
 

@@ -625,6 +625,14 @@ final class _NativeSessionPlatformPort {
     );
   }
 
+  Future<Map<String, Object?>> restoreWebSession(int expectedRevision) async {
+    final raw = await _invoke('restoreNativeWebSession', {
+      'expectedRevision': expectedRevision,
+    });
+    return _exactMap(raw, const {'status', 'protocol', 'userId', 'attemptId'},
+        'restored web session');
+  }
+
   Future<Object?> _invokePlatform(
     String method,
     Map<String, Object?> arguments,
@@ -1913,6 +1921,54 @@ final class _NativeSessionCompositionRoot
   }
 
   @override
+  Future<Map<String, Object?>> restoreWebSession(
+      {required String realmMarker}) async {
+    _validateRealmMarker(realmMarker);
+    await _foregroundAdmission.waitUntilOpen();
+    final authority = _authority;
+    if (authority is _NativeSignedOut) return const {'status': 'absent'};
+    if (authority is! _NativeReady) {
+      throw const NativeSessionException(
+          'native_session_not_ready', 'The native session is not ready.');
+    }
+    try {
+      // A root-owned operation is needed before this document has a realm
+      // claim. Holding the exact runner makes terminal retirement drain cookie
+      // installation before it can publish a successor identity.
+      return await _sessions.view.current.operations.run((_) async {
+        final restored =
+            await _platform.restoreWebSession(authority.binding.readyRevision);
+        if (restored['status'] != 'restored' ||
+            restored['protocol'] != 2 ||
+            restored['userId'] !=
+                authority.binding.projection.participantId.toString() ||
+            restored['attemptId'] != authority.binding.attemptId) {
+          throw const NativeSessionException('invalid_native_web_session',
+              'The restored web session is invalid.');
+        }
+        return restored;
+      });
+    } catch (error, stackTrace) {
+      var failure = _asNativeSessionException(error);
+      // The managed native revision gate also rejects a locally elapsed
+      // lease, before the HTTP owner can ask the server. This operation holds
+      // the exact runner, so that refusal cannot describe a successor session.
+      if (failure.code == 'native_session_not_current') {
+        failure = const NativeSessionException('native_credential_expired',
+            'The native session is no longer current.');
+      }
+      _handleEffectFailure(failure, stackTrace);
+      if (const {
+        'native_credential_definitively_absent',
+        'native_credential_expired'
+      }.contains(failure.code)) {
+        return const {'status': 'absent'};
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<void> prepareForLogin({required String realmMarker}) async {
     _validateRealmMarker(realmMarker);
     // Unlike explicit logout, this root terminal does not require the old
@@ -2198,6 +2254,11 @@ final class _FailingNativeSessionBridgeIngress
   @override
   Future<void> prepareForLogin({required String realmMarker}) =>
       Future<void>.error(_failure);
+
+  @override
+  Future<Map<String, Object?>> restoreWebSession(
+          {required String realmMarker}) =>
+      Future<Map<String, Object?>>.error(_failure);
 
   @override
   Future<void> logoutNativeSession({required String realmMarker}) =>

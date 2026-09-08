@@ -519,6 +519,7 @@ final class IOSNativeSessionChannel {
       case "retireNativeSessionCredential": try retire(call, result)
       case "revokeNativeSessionCredential": try revoke(call, result)
       case "recoverNativeSession": try recover(call, result)
+      case "restoreNativeWebSession": try restoreWebSession(call, result)
       case "runInteractiveProducerWake": try runInteractive(call, result)
       case "stageNativeProducerPolicy": try stagePolicy(call, result)
       case "getNativePushStatus": try getPush(call, result)
@@ -837,6 +838,28 @@ final class IOSNativeSessionChannel {
       try NativeSessionProtocol.fail("process_transport_claim_invalid", "The process transport claim is invalid")
     }
     return arguments
+  }
+
+  private func restoreWebSession(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {
+    let arguments = try managed(call, keys: ["expectedRevision", "processTransportClaim"])
+    let revision = try NativeSessionProtocol.exactUInt64(arguments["expectedRevision"], "expected revision")
+    let store = WKWebsiteDataStore.default().httpCookieStore
+    store.getAllCookies { cookies in
+      self.worker.async {
+        do {
+          let restored = try self.vault.restoreWebSession(cookies: cookies)
+          DispatchQueue.main.async {
+            guard IOSNativeSessionRust.isManagedSessionCurrent(revision) else {
+              result(FlutterError(code: "native_session_not_current", message: "The native session is not current", details: nil))
+              return
+            }
+            store.setCookie(restored.cookie) {
+              result(restored.publicResult)
+            }
+          }
+        } catch { self.finish(result, value: nil, error: error) }
+      }
+    }
   }
 
   private func managed(_ call: FlutterMethodCall, keys: Set<String>) throws -> [String: Any] {

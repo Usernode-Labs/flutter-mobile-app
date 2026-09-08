@@ -663,6 +663,47 @@ final class IOSNativeSessionVault {
     }
   }
 
+  func restoreWebSession(cookies: [HTTPCookie]) throws -> IOSWebSessionRestoration {
+    let recovered = try recoverForManagedCall()
+    defer { recovered.close() }
+    let client = try http()
+    guard let origin = URL(string: client.canonicalBaseUrl), let host = origin.host else {
+      try NativeSessionProtocol.fail("invalid_native_api_base_url", "The native API origin is invalid")
+    }
+    let matching = cookies.filter {
+      $0.name == "session" && $0.path == "/" && $0.isHTTPOnly &&
+        $0.domain.trimmingCharacters(in: CharacterSet(charactersIn: ".")).lowercased() == host.lowercased()
+    }
+    let current = matching.count == 1 ? matching[0].value : nil
+    let body = try requireManagedSuccess(
+      client.restoreWebSession(bearer: recovered.credential.bearerToken, currentSessionToken: current),
+      recovered: recovered
+    )
+    guard let data = body["data"] as? [String: Any],
+          data["protocol"] as? Int == 2,
+          data["userId"] as? String == recovered.credential.participantId,
+          data["attemptId"] as? String == recovered.binding.attemptId,
+          let token = data["sessionToken"] as? String,
+          token.range(of: "^[a-f0-9]{64}$", options: .regularExpression) != nil,
+          let expiresAt = data["expiresAt"] as? String else {
+      try NativeSessionProtocol.fail("invalid_native_web_session", "The restored web session does not match native authority")
+    }
+    let expiry = try NativeSessionProtocol.requireCredentialLeaseCurrent(expiresAt)
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss 'GMT'"
+    let header = "session=\(token); Path=/; Secure; HttpOnly; SameSite=Lax; Expires=\(formatter.string(from: expiry))"
+    guard let cookie = HTTPCookie.cookies(withResponseHeaderFields: ["Set-Cookie": header], for: origin).first,
+          cookie.isHTTPOnly, cookie.isSecure else {
+      try NativeSessionProtocol.fail("native_web_cookie_failed", "The web session could not be stored")
+    }
+    return IOSWebSessionRestoration(cookie: cookie, publicResult: [
+      "status": "restored", "protocol": 2,
+      "userId": recovered.credential.participantId, "attemptId": recovered.binding.attemptId,
+    ])
+  }
+
   private func applyCredentialLease(
     _ receipt: NativeCredentialLeaseReceipt?,
     recovered: IOSRecoveredCredential,
@@ -1532,6 +1573,11 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
     request(method: "POST", path: "auth/logout", bearer: bearer)
   }
 
+  func restoreWebSession(bearer: String, currentSessionToken: String?) -> IOSNativeHTTPResult {
+    request(method: "POST", path: "auth/restore-web-session", bearer: bearer,
+      body: ["protocol": 2, "currentSessionToken": currentSessionToken as Any? ?? NSNull()])
+  }
+
   func getPushStatus(bearer: String, installationId: String) -> IOSNativeHTTPResult {
     let encoded = installationId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
     return request(
@@ -1683,4 +1729,10 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
   ) {
     completionHandler(nil)
   }
+}
+
+// Never return this wrapper through Flutter. Only its publicResult is bridge data.
+struct IOSWebSessionRestoration {
+  let cookie: HTTPCookie
+  let publicResult: [String: Any]
 }

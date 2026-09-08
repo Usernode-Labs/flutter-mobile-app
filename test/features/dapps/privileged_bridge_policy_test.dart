@@ -61,6 +61,7 @@ void main() {
       'openNotificationSettings',
       'markPrivilegedBridgeReady',
       'prepareForLogin',
+      'restoreWebSession',
       'logout',
       'establishNativeSession',
       'getNodeAddress',

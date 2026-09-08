@@ -50,6 +50,10 @@ internal class NativeSessionHttp(
     fun logout(bearer: String): NativeHttpResult =
         request("POST", "auth/logout", bearer)
 
+    fun restoreWebSession(bearer: String, currentSessionToken: String?): NativeHttpResult =
+        request("POST", "auth/restore-web-session", bearer,
+            JSONObject().put("protocol", 2).put("currentSessionToken", currentSessionToken ?: JSONObject.NULL))
+
     fun getPushStatus(bearer: String, installationId: String): NativeHttpResult =
         request(
             "GET",

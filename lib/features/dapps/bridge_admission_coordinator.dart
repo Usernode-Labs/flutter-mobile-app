@@ -22,6 +22,7 @@ final class BridgeAdmissionCoordinator {
 
   static const _lifecycleMethods = {
     'prepareForLogin',
+    'restoreWebSession',
     'logout',
     'establishNativeSession',
   };

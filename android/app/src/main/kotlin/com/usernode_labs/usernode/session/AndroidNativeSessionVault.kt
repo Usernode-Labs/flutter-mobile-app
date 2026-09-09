@@ -50,7 +50,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             // The engine lease may be replaced, but a process may not switch
             // the credential's authenticated origin underneath a live vault.
             if (existing.canonicalBaseUrl != configured.canonicalBaseUrl) {
-                requireOriginMayChange()
+                requireOriginMayChange(existing.canonicalBaseUrl, configured.canonicalBaseUrl)
                 persistMobileApiBaseUrl(configured.canonicalBaseUrl)
                 http = configured
             }
@@ -58,13 +58,16 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
         val persisted = preferences.getString(MOBILE_API_BASE_URL_KEY, null)
         if (persisted != null && persisted != configured.canonicalBaseUrl) {
-            requireOriginMayChange()
+            requireOriginMayChange(persisted, configured.canonicalBaseUrl)
         }
         persistMobileApiBaseUrl(configured.canonicalBaseUrl)
         http = configured
     }
 
-    private fun requireOriginMayChange() {
+    private fun requireOriginMayChange(previous: String, next: String) {
+        // This one-way domain move keeps the same backend/database and opaque
+        // bearer tokens. Never generalize it to arbitrary configured origins.
+        if (isHomeroomApiMigration(previous, next)) return
         if (preferences.contains(CREDENTIAL_RECORD_KEY)) {
             fail(
                 "native_api_origin_conflict",
@@ -1581,3 +1584,8 @@ internal class NativeWebSessionRestoration(
 ) {
     override fun toString(): String = "NativeWebSessionRestoration(<redacted>)"
 }
+
+/** Exact one-way deployment rename; input URLs have already been validated. */
+internal fun isHomeroomApiMigration(previous: String, next: String): Boolean =
+    previous == "https://social-vibecoding.usernodelabs.org/api/v4/mobile" &&
+        next == "https://my.onhomeroom.com/api/v4/mobile"

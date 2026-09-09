@@ -75,6 +75,12 @@ jobs:
       - name: Run unit tests
         run: flutter test --coverage --reporter expanded
 
+      - name: Verify deployment URL overrides
+        run: |
+          flutter test test/core/config/mobile_api_base_url_test.dart --dart-define=MOBILE_API_BASE_URL=https://staging.example.com/team/api/v4/mobile/
+          flutter test test/core/config/mobile_api_base_url_test.dart --dart-define=DAPPS_TAB_URL=https://legacy.example.com/ --dart-define=VERSION_CHECK_API_URL=
+          flutter test test/core/config/mobile_api_base_url_test.dart --dart-define=PLATFORM_BASE_URL=https://web.example.com/ --dart-define=DAPPS_TAB_URL=https://legacy.example.com/ --dart-define=VERSION_CHECK_API_URL=https://versions.example.com/check
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:

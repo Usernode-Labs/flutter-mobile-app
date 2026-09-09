@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
@@ -10,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
-const _url = 'https://social-vibecoding.usernodelabs.org/';
+final _url = AppConfig.platformBaseUrl;
 
 void main() {
   late _WebViewPlatform platform;
@@ -29,10 +30,10 @@ void main() {
     await session.retirements.close();
   });
 
-  Widget app({String url = _url}) => ProviderScope(
+  Widget app({String? url}) => ProviderScope(
         child: MaterialApp(
           home: DappWebViewScreen(
-            url: url,
+            url: url ?? _url,
             name: 'Usernode',
             nativeSessionBridge: session,
             sessionAccess: _SessionAccess(),

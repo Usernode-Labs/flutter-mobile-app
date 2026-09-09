@@ -64,7 +64,9 @@ final class IOSNativeSessionVault {
     let next = try IOSNativeSessionHTTP(raw)
     if let configuredHTTP {
       if configuredHTTP.canonicalBaseUrl != next.canonicalBaseUrl {
-        try requireCredentialAbsentForOriginChange()
+        try requireCredentialAbsentForOriginChange(
+          from: configuredHTTP.canonicalBaseUrl, to: next.canonicalBaseUrl
+        )
         defaults.set(next.canonicalBaseUrl, forKey: Self.mobileApiBaseUrlKey)
         self.configuredHTTP = next
       }
@@ -72,13 +74,18 @@ final class IOSNativeSessionVault {
     }
     if let persisted = defaults.string(forKey: Self.mobileApiBaseUrlKey),
        persisted != next.canonicalBaseUrl {
-      try requireCredentialAbsentForOriginChange()
+      try requireCredentialAbsentForOriginChange(from: persisted, to: next.canonicalBaseUrl)
     }
     defaults.set(next.canonicalBaseUrl, forKey: Self.mobileApiBaseUrlKey)
     configuredHTTP = next
   }
 
-  private func requireCredentialAbsentForOriginChange() throws {
+  private func requireCredentialAbsentForOriginChange(from previous: String, to next: String) throws {
+    // This one-way domain move keeps the same backend/database and opaque
+    // bearer tokens. Never generalize it to arbitrary configured origins.
+    if isHomeroomApiMigration(previous, next) {
+      return
+    }
     guard try readKeychain(account: Self.credentialAccount) == nil else {
       try NativeSessionProtocol.fail(
         "native_api_origin_conflict",
@@ -1735,4 +1742,10 @@ private final class IOSNativeSessionHTTP: NSObject, URLSessionTaskDelegate {
 struct IOSWebSessionRestoration {
   let cookie: HTTPCookie
   let publicResult: [String: Any]
+}
+
+/// Exact one-way deployment rename; input URLs have already been validated.
+func isHomeroomApiMigration(_ previous: String, _ next: String) -> Bool {
+  previous == "https://social-vibecoding.usernodelabs.org/api/v4/mobile" &&
+    next == "https://my.onhomeroom.com/api/v4/mobile"
 }

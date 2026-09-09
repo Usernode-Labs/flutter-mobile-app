@@ -133,9 +133,7 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
-          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           else
             cat > .env << EOF
@@ -147,13 +145,12 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
-          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
+      # MOBILE_API_BASE_URL also selects the platform and version-check URLs.
       - name: Provision Social push Android client
         env:
           SOCIAL_PUSH_ENV_TYPE: ${{ steps.env_config.outputs.env_type }}
@@ -514,9 +511,7 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
-          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           else
             cat > .env << EOF
@@ -528,13 +523,12 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
-          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
 
+      # MOBILE_API_BASE_URL also selects the platform and version-check URLs.
       - name: Provision Social push iOS client
         env:
           SOCIAL_PUSH_ENV_TYPE: ${{ steps.env_config.outputs.env_type }}

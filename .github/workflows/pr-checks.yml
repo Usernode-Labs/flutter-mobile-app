@@ -208,9 +208,8 @@ jobs:
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
-          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
+          MOBILE_API_BASE_URL=${{ vars.PROD_MOBILE_API_BASE_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           else
             cat > .env << EOF
@@ -229,9 +228,8 @@ jobs:
           INTERNAL_GENESIS_URL=${{ secrets.INTERNAL_GENESIS_URL }}
           NETWORK_SWITCHER_CODE=${{ secrets.NETWORK_SWITCHER_CODE }}
           LOAD_GENESIS_NB_RETRIES=${{ secrets.LOAD_GENESIS_NB_RETRIES }}
-          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
+          MOBILE_API_BASE_URL=${{ vars.NONPROD_MOBILE_API_BASE_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"
@@ -395,9 +393,8 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
-          VERSION_CHECK_API_URL=${{ secrets.PROD_VERSION_CHECK_API_URL }}
+          MOBILE_API_BASE_URL=${{ vars.PROD_MOBILE_API_BASE_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.PROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           else
             cat > .env << EOF
@@ -409,9 +406,8 @@ jobs:
           USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
-          VERSION_CHECK_API_URL=${{ secrets.NONPROD_VERSION_CHECK_API_URL }}
+          MOBILE_API_BASE_URL=${{ vars.NONPROD_MOBILE_API_BASE_URL }}
           VERSION_CHECK_INTERVAL_SECONDS=${{ secrets.NONPROD_VERSION_CHECK_INTERVAL_SECONDS }}
-          DAPP_HOMEPAGE=https://usernode-dapp-homepage-87a553.social-vibecoding.usernodelabs.org/
           EOF
           fi
           echo "✅ Created .env file with ${{ steps.env_config.outputs.env_type }} secrets"

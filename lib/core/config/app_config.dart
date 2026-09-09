@@ -57,7 +57,7 @@ class AppConfig {
   static const String _rawMobileApiBaseUrl =
       String.fromEnvironment('MOBILE_API_BASE_URL', defaultValue: '');
   static const String _defaultMobileApiBaseUrl =
-      'https://social-vibecoding.usernodelabs.org/api/v4/mobile';
+      'https://my.onhomeroom.com/api/v4/mobile';
   static String get mobileApiBaseUrl => _rawMobileApiBaseUrl.isNotEmpty
       ? _rawMobileApiBaseUrl
       : _defaultMobileApiBaseUrl;
@@ -116,8 +116,15 @@ class AppConfig {
   ///
   /// Example:
   ///   flutter run --dart-define=PLATFORM_BASE_URL=https://some.other.host/
-  static String get platformBaseUrl =>
-      _platformBaseUrl.isNotEmpty ? _platformBaseUrl : _legacyDappsTabUrl;
+  static String get platformBaseUrl => _platformBaseUrl.isNotEmpty
+      ? _platformBaseUrl
+      : _legacyDappsTabUrl.isNotEmpty
+          ? _legacyDappsTabUrl
+          : _mobileApiDirectory.resolve('../../../').toString();
+
+  // Keep deployment URLs together, including deployments mounted at a subpath.
+  static Uri get _mobileApiDirectory =>
+      Uri.parse('${mobileApiBaseUrl.replaceFirst(RegExp(r'/+$'), '')}/');
 
   static const String _platformBaseUrl = String.fromEnvironment(
     'PLATFORM_BASE_URL',
@@ -128,7 +135,6 @@ class AppConfig {
   /// migrated to the new name.
   static const String _legacyDappsTabUrl = String.fromEnvironment(
     'DAPPS_TAB_URL',
-    defaultValue: 'https://social-vibecoding.usernodelabs.org/',
   );
 
   /// Explicit opt-in for privileged bridge access from loopback development
@@ -180,11 +186,11 @@ class AppConfig {
   // If empty, version checking is disabled. Default is the SV platform's
   // public v4 endpoint (same POST body and {success, data} envelope as the
   // old topochain endpoint).
-  static const String versionCheckApiUrl = String.fromEnvironment(
-    'VERSION_CHECK_API_URL',
-    defaultValue:
-        'https://social-vibecoding.usernodelabs.org/api/v4/app-version/check',
-  );
+  // An explicitly empty override still disables version checks for local builds.
+  static String get versionCheckApiUrl =>
+      const bool.hasEnvironment('VERSION_CHECK_API_URL')
+          ? const String.fromEnvironment('VERSION_CHECK_API_URL')
+          : _mobileApiDirectory.resolve('../app-version/check').toString();
   static const int versionCheckIntervalSeconds =
       int.fromEnvironment('VERSION_CHECK_INTERVAL_SECONDS', defaultValue: 7200);
 

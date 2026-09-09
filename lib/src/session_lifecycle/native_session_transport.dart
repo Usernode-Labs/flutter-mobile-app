@@ -1251,18 +1251,16 @@ final class _NativeReadyBinding {
 
 enum _NativeCommitDisposition { notCommitted, uncertain, ready }
 
-enum _NativeTerminalKind { processRoot, realm }
+enum _NativeTerminalKind { processRoot, localLogout }
 
 final class _NativeTerminalIntent {
   const _NativeTerminalIntent.processRoot()
-      : kind = _NativeTerminalKind.processRoot,
-        realmMarker = null;
+      : kind = _NativeTerminalKind.processRoot;
 
-  const _NativeTerminalIntent.realm(this.realmMarker)
-      : kind = _NativeTerminalKind.realm;
+  const _NativeTerminalIntent.localLogout()
+      : kind = _NativeTerminalKind.localLogout;
 
   final _NativeTerminalKind kind;
-  final String? realmMarker;
 }
 
 final class _NativeEstablishAttempt {
@@ -1971,17 +1969,18 @@ final class _NativeSessionCompositionRoot
   @override
   Future<void> prepareForLogin({required String realmMarker}) async {
     _validateRealmMarker(realmMarker);
-    // Unlike explicit logout, this root terminal does not require the old
-    // realm claim. A recovered Ready may have been created before this Social
-    // document existed. The trusted caller marker proves only that the new
-    // request comes from the configured top frame.
+    // Root terminals do not require the old realm claim: a recovered Ready
+    // may predate this Social document. The bridge validates the executing
+    // configured top frame before presenting its marker.
     await _retireAuthority(const _NativeTerminalIntent.processRoot());
   }
 
   @override
   Future<void> logoutNativeSession({required String realmMarker}) async {
     _validateRealmMarker(realmMarker);
-    await _retireAuthority(_NativeTerminalIntent.realm(realmMarker));
+    // The trusted top frame may have booted offline and never acquired a
+    // session claim. Like prepareForLogin, logout retires the process root.
+    await _retireAuthority(const _NativeTerminalIntent.localLogout());
   }
 
   _NativeEstablishAttempt _beginEstablish(
@@ -2038,11 +2037,8 @@ final class _NativeSessionCompositionRoot
     final current = _authority;
     if (current is _NativeRecoveryRequired) _throwTerminallyRetired();
     if (current is _NativeSignedOut) {
-      if (intent.kind == _NativeTerminalKind.processRoot) return;
-      throw const NativeSessionException(
-        'native_session_not_ready',
-        'There is no ready native session to log out.',
-      );
+      // Also permits retrying WebView cleanup after native retirement.
+      return;
     }
 
     if (current is _NativeEstablishing) {
@@ -2051,13 +2047,6 @@ final class _NativeSessionCompositionRoot
         throw const NativeSessionException(
           'native_session_transition_in_progress',
           'A native session transition is already in progress.',
-        );
-      }
-      if (intent.kind == _NativeTerminalKind.realm &&
-          intent.realmMarker != attempt.realmMarker) {
-        throw const NativeSessionException(
-          'native_session_realm_mismatch',
-          'The native session belongs to a different page realm.',
         );
       }
       attempt.terminalIntent = intent;
@@ -2071,13 +2060,6 @@ final class _NativeSessionCompositionRoot
     }
 
     if (current is _NativeReady) {
-      if (intent.kind == _NativeTerminalKind.realm &&
-          !current.binding.authorizesRealm(intent.realmMarker!)) {
-        throw const NativeSessionException(
-          'native_session_realm_mismatch',
-          'The native session belongs to a different page realm.',
-        );
-      }
       final closing = _NativeClosing(intent: intent, binding: current.binding);
       _authority = closing;
       return _startClosing(closing);
@@ -2146,7 +2128,11 @@ final class _NativeSessionCompositionRoot
         }
         return;
       }
-      final signedOut = await _commitNativeLogout(binding);
+      final signedOut = await _commitNativeLogout(
+        binding,
+        requireServerRevocation:
+            closing.intent.kind == _NativeTerminalKind.processRoot,
+      );
       if (!identical(_authority, closing)) return;
       _sessions.publishSignedOut(signedOut);
       _authority = const _NativeSignedOut();
@@ -2160,16 +2146,22 @@ final class _NativeSessionCompositionRoot
   }
 
   Future<SessionIdentityProjection> _commitNativeLogout(
-    _NativeReadyBinding binding,
-  ) async {
-    final serverRevocation = await _platform.revokeCredentialOnServer(
-      expectedRevision: binding.readyRevision,
-    );
-    if (serverRevocation == _NativeCredentialServerRevocation.uncertain) {
-      throw const NativeSessionException(
-        'native_credential_revocation_uncertain',
-        'The server could not confirm native credential revocation.',
+    _NativeReadyBinding binding, {
+    required bool requireServerRevocation,
+  }) async {
+    // Explicit phone logout is a local terminal operation. The web shell
+    // attempts remote revocation, but connectivity must not retain secrets.
+    // Login/replacement still requires the existing server boundary.
+    if (requireServerRevocation) {
+      final serverRevocation = await _platform.revokeCredentialOnServer(
+        expectedRevision: binding.readyRevision,
       );
+      if (serverRevocation == _NativeCredentialServerRevocation.uncertain) {
+        throw const NativeSessionException(
+          'native_credential_revocation_uncertain',
+          'The server could not confirm native credential revocation.',
+        );
+      }
     }
     final result = await native.logoutNativeSession(
       root: _root,
@@ -2198,7 +2190,7 @@ final class _NativeSessionCompositionRoot
     _NativeTerminalIntent left,
     _NativeTerminalIntent right,
   ) =>
-      left.kind == right.kind && left.realmMarker == right.realmMarker;
+      left.kind == right.kind;
 
   Never _throwTerminallyRetired() => throw const NativeSessionException(
         'native_session_terminally_retired',

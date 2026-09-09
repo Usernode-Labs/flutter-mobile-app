@@ -51,6 +51,9 @@ abstract interface class NativeSessionBridgeIngress {
   /// public replay metadata crosses this port; cookie authority stays native.
   Future<Map<String, Object?>> restoreWebSession({required String realmMarker});
 
+  /// Locally retires process authority even when the API is unavailable.
+  /// The trusted top-frame marker suffices; offline boot may have no session
+  /// claim. The WebView owner clears its data before acknowledging logout.
   Future<void> logoutNativeSession({required String realmMarker});
 
   /// Admits one feature operation for the exact Social document/session pair.

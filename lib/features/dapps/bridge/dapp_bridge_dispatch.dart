@@ -56,6 +56,8 @@ mixin _BridgeDispatch
     'prepareForLogin',
     'restoreWebSession',
     'logout',
+    // Logout retires local authority and clears WebView data without the API.
+    'offlineLogout',
     'establishNativeSession',
     // The trusted shell emits this after its native-event listeners exist.
     'privilegedBridgeReady',

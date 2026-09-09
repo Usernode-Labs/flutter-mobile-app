@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
@@ -20,7 +21,7 @@ void main() {
     originalPlatform = WebViewPlatform.instance;
     platform = _WebViewPlatform();
     WebViewPlatform.instance = platform;
-    session = _NativeSession();
+    session = _NativeSession(platform.events);
   });
 
   tearDown(() async {
@@ -38,6 +39,61 @@ void main() {
           ),
         ),
       );
+
+  Future<void> requestLogout(WidgetTester tester) async {
+    final controller = platform.controller;
+    controller.channel.onMessageReceived(const JavaScriptMessage(
+      message: '{"id":"capability","method":"getPrivilegedBridgeCapability"}',
+    ));
+    await tester.pump();
+    expect(controller.capability, isNotNull);
+    controller.channel.onMessageReceived(JavaScriptMessage(
+      message: jsonEncode({
+        'id': 'logout',
+        'method': 'logout',
+        'privilegedCapability': controller.capability,
+      }),
+    ));
+    await tester.pump();
+  }
+
+  testWidgets('logout deletes WebView data after retirement and before reload',
+      (tester) async {
+    await tester.pumpWidget(app());
+    platform.events.clear();
+    await requestLogout(tester);
+    expect(platform.events, [
+      'retire',
+      'cookies',
+      'storage',
+      'cache',
+      'ack',
+      'load',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'cookie deletion failure does not acknowledge or reload; retry succeeds',
+      (tester) async {
+    await tester.pumpWidget(app());
+    platform.failCookies = true;
+    platform.events.clear();
+    await requestLogout(tester);
+    expect(platform.events, ['retire', 'cookies', 'error']);
+    platform.failCookies = false;
+    platform.events.clear();
+    await requestLogout(tester);
+    expect(platform.events, [
+      'retire',
+      'cookies',
+      'storage',
+      'cache',
+      'ack',
+      'load',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('native retirement preserves the web document and navigation',
       (tester) async {
@@ -74,6 +130,14 @@ void main() {
 }
 
 class _NativeSession extends Fake implements NativeSessionBridgeIngress {
+  _NativeSession(this.events);
+  final List<String> events;
+
+  @override
+  Future<void> logoutNativeSession({required String realmMarker}) async {
+    events.add('retire');
+  }
+
   final retirements = StreamController<void>.broadcast(sync: true);
 
   @override
@@ -92,12 +156,20 @@ class _SessionAccess extends Fake implements SessionFeatureAccessView {}
 
 class _WebViewPlatform extends WebViewPlatform {
   late _Controller controller;
+  final events = <String>[];
+  bool failCookies = false;
+
+  @override
+  PlatformWebViewCookieManager createPlatformCookieManager(
+    PlatformWebViewCookieManagerCreationParams params,
+  ) =>
+      _Cookies(params, this);
 
   @override
   PlatformWebViewController createPlatformWebViewController(
     PlatformWebViewControllerCreationParams params,
   ) =>
-      controller = _Controller(params);
+      controller = _Controller(params, events);
 
   @override
   PlatformNavigationDelegate createPlatformNavigationDelegate(
@@ -120,12 +192,39 @@ class _WebView extends PlatformWebViewWidget {
 }
 
 class _Controller extends PlatformWebViewController {
-  _Controller(super.params) : super.implementation();
+  _Controller(super.params, this.events) : super.implementation();
+  final List<String> events;
+  late JavaScriptChannelParams channel;
+  String? capability;
+
+  @override
+  Future<Object> runJavaScriptReturningResult(String script) async {
+    if (script.contains('return marker.length')) return '5:realm$_url';
+    final match =
+        RegExp(r'resolver\((.*?)\);', dotAll: true).firstMatch(script);
+    if (match != null) {
+      final args = jsonDecode('[${match.group(1)}]') as List;
+      if (args[0] == 'capability') capability = args[1] as String;
+      if (args[0] == 'logout') events.add(args[2] == null ? 'ack' : 'error');
+    }
+    return true;
+  }
+
+  @override
+  Future<void> clearLocalStorage() async {
+    events.add('storage');
+  }
+
+  @override
+  Future<void> clearCache() async {
+    events.add('cache');
+  }
 
   final loads = <Uri>[];
 
   @override
   Future<void> loadRequest(LoadRequestParams params) async {
+    events.add('load');
     loads.add(params.uri);
   }
 
@@ -149,7 +248,9 @@ class _Controller extends PlatformWebViewController {
   ) async {}
 
   @override
-  Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {}
+  Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {
+    channel = params;
+  }
 
   @override
   Future<void> setPlatformNavigationDelegate(
@@ -170,4 +271,16 @@ class _NavigationDelegate extends PlatformNavigationDelegate {
   Future<void> setOnWebResourceError(
     WebResourceErrorCallback onWebResourceError,
   ) async {}
+}
+
+class _Cookies extends PlatformWebViewCookieManager {
+  _Cookies(super.params, this.owner) : super.implementation();
+  final _WebViewPlatform owner;
+
+  @override
+  Future<bool> clearCookies() async {
+    owner.events.add('cookies');
+    if (owner.failCookies) throw StateError('cookie store unavailable');
+    return true;
+  }
 }

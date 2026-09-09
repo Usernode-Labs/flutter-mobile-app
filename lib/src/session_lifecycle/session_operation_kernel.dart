@@ -921,7 +921,7 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
   }
 
   final precommitTerminal = _NativeEstablishAttempt(realm)
-    ..terminalIntent = const _NativeTerminalIntent.realm(realm);
+    ..terminalIntent = const _NativeTerminalIntent.localLogout();
   final precommitState = _settledEstablishState(precommitTerminal);
   _expectSelfCheck(
     precommitState is _NativeClosing && precommitState.binding == null,

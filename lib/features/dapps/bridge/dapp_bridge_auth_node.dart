@@ -169,6 +169,11 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
       await widget._nativeSessionBridge.logoutNativeSession(
         realmMarker: lease.marker,
       );
+      // Drain/retirement must precede deletion: an admitted recovery may
+      // install a cookie while the native session is closing.
+      await WebViewCookieManager().clearCookies();
+      await _controller.clearLocalStorage();
+      await _controller.clearCache();
       await _resolveJsPromise(id: id, value: true, error: null);
       _replaceRetiredSessionDocument();
     } on NativeSessionException catch (error) {

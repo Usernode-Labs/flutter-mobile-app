@@ -68,6 +68,7 @@ void main() {
       'submitTransaction',
       'signMessage',
       'getWalletState',
+      'requiresNode',
       'getNodeStatus',
       'getSocialPushState',
       'setSocialPushEnabled',

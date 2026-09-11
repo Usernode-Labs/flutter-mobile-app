@@ -892,5 +892,65 @@
   "stakingUndelegateError": "Couldn't stop delegating. Check your connection and try again.",
   "@stakingUndelegateError": {
     "description": "Error shown when undelegation cannot be committed"
+  },
+  "nodePermissionsTitle": "Finish setup",
+  "@nodePermissionsTitle": {
+    "description": "Title of the mandatory notification and block-production permission flow"
+  },
+  "nodePermissionsNotificationsTitle": "Enable notifications",
+  "@nodePermissionsNotificationsTitle": {
+    "description": "Title of the mandatory notification-permission step"
+  },
+  "nodePermissionsNotificationsBody": "Notifications are required so your phone can show when Usernode is running and alert you about important account and node activity.",
+  "@nodePermissionsNotificationsBody": {
+    "description": "Explanation on the mandatory notification-permission step"
+  },
+  "nodePermissionsAllowNotifications": "Allow notifications",
+  "@nodePermissionsAllowNotifications": {
+    "description": "Action requesting notification permission"
+  },
+  "nodePermissionsOpenNotificationSettings": "Open notification settings",
+  "@nodePermissionsOpenNotificationSettings": {
+    "description": "Action opening system notification settings after permission was denied"
+  },
+  "nodePermissionsExactAlarmTitle": "Allow precise wake-ups",
+  "@nodePermissionsExactAlarmTitle": {
+    "description": "Title of the exact-alarm permission step"
+  },
+  "nodePermissionsExactAlarmBody": "Exact alarms let Android wake your node five minutes before its next block-production slot.",
+  "@nodePermissionsExactAlarmBody": {
+    "description": "Explanation on the exact-alarm permission step"
+  },
+  "nodePermissionsAllowExactAlarms": "Allow exact alarms",
+  "@nodePermissionsAllowExactAlarms": {
+    "description": "Action opening Android exact-alarm settings"
+  },
+  "nodePermissionsBackgroundTitle": "Allow unrestricted background use",
+  "@nodePermissionsBackgroundTitle": {
+    "description": "Title of the Android unrestricted-background step"
+  },
+  "nodePermissionsBackgroundBody": "Set Usernode's battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.",
+  "@nodePermissionsBackgroundBody": {
+    "description": "Explanation on the Android unrestricted-background step"
+  },
+  "nodePermissionsOpenBatterySettings": "Open battery settings",
+  "@nodePermissionsOpenBatterySettings": {
+    "description": "Action opening Android app battery settings"
+  },
+  "nodePermissionsDelegateAlternative": "Prefer not to grant block-production permissions? Delegate your stake to the server instead. Notifications are still required.",
+  "@nodePermissionsDelegateAlternative": {
+    "description": "Delegation alternative shown on block-production permission steps"
+  },
+  "nodePermissionsDelegateInstead": "Delegate instead",
+  "@nodePermissionsDelegateInstead": {
+    "description": "Action starting delegation from the permission flow"
+  },
+  "nodePermissionsDelegateTitle": "Delegate block production?",
+  "@nodePermissionsDelegateTitle": {
+    "description": "Confirmation title before delegating from the permission flow"
+  },
+  "nodePermissionsCheckFailed": "Couldn't check the current setup. Try again.",
+  "@nodePermissionsCheckFailed": {
+    "description": "Error shown when permission or delegation state cannot be refreshed"
   }
 }

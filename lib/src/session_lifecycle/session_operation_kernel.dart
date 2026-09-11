@@ -31,6 +31,8 @@ final class _SessionScope {
   final Completer<void> _drained = Completer<void>();
 
   late final SessionOperationRunner runner = _SessionOperationRunner(this);
+  late final _SessionSleepyPolicyCoordinator sleepyPolicy =
+      _SessionSleepyPolicyCoordinator(_applySleepy);
 
   void bindTopLevelAdmissionGate(_TopLevelAdmissionGate? gate) {
     _topLevelAdmissionGate = gate;
@@ -73,6 +75,7 @@ final class _SessionScope {
 
   Future<void> closeAndDrain() {
     if (_state == _ScopeState.open) {
+      sleepyPolicy.retire();
       // This write is deliberately synchronous with the caller. No new
       // top-level run can enter after closeAndDrain returns its Future. Work
       // already admitted may still register counted children/effects until
@@ -81,6 +84,36 @@ final class _SessionScope {
       _completeDrainIfReady();
     }
     return _drained.future;
+  }
+
+  Future<SessionSleepySnapshot> _applySleepy(bool enabled) {
+    if (_state != _ScopeState.open) {
+      return Future<SessionSleepySnapshot>.error(
+        const SessionAdmissionClosedException(),
+      );
+    }
+    _effects++;
+    final lease = _EffectLease._(this);
+    late Future<SessionSleepySnapshot> result;
+    try {
+      result = effects.setSleepyEnabled(enabled);
+    } catch (error, stackTrace) {
+      effects.reportFailure(error, stackTrace);
+      lease.release();
+      return Future<SessionSleepySnapshot>.error(error, stackTrace);
+    }
+    return _observeOwnedEffect(result, lease);
+  }
+
+  Future<T> _observeOwnedEffect<T>(Future<T> result, _EffectLease lease) async {
+    try {
+      return await result;
+    } catch (error, stackTrace) {
+      effects.reportFailure(error, stackTrace);
+      Error.throwWithStackTrace(error, stackTrace);
+    } finally {
+      lease.release();
+    }
   }
 
   bool get isRevoked => _state == _ScopeState.revoked;
@@ -348,16 +381,18 @@ final class _SessionOperation implements SessionOperation {
       _runEffect((sink) => sink.setDelegated(delegated));
 
   @override
-  Future<SessionSleepSnapshot> readSleep() =>
-      _runEffect((sink) => sink.readSleep());
+  Future<SessionSleepySnapshot> readSleepy() =>
+      _runEffect((sink) => sink.readSleepy());
 
   @override
-  Future<SessionSleepSnapshot> setSleepEnabled(bool enabled) =>
-      _runEffect((sink) => sink.setSleepEnabled(enabled));
+  Future<SessionSleepySnapshot> setSleepyEnabled(bool enabled) =>
+      _scope.sleepyPolicy.setBaseEnabled(enabled);
 
   @override
-  Future<SessionSleepSnapshot> setSleeping(bool sleeping) =>
-      _runEffect((sink) => sink.setSleeping(sleeping));
+  Future<SessionNodeAwakeLease> acquireNodeAwakeLease(
+    SessionNodeAwakeReason reason,
+  ) =>
+      _scope.sleepyPolicy.acquire(reason);
 
   @override
   Future<SessionSocialPushStatus> readSocialPushStatus({
@@ -435,6 +470,153 @@ final class _EffectLease {
   }
 }
 
+final class _SessionSleepyPolicyCoordinator {
+  _SessionSleepyPolicyCoordinator(this._apply);
+
+  final Future<SessionSleepySnapshot> Function(bool enabled) _apply;
+  final Map<int, SessionNodeAwakeReason> _awakeLeases = {};
+  final TaggedLogger _log = LoggingService.instance.withTag('usernode/Sleepy');
+
+  Future<void> _tail = Future<void>.value();
+  var _nextLeaseId = 0;
+  var _baseEnabled = true;
+  var _backgrounded = false;
+  var _retired = false;
+  bool? _lastAppliedEnabled = true;
+
+  Future<SessionNodeAwakeLease> acquire(
+    SessionNodeAwakeReason reason,
+  ) async {
+    if (_retired) throw const SessionAdmissionClosedException();
+    final id = _nextLeaseId++;
+    _awakeLeases[id] = reason;
+    try {
+      await _enqueue('lease_acquired:${reason.name}');
+    } catch (_) {
+      _awakeLeases.remove(id);
+      rethrow;
+    }
+    return _SessionNodeAwakeLease(this, id, reason);
+  }
+
+  Future<SessionSleepySnapshot> setBaseEnabled(bool enabled) {
+    if (_retired) {
+      return Future<SessionSleepySnapshot>.error(
+        const SessionAdmissionClosedException(),
+      );
+    }
+    _baseEnabled = enabled;
+    return _enqueue('settings', force: true);
+  }
+
+  Future<void> appBackgrounded() async {
+    if (_retired) return;
+    _backgrounded = true;
+    await _enqueue('app_background');
+  }
+
+  Future<void> reconcileAfterForegroundResume() async {
+    if (_retired) return;
+    _backgrounded = false;
+    // Native foreground wake uses manual NodeControl::resume(), which
+    // deliberately disables sleepy. Reassert the current session policy.
+    _lastAppliedEnabled = null;
+    await _enqueue('foreground_resume', force: true);
+  }
+
+  Future<void> release(int id, SessionNodeAwakeReason reason) async {
+    if (_awakeLeases.remove(id) == null || _retired) return;
+    await _enqueue('lease_released:${reason.name}');
+  }
+
+  void retire() {
+    _retired = true;
+    _awakeLeases.clear();
+  }
+
+  bool get _desiredEnabled {
+    if (!_baseEnabled) return false;
+    final hasEffectiveLease = _awakeLeases.values.any(
+      (reason) =>
+          !_backgrounded ||
+          reason == SessionNodeAwakeReason.transactionSubmission,
+    );
+    return !hasEffectiveLease;
+  }
+
+  Future<SessionSleepySnapshot> _enqueue(
+    String cause, {
+    bool force = false,
+  }) {
+    final desired = _desiredEnabled;
+    final previous = _tail;
+    final operation = () async {
+      await previous;
+      if (_retired) throw const SessionAdmissionClosedException();
+      if (!force && _lastAppliedEnabled == desired) {
+        return SessionSleepySnapshot(
+          enabled: desired,
+          decision: 'unchanged',
+        );
+      }
+      _log.info('Sleepy policy request', context: {
+        'enabled': desired,
+        'cause': cause,
+        'awakeLeases': _awakeLeases.length,
+        'backgrounded': _backgrounded,
+      });
+      final snapshot = await _apply(desired);
+      _lastAppliedEnabled = snapshot.enabled;
+      _log.info('Sleepy policy applied', context: {
+        'enabled': snapshot.enabled,
+        'decision': snapshot.decision,
+        'cause': cause,
+        'awakeLeases': _awakeLeases.length,
+      });
+      if (snapshot.enabled != desired) {
+        throw StateError(
+          'Sleepy policy returned enabled=${snapshot.enabled}, expected $desired.',
+        );
+      }
+      return snapshot;
+    }();
+    _tail = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stackTrace) {
+        _log.error(
+          'Sleepy policy failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      },
+    );
+    return operation;
+  }
+}
+
+final class _SessionNodeAwakeLease implements SessionNodeAwakeLease {
+  _SessionNodeAwakeLease(this._owner, this._id, this.reason);
+
+  final _SessionSleepyPolicyCoordinator _owner;
+  final int _id;
+
+  @override
+  final SessionNodeAwakeReason reason;
+
+  var _released = false;
+
+  @override
+  Future<void> release() {
+    if (_released) return Future<void>.value();
+    _released = true;
+    // Releasing a battery-policy lease is cleanup and must not replace the
+    // transaction result or the user's original navigation error. The
+    // coordinator records the complete failure and retries on the next policy
+    // transition.
+    return _owner.release(_id, reason).onError((_, __) {});
+  }
+}
+
 abstract interface class _SessionEffectSink {
   void reportFailure(Object error, StackTrace stackTrace);
 
@@ -496,11 +678,9 @@ abstract interface class _SessionEffectSink {
 
   Future<SessionDelegationSnapshot> setDelegated(bool delegated);
 
-  Future<SessionSleepSnapshot> readSleep();
+  Future<SessionSleepySnapshot> readSleepy();
 
-  Future<SessionSleepSnapshot> setSleepEnabled(bool enabled);
-
-  Future<SessionSleepSnapshot> setSleeping(bool sleeping);
+  Future<SessionSleepySnapshot> setSleepyEnabled(bool enabled);
 
   Future<SessionSocialPushStatus> readSocialPushStatus({
     required String installationId,
@@ -516,9 +696,13 @@ abstract interface class _SessionEffectSink {
 }
 
 final class _ClosedSessionEffectSink implements _SessionEffectSink {
-  const _ClosedSessionEffectSink([this._failureHandler]);
+  const _ClosedSessionEffectSink([
+    this._failureHandler,
+    this._sleepyHandler,
+  ]);
 
   final void Function(Object error, StackTrace stackTrace)? _failureHandler;
+  final Future<SessionSleepySnapshot> Function(bool enabled)? _sleepyHandler;
 
   @override
   void reportFailure(Object error, StackTrace stackTrace) {
@@ -595,11 +779,10 @@ final class _ClosedSessionEffectSink implements _SessionEffectSink {
   @override
   Future<SessionDelegationSnapshot> setDelegated(bool delegated) => _closed();
   @override
-  Future<SessionSleepSnapshot> readSleep() => _closed();
+  Future<SessionSleepySnapshot> readSleepy() => _closed();
   @override
-  Future<SessionSleepSnapshot> setSleepEnabled(bool enabled) => _closed();
-  @override
-  Future<SessionSleepSnapshot> setSleeping(bool sleeping) => _closed();
+  Future<SessionSleepySnapshot> setSleepyEnabled(bool enabled) =>
+      _sleepyHandler?.call(enabled) ?? _closed();
   @override
   Future<SessionSocialPushStatus> readSocialPushStatus({
     required String installationId,
@@ -686,6 +869,16 @@ final class _SessionCompositionRoot {
   Future<void> closeAndDrain() {
     _checkActive();
     return _published.scope.closeAndDrain();
+  }
+
+  Future<void> prepareForAppBackground() {
+    _checkActive();
+    return _published.scope.sleepyPolicy.appBackgrounded();
+  }
+
+  Future<void> reconcileAfterForegroundResume() {
+    _checkActive();
+    return _published.scope.sleepyPolicy.reconcileAfterForegroundResume();
   }
 
   void publishReady(
@@ -1008,6 +1201,62 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
   }
 
   return List<String>.unmodifiable(events);
+}
+
+/// Exercises the serialized sleepy policy without exposing its mutable owner.
+Future<List<String>> runSleepyPolicyOrderingSelfCheck() async {
+  final applied = <String>[];
+  final coordinator = _SessionSleepyPolicyCoordinator((enabled) async {
+    applied.add('apply:$enabled');
+    return SessionSleepySnapshot(enabled: enabled, decision: 'self_check');
+  });
+
+  final surface = await coordinator.acquire(
+    SessionNodeAwakeReason.transactionSurface,
+  );
+  final bridge = await coordinator.acquire(
+    SessionNodeAwakeReason.bridgeRequirement,
+  );
+  final submission = await coordinator.acquire(
+    SessionNodeAwakeReason.transactionSubmission,
+  );
+  await coordinator.appBackgrounded();
+  await submission.release();
+  await coordinator.reconcileAfterForegroundResume();
+  await bridge.release();
+  await surface.release();
+  await coordinator.setBaseEnabled(false);
+  await coordinator.setBaseEnabled(true);
+  coordinator.retire();
+
+  final applyStarted = Completer<void>();
+  final applyRelease = Completer<void>();
+  final scope = _SessionScope(
+    _ClosedSessionEffectSink(null, (enabled) async {
+      applied.add('scope-apply:$enabled');
+      applyStarted.complete();
+      await applyRelease.future;
+      return SessionSleepySnapshot(enabled: enabled, decision: 'self_check');
+    }),
+  )..open();
+  final acquiring = scope.runner.run(
+    (operation) => operation.acquireNodeAwakeLease(
+      SessionNodeAwakeReason.transactionSurface,
+    ),
+  );
+  await applyStarted.future;
+  var drained = false;
+  final closing = scope.closeAndDrain().then((_) => drained = true);
+  await Future<void>.delayed(Duration.zero);
+  _expectSelfCheck(!drained, 'session close did not drain sleepy write');
+  applied.add('scope-close-waiting');
+  applyRelease.complete();
+  final lease = await acquiring;
+  await closing;
+  await lease.release();
+  applied.add('scope-close-drained');
+
+  return List<String>.unmodifiable(applied);
 }
 
 final class _SelfCheckNativeSession implements native.SessionNativeClient {

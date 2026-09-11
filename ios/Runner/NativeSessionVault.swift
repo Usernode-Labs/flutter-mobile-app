@@ -319,8 +319,20 @@ final class IOSNativeSessionVault {
       case .unauthorized:
         try? deleteKeychain(account: Self.credentialAccount, expected: raw)
         return .absent
-      case .failure(_, _, _, let lease):
+      case .failure(let statusCode, let code, _, let lease):
         try applyCredentialLease(lease, recovered: recovered, required: false)
+        if statusCode == 503, code == "node_epoch_unavailable" {
+          NSLog(
+            "usernode/NativeVault: Producer policy node epoch is unavailable; " +
+              "allowing production for Rust's current epoch"
+          )
+          return .present(
+            evidence: try vaultEvidenceFrame(
+              recovered.storedRaw, coldInstallClaim: coldInstallClaim
+            ),
+            policy: Data([0x55, 0x4e, 0x45, 0x41, 0x01])
+          )
+        }
         return .uncertain
       }
     } catch let error as NativeSessionProtocolError {

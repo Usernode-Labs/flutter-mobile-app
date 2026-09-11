@@ -8,6 +8,7 @@ mixin _BridgeDispatch
         _DappWebViewScreenStateBase,
         _BridgeAuthNode,
         _BridgeWallet,
+        _BridgeNodeRequirement,
         _BridgeShortcuts,
         _BridgeSettings,
         _BridgeSocialPush,
@@ -38,6 +39,7 @@ mixin _BridgeDispatch
     'getNodeStatus',
     'nodeStatusEvents',
     'getWalletState',
+    'requiresNode',
     'manageStaking',
     'openNativeScreen',
     zkIdentityFlowCapability,
@@ -243,6 +245,10 @@ mixin _BridgeDispatch
 
     if (method == 'getWalletState') {
       await _handleGetWalletState(id, payload);
+    }
+
+    if (method == 'requiresNode') {
+      await _handleRequiresNode(id, payload);
     }
 
     if (method == 'manageStaking') {

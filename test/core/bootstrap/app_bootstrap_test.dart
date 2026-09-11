@@ -9,7 +9,7 @@ void main() {
       'lib/core/bootstrap/app_bootstrap.dart',
     ).readAsString();
 
-    expect(source, contains('await AppSleepStateStore.load()'));
+    expect(source, isNot(contains('AppSleepStateStore')));
     expect(source, contains('await RustLib.init('));
     expect(source, contains('Platform.isIOS || Platform.isMacOS'));
     expect(

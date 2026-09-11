@@ -1299,6 +1299,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t stop delegating. Check your connection and try again.'**
   String get stakingUndelegateError;
+
+  /// Title of the mandatory notification and block-production permission flow
+  ///
+  /// In en, this message translates to:
+  /// **'Finish setup'**
+  String get nodePermissionsTitle;
+
+  /// Title of the mandatory notification-permission step
+  ///
+  /// In en, this message translates to:
+  /// **'Enable notifications'**
+  String get nodePermissionsNotificationsTitle;
+
+  /// Explanation on the mandatory notification-permission step
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications are required so your phone can show when Usernode is running and alert you about important account and node activity.'**
+  String get nodePermissionsNotificationsBody;
+
+  /// Action requesting notification permission
+  ///
+  /// In en, this message translates to:
+  /// **'Allow notifications'**
+  String get nodePermissionsAllowNotifications;
+
+  /// Action opening system notification settings after permission was denied
+  ///
+  /// In en, this message translates to:
+  /// **'Open notification settings'**
+  String get nodePermissionsOpenNotificationSettings;
+
+  /// Title of the exact-alarm permission step
+  ///
+  /// In en, this message translates to:
+  /// **'Allow precise wake-ups'**
+  String get nodePermissionsExactAlarmTitle;
+
+  /// Explanation on the exact-alarm permission step
+  ///
+  /// In en, this message translates to:
+  /// **'Exact alarms let Android wake your node five minutes before its next block-production slot.'**
+  String get nodePermissionsExactAlarmBody;
+
+  /// Action opening Android exact-alarm settings
+  ///
+  /// In en, this message translates to:
+  /// **'Allow exact alarms'**
+  String get nodePermissionsAllowExactAlarms;
+
+  /// Title of the Android unrestricted-background step
+  ///
+  /// In en, this message translates to:
+  /// **'Allow unrestricted background use'**
+  String get nodePermissionsBackgroundTitle;
+
+  /// Explanation on the Android unrestricted-background step
+  ///
+  /// In en, this message translates to:
+  /// **'Set Usernode\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.'**
+  String get nodePermissionsBackgroundBody;
+
+  /// Action opening Android app battery settings
+  ///
+  /// In en, this message translates to:
+  /// **'Open battery settings'**
+  String get nodePermissionsOpenBatterySettings;
+
+  /// Delegation alternative shown on block-production permission steps
+  ///
+  /// In en, this message translates to:
+  /// **'Prefer not to grant block-production permissions? Delegate your stake to the server instead. Notifications are still required.'**
+  String get nodePermissionsDelegateAlternative;
+
+  /// Action starting delegation from the permission flow
+  ///
+  /// In en, this message translates to:
+  /// **'Delegate instead'**
+  String get nodePermissionsDelegateInstead;
+
+  /// Confirmation title before delegating from the permission flow
+  ///
+  /// In en, this message translates to:
+  /// **'Delegate block production?'**
+  String get nodePermissionsDelegateTitle;
+
+  /// Error shown when permission or delegation state cannot be refreshed
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check the current setup. Try again.'**
+  String get nodePermissionsCheckFailed;
 }
 
 class _AppLocalizationsDelegate

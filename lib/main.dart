@@ -27,7 +27,6 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
-import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
@@ -35,6 +34,8 @@ import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart'
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/node_permissions_gate_policy.dart';
+import 'package:crypto_mobile_app/features/onboarding/presentation/node_permissions_gate_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
@@ -106,19 +107,122 @@ Future<void> _runAppBody({required String logTag}) async {
     'Version check: enabled=${AppConfig.versionCheckEnabled}, host=${AppConfig.versionCheckHost}, intervalSec=${AppConfig.versionCheckIntervalSeconds}',
   );
 
-  // The native root is the only lifecycle owner. Bootstrap completes before
-  // any feature graph or trusted Social document exists, so a cold recovered
-  // Ready session is the first (and only) published identity.
-  await boot.rustBootstrap;
-  final nativeSession = await _bootstrapNativeSessionRuntime();
+  // The native root is the only lifecycle owner. The future completes before
+  // any feature graph or trusted Social document is constructed, while a
+  // Flutter-owned loading surface can render independently of slow native
+  // recovery and producer-policy work.
+  final nativeSessionFuture = () async {
+    await boot.rustBootstrap;
+    return _bootstrapNativeSessionRuntime();
+  }();
 
-  log.info('Running app UI');
+  log.info('Running app bootstrap UI');
   runApp(
     UncontrolledProviderScope(
       container: boot.container,
-      child: _CryptoMobileApp(nativeSession: nativeSession),
+      child: _NativeSessionBootstrapApp(nativeSessionFuture),
     ),
   );
+}
+
+class _NativeSessionBootstrapApp extends ConsumerStatefulWidget {
+  const _NativeSessionBootstrapApp(this.nativeSessionFuture);
+
+  final Future<_NativeSessionRuntime> nativeSessionFuture;
+
+  @override
+  ConsumerState<_NativeSessionBootstrapApp> createState() =>
+      _NativeSessionBootstrapAppState();
+}
+
+class _NativeSessionBootstrapAppState
+    extends ConsumerState<_NativeSessionBootstrapApp> {
+  _NativeSessionRuntime? _nativeSession;
+  Object? _failure;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.nativeSessionFuture.then(
+      _publishNativeSession,
+      onError: _publishFailure,
+    );
+  }
+
+  void _publishNativeSession(_NativeSessionRuntime nativeSession) {
+    if (!mounted) return;
+    setState(() => _nativeSession = nativeSession);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !identical(_nativeSession, nativeSession)) return;
+      final lifecycleState = WidgetsBinding.instance.lifecycleState;
+      if (lifecycleState == null) return;
+      unawaited(
+        nativeSession.appLifecycleStateChanged(lifecycleState).onError(
+          (error, stackTrace) {
+            LoggingService.instance.error(
+              'Initial lifecycle reconciliation failed',
+              tag: 'usernode/Bootstrap',
+              error: error,
+              stackTrace: stackTrace,
+            );
+          },
+        ),
+      );
+    });
+  }
+
+  void _publishFailure(Object error, StackTrace stackTrace) {
+    LoggingService.instance.error(
+      'Native session startup failed',
+      tag: 'usernode/Bootstrap',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    if (mounted) setState(() => _failure = error);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nativeSession = _nativeSession;
+    if (nativeSession != null) {
+      return _CryptoMobileApp(nativeSession: nativeSession);
+    }
+
+    return MaterialApp(
+      onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,
+      theme: _CryptoMobileAppState.lightTheme,
+      darkTheme: _CryptoMobileAppState.darkTheme,
+      themeMode: ref.watch(themeModeProvider),
+      debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: _failure == null
+          ? const SplashScreen()
+          : const _NativeSessionStartupFailureScreen(),
+    );
+  }
+}
+
+class _NativeSessionStartupFailureScreen extends StatelessWidget {
+  const _NativeSessionStartupFailureScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'The node could not be initialized. Close and reopen the app to retry.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _CryptoMobileApp extends ConsumerStatefulWidget {
@@ -147,14 +251,14 @@ class _CryptoMobileAppState extends ConsumerState<_CryptoMobileApp> {
     super.dispose();
   }
 
-  static final _lightTheme =
+  static final lightTheme =
       ColorIsExpensiveTheme(ThemeData.light().textTheme).light().copyWith(
             extensions: DesignSystemTheme.standardExtensions(
               semanticColors: AppSemanticColors.light(),
             ),
           );
 
-  static final _darkTheme =
+  static final darkTheme =
       ColorIsExpensiveTheme(ThemeData.dark().textTheme).dark().copyWith(
             extensions: DesignSystemTheme.standardExtensions(
               semanticColors: AppSemanticColors.dark(),
@@ -167,8 +271,8 @@ class _CryptoMobileAppState extends ConsumerState<_CryptoMobileApp> {
 
     return MaterialApp.router(
       onGenerateTitle: (ctx) => AppLocalizations.of(ctx).appName,
-      theme: _lightTheme,
-      darkTheme: _darkTheme,
+      theme: lightTheme,
+      darkTheme: darkTheme,
       themeMode: themeMode,
       debugShowCheckedModeBanner: false,
       debugShowMaterialGrid: false, // Flip to true to verify 8pt grid alignment
@@ -203,11 +307,12 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     with WidgetsBindingObserver {
   final Object _socialPushOwner = Object();
   bool _versionCheckShown = false;
-  bool _resumeValidationPending = false;
   int _lifecycleGeneration = 0;
   StreamSubscription<void>? _socialPushTapSubscription;
   StreamSubscription<SessionFeatureAccess>? _sessionSubscription;
   String? _boundReadyRevision;
+  _NodePermissionGateBinding? _nodePermissionGate;
+  int _nodePermissionGateGeneration = 0;
 
   @override
   void initState() {
@@ -241,9 +346,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     final lifecycleGeneration = ++_lifecycleGeneration;
     MetricsCollectorService.instance.updateAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      if (!_resumeValidationPending) {
-        setState(() => _resumeValidationPending = true);
-      }
       unawaited(
         _finishForegroundResume(lifecycleTransition, lifecycleGeneration),
       );
@@ -259,28 +361,22 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     Future<void> validation,
     int lifecycleGeneration,
   ) async {
-    try {
-      await validation;
-      if (!mounted ||
-          lifecycleGeneration != _lifecycleGeneration ||
-          widget._nativeSession.bridge.terminallyRetired ||
-          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
-        return;
-      }
-      final access = widget._nativeSession.sessions.current;
-      _bindSessionFeatures(access);
-      if (access.identity.status != SessionProjectionStatus.ready) return;
-      SocialPushService.instance.reconcileBestEffort();
-      _openPendingSocialNotification();
-      // Don't reset _versionCheckShown — the guard in _checkInitialVersion
-      // prevents stacking a second dialog on top of an already-shown one.
-      ref.invalidate(appVersionCheckProvider);
-      _checkInitialVersion();
-    } finally {
-      if (mounted && lifecycleGeneration == _lifecycleGeneration) {
-        setState(() => _resumeValidationPending = false);
-      }
+    await validation;
+    if (!mounted ||
+        lifecycleGeneration != _lifecycleGeneration ||
+        widget._nativeSession.bridge.terminallyRetired ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
     }
+    final access = widget._nativeSession.sessions.current;
+    _bindSessionFeatures(access, forcePermissionGateCheck: true);
+    if (access.identity.status != SessionProjectionStatus.ready) return;
+    SocialPushService.instance.reconcileBestEffort();
+    _openPendingSocialNotification();
+    // Don't reset _versionCheckShown — the guard in _checkInitialVersion
+    // prevents stacking a second dialog on top of an already-shown one.
+    ref.invalidate(appVersionCheckProvider);
+    _checkInitialVersion();
   }
 
   Future<void> _checkInitialVersion() async {
@@ -313,7 +409,10 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     super.dispose();
   }
 
-  void _bindSessionFeatures(SessionFeatureAccess access) {
+  void _bindSessionFeatures(
+    SessionFeatureAccess access, {
+    bool forcePermissionGateCheck = false,
+  }) {
     ref.read(zkPassportPipelineProvider.notifier).bindSession(access);
     ref.invalidate(zkPassportIsRegisteredProvider);
     ref.invalidate(zkPassportRegistrationProvider);
@@ -338,8 +437,13 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         _socialPushOwner,
         SocialPushSession(access: access),
       );
+      _scheduleNodePermissionGateCheck(
+        access,
+        force: forcePermissionGateCheck,
+      );
     } else {
       _boundReadyRevision = null;
+      _clearNodePermissionGate();
       unawaited(SentryUtil.clearUser());
       unawaited(
         ObservabilityReportingService.instance
@@ -352,6 +456,85 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         unregisterReason: SocialPushUnregisterReason.signedOut,
       );
     }
+  }
+
+  void _scheduleNodePermissionGateCheck(
+    SessionFeatureAccess access, {
+    bool force = false,
+  }) {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      _clearNodePermissionGate();
+      return;
+    }
+    if (!force &&
+        _nodePermissionGate?.nativeRevision == access.identity.nativeRevision) {
+      return;
+    }
+    final generation = ++_nodePermissionGateGeneration;
+    unawaited(_reconcileNodePermissionGate(access, generation));
+  }
+
+  Future<void> _reconcileNodePermissionGate(
+    SessionFeatureAccess access,
+    int generation,
+  ) async {
+    NodePermissionGateState state;
+    try {
+      state = await readNodePermissionGateState(access);
+    } catch (error, stackTrace) {
+      LoggingService.instance.error(
+        'Could not evaluate the permission gate',
+        tag: 'usernode/PermissionGate',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      state = NodePermissionGateState.conservative(
+        hasWallet: access.identity.hasWallet,
+      );
+    }
+    if (!mounted ||
+        generation != _nodePermissionGateGeneration ||
+        widget._nativeSession.sessions.current.identity.nativeRevision !=
+            access.identity.nativeRevision ||
+        widget._nativeSession.sessions.current.identity.status !=
+            SessionProjectionStatus.ready) {
+      return;
+    }
+
+    LoggingService.instance.info(
+      'Permission gate evaluated '
+      '(required=${!state.isSatisfied}, '
+      'notifications=${state.notificationsGranted}, '
+      'delegated=${state.delegated}, '
+      'exactAlarms=${state.exactAlarmsGranted}, '
+      'unrestrictedBackground=${state.unrestrictedBackgroundGranted})',
+      tag: 'usernode/PermissionGate',
+    );
+    setState(() {
+      _nodePermissionGate = state.isSatisfied
+          ? null
+          : _NodePermissionGateBinding(
+              nativeRevision: access.identity.nativeRevision,
+              session: access,
+              initialState: state,
+            );
+    });
+  }
+
+  void _clearNodePermissionGate() {
+    ++_nodePermissionGateGeneration;
+    if (_nodePermissionGate == null || !mounted) return;
+    setState(() => _nodePermissionGate = null);
+  }
+
+  void _completeNodePermissionGate(String nativeRevision) {
+    if (_nodePermissionGate?.nativeRevision != nativeRevision) return;
+    ++_nodePermissionGateGeneration;
+    LoggingService.instance.info(
+      'Permission gate requirements satisfied',
+      tag: 'usernode/PermissionGate',
+    );
+    setState(() => _nodePermissionGate = null);
   }
 
   void _openPendingSocialNotification() {
@@ -375,18 +558,30 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         ClockDriftWarningOverlay(
           sessionAccess: widget._nativeSession.sessions,
         ),
+        if (_nodePermissionGate case final gate?)
+          NodePermissionsGateScreen(
+            key: ValueKey('node-permissions-${gate.nativeRevision}'),
+            session: gate.session,
+            initialState: gate.initialState,
+            onSatisfied: () => _completeNodePermissionGate(gate.nativeRevision),
+          ),
       ],
     );
-    if (!_resumeValidationPending) return content;
-    // Block resumed UI dispatch until the private native snapshot/wake has
-    // either kept Ready or retired it to the inert signed-out projection.
-    return Stack(
-      children: [
-        AbsorbPointer(child: content),
-        const Positioned.fill(
-          child: ModalBarrier(dismissible: false, color: Colors.transparent),
-        ),
-      ],
-    );
+    // Session operations remain admission-gated during foreground validation;
+    // navigation and the WebView must remain responsive while a producer
+    // policy request is in flight.
+    return content;
   }
+}
+
+final class _NodePermissionGateBinding {
+  const _NodePermissionGateBinding({
+    required this.nativeRevision,
+    required this.session,
+    required this.initialState,
+  });
+
+  final String nativeRevision;
+  final SessionFeatureAccess session;
+  final NodePermissionGateState initialState;
 }

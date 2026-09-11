@@ -113,6 +113,7 @@ class PrivilegedBridgePolicy {
     'submitTransaction',
     'signMessage',
     'getWalletState',
+    'requiresNode',
     'getNodeStatus',
     'getSocialPushState',
     'setSocialPushEnabled',

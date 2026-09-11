@@ -56,41 +56,55 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase {
       payload: payload,
       method: 'submitTransaction',
       body: (identity, operation) async {
-        final from = identity.address;
-        if (from == null || from.isEmpty) {
-          throw const NativeSessionException(
-            'native_wallet_unavailable',
-            'No active account/address is available.',
-          );
-        }
-        final confirmed = await _requestTransactionConfirmation(
-          from: from,
-          to: request.destinationPubkey,
-          amount: request.amount,
-          memo: request.memo,
-          confirmTitle: request.confirmation?.title,
-          confirmSubtitle: request.confirmation?.subtitle,
+        final surfaceLease = await operation.acquireNodeAwakeLease(
+          SessionNodeAwakeReason.transactionSurface,
         );
-        if (!confirmed) {
-          throw const NativeSessionException(
-            'native_user_denied',
-            'User denied the transaction.',
+        try {
+          final from = identity.address;
+          if (from == null || from.isEmpty) {
+            throw const NativeSessionException(
+              'native_wallet_unavailable',
+              'No active account/address is available.',
+            );
+          }
+          final confirmed = await _requestTransactionConfirmation(
+            from: from,
+            to: request.destinationPubkey,
+            amount: request.amount,
+            memo: request.memo,
+            confirmTitle: request.confirmation?.title,
+            confirmSubtitle: request.confirmation?.subtitle,
           );
-        }
-        if (AppConfig.viewOnly) {
-          throw const NativeSessionException(
-            'native_view_only',
-            'Transactions are disabled in view-only mode.',
+          if (!confirmed) {
+            throw const NativeSessionException(
+              'native_user_denied',
+              'User denied the transaction.',
+            );
+          }
+          if (AppConfig.viewOnly) {
+            throw const NativeSessionException(
+              'native_view_only',
+              'Transactions are disabled in view-only mode.',
+            );
+          }
+          final submissionLease = await operation.acquireNodeAwakeLease(
+            SessionNodeAwakeReason.transactionSubmission,
           );
+          try {
+            final result = await operation.submitTransaction(
+              destinationAddress: request.destinationPubkey,
+              amount: request.amount,
+              memo: request.memo,
+            );
+            return SubmitTransactionResult(
+              txId: result.transactionId,
+            ).toBridgeJson();
+          } finally {
+            await submissionLease.release();
+          }
+        } finally {
+          await surfaceLease.release();
         }
-        final result = await operation.submitTransaction(
-          destinationAddress: request.destinationPubkey,
-          amount: request.amount,
-          memo: request.memo,
-        );
-        return SubmitTransactionResult(
-          txId: result.transactionId,
-        ).toBridgeJson();
       },
     );
   }

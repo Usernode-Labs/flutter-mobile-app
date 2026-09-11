@@ -18,6 +18,8 @@ import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
 import 'package:crypto_mobile_app/features/dapps/native_screen_capture.dart';
+import 'package:crypto_mobile_app/features/dapps/node_requirement_contract.dart';
+import 'package:crypto_mobile_app/features/dapps/node_requirement_guard_registry.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:crypto_mobile_app/features/dapps/submit_transaction_contract.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
@@ -49,6 +51,7 @@ part 'bridge/dapp_bridge_settings.dart';
 part 'bridge/dapp_bridge_social_push.dart';
 part 'bridge/dapp_bridge_capture.dart';
 part 'bridge/dapp_bridge_dispatch.dart';
+part 'bridge/dapp_bridge_node_requirement.dart';
 
 extension on WebViewController {
   /// Debug-only: exposes the webview to Safari Web Inspector (iOS 16.4+)
@@ -126,6 +129,8 @@ abstract class _DappWebViewScreenStateBase
   late final WebViewController _controller;
   late final PrivilegedBridgePolicy _privilegedBridgePolicy;
   late final BridgeAdmissionCoordinator _bridgeAdmissionCoordinator;
+  final NodeRequirementGuardRegistry _nodeRequirementGuards =
+      NodeRequirementGuardRegistry();
   PrivilegedBridgeLease? _readyMainFrameLease;
 
   /// The app-scoped Riverpod container, captured so JS-channel handlers — which
@@ -141,6 +146,7 @@ abstract class _DappWebViewScreenStateBase
     final delivered =
         await _privilegedBridgePolicy.runInLease(lease, 'void 0;');
     if (!delivered || !mounted) return false;
+    await _nodeRequirementGuards.retainOnlyRealm(lease.marker);
     _readyMainFrameLease = lease;
     _dispatchPendingSocialPushEvents();
     return true;
@@ -152,7 +158,18 @@ abstract class _DappWebViewScreenStateBase
     return _privilegedBridgePolicy.runInLease(lease, javaScriptBody);
   }
 
+  Future<void> _reconcileNodeRequirementRealm() async {
+    final realm = await _privilegedBridgePolicy.bootstrapLease();
+    if (!mounted) return;
+    if (realm == null) {
+      await _nodeRequirementGuards.releaseAll();
+    } else {
+      await _nodeRequirementGuards.retainOnlyRealm(realm.marker);
+    }
+  }
+
   void _replaceRetiredSessionDocument() {
+    unawaited(_nodeRequirementGuards.releaseAll());
     final delegate = widget.onSessionEnded;
     if (delegate != null) {
       delegate();
@@ -221,7 +238,7 @@ abstract class _DappWebViewScreenStateBase
     return null;
   }
 
-  Future<void> _resolveJsPromise({
+  Future<bool> _resolveJsPromise({
     required String id,
     required Object? value,
     required String? error,
@@ -229,22 +246,23 @@ abstract class _DappWebViewScreenStateBase
   }) async {
     final lease = _activePrivilegedBridgeLease;
     if (lease != null) {
-      await _privilegedBridgePolicy.resolve(
+      return _privilegedBridgePolicy.resolve(
         lease: lease,
         id: id,
         value: value,
         error: error,
         errorInfo: errorInfo,
       );
-      return;
     }
     final js = 'window.__usernodeResolve(${jsonEncode(id)},'
         ' ${jsonEncode(value)}, ${jsonEncode(error)},'
         ' ${jsonEncode(errorInfo)});';
     try {
       await _controller.runJavaScript(js);
+      return true;
     } catch (_) {
       // Ignore callback failures.
+      return false;
     }
   }
 
@@ -310,6 +328,7 @@ abstract class _DappWebViewScreenStateBase
       SessionIdentityProjection identity,
       SessionOperation operation,
     ) body,
+    FutureOr<void> Function(Object? value)? onResponseUndelivered,
   }) async {
     final lease = _activePrivilegedBridgeLease;
     final claim = payload['realmSessionClaim'];
@@ -333,7 +352,14 @@ abstract class _DappWebViewScreenStateBase
         realmSessionClaim: claim,
         body: body,
       );
-      await _resolveJsPromise(id: id, value: value, error: null);
+      final delivered = await _resolveJsPromise(
+        id: id,
+        value: value,
+        error: null,
+      );
+      if (!delivered && onResponseUndelivered != null) {
+        await onResponseUndelivered(value);
+      }
     } on NativeSessionException catch (error) {
       await _resolveJsPromise(
         id: id,
@@ -367,6 +393,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     with
         _BridgeAuthNode,
         _BridgeWallet,
+        _BridgeNodeRequirement,
         _BridgeShortcuts,
         _BridgeSettings,
         _BridgeSocialPush,
@@ -433,6 +460,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
           },
           onPageFinished: (_) {
             if (!mounted) return;
+            unawaited(_reconcileNodeRequirementRealm());
             _reportFirstLoadResult(true);
             _logServiceWorkerStateForDebug();
           },
@@ -585,6 +613,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void dispose() {
     _bridgeAdmissionCoordinator.dispose();
+    unawaited(_nodeRequirementGuards.dispose());
     _readyMainFrameLease = null;
     _privilegedBridgePolicy.dispose();
     _disposeSocialPushEvents();

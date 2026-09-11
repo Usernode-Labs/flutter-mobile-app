@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.util.Log
 import android.webkit.CookieManager
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
@@ -41,27 +42,39 @@ internal class AndroidNativeSessionVault(context: Context) {
     )
     private val secureRandom = SecureRandom()
     private var http: NativeSessionHttp? = null
+    @Volatile
+    private var canonicalMobileApiBaseUrl: String? =
+        preferences.getString(MOBILE_API_BASE_URL_KEY, null)
 
-    @Synchronized
     fun configureMobileApiBaseUrl(value: String) {
         val configured = NativeSessionHttp(value)
-        val existing = http
-        if (existing != null) {
-            // The engine lease may be replaced, but a process may not switch
-            // the credential's authenticated origin underneath a live vault.
-            if (existing.canonicalBaseUrl != configured.canonicalBaseUrl) {
-                requireOriginMayChange(existing.canonicalBaseUrl, configured.canonicalBaseUrl)
+        // Producer-policy refresh deliberately holds the vault monitor across
+        // its authenticated request. Interactive bootstrap normally presents
+        // the already-persisted origin, so let that idempotent case return
+        // without waiting on network I/O owned by the background coordinator.
+        if (canonicalMobileApiBaseUrl == configured.canonicalBaseUrl) return
+        synchronized(this) {
+            if (canonicalMobileApiBaseUrl == configured.canonicalBaseUrl) return
+            val existing = http
+            if (existing != null) {
+                // The engine lease may be replaced, but a process may not
+                // switch the credential's authenticated origin underneath a
+                // live vault.
+                requireOriginMayChange(
+                    existing.canonicalBaseUrl,
+                    configured.canonicalBaseUrl,
+                )
                 persistMobileApiBaseUrl(configured.canonicalBaseUrl)
                 http = configured
+                return
             }
-            return
+            val persisted = canonicalMobileApiBaseUrl
+            if (persisted != null && persisted != configured.canonicalBaseUrl) {
+                requireOriginMayChange(persisted, configured.canonicalBaseUrl)
+            }
+            persistMobileApiBaseUrl(configured.canonicalBaseUrl)
+            http = configured
         }
-        val persisted = preferences.getString(MOBILE_API_BASE_URL_KEY, null)
-        if (persisted != null && persisted != configured.canonicalBaseUrl) {
-            requireOriginMayChange(persisted, configured.canonicalBaseUrl)
-        }
-        persistMobileApiBaseUrl(configured.canonicalBaseUrl)
-        http = configured
     }
 
     private fun requireOriginMayChange(previous: String, next: String) {
@@ -77,12 +90,16 @@ internal class AndroidNativeSessionVault(context: Context) {
     }
 
     private fun persistMobileApiBaseUrl(canonicalBaseUrl: String) {
-        if (preferences.getString(MOBILE_API_BASE_URL_KEY, null) == canonicalBaseUrl) return
+        if (preferences.getString(MOBILE_API_BASE_URL_KEY, null) == canonicalBaseUrl) {
+            canonicalMobileApiBaseUrl = canonicalBaseUrl
+            return
+        }
         if (!preferences.edit().putString(MOBILE_API_BASE_URL_KEY, canonicalBaseUrl).commit() ||
             preferences.getString(MOBILE_API_BASE_URL_KEY, null) != canonicalBaseUrl
         ) {
             fail("native_api_unavailable", "The native mobile API origin could not be persisted")
         }
+        canonicalMobileApiBaseUrl = canonicalBaseUrl
     }
 
     @Synchronized
@@ -642,15 +659,21 @@ internal class AndroidNativeSessionVault(context: Context) {
         val recovered = try {
             recoverCredential(storedRaw)
         } catch (error: NativeSessionProtocolException) {
+            Log.w(TAG, "Producer policy credential recovery failed (code=${error.code})")
             if (shouldDiscardCredential(error)) {
                 compareDeleteExact(storedRaw)
                 return AuthenticatedProducerMaterial.Absent
             }
             return AuthenticatedProducerMaterial.Uncertain
-        } catch (_: Throwable) {
+        } catch (error: Throwable) {
+            Log.w(
+                TAG,
+                "Producer policy credential recovery failed (${error.javaClass.simpleName})",
+            )
             return AuthenticatedProducerMaterial.Uncertain
         }
         if (recovered.credential.account == null) {
+            Log.w(TAG, "Producer policy refresh requires a wallet credential")
             recovered.close()
             return AuthenticatedProducerMaterial.Uncertain
         }
@@ -664,22 +687,44 @@ internal class AndroidNativeSessionVault(context: Context) {
                     recovered.binding,
                     recovered.credential,
                 )
+                Log.i(TAG, "Producer policy refresh authenticated successfully")
                 AuthenticatedProducerMaterial.Present(recovered, policy)
-            } catch (_: Throwable) {
+            } catch (error: Throwable) {
+                Log.w(
+                    TAG,
+                    "Producer policy response validation failed (${error.javaClass.simpleName})",
+                )
                 recovered.close()
                 AuthenticatedProducerMaterial.Uncertain
             }
             NativeHttpResult.Unauthorized -> {
+                Log.i(TAG, "Producer policy credential is no longer authorized")
                 compareDeleteExact(recovered.storedRaw)
                 recovered.close()
                 AuthenticatedProducerMaterial.Absent
             }
             is NativeHttpResult.Failure -> {
+                Log.w(
+                    TAG,
+                    "Producer policy request failed " +
+                        "(status=${response.statusCode}, code=${response.code ?: "none"})",
+                )
                 try {
                     applyCredentialLease(response.credentialLease, recovered, required = false)
                 } catch (_: Throwable) {
                     recovered.close()
                     return AuthenticatedProducerMaterial.Uncertain
+                }
+                if (allowsCurrentEpochProduction(response.statusCode, response.code)) {
+                    Log.w(
+                        TAG,
+                        "Producer policy node epoch is unavailable; " +
+                            "allowing production for Rust's current epoch",
+                    )
+                    return AuthenticatedProducerMaterial.Present(
+                        recovered,
+                        NativeProducerPolicyFrame.nodeEpochUnavailable(),
+                    )
                 }
                 recovered.close()
                 AuthenticatedProducerMaterial.Uncertain
@@ -834,7 +879,7 @@ internal class AndroidNativeSessionVault(context: Context) {
     @Synchronized
     private fun configuredHttp(): NativeSessionHttp {
         http?.let { return it }
-        val persisted = preferences.getString(MOBILE_API_BASE_URL_KEY, null)
+        val persisted = canonicalMobileApiBaseUrl
             ?: fail(
                 "native_api_unavailable",
                 "The native mobile API origin has not been configured",
@@ -1454,6 +1499,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             error.code == "native_credential_relogin_required"
 
     private companion object {
+        const val TAG = "usernode/NativeVault"
         const val HANDOFF_COOKIE_NAME = "usernode_native_session_handoff"
         const val PREFERENCES_NAME = "native_session_v2"
         const val INSTALLATION_ID_KEY = "installation_id"
@@ -1534,6 +1580,9 @@ internal sealed interface ProducerWakeCredential {
     object Absent : ProducerWakeCredential
     object Uncertain : ProducerWakeCredential
 }
+
+internal fun allowsCurrentEpochProduction(statusCode: Int, code: String?): Boolean =
+    statusCode == 503 && code == "node_epoch_unavailable"
 
 private sealed interface AuthenticatedProducerMaterial {
     class Present(

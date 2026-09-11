@@ -109,6 +109,10 @@ class AlarmReceiver : BroadcastReceiver() {
             Log.w(TAG, "Ignoring an alarm without an exact native wake selector")
             return
         }
+        AlarmScheduler(
+            context,
+            context.getSystemService(Context.ALARM_SERVICE) as AlarmManager,
+        ).markAlarmDelivered(alarmId)
         val serviceIntent = Intent(context, SlotMonitoringService::class.java).apply {
             action = SlotMonitoringService.ACTION_START_MONITORING
             putExtra("alarmId", alarmId)
@@ -134,6 +138,7 @@ class AlarmReceiver : BroadcastReceiver() {
             context,
             ProducerWakeSource.EXACT_ALARM,
             scheduledWake,
+            refreshPolicy = false,
             monitoringIntent = serviceIntent,
         ) {
             pending.finish()
@@ -156,11 +161,6 @@ class AlarmReceiver : BroadcastReceiver() {
 
         Log.i(TAG, "Device boot completed - starting monitoring")
         AlarmWatchdogScheduler.ensurePeriodic(
-            context,
-            "boot_completed",
-            applicationIncarnation,
-        )
-        AlarmWatchdogScheduler.enqueueOneTime(
             context,
             "boot_completed",
             applicationIncarnation,
@@ -188,11 +188,6 @@ class AlarmReceiver : BroadcastReceiver() {
 
         Log.i(TAG, "App updated - starting monitoring")
         AlarmWatchdogScheduler.ensurePeriodic(
-            context,
-            "package_replaced",
-            applicationIncarnation,
-        )
-        AlarmWatchdogScheduler.enqueueOneTime(
             context,
             "package_replaced",
             applicationIncarnation,

@@ -9,7 +9,6 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
 import 'package:crypto_mobile_app/core/config/theme_mode.dart';
-import 'package:crypto_mobile_app/core/services/app_sleep_state_store.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
 
@@ -43,7 +42,6 @@ abstract final class AppBootstrap {
     // repaints the splash instead of painting it right the first time.
     await ThemeModeStorage.init();
     await AppearanceStorage.init();
-    await AppSleepStateStore.load();
 
     final log = LoggingService.instance.withTag(logTag);
     if (installErrorHandlers) _installGlobalErrorHandlers(log);

@@ -291,6 +291,14 @@ internal class NativeManagedHttpException(
 ) : Exception("The native managed request failed")
 
 internal object NativeProducerPolicyFrame {
+    fun nodeEpochUnavailable(): ByteArray = byteArrayOf(
+        'U'.code.toByte(),
+        'N'.code.toByte(),
+        'E'.code.toByte(),
+        'A'.code.toByte(),
+        1,
+    )
+
     fun encode(
         response: JSONObject,
         binding: NativeCredentialBinding,

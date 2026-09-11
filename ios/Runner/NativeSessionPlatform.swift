@@ -395,7 +395,7 @@ final class IOSNativeProducerWakeCoordinator {
 
   private func decodeDirective(_ frame: Data) throws -> IOSProducerWakeDirective {
     guard frame.count >= 15, frame.count <= 109,
-          frame.prefix(4) == Data("UNPR".utf8), frame[4] == 1,
+          frame.prefix(4) == Data("UNPR".utf8), frame[4] == 2,
           let revision = frame.uint64(at: 6) else {
       try NativeSessionProtocol.fail(
         "invalid_native_wake_response", "The producer wake response is invalid"
@@ -406,7 +406,23 @@ final class IOSNativeProducerWakeCoordinator {
     let directive: IOSProducerWakeDirective
     switch tag {
     case 1:
-      fixedLength = 19
+      guard frame.count > 19 else {
+        try NativeSessionProtocol.fail(
+          "invalid_native_wake_response", "The producer wake response is invalid"
+        )
+      }
+      let detailLength: Int
+      switch frame[19] {
+      case 0: detailLength = 1
+      case 1: detailLength = 13
+      case 2: detailLength = 5
+      case 3: detailLength = 9
+      default:
+        try NativeSessionProtocol.fail(
+          "invalid_native_wake_response", "The producer wake response is invalid"
+        )
+      }
+      fixedLength = 19 + detailLength
       directive = .keep(revision: revision, applyRequired: false)
     case 2:
       guard frame.count >= 76, frame[14..<46].contains(where: { $0 != 0 }) else {

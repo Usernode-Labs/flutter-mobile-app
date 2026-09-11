@@ -83,12 +83,17 @@ abstract interface class SessionOperation {
 
   Future<SessionDelegationSnapshot> setDelegated(bool delegated);
 
-  Future<SessionSleepSnapshot> readSleep();
+  Future<SessionSleepySnapshot> readSleepy();
 
-  Future<SessionSleepSnapshot> setSleepEnabled(bool enabled);
+  Future<SessionSleepySnapshot> setSleepyEnabled(bool enabled);
 
-  /// Applies the exact session-scoped runtime sleep intent.
-  Future<SessionSleepSnapshot> setSleeping(bool sleeping);
+  /// Keeps the node awake until the returned lease is released. Transaction
+  /// submission leases remain effective while the app is backgrounded;
+  /// interactive-surface and bridge leases are suspended there and resume on
+  /// foreground.
+  Future<SessionNodeAwakeLease> acquireNodeAwakeLease(
+    SessionNodeAwakeReason reason,
+  );
 
   Future<SessionSocialPushStatus> readSocialPushStatus({
     required String installationId,
@@ -269,10 +274,26 @@ final class SessionZkPassportCompletion {
   final int challengeId;
 }
 
-final class SessionSleepSnapshot {
-  const SessionSleepSnapshot({required this.enabled});
+final class SessionSleepySnapshot {
+  const SessionSleepySnapshot({
+    required this.enabled,
+    required this.decision,
+  });
 
   final bool enabled;
+  final String decision;
+}
+
+enum SessionNodeAwakeReason {
+  transactionSurface,
+  transactionSubmission,
+  bridgeRequirement,
+}
+
+abstract interface class SessionNodeAwakeLease {
+  SessionNodeAwakeReason get reason;
+
+  Future<void> release();
 }
 
 /// Inert provider registration data. Authentication is always taken from the

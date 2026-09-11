@@ -107,7 +107,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   Future<Map<String, dynamic>> _settingsStateSnapshot({
     bool? facematchStrictOverride,
     required SessionIdentityProjection identity,
-    required SessionSleepSnapshot sleep,
+    required SessionSleepySnapshot sleep,
   }) async {
     // Live probes, not the service's cached combined flag: the granular
     // request methods don't refresh `hasPermissions`, and its legacy
@@ -192,7 +192,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
         method: 'getSettingsState',
         body: (identity, operation) async => _settingsStateSnapshot(
           identity: identity,
-          sleep: await operation.readSleep(),
+          sleep: await operation.readSleepy(),
         ),
       );
 
@@ -208,7 +208,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       method: 'setNodeSleepEnabled',
       body: (identity, operation) async => _settingsStateSnapshot(
         identity: identity,
-        sleep: await operation.setSleepEnabled(enabled),
+        sleep: await operation.setSleepyEnabled(enabled),
       ),
     );
   }
@@ -226,7 +226,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     return access.operations.run(
       (operation) async => _settingsStateSnapshot(
         identity: access.identity,
-        sleep: await operation.readSleep(),
+        sleep: await operation.readSleepy(),
         facematchStrictOverride: facematchStrictOverride,
       ),
     );

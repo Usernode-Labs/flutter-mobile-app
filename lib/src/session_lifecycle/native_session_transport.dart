@@ -1148,36 +1148,59 @@ final class _NativeSessionEffects implements _SessionEffectSink {
   }
 
   @override
-  Future<SessionSleepSnapshot> readSleep() async =>
-      SessionSleepSnapshot(enabled: AppSleepStateStore.isEnabled);
-
-  @override
-  Future<SessionSleepSnapshot> setSleepEnabled(bool enabled) async {
-    await AppSleepStateStore.setEnabled(enabled);
-    if (!enabled && _identity.hasWallet) {
-      await native.setNativeRuntimePaused(
-        root: _root,
-        session: _session,
-        paused: false,
-      );
-    }
-    return SessionSleepSnapshot(enabled: enabled);
+  Future<SessionSleepySnapshot> readSleepy() async {
+    final snapshot = await native.nativeSleepyStatus(
+      root: _root,
+      session: _session,
+    );
+    return SessionSleepySnapshot(
+      enabled: snapshot.enabled,
+      decision: snapshot.decision.toString(),
+    );
   }
 
   @override
-  Future<SessionSleepSnapshot> setSleeping(bool sleeping) async {
-    final effective = sleeping && AppSleepStateStore.isEnabled;
-    if (!_identity.hasWallet) {
-      await AppSleepStateStore.setSleeping(false);
-      return SessionSleepSnapshot(enabled: AppSleepStateStore.isEnabled);
-    }
-    await native.setNativeRuntimePaused(
+  Future<SessionSleepySnapshot> setSleepyEnabled(bool enabled) async {
+    final snapshot = await native.nativeSleepy(
       root: _root,
       session: _session,
-      paused: effective,
+      enabled: enabled,
     );
-    await AppSleepStateStore.setSleeping(effective);
-    return SessionSleepSnapshot(enabled: AppSleepStateStore.isEnabled);
+    if (Platform.isAndroid && _identity.hasWallet) {
+      try {
+        await _platform.runInteractiveProducerWake(
+          expectedRevision: _revision,
+          refreshPolicy: false,
+        );
+        LoggingService.instance.info(
+          'Android sleepy ownership synchronized',
+          tag: 'usernode/Sleepy',
+          context: {
+            'enabled': snapshot.enabled,
+            'decision': snapshot.decision.toString(),
+            'nativeRevision': _revision,
+          },
+        );
+      } catch (error) {
+        // The native coordinator retains foreground retry ownership whenever
+        // an alarm transaction cannot be completed. The policy write itself
+        // remains valid and the service/watchdog will retry without letting an
+        // Android runtime enter an uncommitted sleep.
+        LoggingService.instance.warn(
+          'Android sleepy ownership will retry (${error.runtimeType})',
+          tag: 'usernode/Sleepy',
+          context: {
+            'enabled': snapshot.enabled,
+            'decision': snapshot.decision.toString(),
+            'nativeRevision': _revision,
+          },
+        );
+      }
+    }
+    return SessionSleepySnapshot(
+      enabled: snapshot.enabled,
+      decision: snapshot.decision.toString(),
+    );
   }
 
   @override
@@ -1471,7 +1494,8 @@ final class _NativeSessionCompositionRoot
             authority: const _NativeSignedOut(),
           );
         },
-        ready: (nativeRevision, attemptId, identity, _) async {
+        ready: (nativeRevision, attemptId, identity, runtimeStatus) async {
+          _logNativeRuntimeStatus(runtimeStatus, source: 'warm_ready');
           final session = native.currentNativeSession(
             root: root,
             expectedRevision: nativeRevision,
@@ -1528,6 +1552,10 @@ final class _NativeSessionCompositionRoot
                 nativeRevision,
                 attemptId,
                 identity,
+              );
+              _logNativeRuntimeStatus(
+                adopted.runtimeStatus,
+                source: 'cold_recovery',
               );
               final session = native.currentNativeSession(
                 root: root,
@@ -1601,27 +1629,10 @@ final class _NativeSessionCompositionRoot
       sessions: _SessionCompositionRoot(projection, readyEffects: effects),
       authority: _NativeReady(binding),
     );
-    if (projection.hasWallet) {
-      try {
-        final retiredRevision = await platform.runInteractiveProducerWake(
-          expectedRevision: readyRevision,
-          refreshPolicy: true,
-        );
-        if (retiredRevision != null) {
-          await runtime._retireFromNative(retiredRevision);
-        }
-      } catch (error) {
-        // Rust has already recovered/adopted this exact Ready. Keep its private
-        // session and revision so foreground resume can retry and an exact
-        // realm can still retire it; replacing this runtime with a failing
-        // signed-out ingress would strand native authority.
-        LoggingService.instance.warn(
-          'Recovered native Ready; producer wake will retry on foreground resume '
-          '(${error.runtimeType})',
-          tag: 'usernode/NativeSession',
-        );
-      }
-    }
+    // The first Flutter frame starts foreground reconciliation. Until then,
+    // node-backed operations are closed, but constructing the trusted UI no
+    // longer waits for producer-policy HTTP or Android alarm ownership.
+    runtime._foregroundAdmission.suspend();
     return runtime;
   }
 
@@ -1654,30 +1665,54 @@ final class _NativeSessionCompositionRoot
     if (state == AppLifecycleState.resumed) {
       return _foregroundAdmission.resume(_performForegroundResume);
     }
+    final sleepyTransition = _sessions.prepareForAppBackground();
     _foregroundAdmission.suspend();
-    return Future<void>.value();
+    return sleepyTransition.onError((error, stackTrace) {
+      LoggingService.instance.error(
+        'Could not enable sleepy mode for app background',
+        tag: 'usernode/Sleepy',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    });
   }
 
   Future<void> _performForegroundResume() async {
     final authority = _authority;
     if (authority is! _NativeReady) return;
     if (!authority.binding.projection.hasWallet) return;
+    var sleepyReconciled = false;
     try {
-      final retiredRevision = await _platform.runInteractiveProducerWake(
-        expectedRevision: authority.binding.readyRevision,
-        refreshPolicy: true,
-      );
-      if (retiredRevision != null) {
-        await _retireFromNative(retiredRevision);
+      // Make foreground-only transaction-surface leases effective before any
+      // producer wake can decide to commit an Android sleep.
+      await _sessions.reconcileAfterForegroundResume();
+      sleepyReconciled = true;
+    } catch (_) {
+      // The coordinator logs the complete failure and the next lifecycle or
+      // lease transition retries the desired policy.
+    }
+    if (terminallyRetired || (Platform.isAndroid && sleepyReconciled)) return;
+    // Android sleepy reconciliation already enters the native wake
+    // coordinator. Other platforms, or a failed Rust sleepy call, still need
+    // the explicit producer wake/retirement check.
+    if (authority.binding.projection.hasWallet) {
+      try {
+        final retiredRevision = await _platform.runInteractiveProducerWake(
+          expectedRevision: authority.binding.readyRevision,
+          refreshPolicy: true,
+        );
+        if (retiredRevision != null) {
+          await _retireFromNative(retiredRevision);
+        }
+      } catch (error) {
+        // A retry leaves Rust Ready and is attempted again at the next bounded
+        // resume. Keep this method non-throwing because lifecycle delivery has
+        // no awaiting error owner.
+        LoggingService.instance.warn(
+          'Native producer wake will retry (${error.runtimeType})',
+          tag: 'usernode/NativeSession',
+        );
       }
-    } catch (error) {
-      // A retry leaves Rust Ready and is attempted again at the next bounded
-      // resume. Keep this method non-throwing because lifecycle delivery has
-      // no awaiting error owner.
-      LoggingService.instance.warn(
-        'Native producer wake will retry (${error.runtimeType})',
-        tag: 'usernode/NativeSession',
-      );
     }
   }
 
@@ -1896,6 +1931,10 @@ final class _NativeSessionCompositionRoot
             'The native credential was retired during establishment.',
           );
         }
+      }
+
+      if (publish) {
+        await _sessions.reconcileAfterForegroundResume();
       }
 
       return response;
@@ -2329,6 +2368,27 @@ void _validateAdoption(
       'The recovered native session does not match durable identity.',
     );
   }
+}
+
+void _logNativeRuntimeStatus(
+  native.NativeRuntimeStatus status, {
+  required String source,
+}) {
+  final details = status.when(
+    notStarted: () => const <String, Object?>{'state': 'not_started'},
+    running: () => const <String, Object?>{'state': 'running'},
+    startFailed: (validatedCode) => <String, Object?>{
+      'state': 'start_failed',
+      'code': switch (validatedCode) {
+        native.NativeStartFailureCode.nodeStartFailed => 'node_start_failed',
+      },
+    },
+  );
+  LoggingService.instance.info(
+    'Native node runtime status',
+    tag: 'usernode/NativeSession',
+    context: <String, Object?>{'source': source, ...details},
+  );
 }
 
 Map<String, Object?> _establishResponse(

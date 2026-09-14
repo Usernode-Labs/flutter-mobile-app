@@ -43,6 +43,7 @@ import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benc
 import 'package:crypto_mobile_app/features/settings/screens/diagnostics_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/http_debug_logs_screen.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
+import 'package:crypto_mobile_app/features/splash/widgets/resume_splash_gate.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/staking_delegation_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart';
@@ -377,16 +378,19 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         ),
       ],
     );
-    if (!_resumeValidationPending) return content;
     // Block resumed UI dispatch until the private native snapshot/wake has
     // either kept Ready or retired it to the inert signed-out projection.
-    return Stack(
-      children: [
-        AbsorbPointer(child: content),
-        const Positioned.fill(
-          child: ModalBarrier(dismissible: false, color: Colors.transparent),
-        ),
-      ],
+    // The tree shape stays fixed so the router subtree is never reparented.
+    return ResumeSplashGate(
+      pending: _resumeValidationPending,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AbsorbPointer(absorbing: _resumeValidationPending, child: content),
+          if (_resumeValidationPending)
+            const ModalBarrier(dismissible: false, color: Colors.transparent),
+        ],
+      ),
     );
   }
 }

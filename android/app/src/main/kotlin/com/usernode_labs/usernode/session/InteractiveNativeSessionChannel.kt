@@ -194,9 +194,11 @@ internal class InteractiveNativeSessionChannel(
             "clearOrphanedNativeSessionState",
         )
         requireProcessTransportClaim(arguments)
-        vault.clearOrphanedCredential()
-        NativeProducerWakeCoordinator.clearOrphanedState(applicationContext)
-        result.success(null)
+        runWorker(result) {
+            vault.clearOrphanedCredential()
+            NativeProducerWakeCoordinator.clearOrphanedState(applicationContext)
+            null
+        }
     }
 
     private fun revokeCredential(call: MethodCall, result: MethodChannel.Result) {
@@ -239,16 +241,19 @@ internal class InteractiveNativeSessionChannel(
         val generation = exactInt(arguments["credentialGeneration"], "credential generation")
         val commitment = arguments["vaultCommitment"] as? ByteArray
             ?: fail("invalid_native_retirement", "The vault commitment is invalid")
-        try {
-            vault.retireCredential(reference, generation, commitment)
-            NativeProducerWakeCoordinator.clearReady(
-                applicationContext,
-                exactLong(arguments["readyRevision"], "ready revision"),
-            )
-        } finally {
-            commitment.fill(0)
+        val readyRevision = exactLong(arguments["readyRevision"], "ready revision")
+        runWorker(result) {
+            try {
+                vault.retireCredential(reference, generation, commitment)
+                NativeProducerWakeCoordinator.clearReady(
+                    applicationContext,
+                    readyRevision,
+                )
+                null
+            } finally {
+                commitment.fill(0)
+            }
         }
-        result.success(null)
     }
 
     private fun recoverNativeSession(call: MethodCall, result: MethodChannel.Result) {

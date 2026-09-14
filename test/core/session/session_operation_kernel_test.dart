@@ -25,4 +25,18 @@ void main() {
       'resume-gate-retired-runner-rejected',
     ]);
   });
+
+  test('sleepy policy serializes leases and lifecycle transitions', () async {
+    expect(await runSleepyPolicyOrderingSelfCheck(), [
+      'apply:false',
+      'apply:true',
+      'apply:false',
+      'apply:true',
+      'apply:false',
+      'apply:true',
+      'scope-apply:false',
+      'scope-close-waiting',
+      'scope-close-drained',
+    ]);
+  });
 }

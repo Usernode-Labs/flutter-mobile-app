@@ -682,4 +682,56 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get stakingUndelegateError =>
       'Couldn\'t stop delegating. Check your connection and try again.';
+
+  @override
+  String get nodePermissionsTitle => 'Finish setup';
+
+  @override
+  String get nodePermissionsNotificationsTitle => 'Enable notifications';
+
+  @override
+  String get nodePermissionsNotificationsBody =>
+      'Notifications are required so your phone can show when Usernode is running and alert you about important account and node activity.';
+
+  @override
+  String get nodePermissionsAllowNotifications => 'Allow notifications';
+
+  @override
+  String get nodePermissionsOpenNotificationSettings =>
+      'Open notification settings';
+
+  @override
+  String get nodePermissionsExactAlarmTitle => 'Allow precise wake-ups';
+
+  @override
+  String get nodePermissionsExactAlarmBody =>
+      'Exact alarms let Android wake your node five minutes before its next block-production slot.';
+
+  @override
+  String get nodePermissionsAllowExactAlarms => 'Allow exact alarms';
+
+  @override
+  String get nodePermissionsBackgroundTitle =>
+      'Allow unrestricted background use';
+
+  @override
+  String get nodePermissionsBackgroundBody =>
+      'Set Usernode\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.';
+
+  @override
+  String get nodePermissionsOpenBatterySettings => 'Open battery settings';
+
+  @override
+  String get nodePermissionsDelegateAlternative =>
+      'Prefer not to grant block-production permissions? Delegate your stake to the server instead. Notifications are still required.';
+
+  @override
+  String get nodePermissionsDelegateInstead => 'Delegate instead';
+
+  @override
+  String get nodePermissionsDelegateTitle => 'Delegate block production?';
+
+  @override
+  String get nodePermissionsCheckFailed =>
+      'Couldn\'t check the current setup. Try again.';
 }

@@ -42,6 +42,25 @@ internal fun armForegroundProducerOwnership(
     }
 }
 
+internal fun completeProducerDirectiveTransaction(
+    platformApplied: Boolean,
+    completeRust: (Boolean) -> Boolean,
+    rollbackPlatform: () -> Unit,
+    finishCommitted: () -> Unit,
+): Boolean {
+    if (!platformApplied) {
+        rollbackPlatform()
+        completeRust(false)
+        return false
+    }
+    if (!completeRust(true)) {
+        rollbackPlatform()
+        return false
+    }
+    finishCommitted()
+    return true
+}
+
 /**
  * Single serialized native owner for Android producer wake callbacks.
  *
@@ -168,7 +187,7 @@ internal object NativeProducerWakeCoordinator {
             return@wake ProducerWakeOutcome.Ignored
         }
 
-        val outcome = runCurrentWake(
+        var attemptOutcome = runCurrentWake(
             context,
             store,
             source,
@@ -176,17 +195,43 @@ internal object NativeProducerWakeCoordinator {
             revision,
             refreshPolicy,
             monitoringIntent,
+            claimExactAlarmOwnership = true,
         )
-        if (outcome == ProducerWakeOutcome.Retry) {
-            try {
-                ensureForegroundRetryOwnership(
-                    context,
-                    store,
-                    revision,
-                    FALLBACK_POLL_AFTER_MS,
-                )
-            } catch (error: Throwable) {
-                Log.w(TAG, "Could not retain producer retry (${error.javaClass.simpleName})")
+        if (attemptOutcome == ProducerWakeAttemptOutcome.RefreshPolicy) {
+            Log.i(
+                TAG,
+                "Refreshing producer policy after policy_unavailable " +
+                    "(revision=$revision, source=${source.name.lowercase()})",
+            )
+            attemptOutcome = runCurrentWake(
+                context,
+                store,
+                source,
+                alarm,
+                revision,
+                refreshPolicy = true,
+                monitoringIntent = monitoringIntent,
+                claimExactAlarmOwnership = false,
+            )
+        }
+        val outcome = when (attemptOutcome) {
+            ProducerWakeAttemptOutcome.Completed -> ProducerWakeOutcome.Completed
+            ProducerWakeAttemptOutcome.RetryOwned -> ProducerWakeOutcome.Retry
+            ProducerWakeAttemptOutcome.RefreshPolicy,
+            ProducerWakeAttemptOutcome.RetryUnowned -> {
+                Log.i(TAG, "Retaining fallback foreground retry (revision=$revision)")
+                try {
+                    ensureForegroundRetryOwnership(
+                        context,
+                        store,
+                        revision,
+                        FALLBACK_POLL_AFTER_MS,
+                        ProducerWakeReason.RUNTIME_UNAVAILABLE,
+                    )
+                } catch (error: Throwable) {
+                    Log.w(TAG, "Could not retain producer retry (${error.javaClass.simpleName})")
+                }
+                ProducerWakeOutcome.Retry
             }
         }
         outcome
@@ -200,34 +245,58 @@ internal object NativeProducerWakeCoordinator {
         revision: Long,
         refreshPolicy: Boolean,
         monitoringIntent: Intent?,
-    ): ProducerWakeOutcome {
+        claimExactAlarmOwnership: Boolean,
+    ): ProducerWakeAttemptOutcome {
         var coldInstallClaim: ByteArray? = null
         return try {
             installAuthority(context)
-            if (source == ProducerWakeSource.EXACT_ALARM &&
+            if (claimExactAlarmOwnership && source == ProducerWakeSource.EXACT_ALARM &&
                 !beginExactAlarmOwnership(context, monitoringIntent)
             ) {
-                return ProducerWakeOutcome.Retry
+                return ProducerWakeAttemptOutcome.RetryUnowned
             }
 
             for (attempt in 0..1) {
                 val credential = AndroidNativeSessionPlatform.vault(context)
                     .producerWakeCredential(refreshPolicy, coldInstallClaim)
                 if (credential is ProducerWakeCredential.Uncertain) {
-                    return ProducerWakeOutcome.Retry
+                    Log.w(
+                        TAG,
+                        "Producer wake credential is uncertain " +
+                            "(revision=$revision, refreshPolicy=$refreshPolicy)",
+                    )
+                    return ProducerWakeAttemptOutcome.RetryUnowned
                 }
                 val request = ProducerWakeFrame.encode(source, revision, alarm, credential)
                 val response = try {
                     when (credential) {
                         is ProducerWakeCredential.Present -> {
-                            val wakeClaim = NativeSessionRust.nativeStageProducerWakeV1(request)
+                            val wakeClaim = try {
+                                NativeSessionRust.nativeStageProducerWakeV1(request)
+                            } catch (error: Throwable) {
+                                Log.w(
+                                    TAG,
+                                    "Native producer wake validation failed " +
+                                        "(${safeNativeFailure(error)})",
+                                )
+                                throw error
+                            }
                             try {
                                 if (wakeClaim.size != 32 ||
                                     wakeClaim.all { it == 0.toByte() }
                                 ) {
                                     throw IllegalStateException("invalid producer wake claim")
                                 }
-                                NativeSessionRust.nativeRunProducerWakeClaimV1(wakeClaim)
+                                try {
+                                    NativeSessionRust.nativeRunProducerWakeClaimV1(wakeClaim)
+                                } catch (error: Throwable) {
+                                    Log.w(
+                                        TAG,
+                                        "Native producer wake execution failed " +
+                                            "(${safeNativeFailure(error)})",
+                                    )
+                                    throw error
+                                }
                             } finally {
                                 wakeClaim.fill(0)
                             }
@@ -245,8 +314,24 @@ internal object NativeProducerWakeCoordinator {
                 }
                 try {
                     val directive = ProducerWakeFrame.decode(response)
-                    if (directive.revision < 0) return ProducerWakeOutcome.Retry
+                    if (directive.revision < 0) {
+                        return ProducerWakeAttemptOutcome.RetryUnowned
+                    }
                     if (directive !is ProducerWakeDirective.InstallCredential) {
+                        Log.i(
+                            TAG,
+                            "Producer wake directive received " +
+                                "(revision=${directive.revision}, " +
+                                "directive=${directive.wireName()}, " +
+                                "reason=${directive.reason.wireName}, " +
+                                "refreshPolicy=$refreshPolicy)",
+                        )
+                        if (shouldRefreshProducerPolicy(refreshPolicy, directive.reason)) {
+                            if (!completeApply(response, success = false)) {
+                                return ProducerWakeAttemptOutcome.RetryUnowned
+                            }
+                            return ProducerWakeAttemptOutcome.RefreshPolicy
+                        }
                         return applyDirective(
                             context,
                             store,
@@ -255,7 +340,7 @@ internal object NativeProducerWakeCoordinator {
                             revision,
                         )
                     }
-                    if (attempt != 0) return ProducerWakeOutcome.Retry
+                    if (attempt != 0) return ProducerWakeAttemptOutcome.RetryUnowned
                     when (
                         val stage = AndroidNativeSessionPlatform.vault(context)
                             .stageBackgroundColdInstalledCredential()
@@ -265,17 +350,17 @@ internal object NativeProducerWakeCoordinator {
                         }
                         ColdCredentialStage.Absent -> Unit
                         ColdCredentialStage.Uncertain ->
-                            return ProducerWakeOutcome.Retry
+                            return ProducerWakeAttemptOutcome.RetryUnowned
                     }
                 } finally {
                     response.fill(0)
                 }
             }
-            ProducerWakeOutcome.Retry
+            ProducerWakeAttemptOutcome.RetryUnowned
         } catch (error: Throwable) {
             // Do not log an exception that might retain native request material.
             Log.w(TAG, "Native producer wake failed (${error.javaClass.simpleName})")
-            ProducerWakeOutcome.Retry
+            ProducerWakeAttemptOutcome.RetryUnowned
         } finally {
             coldInstallClaim?.fill(0)
         }
@@ -305,6 +390,7 @@ internal object NativeProducerWakeCoordinator {
             } else {
                 context.startService(intent)
             }
+            Log.i(TAG, "Sleepy alarm wake acquired foreground-service ownership")
             true
         } catch (error: Throwable) {
             NativeWakeLockManager.release()
@@ -319,7 +405,7 @@ internal object NativeProducerWakeCoordinator {
         directive: ProducerWakeDirective,
         exactResponse: ByteArray,
         expectedRevision: Long,
-    ): ProducerWakeOutcome {
+    ): ProducerWakeAttemptOutcome {
         val previous = store.current()
         if (!directive.applyRequired) {
             return applyImmediateDirective(
@@ -334,7 +420,7 @@ internal object NativeProducerWakeCoordinator {
             (previous != null && previous.readyRevision != expectedRevision)
         ) {
             completeApply(exactResponse, success = false)
-            return ProducerWakeOutcome.Retry
+            return ProducerWakeAttemptOutcome.RetryUnowned
         }
 
         val applied = try {
@@ -353,21 +439,23 @@ internal object NativeProducerWakeCoordinator {
             Log.w(TAG, "Could not apply producer directive (${error.javaClass.simpleName})")
             false
         }
-        if (!applied) {
-            rollbackAppliedDirective(context, store, previous, directive)
-            completeApply(exactResponse, success = false)
-            return ProducerWakeOutcome.Retry
-        }
-
-        val completed = completeApply(exactResponse, success = true)
+        val completed = completeProducerDirectiveTransaction(
+            platformApplied = applied,
+            completeRust = { success -> completeApply(exactResponse, success) },
+            rollbackPlatform = {
+                rollbackAppliedDirective(context, store, previous, directive)
+            },
+            finishCommitted = {
+                finishAppliedDirective(context, store, previous, directive)
+            },
+        )
         if (!completed) {
-            rollbackAppliedDirective(context, store, previous, directive)
-            return ProducerWakeOutcome.Retry
+            Log.i(TAG, "Sleepy platform transaction was rejected; retaining foreground retry")
+            return ProducerWakeAttemptOutcome.RetryUnowned
         }
-        finishAppliedDirective(context, store, previous, directive)
         return when (directive) {
-            is ProducerWakeDirective.RetryLater -> ProducerWakeOutcome.Retry
-            else -> ProducerWakeOutcome.Completed
+            is ProducerWakeDirective.RetryLater -> ProducerWakeAttemptOutcome.RetryOwned
+            else -> ProducerWakeAttemptOutcome.Completed
         }
     }
 
@@ -377,13 +465,13 @@ internal object NativeProducerWakeCoordinator {
         previous: NativeProducerWakeState?,
         directive: ProducerWakeDirective,
         expectedRevision: Long,
-    ): ProducerWakeOutcome {
+    ): ProducerWakeAttemptOutcome {
         // Cold/logged-out/transition responses carry no live Ready admission.
         // Only definitive retirement may mutate shared platform ownership.
         when (directive) {
             is ProducerWakeDirective.CancelAndStop -> {
                 if (previous != null && previous.readyRevision != expectedRevision) {
-                    return ProducerWakeOutcome.Retry
+                    return ProducerWakeAttemptOutcome.RetryUnowned
                 }
                 val retired = previous?.let(store::compareClear)
                 retired?.wakeIdentity?.let { alarmScheduler(context).cancelAlarm(alarmId(it)) }
@@ -393,9 +481,9 @@ internal object NativeProducerWakeCoordinator {
                 if (directive.terminateProcess) {
                     Process.killProcess(Process.myPid())
                 }
-                return ProducerWakeOutcome.Completed
+                return ProducerWakeAttemptOutcome.Completed
             }
-            else -> return ProducerWakeOutcome.Retry
+            else -> return ProducerWakeAttemptOutcome.RetryUnowned
         }
     }
 
@@ -405,8 +493,20 @@ internal object NativeProducerWakeCoordinator {
         previous: NativeProducerWakeState?,
         directive: ProducerWakeDirective.KeepForeground,
     ): Boolean {
+        Log.i(
+            TAG,
+            "Sleepy stays awake (revision=${directive.revision}, " +
+                "reason=${directive.reason.wireName}, pollAfterMs=${directive.pollAfterMs})",
+        )
         val incarnation = ApplicationIncarnationStore(context).ensure() ?: return false
-        if (!armForegroundOwnership(context, incarnation, directive.pollAfterMs.toLong())) {
+        if (!armForegroundOwnership(
+                context,
+                incarnation,
+                directive.pollAfterMs.toLong(),
+                directive.reason,
+                directive.detail,
+            )
+        ) {
             return false
         }
         if (!store.replace(previous, NativeProducerWakeState.ready(directive.revision))) {
@@ -423,6 +523,11 @@ internal object NativeProducerWakeCoordinator {
         directive: ProducerWakeDirective.ScheduleExact,
     ): Boolean {
         val incarnation = ApplicationIncarnationStore(context).ensure() ?: return false
+        Log.i(
+            TAG,
+            "Sleepy scheduling exact wake (revision=${directive.revision}, " +
+                "slot=${directive.targetGlobalSlot}, triggerAtMs=${directive.triggerAtMs})",
+        )
         val scheduled = scheduleExact(context, incarnation, directive)
         if (!scheduled) return false
 
@@ -457,6 +562,11 @@ internal object NativeProducerWakeCoordinator {
                 val appliedStillCurrent = store.current()
                     ?.sameAs(NativeProducerWakeState.from(directive)) == true
                 if (directive.pauseRuntime && appliedStillCurrent) {
+                    Log.i(
+                        TAG,
+                        "Sleepy pause committed; stopping foreground service " +
+                            "(revision=${directive.revision}, slot=${directive.targetGlobalSlot})",
+                    )
                     SlotMonitoringService.stopNativeProducerMonitoring(context)
                     NativeWakeLockManager.release()
                 }
@@ -478,18 +588,27 @@ internal object NativeProducerWakeCoordinator {
         context: Context,
         store: NativeProducerWakeStore,
         directive: ProducerWakeDirective.RetryLater,
-    ): Boolean = ensureForegroundRetryOwnership(
-        context,
-        store,
-        directive.revision,
-        directive.retryAfterMs.toLong(),
-    )
+    ): Boolean {
+        Log.i(
+            TAG,
+            "Sleepy retry scheduled (revision=${directive.revision}, " +
+                "reason=${directive.reason.wireName}, retryAfterMs=${directive.retryAfterMs})",
+        )
+        return ensureForegroundRetryOwnership(
+            context,
+            store,
+            directive.revision,
+            directive.retryAfterMs.toLong(),
+            directive.reason,
+        )
+    }
 
     private fun ensureForegroundRetryOwnership(
         context: Context,
         store: NativeProducerWakeStore,
         expectedRevision: Long,
         pollAfterMs: Long,
+        reason: ProducerWakeReason,
     ): Boolean {
         val incarnation = ApplicationIncarnationStore(context).current() ?: return false
         val current = store.current()
@@ -499,13 +618,21 @@ internal object NativeProducerWakeCoordinator {
         ) {
             return false
         }
-        return armForegroundOwnership(context, incarnation, pollAfterMs)
+        return armForegroundOwnership(
+            context,
+            incarnation,
+            pollAfterMs,
+            reason,
+            ProducerForegroundDetail.None,
+        )
     }
 
     private fun armForegroundOwnership(
         context: Context,
         incarnation: String,
         pollAfterMs: Long,
+        reason: ProducerWakeReason,
+        detail: ProducerForegroundDetail,
     ): Boolean {
         val armed = armForegroundProducerOwnership(
             pollAfterMs = pollAfterMs,
@@ -530,6 +657,8 @@ internal object NativeProducerWakeCoordinator {
                     context,
                     incarnation,
                     delay,
+                    reason,
+                    detail,
                 )
             },
         )
@@ -650,6 +779,20 @@ internal object NativeProducerWakeCoordinator {
     )
 }
 
+private fun safeNativeFailure(error: Throwable): String {
+    val message = error.message
+    return if (
+        error is IllegalStateException &&
+        message != null &&
+        message.length <= 64 &&
+        message.all { it == '_' || it.isLowerCase() || it.isDigit() }
+    ) {
+        message
+    } else {
+        error.javaClass.simpleName
+    }
+}
+
 internal enum class ProducerWakeSource(val code: Int) {
     EXACT_ALARM(1),
     BOOT(2),
@@ -660,6 +803,13 @@ internal enum class ProducerWakeSource(val code: Int) {
 }
 
 internal enum class ProducerWakeOutcome { Completed, Retry, Ignored }
+
+private enum class ProducerWakeAttemptOutcome {
+    Completed,
+    RetryUnowned,
+    RetryOwned,
+    RefreshPolicy,
+}
 
 internal data class NativeScheduledWake(
     val readyRevision: Long,
@@ -678,6 +828,7 @@ private sealed class ProducerWakeDirective(
         override val revision: Long,
         val pollAfterMs: Int,
         override val reason: ProducerWakeReason,
+        val detail: ProducerForegroundDetail,
     ) : ProducerWakeDirective(revision, reason)
 
     data class ScheduleExact(
@@ -708,9 +859,17 @@ private sealed class ProducerWakeDirective(
     ) : ProducerWakeDirective(revision, ProducerWakeReason.RUNTIME_UNAVAILABLE)
 }
 
-private enum class ProducerWakeReason(val code: Int, val wireName: String) {
+private fun ProducerWakeDirective.wireName(): String = when (this) {
+    is ProducerWakeDirective.KeepForeground -> "keep_foreground"
+    is ProducerWakeDirective.ScheduleExact -> "schedule_exact"
+    is ProducerWakeDirective.CancelAndStop -> "cancel_and_stop"
+    is ProducerWakeDirective.RetryLater -> "retry_later"
+    is ProducerWakeDirective.InstallCredential -> "install_credential"
+}
+
+internal enum class ProducerWakeReason(val code: Int, val wireName: String) {
     VRF_PENDING(1, "vrf_pending"),
-    IMMINENT_TARGET(2, "imminent_target"),
+    PRODUCTION_SOON(2, "production_soon"),
     NEXT_WON_SLOT(3, "next_won_slot"),
     EPOCH_END(4, "epoch_end"),
     CREDENTIAL_UNCERTAIN(5, "credential_uncertain"),
@@ -718,13 +877,36 @@ private enum class ProducerWakeReason(val code: Int, val wireName: String) {
     TRANSITION_IN_PROGRESS(7, "transition_in_progress"),
     POLICY_UNAVAILABLE(8, "policy_unavailable"),
     POST_PRODUCTION_HOLD(9, "post_production_hold"),
-    RUNTIME_UNAVAILABLE(10, "runtime_unavailable");
+    RUNTIME_UNAVAILABLE(10, "runtime_unavailable"),
+    SLEEPY_DISABLED(11, "sleepy_disabled"),
+    AWAITING_HIGHER_BLOCK(12, "awaiting_higher_block"),
+    APPLICABLE_TRANSACTIONS(13, "applicable_transactions"),
+    PRODUCTION_IN_PROGRESS(14, "production_in_progress"),
+    VRF_READINESS(15, "vrf_readiness");
 
     companion object {
         fun fromCode(code: Int): ProducerWakeReason = values().firstOrNull { it.code == code }
             ?: throw IllegalArgumentException("invalid producer wake reason")
     }
 }
+
+internal sealed interface ProducerForegroundDetail {
+    object None : ProducerForegroundDetail
+
+    data class Target(
+        val globalSlot: Int,
+        val targetTimeMs: Long,
+    ) : ProducerForegroundDetail
+
+    data class ProducedHeight(val height: Int) : ProducerForegroundDetail
+
+    data class ApplicableTransactions(val count: Long) : ProducerForegroundDetail
+}
+
+internal fun shouldRefreshProducerPolicy(
+    refreshPolicy: Boolean,
+    reason: ProducerWakeReason,
+): Boolean = !refreshPolicy && reason == ProducerWakeReason.POLICY_UNAVAILABLE
 
 private object ProducerWakeFrame {
     fun encode(
@@ -769,7 +951,7 @@ private object ProducerWakeFrame {
     fun decode(frame: ByteArray): ProducerWakeDirective {
         if (frame.size < 15 || frame.size > 109 ||
             !frame.copyOfRange(0, 4).contentEquals("UNPR".toByteArray(StandardCharsets.US_ASCII)) ||
-            frame[4].toInt() != 1
+            frame[4].toInt() != 2
         ) {
             throw IllegalArgumentException("invalid producer wake response")
         }
@@ -784,6 +966,7 @@ private object ProducerWakeFrame {
                     revision,
                     input.int.nonNegative(),
                     ProducerWakeReason.fromCode(input.get().toInt() and 0xff),
+                    input.foregroundDetail(),
                 )
             }
             2 -> {
@@ -851,6 +1034,16 @@ private object ProducerWakeFrame {
 
     private fun Long.nonNegative(): Long = takeIf { it >= 0 }
         ?: throw IllegalArgumentException("invalid producer wake integer")
+
+    private fun ByteBuffer.foregroundDetail(): ProducerForegroundDetail = when (
+        get().toInt() and 0xff
+    ) {
+        0 -> ProducerForegroundDetail.None
+        1 -> ProducerForegroundDetail.Target(int.nonNegative(), long.nonNegative())
+        2 -> ProducerForegroundDetail.ProducedHeight(int.nonNegative())
+        3 -> ProducerForegroundDetail.ApplicableTransactions(long.nonNegative())
+        else -> throw IllegalArgumentException("invalid producer foreground detail")
+    }
 }
 
 private data class NativeProducerWakeState(

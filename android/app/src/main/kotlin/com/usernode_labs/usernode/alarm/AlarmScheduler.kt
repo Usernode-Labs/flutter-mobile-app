@@ -12,6 +12,21 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.usernode_labs.usernode.R
 
+internal fun scheduledWakeNotificationContent(
+    globalSlot: Int,
+    alarmTimeMs: Long,
+): ProducerNotificationContent {
+    val scheduledText = AlarmTimeFormatter.formatScheduledTime(alarmTimeMs)
+    return ProducerNotificationContent(
+        title = "Block production wake scheduled",
+        message = if (scheduledText == null) {
+            "Slot $globalSlot wakeup scheduled"
+        } else {
+            "Slot $globalSlot wakeup at $scheduledText"
+        },
+    )
+}
+
 class AlarmScheduler(
     private val context: Context,
     private val alarmManager: AlarmManager
@@ -171,6 +186,7 @@ class AlarmScheduler(
             }
 
             clearScheduledAlarms()
+            cancelScheduledNotification()
 
             Log.i(TAG, "Cancelled ${scheduledAlarms.size} tracked alarms (reason=$reason)")
             return true
@@ -202,6 +218,11 @@ class AlarmScheduler(
         }
     }
 
+    fun markAlarmDelivered(alarmId: String) {
+        removeScheduledAlarm(alarmId)
+        clearScheduledNotificationIfIdle()
+    }
+
     fun getAlarmDebugState(alarmId: String): Map<String, Any?> {
         return alarmStateStore.getState(
             alarmId = alarmId,
@@ -229,6 +250,7 @@ class AlarmScheduler(
             }
 
             removeScheduledAlarm(alarmId)
+            clearScheduledNotificationIfIdle()
             alarmStateStore.recordCancelled(
                 alarmId = alarmId,
                 reason = reason,
@@ -286,6 +308,16 @@ class AlarmScheduler(
         prefs.edit().remove(SCHEDULED_ALARMS_KEY).apply()
     }
 
+    private fun clearScheduledNotificationIfIdle() {
+        if (getScheduledAlarms().isEmpty()) cancelScheduledNotification()
+    }
+
+    private fun cancelScheduledNotification() {
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(SCHEDULED_NOTIFICATION_ID)
+    }
+
     private fun showScheduledNotification(
         globalSlot: Int,
         alarmTimeMs: Long
@@ -301,19 +333,14 @@ class AlarmScheduler(
                 nm.createNotificationChannel(channel)
             }
 
-            val scheduledText = AlarmTimeFormatter.formatScheduledTime(alarmTimeMs)
-            val message = if (scheduledText != null) {
-                "Slot $globalSlot wakeup at $scheduledText"
-            } else {
-                "Slot $globalSlot wakeup scheduled"
-            }
+            val content = scheduledWakeNotificationContent(globalSlot, alarmTimeMs)
 
             val notification = NotificationCompat.Builder(context, SCHEDULED_CHANNEL_ID)
                 .setSmallIcon(R.drawable.launch_background)
-                .setContentTitle("Slot alarm scheduled")
-                .setContentText(message)
+                .setContentTitle(content.title)
+                .setContentText(content.message)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setAutoCancel(true)
+                .setOngoing(true)
                 .build()
 
             nm.notify(SCHEDULED_NOTIFICATION_ID, notification)

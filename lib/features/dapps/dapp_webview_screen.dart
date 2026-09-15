@@ -18,6 +18,7 @@ import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
 import 'package:crypto_mobile_app/features/dapps/native_screen_capture.dart';
+import 'package:crypto_mobile_app/features/dapps/native_back_navigation.dart';
 import 'package:crypto_mobile_app/features/dapps/node_requirement_contract.dart';
 import 'package:crypto_mobile_app/features/dapps/node_requirement_guard_registry.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
@@ -218,6 +219,42 @@ abstract class _DappWebViewScreenStateBase
       error: '$method is only available to the dapps home',
     );
     return false;
+  }
+
+  late final NativeBackNavigation _backNavigation;
+
+  void _resetBackNavigation() {
+    unawaited(_backNavigation.setEnabled(false).catchError((Object error) {
+      debugPrint('[webview navigation] gesture reset failed: $error');
+      return false;
+    }));
+  }
+
+  Future<void> _handleSetBackNavigationEnabled(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    const method = 'setBackNavigationEnabled';
+    if (!await _requireTrustedChromeOrigin(id, method)) return;
+    final enabled = await _requireBoolArg(id, payload, 'enabled');
+    if (enabled == null) return;
+    if (_controller.platform is! WebKitWebViewController) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: '$method is not supported on this platform',
+      );
+      return;
+    }
+    final lease = _activePrivilegedBridgeLease;
+    final applied = await _backNavigation.setEnabled(
+      enabled,
+      canApply: () async =>
+          mounted &&
+          lease != null &&
+          await _privilegedBridgePolicy.revalidates(lease),
+    );
+    await _resolveJsPromise(id: id, value: applied, error: null);
   }
 
   /// Extracts a required bool from `payload.args[key]`; rejects the promise
@@ -456,6 +493,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) {
+            _resetBackNavigation();
             _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
           },
           onPageFinished: (_) {
@@ -474,6 +512,13 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
           },
         ),
       );
+    _backNavigation = NativeBackNavigation((enabled) async {
+      final platform = _controller.platform;
+      if (platform is WebKitWebViewController) {
+        await platform.setAllowsBackForwardNavigationGestures(enabled);
+      }
+    });
+    _resetBackNavigation();
     _privilegedBridgePolicy = PrivilegedBridgePolicy(
       trustedOrigin: Uri.tryParse(AppConfig.platformBaseUrl),
       allowLocalDevelopment:
@@ -612,6 +657,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
 
   @override
   void dispose() {
+    _resetBackNavigation();
     _bridgeAdmissionCoordinator.dispose();
     unawaited(_nodeRequirementGuards.dispose());
     _readyMainFrameLease = null;

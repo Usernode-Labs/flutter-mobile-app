@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart'
@@ -34,6 +34,7 @@ import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_in
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -692,8 +693,28 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     if (!mounted) return;
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
-    } else {
-      context.go(AppRoutes.home);
+      return;
     }
+    // Nothing left in either history, which on this screen can only mean the
+    // SV shell's dashboard. `DappWebViewScreen` is built in exactly one place
+    // (SvShellScreen), and SvShellScreen is only reachable from `/` and
+    // `/home` — both root routes that render the shell full-bleed, per
+    // design_system/docs/LAYOUT.md. So there is no pushed route under us and
+    // the webview is at its own root.
+    //
+    // `context.go(AppRoutes.home)` used to run here. `/home` IS this screen,
+    // so it navigated to where the user already was: the press was swallowed
+    // and nothing moved. That is usernode#1521 exactly — "Back android action
+    // does nothing when on the page".
+    //
+    // Android's contract at the root of an app is to leave it, so the press
+    // goes to the system. The other half of that request — inside an app,
+    // back returns to the dashboard — is the `canGoBack` branch above, since
+    // opening an app is a hash navigation inside the webview and pushes a
+    // history entry.
+    //
+    // iOS is unaffected: `canPop: false` on the PopScope already suppresses
+    // the interactive back-swipe, so nothing reaches here.
+    await SystemNavigator.pop();
   }
 }

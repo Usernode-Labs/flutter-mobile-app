@@ -6,7 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 final _log = LoggingService.instance.withTag('usernode/ZkPassportLaunch');
 const _iosAlarmChannel = MethodChannel('com.onhomeroom.app/alarm');
-const _androidZkPassportChannel = MethodChannel('com.onhomeroom.app/zkpassport');
+const _androidZkPassportChannel =
+    MethodChannel('com.onhomeroom.app/zkpassport');
 
 const _androidMarketUrl = 'market://details?id=app.zkpassport.zkpassport';
 const _androidWebUrl =

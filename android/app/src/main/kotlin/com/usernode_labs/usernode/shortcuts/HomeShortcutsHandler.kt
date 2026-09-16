@@ -22,7 +22,7 @@ private const val MAX_ICON_DIMENSION = 512
 /**
  * Native side of the `com.onhomeroom.app/home_shortcuts` MethodChannel:
  * pins launcher shortcuts that deep-link back into the app via
- * `usernode://app/dapps/pinned/<id>`.
+ * `homeroom://app/dapps/pinned/<id>`.
  */
 class HomeShortcutsHandler(private val context: Context) {
 
@@ -51,7 +51,7 @@ class HomeShortcutsHandler(private val context: Context) {
         }
 
         // Pin the deep link to our own package so the shortcut can't be
-        // hijacked by another usernode:// handler.
+        // hijacked by another homeroom:// handler.
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(deepLink)).apply {
             setPackage(context.packageName)
         }

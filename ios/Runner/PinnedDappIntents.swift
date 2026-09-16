@@ -26,9 +26,9 @@ struct OpenPinnedDappIntent: AppIntent {
 
   @MainActor
   func perform() async throws -> some IntentResult & OpensIntent {
-    let url = URL(string: deepLink) ?? URL(string: "usernode://app")!
+    let url = URL(string: deepLink) ?? URL(string: "homeroom://app")!
     // OpenURLIntent only officially supports universal links — handing it
-    // a custom usernode:// URL silently does nothing. The documented
+    // a custom homeroom:// URL silently does nothing. The documented
     // workaround is to fire the URL through EnvironmentValues().openURL
     // (running in the app process thanks to openAppWhenRun), returning
     // the OpenURLIntent as well for the universal-link case.

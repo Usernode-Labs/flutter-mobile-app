@@ -1,5 +1,5 @@
 /// Routes that may be opened from backend-provided app CTAs or external
-/// `usernode://app/...` links.
+/// `homeroom://app/...` links.
 bool isAllowedAppDeepLinkPath(String path) {
   if (path == '/challenges/zk-identity' ||
       path == '/challenges/zk-identity/flow' ||
@@ -18,14 +18,14 @@ bool isAllowedAppDeepLinkPath(String path) {
   return dappMatch;
 }
 
-bool isUsernodeAppDeepLink(Uri uri) {
-  return uri.scheme == 'usernode' && uri.host == 'app';
+bool isHomeroomAppDeepLink(Uri uri) {
+  return uri.scheme == 'homeroom' && uri.host == 'app';
 }
 
-bool isAllowedUsernodeAppDeepLink(Uri uri) {
-  return isUsernodeAppDeepLink(uri) && isAllowedAppDeepLinkPath(uri.path);
+bool isAllowedHomeroomAppDeepLink(Uri uri) {
+  return isHomeroomAppDeepLink(uri) && isAllowedAppDeepLinkPath(uri.path);
 }
 
-bool shouldBlockUsernodeDeepLink(Uri uri) {
-  return uri.scheme == 'usernode' && !isAllowedUsernodeAppDeepLink(uri);
+bool shouldBlockHomeroomDeepLink(Uri uri) {
+  return uri.scheme == 'homeroom' && !isAllowedHomeroomAppDeepLink(uri);
 }

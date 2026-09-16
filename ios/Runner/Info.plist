@@ -71,7 +71,7 @@
 			<string>com.onhomeroom.app.zkpassport.callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>usernode-zk</string>
+				<string>homeroom-zk</string>
 			</array>
 		</dict>
 		<dict>
@@ -79,7 +79,7 @@
 			<string>com.onhomeroom.app.deeplink</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>usernode</string>
+				<string>homeroom</string>
 			</array>
 		</dict>
 	</array>

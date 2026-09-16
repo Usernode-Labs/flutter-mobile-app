@@ -309,7 +309,7 @@ struct HomeroomDappsWidgetView: View {
       }
     }
     .padding(.bottom, 8)
-    .widgetURL(URL(string: visible.first?.deepLink ?? "usernode://app")))
+    .widgetURL(URL(string: visible.first?.deepLink ?? "homeroom://app")))
   }
 
   @ViewBuilder private func smallCell(

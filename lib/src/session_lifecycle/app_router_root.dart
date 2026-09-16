@@ -133,7 +133,7 @@ GoRouter _createAppRouter(
       ),
     ],
     redirect: (context, state) {
-      if (shouldBlockUsernodeDeepLink(state.uri)) {
+      if (shouldBlockHomeroomDeepLink(state.uri)) {
         _routerLog.warn('Blocked unsupported app deep link: ${state.uri}');
         return AppRoutes.home;
       }

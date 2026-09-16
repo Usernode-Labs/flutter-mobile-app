@@ -20,7 +20,7 @@ ShortcutDarkIconUpdate shortcutDarkIconUpdateFor({
 ///
 /// Android implements pinned homescreen shortcuts
 /// (`HomeShortcutsHandler.kt`); iOS mirrors the pinned-dapps registry into
-/// the App Group container consumed by the `UsernodeWidgets` WidgetKit
+/// the App Group container consumed by the `HomeroomWidgets` WidgetKit
 /// extension (`HomeShortcutsChannel.swift`).
 ///
 /// All methods fail soft: on unexpected platform errors (or when running on
@@ -164,7 +164,7 @@ class HomeShortcutsChannel {
     }
   }
 
-  /// iOS: whether the Usernode dApps widget is currently on the homescreen.
+  /// iOS: whether the Homeroom dApps widget is currently on the homescreen.
   static Future<bool> isWidgetInstalled() async {
     if (!isIOS) return false;
     try {

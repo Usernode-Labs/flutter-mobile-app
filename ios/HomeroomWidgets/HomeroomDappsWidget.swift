@@ -227,7 +227,7 @@ struct EmptyStateView: View {
       Image(systemName: "square.grid.2x2")
         .font(.title2)
         .foregroundColor(.secondary)
-      Text("Pin a dApp from the Usernode app to see it here.")
+      Text("Pin a dApp from the Homeroom app to see it here.")
         .font(.caption)
         .multilineTextAlignment(.center)
         .foregroundColor(.secondary)
@@ -236,7 +236,7 @@ struct EmptyStateView: View {
   }
 }
 
-struct UsernodeDappsWidgetView: View {
+struct HomeroomDappsWidgetView: View {
   @Environment(\.widgetFamily) private var family
   let entry: PinnedDappsEntry
 
@@ -394,15 +394,15 @@ struct UsernodeDappsWidgetView: View {
 
 // MARK: - Widget
 
-struct UsernodeDappsWidget: Widget {
-  static let kind = "UsernodeDappsWidget"
+struct HomeroomDappsWidget: Widget {
+  static let kind = "HomeroomDappsWidget"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: Self.kind, provider: PinnedDappsProvider()) { entry in
-      UsernodeDappsWidgetView(entry: entry)
+      HomeroomDappsWidgetView(entry: entry)
     }
-    .configurationDisplayName("Usernode dApps")
-    .description("Quick access to the dApps you pinned in Usernode.")
+    .configurationDisplayName("Homeroom dApps")
+    .description("Quick access to the dApps you pinned in Homeroom.")
     .supportedFamilies([.systemSmall, .systemMedium])
     // Reclaim the default ~16pt system content margins; the views apply
     // their own tighter padding so the small grid gets larger icons.

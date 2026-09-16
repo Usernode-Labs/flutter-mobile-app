@@ -2,5 +2,5 @@
 <resources>
     <string name="social_activity_channel_id" translatable="false">social_activity</string>
     <string name="social_activity_channel_name">Social activity</string>
-    <string name="social_activity_channel_description">Updates from Usernode Social</string>
+    <string name="social_activity_channel_description">Updates from Homeroom Social</string>
 </resources>

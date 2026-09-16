@@ -98,7 +98,7 @@ if (keystorePropertiesFile.exists()) {
 
         // Environment-based configuration using dart-define variables
         // App name will be controlled via environment variables
-        resValue "string", "app_name", "Usernode"
+        resValue "string", "app_name", "Homeroom"
     }
 
     signingConfigs {

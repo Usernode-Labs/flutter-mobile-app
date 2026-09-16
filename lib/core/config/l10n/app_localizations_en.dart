@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'Usernode';
+  String get appName => 'Homeroom';
 
   @override
   String get appTagline => 'Your Gateway to DeFi';
@@ -457,7 +457,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get zkIdentityWalletClaimEmailHelper =>
-      'Use the email from your original Usernode programme registration.';
+      'Use the email from your original Homeroom programme registration.';
 
   @override
   String get zkIdentityWalletClaimSendCode => 'Send verification code';
@@ -601,11 +601,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get widgetInstructionsTitle => 'Add the Usernode widget';
+  String get widgetInstructionsTitle => 'Add the Homeroom widget';
 
   @override
   String widgetInstructionsBody(String name) {
-    return '$name was added to your Usernode dApps widget. To see it on your home screen, add the widget once:';
+    return '$name was added to your Homeroom dApps widget. To see it on your home screen, add the widget once:';
   }
 
   @override
@@ -618,17 +618,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetInstructionsStep3 =>
-      'Search for Usernode and add the dApps widget';
+      'Search for Homeroom and add the dApps widget';
 
   @override
   String get widgetInstructionsDone => 'Done';
 
   @override
-  String get svShellConnectingTitle => 'Connecting to Usernode…';
+  String get svShellConnectingTitle => 'Connecting to Homeroom…';
 
   @override
   String get svShellOfflineMessage =>
-      'Can\'t reach Usernode. Check your connection and try again.';
+      'Can\'t reach Homeroom. Check your connection and try again.';
 
   @override
   String get stakingManagerTitle => 'Staking mode';
@@ -691,7 +691,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodePermissionsNotificationsBody =>
-      'Notifications are required so your phone can show when Usernode is running and alert you about important account and node activity.';
+      'Notifications are required so your phone can show when Homeroom is running and alert you about important account and node activity.';
 
   @override
   String get nodePermissionsAllowNotifications => 'Allow notifications';
@@ -716,7 +716,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodePermissionsBackgroundBody =>
-      'Set Usernode\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.';
+      'Set Homeroom\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.';
 
   @override
   String get nodePermissionsOpenBatterySettings => 'Open battery settings';

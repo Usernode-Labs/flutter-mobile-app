@@ -2,8 +2,8 @@ import SwiftUI
 import WidgetKit
 
 @main
-struct UsernodeWidgetsBundle: WidgetBundle {
+struct HomeroomWidgetsBundle: WidgetBundle {
   var body: some Widget {
-    UsernodeDappsWidget()
+    HomeroomDappsWidget()
   }
 }

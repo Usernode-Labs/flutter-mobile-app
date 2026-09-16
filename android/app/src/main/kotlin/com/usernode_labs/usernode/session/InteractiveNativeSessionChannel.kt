@@ -574,7 +574,7 @@ internal class InteractiveNativeSessionChannel(
         throw NativeSessionProtocolException(code, message)
 
     private companion object {
-        const val CHANNEL = "com.usernode.app/native_session"
+        const val CHANNEL = "com.onhomeroom.app/native_session"
         const val PROCESS_PROOF_BYTES = 32
         const val PROCESS_CLAIM_BYTES = 32
         const val TAG = "usernode/NativeSession"

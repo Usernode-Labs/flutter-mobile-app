@@ -91,7 +91,7 @@ class AlarmScheduler(
             // Create intent for alarm receiver
             Log.d(TAG, "[AlarmScheduler] Creating PendingIntent for alarm broadcast")
             val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "com.usernode.app.SLOT_ALARM"
+                action = "com.onhomeroom.app.SLOT_ALARM"
                 putExtra("alarmId", alarmId)
                 putExtra("globalSlot", globalSlot)
                 putExtra("alarmTimeMs", triggerAtMs)
@@ -199,7 +199,7 @@ class AlarmScheduler(
     fun hasScheduledAlarm(alarmId: String): Boolean {
         return try {
             val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "com.usernode.app.SLOT_ALARM"
+                action = "com.onhomeroom.app.SLOT_ALARM"
             }
 
             val pendingIntent = PendingIntent.getBroadcast(
@@ -234,7 +234,7 @@ class AlarmScheduler(
     private fun cancelAlarm(alarmId: String, reason: String): Boolean {
         try {
             val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = "com.usernode.app.SLOT_ALARM"
+                action = "com.onhomeroom.app.SLOT_ALARM"
             }
 
             val pendingIntent = PendingIntent.getBroadcast(

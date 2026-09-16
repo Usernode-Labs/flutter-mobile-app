@@ -11,7 +11,7 @@ import 'package:flutter/services.dart';
 class NativeScreenCapture {
   const NativeScreenCapture();
 
-  static const channelName = 'com.usernode.app/screenshot';
+  static const channelName = 'com.onhomeroom.app/screenshot';
   static const maxUploadBytes = 4 * 1024 * 1024;
   static const MethodChannel _channel = MethodChannel(channelName);
 

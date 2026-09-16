@@ -20,7 +20,7 @@ private const val TAG = "usernode/HomeShortcuts"
 private const val MAX_ICON_DIMENSION = 512
 
 /**
- * Native side of the `com.usernode.app/home_shortcuts` MethodChannel:
+ * Native side of the `com.onhomeroom.app/home_shortcuts` MethodChannel:
  * pins launcher shortcuts that deep-link back into the app via
  * `usernode://app/dapps/pinned/<id>`.
  */

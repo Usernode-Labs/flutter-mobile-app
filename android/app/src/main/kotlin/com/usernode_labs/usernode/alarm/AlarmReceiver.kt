@@ -29,7 +29,7 @@ class AlarmReceiver : BroadcastReceiver() {
         Log.i(TAG, "[AlarmReceiver] Broadcast received - Action: ${intent.action}, Time: ${System.currentTimeMillis()}")
 
         when (intent.action) {
-            "com.usernode.app.SLOT_ALARM" -> {
+            "com.onhomeroom.app.SLOT_ALARM" -> {
                 handleSlotAlarm(context, intent)
             }
             Intent.ACTION_BOOT_COMPLETED -> {

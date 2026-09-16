@@ -26,7 +26,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * Android-side handler for the `com.usernode.app/alarm` channel.
+ * Android-side handler for the `com.onhomeroom.app/alarm` channel.
  *
  * This is **not Activity-focused**:
  * - Constructed with an application [Context] so it can exist in background-only processes.

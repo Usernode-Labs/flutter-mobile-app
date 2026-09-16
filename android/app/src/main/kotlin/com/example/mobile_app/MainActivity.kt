@@ -26,10 +26,10 @@ import java.io.ByteArrayOutputStream
 private const val TAG = "usernode/MainActivity"
 private const val ZKPASSPORT_PACKAGE = "app.zkpassport.zkpassport"
 class MainActivity: FlutterActivity() {
-    private val CHANNEL = "com.usernode.app/alarm"
-    private val ZKPASSPORT_CHANNEL = "com.usernode.app/zkpassport"
-    private val HOME_SHORTCUTS_CHANNEL = "com.usernode.app/home_shortcuts"
-    private val SCREENSHOT_CHANNEL = "com.usernode.app/screenshot"
+    private val CHANNEL = "com.onhomeroom.app/alarm"
+    private val ZKPASSPORT_CHANNEL = "com.onhomeroom.app/zkpassport"
+    private val HOME_SHORTCUTS_CHANNEL = "com.onhomeroom.app/home_shortcuts"
+    private val SCREENSHOT_CHANNEL = "com.onhomeroom.app/screenshot"
     private val screenshotMaxBytes = 4 * 1024 * 1024
     private lateinit var alarmHandler: AlarmMethodChannelHandler
     private var alarmEngineLease: EngineLease? = null
@@ -261,7 +261,7 @@ class MainActivity: FlutterActivity() {
 
     private fun handleAlarmIntent(intent: Intent?) {
         intent?.let {
-            if (it.action == "com.usernode.app.SLOT_ALARM") {
+            if (it.action == "com.onhomeroom.app.SLOT_ALARM") {
                 val globalSlot = it.getIntExtra(
                     "globalSlot",
                     it.getIntExtra("slotNumber", -1)

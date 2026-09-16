@@ -15,7 +15,7 @@ import 'package:crypto_mobile_app/features/onboarding/presentation/node_permissi
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('com.usernode.app/alarm');
+  const channel = MethodChannel('com.onhomeroom.app/alarm');
 
   tearDown(() {
     binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);

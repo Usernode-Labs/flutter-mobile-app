@@ -2,14 +2,14 @@ import Flutter
 import Foundation
 import WidgetKit
 
-/// Native side of the `com.usernode.app/home_shortcuts` MethodChannel on iOS.
+/// Native side of the `com.onhomeroom.app/home_shortcuts` MethodChannel on iOS.
 ///
 /// iOS cannot pin homescreen shortcuts programmatically, so instead the
 /// pinned-dapps registry is mirrored into the App Group container consumed
 /// by the `UsernodeWidgets` WidgetKit extension: a JSON list in the shared
 /// UserDefaults plus one PNG per dapp in `pinned_icons/`.
 class HomeShortcutsChannel {
-  static let channelName = "com.usernode.app/home_shortcuts"
+  static let channelName = "com.onhomeroom.app/home_shortcuts"
   static let appGroupId = "group.com.onhomeroom.app"
   static let pinnedDappsKey = "pinned_dapps"
 

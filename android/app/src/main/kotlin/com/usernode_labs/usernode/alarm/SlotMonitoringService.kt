@@ -132,12 +132,12 @@ private const val PRODUCTION_STATE_FALLBACK_MS = 5_000L
 class SlotMonitoringService : Service() {
     companion object {
         private const val TAG = "usernode/SlotMonitoringService"
-        const val ACTION_START_MONITORING = "com.usernode.app.START_MONITORING"
-        const val ACTION_STOP_MONITORING = "com.usernode.app.STOP_MONITORING"
-        const val ACTION_START_PERSISTENT = "com.usernode.app.START_PERSISTENT"
-        const val ACTION_STOP_PERSISTENT = "com.usernode.app.STOP_PERSISTENT"
+        const val ACTION_START_MONITORING = "com.onhomeroom.app.START_MONITORING"
+        const val ACTION_STOP_MONITORING = "com.onhomeroom.app.STOP_MONITORING"
+        const val ACTION_START_PERSISTENT = "com.onhomeroom.app.START_PERSISTENT"
+        const val ACTION_STOP_PERSISTENT = "com.onhomeroom.app.STOP_PERSISTENT"
         private const val ACTION_NATIVE_PRODUCER_MONITORING =
-            "com.usernode.app.NATIVE_PRODUCER_MONITORING"
+            "com.onhomeroom.app.NATIVE_PRODUCER_MONITORING"
         private const val EXTRA_NATIVE_POLL_AFTER_MS = "nativePollAfterMs"
         private const val EXTRA_NATIVE_NOTIFICATION_TITLE = "nativeNotificationTitle"
         private const val EXTRA_NATIVE_NOTIFICATION_MESSAGE = "nativeNotificationMessage"

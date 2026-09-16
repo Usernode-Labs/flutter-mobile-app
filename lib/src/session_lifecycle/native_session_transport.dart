@@ -170,7 +170,7 @@ final class _NativeSessionPlatformPort {
     _channel.setMethodCallHandler(_handleNativeCall);
   }
 
-  static const _channelName = 'com.usernode.app/native_session';
+  static const _channelName = 'com.onhomeroom.app/native_session';
   final MethodChannel _channel;
   Uint8List? _processTransportClaim;
   Future<void> Function(int nativeRevision)? _retirementHandler;

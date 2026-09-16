@@ -16,7 +16,7 @@ ShortcutDarkIconUpdate shortcutDarkIconUpdateFor({
       : ShortcutDarkIconUpdate.replace;
 }
 
-/// Dart side of the `com.usernode.app/home_shortcuts` platform channel.
+/// Dart side of the `com.onhomeroom.app/home_shortcuts` platform channel.
 ///
 /// Android implements pinned homescreen shortcuts
 /// (`HomeShortcutsHandler.kt`); iOS mirrors the pinned-dapps registry into
@@ -29,7 +29,7 @@ ShortcutDarkIconUpdate shortcutDarkIconUpdateFor({
 /// JS promise.
 class HomeShortcutsChannel {
   static const MethodChannel _channel = MethodChannel(
-    'com.usernode.app/home_shortcuts',
+    'com.onhomeroom.app/home_shortcuts',
   );
 
   static bool get isAndroid =>

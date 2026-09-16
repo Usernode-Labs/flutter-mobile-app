@@ -52,7 +52,7 @@
     <key>BGTaskSchedulerPermittedIdentifiers</key>
     <array>
         <string>be.tramckrijte.workmanager.slot_monitoring_task</string>
-        <string>com.usernode.app.slotmonitoring</string>
+        <string>com.onhomeroom.app.slotmonitoring</string>
     </array>
     <key>UISupportedInterfaceOrientations</key>
     <array>
@@ -68,7 +68,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.usernode.zkpassport.callback</string>
+			<string>com.onhomeroom.app.zkpassport.callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>usernode-zk</string>
@@ -76,7 +76,7 @@
 		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.usernode.app.deeplink</string>
+			<string>com.onhomeroom.app.deeplink</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>usernode</string>

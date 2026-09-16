@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('com.usernode.app/home_shortcuts');
+  const channel = MethodChannel('com.onhomeroom.app/home_shortcuts');
   final calls = <MethodCall>[];
   Object? nextResult;
 

@@ -1293,7 +1293,7 @@ flutter-mobile-app/
 │   └── cargokit/                      # Cargokit source
 ├── android/                           # Android native code
 │   ├── app/
-│   │   └── src/main/kotlin/com/usernode_labs/usernode/
+│   │   └── src/main/kotlin/com/onhomeroom/app/
 │   │       └── alarm/
 │   │           ├── AlarmReceiver.kt
 │   │           ├── SlotMonitoringService.kt

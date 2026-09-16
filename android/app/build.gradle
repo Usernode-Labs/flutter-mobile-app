@@ -61,7 +61,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
     android {
-        namespace "com.usernode_labs.usernode"
+        namespace "com.onhomeroom.app"
         compileSdk flutter.compileSdkVersion
         def ndkVersionOverride =
                 System.getenv("NDK_VERSION") ?: System.getenv("ANDROID_NDK_VERSION")

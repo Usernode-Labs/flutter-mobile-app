@@ -6,7 +6,7 @@ void main() {
   test('native cold recovery stays local and preserves claim ownership',
       () async {
     final source = await File(
-      'android/app/src/main/kotlin/com/usernode_labs/usernode/session/'
+      'android/app/src/main/kotlin/com/onhomeroom/app/session/'
       'AndroidNativeSessionVault.kt',
     ).readAsString();
 

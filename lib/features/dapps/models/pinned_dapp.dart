@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 /// A dapp the user pinned to the device homescreen (Android pinned shortcut
-/// or iOS widget slot). Persisted locally so `usernode://app/dapps/pinned/:id`
+/// or iOS widget slot). Persisted locally so `homeroom://app/dapps/pinned/:id`
 /// deep links can resolve back to a route without embedding raw URLs in the
 /// deep link surface.
 class PinnedDapp {

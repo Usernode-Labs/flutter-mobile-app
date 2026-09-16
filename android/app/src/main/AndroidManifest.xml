@@ -22,7 +22,7 @@
     
     <application
         android:label="@string/app_name"
-        android:name=".UsernodeApplication"
+        android:name=".HomeroomApplication"
         android:icon="@mipmap/ic_launcher"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -38,7 +38,7 @@
             android:value="@string/social_activity_channel_id" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
-            android:resource="@drawable/ic_stat_usernode_social" />
+            android:resource="@drawable/ic_stat_homeroom_social" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -65,7 +65,7 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
-                    android:scheme="usernode-zk"
+                    android:scheme="homeroom-zk"
                     android:host="callback"/>
             </intent-filter>
             <!-- Temporary native ZK proof deep link; Social owns challenge UI. -->
@@ -74,17 +74,17 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
-                    android:scheme="usernode"
+                    android:scheme="homeroom"
                     android:host="app"
                     android:pathPrefix="/challenges/zk-identity"/>
             </intent-filter>
-            <!-- In-app dApp deep links: usernode://app/dapps/... routed via GoRouter. -->
+            <!-- In-app dApp deep links: homeroom://app/dapps/... routed via GoRouter. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data
-                    android:scheme="usernode"
+                    android:scheme="homeroom"
                     android:host="app"
                     android:pathPrefix="/dapps"/>
             </intent-filter>
@@ -101,7 +101,7 @@
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.usernode.app.SLOT_ALARM" />
+                <action android:name="com.onhomeroom.app.SLOT_ALARM" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />

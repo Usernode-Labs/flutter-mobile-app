@@ -97,7 +97,7 @@ abstract class AppLocalizations {
   /// The name of the application
   ///
   /// In en, this message translates to:
-  /// **'Usernode'**
+  /// **'Homeroom'**
   String get appName;
 
   /// Application tagline
@@ -895,7 +895,7 @@ abstract class AppLocalizations {
   /// Help text under the legacy programme email field
   ///
   /// In en, this message translates to:
-  /// **'Use the email from your original Usernode programme registration.'**
+  /// **'Use the email from your original Homeroom programme registration.'**
   String get zkIdentityWalletClaimEmailHelper;
 
   /// Button label that sends the wallet recovery email code
@@ -1165,13 +1165,13 @@ abstract class AppLocalizations {
   /// App bar title of the iOS widget-setup instructions screen
   ///
   /// In en, this message translates to:
-  /// **'Add the Usernode widget'**
+  /// **'Add the Homeroom widget'**
   String get widgetInstructionsTitle;
 
   /// Intro of the iOS widget-setup instructions screen
   ///
   /// In en, this message translates to:
-  /// **'{name} was added to your Usernode dApps widget. To see it on your home screen, add the widget once:'**
+  /// **'{name} was added to your Homeroom dApps widget. To see it on your home screen, add the widget once:'**
   String widgetInstructionsBody(String name);
 
   /// First step of the iOS widget-setup instructions
@@ -1189,7 +1189,7 @@ abstract class AppLocalizations {
   /// Third step of the iOS widget-setup instructions
   ///
   /// In en, this message translates to:
-  /// **'Search for Usernode and add the dApps widget'**
+  /// **'Search for Homeroom and add the dApps widget'**
   String get widgetInstructionsStep3;
 
   /// Dismiss button of the iOS widget-setup instructions screen
@@ -1201,13 +1201,13 @@ abstract class AppLocalizations {
   /// First-launch gate of the full-screen SV shell: shown while the Social Vibecoding webapp loads for the first time on this install
   ///
   /// In en, this message translates to:
-  /// **'Connecting to Usernode…'**
+  /// **'Connecting to Homeroom…'**
   String get svShellConnectingTitle;
 
   /// First-launch gate of the full-screen SV shell: shown when the first-ever load of the Social Vibecoding webapp fails
   ///
   /// In en, this message translates to:
-  /// **'Can\'t reach Usernode. Check your connection and try again.'**
+  /// **'Can\'t reach Homeroom. Check your connection and try again.'**
   String get svShellOfflineMessage;
 
   /// Title of the native staking manager opened from Wallet
@@ -1315,7 +1315,7 @@ abstract class AppLocalizations {
   /// Explanation on the mandatory notification-permission step
   ///
   /// In en, this message translates to:
-  /// **'Notifications are required so your phone can show when Usernode is running and alert you about important account and node activity.'**
+  /// **'Notifications are required so your phone can show when Homeroom is running and alert you about important account and node activity.'**
   String get nodePermissionsNotificationsBody;
 
   /// Action requesting notification permission
@@ -1357,7 +1357,7 @@ abstract class AppLocalizations {
   /// Explanation on the Android unrestricted-background step
   ///
   /// In en, this message translates to:
-  /// **'Set Usernode\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.'**
+  /// **'Set Homeroom\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.'**
   String get nodePermissionsBackgroundBody;
 
   /// Action opening Android app battery settings

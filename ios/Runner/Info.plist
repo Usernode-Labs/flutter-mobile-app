@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Usernode</string>
+	<string>Homeroom</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -41,7 +41,7 @@
     <key>NSFaceIDUsageDescription</key>
     <string>Biometrics are used to unlock your private data.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Photo access lets you upload images to dapps you open in Usernode.</string>
+    <string>Photo access lets you upload images to dapps you open in Homeroom.</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>
@@ -52,7 +52,7 @@
     <key>BGTaskSchedulerPermittedIdentifiers</key>
     <array>
         <string>be.tramckrijte.workmanager.slot_monitoring_task</string>
-        <string>com.usernode.app.slotmonitoring</string>
+        <string>com.onhomeroom.app.slotmonitoring</string>
     </array>
     <key>UISupportedInterfaceOrientations</key>
     <array>
@@ -68,18 +68,18 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.usernode.zkpassport.callback</string>
+			<string>com.onhomeroom.app.zkpassport.callback</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>usernode-zk</string>
+				<string>homeroom-zk</string>
 			</array>
 		</dict>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.usernode.app.deeplink</string>
+			<string>com.onhomeroom.app.deeplink</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>usernode</string>
+				<string>homeroom</string>
 			</array>
 		</dict>
 	</array>
@@ -91,7 +91,7 @@
 	<!-- App-Bound Domains: unlocks Service Workers (SV's offline PWA mode)
 	     inside WKWebView for these registrable domains and their subdomains.
 	     Webviews opting in via limitsNavigationsToAppBoundDomains can only
-	     navigate to these domains; JS injection (the Usernode bridge channel)
+	     navigate to these domains; JS injection (the Homeroom bridge channel)
 	     is restricted to them app-wide once this key exists. External links
 	     are opened via the openExternal bridge method instead. -->
 	<key>WKAppBoundDomains</key>

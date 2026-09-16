@@ -184,7 +184,7 @@ enum IOSNativeSessionRust {
 /// scheduler: unsupported Schedule/Retry effects are completed as failure.
 final class IOSNativeProducerWakeCoordinator {
   static let shared = IOSNativeProducerWakeCoordinator()
-  private let queue = DispatchQueue(label: "org.usernode.native-session.wake")
+  private let queue = DispatchQueue(label: "com.onhomeroom.app.native-session.wake")
   private let vault = IOSNativeSessionVault.shared
 
   private init() {}
@@ -485,11 +485,11 @@ final class IOSNativeProducerWakeCoordinator {
 /// claim is injected by the Dart composition root and required on every
 /// subsequent call; no bearer, key, or generic HTTP primitive is exposed.
 final class IOSNativeSessionChannel {
-  static let channelName = "com.usernode.app/native_session"
+  static let channelName = "com.onhomeroom.app/native_session"
 
   private let channel: FlutterMethodChannel
   private let vault = IOSNativeSessionVault.shared
-  private let worker = DispatchQueue(label: "org.usernode.native-session.interactive")
+  private let worker = DispatchQueue(label: "com.onhomeroom.app.native-session.interactive")
   private var proofIssued = false
   private var closed = false
   private var processTransportClaim = Data()

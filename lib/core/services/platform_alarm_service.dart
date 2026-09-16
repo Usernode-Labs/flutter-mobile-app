@@ -271,7 +271,8 @@ class PlatformAlarmService {
         _isAndroid = platform == TargetPlatform.android,
         _isIOS = platform == TargetPlatform.iOS;
 
-  static const MethodChannel _channel = MethodChannel('com.usernode.app/alarm');
+  static const MethodChannel _channel =
+      MethodChannel('com.onhomeroom.app/alarm');
   static const applicationIncarnationKey = 'applicationIncarnation';
   final ObservabilityReportingService _observability;
   final bool _isAndroid;

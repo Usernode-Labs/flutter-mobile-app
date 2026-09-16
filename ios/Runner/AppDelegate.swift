@@ -74,8 +74,8 @@ final class ApplicationIncarnationStore {
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private static let socialNotificationSource = "usernode_social"
   private static let socialNotificationCategory = "USERNODE_SOCIAL"
-  private let alarmChannelName = "com.usernode.app/alarm"
-  private let screenshotChannelName = "com.usernode.app/screenshot"
+  private let alarmChannelName = "com.onhomeroom.app/alarm"
+  private let screenshotChannelName = "com.onhomeroom.app/screenshot"
   private var alarmChannel: FlutterMethodChannel?
   private var screenshotChannel: FlutterMethodChannel?
   private var nativeSessionChannel: IOSNativeSessionChannel?

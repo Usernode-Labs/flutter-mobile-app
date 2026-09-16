@@ -33,17 +33,17 @@ void main() {
     });
   });
 
-  group('isAllowedUsernodeAppDeepLink', () {
-    test('allows usernode app links for allowlisted paths', () {
+  group('isAllowedHomeroomAppDeepLink', () {
+    test('allows homeroom app links for allowlisted paths', () {
       expect(
-        isAllowedUsernodeAppDeepLink(
-          Uri.parse('usernode://app/challenges/zk-identity'),
+        isAllowedHomeroomAppDeepLink(
+          Uri.parse('homeroom://app/challenges/zk-identity'),
         ),
         true,
       );
       expect(
-        isAllowedUsernodeAppDeepLink(
-          Uri.parse('usernode://app/dapps/opinion-market'),
+        isAllowedHomeroomAppDeepLink(
+          Uri.parse('homeroom://app/dapps/opinion-market'),
         ),
         true,
       );
@@ -51,53 +51,53 @@ void main() {
 
     test('rejects wrong scheme, host, or path', () {
       expect(
-        isAllowedUsernodeAppDeepLink(
+        isAllowedHomeroomAppDeepLink(
           Uri.parse('https://app/challenges/zk-identity'),
         ),
         false,
       );
       expect(
-        isAllowedUsernodeAppDeepLink(
-          Uri.parse('usernode://other/challenges/zk-identity'),
+        isAllowedHomeroomAppDeepLink(
+          Uri.parse('homeroom://other/challenges/zk-identity'),
         ),
         false,
       );
       expect(
-        isAllowedUsernodeAppDeepLink(Uri.parse('usernode://app/wallet/send')),
+        isAllowedHomeroomAppDeepLink(Uri.parse('homeroom://app/wallet/send')),
         false,
       );
       expect(
-        isAllowedUsernodeAppDeepLink(Uri.parse('usernode:/wallet/send')),
+        isAllowedHomeroomAppDeepLink(Uri.parse('homeroom:/wallet/send')),
         false,
       );
     });
   });
 
-  group('shouldBlockUsernodeDeepLink', () {
-    test('blocks any unsupported usernode scheme URI', () {
+  group('shouldBlockHomeroomDeepLink', () {
+    test('blocks any unsupported homeroom scheme URI', () {
       expect(
-        shouldBlockUsernodeDeepLink(Uri.parse('usernode://app/wallet/send')),
+        shouldBlockHomeroomDeepLink(Uri.parse('homeroom://app/wallet/send')),
         true,
       );
       expect(
-        shouldBlockUsernodeDeepLink(Uri.parse('usernode:/wallet/send')),
+        shouldBlockHomeroomDeepLink(Uri.parse('homeroom:/wallet/send')),
         true,
       );
       expect(
-        shouldBlockUsernodeDeepLink(Uri.parse('usernode://other/wallet/send')),
+        shouldBlockHomeroomDeepLink(Uri.parse('homeroom://other/wallet/send')),
         true,
       );
     });
 
-    test('allows safe usernode app links and ignores non-usernode links', () {
+    test('allows safe homeroom app links and ignores non-homeroom links', () {
       expect(
-        shouldBlockUsernodeDeepLink(
-          Uri.parse('usernode://app/challenges/zk-identity'),
+        shouldBlockHomeroomDeepLink(
+          Uri.parse('homeroom://app/challenges/zk-identity'),
         ),
         false,
       );
       expect(
-        shouldBlockUsernodeDeepLink(Uri.parse('https://usernode.example')),
+        shouldBlockHomeroomDeepLink(Uri.parse('https://homeroom.example')),
         false,
       );
     });

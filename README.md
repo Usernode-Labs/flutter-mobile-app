@@ -430,9 +430,9 @@ graph TD
 
 The app supports deep links for:
 
-- Block details: `usernode://block/{blockHeight}`
-- Transaction details: `usernode://tx/{txHash}`
-- Slot details: `usernode://slot/{slotNumber}`
+- Block details: `homeroom://block/{blockHeight}`
+- Transaction details: `homeroom://tx/{txHash}`
+- Slot details: `homeroom://slot/{slotNumber}`
 
 ---
 
@@ -1293,7 +1293,7 @@ flutter-mobile-app/
 │   └── cargokit/                      # Cargokit source
 ├── android/                           # Android native code
 │   ├── app/
-│   │   └── src/main/kotlin/com/usernode_labs/usernode/
+│   │   └── src/main/kotlin/com/onhomeroom/app/
 │   │       └── alarm/
 │   │           ├── AlarmReceiver.kt
 │   │           ├── SlotMonitoringService.kt

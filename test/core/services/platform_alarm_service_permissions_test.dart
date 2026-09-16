@@ -7,7 +7,7 @@ import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('com.usernode.app/alarm');
+  const channel = MethodChannel('com.onhomeroom.app/alarm');
 
   late List<String> calls;
   late Map<String, List<Object?>> responses;

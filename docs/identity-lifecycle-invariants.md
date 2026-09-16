@@ -77,7 +77,7 @@ Focused deterministic checks live in
 ## Native authority and credential custody
 
 Android implements the private platform boundary under
-`android/app/src/main/kotlin/com/usernode_labs/usernode/session/`; iOS mirrors
+`android/app/src/main/kotlin/com/onhomeroom/app/session/`; iOS mirrors
 it in `ios/Runner/NativeSessionPlatform.swift`,
 `ios/Runner/NativeSessionProtocol.swift`, and
 `ios/Runner/NativeSessionVault.swift`.

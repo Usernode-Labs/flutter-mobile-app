@@ -61,7 +61,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
     android {
-        namespace "com.usernode_labs.usernode"
+        namespace "com.onhomeroom.app"
         compileSdk flutter.compileSdkVersion
         def ndkVersionOverride =
                 System.getenv("NDK_VERSION") ?: System.getenv("ANDROID_NDK_VERSION")
@@ -85,7 +85,7 @@ if (keystorePropertiesFile.exists()) {
     }
 
     defaultConfig {
-        applicationId "com.usernode_labs.usernode"
+        applicationId "com.onhomeroom.app"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
@@ -98,7 +98,7 @@ if (keystorePropertiesFile.exists()) {
 
         // Environment-based configuration using dart-define variables
         // App name will be controlled via environment variables
-        resValue "string", "app_name", "Usernode"
+        resValue "string", "app_name", "Homeroom"
     }
 
     signingConfigs {

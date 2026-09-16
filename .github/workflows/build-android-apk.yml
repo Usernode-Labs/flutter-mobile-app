@@ -255,7 +255,7 @@ jobs:
             --split-debug-info="$SPLIT_DEBUG_INFO_DIR" \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }} \
-            --dart-define=SENTRY_RELEASE=com.usernode_labs.usernode@${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }} \
+            --dart-define=SENTRY_RELEASE=com.onhomeroom.app@${{ steps.version.outputs.version }}+${{ steps.version.outputs.build_number }} \
             --dart-define=SENTRY_DIST=${{ steps.version.outputs.build_number }} \
             --dart-define-from-file=.env
 

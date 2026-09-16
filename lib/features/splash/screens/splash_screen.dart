@@ -89,7 +89,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                     SizedBox(height: spacing.space32),
                     Text(
-                      (l10n?.appName ?? 'Usernode'),
+                      (l10n?.appName ?? 'Homeroom'),
                       style: theme.textTheme.displayMedium?.copyWith(
                         color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w700,

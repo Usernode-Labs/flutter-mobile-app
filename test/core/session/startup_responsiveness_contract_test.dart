@@ -44,7 +44,7 @@ void main() {
 
   test('native session bootstrap and teardown do not block Android main', () {
     final channel = File(
-      'android/app/src/main/kotlin/com/usernode_labs/usernode/session/'
+      'android/app/src/main/kotlin/com/onhomeroom/app/session/'
       'InteractiveNativeSessionChannel.kt',
     ).readAsStringSync();
 
@@ -57,7 +57,7 @@ void main() {
     }
 
     final vault = File(
-      'android/app/src/main/kotlin/com/usernode_labs/usernode/session/'
+      'android/app/src/main/kotlin/com/onhomeroom/app/session/'
       'AndroidNativeSessionVault.kt',
     ).readAsStringSync();
     final configureStart = vault.indexOf('fun configureMobileApiBaseUrl(');
@@ -73,7 +73,7 @@ void main() {
 
   test('boot recovery does not enqueue two immediate producer wakes', () {
     final receiver = File(
-      'android/app/src/main/kotlin/com/usernode_labs/usernode/alarm/'
+      'android/app/src/main/kotlin/com/onhomeroom/app/alarm/'
       'AlarmReceiver.kt',
     ).readAsStringSync();
 

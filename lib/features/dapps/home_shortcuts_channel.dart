@@ -16,11 +16,11 @@ ShortcutDarkIconUpdate shortcutDarkIconUpdateFor({
       : ShortcutDarkIconUpdate.replace;
 }
 
-/// Dart side of the `com.usernode.app/home_shortcuts` platform channel.
+/// Dart side of the `com.onhomeroom.app/home_shortcuts` platform channel.
 ///
 /// Android implements pinned homescreen shortcuts
 /// (`HomeShortcutsHandler.kt`); iOS mirrors the pinned-dapps registry into
-/// the App Group container consumed by the `UsernodeWidgets` WidgetKit
+/// the App Group container consumed by the `HomeroomWidgets` WidgetKit
 /// extension (`HomeShortcutsChannel.swift`).
 ///
 /// All methods fail soft: on unexpected platform errors (or when running on
@@ -29,7 +29,7 @@ ShortcutDarkIconUpdate shortcutDarkIconUpdateFor({
 /// JS promise.
 class HomeShortcutsChannel {
   static const MethodChannel _channel = MethodChannel(
-    'com.usernode.app/home_shortcuts',
+    'com.onhomeroom.app/home_shortcuts',
   );
 
   static bool get isAndroid =>
@@ -164,7 +164,7 @@ class HomeShortcutsChannel {
     }
   }
 
-  /// iOS: whether the Usernode dApps widget is currently on the homescreen.
+  /// iOS: whether the Homeroom dApps widget is currently on the homescreen.
   static Future<bool> isWidgetInstalled() async {
     if (!isIOS) return false;
     try {

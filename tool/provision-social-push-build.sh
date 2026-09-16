@@ -3,8 +3,8 @@
 set -euo pipefail
 umask 077
 
-readonly android_package='com.usernode_labs.usernode'
-readonly ios_bundle_id='org.usernode.app'
+readonly android_package='com.onhomeroom.app'
+readonly ios_bundle_id='com.onhomeroom.app'
 readonly env_file="${SOCIAL_PUSH_ENV_FILE:-.env}"
 
 tmp_env=''

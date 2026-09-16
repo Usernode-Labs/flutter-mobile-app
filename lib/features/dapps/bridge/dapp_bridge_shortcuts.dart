@@ -85,9 +85,9 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
   // ── Homescreen shortcuts (bridge) ─────────────────────────────────────
   //
   // `addHomeScreenShortcut` lets a dapp request a device-homescreen entry
-  // that reopens the app at `usernode://app/dapps/pinned/<id>`. Android
+  // that reopens the app at `homeroom://app/dapps/pinned/<id>`. Android
   // pins a real launcher shortcut; iOS mirrors the pinned registry into the
-  // App Group storage consumed by the UsernodeWidgets WidgetKit extension.
+  // App Group storage consumed by the HomeroomWidgets WidgetKit extension.
 
   Future<Map<String, dynamic>> _shortcutSupport() async {
     if (HomeShortcutsChannel.isAndroid) {
@@ -191,7 +191,7 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
           // Group icon store below either way.
           iconUrl: iconUri?.toString() ?? '',
         );
-    final deepLink = 'usernode://app${AppRoutes.dappPinnedFor(pinned.id)}';
+    final deepLink = 'homeroom://app${AppRoutes.dappPinnedFor(pinned.id)}';
 
     if (HomeShortcutsChannel.isAndroid) {
       final requested = await HomeShortcutsChannel.requestPinShortcut(
@@ -271,7 +271,7 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
           {
             'id': d.id,
             'name': d.name,
-            'deepLink': 'usernode://app${AppRoutes.dappPinnedFor(d.id)}',
+            'deepLink': 'homeroom://app${AppRoutes.dappPinnedFor(d.id)}',
             'pinnedAtMs': d.pinnedAtMs,
           },
       ]),
@@ -397,7 +397,7 @@ mixin _BridgeShortcuts on _DappWebViewScreenStateBase {
     );
   }
 
-  /// One-time iOS walkthrough shown after a pin when the Usernode widget
+  /// One-time iOS walkthrough shown after a pin when the Homeroom widget
   /// isn't on the homescreen yet.
   Future<void> _showWidgetInstructions(String dappName) async {
     if (!mounted) return;

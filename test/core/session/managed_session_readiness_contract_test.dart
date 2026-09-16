@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('account requests validate the session without producer scheduling', () {
     final android = File(
-      'android/app/src/main/kotlin/com/usernode_labs/usernode/session/'
+      'android/app/src/main/kotlin/com/onhomeroom/app/session/'
       'InteractiveNativeSessionChannel.kt',
     ).readAsStringSync();
     final androidGate = android.substring(

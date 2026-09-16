@@ -34,6 +34,7 @@ import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_in
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -651,27 +652,60 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     final colors = Theme.of(context).colorScheme;
     final webView = WebViewWidget(controller: _controller);
 
-    return PopScope(
-      // Take over the route-pop handler so the device/system back button
-      // walks the WebView's session history first (pushState entries
-      // from the dapp's own client-side router count as history) and
-      // only pops the Flutter route once we're at the WebView root.
-      // Without this the Android back button would always exit the
-      // dapp, regardless of how deep the user has navigated inside it.
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
-        await _handleBack();
-      },
-      child: Scaffold(
-        backgroundColor: colors.surfaceContainerLowest,
-        // No appBar, on any surface. The page owns its own header; the only
-        // native chrome over this webview is the transaction confirmation
-        // sheet. SafeArea keeps it out from under the OS status bar.
-        body: ColoredBox(
-          color: colors.surfaceContainerLowest,
-          child: SafeArea(
-            bottom: false,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      // THE PAGE PAINTS UNDER THE STATUS BAR NOW (usernode#1929), so the
+      // glyphs up there stop sitting on a Flutter-drawn ground and start
+      // sitting on whatever the web page renders. Nothing set this before
+      // because nothing needed to: the SafeArea below kept the page out of
+      // that strip, so the strip was always `surfaceContainerLowest`.
+      //
+      // Dark ground takes light glyphs. `colors.brightness` is the app's
+      // RESOLVED appearance, which the web shell keeps in step through
+      // `setAppearance` on the bridge, so the two agree without this screen
+      // having to ask the page anything.
+      value: colors.brightness == Brightness.dark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
+      child: PopScope(
+        // Take over the route-pop handler so the device/system back button
+        // walks the WebView's session history first (pushState entries
+        // from the dapp's own client-side router count as history) and
+        // only pops the Flutter route once we're at the WebView root.
+        // Without this the Android back button would always exit the
+        // dapp, regardless of how deep the user has navigated inside it.
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          await _handleBack();
+        },
+        child: Scaffold(
+          backgroundColor: colors.surfaceContainerLowest,
+          // No appBar, on any surface. The page owns its own header — and as
+          // of usernode#1929 it owns the STATUS-BAR STRIP too, which is why
+          // there is no SafeArea here any more.
+          //
+          // There used to be one, `SafeArea(bottom: false)`, and its job was
+          // exactly what it looked like: keep the webview out from under the
+          // OS status bar. That left the strip to Flutter, painted with the
+          // ColoredBox below, and the web page had no way to reach it. So when
+          // the page dimmed itself behind a dialog, the strip did not dim with
+          // it — measured on an iPhone 17 Pro, the page dropped from luminance
+          // 241 to 145 while the strip held 241 in every frame of the fade,
+          // a 115-unit cliff at exactly the safe-area line. That is what
+          // "the iOS system header and the platform background fade at
+          // different rates" turned out to be: the strip was not fading at all.
+          //
+          // Full-bleed hands those pixels to the page. The web shell already
+          // reserves the inset itself — `--platform-safe-top`, and the kit's
+          // `.un-safe-top-extend` on the platform header — reading
+          // `env(safe-area-inset-top)`, which a webview that fills the screen
+          // reports correctly under the page's `viewport-fit=cover`. So the
+          // content sits where it did and the scrim now covers the strip.
+          //
+          // The ColoredBox stays: it is what the user sees in the moment
+          // before the page paints, and behind any overscroll.
+          body: ColoredBox(
+            color: colors.surfaceContainerLowest,
             child: webView,
           ),
         ),

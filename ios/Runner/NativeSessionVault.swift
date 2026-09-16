@@ -1518,11 +1518,11 @@ final class IOSNativeSessionVault {
     }
   }
 
-  private static let keychainService = "org.usernode.app.native-session-v2"
+  private static let keychainService = "com.onhomeroom.app.native-session-v2"
   private static let installationAccount = "installation-id"
   private static let credentialAccount = "credential-record"
-  private static let possessionTag = Data("org.usernode.app.native-session-v2.possession.1".utf8)
-  private static let envelopeTag = Data("org.usernode.app.native-session-v2.envelope.1".utf8)
+  private static let possessionTag = Data("com.onhomeroom.app.native-session-v2.possession.1".utf8)
+  private static let envelopeTag = Data("com.onhomeroom.app.native-session-v2.envelope.1".utf8)
   private static let mobileApiBaseUrlKey = "native_session_v2_mobile_api_base_url"
   private static let readyRevisionKey = "native_session_v2_ready_revision"
   private static let installationMarkerKey = "native_session_v2_installation_marker"

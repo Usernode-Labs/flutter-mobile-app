@@ -109,7 +109,7 @@ def upload_ipa_to_testflight(ipa_path)
 
   upload_params = {
     skip_waiting_for_build_processing: true,
-    app_identifier: "org.usernode.app",
+    app_identifier: "com.onhomeroom.app",
     ipa: resolved_ipa_path
   }
   upload_params[:api_key] = api_key_config if api_key_config
@@ -126,9 +126,9 @@ platform :ios do
     configuration = options[:configuration] || 'Release'
     
     # Environment-based provisioning profile selection. The widget
-    # extension (org.usernode.app.widgets) is a separate signing target
+    # extension (com.onhomeroom.app.widgets) is a separate signing target
     # and needs its own profile; both profiles must be regenerated with
-    # the App Groups capability (group.org.usernode.app) enabled.
+    # the App Groups capability (group.com.onhomeroom.app) enabled.
     if env_type == 'PROD'
       default_profile = "mobile-apps"
       default_widget_profile = "mobile-apps-widgets"
@@ -163,8 +163,8 @@ platform :ios do
         method: "app-store",
         signingStyle: "manual",
         provisioningProfiles: {
-          "org.usernode.app" => provisioning_profile,
-          "org.usernode.app.widgets" => widget_provisioning_profile
+          "com.onhomeroom.app" => provisioning_profile,
+          "com.onhomeroom.app.widgets" => widget_provisioning_profile
         }
       },
       xcargs: %(DEVELOPMENT_TEAM=#{team_id} CODE_SIGN_IDENTITY="iPhone Distribution"),
@@ -229,7 +229,7 @@ platform :android do
     # Upload to Google Play
     upload_to_play_store(
       track: track,
-      package_name: "org.usernode.app",
+      package_name: "com.onhomeroom.app",
       aab: "build/app/outputs/bundle/release/app-release.aab",
       skip_upload_metadata: true,
       skip_upload_images: true,

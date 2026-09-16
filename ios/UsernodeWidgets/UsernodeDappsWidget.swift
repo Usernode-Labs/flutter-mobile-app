@@ -16,7 +16,7 @@ struct PinnedDapp: Codable, Identifiable {
 }
 
 enum PinnedDappsStore {
-  static let appGroupId = "group.org.usernode.app"
+  static let appGroupId = "group.com.onhomeroom.app"
   static let pinnedDappsKey = "pinned_dapps"
   static let containerURL = FileManager.default.containerURL(
     forSecurityApplicationGroupIdentifier: appGroupId

@@ -10,7 +10,7 @@ import WidgetKit
 /// UserDefaults plus one PNG per dapp in `pinned_icons/`.
 class HomeShortcutsChannel {
   static let channelName = "com.usernode.app/home_shortcuts"
-  static let appGroupId = "group.org.usernode.app"
+  static let appGroupId = "group.com.onhomeroom.app"
   static let pinnedDappsKey = "pinned_dapps"
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

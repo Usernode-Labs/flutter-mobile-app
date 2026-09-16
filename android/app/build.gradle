@@ -85,7 +85,7 @@ if (keystorePropertiesFile.exists()) {
     }
 
     defaultConfig {
-        applicationId "com.usernode_labs.usernode"
+        applicationId "com.onhomeroom.app"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()

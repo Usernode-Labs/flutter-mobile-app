@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-readonly ANDROID_APPLICATION_ID="com.usernode_labs.usernode"
-readonly IOS_BUNDLE_ID="org.usernode.app"
+readonly ANDROID_APPLICATION_ID="com.onhomeroom.app"
+readonly IOS_BUNDLE_ID="com.onhomeroom.app"
 readonly ANDROID_MAPPING="build/app/outputs/mapping/release/mapping.txt"
 readonly ANDROID_NATIVE_SYMBOLS="build/app/outputs/native-debug-symbols/release/native-debug-symbols.zip"
 readonly IOS_DSYMS="build/ios/archive/Runner.xcarchive/dSYMs"

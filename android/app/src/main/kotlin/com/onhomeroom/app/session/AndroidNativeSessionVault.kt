@@ -48,10 +48,8 @@ internal class AndroidNativeSessionVault(context: Context) {
 
     fun configureMobileApiBaseUrl(value: String) {
         val configured = NativeSessionHttp(value)
-        // Producer-policy refresh deliberately holds the vault monitor across
-        // its authenticated request. Interactive bootstrap normally presents
-        // the already-persisted origin, so let that idempotent case return
-        // without waiting on network I/O owned by the background coordinator.
+        // Interactive bootstrap normally presents the already-persisted
+        // origin; that idempotent case needs no vault transaction.
         if (canonicalMobileApiBaseUrl == configured.canonicalBaseUrl) return
         synchronized(this) {
             if (canonicalMobileApiBaseUrl == configured.canonicalBaseUrl) return
@@ -284,7 +282,6 @@ internal class AndroidNativeSessionVault(context: Context) {
      * vault binding Rust already knows. Authenticated policy refresh is
      * reserved for bounded recovery/resume boundaries and delegation writes.
      */
-    @Synchronized
     fun producerWakeCredential(
         refreshPolicy: Boolean,
         coldInstallClaim: ByteArray? = null,
@@ -292,10 +289,10 @@ internal class AndroidNativeSessionVault(context: Context) {
         if (coldInstallClaim != null && coldInstallClaim.size != CLAIM_BYTES) {
             fail("native_install_claim_invalid", "The native install claim is invalid")
         }
-        if (!refreshPolicy) {
+        if (!refreshPolicy) return synchronized(this) {
             val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
                 ?: return ProducerWakeCredential.Absent
-            return try {
+            try {
                 ProducerWakeCredential.Present(
                     vaultEvidenceFrame(storedRaw, coldInstallClaim),
                     ByteArray(0),
@@ -312,18 +309,7 @@ internal class AndroidNativeSessionVault(context: Context) {
             }
         }
 
-        return when (val material = authenticatedProducerMaterial()) {
-            is AuthenticatedProducerMaterial.Present -> try {
-                ProducerWakeCredential.Present(
-                    vaultEvidenceFrame(material.recovered.storedRaw, coldInstallClaim),
-                    material.policyFrame.copyOf(),
-                )
-            } finally {
-                material.close()
-            }
-            AuthenticatedProducerMaterial.Absent -> ProducerWakeCredential.Absent
-            AuthenticatedProducerMaterial.Uncertain -> ProducerWakeCredential.Uncertain
-        }
+        return authenticatedProducerWakeCredential(coldInstallClaim)
     }
 
     /** Scalar-bearing cold stage used only after Rust requests tag-5 install. */
@@ -653,33 +639,65 @@ internal class AndroidNativeSessionVault(context: Context) {
         }
     }
 
-    private fun authenticatedProducerMaterial(): AuthenticatedProducerMaterial {
-        val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
-            ?: return AuthenticatedProducerMaterial.Absent
-        val recovered = try {
-            recoverCredential(storedRaw)
-        } catch (error: NativeSessionProtocolException) {
-            Log.w(TAG, "Producer policy credential recovery failed (code=${error.code})")
-            if (shouldDiscardCredential(error)) {
-                compareDeleteExact(storedRaw)
-                return AuthenticatedProducerMaterial.Absent
+    private fun authenticatedProducerWakeCredential(
+        coldInstallClaim: ByteArray?,
+    ): ProducerWakeCredential {
+        val request = synchronized(this) {
+            val storedRaw = preferences.getString(CREDENTIAL_RECORD_KEY, null)
+                ?: return ProducerWakeCredential.Absent
+            val recovered = try {
+                recoverCredential(storedRaw)
+            } catch (error: NativeSessionProtocolException) {
+                Log.w(TAG, "Producer policy credential recovery failed (code=${error.code})")
+                if (shouldDiscardCredential(error)) {
+                    compareDeleteExact(storedRaw)
+                    return ProducerWakeCredential.Absent
+                }
+                return ProducerWakeCredential.Uncertain
+            } catch (error: Throwable) {
+                Log.w(
+                    TAG,
+                    "Producer policy credential recovery failed (${error.javaClass.simpleName})",
+                )
+                return ProducerWakeCredential.Uncertain
             }
-            return AuthenticatedProducerMaterial.Uncertain
-        } catch (error: Throwable) {
-            Log.w(
-                TAG,
-                "Producer policy credential recovery failed (${error.javaClass.simpleName})",
-            )
-            return AuthenticatedProducerMaterial.Uncertain
+            if (recovered.credential.account == null) {
+                Log.w(TAG, "Producer policy refresh requires a wallet credential")
+                recovered.close()
+                return ProducerWakeCredential.Uncertain
+            }
+            try {
+                val client = configuredHttp()
+                NativeProducerPolicyRequest(
+                    storedRaw = storedRaw,
+                    origin = client.canonicalBaseUrl,
+                    fetch = { client.getProducerPolicy(recovered.credential.bearerToken) },
+                    apply = { response ->
+                        applyProducerPolicyResponse(recovered, response, coldInstallClaim)
+                    },
+                    release = { recovered.close() },
+                )
+            } catch (error: Throwable) {
+                recovered.close()
+                throw error
+            }
         }
-        if (recovered.credential.account == null) {
-            Log.w(TAG, "Producer policy refresh requires a wallet credential")
-            recovered.close()
-            return AuthenticatedProducerMaterial.Uncertain
-        }
-        return when (
-            val response = configuredHttp().getProducerPolicy(recovered.credential.bearerToken)
-        ) {
+        // Local recovery can use the vault while this read-only GET is pending.
+        // Revalidation and response application share the vault monitor again.
+        return request.execute(
+            vaultMonitor = this,
+            currentStoredRaw = { preferences.getString(CREDENTIAL_RECORD_KEY, null) },
+            currentOrigin = { canonicalMobileApiBaseUrl },
+        )
+    }
+
+    /** Called under the vault monitor, after the request snapshot is revalidated. */
+    private fun applyProducerPolicyResponse(
+        recovered: RecoveredCredential,
+        response: NativeHttpResult,
+        coldInstallClaim: ByteArray?,
+    ): ProducerWakeCredential {
+        return when (response) {
             is NativeHttpResult.Success -> try {
                 applyCredentialLease(response.credentialLease, recovered, required = true)
                 val policy = NativeProducerPolicyFrame.encode(
@@ -688,20 +706,18 @@ internal class AndroidNativeSessionVault(context: Context) {
                     recovered.credential,
                 )
                 Log.i(TAG, "Producer policy refresh authenticated successfully")
-                AuthenticatedProducerMaterial.Present(recovered, policy)
+                producerPolicyEvidence(recovered, policy, coldInstallClaim)
             } catch (error: Throwable) {
                 Log.w(
                     TAG,
                     "Producer policy response validation failed (${error.javaClass.simpleName})",
                 )
-                recovered.close()
-                AuthenticatedProducerMaterial.Uncertain
+                ProducerWakeCredential.Uncertain
             }
             NativeHttpResult.Unauthorized -> {
                 Log.i(TAG, "Producer policy credential is no longer authorized")
                 compareDeleteExact(recovered.storedRaw)
-                recovered.close()
-                AuthenticatedProducerMaterial.Absent
+                ProducerWakeCredential.Absent
             }
             is NativeHttpResult.Failure -> {
                 Log.w(
@@ -712,8 +728,7 @@ internal class AndroidNativeSessionVault(context: Context) {
                 try {
                     applyCredentialLease(response.credentialLease, recovered, required = false)
                 } catch (_: Throwable) {
-                    recovered.close()
-                    return AuthenticatedProducerMaterial.Uncertain
+                    return ProducerWakeCredential.Uncertain
                 }
                 if (allowsCurrentEpochProduction(response.statusCode, response.code)) {
                     Log.w(
@@ -721,15 +736,29 @@ internal class AndroidNativeSessionVault(context: Context) {
                         "Producer policy node epoch is unavailable; " +
                             "allowing production for Rust's current epoch",
                     )
-                    return AuthenticatedProducerMaterial.Present(
+                    return producerPolicyEvidence(
                         recovered,
                         NativeProducerPolicyFrame.nodeEpochUnavailable(),
+                        coldInstallClaim,
                     )
                 }
-                recovered.close()
-                AuthenticatedProducerMaterial.Uncertain
+                ProducerWakeCredential.Uncertain
             }
         }
+    }
+
+    private fun producerPolicyEvidence(
+        recovered: RecoveredCredential,
+        policyFrame: ByteArray,
+        coldInstallClaim: ByteArray?,
+    ): ProducerWakeCredential.Present = try {
+        ProducerWakeCredential.Present(
+            vaultEvidenceFrame(recovered.storedRaw, coldInstallClaim),
+            policyFrame,
+        )
+    } catch (error: Throwable) {
+        policyFrame.fill(0)
+        throw error
     }
 
     private fun stageRecoveredCredential(
@@ -1584,21 +1613,6 @@ internal sealed interface ProducerWakeCredential {
 internal fun allowsCurrentEpochProduction(statusCode: Int, code: String?): Boolean =
     statusCode == 503 && code == "node_epoch_unavailable"
 
-private sealed interface AuthenticatedProducerMaterial {
-    class Present(
-        val recovered: RecoveredCredential,
-        val policyFrame: ByteArray,
-    ) : AuthenticatedProducerMaterial {
-        fun close() {
-            policyFrame.fill(0)
-            recovered.close()
-        }
-    }
-
-    object Absent : AuthenticatedProducerMaterial
-    object Uncertain : AuthenticatedProducerMaterial
-}
-
 private class RecoveredCredential(
     var storedRaw: String,
     val binding: NativeCredentialBinding,
@@ -1611,7 +1625,7 @@ private class RecoveredCredential(
     }
 }
 
-/** One vault instance serializes every decrypt/use/delete transaction in-process. */
+/** One vault instance serializes local credential access and response application. */
 internal object AndroidNativeSessionPlatform {
     @Volatile
     private var vault: AndroidNativeSessionVault? = null

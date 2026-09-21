@@ -26,7 +26,7 @@ class AppRoutes {
 
   static String dappPinnedFor(String id) => '/dapps/pinned/$id';
 
-  // ZK Identity (native: runs NFC/hardware flows)
+  // ZK Identity (hands off to the ZKPassport app via the zkpassport:// scheme)
   static const zkIdentityDetail = '/challenges/zk-identity';
   static const zkIdentityFlow = '/challenges/zk-identity/flow';
 }

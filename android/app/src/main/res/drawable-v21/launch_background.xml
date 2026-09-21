@@ -5,4 +5,12 @@
      picks. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="?android:colorBackground" />
+    <!-- Black on the light ground, cream on the dark one: the -night
+         qualifier on the drawable picks the appearance, matching the
+         LaunchImage.imageset appearances on iOS. -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/launch_mark" />
+    </item>
 </layer-list>

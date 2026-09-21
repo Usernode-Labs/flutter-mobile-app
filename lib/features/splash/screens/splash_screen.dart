@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -74,18 +73,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Material(
-                      color: theme.colorScheme.primaryContainer,
-                      shape: const CircleBorder(),
-                      child: SizedBox(
-                        width: 120,
-                        height: 120,
-                        child: Icon(
-                          Symbols.hub_sharp,
-                          size: theme.extension<AppSizing>()!.iconDisplayLarge,
-                          color: theme.colorScheme.onPrimaryContainer,
-                        ),
-                      ),
+                    // Tinted rather than shipped per-appearance: one
+                    // transparent master keeps light and dark in sync.
+                    Image.asset(
+                      'assets/brand/mark.png',
+                      height: 120,
+                      color: theme.colorScheme.onSurface,
                     ),
                     SizedBox(height: spacing.space32),
                     Text(

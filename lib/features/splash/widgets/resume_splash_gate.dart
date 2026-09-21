@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
 
 /// Covers [child] with a splash while foreground-resume validation is
 /// [pending] for longer than [showDelay].
@@ -101,9 +100,9 @@ class _ResumeSplash extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Symbols.hub_sharp,
-                size: sizing.iconDisplayLarge,
+              Image.asset(
+                'assets/brand/mark.png',
+                height: sizing.iconDisplayLarge,
                 color: theme.colorScheme.onSurface,
               ),
               SizedBox(height: spacing.space32),

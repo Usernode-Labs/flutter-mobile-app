@@ -7,4 +7,7 @@
      them reads as a flash. -->
 <resources>
     <color name="launch_background">#eaeaea</color>
+    <!-- Adaptive-icon ground. Brand cream, deliberately NOT launch_background
+         above: that one tracks the shell, this one tracks the logo. -->
+    <color name="ic_launcher_background">#FFFEEA</color>
 </resources>

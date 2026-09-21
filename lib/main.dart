@@ -16,9 +16,11 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
+import 'package:sentry_flutter/sentry_flutter.dart' show SentryLevel;
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
+import 'package:crypto_mobile_app/core/utils/slow_operation.dart';
 import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_semantic_colors.dart';

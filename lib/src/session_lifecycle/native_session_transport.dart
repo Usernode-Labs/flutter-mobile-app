@@ -813,6 +813,9 @@ const _nativeDelegationAddress =
     'B62qiTKpEPjGTSHZrtM8uXiKgn8So916pLmNJKDhKeyBQL9TDb3nvBG';
 
 final class _NativeSessionEffects implements _SessionEffectSink {
+  // Include reads from every effects instance, including a retiring session.
+  static final _delegationReadMonitor = SlowOperationMonitor();
+
   _NativeSessionEffects({
     required native.ProcessRootClient root,
     required native.SessionNativeClient session,
@@ -899,7 +902,7 @@ final class _NativeSessionEffects implements _SessionEffectSink {
       root: _root,
       session: _session,
     );
-    final delegation = await _delegationSnapshot();
+    final delegation = await _delegationSnapshot(caller: 'readWallet');
     return SessionWalletSnapshot(
       address: _identity.address!,
       balance: balance.tracked ? balance.total : null,
@@ -1103,7 +1106,7 @@ final class _NativeSessionEffects implements _SessionEffectSink {
   @override
   Future<SessionDelegationSnapshot> readDelegation() async {
     _requireWallet();
-    return _delegationSnapshot();
+    return _delegationSnapshot(caller: 'readDelegation');
   }
 
   @override
@@ -1126,15 +1129,29 @@ final class _NativeSessionEffects implements _SessionEffectSink {
       expectedRevision: _revision,
       refreshPolicy: false,
     );
-    return _delegationSnapshot();
+    return _delegationSnapshot(caller: 'setDelegated');
   }
 
-  /// Async because the authority mutex can be held during durable writes;
-  /// upstream moved this binding to `dart_async` to keep that wait off Dart.
-  Future<SessionDelegationSnapshot> _delegationSnapshot() async {
-    final state = await native.nativeDelegationState(
-      root: _root,
-      session: _session,
+  Future<SessionDelegationSnapshot> _delegationSnapshot({
+    required String caller,
+  }) async {
+    const threshold = Duration(seconds: 5);
+    final state = await _delegationReadMonitor.run(
+      operation: () => native.nativeDelegationState(
+        root: _root,
+        session: _session,
+      ),
+      threshold: threshold,
+      report: (pendingCallers) => SentryUtil.captureMessageWithData(
+        'native_delegation_state exceeded 5s',
+        {
+          'operation': 'native_delegation_state',
+          'caller': caller,
+          'threshold_ms': threshold.inMilliseconds,
+          'pending_callers': pendingCallers,
+        },
+        level: SentryLevel.warning,
+      ),
     );
     if (state == null || state.epochs.isEmpty) {
       return const SessionDelegationSnapshot(delegated: false);

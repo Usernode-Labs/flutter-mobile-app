@@ -138,7 +138,7 @@ platform :ios do
     end
     provisioning_profile = ENV['PROVISIONING_PROFILE_NAME'] || default_profile
     widget_provisioning_profile = ENV['WIDGET_PROVISIONING_PROFILE_NAME'] || default_widget_profile
-    team_id = ENV['APPLE_TEAM_ID'] || '785Y2C9VG2'
+    team_id = ENV['APPLE_TEAM_ID'] || 'STJZ54FRX7'
 
     build_number, version_string = next_build_info(env_type)
 

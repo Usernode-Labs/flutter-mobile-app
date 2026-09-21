@@ -640,7 +640,7 @@
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = STJZ54FRX7;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Homeroom;
@@ -841,7 +841,7 @@
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = STJZ54FRX7;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Homeroom;
@@ -879,7 +879,7 @@
 					CODE_SIGN_STYLE = Manual;
 					CURRENT_PROJECT_VERSION = 16;
 					DEVELOPMENT_TEAM = "";
-					"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
+					"DEVELOPMENT_TEAM[sdk=iphoneos*]" = STJZ54FRX7;
 					ENABLE_BITCODE = NO;
 					INFOPLIST_FILE = Runner/Info.plist;
 					INFOPLIST_KEY_CFBundleDisplayName = Homeroom;
@@ -913,7 +913,7 @@
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = STJZ54FRX7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HomeroomWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
@@ -946,7 +946,7 @@
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = STJZ54FRX7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HomeroomWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
@@ -979,7 +979,7 @@
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 16;
 				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = 785Y2C9VG2;
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = STJZ54FRX7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HomeroomWidgets/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.5;

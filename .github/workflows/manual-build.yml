@@ -549,7 +549,7 @@ jobs:
           # Flutter forwards FLUTTER_XCODE_* variables to xcodebuild as build
           # settings. Match the distribution-signing overrides previously used
           # by Fastlane so the archive does not request a development identity.
-          FLUTTER_XCODE_DEVELOPMENT_TEAM: "785Y2C9VG2"
+          FLUTTER_XCODE_DEVELOPMENT_TEAM: "${{ vars.APPLE_TEAM_ID || 'STJZ54FRX7' }}"
           FLUTTER_XCODE_CODE_SIGN_IDENTITY: "iPhone Distribution"
         run: |
           set -euo pipefail

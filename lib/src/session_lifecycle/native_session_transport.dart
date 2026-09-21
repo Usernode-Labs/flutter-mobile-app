@@ -899,7 +899,7 @@ final class _NativeSessionEffects implements _SessionEffectSink {
       root: _root,
       session: _session,
     );
-    final delegation = _delegationSnapshot();
+    final delegation = await _delegationSnapshot();
     return SessionWalletSnapshot(
       address: _identity.address!,
       balance: balance.tracked ? balance.total : null,
@@ -1129,8 +1129,10 @@ final class _NativeSessionEffects implements _SessionEffectSink {
     return _delegationSnapshot();
   }
 
-  SessionDelegationSnapshot _delegationSnapshot() {
-    final state = native.nativeDelegationState(
+  /// Async because the authority mutex can be held during durable writes;
+  /// upstream moved this binding to `dart_async` to keep that wait off Dart.
+  Future<SessionDelegationSnapshot> _delegationSnapshot() async {
+    final state = await native.nativeDelegationState(
       root: _root,
       session: _session,
     );

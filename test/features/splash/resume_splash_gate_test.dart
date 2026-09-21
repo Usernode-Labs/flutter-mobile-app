@@ -43,6 +43,20 @@ void main() {
     expect(find.text('content'), findsOneWidget);
   });
 
+  testWidgets('the splash carries the tinted brand mark', (tester) async {
+    await tester.pumpWidget(host(pending: true));
+    await tester.pump(ResumeSplashGate.showDelay);
+    await tester.pump();
+
+    final image = tester.widget<Image>(
+      find.descendant(of: splash, matching: find.byType(Image)),
+    );
+    expect((image.image as AssetImage).assetName, 'assets/brand/mark.png');
+    // Tinted from one transparent master rather than shipped per appearance,
+    // so a dark-mode regression here would show as a black-on-black mark.
+    expect(image.color, isNotNull);
+  });
+
   testWidgets('a new resume restarts the delay', (tester) async {
     await tester.pumpWidget(host(pending: true));
     await tester.pump(ResumeSplashGate.showDelay ~/ 2);

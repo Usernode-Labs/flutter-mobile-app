@@ -3,7 +3,7 @@
 # iOS
 app_identifier("com.onhomeroom.app")
 apple_id(ENV['APPLE_ID'])
-team_id("785Y2C9VG2")
+team_id(ENV["APPLE_TEAM_ID"] || "STJZ54FRX7")
 
 # Android
 package_name("com.onhomeroom.app")

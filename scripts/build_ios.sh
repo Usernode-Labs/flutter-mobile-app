@@ -84,7 +84,7 @@ export CC="$(xcrun --sdk iphoneos --find clang)"
 export CXX="$(xcrun --sdk iphoneos --find clang++)"
 
 # Signing hints pulled from ios/Runner.xcodeproj/project.pbxproj (Debug config).
-export DEVELOPMENT_TEAM="785Y2C9VG2"
+export DEVELOPMENT_TEAM="${APPLE_TEAM_ID:-STJZ54FRX7}"
 export CODE_SIGN_IDENTITY="Apple Development"
 export CODE_SIGN_STYLE="Manual"
 export PROVISIONING_PROFILE_SPECIFIER="mobile-apps Development"

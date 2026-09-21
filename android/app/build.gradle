@@ -10,6 +10,53 @@ def sentryProject = System.getenv('SENTRY_PROJECT')
 def sentryCiConfigured = [sentryAuthToken, sentryOrg, sentryProject]
     .every { value -> value != null && !value.trim().isEmpty() }
 
+// A release bundle signed with the debug key is not uploadable: Play rejects it,
+// and the error it returns names neither the key nor this file. That fallback
+// exists so `flutter run --release` works on a fresh clone, so rather than
+// removing it, refuse to let it reach an artifact anyone would try to ship.
+//
+// Set ALLOW_DEBUG_SIGNED_RELEASE=true to build an unsigned-for-release bundle
+// deliberately, e.g. a local size check that will never leave the machine.
+def appProjectPath = project.path
+gradle.taskGraph.whenReady { graph ->
+    // Re-derived rather than captured: this closure resolves names against the
+    // project delegate, where the script's local defs are not visible.
+    if (rootProject.file('key.properties').exists()) return
+    if (System.getenv('ALLOW_DEBUG_SIGNED_RELEASE') == 'true') return
+
+    def taskNames = graph.allTasks.findAll { it.project.path == appProjectPath }*.name
+    if (!taskNames.contains('bundleRelease')) {
+        if (taskNames.contains('assembleRelease')) {
+            logger.warn('')
+            logger.warn('WARNING  android/key.properties is missing, so this release APK is')
+            logger.warn('         signed with the debug key. Fine to run, impossible to upload.')
+            logger.warn('')
+        }
+        return
+    }
+
+    throw new GradleException("""
+Refusing to build a release bundle signed with the debug key.
+
+android/key.properties is missing, so signingConfigs.release fell back to
+~/.android/debug.keystore. Play rejects a bundle signed that way, and its
+error message points at neither the key nor this file.
+
+Create android/key.properties with:
+
+    storeFile=/absolute/path/to/homeroom-upload.jks
+    storePassword=...
+    keyAlias=homeroom
+    keyPassword=...
+
+On CI these come from the ANDROID_KEYSTORE_BASE64, KEYSTORE_PASSWORD,
+KEY_ALIAS and KEY_PASSWORD secrets.
+
+To build one anyway, for something that will never be uploaded:
+    ALLOW_DEBUG_SIGNED_RELEASE=true <your command>
+""")
+}
+
 if (sentryCiConfigured) {
     apply plugin: 'io.sentry.android.gradle'
 } else {
@@ -109,6 +156,9 @@ if (keystorePropertiesFile.exists()) {
                 storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
                 storePassword keystoreProperties['storePassword']
             } else {
+                // Kept so `flutter run --release` works on a fresh clone. An
+                // artifact signed this way can never be uploaded, so the task
+                // graph check below refuses to let one reach a bundle.
                 storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
                 storePassword "android"
                 keyAlias "androiddebugkey"
@@ -119,8 +169,8 @@ if (keystorePropertiesFile.exists()) {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Real key when android/key.properties exists, debug key otherwise
+            // (see signingConfigs.release, and the guard below it).
             signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true

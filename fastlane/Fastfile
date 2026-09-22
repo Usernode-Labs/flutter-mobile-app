@@ -125,17 +125,18 @@ platform :ios do
     scheme = options[:scheme] || 'Runner'
     configuration = options[:configuration] || 'Release'
     
-    # Environment-based provisioning profile selection. The widget
-    # extension (com.onhomeroom.app.widgets) is a separate signing target
-    # and needs its own profile; both profiles must be regenerated with
-    # the App Groups capability (group.com.onhomeroom.app) enabled.
-    if env_type == 'PROD'
-      default_profile = "mobile-apps"
-      default_widget_profile = "mobile-apps-widgets"
-    else
-      default_profile = "Usernode Internal"
-      default_widget_profile = "Usernode Internal Widgets"
-    end
+    # The widget extension (com.onhomeroom.app.widgets) is a separate signing
+    # target and needs its own profile; both carry the App Groups capability
+    # for group.com.onhomeroom.app.
+    #
+    # Both environments use the same pair. TestFlight — which is where a
+    # NONPROD build goes — is served by an App Store distribution profile, so
+    # there is nothing a separate "internal" profile would do differently.
+    # These defaults previously named "Usernode Internal" profiles that never
+    # existed in team STJZ54FRX7, so a local `fastlane ios internal` could only
+    # fail. Override per run with PROVISIONING_PROFILE_NAME if that changes.
+    default_profile = "homeroom-appstore"
+    default_widget_profile = "homeroom-widgets-appstore"
     provisioning_profile = ENV['PROVISIONING_PROFILE_NAME'] || default_profile
     widget_provisioning_profile = ENV['WIDGET_PROVISIONING_PROFILE_NAME'] || default_widget_profile
     team_id = ENV['APPLE_TEAM_ID'] || 'STJZ54FRX7'

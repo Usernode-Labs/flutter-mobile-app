@@ -650,7 +650,16 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // platform view inside a scrollable starves it of buffers and ANRs the app
     // (BLASTBufferQueue "can't acquire next buffer").
     final colors = Theme.of(context).colorScheme;
-    final webView = WebViewWidget(controller: _controller);
+    // Hybrid composition improves scrolling for the full-screen Android WebView.
+    final platformController = _controller.platform;
+    final webView = platformController is AndroidWebViewController
+        ? WebViewWidget.fromPlatformCreationParams(
+            params: AndroidWebViewWidgetCreationParams(
+              controller: platformController,
+              displayWithHybridComposition: true,
+            ),
+          )
+        : WebViewWidget(controller: _controller);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       // THE PAGE PAINTS UNDER THE STATUS BAR NOW (usernode#1929), so the

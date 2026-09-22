@@ -7,20 +7,25 @@ import org.junit.Test
 class NativeApiMigrationTest {
     @Test
     fun `only the exact forward deployment move may retain credentials`() {
-        val old = "https://social-vibecoding.usernodelabs.org/api/v4/mobile"
-        val next = "https://my.onhomeroom.com/api/v4/mobile"
-        assertTrue(isHomeroomApiMigration(old, next))
-        assertFalse(isHomeroomApiMigration(next, old))
-        assertFalse(isHomeroomApiMigration(old, old))
+        val legacy = "https://social-vibecoding.usernodelabs.org/api/v4/mobile"
+        val interim = "https://my.onhomeroom.com/api/v4/mobile"
+        val current = "https://app.onhomeroom.com/api/v4/mobile"
+        assertTrue(isHomeroomApiMigration(legacy, interim))
+        assertTrue(isHomeroomApiMigration(legacy, current))
+        assertTrue(isHomeroomApiMigration(interim, current))
+        assertFalse(isHomeroomApiMigration(current, interim))
+        assertFalse(isHomeroomApiMigration(current, legacy))
+        assertFalse(isHomeroomApiMigration(current, current))
         for (other in listOf(
             "https://staging.onhomeroom.com/api/v4/mobile",
-            "https://my.onhomeroom.com.evil.test/api/v4/mobile",
-            "http://my.onhomeroom.com/api/v4/mobile",
-            "https://my.onhomeroom.com/other/api/v4/mobile",
-            "$next?override=true",
+            "https://app.onhomeroom.com.evil.test/api/v4/mobile",
+            "http://app.onhomeroom.com/api/v4/mobile",
+            "https://app.onhomeroom.com/other/api/v4/mobile",
+            "$current?override=true",
         )) {
-            assertFalse(isHomeroomApiMigration(old, other))
-            assertFalse(isHomeroomApiMigration(other, next))
+            assertFalse(isHomeroomApiMigration(legacy, other))
+            assertFalse(isHomeroomApiMigration(interim, other))
+            assertFalse(isHomeroomApiMigration(other, current))
         }
     }
 }

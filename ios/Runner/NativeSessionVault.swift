@@ -1756,8 +1756,11 @@ struct IOSWebSessionRestoration {
   let publicResult: [String: Any]
 }
 
-/// Exact one-way deployment rename; input URLs have already been validated.
+/// Exact forward deployment moves; input URLs have already been validated.
 func isHomeroomApiMigration(_ previous: String, _ next: String) -> Bool {
-  previous == "https://social-vibecoding.usernodelabs.org/api/v4/mobile" &&
-    next == "https://my.onhomeroom.com/api/v4/mobile"
+  let legacy = "https://social-vibecoding.usernodelabs.org/api/v4/mobile"
+  let interim = "https://my.onhomeroom.com/api/v4/mobile"
+  let current = "https://app.onhomeroom.com/api/v4/mobile"
+  return (previous == legacy && (next == interim || next == current)) ||
+    (previous == interim && next == current)
 }

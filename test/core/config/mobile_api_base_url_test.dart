@@ -4,7 +4,7 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 void main() {
   const configuredApi = String.fromEnvironment('MOBILE_API_BASE_URL');
   final expectedApi = configuredApi.isEmpty
-      ? 'https://my.onhomeroom.com/api/v4/mobile'
+      ? 'https://app.onhomeroom.com/api/v4/mobile'
       : configuredApi;
   final deployment = Uri.parse(expectedApi)
       .path

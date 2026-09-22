@@ -26,6 +26,13 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- Export compliance. Declares that the encryption the app ships —
+	     Ed25519, AES-GCM, X25519, SHA-2, all standard published algorithms —
+	     is exempt, so Apple stops asking at every upload and the CI path to
+	     TestFlight needs no manual step. Revisit if a non-standard or
+	     proprietary primitive is ever added. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

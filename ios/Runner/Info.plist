@@ -34,8 +34,6 @@
 	<string>Main</string>
 	<key>UIRequiresFullScreen</key>
 	<true/>
-    <key>NFCReaderUsageDescription</key>
-    <string>NFC is used to read your ID document.</string>
     <key>NSCameraUsageDescription</key>
     <string>Camera is used to scan QR codes and documents.</string>
     <key>NSFaceIDUsageDescription</key>

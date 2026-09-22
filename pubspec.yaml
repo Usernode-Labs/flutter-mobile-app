@@ -83,7 +83,7 @@ flutter:
 flutter_launcher_icons:
   image_path: assets/launcher/icon-light-1024.png
   android: true
-  adaptive_icon_background: "#FFFEEA"
+  adaptive_icon_background: "#171717"
   adaptive_icon_foreground: assets/launcher/icon-adaptive-fg-1024.png
   # Padding is baked into the master so what we draw is what ships.
   adaptive_icon_foreground_inset: 0
@@ -93,7 +93,7 @@ flutter_launcher_icons:
   # paints its own dark ground behind it.
   image_path_ios_dark_transparent: assets/launcher/icon-dark-1024.png
   image_path_ios_tinted_grayscale: assets/launcher/icon-tinted-1024.png
-  background_color_ios: "#FFFEEA"
+  background_color_ios: "#171717"
   remove_alpha_ios: true
   macos:
     generate: true
@@ -101,8 +101,8 @@ flutter_launcher_icons:
   web:
     generate: true
     image_path: assets/launcher/icon-light-1024.png
-    background_color: "#FFFEEA"
-    theme_color: "#FFFEEA"
+    background_color: "#171717"
+    theme_color: "#171717"
   windows:
     generate: true
     image_path: assets/launcher/icon-light-1024.png

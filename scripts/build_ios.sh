@@ -87,7 +87,7 @@ export CXX="$(xcrun --sdk iphoneos --find clang++)"
 export DEVELOPMENT_TEAM="${APPLE_TEAM_ID:-STJZ54FRX7}"
 export CODE_SIGN_IDENTITY="Apple Development"
 export CODE_SIGN_STYLE="Manual"
-export PROVISIONING_PROFILE_SPECIFIER="mobile-apps Development"
+export PROVISIONING_PROFILE_SPECIFIER="homeroom-development"
 
 # Version/build handling (same script as CI). Use pubspec.yaml values.
 chmod +x "$ROOT_DIR/scripts/version_manager.sh"

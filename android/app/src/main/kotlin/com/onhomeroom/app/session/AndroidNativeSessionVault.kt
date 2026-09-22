@@ -1648,7 +1648,11 @@ internal class NativeWebSessionRestoration(
     override fun toString(): String = "NativeWebSessionRestoration(<redacted>)"
 }
 
-/** Exact one-way deployment rename; input URLs have already been validated. */
-internal fun isHomeroomApiMigration(previous: String, next: String): Boolean =
-    previous == "https://social-vibecoding.usernodelabs.org/api/v4/mobile" &&
-        next == "https://my.onhomeroom.com/api/v4/mobile"
+/** Exact forward deployment moves; input URLs have already been validated. */
+internal fun isHomeroomApiMigration(previous: String, next: String): Boolean {
+    val legacy = "https://social-vibecoding.usernodelabs.org/api/v4/mobile"
+    val interim = "https://my.onhomeroom.com/api/v4/mobile"
+    val current = "https://app.onhomeroom.com/api/v4/mobile"
+    return (previous == legacy && (next == interim || next == current)) ||
+        (previous == interim && next == current)
+}

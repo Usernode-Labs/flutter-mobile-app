@@ -57,7 +57,7 @@ class AppConfig {
   static const String _rawMobileApiBaseUrl =
       String.fromEnvironment('MOBILE_API_BASE_URL', defaultValue: '');
   static const String _defaultMobileApiBaseUrl =
-      'https://my.onhomeroom.com/api/v4/mobile';
+      'https://app.onhomeroom.com/api/v4/mobile';
   static String get mobileApiBaseUrl => _rawMobileApiBaseUrl.isNotEmpty
       ? _rawMobileApiBaseUrl
       : _defaultMobileApiBaseUrl;

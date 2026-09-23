@@ -893,15 +893,15 @@
   "@stakingUndelegateError": {
     "description": "Error shown when undelegation cannot be committed"
   },
-  "nodePermissionsTitle": "Finish setup",
+  "nodePermissionsTitle": "Set up block production",
   "@nodePermissionsTitle": {
     "description": "Title of the mandatory notification and block-production permission flow"
   },
-  "nodePermissionsExactAlarmTitle": "Allow precise wake-ups",
+  "nodePermissionsExactAlarmTitle": "Wake up in time for your slots",
   "@nodePermissionsExactAlarmTitle": {
     "description": "Title of the exact-alarm permission step"
   },
-  "nodePermissionsExactAlarmBody": "Exact alarms let Android wake your node five minutes before its next block-production slot.",
+  "nodePermissionsExactAlarmBody": "Your node sleeps between block-production slots to save battery. Allowing exact alarms lets Android wake it five minutes before its next slot, so it is ready to produce the block.",
   "@nodePermissionsExactAlarmBody": {
     "description": "Explanation on the exact-alarm permission step"
   },
@@ -909,11 +909,11 @@
   "@nodePermissionsAllowExactAlarms": {
     "description": "Action opening Android exact-alarm settings"
   },
-  "nodePermissionsBackgroundTitle": "Allow unrestricted background use",
+  "nodePermissionsBackgroundTitle": "Allow unrestricted battery use",
   "@nodePermissionsBackgroundTitle": {
     "description": "Title of the Android unrestricted-background step"
   },
-  "nodePermissionsBackgroundBody": "Set Homeroom's battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.",
+  "nodePermissionsBackgroundBody": "Set Homeroom's battery usage to Unrestricted. Otherwise Android can delay the scheduled wake-up and your node may miss its slot.",
   "@nodePermissionsBackgroundBody": {
     "description": "Explanation on the Android unrestricted-background step"
   },
@@ -921,7 +921,7 @@
   "@nodePermissionsOpenBatterySettings": {
     "description": "Action opening Android app battery settings"
   },
-  "nodePermissionsDelegateAlternative": "Prefer not to grant block-production permissions? Delegate your stake to the server instead.",
+  "nodePermissionsDelegateAlternative": "Prefer not to grant these permissions? Delegate your stake to the server instead. Your node stops producing blocks and you earn half the block-production points.",
   "@nodePermissionsDelegateAlternative": {
     "description": "Delegation alternative shown on block-production permission steps"
   },
@@ -933,7 +933,7 @@
   "@nodePermissionsDelegateTitle": {
     "description": "Confirmation title before delegating from the permission flow"
   },
-  "nodePermissionsCheckFailed": "Couldn't check the current setup. Try again.",
+  "nodePermissionsCheckFailed": "Couldn't check your phone's settings. Try again.",
   "@nodePermissionsCheckFailed": {
     "description": "Error shown when permission or delegation state cannot be refreshed"
   }

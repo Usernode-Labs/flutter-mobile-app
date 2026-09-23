@@ -142,7 +142,7 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     final webview = DappWebViewScreen(
       key: ValueKey('sv-shell:$_attempt'),
       url: _shellUrl,
-      name: 'Usernode',
+      name: 'Homeroom',
       navigationRequest: widget.navigationRequest,
       onSessionEnded: _reloadForSessionEnd,
       onFirstLoadResult: gatePassed ? null : _onFirstLoadResult,

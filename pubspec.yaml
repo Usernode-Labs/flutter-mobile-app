@@ -70,6 +70,7 @@ flutter:
   assets:
   # Declared by file so the @2x/@3x variants resolve and src/ stays unbundled.
   - assets/brand/mark.png
+  - assets/brand/wordmark.png
   fonts:
   - family: IBMPlexMono
     fonts:

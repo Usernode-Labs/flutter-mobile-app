@@ -10,7 +10,7 @@ class AppConfig {
   });
 
   // === App Information ===
-  static const String appName = 'Usernode';
+  static const String appName = 'Homeroom';
   static const String appTagline =
       'A New Layer 1. Operated & Secured by You. From Your Phone';
 

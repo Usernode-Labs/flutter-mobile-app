@@ -53,6 +53,16 @@ class AppearanceStorage {
 
   /// [scheme] expressed as a [ThemeMode], or null when SV has never
   /// published — in which case the caller keeps whatever it used before.
+  /// SV's default page grounds (`GROUND` in SV's frontend/src/head.html),
+  /// used until SV has published its own [background].
+  static const lightGround = Color(0xFFF4F2E4);
+  static const darkGround = Color(0xFF0B0D1B);
+
+  /// The ground native screens paint to match SV: what SV last published,
+  /// else SV's default for [brightness].
+  static Color groundFor(Brightness brightness) =>
+      background ?? (brightness == Brightness.dark ? darkGround : lightGround);
+
   static ThemeMode? get themeMode => switch (scheme) {
         Brightness.dark => ThemeMode.dark,
         Brightness.light => ThemeMode.light,

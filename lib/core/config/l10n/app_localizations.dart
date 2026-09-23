@@ -1309,19 +1309,19 @@ abstract class AppLocalizations {
   /// Title of the mandatory notification and block-production permission flow
   ///
   /// In en, this message translates to:
-  /// **'Finish setup'**
+  /// **'Set up block production'**
   String get nodePermissionsTitle;
 
   /// Title of the exact-alarm permission step
   ///
   /// In en, this message translates to:
-  /// **'Allow precise wake-ups'**
+  /// **'Wake up in time for your slots'**
   String get nodePermissionsExactAlarmTitle;
 
   /// Explanation on the exact-alarm permission step
   ///
   /// In en, this message translates to:
-  /// **'Exact alarms let Android wake your node five minutes before its next block-production slot.'**
+  /// **'Your node sleeps between block-production slots to save battery. Allowing exact alarms lets Android wake it five minutes before its next slot, so it is ready to produce the block.'**
   String get nodePermissionsExactAlarmBody;
 
   /// Action opening Android exact-alarm settings
@@ -1333,13 +1333,13 @@ abstract class AppLocalizations {
   /// Title of the Android unrestricted-background step
   ///
   /// In en, this message translates to:
-  /// **'Allow unrestricted background use'**
+  /// **'Allow unrestricted battery use'**
   String get nodePermissionsBackgroundTitle;
 
   /// Explanation on the Android unrestricted-background step
   ///
   /// In en, this message translates to:
-  /// **'Set Homeroom\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.'**
+  /// **'Set Homeroom\'s battery usage to Unrestricted. Otherwise Android can delay the scheduled wake-up and your node may miss its slot.'**
   String get nodePermissionsBackgroundBody;
 
   /// Action opening Android app battery settings
@@ -1351,7 +1351,7 @@ abstract class AppLocalizations {
   /// Delegation alternative shown on block-production permission steps
   ///
   /// In en, this message translates to:
-  /// **'Prefer not to grant block-production permissions? Delegate your stake to the server instead.'**
+  /// **'Prefer not to grant these permissions? Delegate your stake to the server instead. Your node stops producing blocks and you earn half the block-production points.'**
   String get nodePermissionsDelegateAlternative;
 
   /// Action starting delegation from the permission flow
@@ -1369,7 +1369,7 @@ abstract class AppLocalizations {
   /// Error shown when permission or delegation state cannot be refreshed
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t check the current setup. Try again.'**
+  /// **'Couldn\'t check your phone\'s settings. Try again.'**
   String get nodePermissionsCheckFailed;
 }
 

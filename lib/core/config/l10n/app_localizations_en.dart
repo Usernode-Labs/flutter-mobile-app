@@ -687,32 +687,31 @@ class AppLocalizationsEn extends AppLocalizations {
       'Couldn\'t stop delegating. Check your connection and try again.';
 
   @override
-  String get nodePermissionsTitle => 'Finish setup';
+  String get nodePermissionsTitle => 'Set up block production';
 
   @override
-  String get nodePermissionsExactAlarmTitle => 'Allow precise wake-ups';
+  String get nodePermissionsExactAlarmTitle => 'Wake up in time for your slots';
 
   @override
   String get nodePermissionsExactAlarmBody =>
-      'Exact alarms let Android wake your node five minutes before its next block-production slot.';
+      'Your node sleeps between block-production slots to save battery. Allowing exact alarms lets Android wake it five minutes before its next slot, so it is ready to produce the block.';
 
   @override
   String get nodePermissionsAllowExactAlarms => 'Allow exact alarms';
 
   @override
-  String get nodePermissionsBackgroundTitle =>
-      'Allow unrestricted background use';
+  String get nodePermissionsBackgroundTitle => 'Allow unrestricted battery use';
 
   @override
   String get nodePermissionsBackgroundBody =>
-      'Set Homeroom\'s battery use to Unrestricted so Android does not delay a scheduled block-production wake-up.';
+      'Set Homeroom\'s battery usage to Unrestricted. Otherwise Android can delay the scheduled wake-up and your node may miss its slot.';
 
   @override
   String get nodePermissionsOpenBatterySettings => 'Open battery settings';
 
   @override
   String get nodePermissionsDelegateAlternative =>
-      'Prefer not to grant block-production permissions? Delegate your stake to the server instead.';
+      'Prefer not to grant these permissions? Delegate your stake to the server instead. Your node stops producing blocks and you earn half the block-production points.';
 
   @override
   String get nodePermissionsDelegateInstead => 'Delegate instead';
@@ -722,5 +721,5 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodePermissionsCheckFailed =>
-      'Couldn\'t check the current setup. Try again.';
+      'Couldn\'t check your phone\'s settings. Try again.';
 }

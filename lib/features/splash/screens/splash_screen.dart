@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,11 +27,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 2.0).animate(
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.92, end: 3.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
     );
 
@@ -61,7 +62,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: AppearanceStorage.groundFor(theme.brightness),
       body: SafeArea(
         child: Center(
           child: FadeTransition(
@@ -90,7 +91,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                     SizedBox(height: spacing.space8),
                     Text(
-                      (l10n?.appTagline ?? 'A User Operated L1 Blockchain'),
+                      (l10n?.appTagline ??
+                          'AI App-Building,\nNow MultiPlayer.'),
+                      textAlign: TextAlign.center,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.7),
@@ -105,7 +108,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                     SizedBox(height: spacing.space16),
                     Text(
-                      (l10n?.initializingNode ?? 'Initializing node...'),
+                      (l10n?.initializingNode ?? 'Starting...'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color:
                             theme.colorScheme.onSurface.withValues(alpha: 0.6),

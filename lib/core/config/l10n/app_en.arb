@@ -4,13 +4,17 @@
   "@appName": {
     "description": "The name of the application"
   },
-  "appTagline": "Your Gateway to DeFi",
+  "appTagline": "AI App-Building,\nNow MultiPlayer.",
   "@appTagline": {
     "description": "Application tagline"
   },
-  "initializingNode": "Initializing node...",
+  "initializingNode": "Starting...",
   "@initializingNode": {
     "description": "Loading text on splash screen"
+  },
+  "resumeSplashLoading": "Loading...",
+  "@resumeSplashLoading": {
+    "description": "Text under the spinner on the splash shown while the app resumes"
   },
   "clockDriftWarningTitle": "System time incorrect",
   "@clockDriftWarningTitle": {

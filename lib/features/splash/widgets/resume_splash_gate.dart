@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:crypto_mobile_app/core/config/appearance.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 
@@ -94,19 +95,25 @@ class _ResumeSplash extends StatelessWidget {
       builder: (context, opacity, child) =>
           Opacity(opacity: opacity, child: child),
       child: ColoredBox(
-        color: AppearanceStorage.background ??
-            theme.colorScheme.surfaceContainerLowest,
+        color: AppearanceStorage.groundFor(theme.brightness),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Image.asset(
-                'assets/brand/mark.png',
+                'assets/brand/wordmark.png',
                 height: sizing.iconDisplayLarge,
                 color: theme.colorScheme.onSurface,
               ),
               SizedBox(height: spacing.space32),
               const CircularProgressIndicator(),
+              SizedBox(height: spacing.space16),
+              Text(
+                AppLocalizations.of(context).resumeSplashLoading,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
             ],
           ),
         ),

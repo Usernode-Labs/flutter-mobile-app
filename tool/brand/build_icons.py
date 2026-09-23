@@ -9,7 +9,7 @@ Sources live in assets/brand/src/ and are the designer's files:
   app-icon.svg          the finished icon — cream mark on #171717, rounded
   mark-black.svg        the mark alone, black on transparent (H + sparkle)
   mark-cream-nostar.svg the mark WITHOUT the sparkle; not used for icons
-  wordmark.svg          the wordmark, cream on black
+  wordmark.svg          the wordmark, cream on black (mark + "Homeroom")
 
 Re-run after changing any of them. Requires rsvg-convert (brew install librsvg)
 and Pillow.
@@ -128,6 +128,27 @@ def main():
         black.resize((w, h), Image.LANCZOS).save(d / "mark.png")
     print(f"  brand/mark.png {'':<21} 1x/2x/3x")
 
+    # wordmark.svg paints its own pure-black ground. Drop that rect so the
+    # lettering is usable on any ground, then crop to the lettering.
+    svg = (SRC / "wordmark.svg").read_text()
+    stripped = SRC.parent / ".wordmark-nobg.svg"
+    stripped.write_text(
+        re.sub(r'<rect[^>]*fill="black"[^>]*/>', "", svg, count=1))
+    try:
+        word = render(stripped, 4096)
+    finally:
+        stripped.unlink(missing_ok=True)
+    word = word.crop(word.getchannel("A").getbbox())
+
+    # In-app resume splash wordmark: tinted at runtime like mark.png.
+    word_black = recolour(word, BLACK)
+    for scale in (1, 2, 3):
+        h = 64 * scale
+        w = round(h * word.width / word.height)
+        d = OUT / (f"{scale}.0x" if scale > 1 else "")
+        word_black.resize((w, h), Image.LANCZOS).save(d / "wordmark.png")
+    print(f"  brand/wordmark.png {'':<17} 1x/2x/3x")
+
     # Launch screens. Black mark on the light ground, cream on the dark one:
     # a single colour would be invisible in one of the two appearances.
     import json
@@ -160,18 +181,6 @@ def main():
     if STORE.is_dir():
         squared.resize((512, 512), Image.LANCZOS).convert("RGB").save(
             STORE / "play-icon-512.png")
-        # wordmark.svg paints its own pure-black ground, which would sit next
-        # to the #171717 icon on the listing page. Drop that rect so the
-        # lettering composites onto the same ink the icon uses.
-        svg = (SRC / "wordmark.svg").read_text()
-        stripped = SRC.parent / ".wordmark-nobg.svg"
-        stripped.write_text(
-            re.sub(r'<rect[^>]*fill="black"[^>]*/>', "", svg, count=1))
-        try:
-            word = render(stripped, 2048)
-        finally:
-            stripped.unlink(missing_ok=True)
-        word = word.crop(word.getchannel("A").getbbox())
         target_w = round(1024 * 0.62)
         word = word.resize(
             (target_w, round(target_w * word.height / word.width)), Image.LANCZOS)

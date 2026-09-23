@@ -12,10 +12,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appName => 'Homeroom';
 
   @override
-  String get appTagline => 'Your Gateway to DeFi';
+  String get appTagline => 'AI App-Building,\nNow MultiPlayer.';
 
   @override
-  String get initializingNode => 'Initializing node...';
+  String get initializingNode => 'Starting...';
+
+  @override
+  String get resumeSplashLoading => 'Loading...';
 
   @override
   String get clockDriftWarningTitle => 'System time incorrect';

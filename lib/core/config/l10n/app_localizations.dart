@@ -103,14 +103,20 @@ abstract class AppLocalizations {
   /// Application tagline
   ///
   /// In en, this message translates to:
-  /// **'Your Gateway to DeFi'**
+  /// **'AI App-Building,\nNow MultiPlayer.'**
   String get appTagline;
 
   /// Loading text on splash screen
   ///
   /// In en, this message translates to:
-  /// **'Initializing node...'**
+  /// **'Starting...'**
   String get initializingNode;
+
+  /// Text under the spinner on the splash shown while the app resumes
+  ///
+  /// In en, this message translates to:
+  /// **'Loading...'**
+  String get resumeSplashLoading;
 
   /// Title for the clock drift warning dialog
   ///

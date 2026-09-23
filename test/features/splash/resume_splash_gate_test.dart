@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/splash/widgets/resume_splash_gate.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,8 @@ void main() {
             semanticColors: AppSemanticColors.light(),
           ),
         ),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: ResumeSplashGate(
           pending: pending,
           child: const Text('content'),
@@ -43,7 +46,8 @@ void main() {
     expect(find.text('content'), findsOneWidget);
   });
 
-  testWidgets('the splash carries the tinted brand mark', (tester) async {
+  testWidgets('the splash carries the tinted wordmark and a loading label',
+      (tester) async {
     await tester.pumpWidget(host(pending: true));
     await tester.pump(ResumeSplashGate.showDelay);
     await tester.pump();
@@ -51,10 +55,17 @@ void main() {
     final image = tester.widget<Image>(
       find.descendant(of: splash, matching: find.byType(Image)),
     );
-    expect((image.image as AssetImage).assetName, 'assets/brand/mark.png');
+    expect(
+      (image.image as AssetImage).assetName,
+      'assets/brand/wordmark.png',
+    );
     // Tinted from one transparent master rather than shipped per appearance,
     // so a dark-mode regression here would show as a black-on-black mark.
     expect(image.color, isNotNull);
+    expect(
+      find.descendant(of: splash, matching: find.text('Loading...')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('a new resume restarts the delay', (tester) async {

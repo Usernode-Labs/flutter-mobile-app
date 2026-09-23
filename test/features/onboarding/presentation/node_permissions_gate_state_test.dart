@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
-import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/onboarding/presentation/node_permissions_gate_policy.dart';
@@ -22,49 +20,36 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
-  test(
-    'missing notifications gate before native session admission',
-    () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        channel,
-        (call) async =>
-            call.method == 'hasPostNotificationsPermission' ? false : null,
-      );
-      final alarms = PlatformAlarmService.test(
-        observability: ObservabilityReportingService.instance,
-      );
-      final runner = _RejectingSessionRunner();
-      final session = SessionFeatureAccess(
-        identity: SessionIdentityProjection.ready(
-          nativeRevision: '1',
-          participantId: 1,
-          accountId: 'account',
-          address: 'address',
-          publicKey: 'public-key',
-        ),
-        operations: runner,
-      );
+  test('iOS never gates and never enters the native session', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final runner = _RejectingSessionRunner();
 
-      final state = await readNodePermissionGateState(
-        session,
-        alarmService: alarms,
-      );
+    final state = await readNodePermissionGateState(_readySession(runner));
 
-      expect(state.nextStep, NodePermissionGateStep.notifications);
-      expect(state.notificationsGranted, isFalse);
-      expect(runner.runCount, 0);
-    },
-  );
+    expect(state.isSatisfied, isTrue);
+    expect(runner.runCount, 0);
+  });
 
-  testWidgets('renders notifications as the mandatory first step',
+  test('walletless Android sessions never enter the native session', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    final runner = _RejectingSessionRunner();
+    final session = SessionFeatureAccess(
+      identity: SessionIdentityProjection.ready(
+        nativeRevision: '1',
+        participantId: 1,
+      ),
+      operations: runner,
+    );
+
+    final state = await readNodePermissionGateState(session);
+
+    expect(state.isSatisfied, isTrue);
+    expect(runner.runCount, 0);
+  });
+
+  testWidgets('renders only producer steps, never a notifications step',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (call) async =>
-          call.method == 'hasPostNotificationsPermission' ? false : null,
-    );
     final runner = _RejectingSessionRunner();
     final session = _readySession(runner);
     final cieTheme = ColorIsExpensiveTheme(ThemeData.light().textTheme);
@@ -82,10 +67,9 @@ void main() {
         home: NodePermissionsGateScreen(
           session: session,
           initialState: const NodePermissionGateState(
-            notificationsGranted: false,
             hasWallet: true,
             delegated: false,
-            exactAlarmsGranted: true,
+            exactAlarmsGranted: false,
             unrestrictedBackgroundGranted: true,
           ),
           onSatisfied: () {},
@@ -95,16 +79,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Finish setup'), findsOneWidget);
-    expect(find.text('Enable notifications'), findsOneWidget);
-    expect(find.text('Allow notifications'), findsOneWidget);
-    expect(find.text('Delegate instead'), findsNothing);
-    expect(runner.runCount, 0);
+    expect(find.text('Allow precise wake-ups'), findsOneWidget);
+    expect(find.text('Enable notifications'), findsNothing);
+    expect(find.text('Delegate instead'), findsOneWidget);
 
-    binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (call) async =>
-          call.method == 'hasPostNotificationsPermission' ? true : null,
-    );
     await tester.pumpWidget(
       MaterialApp(
         theme: theme,
@@ -114,7 +92,6 @@ void main() {
           key: const ValueKey('background-step'),
           session: session,
           initialState: const NodePermissionGateState(
-            notificationsGranted: true,
             hasWallet: true,
             delegated: false,
             exactAlarmsGranted: true,

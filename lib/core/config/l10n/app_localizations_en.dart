@@ -687,20 +687,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nodePermissionsTitle => 'Finish setup';
 
   @override
-  String get nodePermissionsNotificationsTitle => 'Enable notifications';
-
-  @override
-  String get nodePermissionsNotificationsBody =>
-      'Notifications are required so your phone can show when Homeroom is running and alert you about important account and node activity.';
-
-  @override
-  String get nodePermissionsAllowNotifications => 'Allow notifications';
-
-  @override
-  String get nodePermissionsOpenNotificationSettings =>
-      'Open notification settings';
-
-  @override
   String get nodePermissionsExactAlarmTitle => 'Allow precise wake-ups';
 
   @override
@@ -723,7 +709,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get nodePermissionsDelegateAlternative =>
-      'Prefer not to grant block-production permissions? Delegate your stake to the server instead. Notifications are still required.';
+      'Prefer not to grant block-production permissions? Delegate your stake to the server instead.';
 
   @override
   String get nodePermissionsDelegateInstead => 'Delegate instead';

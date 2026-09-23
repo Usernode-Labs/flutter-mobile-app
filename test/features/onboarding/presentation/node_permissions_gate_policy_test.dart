@@ -3,14 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   NodePermissionGateState state({
-    required bool notifications,
     bool hasWallet = true,
     bool delegated = false,
     bool exactAlarms = true,
     bool unrestrictedBackground = true,
   }) {
     return NodePermissionGateState(
-      notificationsGranted: notifications,
       hasWallet: hasWallet,
       delegated: delegated,
       exactAlarmsGranted: exactAlarms,
@@ -18,21 +16,8 @@ void main() {
     );
   }
 
-  test('notifications are mandatory even when the wallet is delegated', () {
-    final value = state(
-      notifications: false,
-      delegated: true,
-      exactAlarms: false,
-      unrestrictedBackground: false,
-    );
-
-    expect(value.nextStep, NodePermissionGateStep.notifications);
-    expect(value.isSatisfied, isFalse);
-  });
-
   test('delegation removes exact-alarm and background requirements', () {
     final value = state(
-      notifications: true,
       delegated: true,
       exactAlarms: false,
       unrestrictedBackground: false,
@@ -42,37 +27,23 @@ void main() {
     expect(value.isSatisfied, isTrue);
   });
 
-  test('walletless sessions require notifications but not producer settings',
-      () {
-    final missingNotifications = state(
-      notifications: false,
-      hasWallet: false,
-      exactAlarms: false,
-      unrestrictedBackground: false,
-    );
-    final notificationsGranted = state(
-      notifications: true,
+  test('walletless sessions do not require producer settings', () {
+    final value = state(
       hasWallet: false,
       exactAlarms: false,
       unrestrictedBackground: false,
     );
 
-    expect(
-      missingNotifications.nextStep,
-      NodePermissionGateStep.notifications,
-    );
-    expect(notificationsGranted.isSatisfied, isTrue);
+    expect(value.isSatisfied, isTrue);
   });
 
   test('self-producing wallets require exact alarms before background access',
       () {
     final missingBoth = state(
-      notifications: true,
       exactAlarms: false,
       unrestrictedBackground: false,
     );
     final missingBackground = state(
-      notifications: true,
       unrestrictedBackground: false,
     );
 
@@ -84,7 +55,7 @@ void main() {
   });
 
   test('self-producing wallet passes only when every setting is enabled', () {
-    final value = state(notifications: true);
+    final value = state();
 
     expect(value.isSatisfied, isTrue);
   });

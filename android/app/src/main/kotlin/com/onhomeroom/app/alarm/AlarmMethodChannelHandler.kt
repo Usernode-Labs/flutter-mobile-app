@@ -521,7 +521,9 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
                     Log.w(TAG, "Cannot request exact alarm permission - no Activity attached")
                     return false
                 }
-                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    data = Uri.parse("package:${appContext.packageName}")
+                }
                 activity.startActivity(intent)
             } else {
                 // Permission already granted

@@ -1306,30 +1306,6 @@ abstract class AppLocalizations {
   /// **'Finish setup'**
   String get nodePermissionsTitle;
 
-  /// Title of the mandatory notification-permission step
-  ///
-  /// In en, this message translates to:
-  /// **'Enable notifications'**
-  String get nodePermissionsNotificationsTitle;
-
-  /// Explanation on the mandatory notification-permission step
-  ///
-  /// In en, this message translates to:
-  /// **'Notifications are required so your phone can show when Homeroom is running and alert you about important account and node activity.'**
-  String get nodePermissionsNotificationsBody;
-
-  /// Action requesting notification permission
-  ///
-  /// In en, this message translates to:
-  /// **'Allow notifications'**
-  String get nodePermissionsAllowNotifications;
-
-  /// Action opening system notification settings after permission was denied
-  ///
-  /// In en, this message translates to:
-  /// **'Open notification settings'**
-  String get nodePermissionsOpenNotificationSettings;
-
   /// Title of the exact-alarm permission step
   ///
   /// In en, this message translates to:
@@ -1369,7 +1345,7 @@ abstract class AppLocalizations {
   /// Delegation alternative shown on block-production permission steps
   ///
   /// In en, this message translates to:
-  /// **'Prefer not to grant block-production permissions? Delegate your stake to the server instead. Notifications are still required.'**
+  /// **'Prefer not to grant block-production permissions? Delegate your stake to the server instead.'**
   String get nodePermissionsDelegateAlternative;
 
   /// Action starting delegation from the permission flow

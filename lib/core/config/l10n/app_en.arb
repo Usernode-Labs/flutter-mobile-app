@@ -897,22 +897,6 @@
   "@nodePermissionsTitle": {
     "description": "Title of the mandatory notification and block-production permission flow"
   },
-  "nodePermissionsNotificationsTitle": "Enable notifications",
-  "@nodePermissionsNotificationsTitle": {
-    "description": "Title of the mandatory notification-permission step"
-  },
-  "nodePermissionsNotificationsBody": "Notifications are required so your phone can show when Homeroom is running and alert you about important account and node activity.",
-  "@nodePermissionsNotificationsBody": {
-    "description": "Explanation on the mandatory notification-permission step"
-  },
-  "nodePermissionsAllowNotifications": "Allow notifications",
-  "@nodePermissionsAllowNotifications": {
-    "description": "Action requesting notification permission"
-  },
-  "nodePermissionsOpenNotificationSettings": "Open notification settings",
-  "@nodePermissionsOpenNotificationSettings": {
-    "description": "Action opening system notification settings after permission was denied"
-  },
   "nodePermissionsExactAlarmTitle": "Allow precise wake-ups",
   "@nodePermissionsExactAlarmTitle": {
     "description": "Title of the exact-alarm permission step"
@@ -937,7 +921,7 @@
   "@nodePermissionsOpenBatterySettings": {
     "description": "Action opening Android app battery settings"
   },
-  "nodePermissionsDelegateAlternative": "Prefer not to grant block-production permissions? Delegate your stake to the server instead. Notifications are still required.",
+  "nodePermissionsDelegateAlternative": "Prefer not to grant block-production permissions? Delegate your stake to the server instead.",
   "@nodePermissionsDelegateAlternative": {
     "description": "Delegation alternative shown on block-production permission steps"
   },

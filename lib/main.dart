@@ -475,7 +475,9 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     SessionFeatureAccess access, {
     bool force = false,
   }) {
-    if (!Platform.isAndroid && !Platform.isIOS) {
+    // The gate only covers Android block-production permissions; the SV shell
+    // prompts for notifications on both platforms.
+    if (!Platform.isAndroid) {
       _clearNodePermissionGate();
       return;
     }
@@ -517,7 +519,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     LoggingService.instance.info(
       'Permission gate evaluated '
       '(required=${!state.isSatisfied}, '
-      'notifications=${state.notificationsGranted}, '
       'delegated=${state.delegated}, '
       'exactAlarms=${state.exactAlarmsGranted}, '
       'unrestrictedBackground=${state.unrestrictedBackgroundGranted})',

@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+/// Android block-production requirements only. Notification permission is
+/// requested by the SV shell's own onboarding sheet, not by this gate.
 enum NodePermissionGateStep {
-  notifications,
   exactAlarms,
   unrestrictedBackground,
 }
@@ -9,7 +10,6 @@ enum NodePermissionGateStep {
 @immutable
 final class NodePermissionGateState {
   const NodePermissionGateState({
-    required this.notificationsGranted,
     required this.hasWallet,
     required this.delegated,
     required this.exactAlarmsGranted,
@@ -18,7 +18,6 @@ final class NodePermissionGateState {
 
   factory NodePermissionGateState.conservative({required bool hasWallet}) {
     return NodePermissionGateState(
-      notificationsGranted: false,
       hasWallet: hasWallet,
       delegated: false,
       exactAlarmsGranted: false,
@@ -26,7 +25,6 @@ final class NodePermissionGateState {
     );
   }
 
-  final bool notificationsGranted;
   final bool hasWallet;
   final bool delegated;
   final bool exactAlarmsGranted;
@@ -35,9 +33,6 @@ final class NodePermissionGateState {
   bool get requiresProducerPermissions => hasWallet && !delegated;
 
   NodePermissionGateStep? get nextStep {
-    if (!notificationsGranted) {
-      return NodePermissionGateStep.notifications;
-    }
     if (!requiresProducerPermissions) return null;
     if (!exactAlarmsGranted) return NodePermissionGateStep.exactAlarms;
     if (!unrestrictedBackgroundGranted) {
@@ -51,7 +46,6 @@ final class NodePermissionGateState {
   @override
   bool operator ==(Object other) {
     return other is NodePermissionGateState &&
-        other.notificationsGranted == notificationsGranted &&
         other.hasWallet == hasWallet &&
         other.delegated == delegated &&
         other.exactAlarmsGranted == exactAlarmsGranted &&
@@ -60,7 +54,6 @@ final class NodePermissionGateState {
 
   @override
   int get hashCode => Object.hash(
-        notificationsGranted,
         hasWallet,
         delegated,
         exactAlarmsGranted,

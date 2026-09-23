@@ -42,11 +42,11 @@
 	<key>UIRequiresFullScreen</key>
 	<true/>
     <key>NSCameraUsageDescription</key>
-    <string>Camera is used to scan QR codes and documents.</string>
+    <string>Homeroom uses the camera only when you choose to take a photo or video to upload in an app you open in Homeroom.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Biometrics are used to unlock your private data.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Photo access lets you upload images to dapps you open in Homeroom.</string>
+    <string>Homeroom accesses your photos only when you choose images or videos to upload in an app you open in Homeroom.</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>

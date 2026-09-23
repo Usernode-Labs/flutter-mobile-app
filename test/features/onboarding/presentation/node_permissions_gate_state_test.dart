@@ -78,8 +78,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Finish setup'), findsOneWidget);
-    expect(find.text('Allow precise wake-ups'), findsOneWidget);
+    expect(find.text('Set up block production'), findsOneWidget);
+    expect(find.text('Wake up in time for your slots'), findsOneWidget);
     expect(find.text('Enable notifications'), findsNothing);
     expect(find.text('Delegate instead'), findsOneWidget);
 
@@ -103,7 +103,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Allow unrestricted background use'), findsOneWidget);
+    expect(find.text('Allow unrestricted battery use'), findsOneWidget);
     expect(find.text('Delegate instead'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });

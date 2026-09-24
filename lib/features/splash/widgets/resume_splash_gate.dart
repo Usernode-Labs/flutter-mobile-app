@@ -18,6 +18,7 @@ class ResumeSplashGate extends StatefulWidget {
     super.key,
     required this.pending,
     this.resumeGeneration = 0,
+    this.quiet = false,
     required this.child,
   });
 
@@ -33,6 +34,11 @@ class ResumeSplashGate extends StatefulWidget {
   /// is still [pending] keeps [pending] true, so this is what restarts the
   /// block for its own [maxBlock] budget.
   final int resumeGeneration;
+
+  /// Blocks input without ever showing the splash. Used when the user is
+  /// returning from a settings page or system dialog the app itself opened,
+  /// where a splash would hide the sheet they are in the middle of.
+  final bool quiet;
   final Widget child;
 
   @override
@@ -67,9 +73,11 @@ class _ResumeSplashGateState extends State<ResumeSplashGate> {
   void _startBlocking() {
     _cancelTimers();
     _blocking = true;
-    _showTimer = Timer(ResumeSplashGate.showDelay, () {
-      if (mounted) setState(() => _visible = true);
-    });
+    if (!widget.quiet) {
+      _showTimer = Timer(ResumeSplashGate.showDelay, () {
+        if (mounted) setState(() => _visible = true);
+      });
+    }
     _releaseTimer = Timer(ResumeSplashGate.maxBlock, () {
       if (mounted) setState(_release);
     });

@@ -685,45 +685,4 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get stakingUndelegateError =>
       'Couldn\'t stop delegating. Check your connection and try again.';
-
-  @override
-  String get nodePermissionsTitle => 'Set up block production';
-
-  @override
-  String get nodePermissionsExactAlarmTitle => 'Wake up in time for your slots';
-
-  @override
-  String get nodePermissionsExactAlarmBody =>
-      'To save battery, your node sleeps between block-production slots. Exact alarms let Android wake it five minutes before each slot so it\'s ready to produce the block. This permission only schedules your node\'s wake-ups and gives Homeroom no access to your data.';
-
-  @override
-  String get nodePermissionsAllowExactAlarms => 'Allow exact alarms';
-
-  @override
-  String get nodePermissionsBackgroundTitle => 'Allow unrestricted battery use';
-
-  @override
-  String get nodePermissionsBackgroundBody =>
-      'Android can delay background apps to save power, which may make your node miss its slot. Setting Homeroom\'s battery usage to Unrestricted keeps wake-ups on time. Your node still sleeps between slots to save battery.';
-
-  @override
-  String get nodePermissionsOpenBatterySettings => 'Open battery settings';
-
-  @override
-  String get nodePermissionsDelegateAlternative =>
-      'Prefer not to grant these permissions? You can delegate your stake to the server instead. You still earn half the block-production points, and you can switch back at any time.';
-
-  @override
-  String get nodePermissionsDelegateInstead => 'Delegate instead';
-
-  @override
-  String get nodePermissionsDelegateTitle => 'Delegate block production?';
-
-  @override
-  String get nodePermissionsDelegateBody =>
-      'The server produces blocks for you, so your node won\'t need these permissions. You earn half the block-production points you would earn on this phone, and you can switch back at any time.';
-
-  @override
-  String get nodePermissionsCheckFailed =>
-      'We couldn\'t check your phone\'s settings. Please try again.';
 }

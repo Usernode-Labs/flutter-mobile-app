@@ -37,8 +37,6 @@ import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart'
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/features/metrics/metrics_collector_service.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/node_permissions_gate_policy.dart';
-import 'package:crypto_mobile_app/features/onboarding/presentation/node_permissions_gate_screen.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/perf_benchmark_ui.dart';
 import 'package:crypto_mobile_app/features/perf/providers/perf_benchmark_provider.dart';
 import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benchmark_result_detail_screen.dart';
@@ -312,13 +310,12 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   final Object _socialPushOwner = Object();
   bool _versionCheckShown = false;
   bool _resumeValidationPending = false;
+  bool _resumeSplashQuiet = false;
   int _resumeGeneration = 0;
   int _lifecycleGeneration = 0;
   StreamSubscription<void>? _socialPushTapSubscription;
   StreamSubscription<SessionFeatureAccess>? _sessionSubscription;
   String? _boundReadyRevision;
-  _NodePermissionGateBinding? _nodePermissionGate;
-  int _nodePermissionGateGeneration = 0;
 
   @override
   void initState() {
@@ -352,10 +349,19 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     final lifecycleGeneration = ++_lifecycleGeneration;
     MetricsCollectorService.instance.updateAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
+      // Coming back from a settings page or system dialog the SV shell opened
+      // is not a cold-feeling return: keep input blocked while validation
+      // runs, but don't flash the splash over the sheet the user is finishing.
+      final quiet =
+          PlatformAlarmService.instance.consumeRecentSystemSurfaceLaunch();
       setState(() {
         _resumeValidationPending = true;
+        _resumeSplashQuiet = quiet;
         _resumeGeneration++;
       });
+      // Permission probes need no session admission, so SV can re-read them
+      // now instead of waiting seconds for the producer-policy refresh.
+      PlatformAlarmService.instance.notifyPermissionsMayHaveChanged();
       unawaited(
         _finishForegroundResume(lifecycleTransition, lifecycleGeneration),
       );
@@ -380,7 +386,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         return;
       }
       final access = widget._nativeSession.sessions.current;
-      _bindSessionFeatures(access, forcePermissionGateCheck: true);
+      _bindSessionFeatures(access);
       if (access.identity.status != SessionProjectionStatus.ready) return;
       // SV's own visibilitychange read can land before admission reopens.
       PlatformAlarmService.instance.notifyPermissionsMayHaveChanged();
@@ -427,10 +433,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     super.dispose();
   }
 
-  void _bindSessionFeatures(
-    SessionFeatureAccess access, {
-    bool forcePermissionGateCheck = false,
-  }) {
+  void _bindSessionFeatures(SessionFeatureAccess access) {
     ref.read(zkPassportPipelineProvider.notifier).bindSession(access);
     ref.invalidate(zkPassportIsRegisteredProvider);
     ref.invalidate(zkPassportRegistrationProvider);
@@ -455,13 +458,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         _socialPushOwner,
         SocialPushSession(access: access),
       );
-      _scheduleNodePermissionGateCheck(
-        access,
-        force: forcePermissionGateCheck,
-      );
     } else {
       _boundReadyRevision = null;
-      _clearNodePermissionGate();
       unawaited(SentryUtil.clearUser());
       unawaited(
         ObservabilityReportingService.instance
@@ -474,87 +472,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         unregisterReason: SocialPushUnregisterReason.signedOut,
       );
     }
-  }
-
-  void _scheduleNodePermissionGateCheck(
-    SessionFeatureAccess access, {
-    bool force = false,
-  }) {
-    // The gate only covers Android block-production permissions; the SV shell
-    // prompts for notifications on both platforms.
-    if (!Platform.isAndroid) {
-      _clearNodePermissionGate();
-      return;
-    }
-    if (!force &&
-        _nodePermissionGate?.nativeRevision == access.identity.nativeRevision) {
-      return;
-    }
-    final generation = ++_nodePermissionGateGeneration;
-    unawaited(_reconcileNodePermissionGate(access, generation));
-  }
-
-  Future<void> _reconcileNodePermissionGate(
-    SessionFeatureAccess access,
-    int generation,
-  ) async {
-    NodePermissionGateState state;
-    try {
-      state = await readNodePermissionGateState(access);
-    } catch (error, stackTrace) {
-      LoggingService.instance.error(
-        'Could not evaluate the permission gate',
-        tag: 'usernode/PermissionGate',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      state = NodePermissionGateState.conservative(
-        hasWallet: access.identity.hasWallet,
-      );
-    }
-    if (!mounted ||
-        generation != _nodePermissionGateGeneration ||
-        widget._nativeSession.sessions.current.identity.nativeRevision !=
-            access.identity.nativeRevision ||
-        widget._nativeSession.sessions.current.identity.status !=
-            SessionProjectionStatus.ready) {
-      return;
-    }
-
-    LoggingService.instance.info(
-      'Permission gate evaluated '
-      '(required=${!state.isSatisfied}, '
-      'delegated=${state.delegated}, '
-      'exactAlarms=${state.exactAlarmsGranted}, '
-      'unrestrictedBackground=${state.unrestrictedBackgroundGranted})',
-      tag: 'usernode/PermissionGate',
-    );
-    setState(() {
-      _nodePermissionGate = state.isSatisfied
-          ? null
-          : _NodePermissionGateBinding(
-              nativeRevision: access.identity.nativeRevision,
-              session: access,
-              initialState: state,
-            );
-    });
-  }
-
-  void _clearNodePermissionGate() {
-    ++_nodePermissionGateGeneration;
-    if (_nodePermissionGate == null || !mounted) return;
-    setState(() => _nodePermissionGate = null);
-  }
-
-  void _completeNodePermissionGate(String nativeRevision) {
-    if (_nodePermissionGate?.nativeRevision != nativeRevision) return;
-    ++_nodePermissionGateGeneration;
-    LoggingService.instance.info(
-      'Permission gate requirements satisfied',
-      tag: 'usernode/PermissionGate',
-    );
-    setState(() => _nodePermissionGate = null);
-    PlatformAlarmService.instance.notifyPermissionsMayHaveChanged();
   }
 
   void _openPendingSocialNotification() {
@@ -578,13 +495,6 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         ClockDriftWarningOverlay(
           sessionAccess: widget._nativeSession.sessions,
         ),
-        if (_nodePermissionGate case final gate?)
-          NodePermissionsGateScreen(
-            key: ValueKey('node-permissions-${gate.nativeRevision}'),
-            session: gate.session,
-            initialState: gate.initialState,
-            onSatisfied: () => _completeNodePermissionGate(gate.nativeRevision),
-          ),
       ],
     );
     // Block resumed UI dispatch while the private native snapshot/wake decides
@@ -594,19 +504,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     return ResumeSplashGate(
       pending: _resumeValidationPending,
       resumeGeneration: _resumeGeneration,
+      quiet: _resumeSplashQuiet,
       child: content,
     );
   }
-}
-
-final class _NodePermissionGateBinding {
-  const _NodePermissionGateBinding({
-    required this.nativeRevision,
-    required this.session,
-    required this.initialState,
-  });
-
-  final String nativeRevision;
-  final SessionFeatureAccess session;
-  final NodePermissionGateState initialState;
 }

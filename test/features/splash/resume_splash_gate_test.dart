@@ -8,7 +8,8 @@ void main() {
   var taps = 0;
   setUp(() => taps = 0);
 
-  Widget host({required bool pending, int resume = 0}) => MaterialApp(
+  Widget host({required bool pending, int resume = 0, bool quiet = false}) =>
+      MaterialApp(
         theme: ThemeData.light().copyWith(
           extensions: DesignSystemTheme.standardExtensions(
             semanticColors: AppSemanticColors.light(),
@@ -19,6 +20,7 @@ void main() {
         home: ResumeSplashGate(
           pending: pending,
           resumeGeneration: resume,
+          quiet: quiet,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => taps++,
@@ -74,6 +76,22 @@ void main() {
       find.descendant(of: splash, matching: find.text('Loading...')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a quiet resume blocks input but never shows the splash',
+      (tester) async {
+    await tester.pumpWidget(host(pending: false));
+    await tester.pumpWidget(host(pending: true, quiet: true));
+    await tester.pump(ResumeSplashGate.showDelay * 2);
+    expect(splash, findsNothing);
+
+    await tester.tap(find.text('content'), warnIfMissed: false);
+    expect(taps, 0);
+
+    await tester.pumpWidget(host(pending: false, quiet: true));
+    await tester.pump();
+    await tester.tap(find.text('content'));
+    expect(taps, 1);
   });
 
   testWidgets('a new resume restarts the delay', (tester) async {

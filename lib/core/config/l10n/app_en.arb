@@ -896,53 +896,5 @@
   "stakingUndelegateError": "Couldn't stop delegating. Check your connection and try again.",
   "@stakingUndelegateError": {
     "description": "Error shown when undelegation cannot be committed"
-  },
-  "nodePermissionsTitle": "Set up block production",
-  "@nodePermissionsTitle": {
-    "description": "Title of the mandatory notification and block-production permission flow"
-  },
-  "nodePermissionsExactAlarmTitle": "Wake up in time for your slots",
-  "@nodePermissionsExactAlarmTitle": {
-    "description": "Title of the exact-alarm permission step"
-  },
-  "nodePermissionsExactAlarmBody": "To save battery, your node sleeps between block-production slots. Exact alarms let Android wake it five minutes before each slot so it's ready to produce the block. This permission only schedules your node's wake-ups and gives Homeroom no access to your data.",
-  "@nodePermissionsExactAlarmBody": {
-    "description": "Explanation on the exact-alarm permission step"
-  },
-  "nodePermissionsAllowExactAlarms": "Allow exact alarms",
-  "@nodePermissionsAllowExactAlarms": {
-    "description": "Action opening Android exact-alarm settings"
-  },
-  "nodePermissionsBackgroundTitle": "Allow unrestricted battery use",
-  "@nodePermissionsBackgroundTitle": {
-    "description": "Title of the Android unrestricted-background step"
-  },
-  "nodePermissionsBackgroundBody": "Android can delay background apps to save power, which may make your node miss its slot. Setting Homeroom's battery usage to Unrestricted keeps wake-ups on time. Your node still sleeps between slots to save battery.",
-  "@nodePermissionsBackgroundBody": {
-    "description": "Explanation on the Android unrestricted-background step"
-  },
-  "nodePermissionsOpenBatterySettings": "Open battery settings",
-  "@nodePermissionsOpenBatterySettings": {
-    "description": "Action opening Android app battery settings"
-  },
-  "nodePermissionsDelegateAlternative": "Prefer not to grant these permissions? You can delegate your stake to the server instead. You still earn half the block-production points, and you can switch back at any time.",
-  "@nodePermissionsDelegateAlternative": {
-    "description": "Delegation alternative shown on block-production permission steps"
-  },
-  "nodePermissionsDelegateInstead": "Delegate instead",
-  "@nodePermissionsDelegateInstead": {
-    "description": "Action starting delegation from the permission flow"
-  },
-  "nodePermissionsDelegateTitle": "Delegate block production?",
-  "@nodePermissionsDelegateTitle": {
-    "description": "Confirmation title before delegating from the permission flow"
-  },
-  "nodePermissionsDelegateBody": "The server produces blocks for you, so your node won't need these permissions. You earn half the block-production points you would earn on this phone, and you can switch back at any time.",
-  "@nodePermissionsDelegateBody": {
-    "description": "Body of the confirmation dialog before delegating from the permission flow"
-  },
-  "nodePermissionsCheckFailed": "We couldn't check your phone's settings. Please try again.",
-  "@nodePermissionsCheckFailed": {
-    "description": "Error shown when permission or delegation state cannot be refreshed"
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'deployment_url.dart';
+
 class AppConfig {
   final String environment;
   final bool verboseLogging;
@@ -58,9 +60,11 @@ class AppConfig {
       String.fromEnvironment('MOBILE_API_BASE_URL', defaultValue: '');
   static const String _defaultMobileApiBaseUrl =
       'https://app.onhomeroom.com/api/v4/mobile';
-  static String get mobileApiBaseUrl => _rawMobileApiBaseUrl.isNotEmpty
-      ? _rawMobileApiBaseUrl
-      : _defaultMobileApiBaseUrl;
+  static String get mobileApiBaseUrl => canonicalHomeroomDeploymentUrl(
+        _rawMobileApiBaseUrl.isNotEmpty
+            ? _rawMobileApiBaseUrl
+            : _defaultMobileApiBaseUrl,
+      );
 
   // Auth endpoints live under the mobile API base (v4: /auth/check-email,
   // /auth/login, /auth/otp/*, /auth/set-password, /auth/logout — same paths
@@ -116,11 +120,13 @@ class AppConfig {
   ///
   /// Example:
   ///   flutter run --dart-define=PLATFORM_BASE_URL=https://some.other.host/
-  static String get platformBaseUrl => _platformBaseUrl.isNotEmpty
-      ? _platformBaseUrl
-      : _legacyDappsTabUrl.isNotEmpty
-          ? _legacyDappsTabUrl
-          : _mobileApiDirectory.resolve('../../../').toString();
+  static String get platformBaseUrl => canonicalHomeroomDeploymentUrl(
+        _platformBaseUrl.isNotEmpty
+            ? _platformBaseUrl
+            : _legacyDappsTabUrl.isNotEmpty
+                ? _legacyDappsTabUrl
+                : _mobileApiDirectory.resolve('../../../').toString(),
+      );
 
   // Keep deployment URLs together, including deployments mounted at a subpath.
   static Uri get _mobileApiDirectory =>
@@ -187,10 +193,11 @@ class AppConfig {
   // public v4 endpoint (same POST body and {success, data} envelope as the
   // old topochain endpoint).
   // An explicitly empty override still disables version checks for local builds.
-  static String get versionCheckApiUrl =>
-      const bool.hasEnvironment('VERSION_CHECK_API_URL')
-          ? const String.fromEnvironment('VERSION_CHECK_API_URL')
-          : _mobileApiDirectory.resolve('../app-version/check').toString();
+  static String get versionCheckApiUrl => canonicalHomeroomDeploymentUrl(
+        const bool.hasEnvironment('VERSION_CHECK_API_URL')
+            ? const String.fromEnvironment('VERSION_CHECK_API_URL')
+            : _mobileApiDirectory.resolve('../app-version/check').toString(),
+      );
   static const int versionCheckIntervalSeconds =
       int.fromEnvironment('VERSION_CHECK_INTERVAL_SECONDS', defaultValue: 7200);
 

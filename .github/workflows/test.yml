@@ -81,6 +81,22 @@ jobs:
           flutter test test/core/config/mobile_api_base_url_test.dart --dart-define=DAPPS_TAB_URL=https://legacy.example.com/ --dart-define=VERSION_CHECK_API_URL=
           flutter test test/core/config/mobile_api_base_url_test.dart --dart-define=PLATFORM_BASE_URL=https://web.example.com/ --dart-define=DAPPS_TAB_URL=https://legacy.example.com/ --dart-define=VERSION_CHECK_API_URL=https://versions.example.com/check
 
+      - name: Verify retired Homeroom deployment overrides
+        run: |
+          for host in my.onhomeroom.com social-vibecoding.usernodelabs.org; do
+            flutter test test/core/config/mobile_api_base_url_test.dart \
+              --dart-define=MOBILE_API_BASE_URL=https://$host/api/v4/mobile \
+              --dart-define=PLATFORM_BASE_URL=https://$host/ \
+              --dart-define=VERSION_CHECK_API_URL=https://$host/api/v4/app-version/check \
+              --dart-define=EXPECTED_MOBILE_API_BASE_URL=https://app.onhomeroom.com/api/v4/mobile \
+              --dart-define=EXPECTED_PLATFORM_BASE_URL=https://app.onhomeroom.com/ \
+              --dart-define=EXPECTED_VERSION_CHECK_API_URL=https://app.onhomeroom.com/api/v4/app-version/check
+          done
+          flutter test test/core/config/mobile_api_base_url_test.dart \
+            --dart-define=DAPPS_TAB_URL=https://my.onhomeroom.com/ \
+            --dart-define=EXPECTED_PLATFORM_BASE_URL=https://app.onhomeroom.com/ \
+            --dart-define=VERSION_CHECK_API_URL=
+
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:

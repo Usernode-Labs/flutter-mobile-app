@@ -3,9 +3,13 @@ import 'package:crypto_mobile_app/core/config/app_config.dart';
 
 void main() {
   const configuredApi = String.fromEnvironment('MOBILE_API_BASE_URL');
-  final expectedApi = configuredApi.isEmpty
-      ? 'https://app.onhomeroom.com/api/v4/mobile'
-      : configuredApi;
+  const expectedApiOverride =
+      String.fromEnvironment('EXPECTED_MOBILE_API_BASE_URL');
+  final expectedApi = expectedApiOverride.isNotEmpty
+      ? expectedApiOverride
+      : configuredApi.isEmpty
+          ? 'https://app.onhomeroom.com/api/v4/mobile'
+          : configuredApi;
   final deployment = Uri.parse(expectedApi)
       .path
       .replaceFirst(RegExp(r'/api/v4/mobile/?$'), '');
@@ -21,11 +25,13 @@ void main() {
     const legacy = String.fromEnvironment('DAPPS_TAB_URL');
     expect(
       AppConfig.platformBaseUrl,
-      platform.isNotEmpty
-          ? platform
-          : legacy.isNotEmpty
-              ? legacy
-              : '$origin$deployment/',
+      const bool.hasEnvironment('EXPECTED_PLATFORM_BASE_URL')
+          ? const String.fromEnvironment('EXPECTED_PLATFORM_BASE_URL')
+          : platform.isNotEmpty
+              ? platform
+              : legacy.isNotEmpty
+                  ? legacy
+                  : '$origin$deployment/',
     );
   });
 
@@ -33,9 +39,11 @@ void main() {
       () {
     expect(
       AppConfig.versionCheckApiUrl,
-      const bool.hasEnvironment('VERSION_CHECK_API_URL')
-          ? const String.fromEnvironment('VERSION_CHECK_API_URL')
-          : '$origin$deployment/api/v4/app-version/check',
+      const bool.hasEnvironment('EXPECTED_VERSION_CHECK_API_URL')
+          ? const String.fromEnvironment('EXPECTED_VERSION_CHECK_API_URL')
+          : const bool.hasEnvironment('VERSION_CHECK_API_URL')
+              ? const String.fromEnvironment('VERSION_CHECK_API_URL')
+              : '$origin$deployment/api/v4/app-version/check',
     );
   });
 }

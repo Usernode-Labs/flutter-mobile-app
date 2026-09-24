@@ -5,7 +5,7 @@ import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const trustedUrl = 'https://social-vibecoding.usernodelabs.org/';
+  const trustedUrl = 'https://app.onhomeroom.com/';
 
   _FakeTopFrame frame({String href = trustedUrl}) => _FakeTopFrame(href);
 
@@ -223,8 +223,7 @@ void main() {
     );
     expect(topFrame.guardedRuns, 1);
 
-    topFrame.replaceBeforeNextGuard =
-        'https://social-vibecoding.usernodelabs.org/replacement';
+    topFrame.replaceBeforeNextGuard = 'https://app.onhomeroom.com/replacement';
     expect(
       await subject.runInTrustedTopFrame('window.dispatchEvent(event);'),
       isFalse,
@@ -344,13 +343,15 @@ void main() {
     expect(await subject.bootstrapLease(), isNotNull);
 
     for (final denied in <String>[
-      'http://social-vibecoding.usernodelabs.org/',
-      'https://sub.social-vibecoding.usernodelabs.org/',
-      'https://social-vibecoding.usernodelabs.org:444/',
-      'https://social-vibecoding.usernodelabs.org@evil.example/',
+      'https://my.onhomeroom.com/',
+      'https://social-vibecoding.usernodelabs.org/',
+      'http://app.onhomeroom.com/',
+      'https://sub.app.onhomeroom.com/',
+      'https://app.onhomeroom.com:444/',
+      'https://app.onhomeroom.com@evil.example/',
       'about:blank',
       'data:text/html,hello',
-      'blob:https://social-vibecoding.usernodelabs.org/id',
+      'blob:https://app.onhomeroom.com/id',
     ]) {
       topFrame.replaceDocument(href: denied);
       expect(

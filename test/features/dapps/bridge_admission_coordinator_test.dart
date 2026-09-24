@@ -6,7 +6,7 @@ import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  const trustedUrl = 'https://social-vibecoding.usernodelabs.org/';
+  const trustedUrl = 'https://app.onhomeroom.com/';
 
   test('missing and invalid capabilities settle in the probed realm', () async {
     final frame = _AdmissionTopFrame(trustedUrl);
@@ -228,7 +228,7 @@ PrivilegedBridgePolicy _policy(
 }) {
   final sequence = secrets ?? _SecretSequence();
   return PrivilegedBridgePolicy(
-    trustedOrigin: Uri.parse('https://social-vibecoding.usernodelabs.org/'),
+    trustedOrigin: Uri.parse('https://app.onhomeroom.com/'),
     allowLocalDevelopment: false,
     evaluateTopFrame: frame.evaluate,
     secretFactory: sequence.next,

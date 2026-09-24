@@ -375,7 +375,7 @@ and submit entries by `participant_id`.
 Example source:
 
 ```text
-https://appraise-6945af.social-vibecoding.usernodelabs.org/api/leaderboard?round=dapp-hackathon-1-vote-for-your-favorite--m3or6&limit=200&offset=0
+https://appraise-6945af.onhomeroom.com/api/leaderboard?round=dapp-hackathon-1-vote-for-your-favorite--m3or6&limit=200&offset=0
 ```
 
 Expected source shape:
@@ -402,7 +402,7 @@ Known-good wallet script for a 3-vote, 500-point challenge:
     "depends_on": [],
     "tool": "fetch_url",
     "args": {
-      "url": "https://appraise-6945af.social-vibecoding.usernodelabs.org/api/leaderboard?round=dapp-hackathon-1-vote-for-your-favorite--m3or6&limit=200&offset=0",
+      "url": "https://appraise-6945af.onhomeroom.com/api/leaderboard?round=dapp-hackathon-1-vote-for-your-favorite--m3or6&limit=200&offset=0",
       "parse": "json"
     }
   },
@@ -510,7 +510,7 @@ Known-good wallet script:
     "depends_on": [],
     "tool": "fetch_url",
     "args": {
-      "url": "https://appraise-6945af.social-vibecoding.usernodelabs.org/api/leaderboard?round=dapp-hackathon-1-vote-for-your-favorite--m3or6&limit=200&offset=0",
+      "url": "https://appraise-6945af.onhomeroom.com/api/leaderboard?round=dapp-hackathon-1-vote-for-your-favorite--m3or6&limit=200&offset=0",
       "parse": "json"
     }
   },

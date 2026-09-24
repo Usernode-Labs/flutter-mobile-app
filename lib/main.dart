@@ -312,6 +312,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   final Object _socialPushOwner = Object();
   bool _versionCheckShown = false;
   bool _resumeValidationPending = false;
+  int _resumeGeneration = 0;
   int _lifecycleGeneration = 0;
   StreamSubscription<void>? _socialPushTapSubscription;
   StreamSubscription<SessionFeatureAccess>? _sessionSubscription;
@@ -351,9 +352,10 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     final lifecycleGeneration = ++_lifecycleGeneration;
     MetricsCollectorService.instance.updateAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      if (!_resumeValidationPending) {
-        setState(() => _resumeValidationPending = true);
-      }
+      setState(() {
+        _resumeValidationPending = true;
+        _resumeGeneration++;
+      });
       unawaited(
         _finishForegroundResume(lifecycleTransition, lifecycleGeneration),
       );
@@ -591,6 +593,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     // The tree shape stays fixed so the router subtree is never reparented.
     return ResumeSplashGate(
       pending: _resumeValidationPending,
+      resumeGeneration: _resumeGeneration,
       child: content,
     );
   }

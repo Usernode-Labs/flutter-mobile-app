@@ -8,7 +8,7 @@ void main() {
   var taps = 0;
   setUp(() => taps = 0);
 
-  Widget host({required bool pending}) => MaterialApp(
+  Widget host({required bool pending, int resume = 0}) => MaterialApp(
         theme: ThemeData.light().copyWith(
           extensions: DesignSystemTheme.standardExtensions(
             semanticColors: AppSemanticColors.light(),
@@ -18,6 +18,7 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: ResumeSplashGate(
           pending: pending,
+          resumeGeneration: resume,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => taps++,
@@ -124,5 +125,26 @@ void main() {
     expect(splash, findsOneWidget);
     await tester.tapAt(tester.getCenter(find.byType(ResumeSplashGate)));
     expect(taps, 0);
+  });
+
+  testWidgets('a resume while a timed-out validation still runs blocks again',
+      (tester) async {
+    await tester.pumpWidget(host(pending: true, resume: 1));
+    await tester.pump(ResumeSplashGate.maxBlock);
+    await tester.pump();
+    await tester.tap(find.text('content'));
+    expect(taps, 1);
+
+    // Backgrounded and resumed again before the first validation settled.
+    await tester.pumpWidget(host(pending: true, resume: 2));
+    await tester.tapAt(tester.getCenter(find.byType(ResumeSplashGate)));
+    expect(taps, 1);
+    await tester.pump(ResumeSplashGate.showDelay);
+    await tester.pump();
+    expect(splash, findsOneWidget);
+
+    await tester.pump(ResumeSplashGate.maxBlock);
+    await tester.pump();
+    expect(splash, findsNothing);
   });
 }

@@ -17,6 +17,7 @@ class ResumeSplashGate extends StatefulWidget {
   const ResumeSplashGate({
     super.key,
     required this.pending,
+    this.resumeGeneration = 0,
     required this.child,
   });
 
@@ -27,6 +28,11 @@ class ResumeSplashGate extends StatefulWidget {
   static const splashKey = ValueKey('resume-splash');
 
   final bool pending;
+
+  /// Bumped on every foreground resume. A resume while an earlier validation
+  /// is still [pending] keeps [pending] true, so this is what restarts the
+  /// block for its own [maxBlock] budget.
+  final int resumeGeneration;
   final Widget child;
 
   @override
@@ -48,11 +54,13 @@ class _ResumeSplashGateState extends State<ResumeSplashGate> {
   @override
   void didUpdateWidget(ResumeSplashGate oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.pending == oldWidget.pending) return;
-    if (widget.pending) {
+    if (!widget.pending) {
+      if (oldWidget.pending) _release();
+      return;
+    }
+    if (!oldWidget.pending ||
+        widget.resumeGeneration != oldWidget.resumeGeneration) {
       _startBlocking();
-    } else {
-      _release();
     }
   }
 

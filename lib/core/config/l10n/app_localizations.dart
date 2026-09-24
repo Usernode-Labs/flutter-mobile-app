@@ -1321,7 +1321,7 @@ abstract class AppLocalizations {
   /// Explanation on the exact-alarm permission step
   ///
   /// In en, this message translates to:
-  /// **'Your node sleeps between block-production slots to save battery. Allowing exact alarms lets Android wake it five minutes before its next slot, so it is ready to produce the block.'**
+  /// **'To save battery, your node sleeps between block-production slots. Exact alarms let Android wake it five minutes before each slot so it\'s ready to produce the block. This permission only schedules your node\'s wake-ups and gives Homeroom no access to your data.'**
   String get nodePermissionsExactAlarmBody;
 
   /// Action opening Android exact-alarm settings
@@ -1339,7 +1339,7 @@ abstract class AppLocalizations {
   /// Explanation on the Android unrestricted-background step
   ///
   /// In en, this message translates to:
-  /// **'Set Homeroom\'s battery usage to Unrestricted. Otherwise Android can delay the scheduled wake-up and your node may miss its slot.'**
+  /// **'Android can delay background apps to save power, which may make your node miss its slot. Setting Homeroom\'s battery usage to Unrestricted keeps wake-ups on time. Your node still sleeps between slots to save battery.'**
   String get nodePermissionsBackgroundBody;
 
   /// Action opening Android app battery settings
@@ -1351,7 +1351,7 @@ abstract class AppLocalizations {
   /// Delegation alternative shown on block-production permission steps
   ///
   /// In en, this message translates to:
-  /// **'Prefer not to grant these permissions? Delegate your stake to the server instead. Your node stops producing blocks and you earn half the block-production points.'**
+  /// **'Prefer not to grant these permissions? You can delegate your stake to the server instead. You still earn half the block-production points, and you can switch back at any time.'**
   String get nodePermissionsDelegateAlternative;
 
   /// Action starting delegation from the permission flow
@@ -1366,10 +1366,16 @@ abstract class AppLocalizations {
   /// **'Delegate block production?'**
   String get nodePermissionsDelegateTitle;
 
+  /// Body of the confirmation dialog before delegating from the permission flow
+  ///
+  /// In en, this message translates to:
+  /// **'The server produces blocks for you, so your node won\'t need these permissions. You earn half the block-production points you would earn on this phone, and you can switch back at any time.'**
+  String get nodePermissionsDelegateBody;
+
   /// Error shown when permission or delegation state cannot be refreshed
   ///
   /// In en, this message translates to:
-  /// **'Couldn\'t check your phone\'s settings. Try again.'**
+  /// **'We couldn\'t check your phone\'s settings. Please try again.'**
   String get nodePermissionsCheckFailed;
 }
 

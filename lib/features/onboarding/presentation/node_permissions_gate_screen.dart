@@ -185,7 +185,7 @@ class _NodePermissionsGateScreenState extends State<NodePermissionsGateScreen>
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         title: Text(l10n.nodePermissionsDelegateTitle),
-        content: Text(l10n.stakingDelegateEffect),
+        content: Text(l10n.nodePermissionsDelegateBody),
         actions: [
           Button(
             label: l10n.commonCancel,

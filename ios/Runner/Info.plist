@@ -42,11 +42,11 @@
 	<key>UIRequiresFullScreen</key>
 	<true/>
     <key>NSCameraUsageDescription</key>
-    <string>Homeroom uses the camera only when you choose to take a photo or video to upload in an app you open in Homeroom.</string>
+    <string>Homeroom uses your camera only when you choose to take a photo or video to share in an app. Nothing is captured or uploaded without your action.</string>
     <key>NSFaceIDUsageDescription</key>
-    <string>Biometrics are used to unlock your private data.</string>
+    <string>Use Face ID to unlock Homeroom and keep your wallet and private data secure. Homeroom never sees or stores your face data.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Homeroom accesses your photos only when you choose images or videos to upload in an app you open in Homeroom.</string>
+    <string>Homeroom opens your photos only when you choose images or videos to share in an app. Nothing is shared unless you select it.</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>

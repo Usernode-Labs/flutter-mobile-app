@@ -35,26 +35,22 @@ void main() {
   });
 
   group('requestAlarmPermissions', () {
-    test('android: runs exact-alarm + battery chain, never notifications',
+    test('android: asks for the missing exact alarm only, never notifications',
         () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       await setUpService();
       responses['hasExactAlarmPermission'] = [false];
-      responses['isBatteryOptimizationDisabled'] = [false, true];
+      responses['isBatteryOptimizationDisabled'] = [false];
 
       final granted = await service.requestAlarmPermissions();
 
-      // Exact-alarm grants happen in system settings, so the result reflects
-      // the pre-request state; the re-check happens on app resume. The exact
-      // call sequence is the contract: alarm check → request, then battery
-      // check → request → re-check — and never any notification traffic.
+      // One system surface per call: the exact-alarm settings page must not
+      // be buried under the battery dialog. SV asks again for the battery
+      // step once the user is back.
       expect(granted, isFalse);
       expect(calls, [
         'hasExactAlarmPermission',
         'requestExactAlarmPermission',
-        'isBatteryOptimizationDisabled',
-        'requestBatteryOptimizationExemption',
-        'isBatteryOptimizationDisabled',
       ]);
     });
 
@@ -62,13 +58,41 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
       await setUpService();
       responses['hasExactAlarmPermission'] = [true];
-      responses['isBatteryOptimizationDisabled'] = [false, true];
+      responses['isBatteryOptimizationDisabled'] = [false];
 
       final granted = await service.requestAlarmPermissions();
 
       expect(granted, isTrue);
-      expect(calls, isNot(contains('requestExactAlarmPermission')));
-      expect(calls, contains('requestBatteryOptimizationExemption'));
+      expect(calls, [
+        'hasExactAlarmPermission',
+        'isBatteryOptimizationDisabled',
+        'requestBatteryOptimizationExemption',
+      ]);
+    });
+
+    test('android: a request marks the next resume as a settings return',
+        () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      responses['hasExactAlarmPermission'] = [false];
+
+      expect(service.consumeRecentSystemSurfaceLaunch(), isFalse);
+      await service.requestAlarmPermissions();
+
+      expect(service.consumeRecentSystemSurfaceLaunch(), isTrue);
+      // Only the one resume that brings the user back is quiet.
+      expect(service.consumeRecentSystemSurfaceLaunch(), isFalse);
+    });
+
+    test('android: nothing to ask leaves the next resume alone', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      responses['hasExactAlarmPermission'] = [true];
+      responses['isBatteryOptimizationDisabled'] = [true];
+
+      await service.requestAlarmPermissions();
+
+      expect(service.consumeRecentSystemSurfaceLaunch(), isFalse);
     });
 
     test('android: already granted -> no request calls', () async {

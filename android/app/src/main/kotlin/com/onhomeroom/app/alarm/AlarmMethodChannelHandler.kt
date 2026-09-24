@@ -679,6 +679,14 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
                 Log.w(TAG, "Cannot open battery settings - no Activity attached")
                 return false
             }
+            // The one-tap system dialog is the shortest path to "Unrestricted";
+            // the App info page is only a fallback when it is unavailable or
+            // the exemption is already in place.
+            if (!powerManager.isIgnoringBatteryOptimizations(appContext.packageName) &&
+                launchIgnoreBatteryOptimizationsDialog(activity)
+            ) {
+                return true
+            }
             try {
                 // Open this app's detail page so the user can adjust battery settings
                 val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -701,6 +709,19 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
         return true
     }
 
+    private fun launchIgnoreBatteryOptimizationsDialog(activity: Activity): Boolean {
+        return try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:${appContext.packageName}")
+            }
+            activity.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open the battery optimization dialog", e)
+            false
+        }
+    }
+
     private fun requestBatteryOptimizationExemption(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val activity = attachedActivity()
@@ -710,17 +731,9 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
             }
             if (!powerManager.isIgnoringBatteryOptimizations(appContext.packageName)) {
                 Log.d(TAG, "Requesting battery optimization exemption")
-                try {
-                    // Direct exemption request - shows app-specific dialog
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:${appContext.packageName}")
-                    }
-                    activity.startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to request battery optimization exemption", e)
-                    // Fallback to general settings page
-                    if (!openBatteryOptimizationSettings()) return false
-                }
+                // Opens the one-tap system dialog, or App info when the
+                // dialog is unavailable on this device.
+                if (!openBatteryOptimizationSettings()) return false
             } else {
                 // Already exempted
                 Log.d(TAG, "Battery optimization already disabled")

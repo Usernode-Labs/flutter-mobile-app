@@ -296,6 +296,23 @@ class PlatformAlarmService {
 
   void notifyPermissionsMayHaveChanged() => _permissionChanges.add(null);
 
+  static const _systemSurfaceReturnWindow = Duration(minutes: 5);
+  DateTime? _systemSurfaceLaunchedAt;
+
+  /// Records that the app is about to open a settings page or system dialog,
+  /// so the resume that brings the user back can stay quiet.
+  void _noteSystemSurfaceLaunch() => _systemSurfaceLaunchedAt = DateTime.now();
+
+  /// Whether this resume is the user returning from a settings page or system
+  /// dialog the app opened recently. Clears the mark, so only one resume
+  /// consumes it.
+  bool consumeRecentSystemSurfaceLaunch() {
+    final launchedAt = _systemSurfaceLaunchedAt;
+    _systemSurfaceLaunchedAt = null;
+    return launchedAt != null &&
+        DateTime.now().difference(launchedAt) < _systemSurfaceReturnWindow;
+  }
+
   /// Callback to invoke when device reboots and alarms need to be rescheduled
   BootRescheduleCallback? _onBootReschedule;
 
@@ -717,6 +734,7 @@ class PlatformAlarmService {
   /// stops after two denials).
   Future<bool> openNotificationSettings() async {
     try {
+      _noteSystemSurfaceLaunch();
       return await _channel.invokeMethod<bool>('openNotificationSettings') ??
           false;
     } catch (e) {
@@ -794,6 +812,7 @@ class PlatformAlarmService {
 
     if (!hasNotifications) {
       _log.info('Requesting POST_NOTIFICATIONS permission...');
+      _noteSystemSurfaceLaunch();
       await _channel.invokeMethod('requestPostNotificationsPermission');
       // Wait a bit for the permission dialog to be processed
       await Future.delayed(const Duration(milliseconds: 500));
@@ -804,42 +823,37 @@ class PlatformAlarmService {
     return hasNotifications;
   }
 
-  /// Runs the SCHEDULE_EXACT_ALARM and battery-exemption steps; returns
-  /// whether the exact-alarm permission is granted afterwards.
+  /// Asks for the first missing producer permission only: the exact-alarm
+  /// settings page, or else the system "stop optimising battery usage?"
+  /// dialog. Launching both at once stacked two system surfaces on top of
+  /// each other; SV calls again for the next step once the user is back.
+  /// Returns whether the exact-alarm permission is granted afterwards.
   Future<bool> _requestAndroidExactAlarmAndBattery() async {
-    bool hasExactAlarm =
+    final hasExactAlarm =
         await _channel.invokeMethod<bool>('hasExactAlarmPermission') ?? false;
 
     if (!hasExactAlarm) {
       _log.info('Requesting SCHEDULE_EXACT_ALARM permission...');
+      _noteSystemSurfaceLaunch();
       await _channel.invokeMethod('requestExactAlarmPermission');
-      // This opens settings, so we'll need to wait for user to return
-      // The permission check will happen when app resumes
+      return false;
     }
 
-    bool hasBatteryExemption =
+    final hasBatteryExemption =
         await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ??
             false;
-
     if (!hasBatteryExemption) {
       _log.info('Requesting battery optimization exemption...');
+      _noteSystemSurfaceLaunch();
       await _channel.invokeMethod('requestBatteryOptimizationExemption');
-      // This may open a dialog or settings
-      await Future.delayed(const Duration(milliseconds: 500));
-      hasBatteryExemption =
-          await _channel.invokeMethod<bool>('isBatteryOptimizationDisabled') ??
-              false;
     }
-
-    _log.info(
-        'Alarm permission status - Exact Alarm: $hasExactAlarm, Battery: $hasBatteryExemption');
-
-    return hasExactAlarm;
+    return true;
   }
 
   /// Request iOS notification permissions
   Future<bool> _requestIOSNotificationPermission() async {
     try {
+      _noteSystemSurfaceLaunch();
       final granted =
           await _channel.invokeMethod<bool>('requestNotificationPermission') ??
               false;
@@ -873,6 +887,7 @@ class PlatformAlarmService {
       return false;
     }
     try {
+      _noteSystemSurfaceLaunch();
       await _channel.invokeMethod('requestExactAlarmPermission');
       // Give the system a moment and then re-check
       await Future.delayed(const Duration(milliseconds: 500));
@@ -1139,6 +1154,7 @@ class PlatformAlarmService {
     }
 
     try {
+      _noteSystemSurfaceLaunch();
       await _channel.invokeMethod('requestBatteryOptimizationExemption');
       // Check if exemption was granted
       await Future.delayed(const Duration(milliseconds: 500));
@@ -1603,6 +1619,7 @@ class PlatformAlarmService {
   /// Helps users exempt the app from battery optimization on OEM devices.
   Future<bool> openBatteryOptimizationSettings() async {
     try {
+      _noteSystemSurfaceLaunch();
       final success =
           await _channel.invokeMethod<bool>('openBatterySettings') ?? false;
 

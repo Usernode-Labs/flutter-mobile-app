@@ -292,4 +292,18 @@ void main() {
       expect(callbackCalls, 1);
     });
   });
+
+  test('permission changes reach every listener', () async {
+    await setUpService();
+    var first = 0;
+    var second = 0;
+    final a = service.permissionChanges.listen((_) => first++);
+    final b = service.permissionChanges.listen((_) => second++);
+
+    service.notifyPermissionsMayHaveChanged();
+
+    expect((first, second), (1, 1));
+    await a.cancel();
+    await b.cancel();
+  });
 }

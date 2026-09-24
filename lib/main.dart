@@ -30,6 +30,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
@@ -311,6 +312,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
   final Object _socialPushOwner = Object();
   bool _versionCheckShown = false;
   bool _resumeValidationPending = false;
+  int _resumeGeneration = 0;
   int _lifecycleGeneration = 0;
   StreamSubscription<void>? _socialPushTapSubscription;
   StreamSubscription<SessionFeatureAccess>? _sessionSubscription;
@@ -350,9 +352,10 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
     final lifecycleGeneration = ++_lifecycleGeneration;
     MetricsCollectorService.instance.updateAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      if (!_resumeValidationPending) {
-        setState(() => _resumeValidationPending = true);
-      }
+      setState(() {
+        _resumeValidationPending = true;
+        _resumeGeneration++;
+      });
       unawaited(
         _finishForegroundResume(lifecycleTransition, lifecycleGeneration),
       );
@@ -379,6 +382,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       final access = widget._nativeSession.sessions.current;
       _bindSessionFeatures(access, forcePermissionGateCheck: true);
       if (access.identity.status != SessionProjectionStatus.ready) return;
+      // SV's own visibilitychange read can land before admission reopens.
+      PlatformAlarmService.instance.notifyPermissionsMayHaveChanged();
       SocialPushService.instance.reconcileBestEffort();
       _openPendingSocialNotification();
       // Don't reset _versionCheckShown — the guard in _checkInitialVersion
@@ -549,6 +554,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       tag: 'usernode/PermissionGate',
     );
     setState(() => _nodePermissionGate = null);
+    PlatformAlarmService.instance.notifyPermissionsMayHaveChanged();
   }
 
   void _openPendingSocialNotification() {
@@ -581,19 +587,14 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
           ),
       ],
     );
-    // Block resumed UI dispatch until the private native snapshot/wake has
-    // either kept Ready or retired it to the inert signed-out projection.
+    // Block resumed UI dispatch while the private native snapshot/wake decides
+    // between keeping Ready and retiring to the inert signed-out projection,
+    // bounded so a slow producer-policy refresh cannot freeze the screen.
     // The tree shape stays fixed so the router subtree is never reparented.
     return ResumeSplashGate(
       pending: _resumeValidationPending,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AbsorbPointer(absorbing: _resumeValidationPending, child: content),
-          if (_resumeValidationPending)
-            const ModalBarrier(dismissible: false, color: Colors.transparent),
-        ],
-      ),
+      resumeGeneration: _resumeGeneration,
+      child: content,
     );
   }
 }

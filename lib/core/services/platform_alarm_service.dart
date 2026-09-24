@@ -287,6 +287,15 @@ class PlatformAlarmService {
 
   static const _alarmFiredDuplicateWindow = Duration(seconds: 10);
 
+  final StreamController<void> _permissionChanges =
+      StreamController<void>.broadcast(sync: true);
+
+  /// Fires when device permissions may have changed somewhere the SV shell
+  /// cannot see: the native permission gate, or an OS settings round trip.
+  Stream<void> get permissionChanges => _permissionChanges.stream;
+
+  void notifyPermissionsMayHaveChanged() => _permissionChanges.add(null);
+
   /// Callback to invoke when device reboots and alarms need to be rescheduled
   BootRescheduleCallback? _onBootReschedule;
 

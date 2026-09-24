@@ -1156,6 +1156,17 @@ Future<List<String>> runSessionLifecycleOrderingSelfCheck() async {
     terminalRoot.dispose();
   }
 
+  // A resume that never passed through background (an Android permission
+  // dialog only reports inactive) must not rerun foreground validation.
+  final openAdmission = _ForegroundAdmissionGate();
+  var openGateValidated = false;
+  await openAdmission.resume(() async => openGateValidated = true);
+  _expectSelfCheck(
+    !openGateValidated,
+    'resume from an open gate reran foreground validation',
+  );
+  events.add('open-gate-resume-skipped');
+
   final gatedRoot = _SessionCompositionRoot(
     identityA,
     readyEffects: const _ClosedSessionEffectSink(),

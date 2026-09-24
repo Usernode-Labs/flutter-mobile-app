@@ -20,6 +20,7 @@ void main() {
       'wake-failure-preserved-ready',
       'precommit-terminal-retained',
       'terminal-effect-closed-admission',
+      'open-gate-resume-skipped',
       'background-gate-closed',
       'resume-gate-held',
       'resume-gate-retired-runner-rejected',

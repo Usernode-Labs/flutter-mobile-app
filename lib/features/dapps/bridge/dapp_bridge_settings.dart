@@ -20,6 +20,26 @@ const trustedNativeScreenRoutes = <String, String>{
 /// identifiers are also shared with `getBridgeInfo` so staging can display
 /// which Flutter binary hosts it.
 mixin _BridgeSettings on _DappWebViewScreenStateBase {
+  StreamSubscription<void>? _permissionChangeSubscription;
+
+  /// Tells SV to re-read `getSettingsState`, so its permission sheet never
+  /// asks for something granted behind its back.
+  void _listenForPermissionChanges() {
+    _permissionChangeSubscription =
+        PlatformAlarmService.instance.permissionChanges.listen(
+      (_) => unawaited(
+        _runInReadyMainFrame(
+          'window.dispatchEvent(new CustomEvent('
+          '"usernode:permissions-changed"));',
+        ),
+      ),
+    );
+  }
+
+  void _disposePermissionChanges() {
+    unawaited(_permissionChangeSubscription?.cancel());
+  }
+
   /// `openExternal` JS-channel method: opens the given http(s) URL in the
   /// system browser. Non-web schemes are rejected so pages can't silently
   /// fire intent://, tel:, etc. through this path.

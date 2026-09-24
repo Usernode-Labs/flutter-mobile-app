@@ -30,6 +30,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
@@ -379,6 +380,8 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       final access = widget._nativeSession.sessions.current;
       _bindSessionFeatures(access, forcePermissionGateCheck: true);
       if (access.identity.status != SessionProjectionStatus.ready) return;
+      // SV's own visibilitychange read can land before admission reopens.
+      PlatformAlarmService.instance.notifyPermissionsMayHaveChanged();
       SocialPushService.instance.reconcileBestEffort();
       _openPendingSocialNotification();
       // Don't reset _versionCheckShown — the guard in _checkInitialVersion
@@ -549,6 +552,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
       tag: 'usernode/PermissionGate',
     );
     setState(() => _nodePermissionGate = null);
+    PlatformAlarmService.instance.notifyPermissionsMayHaveChanged();
   }
 
   void _openPendingSocialNotification() {

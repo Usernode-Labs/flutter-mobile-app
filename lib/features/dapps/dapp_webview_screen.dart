@@ -502,6 +502,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
     }
     _listenForSocialPushEvents();
+    _listenForPermissionChanges();
   }
 
   /// Reacts to a changed [DappWebViewScreen.url] on a *live* webview. Most
@@ -618,6 +619,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     _readyMainFrameLease = null;
     _privilegedBridgePolicy.dispose();
     _disposeSocialPushEvents();
+    _disposePermissionChanges();
     super.dispose();
   }
 

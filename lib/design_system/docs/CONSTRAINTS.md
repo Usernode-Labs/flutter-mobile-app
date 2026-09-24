@@ -33,9 +33,9 @@ Rules enforced by convention (and eventually by lint). Each constraint has: WHAT
 
 ## Color Budget Rule
 
-**Constraint:** Chromatic color only via `AppSemanticColors`. Every `ColorScheme` structural role — primary, secondary, tertiary, and all their containers — is **achromatic grey**. Only `error*` retains hue.
+**Constraint:** Chromatic color only via `AppSemanticColors`, with two exceptions: `primary*` carries SV's blue accent so native screens match the web shell, and `error*` retains hue. Secondary, tertiary, and their containers are **achromatic grey**.
 
-**Critical implication:** Widgets using `ColorScheme` defaults render grey automatically. For example, `IconBadge` defaults to `secondaryContainer` / `onSecondaryContainer` which are grey (`#E1E2E8` / `#44474D`) — no explicit override needed to make them neutral. Do not add color params to "neutralize" something that is already achromatic.
+**Critical implication:** Widgets using `ColorScheme` defaults render grey automatically. For example, `IconBadge` defaults to `secondaryContainer` / `onSecondaryContainer` which are grey (`#E3E3E6` / `#1C1C1E`) — no explicit override needed to make them neutral. Do not add color params to "neutralize" something that is already achromatic.
 
 **To introduce hue**, reach for `AppSemanticColors`:
 ```dart

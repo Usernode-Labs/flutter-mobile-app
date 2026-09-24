@@ -245,10 +245,10 @@ void main() {
     expect(decoded['palettes'], isA<Map>());
     expect((decoded['palettes'] as Map).length, 5);
 
-    // Spot-check: light primary should be #252627
+    // Spot-check: light primary is SV's accent
     expect(
       (decoded['schemes'] as Map)['light']['primary'],
-      '#252627',
+      '#0A6EE0',
     );
   });
 }

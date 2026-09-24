@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
@@ -169,7 +170,7 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     final spacing = theme.extension<AppSpacing>()!;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.surface,
+      backgroundColor: AppearanceStorage.groundFor(theme.brightness),
       body: SafeArea(
         child: Center(
           child: Padding(

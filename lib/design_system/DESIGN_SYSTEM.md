@@ -6,41 +6,41 @@ generated_by: test/design_system/design_system_md_tokens_test.dart
 source_of_truth: lib/design_system/tokens
 colors:
   materialLight:
-    primary: "#252627"
+    primary: "#0A6EE0"
     onPrimary: "#FFFFFF"
-    primaryContainer: "#E2E2E4"
-    onPrimaryContainer: "#1B1B1C"
-    secondary: "#5C5E64"
+    primaryContainer: "#D6E9FF"
+    onPrimaryContainer: "#0062CC"
+    secondary: "#48484A"
     onSecondary: "#FFFFFF"
-    tertiary: "#757575"
+    tertiary: "#68686C"
     onTertiary: "#FFFFFF"
-    error: "#BD0F19"
-    surface: "#EBEBEB"
-    onSurface: "#1B1B1B"
+    error: "#DC2626"
+    surface: "#F4F2E4"
+    onSurface: "#0A0A0A"
     surfaceContainerLowest: "#FFFFFF"
-    surfaceContainerLow: "#F3F3F3"
-    surfaceContainer: "#EEEEEE"
-    surfaceContainerHigh: "#E8E8E8"
-    outline: "#74777E"
-    outlineVariant: "#C4C6CC"
+    surfaceContainerLow: "#F5F5F7"
+    surfaceContainer: "#EFEFF1"
+    surfaceContainerHigh: "#EAEAEA"
+    outline: "#8E8E93"
+    outlineVariant: "#D1D1D6"
   materialDark:
-    primary: "#D4D4D6"
-    onPrimary: "#252627"
-    primaryContainer: "#3A3B3D"
-    onPrimaryContainer: "#E2E2E4"
-    secondary: "#C8CAD0"
-    onSecondary: "#2E3035"
-    tertiary: "#B8B8B8"
-    onTertiary: "#303030"
-    error: "#FFA28C"
-    surface: "#212121"
-    onSurface: "#EBEBEB"
-    surfaceContainerLowest: "#111111"
-    surfaceContainerLow: "#262626"
-    surfaceContainer: "#262626"
-    surfaceContainerHigh: "#303030"
-    outline: "#8E9198"
-    outlineVariant: "#5B5E65"
+    primary: "#5AA9FF"
+    onPrimary: "#0B0B0C"
+    primaryContainer: "#00264D"
+    onPrimaryContainer: "#85BCFF"
+    secondary: "#C7C7CC"
+    onSecondary: "#1C1C1E"
+    tertiary: "#8E8E93"
+    onTertiary: "#0B0B0C"
+    error: "#F87171"
+    surface: "#0B0D1B"
+    onSurface: "#F5F5F7"
+    surfaceContainerLowest: "#1C1C1E"
+    surfaceContainerLow: "#202023"
+    surfaceContainer: "#26262A"
+    surfaceContainerHigh: "#2C2C2E"
+    outline: "#68686C"
+    outlineVariant: "#3A3A3C"
   semanticLight:
     technical:
       color: "#0055D9"
@@ -187,7 +187,8 @@ Usernode's design system is a mobile-first Flutter system for a phone-operated L
 The system is "Color is Expensive": structural UI is achromatic and chromatic color is reserved for semantic meaning.
 
 - Use `Theme.of(context).colorScheme` for M3 structural roles such as surfaces, outlines, text, and error.
-- Primary, secondary, tertiary, and containers are deliberately achromatic. Do not assume they carry brand hue.
+- Primary carries SV's blue accent (`#0A6EE0` light / `#5AA9FF` dark) so native screens match the web shell. Secondary, tertiary, and their containers stay achromatic.
+- Surfaces follow SV: `surface` is SV's page ground (cream `#F4F2E4` / navy `#0B0D1B`), `surfaceContainerLowest` is the card, sheet, and dialog surface (white / `#1C1C1E`).
 - Use `Theme.of(context).extension<AppSemanticColors>()!` for chromatic meaning: technical, flash, community, success, and warning.
 - Do not use raw `Color(0x...)` or `Colors.*` in widgets except documented transparent/decorative exceptions.
 

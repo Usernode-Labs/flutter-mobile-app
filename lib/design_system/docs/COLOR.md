@@ -19,11 +19,11 @@ An economic metaphor applied to interface design. Chromatic color is a scarce re
 
 ## Core Role Semantics
 
-All M3 `ColorScheme` structural roles are achromatic. Manually specified (not `fromSeed()`).
+All M3 `ColorScheme` structural roles except primary are achromatic. Values mirror SV's web palette (`public/css/app.css`). Manually specified (not `fromSeed()`).
 
 | Role | Purpose |
 |------|---------|
-| **Primary** | Attention locker. Maximum contrast CTAs. Distinguished from body text by shape, not color. |
+| **Primary** | Attention locker. SV's blue accent (`#0A6EE0` / `#5AA9FF`), the only chromatic structural role, so native CTAs match the web shell. |
 | **Secondary** | Structural emphasis without hue. Cool-leaning grey for secondary actions. |
 | **Tertiary** | **Ghost role.** Barely-visible grey that just clears APCA Lc 60. Forces developers toward `AppSemanticColors`. |
 | **Error** | Signal red. The one place chromatic color is *required* in the ColorScheme. |

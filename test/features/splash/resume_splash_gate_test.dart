@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  var taps = 0;
+  setUp(() => taps = 0);
+
   Widget host({required bool pending}) => MaterialApp(
         theme: ThemeData.light().copyWith(
           extensions: DesignSystemTheme.standardExtensions(
@@ -15,7 +18,11 @@ void main() {
         supportedLocales: AppLocalizations.supportedLocales,
         home: ResumeSplashGate(
           pending: pending,
-          child: const Text('content'),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => taps++,
+            child: const Text('content'),
+          ),
         ),
       );
 
@@ -79,5 +86,43 @@ void main() {
     await tester.pump(ResumeSplashGate.showDelay ~/ 2);
     await tester.pump();
     expect(splash, findsOneWidget);
+  });
+
+  testWidgets('pending validation blocks input', (tester) async {
+    await tester.pumpWidget(host(pending: true));
+    await tester.tapAt(tester.getCenter(find.byType(ResumeSplashGate)));
+    expect(taps, 0);
+
+    await tester.pumpWidget(host(pending: false));
+    await tester.pump();
+    await tester.tap(find.text('content'));
+    expect(taps, 1);
+  });
+
+  testWidgets('a validation that never settles releases the UI at maxBlock',
+      (tester) async {
+    await tester.pumpWidget(host(pending: true));
+    await tester.pump(ResumeSplashGate.showDelay);
+    await tester.pump();
+    expect(splash, findsOneWidget);
+
+    await tester.pump(ResumeSplashGate.maxBlock);
+    await tester.pump();
+    expect(splash, findsNothing);
+    await tester.tap(find.text('content'));
+    expect(taps, 1);
+  });
+
+  testWidgets('a new resume after a timed-out one blocks again',
+      (tester) async {
+    await tester.pumpWidget(host(pending: true));
+    await tester.pump(ResumeSplashGate.maxBlock);
+    await tester.pumpWidget(host(pending: false));
+    await tester.pumpWidget(host(pending: true));
+    await tester.pump(ResumeSplashGate.showDelay);
+    await tester.pump();
+    expect(splash, findsOneWidget);
+    await tester.tapAt(tester.getCenter(find.byType(ResumeSplashGate)));
+    expect(taps, 0);
   });
 }

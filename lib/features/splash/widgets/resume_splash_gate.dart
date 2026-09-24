@@ -5,13 +5,14 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 
-/// Covers [child] with a splash while foreground-resume validation is
-/// [pending] for longer than [showDelay].
+/// Blocks input to [child] while foreground-resume validation is [pending],
+/// covering it with a splash once that takes longer than [showDelay].
 ///
 /// Resume validation refreshes producer policy over the network and wakes the
-/// paused native node, which can take seconds. The app wrapper already blocks
-/// input for that window; without this the frozen UI reads as a hang. Quick
-/// resumes finish inside [showDelay] and never flash the splash.
+/// paused native node, which can take seconds. Quick resumes finish inside
+/// [showDelay] and never flash the splash. The UI is released after [maxBlock]
+/// even if validation is still running: node-backed operations stay gated by
+/// the native admission barrier, so only the screen stops waiting.
 class ResumeSplashGate extends StatefulWidget {
   const ResumeSplashGate({
     super.key,
@@ -20,6 +21,7 @@ class ResumeSplashGate extends StatefulWidget {
   });
 
   static const showDelay = Duration(milliseconds: 300);
+  static const maxBlock = Duration(milliseconds: 1500);
 
   @visibleForTesting
   static const splashKey = ValueKey('resume-splash');
@@ -33,12 +35,14 @@ class ResumeSplashGate extends StatefulWidget {
 
 class _ResumeSplashGateState extends State<ResumeSplashGate> {
   Timer? _showTimer;
+  Timer? _releaseTimer;
   bool _visible = false;
+  bool _blocking = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.pending) _scheduleShow();
+    if (widget.pending) _startBlocking();
   }
 
   @override
@@ -46,23 +50,37 @@ class _ResumeSplashGateState extends State<ResumeSplashGate> {
     super.didUpdateWidget(oldWidget);
     if (widget.pending == oldWidget.pending) return;
     if (widget.pending) {
-      _scheduleShow();
+      _startBlocking();
     } else {
-      _showTimer?.cancel();
-      _visible = false;
+      _release();
     }
   }
 
-  void _scheduleShow() {
-    _showTimer?.cancel();
+  void _startBlocking() {
+    _cancelTimers();
+    _blocking = true;
     _showTimer = Timer(ResumeSplashGate.showDelay, () {
       if (mounted) setState(() => _visible = true);
     });
+    _releaseTimer = Timer(ResumeSplashGate.maxBlock, () {
+      if (mounted) setState(_release);
+    });
+  }
+
+  void _release() {
+    _cancelTimers();
+    _blocking = false;
+    _visible = false;
+  }
+
+  void _cancelTimers() {
+    _showTimer?.cancel();
+    _releaseTimer?.cancel();
   }
 
   @override
   void dispose() {
-    _showTimer?.cancel();
+    _cancelTimers();
     super.dispose();
   }
 
@@ -71,7 +89,9 @@ class _ResumeSplashGateState extends State<ResumeSplashGate> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        widget.child,
+        AbsorbPointer(absorbing: _blocking, child: widget.child),
+        if (_blocking)
+          const ModalBarrier(dismissible: false, color: Colors.transparent),
         if (_visible) const _ResumeSplash(key: ResumeSplashGate.splashKey),
       ],
     );

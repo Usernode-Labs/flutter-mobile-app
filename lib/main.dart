@@ -581,19 +581,13 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
           ),
       ],
     );
-    // Block resumed UI dispatch until the private native snapshot/wake has
-    // either kept Ready or retired it to the inert signed-out projection.
+    // Block resumed UI dispatch while the private native snapshot/wake decides
+    // between keeping Ready and retiring to the inert signed-out projection,
+    // bounded so a slow producer-policy refresh cannot freeze the screen.
     // The tree shape stays fixed so the router subtree is never reparented.
     return ResumeSplashGate(
       pending: _resumeValidationPending,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AbsorbPointer(absorbing: _resumeValidationPending, child: content),
-          if (_resumeValidationPending)
-            const ModalBarrier(dismissible: false, color: Colors.transparent),
-        ],
-      ),
+      child: content,
     );
   }
 }

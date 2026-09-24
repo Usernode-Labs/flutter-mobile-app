@@ -1419,7 +1419,10 @@ final class _ForegroundAdmissionGate {
   }
 
   Future<void> resume(Future<void> Function() validate) {
-    if (_phase == _ForegroundAdmissionPhase.terminal) {
+    // Open means the app never left the foreground, so there is nothing to
+    // revalidate.
+    if (_phase == _ForegroundAdmissionPhase.terminal ||
+        _phase == _ForegroundAdmissionPhase.open) {
       return Future<void>.value();
     }
     final active = _validation;
@@ -1684,6 +1687,10 @@ final class _NativeSessionCompositionRoot
     if (state == AppLifecycleState.resumed) {
       return _foregroundAdmission.resume(_performForegroundResume);
     }
+    // Inactive is not background: Android reports it for system dialogs such
+    // as runtime permission prompts. Suspending here would force a full
+    // producer wake on the way back. Real backgrounding reports hidden next.
+    if (state == AppLifecycleState.inactive) return Future<void>.value();
     final sleepyTransition = _sessions.prepareForAppBackground();
     _foregroundAdmission.suspend();
     return sleepyTransition.onError((error, stackTrace) {

@@ -205,16 +205,19 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   Future<void> _handleGetSettingsState(
     String id,
     Map<String, dynamic> payload,
-  ) =>
-      _resolveClaimedSessionOperation(
-        id: id,
-        payload: payload,
-        method: 'getSettingsState',
-        body: (identity, operation) async => _settingsStateSnapshot(
-          identity: identity,
-          sleep: await operation.readSleepy(),
-        ),
-      );
+  ) async {
+    // Outside the session operation: the OS dialog can stay up indefinitely.
+    await StartupNotificationPrompt.instance.pending;
+    await _resolveClaimedSessionOperation(
+      id: id,
+      payload: payload,
+      method: 'getSettingsState',
+      body: (identity, operation) async => _settingsStateSnapshot(
+        identity: identity,
+        sleep: await operation.readSleepy(),
+      ),
+    );
+  }
 
   Future<void> _handleSetNodeSleepEnabled(
     String id,

@@ -31,6 +31,7 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
+import 'package:crypto_mobile_app/core/services/startup_notification_prompt.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
@@ -458,6 +459,7 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         _socialPushOwner,
         SocialPushSession(access: access),
       );
+      unawaited(StartupNotificationPrompt.instance.maybePrompt());
     } else {
       _boundReadyRevision = null;
       unawaited(SentryUtil.clearUser());

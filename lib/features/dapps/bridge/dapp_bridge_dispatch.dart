@@ -48,7 +48,6 @@ mixin _BridgeDispatch
     'setDebugMode',
     'setFacematchStrict',
     'resetZkChallenge',
-    'requestPermissions',
     'openBatterySettings',
     // Granular permission surface: producer alarm/battery prompts remain
     // separate from notification prompts at Social product moments.
@@ -281,10 +280,6 @@ mixin _BridgeDispatch
 
     if (method == 'resetZkChallenge') {
       await _handleResetZkChallenge(id, payload);
-    }
-
-    if (method == 'requestPermissions') {
-      await _handleRequestPermissions(id);
     }
 
     if (method == 'openBatterySettings') {

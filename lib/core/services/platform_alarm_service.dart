@@ -647,27 +647,6 @@ class PlatformAlarmService {
 
   /// Request platform-specific permissions
   ///
-  /// Android: Opens system settings for exact alarm permission
-  /// iOS: Requests notification permissions (if not already granted)
-  Future<bool> requestPermissions() async {
-    if (!_initialized) {
-      _log.warn('Cannot request permissions: service not initialized');
-      return false;
-    }
-
-    try {
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        return await _requestAndroidPermissions();
-      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-        return await _requestIOSNotificationPermission();
-      }
-      return false;
-    } catch (e) {
-      _log.error('Error requesting permissions: $e');
-      return false;
-    }
-  }
-
   /// Requests only the node-runtime permissions: SCHEDULE_EXACT_ALARM and the
   /// battery-optimization exemption. Deliberately excludes notifications so
   /// the SV "node needs alarm & battery" sheet never double-prompts.
@@ -779,30 +758,6 @@ class PlatformAlarmService {
       'exactAlarmGranted': exactAlarm,
       'batteryOptDisabled': batteryOptDisabled,
     };
-  }
-
-  /// Request Android permissions (POST_NOTIFICATIONS, SCHEDULE_EXACT_ALARM, Battery Optimization)
-  Future<bool> _requestAndroidPermissions() async {
-    try {
-      _log.info('Requesting Android permissions...');
-
-      // 1. Request POST_NOTIFICATIONS first (Android 13+)
-      final hasNotifications = await _requestAndroidNotificationsPermission();
-
-      // 2 + 3. Exact alarm and battery exemption.
-      final hasExactAlarm = await _requestAndroidExactAlarmAndBattery();
-
-      // Update permissions granted status
-      _permissionsGranted = hasNotifications && hasExactAlarm;
-
-      _recordRuntimeContextChanged('permissions_changed');
-      _recordPowerNetworkServiceContextChanged('permissions_changed');
-
-      return _permissionsGranted;
-    } on PlatformException catch (e) {
-      _log.error('Error requesting Android permissions: ${e.message}');
-      return false;
-    }
   }
 
   Future<bool> _requestAndroidNotificationsPermission() async {

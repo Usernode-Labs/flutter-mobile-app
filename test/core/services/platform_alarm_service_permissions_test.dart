@@ -186,26 +186,6 @@ void main() {
     });
   });
 
-  group('requestPermissions (legacy bundle)', () {
-    test('android: keeps notifications → exact alarm → battery order',
-        () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      await setUpService();
-      responses['hasPostNotificationsPermission'] = [true];
-      responses['hasExactAlarmPermission'] = [true];
-      responses['isBatteryOptimizationDisabled'] = [true];
-
-      final granted = await service.requestPermissions();
-
-      expect(granted, isTrue);
-      expect(calls, [
-        'hasPostNotificationsPermission',
-        'hasExactAlarmPermission',
-        'isBatteryOptimizationDisabled',
-      ]);
-    });
-  });
-
   group('alarmPermissionsSnapshot', () {
     test('android: probes both states', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;

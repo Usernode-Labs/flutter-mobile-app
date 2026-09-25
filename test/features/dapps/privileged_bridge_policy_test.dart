@@ -54,7 +54,6 @@ void main() {
       'setDebugMode',
       'setFacematchStrict',
       'resetZkChallenge',
-      'requestPermissions',
       'openBatterySettings',
       'requestNotificationPermission',
       'requestAlarmPermissions',

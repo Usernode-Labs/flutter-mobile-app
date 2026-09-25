@@ -99,7 +99,6 @@ class PrivilegedBridgePolicy {
     'setDebugMode',
     'setFacematchStrict',
     'resetZkChallenge',
-    'requestPermissions',
     'openBatterySettings',
     'requestNotificationPermission',
     'requestAlarmPermissions',

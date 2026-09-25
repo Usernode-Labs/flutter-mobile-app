@@ -205,19 +205,16 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   Future<void> _handleGetSettingsState(
     String id,
     Map<String, dynamic> payload,
-  ) async {
-    // Outside the session operation: the OS dialog can stay up indefinitely.
-    await StartupNotificationPrompt.instance.pending;
-    await _resolveClaimedSessionOperation(
-      id: id,
-      payload: payload,
-      method: 'getSettingsState',
-      body: (identity, operation) async => _settingsStateSnapshot(
-        identity: identity,
-        sleep: await operation.readSleepy(),
-      ),
-    );
-  }
+  ) =>
+      _resolveClaimedSessionOperation(
+        id: id,
+        payload: payload,
+        method: 'getSettingsState',
+        body: (identity, operation) async => _settingsStateSnapshot(
+          identity: identity,
+          sleep: await operation.readSleepy(),
+        ),
+      );
 
   Future<void> _handleSetNodeSleepEnabled(
     String id,
@@ -325,20 +322,6 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
         },
       );
 
-  Future<void> _handleRequestPermissions(String id) async {
-    if (!await _requireTrustedChromeOrigin(id, 'requestPermissions')) return;
-    if (!await _revalidatePrivilegedBridgeLease(id, 'requestPermissions')) {
-      return;
-    }
-    final granted = await PlatformAlarmService.instance.requestPermissions();
-    final state = await _settingsStateForCurrentSession();
-    await _resolveJsPromise(
-      id: id,
-      value: {...state, 'granted': granted},
-      error: null,
-    );
-  }
-
   Future<void> _handleOpenBatterySettings(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'openBatterySettings')) return;
     if (!await _revalidatePrivilegedBridgeLease(id, 'openBatterySettings')) {
@@ -348,9 +331,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     await _resolveJsPromise(id: id, value: true, error: null);
   }
 
-  /// Granular variant of `requestPermissions`: notification permission only.
-  /// SV prompts at its own product moments (social push, nudges) without
-  /// dragging the user through the alarm/battery chain.
+  /// Requests notification permission without the alarm/battery chain.
   Future<void> _handleRequestNotificationPermission(String id) async {
     if (!await _requireTrustedChromeOrigin(
       id,
@@ -374,8 +355,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     );
   }
 
-  /// Granular variant of `requestPermissions`: exact-alarm + battery only.
-  /// Never shows the notification dialog.
+  /// Requests exact-alarm and battery permissions without notifications.
   Future<void> _handleRequestAlarmPermissions(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'requestAlarmPermissions')) {
       return;

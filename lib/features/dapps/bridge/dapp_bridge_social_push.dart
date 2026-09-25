@@ -118,18 +118,14 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
   Future<void> _handleGetSocialPushState(
     String id,
     Map<String, dynamic> payload,
-  ) async {
-    // SV reads the iOS prompt status here; report the answer, not the
-    // "not determined" state while the startup dialog is still up.
-    await StartupNotificationPrompt.instance.pending;
-    await _resolveClaimedSessionOperation(
-      id: id,
-      payload: payload,
-      method: 'getSocialPushState',
-      body: (_, __) async =>
-          (await SocialPushService.instance.refreshState()).toBridgeJson(),
-    );
-  }
+  ) =>
+      _resolveClaimedSessionOperation(
+        id: id,
+        payload: payload,
+        method: 'getSocialPushState',
+        body: (_, __) async =>
+            (await SocialPushService.instance.refreshState()).toBridgeJson(),
+      );
 
   Future<void> _handleSetSocialPushEnabled(
     String id,

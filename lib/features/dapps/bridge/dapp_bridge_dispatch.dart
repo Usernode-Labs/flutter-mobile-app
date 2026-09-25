@@ -53,6 +53,9 @@ mixin _BridgeDispatch
     // separate from notification prompts at Social product moments.
     'requestNotificationPermission',
     'requestAlarmPermissions',
+    // The web shell may own the first-run prompt now that Flutter no longer
+    // presents its own startup notification dialog.
+    'webOwnedNotificationPrompt',
     'openNotificationSettings',
     'prepareForLogin',
     'restoreWebSession',

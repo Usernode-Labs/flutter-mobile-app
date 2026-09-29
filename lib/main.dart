@@ -33,7 +33,7 @@ import 'package:crypto_mobile_app/core/services/observability_reporting_service.
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/services/startup_notification_prompt.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
-import 'package:crypto_mobile_app/core/utils/app_deep_link_allowlist.dart';
+import 'package:crypto_mobile_app/core/config/homeroom_link_redirect.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';

@@ -318,6 +318,9 @@
 						CreatedOnToolsVersion = 7.3.1;
 						LastSwiftMigration = 1100;
 						SystemCapabilities = {
+							com.apple.AssociatedDomains = {
+								enabled = 1;
+							};
 							com.apple.Push = {
 								enabled = 1;
 							};

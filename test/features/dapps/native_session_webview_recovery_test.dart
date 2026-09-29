@@ -2,12 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
+import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
+import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
 import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
@@ -30,11 +34,12 @@ void main() {
     await session.retirements.close();
   });
 
-  Widget app({String? url}) => ProviderScope(
+  Widget app({String? url, String? navigationRequest}) => ProviderScope(
         child: MaterialApp(
           home: DappWebViewScreen(
             url: url ?? _url,
             name: 'Usernode',
+            navigationRequest: navigationRequest,
             nativeSessionBridge: session,
             sessionAccess: _SessionAccess(),
           ),
@@ -57,6 +62,92 @@ void main() {
     ));
     await tester.pump();
   }
+
+  testWidgets(
+      'shell validates and forwards website destinations to its WebView',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({'sv_shell_first_load_ok': true});
+    Widget shell(String link, String launch) => ProviderScope(
+          child: MaterialApp(
+            theme:
+                ThemeData(extensions: DesignSystemTheme.standardExtensions()),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: SvShellScreen(
+              initialWebUrl: link,
+              navigationRequest: launch,
+              nativeSessionBridge: session,
+              sessionAccess: _SessionAccess(),
+            ),
+          ),
+        );
+    const first =
+        'https://app.onhomeroom.com/app/run-club/?tag=a&tag=b#comments';
+    const second = 'https://app.onhomeroom.com/invite/abcdefghijklmnopqrstuv';
+    await tester.pumpWidget(shell(first, 'web-1'));
+    await tester.pumpAndSettle();
+    final controller = platform.controller;
+    expect(controller.loads.single, Uri.parse(first));
+    await tester.pumpWidget(shell(second, 'web-2'));
+    await tester.pumpAndSettle();
+    expect(platform.controller, same(controller));
+    expect(controller.loads.last, Uri.parse(second));
+    await tester.pumpWidget(shell('https://evil.test/', 'web-3'));
+    await tester.pumpAndSettle();
+    expect(controller.loads.last, Uri.parse(_url));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('website link loads the complete destination on cold start',
+      (tester) async {
+    const link =
+        'https://app.onhomeroom.com/app/run-club/?tag=a&tag=b#comments';
+    await tester.pumpWidget(app(url: link, navigationRequest: 'web-1'));
+    expect(platform.controller.loads, [Uri.parse(link)]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('warm website navigation reuses the WebView and native session',
+      (tester) async {
+    await tester.pumpWidget(app());
+    final controller = platform.controller;
+    const link = 'https://app.onhomeroom.com/app/run-club?view=members';
+    await tester.pumpWidget(app(url: link, navigationRequest: 'web-1'));
+    await tester.pump();
+    expect(platform.controller, same(controller));
+    expect(controller.loads.last, Uri.parse(link));
+    expect(platform.events, isNot(contains('retire')));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('repeat link navigates again after the user moves inside the SPA',
+      (tester) async {
+    final link = '$_url#messages';
+    await tester.pumpWidget(app(url: link, navigationRequest: 'web-1'));
+    final controller = platform.controller;
+    controller.currentUrlOverride = '$_url#settings';
+    await tester.pumpWidget(app(url: link, navigationRequest: 'web-2'));
+    await tester.pump();
+    expect(platform.controller, same(controller));
+    expect(controller.loads, [Uri.parse(link)]);
+    expect(controller.scripts.last, contains('var nextHash = "messages"'));
+    expect(
+        controller.scripts.last, contains("new HashChangeEvent('hashchange'"));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'repeat website link restores a changed path with a real navigation',
+      (tester) async {
+    const link = 'https://app.onhomeroom.com/app/run-club?view=members';
+    await tester.pumpWidget(app(url: link, navigationRequest: 'web-1'));
+    final controller = platform.controller;
+    controller.currentUrlOverride = 'https://app.onhomeroom.com/app/other';
+    await tester.pumpWidget(app(url: link, navigationRequest: 'web-2'));
+    await tester.pump();
+    expect(controller.loads, [Uri.parse(link), Uri.parse(link)]);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('logout deletes WebView data after retirement and before reload',
       (tester) async {
@@ -197,6 +288,13 @@ class _Controller extends PlatformWebViewController {
   final List<String> events;
   late JavaScriptChannelParams channel;
   String? capability;
+  String? currentUrlOverride;
+  final scripts = <String>[];
+
+  @override
+  Future<void> runJavaScript(String script) async {
+    scripts.add(script);
+  }
 
   @override
   Future<Object> runJavaScriptReturningResult(String script) async {
@@ -230,7 +328,8 @@ class _Controller extends PlatformWebViewController {
   }
 
   @override
-  Future<String?> currentUrl() async => loads.lastOrNull?.toString();
+  Future<String?> currentUrl() async =>
+      currentUrlOverride ?? loads.lastOrNull?.toString();
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}

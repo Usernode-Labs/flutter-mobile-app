@@ -22,10 +22,15 @@ GoRouter _createAppRouter(
   WidgetRef ref,
   _NativeSessionRuntime nativeSession,
 ) {
-  return GoRouter(
+  final initial = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+  late final GoRouter router;
+  router = GoRouter(
     navigatorKey: appNavigatorKey,
     observers: SentryUtil.navigatorObservers(),
-    initialLocation: AppRoutes.splash,
+    // GoRouter 14 otherwise drops the origin/fragment of a cold URL whose
+    // path is empty (https://app.onhomeroom.com#messages).
+    initialLocation: initial == '/' ? AppRoutes.home : initial,
+    overridePlatformDefaultLocation: true,
     routes: [
       GoRoute(
         path: AppRoutes.splash,
@@ -35,6 +40,7 @@ GoRouter _createAppRouter(
         path: AppRoutes.homeSlash,
         builder: (context, state) => SvShellScreen(
           initialHash: state.uri.queryParameters['sv'],
+          initialWebUrl: state.uri.queryParameters['web'],
           navigationRequest: state.uri.queryParameters['launch'],
           nativeSessionBridge: nativeSession.bridge,
           sessionAccess: nativeSession.sessions,
@@ -44,6 +50,7 @@ GoRouter _createAppRouter(
         path: AppRoutes.home,
         builder: (context, state) => SvShellScreen(
           initialHash: state.uri.queryParameters['sv'],
+          initialWebUrl: state.uri.queryParameters['web'],
           navigationRequest: state.uri.queryParameters['launch'],
           nativeSessionBridge: nativeSession.bridge,
           sessionAccess: nativeSession.sessions,
@@ -132,15 +139,8 @@ GoRouter _createAppRouter(
         },
       ),
     ],
-    redirect: (context, state) {
-      if (shouldBlockHomeroomDeepLink(state.uri)) {
-        _routerLog.warn('Blocked unsupported app deep link: ${state.uri}');
-        return AppRoutes.home;
-      }
-      if (state.matchedLocation == AppRoutes.splash) {
-        return AppRoutes.home;
-      }
-      return null;
-    },
+    redirect:
+        homeroomLinkRedirect(() => router.routeInformationProvider.value.uri),
   );
+  return router;
 }

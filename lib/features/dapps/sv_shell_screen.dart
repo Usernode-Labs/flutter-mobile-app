@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/app_router.dart';
+import 'package:crypto_mobile_app/core/config/homeroom_link_redirect.dart';
 import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
@@ -27,6 +28,7 @@ class SvShellScreen extends ConsumerStatefulWidget {
   const SvShellScreen({
     super.key,
     this.initialHash,
+    this.initialWebUrl,
     this.navigationRequest,
     required NativeSessionBridgeIngress nativeSessionBridge,
     required SessionFeatureAccessView sessionAccess,
@@ -37,7 +39,11 @@ class SvShellScreen extends ConsumerStatefulWidget {
   /// — used by the deep-link remap of the retired native tabs.
   final String? initialHash;
 
-  /// Changes for each external shortcut launch, including repeat launches of
+  /// An incoming website link, validated again before it reaches the WebView.
+  /// Paths and queries stay intact, including sign-in and invitation links.
+  final String? initialWebUrl;
+
+  /// Changes for each external link or shortcut, including repeat launches of
   /// the same target, so the live webview can re-assert the requested route.
   final String? navigationRequest;
 
@@ -119,6 +125,9 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   }
 
   String get _shellUrl {
+    final incoming = Uri.tryParse(widget.initialWebUrl ?? '');
+    final webLink = incoming == null ? null : homeroomWebLink(incoming);
+    if (webLink != null) return webLink.toString();
     final base = AppConfig.platformBaseUrl.trim();
     final hash = widget.initialHash;
     if (hash == null || hash.isEmpty) return base;
@@ -135,11 +144,10 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     }
 
     // Keyed by attempt only — NOT by URL. A widget/shortcut deep link
-    // arriving while the shell is alive updates `initialHash` (new
-    // `?sv=` param on /home), and the webview handles that in
-    // didUpdateWidget as a soft `location.hash` navigation on the running
-    // SPA. Keying by URL here would tear the shell down and cold-boot SV
-    // for every widget tap instead.
+    // or website link updates its destination on the running WebView.
+    // didUpdateWidget navigates fragments within the SPA and loads a new
+    // document when its path/query changes. Keying by URL here would tear
+    // the shell down for every link or widget tap instead.
     final webview = DappWebViewScreen(
       key: ValueKey('sv-shell:$_attempt'),
       url: _shellUrl,

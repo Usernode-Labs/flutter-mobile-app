@@ -178,7 +178,8 @@ final class ApplicationIncarnationStore {
     open url: URL,
     options: [UIApplication.OpenURLOptionsKey : Any] = [:]
   ) -> Bool {
-    print("[AppDelegate] openURL received: \(url.absoluteString)")
+    // Links may contain sign-in codes or private invitation tokens.
+    print("[AppDelegate] openURL received")
     let handled = super.application(app, open: url, options: options)
     print("[AppDelegate] openURL handled by Flutter/plugins: \(handled)")
     return handled
@@ -189,8 +190,7 @@ final class ApplicationIncarnationStore {
     continue userActivity: NSUserActivity,
     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
   ) -> Bool {
-    let webpage = userActivity.webpageURL?.absoluteString ?? "<none>"
-    print("[AppDelegate] continueUserActivity type=\(userActivity.activityType) url=\(webpage)")
+    print("[AppDelegate] continueUserActivity type=\(userActivity.activityType)")
     let handled = super.application(
       application,
       continue: userActivity,

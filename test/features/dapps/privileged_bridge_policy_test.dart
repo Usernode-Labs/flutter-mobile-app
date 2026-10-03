@@ -77,6 +77,19 @@ void main() {
     });
   });
 
+  test('presentation-only methods stay unprivileged', () {
+    // They must work before sign-in and on a staging origin, where no
+    // trusted-realm lease exists.
+    final subject = policy(frame());
+    for (final method in ['setAppearance', 'setStatusBarTone']) {
+      expect(subject.requiresCapability(method), isFalse, reason: method);
+      expect(
+        PrivilegedBridgePolicy.privilegedMethods,
+        isNot(contains(method)),
+      );
+    }
+  });
+
   test('missing, empty, and guessed capabilities are denied in their realm',
       () async {
     final topFrame = frame();

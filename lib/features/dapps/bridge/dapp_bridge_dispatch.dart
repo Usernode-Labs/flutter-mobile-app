@@ -72,6 +72,10 @@ mixin _BridgeDispatch
     // cold launch it fixes is the one before sign-in, where a privileged
     // lease does not exist yet. See _handleSetAppearance.
     'setAppearance',
+    // Presentation only and UNPRIVILEGED too: the page names the tone of the
+    // ground under the status bar so the glyphs stay readable. Never
+    // persisted. See _handleSetStatusBarTone.
+    'setStatusBarTone',
   ];
 
   /// Platform-aware capability list. Additive, feature-named entries only;
@@ -269,6 +273,10 @@ mixin _BridgeDispatch
 
     if (method == 'setAppearance') {
       await _handleSetAppearance(id, payload);
+    }
+
+    if (method == 'setStatusBarTone') {
+      await _handleSetStatusBarTone(id, payload);
     }
 
     if (method == 'setDebugMode') {

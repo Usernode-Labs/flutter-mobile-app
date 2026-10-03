@@ -22,6 +22,7 @@ import 'package:crypto_mobile_app/features/dapps/native_screen_capture.dart';
 import 'package:crypto_mobile_app/features/dapps/node_requirement_contract.dart';
 import 'package:crypto_mobile_app/features/dapps/node_requirement_guard_registry.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
+import 'package:crypto_mobile_app/features/dapps/status_bar_style.dart';
 import 'package:crypto_mobile_app/features/dapps/submit_transaction_contract.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_store.dart'
@@ -459,6 +460,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         NavigationDelegate(
           onPageStarted: (_) {
             _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+            _clearStatusBarTone();
           },
           onPageFinished: (_) {
             if (!mounted) return;
@@ -673,11 +675,14 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
       //
       // Dark ground takes light glyphs. `colors.brightness` is the app's
       // RESOLVED appearance, which the web shell keeps in step through
-      // `setAppearance` on the bridge, so the two agree without this screen
-      // having to ask the page anything.
-      value: colors.brightness == Brightness.dark
-          ? SystemUiOverlayStyle.light
-          : SystemUiOverlayStyle.dark,
+      // `setAppearance` on the bridge. That is the page's ground most of the
+      // time, but not under a dark fullscreen preview on a light shell (or the
+      // reverse), so the page can name the ground itself with
+      // `setStatusBarTone`, and that wins until it clears it.
+      value: statusBarStyleFor(
+        themeBrightness: colors.brightness,
+        toneOverride: _statusBarTone,
+      ),
       child: PopScope(
         // Take over the route-pop handler so the device/system back button
         // walks the WebView's session history first (pushState entries

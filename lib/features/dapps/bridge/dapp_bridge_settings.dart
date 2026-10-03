@@ -129,29 +129,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     required SessionIdentityProjection identity,
     required SessionSleepySnapshot sleep,
   }) async {
-    // Live probes, not the service's cached combined flag: the granular
-    // request methods don't refresh `hasPermissions`, and its legacy
-    // notifications&&exactAlarm semantics would mislabel `exactAlarmGranted`.
-    bool exactAlarmGranted = false;
-    bool? batteryOptDisabled;
-    bool notificationsGranted = false;
-    String? deviceManufacturer;
-    try {
-      await PlatformAlarmService.instance.initialize();
-      notificationsGranted =
-          await PlatformAlarmService.instance.hasNotificationsPermission();
-      final alarm =
-          await PlatformAlarmService.instance.alarmPermissionsSnapshot();
-      exactAlarmGranted = alarm['exactAlarmGranted'] == true;
-      batteryOptDisabled = alarm['batteryOptDisabled'] as bool?;
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        deviceManufacturer =
-            await PlatformAlarmService.instance.getDeviceManufacturer();
-      }
-    } catch (e) {
-      debugPrint('[Usernode JS-channel] permission probe failed: $e');
-    }
-
+    final permissions = await devicePermissionsSnapshot();
     final mobileAppBuildInfo = await _mobileAppBuildInfo();
 
     String? nodeVersion;
@@ -191,14 +169,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       'authStatus': identity.status == SessionProjectionStatus.ready
           ? 'ready'
           : 'unauthenticated',
-      'permissions': {
-        'platform':
-            defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
-        'exactAlarmGranted': exactAlarmGranted,
-        'notificationsGranted': notificationsGranted,
-        'batteryOptDisabled': batteryOptDisabled,
-        'deviceManufacturer': deviceManufacturer,
-      },
+      'permissions': permissions,
     };
   }
 
@@ -206,8 +177,6 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     String id,
     Map<String, dynamic> payload,
   ) async {
-    // Outside the session operation: the OS dialog can stay up indefinitely.
-    await StartupNotificationPrompt.instance.pending;
     await _resolveClaimedSessionOperation(
       id: id,
       payload: payload,

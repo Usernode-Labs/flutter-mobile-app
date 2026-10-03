@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import 'package:crypto_mobile_app/core/services/notification_permission_status.dart';
+
 import 'social_push_store.dart';
 
 abstract interface class SocialPushMessaging {
@@ -49,17 +51,21 @@ class FirebaseSocialPushMessaging implements SocialPushMessaging {
           .authorizationStatus);
 
   @override
-  Future<SocialPushPermission> requestPermission() async =>
-      _permission((await FirebaseMessaging.instance.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      ))
-          .authorizationStatus);
+  Future<SocialPushPermission> requestPermission() async {
+    // On Android 13+ this can show the POST_NOTIFICATIONS dialog: record the
+    // ask so a refusal later reads as `denied` rather than `notDetermined`.
+    await NotificationPermissionRequestLog.markRequested();
+    return _permission((await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    ))
+        .authorizationStatus);
+  }
 
   @override
   Future<String?> getApnsToken() => FirebaseMessaging.instance.getAPNSToken();

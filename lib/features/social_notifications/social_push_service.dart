@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/notification_permission_status.dart';
+import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
 
@@ -26,6 +28,18 @@ const _defaultRegistrationRetryDelays = <Duration>[
 
 Timer _defaultRetryTimer(Duration delay, void Function() callback) =>
     Timer(delay, callback);
+
+/// The OS notification permission, read without Firebase.
+Future<SocialPushPermission> _platformNotificationPermission() async {
+  final status =
+      await PlatformAlarmService.instance.notificationPermissionStatus();
+  return switch (status) {
+    NotificationPermissionStatus.notDetermined =>
+      SocialPushPermission.notDetermined,
+    NotificationPermissionStatus.denied => SocialPushPermission.denied,
+    NotificationPermissionStatus.authorized => SocialPushPermission.authorized,
+  };
+}
 
 class SocialPushSession {
   const SocialPushSession({
@@ -61,9 +75,11 @@ class SocialPushService {
     DateTime Function()? now,
     SocialPushRetryTimerFactory? createRetryTimer,
     List<Duration> registrationRetryDelays = _defaultRegistrationRetryDelays,
+    Future<SocialPushPermission> Function()? readPlatformPermission,
   })  : _messaging = messaging,
         _persistence = persistence,
         _api = api,
+        _readPlatformPermission = readPlatformPermission,
         _now = now ?? DateTime.now,
         _createRetryTimer = createRetryTimer ?? _defaultRetryTimer,
         _registrationRetryDelays =
@@ -80,6 +96,7 @@ class SocialPushService {
         : defaultTargetPlatform == TargetPlatform.iOS
             ? 'ios'
             : null,
+    readPlatformPermission: _platformNotificationPermission,
   );
 
   final SocialPushMessaging _messaging;
@@ -88,6 +105,12 @@ class SocialPushService {
   final DateTime Function() _now;
   final SocialPushRetryTimerFactory _createRetryTimer;
   final List<Duration> _registrationRetryDelays;
+
+  /// Reads the OS permission when Firebase is unavailable (push not
+  /// configured in this build, or failing to start). Null leaves the
+  /// permission at its last Firebase-read value.
+  final Future<SocialPushPermission> Function()? _readPlatformPermission;
+
   final String environment;
   final String expectedFirebaseProjectId;
   final String? platform;
@@ -520,6 +543,10 @@ class SocialPushService {
     final record = _record!;
     if (!_available) {
       _cancelRegistrationRetry(resetAttempts: true);
+      // Firebase can't read the permission, but the OS answer is still real.
+      // Without it SV would read `not_determined` forever and keep offering
+      // a prompt the OS may never show again.
+      await _readPermissionWithoutProvider();
       _registrationStatus = record.optedIn
           ? SocialPushRegistrationStatus.error
           : SocialPushRegistrationStatus.disabled;
@@ -1057,6 +1084,16 @@ class SocialPushService {
     _registeredSession = null;
     _registeredProviderToken = null;
     _registeredPermission = null;
+  }
+
+  Future<void> _readPermissionWithoutProvider() async {
+    final read = _readPlatformPermission;
+    if (read == null) return;
+    try {
+      _permission = await read();
+    } catch (_) {
+      // Keep the last value; this read only informs SV's prompt UI.
+    }
   }
 
   void _emitState() {

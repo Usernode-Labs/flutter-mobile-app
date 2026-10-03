@@ -319,6 +319,26 @@ final class ApplicationIncarnationStore {
         }
       }
 
+    // The bridge's three-state answer, so the web can tell "never asked"
+    // (asking shows the dialog) from "refused" (only Settings can help).
+    case "getNotificationAuthorizationStatus":
+      UNUserNotificationCenter.current().getNotificationSettings { settings in
+        let status: String
+        switch settings.authorizationStatus {
+        case .notDetermined:
+          status = "notDetermined"
+        case .denied:
+          status = "denied"
+        case .authorized, .provisional, .ephemeral:
+          status = "authorized"
+        @unknown default:
+          status = "notDetermined"
+        }
+        DispatchQueue.main.async {
+          result(status)
+        }
+      }
+
     case "openNotificationSettings":
       DispatchQueue.main.async {
         guard let url = URL(string: UIApplication.openSettingsURLString),

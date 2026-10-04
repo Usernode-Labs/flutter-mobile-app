@@ -158,6 +158,19 @@ class AppConfig {
     defaultValue: 'https://zkbridge.onhomeroom.com',
   );
 
+  // Native sign-in for the web shell's sign-in sheet (`signInWithProvider`,
+  // lib/features/dapps/native_sign_in.dart). Google's OAuth client IDs are
+  // public identifiers, not secrets. The server client is the platform's
+  // web client (Admin → Sign-in providers → Google → Client ID); Android
+  // needs it for an ID token at all. The iOS client also needs its reversed
+  // form as a URL scheme: GOOGLE_REVERSED_CLIENT_ID in
+  // ios/Flutter/GoogleSignIn.xcconfig. Empty leaves Continue with Google
+  // out of the app's sheet.
+  static const String googleServerClientId =
+      String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID', defaultValue: '');
+  static const String googleIosClientId =
+      String.fromEnvironment('GOOGLE_IOS_CLIENT_ID', defaultValue: '');
+
   // GitHub configuration
   static const String githubToken =
       String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');

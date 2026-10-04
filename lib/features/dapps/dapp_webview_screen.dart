@@ -19,6 +19,7 @@ import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
 import 'package:crypto_mobile_app/features/dapps/native_screen_capture.dart';
+import 'package:crypto_mobile_app/features/dapps/native_sign_in.dart';
 import 'package:crypto_mobile_app/features/dapps/node_requirement_contract.dart';
 import 'package:crypto_mobile_app/features/dapps/node_requirement_guard_registry.dart';
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
@@ -52,6 +53,7 @@ part 'bridge/dapp_bridge_shortcuts.dart';
 part 'bridge/dapp_bridge_settings.dart';
 part 'bridge/dapp_bridge_social_push.dart';
 part 'bridge/dapp_bridge_capture.dart';
+part 'bridge/dapp_bridge_sign_in.dart';
 part 'bridge/dapp_bridge_dispatch.dart';
 part 'bridge/dapp_bridge_node_requirement.dart';
 
@@ -400,6 +402,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         _BridgeSettings,
         _BridgeSocialPush,
         _BridgeCapture,
+        _BridgeSignIn,
         _BridgeDispatch {
   int _widgetNavigationRevision = 0;
   // Transaction confirmation uses Navigator.push with an opaque route instead

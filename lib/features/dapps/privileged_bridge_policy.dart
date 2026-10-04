@@ -119,6 +119,8 @@ class PrivilegedBridgePolicy {
     'setSocialPushEnabled',
     'claimPendingSocialNotification',
     'ackPendingSocialNotification',
+    // The web shell's sign-in sheet: the app's own Apple or Google sheet.
+    'signInWithProvider',
   };
 
   final Uri? _trustedOrigin;

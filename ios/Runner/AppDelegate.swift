@@ -78,6 +78,7 @@ final class ApplicationIncarnationStore {
   private let screenshotChannelName = "com.onhomeroom.app/screenshot"
   private var alarmChannel: FlutterMethodChannel?
   private var screenshotChannel: FlutterMethodChannel?
+  private var webViewKeyboardChannel: FlutterMethodChannel?
   private var nativeSessionChannel: IOSNativeSessionChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
   private let bgTaskScheduler = BGTaskSchedulerManager()
@@ -136,6 +137,13 @@ final class ApplicationIncarnationStore {
     setupApplicationChannels(
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
+
+    // Needs the plugin registry to find the webview_flutter WKWebView.
+    webViewKeyboardChannel = WebViewFormAccessory.makeChannel(
+      binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+      pluginRegistry: engineBridge.pluginRegistry
+    )
+    print("[AppDelegate] Method channel '\(WebViewFormAccessory.channelName)' configured")
   }
 
   private func setupApplicationChannels(binaryMessenger: FlutterBinaryMessenger) {

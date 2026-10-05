@@ -29,6 +29,7 @@ import 'package:crypto_mobile_app/features/social_notifications/social_push_serv
 import 'package:crypto_mobile_app/features/social_notifications/social_push_store.dart'
     show SocialPushState;
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
+import 'package:crypto_mobile_app/features/dapps/webview_form_accessory.dart';
 import 'package:crypto_mobile_app/features/zkpassport/zk_challenge_reset.dart'
     show resetChallengeState;
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart'
@@ -507,6 +508,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     if (platformController is AndroidWebViewController) {
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
     }
+    // iOS: drop WKWebView's chevrons/Done bar above the keyboard, which native
+    // apps don't have, so the page keeps that height. No-op elsewhere.
+    unawaited(const WebViewFormAccessory().hideFor(_controller));
     _listenForSocialPushEvents();
     _listenForPermissionChanges();
   }

@@ -74,6 +74,7 @@ void main() {
       'setSocialPushEnabled',
       'claimPendingSocialNotification',
       'ackPendingSocialNotification',
+      'signInWithProvider',
     });
   });
 

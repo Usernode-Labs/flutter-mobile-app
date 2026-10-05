@@ -12,7 +12,8 @@ mixin _BridgeDispatch
         _BridgeShortcuts,
         _BridgeSettings,
         _BridgeSocialPush,
-        _BridgeCapture {
+        _BridgeCapture,
+        _BridgeSignIn {
   /// Bridge protocol version. Bump only on breaking changes; additive
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
@@ -90,9 +91,13 @@ mixin _BridgeDispatch
   /// and Android's pinned launcher shortcuts are static bitmaps that can
   /// never flip, so advertising there would make the page ship an asset
   /// that is silently dropped.
+  ///
+  /// `signInWithApple` / `signInWithGoogle` — `signInWithProvider` can show
+  /// that provider's sheet in this build ([NativeSignIn.capabilities]).
   List<String> get _platformBridgeCapabilities => [
         ..._bridgeCapabilities,
         if (HomeShortcutsChannel.isIOS) 'homeScreenShortcutDarkIcon',
+        ...NativeSignIn.instance.capabilities,
       ];
 
   /// Routes every `Usernode` JS-channel message to its domain handler.
@@ -341,6 +346,10 @@ mixin _BridgeDispatch
 
     if (method == 'ackPendingSocialNotification') {
       await _handleAckPendingSocialNotification(id, payload);
+    }
+
+    if (method == 'signInWithProvider') {
+      await _handleSignInWithProvider(id, payload);
     }
   }
 

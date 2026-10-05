@@ -427,10 +427,20 @@ final class _NativeSessionPlatformPort {
     if (value.keys.toSet().difference(const {'outcome'}).isNotEmpty ||
         value.length != 1 ||
         outcome is! String ||
-        !const {'completed', 'retry', 'ignored'}.contains(outcome)) {
+        !const {'completed', 'retry', 'ignored', 'credentialAbsent'}
+            .contains(outcome)) {
       throw const NativeSessionException(
         'native_producer_wake_result_invalid',
         'The native producer wake result is invalid.',
+      );
+    }
+    if (outcome == 'credentialAbsent') {
+      // The platform found the server no longer accepts this credential and
+      // left Rust Ready, so the interactive owner retires it like any other
+      // definitive absence instead of latching the process.
+      throw const NativeSessionException(
+        'native_credential_definitively_absent',
+        'The authenticated native credential is no longer accepted.',
       );
     }
     if (outcome != 'completed') {
@@ -1731,6 +1741,13 @@ final class _NativeSessionCompositionRoot
           await _retireFromNative(retiredRevision);
         }
       } catch (error) {
+        if (_isDefinitiveCredentialAbsence(error)) {
+          // The server ended this session while the app was closed or in the
+          // background. Retire it inside foreground validation so the page is
+          // admitted only after signed-out is published.
+          await _retireDefinitivelyAbsentLogged();
+          return;
+        }
         // A retry leaves Rust Ready and is attempted again at the next bounded
         // resume. Keep this method non-throwing because lifecycle delivery has
         // no awaiting error owner.
@@ -1756,7 +1773,10 @@ final class _NativeSessionCompositionRoot
   Future<void> _commitNativeRetirement(int nativeRevision) async {
     // Rust deliberately leaves warm definitive absence as RecoveryRequired so
     // Android wake paths can terminate. The process latch also closes native
-    // operations on iOS and foreground Android until natural relaunch.
+    // operations on iOS and foreground Android until natural relaunch: Rust
+    // refuses every session mutation from RecoveryRequired, so no sign-in can
+    // succeed in this process either. Interactive iOS wakes avoid this state
+    // by reporting absence to the owner (see _retireDefinitivelyAbsent).
     _enterRecoveryRequired();
     final signedOut = SessionIdentityProjection.signedOut(
       nativeRevision: nativeRevision.toString(),
@@ -1774,18 +1794,16 @@ final class _NativeSessionCompositionRoot
   }
 
   void _handleEffectFailure(Object error, StackTrace _) {
-    final sessionError = _asNativeSessionException(error);
-    if (_authority is! _NativeReady ||
-        !const {
-          'native_credential_definitively_absent',
-          'native_credential_expired',
-        }.contains(sessionError.code)) {
+    if (_authority is! _NativeReady || !_isDefinitiveCredentialAbsence(error)) {
       return;
     }
     // Close admission before releasing the failing effect lease. Retirement
     // then drains that exact scope without any per-feature failure guards.
     unawaited(_sessions.closeAndDrain());
-    unawaited(
+    unawaited(_retireDefinitivelyAbsentLogged());
+  }
+
+  Future<void> _retireDefinitivelyAbsentLogged() =>
       _retireDefinitivelyAbsent().catchError(
         (Object retirementError, StackTrace _) {
           LoggingService.instance.warn(
@@ -1794,18 +1812,24 @@ final class _NativeSessionCompositionRoot
             tag: 'usernode/NativeSession',
           );
         },
-      ),
-    );
-  }
+      );
 
+  /// Retires a Ready session whose server credential is definitively absent:
+  /// the account was deleted, the session was revoked or signed out elsewhere,
+  /// or its lease ended. This is the ordinary root retirement, so on success
+  /// Rust has durably committed LoggedOut and the platform vault is clear,
+  /// which is the same state a cold launch would recover. The process stays
+  /// usable and a later sign-in may establish a new session.
   Future<void> _retireDefinitivelyAbsent() async {
     if (_authority is! _NativeReady) return;
     try {
       await _retireAuthority(const _NativeTerminalIntent.processRoot());
-    } finally {
-      // Even an unexpected local retirement failure must not reopen a process
-      // whose server credential is definitively absent.
+    } catch (_) {
+      // A retirement that did not complete leaves native state unknown. Even
+      // an unexpected local failure must not reopen a process whose server
+      // credential is definitively absent, so latch until relaunch.
       _enterRecoveryRequired();
+      rethrow;
     }
   }
 
@@ -1939,19 +1963,27 @@ final class _NativeSessionCompositionRoot
 
       if (publish && projection.hasWallet) {
         int? retiredRevision;
+        var credentialAbsent = false;
         try {
           retiredRevision = await _platform.runInteractiveProducerWake(
             expectedRevision: binding.readyRevision,
             refreshPolicy: true,
           );
         } catch (error) {
-          LoggingService.instance.warn(
-            'Native producer wake will retry (${error.runtimeType})',
-            tag: 'usernode/NativeSession',
-          );
+          credentialAbsent = _isDefinitiveCredentialAbsence(error);
+          if (!credentialAbsent) {
+            LoggingService.instance.warn(
+              'Native producer wake will retry (${error.runtimeType})',
+              tag: 'usernode/NativeSession',
+            );
+          }
         }
-        if (retiredRevision != null) {
-          await _retireFromNative(retiredRevision);
+        if (retiredRevision != null || credentialAbsent) {
+          if (retiredRevision != null) {
+            await _retireFromNative(retiredRevision);
+          } else {
+            await _retireDefinitivelyAbsentLogged();
+          }
           throw const NativeSessionException(
             'native_session_not_ready',
             'The native credential was retired during establishment.',
@@ -2021,10 +2053,7 @@ final class _NativeSessionCompositionRoot
             'The native session is no longer current.');
       }
       _handleEffectFailure(failure, stackTrace);
-      if (const {
-        'native_credential_definitively_absent',
-        'native_credential_expired'
-      }.contains(failure.code)) {
+      if (_isDefinitiveCredentialAbsence(failure)) {
         return const {'status': 'absent'};
       }
       rethrow;
@@ -2515,6 +2544,12 @@ NativeSessionException _asNativeSessionException(Object error) {
   );
 }
 
+/// Whether the server no longer accepts the session's credential.
+bool _isDefinitiveCredentialAbsence(Object error) => const {
+      'native_credential_definitively_absent',
+      'native_credential_expired',
+    }.contains(_asNativeSessionException(error).code);
+
 final BigInt _maxU64 = BigInt.parse('18446744073709551615');
 final BigInt _maxPlatformInt = BigInt.from(0x7fffffff);
 final BigInt _maxPlatformLong = BigInt.parse('9223372036854775807');
@@ -2568,4 +2603,331 @@ Uint8List _ownedNativeSecret(
     throw NativeSessionException(code, message);
   }
   return Uint8List.fromList(raw);
+}
+
+/// Drives the composition root through credential retirement and the sign-in
+/// that follows it.
+///
+/// Like [runSessionLifecycleOrderingSelfCheck], this accepts nothing and
+/// returns only inert event labels. The real platform port runs over a
+/// scripted in-memory channel. Rust calls still go through the generated API,
+/// so the caller installs a Rust API double with `RustLib.initMock` first.
+Future<List<String>> runNativeRetirementRecoverySelfCheck() async {
+  const realm = 'trusted-realm';
+  final events = <String>[];
+
+  Future<void> signIn(_RetirementSelfCheck check, String label) async {
+    await check.root.prepareForLogin(realmMarker: realm);
+    final receipt = await check.root.establishNativeSession(
+      payload: _selfCheckEstablishPayload,
+      realmMarker: realm,
+    );
+    _expectSelfCheck(
+      receipt['receiptStatus'] == 'committedReady' &&
+          check.root.sessions.current.identity.participantId == 2,
+      '$label: the next sign-in did not establish',
+    );
+    events.add(label);
+  }
+
+  // Relaunch holding a wallet session that the server already ended. The
+  // first foreground wake finds the credential absent.
+  var check = await _RetirementSelfCheck.start(
+    wakeOutcome: 'credentialAbsent',
+  );
+  await check.root.appLifecycleStateChanged(AppLifecycleState.resumed);
+  _expectSelfCheck(
+    !check.root.terminallyRetired &&
+        check.signedOut &&
+        check.channel.calls.contains('retireNativeSessionCredential'),
+    'absence found at launch did not retire the old session cleanly',
+  );
+  final launchRestore = await check.root.restoreWebSession(realmMarker: realm);
+  _expectSelfCheck(
+    launchRestore['status'] == 'absent',
+    'the page restored a session the server ended',
+  );
+  events.add('launch-absence-signed-out');
+  await signIn(check, 'launch-absence-sign-in-established');
+
+  // A walletless session has no producer wake. The page's restore is the
+  // first authenticated call and finds the credential absent.
+  check = await _RetirementSelfCheck.start(wallet: false);
+  await check.root.appLifecycleStateChanged(AppLifecycleState.resumed);
+  final restore = await check.root.restoreWebSession(realmMarker: realm);
+  await check.untilRetirementSettles();
+  _expectSelfCheck(
+    restore['status'] == 'absent' &&
+        !check.root.terminallyRetired &&
+        check.signedOut,
+    'absence found by restore did not retire the old session cleanly',
+  );
+  events.add('restore-absence-signed-out');
+  await signIn(check, 'restore-absence-sign-in-established');
+
+  // The server ends the session while it is in use.
+  check = await _RetirementSelfCheck.start();
+  await check.root.appLifecycleStateChanged(AppLifecycleState.resumed);
+  await check.failManagedCallWithAbsence();
+  await check.untilRetirementSettles();
+  _expectSelfCheck(
+    !check.root.terminallyRetired && check.signedOut,
+    'absence found while signed in did not retire the session cleanly',
+  );
+  events.add('signed-in-absence-signed-out');
+  await signIn(check, 'signed-in-absence-sign-in-established');
+
+  // Rust retired the session itself, as an iOS background wake does. Rust
+  // refuses every session mutation until relaunch, so the latch stays.
+  check = await _RetirementSelfCheck.start();
+  await check.root.appLifecycleStateChanged(AppLifecycleState.resumed);
+  await check.channel.deliverRetirement(2);
+  _expectSelfCheck(
+    check.root.terminallyRetired && check.signedOut,
+    'native retirement did not latch the process',
+  );
+  await _expectSelfCheckTerminallyRetired(
+    () => check.root.prepareForLogin(realmMarker: realm),
+    'native retirement admitted a sign-in',
+  );
+  await _expectSelfCheckTerminallyRetired(
+    () => check.root.establishNativeSession(
+      payload: _selfCheckEstablishPayload,
+      realmMarker: realm,
+    ),
+    'native retirement admitted an establishment',
+  );
+  events.add('native-retirement-latched');
+
+  // A definitive absence whose local retirement fails leaves native state
+  // unknown, so the process still latches.
+  check = await _RetirementSelfCheck.start(retirementFails: true);
+  await check.root.appLifecycleStateChanged(AppLifecycleState.resumed);
+  final latched = check.root.terminalRetirements.first;
+  await check.failManagedCallWithAbsence();
+  await latched;
+  await _expectSelfCheckTerminallyRetired(
+    () => check.root.prepareForLogin(realmMarker: realm),
+    'a failed retirement admitted a sign-in',
+  );
+  events.add('failed-retirement-latched');
+
+  return List<String>.unmodifiable(events);
+}
+
+final _selfCheckEstablishPayload = <String, dynamic>{
+  'args': <String, Object?>{
+    'attemptId': 'nsa_${'A' * 43}',
+    'desiredRuntime': 'running',
+  },
+};
+
+/// One Ready process root, recovered at launch as `_readyRoot` builds it.
+final class _RetirementSelfCheck {
+  _RetirementSelfCheck._(this.channel, this.root);
+
+  final _SelfCheckNativeChannel channel;
+  final _NativeSessionCompositionRoot root;
+
+  static Future<_RetirementSelfCheck> start({
+    bool wallet = true,
+    String wakeOutcome = 'completed',
+    bool retirementFails = false,
+  }) async {
+    final channel = _SelfCheckNativeChannel((method, arguments) {
+      switch (method) {
+        case 'bootstrapInteractiveRoot':
+          return {
+            'processRootProof': Uint8List(32),
+            'processTransportClaim': Uint8List(32),
+          };
+        case 'runInteractiveProducerWake':
+          return {'outcome': wakeOutcome};
+        case 'restoreNativeWebSession':
+          // The server rejected the bearer and the vault deleted it.
+          throw PlatformException(
+              code: 'native_credential_definitively_absent');
+        case 'revokeNativeSessionCredential':
+          return {'status': 'definitivelyAbsent'};
+        case 'retireNativeSessionCredential':
+          if (retirementFails) {
+            throw PlatformException(code: 'native_retirement_mismatch');
+          }
+          return null;
+        case 'redeemNativeSessionHandoff':
+          return _selfCheckTicket(arguments['attemptId']! as String);
+        case 'prepareNativeSessionExchange':
+          return {'request': 'self-check'};
+        case 'installNativeSessionCredential':
+          return {'installClaim': Uint8List(32)};
+      }
+      throw PlatformException(
+        code: 'self_check_unexpected_call',
+        message: method,
+      );
+    });
+    final platform = _NativeSessionPlatformPort(
+      channel: MethodChannel(
+        '${_NativeSessionPlatformPort._channelName}.self_check',
+        const StandardMethodCodec(),
+        channel,
+      ),
+    );
+    await platform.bootstrapInteractiveRoot(
+      mobileApiBaseUrl: 'https://self-check.invalid',
+    );
+    final identity = wallet
+        ? SessionIdentityProjection.ready(
+            nativeRevision: '1',
+            participantId: 1,
+            accountId: 'account-a',
+            address: 'address-a',
+            publicKey: 'public-key-a',
+          )
+        : SessionIdentityProjection.ready(
+            nativeRevision: '1', participantId: 1);
+    late final _NativeSessionCompositionRoot root;
+    final effects = _ClosedSessionEffectSink(
+      (error, stackTrace) => root._handleEffectFailure(error, stackTrace),
+      (enabled) async =>
+          SessionSleepySnapshot(enabled: enabled, decision: 'self_check'),
+    );
+    root = _NativeSessionCompositionRoot._(
+      root: _SelfCheckProcessRoot(),
+      platform: platform,
+      exchange: _SelfCheckExchange(),
+      sessions: _SessionCompositionRoot(identity, readyEffects: effects),
+      authority: _NativeReady(
+        _NativeReadyBinding(
+          session: _SelfCheckNativeSession(),
+          readyRevision: 1,
+          projection: identity,
+          effects: effects,
+          attemptId: 'self-check-recovered',
+        ),
+      ),
+    );
+    // As after cold recovery, the first frame's resume opens admission.
+    root._foregroundAdmission.suspend();
+    return _RetirementSelfCheck._(channel, root);
+  }
+
+  bool get signedOut =>
+      root.sessions.current.identity.status ==
+      SessionProjectionStatus.signedOut;
+
+  /// Waits for a retirement that runs behind its trigger to settle.
+  Future<void> untilRetirementSettles() async {
+    final authority = root._authority;
+    if (authority is _NativeClosing) await authority.active;
+  }
+
+  /// A managed account request whose bearer the server no longer accepts.
+  Future<void> failManagedCallWithAbsence() async {
+    try {
+      await root.sessions.current.operations.run<void>(
+        (operation) => _SessionEffectSelfCheckSink.run<void>(
+          operation,
+          () => throw const NativeSessionException(
+            'native_credential_definitively_absent',
+            'self-check managed request',
+          ),
+        ),
+      );
+    } on NativeSessionException {
+      // The request reports its own failure; retirement runs separately.
+    }
+  }
+}
+
+Map<String, Object?> _selfCheckTicket(String attemptId) => {
+      'protocol': 2,
+      'attemptId': attemptId,
+      'desiredRuntime': 'running',
+      'ticket': 'self-check-ticket',
+      'requestDigest': 'self-check-request-digest',
+      'exchangeChallenge': 'self-check-exchange-challenge',
+      'network': {'id': 'testnet', 'chainId': 'self-check-chain'},
+      'issuedAt': '2026-01-01T00:00:00Z',
+      'expiresAt': '2026-01-01T00:05:00Z',
+    };
+
+Future<void> _expectSelfCheckTerminallyRetired(
+  Future<Object?> Function() body,
+  String message,
+) async {
+  try {
+    await body();
+  } on NativeSessionException catch (error) {
+    if (error.code == 'native_session_terminally_retired') return;
+    rethrow;
+  }
+  throw StateError(message);
+}
+
+/// The platform side of the private channel, answering from a script.
+final class _SelfCheckNativeChannel implements BinaryMessenger {
+  _SelfCheckNativeChannel(this._answer);
+
+  static const _codec = StandardMethodCodec();
+  final Object? Function(String method, Map<Object?, Object?> arguments)
+      _answer;
+  final List<String> calls = <String>[];
+  MessageHandler? _flutterHandler;
+
+  @override
+  Future<ByteData?> send(String channel, ByteData? message) async {
+    final call = _codec.decodeMethodCall(message);
+    calls.add(call.method);
+    try {
+      return _codec.encodeSuccessEnvelope(
+        _answer(call.method, call.arguments as Map<Object?, Object?>),
+      );
+    } on PlatformException catch (error) {
+      return _codec.encodeErrorEnvelope(
+        code: error.code,
+        message: error.message,
+      );
+    }
+  }
+
+  @override
+  void setMessageHandler(String channel, MessageHandler? handler) {
+    _flutterHandler = handler;
+  }
+
+  /// Delivers `nativeSessionRetired` the way the platform does after Rust
+  /// retires the session.
+  Future<void> deliverRetirement(int nativeRevision) async {
+    await _flutterHandler!(
+      _codec.encodeMethodCall(
+        MethodCall('nativeSessionRetired', {'nativeRevision': nativeRevision}),
+      ),
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _SelfCheckExchange implements _NativeSessionExchangeTransport {
+  @override
+  Future<Map<String, Object?>> exchange(Map<String, Object?> request) async =>
+      const {'credentialReference': 'self-check-credential'};
+
+  @override
+  void close() {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _SelfCheckProcessRoot implements native.ProcessRootClient {
+  bool _disposed = false;
+
+  @override
+  void dispose() => _disposed = true;
+
+  @override
+  bool get isDisposed => _disposed;
 }

@@ -1,0 +1,14 @@
+Make and share small apps with friends and groups.
+
+Homeroom is a place for communities to make the small apps they need together: a sign-up sheet for the club, a game for the group chat, a tracker for the team.
+
+How it works
+- Make an app for you, your friends or your group.
+- Use and improve apps with others.
+- Suggest a change, try it as a preview, and vote it in. Nothing changes until the group agrees.
+- Discover apps other groups have made and join the ones you like.
+
+Safe by design
+- Every app can be reported, and you can block apps and people.
+- Every app is held to the same content rules as Homeroom itself.
+- Previews of a change are visible only to that app's members.

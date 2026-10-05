@@ -249,6 +249,13 @@ final class IOSNativeProducerWakeCoordinator {
       if case .uncertain = credential {
         return IOSProducerWakeResult(outcome: "retry", nativeRevision: nil)
       }
+      if case .absent = credential, source == .foregroundResume {
+        // The interactive Flutter owner holds this Ready session. Resolving
+        // absence in Rust would leave it RecoveryRequired, refusing every
+        // sign-in until the app is relaunched. Report it instead: the owner's
+        // ordinary retirement commits LoggedOut and clears this vault.
+        return IOSProducerWakeResult(outcome: "credentialAbsent", nativeRevision: nil)
+      }
       var request = try encodeRequest(
         source: source,
         expectedRevision: expectedRevision,

@@ -28,6 +28,7 @@
 		0AE10031000000000000C0DE /* NativeSessionProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10034000000000000C0DE /* NativeSessionProtocol.swift */; };
 		0AE10032000000000000C0DE /* NativeSessionVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10035000000000000C0DE /* NativeSessionVault.swift */; };
 		0AE10033000000000000C0DE /* NativeSessionPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10036000000000000C0DE /* NativeSessionPlatform.swift */; };
+		0AE10041000000000000C0DE /* WebViewFormAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10042000000000000C0DE /* WebViewFormAccessory.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -108,6 +109,7 @@
 		0AE10034000000000000C0DE /* NativeSessionProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionProtocol.swift; sourceTree = "<group>"; };
 		0AE10035000000000000C0DE /* NativeSessionVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionVault.swift; sourceTree = "<group>"; };
 		0AE10036000000000000C0DE /* NativeSessionPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionPlatform.swift; sourceTree = "<group>"; };
+		0AE10042000000000000C0DE /* WebViewFormAccessory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewFormAccessory.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +210,7 @@
 				0AE10016000000000000C0DE /* HomeShortcutsChannel.swift */,
 				0AE10020000000000000C0DE /* PinnedDappIntents.swift */,
 				0AE10028000000000000C0DE /* ShortcutIconFile.swift */,
+				0AE10042000000000000C0DE /* WebViewFormAccessory.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -528,6 +531,7 @@
 				0AE10015000000000000C0DE /* HomeShortcutsChannel.swift in Sources */,
 				0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */,
 				0AE10026000000000000C0DE /* ShortcutIconFile.swift in Sources */,
+				0AE10041000000000000C0DE /* WebViewFormAccessory.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

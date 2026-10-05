@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_mobile_app/core/services/notification_permission_status.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 
@@ -14,6 +16,7 @@ void main() {
   late PlatformAlarmService service;
 
   Future<void> setUpService() async {
+    SharedPreferences.setMockInitialValues({});
     calls = [];
     responses = {};
     binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
@@ -144,6 +147,94 @@ void main() {
 
       expect(granted, isTrue);
       expect(calls, ['requestNotificationPermission']);
+    });
+  });
+
+  group('notificationPermissionStatus', () {
+    test('iOS reads the native three-state answer', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await setUpService();
+      responses['getNotificationAuthorizationStatus'] = [
+        'notDetermined',
+        'denied',
+        'authorized',
+      ];
+
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.notDetermined,
+      );
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.denied,
+      );
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.authorized,
+      );
+      expect(calls, everyElement('getNotificationAuthorizationStatus'));
+    });
+
+    test('android 13+: undetermined until the app has asked', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      const off = {'enabled': false, 'runtimePermission': true};
+      responses['getNotificationPermissionState'] = [off, off];
+      responses['hasPostNotificationsPermission'] = [false, false];
+
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.notDetermined,
+      );
+      expect(await service.requestNotificationsPermission(), isFalse);
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.denied,
+      );
+    });
+
+    test('android: no Activity means nothing was shown or recorded', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [false, false];
+      responses['requestPostNotificationsPermission'] = [false];
+
+      await service.requestNotificationsPermission();
+
+      expect(await NotificationPermissionRequestLog.requestedBefore(), isFalse);
+    });
+
+    test('android: enabled is authorized; switched off pre-13 is denied',
+        () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      responses['getNotificationPermissionState'] = [
+        {'enabled': true, 'runtimePermission': true},
+        {'enabled': false, 'runtimePermission': false},
+      ];
+
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.authorized,
+      );
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.denied,
+      );
+    });
+
+    test('a failing probe reads as notDetermined, never throws', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      await setUpService();
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(channel,
+          (call) async {
+        throw PlatformException(code: 'boom');
+      });
+
+      expect(
+        await service.notificationPermissionStatus(),
+        NotificationPermissionStatus.notDetermined,
+      );
     });
   });
 

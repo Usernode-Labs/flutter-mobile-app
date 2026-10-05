@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:crypto_mobile_app/core/services/notification_permission_status.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 
@@ -729,6 +730,37 @@ class PlatformAlarmService {
     }
   }
 
+  /// The OS notification permission, including whether asking can still
+  /// show a dialog. Read from the platform rather than Firebase, so builds
+  /// without push configured report it too. Never throws: an unreadable state
+  /// is [NotificationPermissionStatus.notDetermined].
+  Future<NotificationPermissionStatus> notificationPermissionStatus() async {
+    const probeTimeout = Duration(seconds: 3);
+    try {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        return NotificationPermissionStatus.fromWire(
+          await _channel
+              .invokeMethod<String>('getNotificationAuthorizationStatus')
+              .timeout(probeTimeout),
+        );
+      }
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final state = await _channel
+            .invokeMapMethod<String, Object?>('getNotificationPermissionState')
+            .timeout(probeTimeout);
+        return androidNotificationPermissionStatus(
+          enabled: state?['enabled'] == true,
+          runtimePermission: state?['runtimePermission'] != false,
+          requestedBefore:
+              await NotificationPermissionRequestLog.requestedBefore(),
+        );
+      }
+    } catch (e) {
+      _log.warn('Notification permission status probe failed: $e');
+    }
+    return NotificationPermissionStatus.notDetermined;
+  }
+
   /// Opens the OS notification settings page for this app — the only path
   /// left once the OS dialog is exhausted (iOS shows it once ever; Android
   /// stops after two denials).
@@ -813,7 +845,13 @@ class PlatformAlarmService {
     if (!hasNotifications) {
       _log.info('Requesting POST_NOTIFICATIONS permission...');
       _noteSystemSurfaceLaunch();
-      await _channel.invokeMethod('requestPostNotificationsPermission');
+      final launched = await _channel
+          .invokeMethod<bool>('requestPostNotificationsPermission');
+      // Remembered so a refusal reads as `denied`, not `notDetermined`.
+      // Native false means no Activity was attached and nothing was shown.
+      if (launched != false) {
+        await NotificationPermissionRequestLog.markRequested();
+      }
       // Wait a bit for the permission dialog to be processed
       await Future.delayed(const Duration(milliseconds: 500));
       hasNotifications =

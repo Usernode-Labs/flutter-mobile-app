@@ -16,6 +16,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.Log
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -224,6 +225,18 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
             }
             "requestPostNotificationsPermission" -> {
                 result.success(requestPostNotificationsPermission())
+            }
+            "getNotificationPermissionState" -> {
+                // Raw inputs only; Dart maps them (with its "asked before"
+                // record) to notDetermined / denied / authorized.
+                result.success(
+                    mapOf(
+                        "enabled" to NotificationManagerCompat.from(appContext)
+                            .areNotificationsEnabled(),
+                        "runtimePermission" to
+                            (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                    )
+                )
             }
             "requestBatteryOptimizationExemption" -> {
                 result.success(requestBatteryOptimizationExemption())

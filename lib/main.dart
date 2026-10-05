@@ -31,7 +31,6 @@ import 'package:crypto_mobile_app/core/providers/providers.dart';
 import 'package:crypto_mobile_app/core/services/app_version_check.dart';
 import 'package:crypto_mobile_app/core/services/observability_reporting_service.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
-import 'package:crypto_mobile_app/core/services/startup_notification_prompt.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/config/homeroom_link_redirect.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
@@ -459,7 +458,10 @@ class _AppWrapperState extends ConsumerState<_AppWrapper>
         _socialPushOwner,
         SocialPushSession(access: access),
       );
-      unawaited(StartupNotificationPrompt.instance.maybePrompt());
+      // Never ask for notification permission here. A session bind is not a
+      // product moment: an OS dialog on the first screen gets dismissed, and
+      // iOS never shows it again. SV asks at its own moments, in context,
+      // through the bridge's request methods.
     } else {
       _boundReadyRevision = null;
       unawaited(SentryUtil.clearUser());

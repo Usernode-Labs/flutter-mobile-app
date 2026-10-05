@@ -129,29 +129,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     required SessionIdentityProjection identity,
     required SessionSleepySnapshot sleep,
   }) async {
-    // Live probes, not the service's cached combined flag: the granular
-    // request methods don't refresh `hasPermissions`, and its legacy
-    // notifications&&exactAlarm semantics would mislabel `exactAlarmGranted`.
-    bool exactAlarmGranted = false;
-    bool? batteryOptDisabled;
-    bool notificationsGranted = false;
-    String? deviceManufacturer;
-    try {
-      await PlatformAlarmService.instance.initialize();
-      notificationsGranted =
-          await PlatformAlarmService.instance.hasNotificationsPermission();
-      final alarm =
-          await PlatformAlarmService.instance.alarmPermissionsSnapshot();
-      exactAlarmGranted = alarm['exactAlarmGranted'] == true;
-      batteryOptDisabled = alarm['batteryOptDisabled'] as bool?;
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        deviceManufacturer =
-            await PlatformAlarmService.instance.getDeviceManufacturer();
-      }
-    } catch (e) {
-      debugPrint('[Usernode JS-channel] permission probe failed: $e');
-    }
-
+    final permissions = await devicePermissionsSnapshot();
     final mobileAppBuildInfo = await _mobileAppBuildInfo();
 
     String? nodeVersion;
@@ -191,14 +169,7 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       'authStatus': identity.status == SessionProjectionStatus.ready
           ? 'ready'
           : 'unauthenticated',
-      'permissions': {
-        'platform':
-            defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
-        'exactAlarmGranted': exactAlarmGranted,
-        'notificationsGranted': notificationsGranted,
-        'batteryOptDisabled': batteryOptDisabled,
-        'deviceManufacturer': deviceManufacturer,
-      },
+      'permissions': permissions,
     };
   }
 
@@ -206,8 +177,6 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
     String id,
     Map<String, dynamic> payload,
   ) async {
-    // Outside the session operation: the OS dialog can stay up indefinitely.
-    await StartupNotificationPrompt.instance.pending;
     await _resolveClaimedSessionOperation(
       id: id,
       payload: payload,
@@ -420,12 +389,13 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
   /// `setAppearance` JS-channel method: SV tells us which appearance it
   /// resolved to, so the NEXT cold launch can open in it.
   ///
-  /// THE ONE UNPRIVILEGED METHOD IN THIS MIXIN, deliberately. Every other
-  /// one reads or mutates native settings or account state and is gated on
-  /// the trusted-origin lease. This carries neither: two enum-ish values
-  /// describing a colour. And the launch it exists to fix is the one BEFORE
-  /// sign-in — gating it on a privileged lease would make it unavailable in
-  /// exactly the case it was added for, which is the whole feature.
+  /// UNPRIVILEGED, deliberately, like `setStatusBarTone` below. Every other
+  /// method here reads or mutates native settings or account state and is
+  /// gated on the trusted-origin lease. This carries neither: two enum-ish
+  /// values describing a colour. And the launch it exists to fix is the one
+  /// BEFORE sign-in — gating it on a privileged lease would make it
+  /// unavailable in exactly the case it was added for, which is the whole
+  /// feature.
   ///
   /// The blast radius of accepting it unprivileged is bounded to a wrong
   /// launch tint for one launch: no data is exposed, the write is
@@ -465,5 +435,44 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       _applyWebViewBackground();
     }
     await _resolveJsPromise(id: id, value: true, error: null);
+  }
+
+  /// What the page last said sits under the status bar, or null to follow the
+  /// theme. Per screen and per document: never persisted, and cleared when a
+  /// new document starts loading (see [_clearStatusBarTone]).
+  StatusBarTone? _statusBarTone;
+
+  /// `setStatusBarTone` JS-channel method: the page names the tone of the
+  /// ground under the status bar right now, e.g. `dark` while a dark
+  /// fullscreen preview covers a light shell, so the glyphs stay readable.
+  /// Same meaning as the web's `data-app-tone`; null hands the bar back to
+  /// the theme.
+  ///
+  /// UNPRIVILEGED, like `setAppearance`: presentation only, nothing exposed,
+  /// nothing stored. The worst a hosted app can do is pick the wrong glyph
+  /// colour until the shell publishes again or the document is replaced.
+  Future<void> _handleSetStatusBarTone(
+    String id,
+    Map<String, dynamic> payload,
+  ) async {
+    final StatusBarTone? tone;
+    try {
+      tone = parseStatusBarToneArgs(payload['args']);
+    } on FormatException catch (e) {
+      await _resolveJsPromise(id: id, value: null, error: e.message);
+      return;
+    }
+    if (mounted && tone != _statusBarTone) {
+      setState(() => _statusBarTone = tone);
+    }
+    await _resolveJsPromise(id: id, value: true, error: null);
+  }
+
+  /// A new document starts with the theme's status bar. Its shell publishes
+  /// again if it wants an override; an old page's choice must not outlive it.
+  void _clearStatusBarTone() {
+    if (mounted && _statusBarTone != null) {
+      setState(() => _statusBarTone = null);
+    }
   }
 }

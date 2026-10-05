@@ -119,9 +119,6 @@ mixin _BridgeSocialPush on _DappWebViewScreenStateBase {
     String id,
     Map<String, dynamic> payload,
   ) async {
-    // SV reads the iOS prompt status here; report the answer, not the
-    // "not determined" state while the startup dialog is still up.
-    await StartupNotificationPrompt.instance.pending;
     await _resolveClaimedSessionOperation(
       id: id,
       payload: payload,

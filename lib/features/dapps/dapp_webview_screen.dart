@@ -30,6 +30,7 @@ import 'package:crypto_mobile_app/features/social_notifications/social_push_stor
     show SocialPushState;
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/webview_form_accessory.dart';
+import 'package:crypto_mobile_app/features/dapps/webview_keyboard_inset.dart';
 import 'package:crypto_mobile_app/features/zkpassport/zk_challenge_reset.dart'
     show resetChallengeState;
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart'
@@ -704,6 +705,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         },
         child: Scaffold(
           backgroundColor: colors.surfaceContainerLowest,
+          resizeToAvoidBottomInset: webViewResizesForKeyboard(
+            defaultTargetPlatform,
+          ),
           // No appBar, on any surface. The page owns its own header — and as
           // of usernode#1929 it owns the STATUS-BAR STRIP too, which is why
           // there is no SafeArea here any more.

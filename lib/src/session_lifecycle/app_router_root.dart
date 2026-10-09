@@ -18,11 +18,16 @@ String _withPinnedLaunchRevision(String route) {
 /// The mutable Social ingress never enters Riverpod and is captured only by
 /// these private route-builder closures. Features receive the read-only
 /// projection and exact-session runner surface selected by those closures.
+///
+/// [launchLink] is a link the OS delivered before this router existed (see
+/// [PendingLaunchLink]); it starts the router like a cold launch URL.
 GoRouter _createAppRouter(
   WidgetRef ref,
-  _NativeSessionRuntime nativeSession,
-) {
-  final initial = WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+  _NativeSessionRuntime nativeSession, {
+  String? launchLink,
+}) {
+  final initial =
+      launchLink ?? WidgetsBinding.instance.platformDispatcher.defaultRouteName;
   late final GoRouter router;
   router = GoRouter(
     navigatorKey: appNavigatorKey,

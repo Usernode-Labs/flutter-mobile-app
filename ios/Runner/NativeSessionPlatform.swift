@@ -665,8 +665,11 @@ final class IOSNativeSessionChannel {
     _ result: @escaping FlutterResult
   ) throws {
     _ = try authorized(call, keys: ["processTransportClaim"])
-    try vault.clearOrphanedSessionState()
-    result(nil)
+    // Off the main thread, like Android's runWorker: see retire(_:_:).
+    work(result) {
+      try self.vault.clearOrphanedSessionState()
+      return nil
+    }
   }
 
   private func revoke(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {
@@ -700,13 +703,27 @@ final class IOSNativeSessionChannel {
           let commitment = typedData(arguments["vaultCommitment"]) else {
       try NativeSessionProtocol.fail("invalid_native_retirement", "The native retirement directive is invalid")
     }
-    try vault.retireCredential(
-      reference: reference,
-      generation: try NativeSessionProtocol.exactUInt64(arguments["credentialGeneration"], "credential generation"),
-      commitment: commitment,
-      readyRevision: try NativeSessionProtocol.exactUInt64(arguments["readyRevision"], "ready revision")
+    let generation = try NativeSessionProtocol.exactUInt64(
+      arguments["credentialGeneration"], "credential generation"
     )
-    result(nil)
+    let readyRevision = try NativeSessionProtocol.exactUInt64(
+      arguments["readyRevision"], "ready revision"
+    )
+    // Retirement is the last native step of a sign-out, and it takes the vault
+    // lock that producer wakes, push and revocation calls hold across a
+    // synchronous HTTP request (up to 20 s). On the main thread a contended
+    // lock freezes the whole app mid sign-out: no touches, no WebView
+    // navigation decisions, no bridge acknowledgment, so Settings looks like
+    // it ignored the tap. Android already retires on its worker.
+    work(result) {
+      try self.vault.retireCredential(
+        reference: reference,
+        generation: generation,
+        commitment: commitment,
+        readyRevision: readyRevision
+      )
+      return nil
+    }
   }
 
   private func recover(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) throws {

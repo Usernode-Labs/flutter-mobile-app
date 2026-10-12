@@ -71,6 +71,28 @@ void main() {
     );
   });
 
+  // The iOS vault holds one lock across synchronous HTTP (producer wake,
+  // push, revocation), so a vault call made on the main thread can freeze
+  // the app until that request ends. Sign-out's final retirement did, which
+  // left Settings looking like it ignored the tap.
+  test('native session bootstrap and teardown do not block iOS main', () {
+    final channel = File(
+      'ios/Runner/NativeSessionPlatform.swift',
+    ).readAsStringSync();
+
+    for (final method in ['clearOrphaned', 'retire']) {
+      final start = channel.indexOf('  private func $method(');
+      final end = channel.indexOf('\n  private func ', start + 1);
+      expect(start, greaterThanOrEqualTo(0));
+      expect(end, greaterThan(start));
+      final body = channel.substring(start, end);
+      final workAt = body.indexOf('work(result) {');
+      expect(workAt, greaterThanOrEqualTo(0), reason: method);
+      expect(body.indexOf('vault.'), greaterThan(workAt), reason: method);
+      expect(body, isNot(contains('result(nil)')), reason: method);
+    }
+  });
+
   test('boot recovery does not enqueue two immediate producer wakes', () {
     final receiver = File(
       'android/app/src/main/kotlin/com/onhomeroom/app/alarm/'

@@ -98,6 +98,8 @@ mixin _BridgeDispatch
         ..._bridgeCapabilities,
         if (HomeShortcutsChannel.isIOS) 'homeScreenShortcutDarkIcon',
         ...NativeSignIn.instance.capabilities,
+        if (_controller.platform is WebKitWebViewController)
+          'setBackNavigationEnabled',
       ];
 
   /// Routes every `Usernode` JS-channel message to its domain handler.
@@ -282,6 +284,10 @@ mixin _BridgeDispatch
 
     if (method == 'setStatusBarTone') {
       await _handleSetStatusBarTone(id, payload);
+    }
+
+    if (method == 'setBackNavigationEnabled') {
+      await _handleSetBackNavigationEnabled(id, payload);
     }
 
     if (method == 'setDebugMode') {

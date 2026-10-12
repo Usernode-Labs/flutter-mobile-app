@@ -33,6 +33,7 @@ import 'package:crypto_mobile_app/core/services/observability_reporting_service.
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/config/homeroom_link_redirect.dart';
+import 'package:crypto_mobile_app/core/config/pending_launch_link.dart';
 import 'package:crypto_mobile_app/core/widgets/clock_drift_warning_overlay.dart';
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
@@ -141,19 +142,33 @@ class _NativeSessionBootstrapAppState
     extends ConsumerState<_NativeSessionBootstrapApp> {
   _NativeSessionRuntime? _nativeSession;
   Object? _failure;
+  // Registered before the splash below, so a link tapped while the native
+  // session boots is held for the router instead of bounced to Safari.
+  final _pendingLaunchLink = PendingLaunchLink();
+  String? _launchLink;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(_pendingLaunchLink);
     widget.nativeSessionFuture.then(
       _publishNativeSession,
       onError: _publishFailure,
     );
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(_pendingLaunchLink);
+    super.dispose();
+  }
+
   void _publishNativeSession(_NativeSessionRuntime nativeSession) {
     if (!mounted) return;
-    setState(() => _nativeSession = nativeSession);
+    setState(() {
+      _nativeSession = nativeSession;
+      _launchLink = _pendingLaunchLink.close();
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !identical(_nativeSession, nativeSession)) return;
       final lifecycleState = WidgetsBinding.instance.lifecycleState;
@@ -180,6 +195,7 @@ class _NativeSessionBootstrapAppState
       error: error,
       stackTrace: stackTrace,
     );
+    _pendingLaunchLink.close();
     if (mounted) setState(() => _failure = error);
   }
 
@@ -187,7 +203,10 @@ class _NativeSessionBootstrapAppState
   Widget build(BuildContext context) {
     final nativeSession = _nativeSession;
     if (nativeSession != null) {
-      return _CryptoMobileApp(nativeSession: nativeSession);
+      return _CryptoMobileApp(
+        nativeSession: nativeSession,
+        launchLink: _launchLink,
+      );
     }
 
     return MaterialApp(
@@ -230,9 +249,13 @@ class _NativeSessionStartupFailureScreen extends StatelessWidget {
 class _CryptoMobileApp extends ConsumerStatefulWidget {
   const _CryptoMobileApp({
     required _NativeSessionRuntime nativeSession,
+    this.launchLink,
   }) : _nativeSession = nativeSession;
 
   final _NativeSessionRuntime _nativeSession;
+
+  /// A link that arrived while the native session was booting.
+  final String? launchLink;
 
   @override
   ConsumerState<_CryptoMobileApp> createState() => _CryptoMobileAppState();
@@ -244,7 +267,11 @@ class _CryptoMobileAppState extends ConsumerState<_CryptoMobileApp> {
   @override
   void initState() {
     super.initState();
-    _router = _createAppRouter(ref, widget._nativeSession);
+    _router = _createAppRouter(
+      ref,
+      widget._nativeSession,
+      launchLink: widget.launchLink,
+    );
   }
 
   @override

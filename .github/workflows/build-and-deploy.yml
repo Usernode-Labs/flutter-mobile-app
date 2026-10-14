@@ -18,6 +18,11 @@ on:
         required: false
         default: true
         type: boolean
+      ios_only:
+        description: "Build and upload only iOS to TestFlight"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -37,6 +42,7 @@ env:
 jobs:
   build-android:
     name: Build Android App
+    if: ${{ !inputs.ios_only }}
     runs-on: ubuntu-20.04-16core2
     needs: prepare-frb-bindings
     outputs:
@@ -606,6 +612,29 @@ jobs:
           fi
           echo "ipa_path=${IPAS[0]}" >> "$GITHUB_OUTPUT"
 
+      - name: Verify microphone permission in signed IPA
+        env:
+          IPA_PATH: ${{ steps.ipa.outputs.ipa_path }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import plistlib
+          import zipfile
+
+          with zipfile.ZipFile(os.environ['IPA_PATH']) as ipa:
+              manifests = [name for name in ipa.namelist()
+                           if len(name.split('/')) == 3
+                           and name.startswith('Payload/')
+                           and name.endswith('.app/Info.plist')]
+              if len(manifests) != 1:
+                  raise SystemExit('Expected exactly one application Info.plist')
+              info = plistlib.loads(ipa.read(manifests[0]))
+              purpose = info.get('NSMicrophoneUsageDescription')
+              if not isinstance(purpose, str) or not purpose.strip():
+                  raise SystemExit('Signed IPA is missing its microphone permission explanation')
+          print('Signed IPA has a microphone permission explanation')
+          PY
+
       - name: Upload iOS release debug files to Sentry
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -649,7 +678,7 @@ jobs:
     name: Send Notification
     runs-on: ubuntu-latest
     needs: [build-android, build-ios, tag, tag-release]
-    if: inputs.publish_release && always()
+    if: inputs.publish_release && !inputs.ios_only && always()
     steps:
       - name: Determine status and action
         id: status

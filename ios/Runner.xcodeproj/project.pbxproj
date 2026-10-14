@@ -29,6 +29,10 @@
 		0AE10032000000000000C0DE /* NativeSessionVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10035000000000000C0DE /* NativeSessionVault.swift */; };
 		0AE10033000000000000C0DE /* NativeSessionPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10036000000000000C0DE /* NativeSessionPlatform.swift */; };
 		0AE10041000000000000C0DE /* WebViewFormAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10042000000000000C0DE /* WebViewFormAccessory.swift */; };
+		0AE10052000000000000C0DE /* BuildActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10051000000000000C0DE /* BuildActivityAttributes.swift */; };
+		0AE10053000000000000C0DE /* BuildActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10051000000000000C0DE /* BuildActivityAttributes.swift */; };
+		0AE10055000000000000C0DE /* BuildActivityChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10054000000000000C0DE /* BuildActivityChannel.swift */; };
+		0AE10057000000000000C0DE /* BuildLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10056000000000000C0DE /* BuildLiveActivity.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -110,6 +114,9 @@
 		0AE10035000000000000C0DE /* NativeSessionVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionVault.swift; sourceTree = "<group>"; };
 		0AE10036000000000000C0DE /* NativeSessionPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionPlatform.swift; sourceTree = "<group>"; };
 		0AE10042000000000000C0DE /* WebViewFormAccessory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewFormAccessory.swift; sourceTree = "<group>"; };
+		0AE10051000000000000C0DE /* BuildActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildActivityAttributes.swift; sourceTree = "<group>"; };
+		0AE10054000000000000C0DE /* BuildActivityChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildActivityChannel.swift; sourceTree = "<group>"; };
+		0AE10056000000000000C0DE /* BuildLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildLiveActivity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -176,6 +183,7 @@
 			children = (
 				0AE10003000000000000C0DE /* HomeroomWidgetsBundle.swift */,
 				0AE10004000000000000C0DE /* HomeroomDappsWidget.swift */,
+				0AE10056000000000000C0DE /* BuildLiveActivity.swift */,
 				0AE10005000000000000C0DE /* Info.plist */,
 				0AE10006000000000000C0DE /* HomeroomWidgets.entitlements */,
 			);
@@ -211,6 +219,8 @@
 				0AE10020000000000000C0DE /* PinnedDappIntents.swift */,
 				0AE10028000000000000C0DE /* ShortcutIconFile.swift */,
 				0AE10042000000000000C0DE /* WebViewFormAccessory.swift */,
+				0AE10051000000000000C0DE /* BuildActivityAttributes.swift */,
+				0AE10054000000000000C0DE /* BuildActivityChannel.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -532,6 +542,8 @@
 				0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */,
 				0AE10026000000000000C0DE /* ShortcutIconFile.swift in Sources */,
 				0AE10041000000000000C0DE /* WebViewFormAccessory.swift in Sources */,
+				0AE10052000000000000C0DE /* BuildActivityAttributes.swift in Sources */,
+				0AE10055000000000000C0DE /* BuildActivityChannel.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -544,6 +556,8 @@
 				0AE10008000000000000C0DE /* HomeroomDappsWidget.swift in Sources */,
 				0AE10022000000000000C0DE /* PinnedDappIntents.swift in Sources */,
 				0AE10027000000000000C0DE /* ShortcutIconFile.swift in Sources */,
+				0AE10053000000000000C0DE /* BuildActivityAttributes.swift in Sources */,
+				0AE10057000000000000C0DE /* BuildLiveActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

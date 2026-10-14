@@ -76,6 +76,7 @@ void main() {
       'claimPendingSocialNotification',
       'ackPendingSocialNotification',
       'signInWithProvider',
+      'setBuildActivity',
     });
   });
 

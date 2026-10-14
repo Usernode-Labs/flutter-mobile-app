@@ -13,7 +13,8 @@ mixin _BridgeDispatch
         _BridgeSettings,
         _BridgeSocialPush,
         _BridgeCapture,
-        _BridgeSignIn {
+        _BridgeSignIn,
+        _BridgeBuildActivity {
   /// Bridge protocol version. Bump only on breaking changes; additive
   /// methods just append to [_bridgeCapabilities] so SV chrome can
   /// feature-detect (`capabilities.includes(...)`) instead of duck-typing.
@@ -94,6 +95,10 @@ mixin _BridgeDispatch
   ///
   /// `signInWithApple` / `signInWithGoogle` — `signInWithProvider` can show
   /// that provider's sheet in this build ([NativeSignIn.capabilities]).
+  ///
+  /// `setBuildActivity` is added by [_bridgeInfoValue], because whether it
+  /// has a visible effect (iOS 16.1+, ActivityKit) is a native answer:
+  /// [BuildLiveActivity.capabilities].
   List<String> get _platformBridgeCapabilities => [
         ..._bridgeCapabilities,
         if (HomeShortcutsChannel.isIOS) 'homeScreenShortcutDarkIcon',
@@ -357,11 +362,18 @@ mixin _BridgeDispatch
     if (method == 'signInWithProvider') {
       await _handleSignInWithProvider(id, payload);
     }
+
+    if (method == 'setBuildActivity') {
+      await _handleSetBuildActivity(id, payload);
+    }
   }
 
   Future<Map<String, dynamic>> _bridgeInfoValue() async => {
         'version': _bridgeVersion,
-        'capabilities': _platformBridgeCapabilities,
+        'capabilities': [
+          ..._platformBridgeCapabilities,
+          ...await BuildLiveActivity.instance.capabilities(),
+        ],
         'sessionLifecycleProtocol': 2,
         // Public release identifiers belong in this discovery probe: SV
         // staging cannot bootstrap the production-origin authority but still

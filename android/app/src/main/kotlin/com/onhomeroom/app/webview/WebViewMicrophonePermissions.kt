@@ -13,7 +13,6 @@ import android.webkit.JsPromptResult
 import android.webkit.JsResult
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
-import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.app.ActivityCompat
@@ -22,6 +21,7 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.webviewflutter.WebChromeClientProxyApi.SecureWebChromeClient
 import io.flutter.plugins.webviewflutter.WebViewFlutterPlugin
+import io.flutter.plugins.webviewflutter.WebViewProxyApi.WebViewPlatformView
 
 /** Owns runtime microphone requests for this Activity's WebViews. */
 class WebViewMicrophonePermissions(
@@ -49,7 +49,10 @@ class WebViewMicrophonePermissions(
                 val identifier = call.argument<Number>("webViewIdentifier")?.toLong()
                 val origin = call.argument<String>("trustedOrigin")
                 val plugin = engine.plugins.get(WebViewFlutterPlugin::class.java) as? WebViewFlutterPlugin
-                val webView = identifier?.let { plugin?.instanceManager?.getInstance<WebView>(it) }
+                // This plugin getter also exists below Android 8, unlike the
+                // framework's WebView.getWebChromeClient() (added in API 26).
+                val webView = identifier?.let { plugin?.instanceManager?.getInstance<Any>(it) }
+                    as? WebViewPlatformView
                 val delegate = webView?.webChromeClient as? SecureWebChromeClient
                 if (webView == null || delegate == null || origin == null) {
                     result.success(false)

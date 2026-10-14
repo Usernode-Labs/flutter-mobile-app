@@ -50,6 +50,8 @@
 	<true/>
     <key>NSCameraUsageDescription</key>
     <string>Homeroom uses your camera only when you choose to take a photo or video to share in an app. Nothing is captured or uploaded without your action.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Homeroom uses your microphone when you choose to dictate a draft. Your recording is sent for transcription and the text stays in your draft until you send it.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Use Face ID to unlock Homeroom and keep your wallet and private data secure. Homeroom never sees or stores your face data.</string>
     <key>NSPhotoLibraryUsageDescription</key>

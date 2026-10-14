@@ -28,6 +28,11 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- The first-version build Live Activity (setBuildActivity on the bridge;
+	     Runner/BuildActivityChannel.swift, HomeroomWidgets/BuildLiveActivity.swift).
+	     Read by iOS 16.1+ only. -->
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<!-- Export compliance. Declares that the encryption the app ships —
 	     Ed25519, AES-GCM, X25519, SHA-2, all standard published algorithms —
 	     is exempt, so Apple stops asking at every upload and the CI path to

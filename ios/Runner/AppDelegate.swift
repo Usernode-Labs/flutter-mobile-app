@@ -81,6 +81,7 @@ final class ApplicationIncarnationStore {
   private var webViewKeyboardChannel: FlutterMethodChannel?
   private var nativeSessionChannel: IOSNativeSessionChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
+  private let buildActivityChannel = BuildActivityChannel()
   private let bgTaskScheduler = BGTaskSchedulerManager()
   private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
@@ -162,6 +163,15 @@ final class ApplicationIncarnationStore {
       self?.homeShortcutsChannel.handle(call, result: result)
     }
     print("[AppDelegate] Method channel '\(HomeShortcutsChannel.channelName)' configured")
+
+    let buildChannel = FlutterMethodChannel(
+      name: BuildActivityChannel.channelName,
+      binaryMessenger: binaryMessenger
+    )
+    buildChannel.setMethodCallHandler { [weak self] (call, result) in
+      self?.buildActivityChannel.handle(call, result: result)
+    }
+    print("[AppDelegate] Method channel '\(BuildActivityChannel.channelName)' configured")
 
     screenshotChannel = FlutterMethodChannel(
       name: screenshotChannelName,
@@ -442,8 +452,9 @@ final class ApplicationIncarnationStore {
   }
 
   /// Removes this app's delivered notifications and the pending requests
-  /// behind them. A scoped sign-out keeps the process, so nothing else takes
-  /// the retired session's Social/slot text off the lock screen.
+  /// behind them, and ends any build Live Activity. A scoped sign-out keeps
+  /// the process, so nothing else takes the retired session's Social/slot
+  /// text or its project's build off the lock screen.
   // TODO(session-lifecycle follow-up): replace this app-wide, completionless
   // cleanup with incarnation-scoped removal confirmed before a successor may
   // schedule. Keep that work with the alarm/notification subsystem refactor.
@@ -451,6 +462,7 @@ final class ApplicationIncarnationStore {
     let center = UNUserNotificationCenter.current()
     center.removeAllPendingNotificationRequests()
     center.removeAllDeliveredNotifications()
+    BuildActivityChannel.endAll()
     // Removing the delivered notifications does not clear the badge they
     // raised, so the retired session's unread count would survive on the
     // home screen.

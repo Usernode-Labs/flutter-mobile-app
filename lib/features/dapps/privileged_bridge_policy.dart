@@ -122,6 +122,8 @@ class PrivilegedBridgePolicy {
     'ackPendingSocialNotification',
     // The web shell's sign-in sheet: the app's own Apple or Google sheet.
     'signInWithProvider',
+    // The first-version build's Live Activity on the Lock Screen.
+    'setBuildActivity',
   };
 
   final Uri? _trustedOrigin;

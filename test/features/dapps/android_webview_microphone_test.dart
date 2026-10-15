@@ -65,6 +65,7 @@ void main() {
     final manifest =
         await File('android/app/src/main/AndroidManifest.xml').readAsString();
     expect(manifest, contains('android.permission.RECORD_AUDIO'));
+    expect(manifest, contains('android.permission.MODIFY_AUDIO_SETTINGS'));
     expect(
       manifest,
       contains(

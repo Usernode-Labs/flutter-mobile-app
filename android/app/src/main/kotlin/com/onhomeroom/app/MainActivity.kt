@@ -250,7 +250,6 @@ class MainActivity: FlutterActivity() {
 
     override fun onStop() {
         super.onStop()
-        webViewMicrophonePermissions?.cancelPending()
         backgroundStopHandler.removeCallbacks(backgroundStopRunnable)
         // stop activity by at most after 10 minutes of being in the background.
         backgroundStopHandler.postDelayed(backgroundStopRunnable, backgroundStopTimeoutMs)

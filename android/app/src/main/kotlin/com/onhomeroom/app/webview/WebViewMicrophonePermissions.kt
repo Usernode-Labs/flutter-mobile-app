@@ -2,10 +2,15 @@ package com.onhomeroom.app.webview
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Message
+import android.provider.Settings
+import android.util.Log
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
@@ -17,6 +22,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.onhomeroom.app.R
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.webviewflutter.WebChromeClientProxyApi.SecureWebChromeClient
@@ -36,10 +42,11 @@ class WebViewMicrophonePermissions(
         val request: PermissionRequest,
         val webView: WebView,
         val policy: WebViewMicrophonePolicy,
-        val topFrameUrl: String?,
     )
-    private var pending: Pending? = null
+    /** Requests waiting on the one OS prompt; all of them get its answer. */
+    private val pending = mutableListOf<Pending>()
     private var permissionPromptInFlight = false
+    private val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     init {
         channel.setMethodCallHandler { call, result ->
@@ -55,6 +62,8 @@ class WebViewMicrophonePermissions(
                     as? WebViewPlatformView
                 val delegate = webView?.webChromeClient as? SecureWebChromeClient
                 if (webView == null || delegate == null || origin == null) {
+                    Log.w(TAG, "Not configured: webView=${webView != null} " +
+                        "delegate=${delegate != null} origin=${origin != null}")
                     result.success(false)
                 } else {
                     webView.webChromeClient = MicrophoneClient(
@@ -66,10 +75,11 @@ class WebViewMicrophonePermissions(
         }
     }
 
+    // Checks the WebView's current URL, so a hash route change while the OS
+    // dialog is open keeps the grant; leaving the trusted origin does not.
     private fun eligible(value: Pending): Boolean =
         !activity.isFinishing && !activity.isDestroyed &&
             value.webView.isAttachedToWindow && value.webView.isShown &&
-            value.webView.url == value.topFrameUrl &&
             value.policy.allows(
                 value.request.origin.toString(), value.webView.url, value.request.resources,
             )
@@ -79,8 +89,8 @@ class WebViewMicrophonePermissions(
             PackageManager.PERMISSION_GRANTED
 
     private fun request(request: PermissionRequest, webView: WebView, policy: WebViewMicrophonePolicy) {
-        val value = Pending(request, webView, policy, webView.url)
-        if (permissionPromptInFlight || !eligible(value)) {
+        val value = Pending(request, webView, policy)
+        if (!eligible(value)) {
             request.deny()
             return
         }
@@ -88,12 +98,26 @@ class WebViewMicrophonePermissions(
             request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
             return
         }
-        pending = value
+        if (permissionPromptInFlight) {
+            pending += value
+            return
+        }
+        // Android stops showing its prompt after a permanent denial, so point
+        // the user to Settings instead of failing silently.
+        if (prefs.getBoolean(KEY_ASKED, false) &&
+            !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.RECORD_AUDIO)
+        ) {
+            request.deny()
+            showSettingsPrompt()
+            return
+        }
+        pending += value
         permissionPromptInFlight = true
+        prefs.edit().putBoolean(KEY_ASKED, true).apply()
         try {
             ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_CODE)
-        } catch (_: RuntimeException) {
-            permissionPromptInFlight = false
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Microphone permission prompt failed", e)
             cancelPending()
         }
     }
@@ -101,20 +125,43 @@ class WebViewMicrophonePermissions(
     fun onRequestPermissionsResult(requestCode: Int) {
         if (requestCode != REQUEST_CODE) return
         permissionPromptInFlight = false
-        val value = pending ?: return
-        pending = null
-        // Recheck after the OS dialog: it may outlive a navigation or cancellation.
-        if (hasMicrophonePermission() && eligible(value)) {
-            value.request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
-        } else {
-            value.request.deny()
+        val values = pending.toList()
+        pending.clear()
+        val granted = hasMicrophonePermission()
+        for (value in values) {
+            // Recheck after the OS dialog: it may outlive a navigation.
+            if (granted && eligible(value)) {
+                value.request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE))
+            } else {
+                value.request.deny()
+            }
         }
     }
 
-    fun cancelPending() {
-        val value = pending ?: return
-        pending = null
-        value.request.deny()
+    private fun cancelPending() {
+        permissionPromptInFlight = false
+        val values = pending.toList()
+        pending.clear()
+        values.forEach { it.request.deny() }
+    }
+
+    private fun showSettingsPrompt() {
+        if (activity.isFinishing || activity.isDestroyed) return
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.webview_microphone_blocked_title)
+            .setMessage(R.string.webview_microphone_blocked_message)
+            .setNegativeButton(R.string.webview_microphone_blocked_dismiss, null)
+            .setPositiveButton(R.string.webview_microphone_blocked_open_settings) { _, _ ->
+                try {
+                    activity.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                            .setData(Uri.fromParts("package", activity.packageName, null)),
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to open app details settings", e)
+                }
+            }
+            .show()
     }
 
     fun close() {
@@ -122,16 +169,27 @@ class WebViewMicrophonePermissions(
         channel.setMethodCallHandler(null)
     }
 
-    /** Keep the plugin's chooser, dialogs, console and secure popup handling. */
+    /**
+     * Keep the plugin's chooser, dialogs, console and secure popup handling.
+     * Only microphone requests stay native; anything else still reaches the
+     * Dart `onPermissionRequest` handler through the plugin's client.
+     */
     private inner class MicrophoneClient(
         private val delegate: SecureWebChromeClient,
         private val webView: WebView,
         private val policy: WebViewMicrophonePolicy,
     ) : SecureWebChromeClient() {
-        override fun onPermissionRequest(request: PermissionRequest) =
-            this@WebViewMicrophonePermissions.request(request, webView, policy)
+        override fun onPermissionRequest(request: PermissionRequest) {
+            if (PermissionRequest.RESOURCE_AUDIO_CAPTURE in request.resources) {
+                this@WebViewMicrophonePermissions.request(request, webView, policy)
+            } else {
+                delegate.onPermissionRequest(request)
+            }
+        }
         override fun onPermissionRequestCanceled(request: PermissionRequest) {
-            if (pending?.request === request) pending = null
+            if (!pending.removeAll { it.request === request }) {
+                delegate.onPermissionRequestCanceled(request)
+            }
         }
         override fun setWebViewClient(client: WebViewClient) {
             super.setWebViewClient(client)
@@ -166,6 +224,9 @@ class WebViewMicrophonePermissions(
     }
 
     companion object {
+        private const val TAG = "usernode/WebViewMic"
         private const val REQUEST_CODE = 0x4389
+        private const val PREFS = "webview_microphone"
+        private const val KEY_ASKED = "asked"
     }
 }

@@ -556,25 +556,22 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     final platformController = _controller.platform;
     if (platformController is AndroidWebViewController) {
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
+      // Not awaited: platform messages are handled in send order, so the
+      // microphone gate is installed before the load below starts, and a page
+      // can only ask for the microphone once it has loaded.
+      unawaited(
+        const AndroidWebViewMicrophone().configure(
+          platformController,
+          trustedOrigin: AppConfig.platformBaseUrl,
+        ),
+      );
     }
-    unawaited(_loadInitialDocument());
+    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
     // iOS: drop WKWebView's chevrons/Done bar above the keyboard, which native
     // apps don't have, so the page keeps that height. No-op elsewhere.
     unawaited(const WebViewFormAccessory().hideFor(_controller));
     _listenForSocialPushEvents();
     _listenForPermissionChanges();
-  }
-
-  Future<void> _loadInitialDocument() async {
-    final platform = _controller.platform;
-    if (platform is AndroidWebViewController) {
-      await const AndroidWebViewMicrophone().configure(
-        platform,
-        trustedOrigin: AppConfig.platformBaseUrl,
-      );
-    }
-    if (!mounted) return;
-    await _controller.loadRequest(parseDappUrl(widget.url));
   }
 
   /// Reacts to a changed [DappWebViewScreen.url] on a *live* webview. Most

@@ -40,7 +40,9 @@ dependencies:
   webview_flutter: "^4.10.0"
   # Platform implementations imported directly to enable debug-only webview
   # inspection (Safari Web Inspector / chrome://inspect) in dapp webviews.
-  webview_flutter_android: "^4.10.13"
+  # Pinned exactly: android/.../webview/WebViewMicrophonePermissions.kt wraps
+  # this plugin's internal SecureWebChromeClient. Re-check it before upgrading.
+  webview_flutter_android: "4.10.13"
   webview_flutter_wkwebview: "^3.23.7"
   flutter_markdown: "^0.7.6"
   material_symbols_icons: ^4.2906.0

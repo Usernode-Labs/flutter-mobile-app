@@ -285,12 +285,9 @@ jobs:
             --debug \
             --dart-define-from-file=.env
 
-      - name: Test Android microphone permission policy
+      - name: Android unit tests
         working-directory: android
-        run: >-
-          ./gradlew :app:testDebugUnitTest
-          --tests com.onhomeroom.app.webview.WebViewMicrophonePolicyTest
-          --console=plain
+        run: ./gradlew :app:testDebugUnitTest --console=plain
 
   build-ios:
     name: Build iOS (Debug)

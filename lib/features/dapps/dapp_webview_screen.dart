@@ -15,6 +15,7 @@ import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_spacing.dart';
 import 'package:crypto_mobile_app/features/dapps/home_shortcuts_channel.dart';
+import 'package:crypto_mobile_app/features/dapps/android_webview_microphone.dart';
 import 'package:crypto_mobile_app/features/dapps/bridge_admission_coordinator.dart';
 import 'package:crypto_mobile_app/features/dapps/build_live_activity.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_url.dart';
@@ -547,7 +548,6 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // now the authenticated web session intentionally survives native failure;
     // native operations stay closed, but web/native sign-out is not atomic.
     // Keep the document and bridge replies alive so Social can show the error.
-    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
     // Android WebView shows no OS file chooser for <input type="file">
     // unless the host app registers one (WebChromeClient.onShowFileChooser)
     // — without this, upload controls in dapps (including cross-origin
@@ -556,7 +556,17 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     final platformController = _controller.platform;
     if (platformController is AndroidWebViewController) {
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
+      // Not awaited: platform messages are handled in send order, so the
+      // microphone gate is installed before the load below starts, and a page
+      // can only ask for the microphone once it has loaded.
+      unawaited(
+        const AndroidWebViewMicrophone().configure(
+          platformController,
+          trustedOrigin: AppConfig.platformBaseUrl,
+        ),
+      );
     }
+    unawaited(_controller.loadRequest(parseDappUrl(widget.url)));
     // iOS: drop WKWebView's chevrons/Done bar above the keyboard, which native
     // apps don't have, so the page keeps that height. No-op elsewhere.
     unawaited(const WebViewFormAccessory().hideFor(_controller));

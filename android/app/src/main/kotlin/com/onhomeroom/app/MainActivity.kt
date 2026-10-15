@@ -21,6 +21,7 @@ import com.onhomeroom.app.alarm.EngineRole
 import com.onhomeroom.app.alarm.SlotMonitoringService
 import com.onhomeroom.app.shortcuts.HomeShortcutsHandler
 import com.onhomeroom.app.session.InteractiveNativeSessionChannel
+import com.onhomeroom.app.webview.WebViewMicrophonePermissions
 import java.io.ByteArrayOutputStream
 
 private const val TAG = "usernode/MainActivity"
@@ -34,6 +35,7 @@ class MainActivity: FlutterActivity() {
     private lateinit var alarmHandler: AlarmMethodChannelHandler
     private var alarmEngineLease: EngineLease? = null
     private var nativeSessionChannel: InteractiveNativeSessionChannel? = null
+    private var webViewMicrophonePermissions: WebViewMicrophonePermissions? = null
     private val backgroundStopHandler = Handler(Looper.getMainLooper())
     private val backgroundStopTimeoutMs = 5 * 60 * 1000L
     private val backgroundStopRunnable = Runnable {
@@ -50,6 +52,7 @@ class MainActivity: FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        webViewMicrophonePermissions = WebViewMicrophonePermissions(this, flutterEngine)
 
         alarmHandler = AlarmMethodChannelHandler.getOrCreate(applicationContext)
 
@@ -254,6 +257,7 @@ class MainActivity: FlutterActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        webViewMicrophonePermissions?.onRequestPermissionsResult(requestCode)
         if (::alarmHandler.isInitialized) {
             alarmHandler.onRequestPermissionsResult(requestCode, permissions, grantResults)
         }
@@ -312,6 +316,8 @@ class MainActivity: FlutterActivity() {
     }
 
     override fun onDestroy() {
+        webViewMicrophonePermissions?.close()
+        webViewMicrophonePermissions = null
         val ownsAlarmChannel = ::alarmHandler.isInitialized &&
             alarmEngineLease?.let(alarmHandler::isCurrentEngine) == true
         if (ownsAlarmChannel) {

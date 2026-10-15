@@ -3,4 +3,8 @@
     <string name="social_activity_channel_id" translatable="false">social_activity</string>
     <string name="social_activity_channel_name">Homeroom activity</string>
     <string name="social_activity_channel_description">Updates from Homeroom activity</string>
+    <string name="webview_microphone_blocked_title">Microphone is off</string>
+    <string name="webview_microphone_blocked_message">To dictate, allow Homeroom to use the microphone in Settings.</string>
+    <string name="webview_microphone_blocked_open_settings">Open Settings</string>
+    <string name="webview_microphone_blocked_dismiss">Not now</string>
 </resources>

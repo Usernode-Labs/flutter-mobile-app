@@ -1,127 +1,16 @@
+import 'package:crypto_mobile_app/features/splash/widgets/launch_cover.dart';
 import 'package:flutter/material.dart';
-import 'package:crypto_mobile_app/core/config/app_config.dart';
-import 'package:crypto_mobile_app/core/config/appearance.dart';
-import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
-import 'package:crypto_mobile_app/design_system/design_system.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SplashScreen extends ConsumerStatefulWidget {
+/// Shown while the native session starts, before the router and the SV shell
+/// exist: a still continuation of the native launch screen ([LaunchCover]).
+///
+/// It used to fade in from nothing, spring from 92% scale and slide up, with
+/// a large "Homeroom" title, a tagline and a spinner under a smaller mark, so
+/// the launch image visibly turned into a different screen. Now the user sees
+/// one screen from the tap until the page has painted.
+class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
-  ConsumerState<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends ConsumerState<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<Offset> _slideAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: AppConfig.longAnimation,
-      vsync: this,
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.05),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
-
-    _controller.forward();
-
-    // Navigation is now handled by the router's redirect guard
-    // which automatically redirects based on hasAnyAccountProvider state
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final spacing = theme.extension<AppSpacing>()!;
-
-    final l10n = Localizations.of<AppLocalizations>(context, AppLocalizations);
-
-    return Scaffold(
-      backgroundColor: AppearanceStorage.groundFor(theme.brightness),
-      body: SafeArea(
-        child: Center(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Tinted rather than shipped per-appearance: one
-                    // transparent master keeps light and dark in sync.
-                    Image.asset(
-                      'assets/brand/mark.png',
-                      height: 120,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                    SizedBox(height: spacing.space32),
-                    Text(
-                      (l10n?.appName ?? 'Homeroom'),
-                      style: theme.textTheme.displayMedium?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    SizedBox(height: spacing.space8),
-                    Text(
-                      (l10n?.appTagline ??
-                          'AI App-Building,\nNow MultiPlayer.'),
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 60),
-                    const SizedBox(
-                      width: 32,
-                      height: 32,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                    SizedBox(height: spacing.space16),
-                    Text(
-                      (l10n?.initializingNode ?? 'Starting...'),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const LaunchCover();
 }

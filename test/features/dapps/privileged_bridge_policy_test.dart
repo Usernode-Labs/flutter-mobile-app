@@ -93,6 +93,17 @@ void main() {
     }
   });
 
+  test('shellPainted needs no capability token', () {
+    // The web sends it the way it sends setStatusBarTone, without a token,
+    // because it can come before the privileged bridge exists. Its handler
+    // checks the top frame's origin itself (_handleShellPainted).
+    expect(policy(frame()).requiresCapability('shellPainted'), isFalse);
+    expect(
+      PrivilegedBridgePolicy.privilegedMethods,
+      isNot(contains('shellPainted')),
+    );
+  });
+
   test('missing, empty, and guessed capabilities are denied in their realm',
       () async {
     final topFrame = frame();

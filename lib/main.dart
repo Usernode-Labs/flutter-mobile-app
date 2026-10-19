@@ -46,6 +46,7 @@ import 'package:crypto_mobile_app/features/perf/presentation/screens/device_benc
 import 'package:crypto_mobile_app/features/settings/screens/diagnostics_screen.dart';
 import 'package:crypto_mobile_app/features/settings/screens/http_debug_logs_screen.dart';
 import 'package:crypto_mobile_app/features/splash/screens/splash_screen.dart';
+import 'package:crypto_mobile_app/features/splash/widgets/launch_cover.dart';
 import 'package:crypto_mobile_app/features/splash/widgets/resume_splash_gate.dart';
 import 'package:crypto_mobile_app/features/wallet/presentation/staking_delegation_screen.dart';
 import 'package:crypto_mobile_app/features/zk_identity/screens/zk_identity_flow_screen.dart';
@@ -84,6 +85,19 @@ Future<void> _runAppBody({required String logTag}) async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // Keep the native launch screen up until the splash can draw the same
+  // mark, or Flutter's first frame is the bare ground and the mark blinks
+  // out (LaunchCover.precacheMark). Started before bootstrap so the decode
+  // overlaps it, and bounded so a mark that will not decode cannot hold the
+  // launch.
+  final binding = WidgetsBinding.instance;
+  binding.deferFirstFrame();
+  unawaited(
+    LaunchCover.precacheMark()
+        .timeout(const Duration(milliseconds: 500), onTimeout: () {})
+        .whenComplete(binding.allowFirstFrame),
+  );
 
   // Start terminated-app tap capture before the sole ProviderContainer and
   // WebView runtime are constructed. The durable pending-tap state is

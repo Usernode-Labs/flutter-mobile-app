@@ -78,6 +78,10 @@ mixin _BridgeDispatch
     // ground under the status bar so the glyphs stay readable. Never
     // persisted. See _handleSetStatusBarTone.
     'setStatusBarTone',
+    // Presentation only, sent the same unprivileged way, but accepted only
+    // from the trusted top frame: the shell's first screen has painted, so
+    // the launch cover can fade into it. See _handleShellPainted.
+    'shellPainted',
   ];
 
   /// Platform-aware capability list. Additive, feature-named entries only;
@@ -289,6 +293,10 @@ mixin _BridgeDispatch
 
     if (method == 'setStatusBarTone') {
       await _handleSetStatusBarTone(id, payload);
+    }
+
+    if (method == 'shellPainted') {
+      await _handleShellPainted(id);
     }
 
     if (method == 'setBackNavigationEnabled') {

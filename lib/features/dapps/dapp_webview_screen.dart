@@ -108,6 +108,12 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   /// first-launch gate ("has SV ever rendered on this install?").
   final void Function(bool ok)? onFirstLoadResult;
 
+  /// Fired when the trusted shell document reports `shellPainted`: its first
+  /// screen is drawn in its final layout. The SV shell lifts its launch
+  /// cover on it. May fire again for a later document; owners treat it as
+  /// idempotent.
+  final VoidCallback? onShellPainted;
+
   /// Private composition-root ingress. It exposes no native/root authority.
   final NativeSessionBridgeIngress _nativeSessionBridge;
 
@@ -122,6 +128,7 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
     this.navigationRequest,
     this.onSessionEnded,
     this.onFirstLoadResult,
+    this.onShellPainted,
     required NativeSessionBridgeIngress nativeSessionBridge,
     required SessionFeatureAccessView sessionAccess,
   })  : _nativeSessionBridge = nativeSessionBridge,
@@ -198,23 +205,20 @@ abstract class _DappWebViewScreenStateBase
   /// The colour the WebView itself paints between navigation start and the
   /// page's first painted frame.
   ///
-  /// This is the LAST white surface in the cold-launch sequence, after the
-  /// OS launch screen and the Flutter splash: the WebView's own background,
-  /// shown while the document is still fetching its render-blocking
-  /// stylesheets. A theme colour is close, but SV publishes the exact ground
-  /// it is about to paint (`#eaeaea` / `#0b0b0c`), so prefer that and the
-  /// seam disappears entirely instead of merely darkening.
-  ///
-  /// Falls back to the theme for a fresh install and for every build before
-  /// SV had a way to tell us — which is what shipped before this.
+  /// This used to be the LAST white surface in the cold-launch sequence,
+  /// after the OS launch screen and the Flutter splash: the WebView's own
+  /// background, shown while the document is still fetching its
+  /// render-blocking stylesheets. It is the app ground now, the one the
+  /// launch screen and the splash paint: what SV last published, else SV's
+  /// default for the appearance ([AppearanceStorage.groundFor]). Never the
+  /// theme's white.
   ///
   /// Lives on the BASE class, not on _DappWebViewScreenState, because
   /// _BridgeSettings (`on _DappWebViewScreenStateBase`) calls it when
   /// `setAppearance` arrives.
   void _applyWebViewBackground() {
     _controller.setBackgroundColor(
-      AppearanceStorage.background ??
-          Theme.of(context).colorScheme.surfaceContainerLowest,
+      AppearanceStorage.groundFor(Theme.of(context).brightness),
     );
   }
 
@@ -722,6 +726,9 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     // platform view inside a scrollable starves it of buffers and ANRs the app
     // (BLASTBufferQueue "can't acquire next buffer").
     final colors = Theme.of(context).colorScheme;
+    // The app ground, as the launch screen, the splash and the WebView's own
+    // background paint it, so nothing between them is ever white.
+    final ground = AppearanceStorage.groundFor(colors.brightness);
     // Hybrid composition improves scrolling for the full-screen Android WebView.
     final platformController = _controller.platform;
     final webView = platformController is AndroidWebViewController
@@ -763,7 +770,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
           await _handleBack();
         },
         child: Scaffold(
-          backgroundColor: colors.surfaceContainerLowest,
+          backgroundColor: ground,
           resizeToAvoidBottomInset: webViewResizesForKeyboard(
             defaultTargetPlatform,
           ),
@@ -790,9 +797,11 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
           // content sits where it did and the scrim now covers the strip.
           //
           // The ColoredBox stays: it is what the user sees in the moment
-          // before the page paints, and behind any overscroll.
+          // before the page paints, and behind any overscroll. On the SV
+          // shell's cold launch the launch cover hides that moment, but not
+          // behind overscroll or after the cover's cap, so it is the ground.
           body: ColoredBox(
-            color: colors.surfaceContainerLowest,
+            color: ground,
             child: webView,
           ),
         ),

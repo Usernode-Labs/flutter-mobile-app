@@ -35,6 +35,8 @@ import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_in
 /// First-launch gate: until one SV load has ever succeeded on this install
 /// (after which the service worker owns offline), the cover also stays up
 /// until that load succeeds, with no cap, and offers a retry if it fails.
+/// Then it waits for the paint as usual, with [coverCap] counted from the
+/// load.
 /// Later launches skip the gate: [SvShellGateStorage] is read before the
 /// first frame.
 class SvShellScreen extends ConsumerStatefulWidget {
@@ -63,9 +65,12 @@ class SvShellScreen extends ConsumerStatefulWidget {
   final NativeSessionBridgeIngress _nativeSessionBridge;
   final SessionFeatureAccessView _sessionAccess;
 
-  /// The longest the cover waits for `shellPainted` once the gate has
-  /// passed. A build of the page that never sends it, or a page that is
-  /// slow to load, gets the cover lifted anyway.
+  /// The longest the cover waits for `shellPainted` once the page could be
+  /// shown: from the WebView's creation on a launch past the gate, and from
+  /// the first successful load on the first launch ever (which can take far
+  /// longer than this, and would otherwise lift the cover on a page that has
+  /// loaded but not yet painted). A build of the page that never sends it,
+  /// or a page that is slow to paint, gets the cover lifted anyway.
   static const coverCap = Duration(seconds: 3);
 
   /// How long the cover takes to fade into the page.
@@ -98,7 +103,7 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   /// The page has said its first screen is painted.
   bool _painted = false;
 
-  /// [SvShellScreen.coverCap] has passed since the cover went up.
+  /// [SvShellScreen.coverCap] has passed since the page could be shown.
   bool _capPassed = false;
   Timer? _capTimer;
 
@@ -106,6 +111,11 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   void initState() {
     super.initState();
     _gatePassed = SvShellGateStorage.passed;
+    if (_gatePassed) _startCap();
+  }
+
+  void _startCap() {
+    _capTimer?.cancel();
     _capTimer = Timer(SvShellScreen.coverCap, () {
       _capPassed = true;
       _liftCoverIfReady();
@@ -141,7 +151,11 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
         _loadOk = true;
         _gatePassed = true;
       });
-      _liftCoverIfReady();
+      if (_painted) {
+        _liftCoverIfReady();
+      } else {
+        _startCap();
+      }
       await SvShellGateStorage.markPassed();
     } else {
       setState(() => _loadOk = false);

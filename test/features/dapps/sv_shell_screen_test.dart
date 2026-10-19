@@ -228,7 +228,7 @@ void main() {
       await tester.pumpWidget(shell());
       expect(find.byType(WebViewWidget), findsOneWidget);
 
-      // Painted before the load finished, and the cap long gone: still up.
+      // Painted before the load finished, and 5 s on screen: still up.
       await call(tester, 'shellPainted');
       await tester.pump(const Duration(seconds: 5));
       expect(lifting(tester), isFalse);
@@ -245,16 +245,36 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('waits for shellPainted after the load, within the cap',
+    testWidgets('after a slow load, still waits for shellPainted',
         (tester) async {
       await tester.pumpWidget(shell());
+      await tester.pump(const Duration(seconds: 5));
       platform.navigation.onPageFinished!(_url);
       await tester.pump(const Duration(milliseconds: 500));
-      expect(lifting(tester), isFalse);
+      expect(
+        lifting(tester),
+        isFalse,
+        reason: 'loaded is not painted: the cap counts from the load',
+      );
 
       await call(tester, 'shellPainted');
       expect(lifting(tester), isTrue);
       await finishFade(tester);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('after the load, lifts at the cap without shellPainted',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      await tester.pump(const Duration(seconds: 5));
+      platform.navigation.onPageFinished!(_url);
+      await tester.pump(const Duration(milliseconds: 2900));
+      expect(lifting(tester), isFalse);
+
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(lifting(tester), isTrue);
+      await finishFade(tester);
+      expect(cover, findsNothing);
       expect(tester.takeException(), isNull);
     });
 

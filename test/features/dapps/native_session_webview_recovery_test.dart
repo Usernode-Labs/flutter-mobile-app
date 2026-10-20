@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
+import 'package:crypto_mobile_app/core/config/sv_shell_gate.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
@@ -66,7 +67,9 @@ void main() {
   testWidgets(
       'shell validates and forwards website destinations to its WebView',
       (tester) async {
-    SharedPreferences.setMockInitialValues({'sv_shell_first_load_ok': true});
+    SharedPreferences.setMockInitialValues({});
+    SvShellGateStorage.passed = true;
+    addTearDown(() => SvShellGateStorage.passed = false);
     Widget shell(String link, String launch) => ProviderScope(
           child: MaterialApp(
             theme:

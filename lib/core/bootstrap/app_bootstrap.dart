@@ -8,6 +8,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/appearance.dart';
 import 'package:crypto_mobile_app/core/config/debug_mode.dart';
+import 'package:crypto_mobile_app/core/config/sv_shell_gate.dart';
 import 'package:crypto_mobile_app/core/config/theme_mode.dart';
 import 'package:crypto_mobile_app/core/utils/logger.dart';
 import 'package:crypto_mobile_app/src/rust/frb_generated.dart';
@@ -42,6 +43,10 @@ abstract final class AppBootstrap {
     // repaints the splash instead of painting it right the first time.
     await ThemeModeStorage.init();
     await AppearanceStorage.init();
+    // Read before the first frame too, so a launch that has already passed
+    // the first-launch gate creates its WebView at once instead of showing
+    // "Connecting to Homeroom…" while the flag loads.
+    await SvShellGateStorage.init();
 
     final log = LoggingService.instance.withTag(logTag);
     if (installErrorHandlers) _installGlobalErrorHandlers(log);

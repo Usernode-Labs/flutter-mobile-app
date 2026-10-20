@@ -184,10 +184,18 @@ void main() {
       ).readAsStringSync();
       expect(colorset, contains('"appearance" : "luminosity"'));
       expect(colorset, contains('"value" : "dark"'));
-      // The two grounds SV paints, so the seam between the launch screen
-      // and the page is invisible rather than merely dark.
-      expect(colorset, contains('0xEA'));
-      expect(colorset, contains('0x0C'));
+      // The two grounds SV paints, the same ones the Flutter splash and the
+      // WebView backing use, so the launch is one surface rather than a grey
+      // screen that jumps to cream.
+      for (final ground in [
+        AppearanceStorage.lightGround,
+        AppearanceStorage.darkGround,
+      ]) {
+        final argb = ground.toARGB32();
+        expect(colorset, contains('"red" : "0x${_hexByte(argb >> 16)}"'));
+        expect(colorset, contains('"green" : "0x${_hexByte(argb >> 8)}"'));
+        expect(colorset, contains('"blue" : "0x${_hexByte(argb)}"'));
+      }
     });
 
     test('the Android launch drawables read the theme, not a colour', () {
@@ -203,8 +211,9 @@ void main() {
 
     test('both Android appearances pin colorBackground to the SV ground', () {
       // Stock Theme.Light is pure white and Theme.Black pure black; the
-      // shell paints #eaeaea and #0b0b0c. Without these the launch window
-      // is a visibly different surface from the page it introduces.
+      // shell paints AppearanceStorage's two grounds. Without these the
+      // launch window is a visibly different surface from the page it
+      // introduces.
       for (final path in [
         'android/app/src/main/res/values/styles.xml',
         'android/app/src/main/res/values-night/styles.xml',
@@ -220,13 +229,13 @@ void main() {
       }
       expect(
         File('android/app/src/main/res/values/colors.xml').readAsStringSync(),
-        contains('#eaeaea'),
+        contains('#${_rgbHex(AppearanceStorage.lightGround)}'),
       );
       expect(
         File(
           'android/app/src/main/res/values-night/colors.xml',
         ).readAsStringSync(),
-        contains('#0b0b0c'),
+        contains('#${_rgbHex(AppearanceStorage.darkGround)}'),
       );
     });
   });
@@ -257,3 +266,12 @@ void main() {
     );
   });
 }
+
+/// The low byte of [value] as two upper-case hex digits, as Xcode writes a
+/// colour component (`0xF4`).
+String _hexByte(int value) =>
+    (value & 0xFF).toRadixString(16).padLeft(2, '0').toUpperCase();
+
+/// [color] as the lower-case `rrggbb` an Android colour resource uses.
+String _rgbHex(Color color) =>
+    (color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0');

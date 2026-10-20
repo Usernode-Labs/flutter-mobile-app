@@ -31,6 +31,7 @@ dependencies:
   freezed_annotation: "^2.4.4"
   logger: "^2.0.0"
   collection: any
+  clock: ^1.1.1
   wakelock_plus: "^1.2.8"
   battery_plus: "^6.0.0"
   connectivity_plus: "7.0.0"

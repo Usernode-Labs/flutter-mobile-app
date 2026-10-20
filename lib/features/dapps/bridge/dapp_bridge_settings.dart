@@ -475,4 +475,38 @@ mixin _BridgeSettings on _DappWebViewScreenStateBase {
       setState(() => _statusBarTone = null);
     }
   }
+
+  /// `shellPainted` JS-channel method, args `{}`: the trusted SV shell's
+  /// first screen is drawn in its final layout, so the launch cover over this
+  /// WebView can fade into it ([DappWebViewScreen.onShellPainted]).
+  ///
+  /// The page sends it once per document, after it has drawn real content
+  /// AND `env(safe-area-inset-top)` reads non-zero (the inset is zero until
+  /// the WebView is in a window, so a header laid out before that moves
+  /// once it is), or 1.5 s after it starts at the latest. The cover lifts
+  /// after 3 s without it, so a page that never sends it costs that wait
+  /// and nothing else.
+  ///
+  /// Sent unprivileged, through the same route as `setStatusBarTone`: it is
+  /// presentation only, and the cold launch it ends comes before any sign-in.
+  /// But only the trusted top frame may end the launch, so a call from any
+  /// other origin is refused here and changes nothing. (The probe reads the
+  /// top frame, so a frame inside the trusted shell could still send it;
+  /// the worst that does is lift a cover early, which the cap does anyway.)
+  ///
+  /// Idempotent: repeats, and later documents' calls, reach an owner whose
+  /// cover is already lifting or gone. Resolves true when accepted.
+  Future<void> _handleShellPainted(String id) async {
+    final trusted = await _privilegedBridgePolicy.bootstrapLease() != null;
+    if (!trusted) {
+      await _resolveJsPromise(
+        id: id,
+        value: null,
+        error: 'shellPainted is only available to the Homeroom shell',
+      );
+      return;
+    }
+    if (mounted) widget.onShellPainted?.call();
+    await _resolveJsPromise(id: id, value: true, error: null);
+  }
 }

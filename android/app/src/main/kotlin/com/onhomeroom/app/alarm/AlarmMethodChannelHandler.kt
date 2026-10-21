@@ -61,6 +61,9 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
         private const val TAG = "usernode/AlarmMethodChannelHandler"
         private const val REQUEST_POST_NOTIFICATIONS = 1001
 
+        /** Dart method that receives the person's answer to the POST_NOTIFICATIONS dialog. */
+        private const val POST_NOTIFICATIONS_ANSWER_METHOD = "onPostNotificationsPermissionResult"
+
         // Singleton instance for accessing from services/receivers
         @Volatile
         private var instance: AlarmMethodChannelHandler? = null
@@ -641,12 +644,37 @@ internal class AlarmMethodChannelHandler private constructor(context: Context) {
             REQUEST_POST_NOTIFICATIONS -> {
                 val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
                 Log.d(TAG, "POST_NOTIFICATIONS permission result: $granted")
+                answerPostNotificationsRequest(granted)
                 if (granted) {
                     sendEventToFlutter("android_post_notifications_permission_granted", emptyMap())
                 } else {
                     sendEventToFlutter("android_post_notifications_permission_denied", emptyMap())
                 }
             }
+        }
+    }
+
+    /**
+     * Hands the person's answer straight to the Dart request waiting on the
+     * dialog. It bypasses [flutterAlarmEventBuffer] on purpose: that buffer
+     * only drains once Flutter marks itself ready for alarm events, so an
+     * answer queued there reaches the waiting request late or never.
+     *
+     * Fire-and-forget: no reply is held across Activity or engine turnover.
+     * Dart re-reads the permission as its answer and stops waiting after a
+     * timeout if this never arrives.
+     */
+    private fun answerPostNotificationsRequest(granted: Boolean) {
+        val captured = engineChannels.capture()
+        if (captured == null) {
+            Log.w(TAG, "Cannot answer POST_NOTIFICATIONS request - method channel not set")
+            return
+        }
+        val dispatched = engineChannels.runIfCurrent(captured.lease) { channel ->
+            channel.invokeMethod(POST_NOTIFICATIONS_ANSWER_METHOD, mapOf("granted" to granted))
+        }
+        if (!dispatched) {
+            Log.w(TAG, "Alarm channel changed before the POST_NOTIFICATIONS answer was sent")
         }
     }
 

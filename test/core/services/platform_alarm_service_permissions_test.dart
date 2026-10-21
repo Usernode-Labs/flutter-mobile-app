@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +32,18 @@ void main() {
       observability: ObservabilityReportingService.instance,
     );
     await service.initialize();
+  }
+
+  /// Delivers the person's answer to the POST_NOTIFICATIONS dialog the way
+  /// native `onRequestPermissionsResult` does.
+  Future<void> answerNotificationDialog({required bool granted}) {
+    return binding.defaultBinaryMessenger.handlePlatformMessage(
+      channel.name,
+      channel.codec.encodeMethodCall(
+        MethodCall('onPostNotificationsPermissionResult', {'granted': granted}),
+      ),
+      (_) {},
+    );
   }
 
   tearDown(() {
@@ -123,21 +137,6 @@ void main() {
   });
 
   group('requestNotificationsPermission', () {
-    test('android: POST_NOTIFICATIONS chain only, in order', () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      await setUpService();
-      responses['hasPostNotificationsPermission'] = [false, true];
-
-      final granted = await service.requestNotificationsPermission();
-
-      expect(granted, isTrue);
-      expect(calls, [
-        'hasPostNotificationsPermission',
-        'requestPostNotificationsPermission',
-        'hasPostNotificationsPermission',
-      ]);
-    });
-
     test('iOS: delegates to requestNotificationPermission', () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       await setUpService();
@@ -148,6 +147,186 @@ void main() {
       expect(granted, isTrue);
       expect(calls, ['requestNotificationPermission']);
     });
+  });
+
+  group('android POST_NOTIFICATIONS waits for the answer', () {
+    final android = TargetPlatformVariant.only(TargetPlatform.android);
+
+    testWidgets('an answer two seconds later is the answer', (tester) async {
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [false, true];
+      responses['requestPostNotificationsPermission'] = [true];
+
+      bool? granted;
+      unawaited(
+        service.requestNotificationsPermission().then((v) => granted = v),
+      );
+
+      // The old fixed 500 ms re-read answered by now, dialog still up.
+      await tester.pump(const Duration(seconds: 2));
+      expect(granted, isNull);
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+      ]);
+
+      await answerNotificationDialog(granted: true);
+      await tester.pump();
+
+      expect(granted, isTrue);
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+        'hasPostNotificationsPermission',
+      ]);
+      expect(await NotificationPermissionRequestLog.requestedBefore(), isTrue);
+    }, variant: android);
+
+    testWidgets('a refusal resolves denied without waiting out the clock',
+        (tester) async {
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [false, false];
+      responses['requestPostNotificationsPermission'] = [true];
+
+      bool? granted;
+      unawaited(
+        service.requestNotificationsPermission().then((v) => granted = v),
+      );
+      await tester.pump();
+      // After two refusals Android shows no dialog and answers at once.
+      await answerNotificationDialog(granted: false);
+      await tester.pump();
+
+      expect(granted, isFalse);
+      expect(calls.last, 'hasPostNotificationsPermission');
+      // Asked, so the settings snapshot reads `denied`, not `notDetermined`.
+      expect(await NotificationPermissionRequestLog.requestedBefore(), isTrue);
+    }, variant: android);
+
+    testWidgets('no answer: reads the permission once the wait runs out',
+        (tester) async {
+      const timeout = PlatformAlarmService.postNotificationsAnswerTimeout;
+      // The web bridge gives up on a permission request after 120 s.
+      expect(timeout, lessThan(const Duration(seconds: 120)));
+      await setUpService();
+      // Allowed, but the answer never reached Dart.
+      responses['hasPostNotificationsPermission'] = [false, true];
+      responses['requestPostNotificationsPermission'] = [true];
+
+      bool? granted;
+      unawaited(
+        service.requestNotificationsPermission().then((v) => granted = v),
+      );
+
+      await tester.pump(timeout - const Duration(seconds: 1));
+      expect(granted, isNull);
+      await tester.pump(const Duration(seconds: 1));
+      expect(granted, isTrue);
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+        'hasPostNotificationsPermission',
+      ]);
+
+      // An answer that turns up after the wait gave up changes nothing.
+      await answerNotificationDialog(granted: true);
+      await tester.pump();
+      expect(calls, hasLength(3));
+    }, variant: android);
+
+    testWidgets('already granted: no dialog and no wait', (tester) async {
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [true];
+
+      bool? granted;
+      unawaited(
+        service.requestNotificationsPermission().then((v) => granted = v),
+      );
+      await tester.pump();
+
+      expect(granted, isTrue);
+      expect(calls, ['hasPostNotificationsPermission']);
+      expect(service.consumeRecentSystemSurfaceLaunch(), isFalse);
+    }, variant: android);
+
+    testWidgets('no Activity: nothing shown or recorded, no wait for an answer',
+        (tester) async {
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [false, false];
+      responses['requestPostNotificationsPermission'] = [false];
+
+      bool? granted;
+      unawaited(
+        service.requestNotificationsPermission().then((v) => granted = v),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(granted, isFalse);
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+        'hasPostNotificationsPermission',
+      ]);
+      expect(await NotificationPermissionRequestLog.requestedBefore(), isFalse);
+    }, variant: android);
+
+    testWidgets('a second ask while the dialog is up joins it', (tester) async {
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [false, true];
+      responses['requestPostNotificationsPermission'] = [true];
+
+      bool? first;
+      bool? second;
+      unawaited(
+        service.requestNotificationsPermission().then((v) => first = v),
+      );
+      await tester.pump();
+      unawaited(
+        service.requestNotificationsPermission().then((v) => second = v),
+      );
+      await tester.pump(const Duration(seconds: 1));
+
+      await answerNotificationDialog(granted: true);
+      await tester.pump();
+
+      expect((first, second), (true, true));
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+        'hasPostNotificationsPermission',
+      ]);
+    }, variant: android);
+
+    testWidgets('requestPermissions opens exact alarms only after the answer',
+        (tester) async {
+      await setUpService();
+      responses['hasPostNotificationsPermission'] = [false, true];
+      responses['requestPostNotificationsPermission'] = [true];
+      responses['hasExactAlarmPermission'] = [false];
+
+      bool? granted;
+      unawaited(service.requestPermissions().then((v) => granted = v));
+
+      // One system surface at a time: nothing opens over the dialog.
+      await tester.pump(const Duration(seconds: 2));
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+      ]);
+
+      await answerNotificationDialog(granted: true);
+      await tester.pump();
+
+      expect(calls, [
+        'hasPostNotificationsPermission',
+        'requestPostNotificationsPermission',
+        'hasPostNotificationsPermission',
+        'hasExactAlarmPermission',
+        'requestExactAlarmPermission',
+      ]);
+      // Notifications allowed; the exact-alarm page is the next step.
+      expect(granted, isFalse);
+    }, variant: android);
   });
 
   group('notificationPermissionStatus', () {
@@ -191,17 +370,6 @@ void main() {
         await service.notificationPermissionStatus(),
         NotificationPermissionStatus.denied,
       );
-    });
-
-    test('android: no Activity means nothing was shown or recorded', () async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
-      await setUpService();
-      responses['hasPostNotificationsPermission'] = [false, false];
-      responses['requestPostNotificationsPermission'] = [false];
-
-      await service.requestNotificationsPermission();
-
-      expect(await NotificationPermissionRequestLog.requestedBefore(), isFalse);
     });
 
     test('android: enabled is authorized; switched off pre-13 is denied',

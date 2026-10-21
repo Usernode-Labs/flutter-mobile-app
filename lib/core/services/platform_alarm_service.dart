@@ -297,6 +297,18 @@ class PlatformAlarmService {
 
   void notifyPermissionsMayHaveChanged() => _permissionChanges.add(null);
 
+  /// How long an Android POST_NOTIFICATIONS request waits for the person to
+  /// answer the system dialog before reading the permission as it stands.
+  /// Kept under the web bridge's 120 s ceiling for permission requests, so the
+  /// bridge hears Dart's answer rather than its own timeout.
+  static const postNotificationsAnswerTimeout = Duration(seconds: 110);
+
+  /// Completed by native's `onPostNotificationsPermissionResult` call.
+  Completer<void>? _postNotificationsAnswer;
+
+  /// The Android notification request in flight, which later callers join.
+  Future<bool>? _androidNotificationsRequest;
+
   static const _systemSurfaceReturnWindow = Duration(minutes: 5);
   DateTime? _systemSurfaceLaunchedAt;
 
@@ -368,6 +380,9 @@ class PlatformAlarmService {
         return await _handleRescheduleAfterBoot();
       case 'onBlockProductionEvent':
         return await _handleNativeEvent(call.arguments);
+      case 'onPostNotificationsPermissionResult':
+        _completePostNotificationsAnswer(call.arguments);
+        return null;
       default:
         _log.warn('Unknown method call: ${call.method}');
         throw MissingPluginException('Method ${call.method} not implemented');
@@ -837,7 +852,18 @@ class PlatformAlarmService {
     }
   }
 
-  Future<bool> _requestAndroidNotificationsPermission() async {
+  /// Asks for POST_NOTIFICATIONS (Android 13+) and resolves with the
+  /// permission once the person has answered the system dialog. A caller that
+  /// arrives while the dialog is up joins that request instead of launching a
+  /// second one, which Android would cancel at once.
+  Future<bool> _requestAndroidNotificationsPermission() {
+    return _androidNotificationsRequest ??=
+        _askAndroidNotificationsPermission().whenComplete(() {
+      _androidNotificationsRequest = null;
+    });
+  }
+
+  Future<bool> _askAndroidNotificationsPermission() async {
     bool hasNotifications =
         await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
             false;
@@ -847,18 +873,52 @@ class PlatformAlarmService {
       _noteSystemSurfaceLaunch();
       final launched = await _channel
           .invokeMethod<bool>('requestPostNotificationsPermission');
+      // Native sends the answer only after this reply, so waiting from here
+      // can neither miss it nor take one meant for an earlier dialog. Native
+      // false means no Activity was attached and nothing was shown.
+      final answered = launched == true
+          ? _nextPostNotificationsAnswer()
+          : Future<void>.delayed(const Duration(milliseconds: 500));
       // Remembered so a refusal reads as `denied`, not `notDetermined`.
-      // Native false means no Activity was attached and nothing was shown.
       if (launched != false) {
         await NotificationPermissionRequestLog.markRequested();
       }
-      // Wait a bit for the permission dialog to be processed
-      await Future.delayed(const Duration(milliseconds: 500));
+      await answered;
       hasNotifications =
           await _channel.invokeMethod<bool>('hasPostNotificationsPermission') ??
               false;
     }
     return hasNotifications;
+  }
+
+  /// Completes when native reports the person's answer to the dialog that
+  /// was just launched, or after [postNotificationsAnswerTimeout]. Once the
+  /// person has refused twice Android shows no dialog and answers at once.
+  Future<void> _nextPostNotificationsAnswer() {
+    final answer = Completer<void>();
+    _postNotificationsAnswer = answer;
+    return answer.future.timeout(postNotificationsAnswerTimeout, onTimeout: () {
+      if (identical(_postNotificationsAnswer, answer)) {
+        _postNotificationsAnswer = null;
+      }
+      _log.warn(
+        'No answer to the POST_NOTIFICATIONS dialog after '
+        '${postNotificationsAnswerTimeout.inSeconds}s; '
+        'reading the permission as it stands',
+      );
+    });
+  }
+
+  void _completePostNotificationsAnswer(dynamic arguments) {
+    final answer = _postNotificationsAnswer;
+    _postNotificationsAnswer = null;
+    final granted = arguments is Map ? arguments['granted'] : null;
+    if (answer == null || answer.isCompleted) {
+      _log.debug('Late POST_NOTIFICATIONS answer ignored (granted: $granted)');
+      return;
+    }
+    _log.info('POST_NOTIFICATIONS dialog answered (granted: $granted)');
+    answer.complete();
   }
 
   /// Asks for the first missing producer permission only: the exact-alarm

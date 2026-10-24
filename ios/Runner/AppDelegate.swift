@@ -191,33 +191,6 @@ final class ApplicationIncarnationStore {
     print("[AppDelegate] Private native-session channel configured")
   }
 
-  override func application(
-    _ app: UIApplication,
-    open url: URL,
-    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
-  ) -> Bool {
-    // Links may contain sign-in codes or private invitation tokens.
-    print("[AppDelegate] openURL received")
-    let handled = super.application(app, open: url, options: options)
-    print("[AppDelegate] openURL handled by Flutter/plugins: \(handled)")
-    return handled
-  }
-
-  override func application(
-    _ application: UIApplication,
-    continue userActivity: NSUserActivity,
-    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
-  ) -> Bool {
-    print("[AppDelegate] continueUserActivity type=\(userActivity.activityType)")
-    let handled = super.application(
-      application,
-      continue: userActivity,
-      restorationHandler: restorationHandler
-    )
-    print("[AppDelegate] continueUserActivity handled by Flutter/plugins: \(handled)")
-    return handled
-  }
-
   // Check and notify current notification permission status
   private func registerSocialNotificationCategory() {
     let center = UNUserNotificationCenter.current()
@@ -476,10 +449,18 @@ final class ApplicationIncarnationStore {
     result(true)
   }
 
+  /// The window on screen. Under the UIScene lifecycle the app delegate's own
+  /// `window` is nil; the window belongs to the foreground scene.
+  private var foregroundWindow: UIWindow? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    return scene?.keyWindow ?? scene?.windows.first
+  }
+
   /// Captures the visible app window after the feedback dialog has hidden.
   private func captureCurrentScreen(result: @escaping FlutterResult) {
     DispatchQueue.main.async { [weak self] in
-      guard let self, let window = self.window, !window.bounds.isEmpty else {
+      guard let self, let window = self.foregroundWindow, !window.bounds.isEmpty else {
         result(FlutterError(
           code: "capture_unavailable",
           message: "The app window is not ready.",

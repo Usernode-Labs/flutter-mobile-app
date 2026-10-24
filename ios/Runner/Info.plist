@@ -46,8 +46,38 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
-	<key>UIRequiresFullScreen</key>
-	<true/>
+	<!-- The UIScene lifecycle. An app built with the iOS 27 SDK that has no
+	     scene manifest stops at launch: UIKit raises
+	     _UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption, on
+	     every iPhone. FlutterSceneDelegate hands the scene's URL and
+	     user-activity callbacks to the engine, so deep links and universal
+	     links still reach go_router (FlutterDeepLinkingEnabled above). One
+	     scene: Flutter does not support more than one yet.
+
+	     No UIRequiresFullScreen any more. On iPhone Duo it kept the app at a
+	     phone's size on the inner display, and the iOS 27 SDK no longer lets
+	     it opt out of resizing anyway. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneClassName</key>
+					<string>UIWindowScene</string>
+					<key>UISceneDelegateClassName</key>
+					<string>FlutterSceneDelegate</string>
+					<key>UISceneConfigurationName</key>
+					<string>flutter</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
     <key>NSCameraUsageDescription</key>
     <string>Homeroom uses your camera only when you choose to take a photo or video to share in an app. Nothing is captured or uploaded without your action.</string>
     <key>NSMicrophoneUsageDescription</key>

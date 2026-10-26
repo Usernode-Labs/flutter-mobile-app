@@ -1,8 +1,6 @@
 // Sign in with Google's way back into the app (google_sign_in, for the web
 // shell's sign-in sheet: lib/features/dapps/native_sign_in.dart). It is the
 // iOS OAuth client ID reversed: client "123-abc.apps.googleusercontent.com"
-// is scheme "com.googleusercontent.apps.123-abc". Set it together with the
-// GOOGLE_IOS_CLIENT_ID and GOOGLE_SERVER_CLIENT_ID dart-defines; until then
-// this placeholder registers a scheme nothing opens, and the app does not
-// offer Continue with Google.
-GOOGLE_REVERSED_CLIENT_ID = com.onhomeroom.app.google-sign-in-unset
+// is scheme "com.googleusercontent.apps.123-abc". Keep it in step with
+// AppConfig.googleIosClientId (test/core/config/google_sign_in_config_test.dart).
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.362395561249-pfci84ag0r2hr8tln0taqcq9t90mslp6

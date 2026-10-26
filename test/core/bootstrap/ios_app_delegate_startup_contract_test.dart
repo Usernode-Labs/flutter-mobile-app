@@ -64,4 +64,24 @@ void main() {
     final plist = await File('ios/Runner/Info.plist').readAsString();
     expect(plist, isNot(contains('<key>UIRequiresFullScreen</key>')));
   });
+
+  // Without UIRequiresFullScreen the iPad app joins multitasking, and App
+  // Store Connect rejects the upload (error 90474) unless the iPad list
+  // names all four orientations.
+  test('iOS supports every orientation on iPad', () async {
+    final plist = await File('ios/Runner/Info.plist').readAsString();
+    final ipad = RegExp(
+      r'<key>UISupportedInterfaceOrientations~ipad</key>\s*<array>(.*?)</array>',
+      dotAll: true,
+    ).firstMatch(plist)!.group(1)!;
+    for (final orientation in [
+      'Portrait',
+      'PortraitUpsideDown',
+      'LandscapeLeft',
+      'LandscapeRight',
+    ]) {
+      expect(ipad,
+          contains('<string>UIInterfaceOrientation$orientation</string>'));
+    }
+  });
 }

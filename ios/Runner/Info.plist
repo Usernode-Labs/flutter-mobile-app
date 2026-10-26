@@ -103,10 +103,15 @@
         <string>UIInterfaceOrientationPortrait</string>
         <string>UIInterfaceOrientationPortraitUpsideDown</string>
     </array>
+    <!-- Without UIRequiresFullScreen the iPad app joins multitasking, and App
+         Store Connect rejects the upload (error 90474) unless the iPad list
+         names all four orientations. -->
     <key>UISupportedInterfaceOrientations~ipad</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
         <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
 	<key>CFBundleURLTypes</key>
 	<array>

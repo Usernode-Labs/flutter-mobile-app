@@ -164,12 +164,20 @@ class AppConfig {
   // web client (Admin → Sign-in providers → Google → Client ID); Android
   // needs it for an ID token at all. The iOS client also needs its reversed
   // form as a URL scheme: GOOGLE_REVERSED_CLIENT_ID in
-  // ios/Flutter/GoogleSignIn.xcconfig. Empty leaves Continue with Google
-  // out of the app's sheet.
-  static const String googleServerClientId =
-      String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID', defaultValue: '');
-  static const String googleIosClientId =
-      String.fromEnvironment('GOOGLE_IOS_CLIENT_ID', defaultValue: '');
+  // ios/Flutter/GoogleSignIn.xcconfig. Both live in the homeroom-publishing
+  // Google Cloud project; the Android client there (package plus the Play
+  // app-signing SHA-1) has no ID the app sends. A dart-define overrides
+  // either; empty leaves Continue with Google out of the app's sheet.
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue:
+        '362395561249-1mkhkngpajmabt3jcc8863lbmkk2mbkq.apps.googleusercontent.com',
+  );
+  static const String googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+    defaultValue:
+        '362395561249-pfci84ag0r2hr8tln0taqcq9t90mslp6.apps.googleusercontent.com',
+  );
 
   // GitHub configuration
   static const String githubToken =

@@ -14,7 +14,7 @@ void main() {
         appleAvailable: apple,
         googleAvailable: google,
         apple: appleRequest ?? (_) async => 'apple.id.token',
-        google: googleRequest ?? () async => 'google.id.token',
+        google: googleRequest ?? (_) async => 'google.id.token',
       );
 
   Matcher refusedWith(String code) => throwsA(
@@ -45,11 +45,20 @@ void main() {
     expect(NativeSignIn.hashedNonce('abc'), asked);
   });
 
-  test('Google returns its ID token', () async {
+  // #5960: given none, Google's iOS SDK writes a random nonce of its own,
+  // which the platform refuses; the page's nonce goes to Google as given.
+  test('Google gets the page nonce as given and returns its ID token',
+      () async {
+    String? asked;
+    final signIn = build(googleRequest: (nonce) async {
+      asked = nonce;
+      return 'google.id.token';
+    });
     expect(
-      await build().signIn({'provider': 'google', 'nonce': 'n'}),
+      await signIn.signIn({'provider': 'google', 'nonce': 'abc'}),
       'google.id.token',
     );
+    expect(asked, 'abc');
   });
 
   test('refuses bad arguments and providers this build cannot show', () {
@@ -84,13 +93,13 @@ void main() {
     expect(appleFailed.signIn({'provider': 'apple', 'nonce': 'n'}),
         refusedWith('failed'));
     final google = build(
-      googleRequest: () async => throw const GoogleSignInException(
+      googleRequest: (_) async => throw const GoogleSignInException(
         code: GoogleSignInExceptionCode.canceled,
       ),
     );
     expect(google.signIn({'provider': 'google', 'nonce': 'n'}),
         refusedWith('cancelled'));
-    final empty = build(googleRequest: () async => null);
+    final empty = build(googleRequest: (_) async => null);
     expect(empty.signIn({'provider': 'google', 'nonce': 'n'}),
         refusedWith('failed'));
   });
@@ -102,7 +111,7 @@ void main() {
         .having((e) => e.code, 'code', 'failed')
         .having((e) => e.message, 'message', text));
     final google = build(
-      googleRequest: () async => throw const GoogleSignInException(
+      googleRequest: (_) async => throw const GoogleSignInException(
         code: GoogleSignInExceptionCode.clientConfigurationError,
         description: 'Invalid\n  client',
       ),
@@ -124,12 +133,12 @@ void main() {
       failedSaying('Apple sign-in did not finish (failed: nope).'),
     );
     await expectLater(
-      build(googleRequest: () async => null)
+      build(googleRequest: (_) async => null)
           .signIn({'provider': 'google', 'nonce': 'n'}),
       failedSaying('Google sign-in did not finish '
           '(noIdToken: the sheet finished without an ID token).'),
     );
-    final plugin = build(googleRequest: () async => throw Exception('boom'));
+    final plugin = build(googleRequest: (_) async => throw Exception('boom'));
     await expectLater(
       plugin.signIn({'provider': 'google', 'nonce': 'n'}),
       failedSaying(

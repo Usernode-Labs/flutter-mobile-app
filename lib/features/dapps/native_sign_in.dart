@@ -27,8 +27,8 @@ class NativeSignInException implements Exception {
 /// Asks Apple for an ID token carrying [hashedNonce].
 typedef AppleIdTokenRequest = Future<String?> Function(String hashedNonce);
 
-/// Asks Google for an ID token.
-typedef GoogleIdTokenRequest = Future<String?> Function();
+/// Asks Google for an ID token carrying [nonce].
+typedef GoogleIdTokenRequest = Future<String?> Function(String nonce);
 
 /// Sign in with Apple and Google for the web shell's sign-in sheet
 /// (`signInWithProvider`; social-vibecoding NATIVE-BRIDGE.md, "Native
@@ -37,9 +37,9 @@ typedef GoogleIdTokenRequest = Future<String?> Function();
 /// returns to the platform, which verifies it and signs the person in.
 ///
 /// The page's nonce is single use. Apple's sheet carries its SHA-256 (lower
-/// case hex), as Apple's documentation asks. Google's SDK takes a nonce only
-/// once per process, at initialisation, so its tokens carry none; the
-/// platform takes such a token only while it is fresh, and only once.
+/// case hex), as Apple's documentation asks; Google's carries it as given.
+/// Google's iOS SDK writes a random nonce of its own when it is passed none,
+/// which the platform refuses (#5960), so every Google sign-in passes it.
 class NativeSignIn {
   NativeSignIn({
     required this.appleAvailable,
@@ -109,7 +109,7 @@ class NativeSignIn {
     }
     String? token;
     try {
-      token = apple ? await _apple(hashedNonce(nonce)) : await _google();
+      token = apple ? await _apple(hashedNonce(nonce)) : await _google(nonce);
     } on SignInWithAppleAuthorizationException catch (error) {
       if (error.code == AuthorizationErrorCode.canceled) throw _cancelled;
       throw _failed(label, reason(error.code.name, error.message));
@@ -163,19 +163,20 @@ Future<String?> _appleIdToken(String hashedNonce) async {
   return credential.identityToken;
 }
 
-/// Google's SDK is initialised once per process, on the first sign-in.
+/// Google's SDK takes its nonce at initialisation, so it is initialised
+/// again with each sign-in's nonce. Neither the iOS nor the Android plugin
+/// keeps anything else from an earlier initialisation: each stores the nonce
+/// and its client configuration, and the next sign-in uses them.
 class _GoogleSession {
-  Future<void>? _ready;
-
-  Future<String?> idToken() async {
+  Future<String?> idToken(String nonce) async {
     final google = GoogleSignIn.instance;
-    _ready ??= google.initialize(
+    await google.initialize(
       clientId: defaultTargetPlatform == TargetPlatform.iOS
           ? AppConfig.googleIosClientId
           : null,
       serverClientId: AppConfig.googleServerClientId,
+      nonce: nonce,
     );
-    await _ready;
     final account = await google.authenticate();
     return account.authentication.idToken;
   }

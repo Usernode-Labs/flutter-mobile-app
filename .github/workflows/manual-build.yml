@@ -20,7 +20,10 @@ env:
   JAVA_VERSION: "17"
   NDK_VERSION: "29.0.14206865"
   SCCACHE_VERSION: "0.17.0"
-  XCODE_VERSION: "26.5"
+  # The iOS 27 SDK: iPhone Duo gives an app its side column (and the
+  # whole cover screen) only when it was built with it. GitHub ships
+  # Xcode 27 on the xcode-27 image, not on macos-26.
+  XCODE_VERSION: "27.1"
 
 jobs:
   check-tag:
@@ -302,7 +305,7 @@ jobs:
 
   build-ios:
     name: Build iOS App
-    runs-on: macos-26
+    runs-on: xcode-27
     needs: [check-tag, prepare-frb-bindings]
     outputs:
       version: ${{ github.event.inputs.version }}

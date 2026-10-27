@@ -14,7 +14,10 @@ class NativeSignInException implements Exception {
   /// `unsupported` or `failed`. Sent to the page as `errorInfo.code`.
   final String code;
 
-  /// A plain English sentence, the bridge's `error`.
+  /// A plain English sentence, the bridge's `error`. A `failed` one ends
+  /// with what the provider's SDK said, in brackets ([NativeSignIn.reason]):
+  /// the page reports it to the platform, which logs it, because the sheet
+  /// itself only ever shows its generic "That did not work" line.
   final String message;
 
   @override
@@ -109,22 +112,44 @@ class NativeSignIn {
       token = apple ? await _apple(hashedNonce(nonce)) : await _google();
     } on SignInWithAppleAuthorizationException catch (error) {
       if (error.code == AuthorizationErrorCode.canceled) throw _cancelled;
-      debugPrint('[NativeSignIn] Apple refused: ${error.code}');
-      throw _failed(label);
+      throw _failed(label, reason(error.code.name, error.message));
     } on GoogleSignInException catch (error) {
       if (error.code == GoogleSignInExceptionCode.canceled) throw _cancelled;
-      debugPrint('[NativeSignIn] Google refused: ${error.code}');
-      throw _failed(label);
+      throw _failed(label, reason(error.code.name, error.description));
+    } on Exception catch (error) {
+      // A plugin that is missing or answers off-script (PlatformException,
+      // MissingPluginException) is a failure the page should hear about too.
+      throw _failed(label, reason(error.runtimeType.toString(), '$error'));
     }
-    if (token == null || token.isEmpty) throw _failed(label);
+    if (token == null || token.isEmpty) {
+      throw _failed(label, 'noIdToken: the sheet finished without an ID token');
+    }
     return token;
   }
 
   static const NativeSignInException _cancelled =
       NativeSignInException('cancelled', 'Sign-in was cancelled.');
 
-  static NativeSignInException _failed(String label) =>
-      NativeSignInException('failed', '$label sign-in did not finish.');
+  static const int _reasonMaxLength = 200;
+
+  /// `code: description`, on one line and at most [_reasonMaxLength]
+  /// characters: what a provider's SDK said when its sheet failed.
+  @visibleForTesting
+  static String reason(String code, String? description) {
+    final text = (description ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final line = text.isEmpty ? code : '$code: $text';
+    return line.length <= _reasonMaxLength
+        ? line
+        : line.substring(0, _reasonMaxLength);
+  }
+
+  static NativeSignInException _failed(String label, String reason) {
+    debugPrint('[NativeSignIn] $label refused: $reason');
+    return NativeSignInException(
+      'failed',
+      '$label sign-in did not finish ($reason).',
+    );
+  }
 }
 
 Future<String?> _appleIdToken(String hashedNonce) async {

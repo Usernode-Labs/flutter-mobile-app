@@ -94,4 +94,52 @@ void main() {
     expect(empty.signIn({'provider': 'google', 'nonce': 'n'}),
         refusedWith('failed'));
   });
+
+  // The sheet shows a generic line; the page reports this one to the
+  // platform's log, so a failure on a phone can be told apart from the server.
+  test('a failure says what the provider said, in its message', () async {
+    Matcher failedSaying(String text) => throwsA(isA<NativeSignInException>()
+        .having((e) => e.code, 'code', 'failed')
+        .having((e) => e.message, 'message', text));
+    final google = build(
+      googleRequest: () async => throw const GoogleSignInException(
+        code: GoogleSignInExceptionCode.clientConfigurationError,
+        description: 'Invalid\n  client',
+      ),
+    );
+    await expectLater(
+      google.signIn({'provider': 'google', 'nonce': 'n'}),
+      failedSaying(
+          'Google sign-in did not finish (clientConfigurationError: Invalid client).'),
+    );
+    final apple = build(
+      appleRequest: (_) async =>
+          throw const SignInWithAppleAuthorizationException(
+        code: AuthorizationErrorCode.failed,
+        message: 'nope',
+      ),
+    );
+    await expectLater(
+      apple.signIn({'provider': 'apple', 'nonce': 'n'}),
+      failedSaying('Apple sign-in did not finish (failed: nope).'),
+    );
+    await expectLater(
+      build(googleRequest: () async => null)
+          .signIn({'provider': 'google', 'nonce': 'n'}),
+      failedSaying('Google sign-in did not finish '
+          '(noIdToken: the sheet finished without an ID token).'),
+    );
+    final plugin = build(googleRequest: () async => throw Exception('boom'));
+    await expectLater(
+      plugin.signIn({'provider': 'google', 'nonce': 'n'}),
+      failedSaying(
+          'Google sign-in did not finish (_Exception: Exception: boom).'),
+    );
+  });
+
+  test('a reason is one line of at most 200 characters', () {
+    expect(NativeSignIn.reason('unknownError', null), 'unknownError');
+    expect(NativeSignIn.reason('x', 'a\n\tb'), 'x: a b');
+    expect(NativeSignIn.reason('x', 'y' * 500).length, 200);
+  });
 }

@@ -65,6 +65,30 @@ void main() {
     expect(plist, isNot(contains('<key>UIRequiresFullScreen</key>')));
   });
 
+  // iPhone Duo's inner display turns with the device, so iOS must be allowed
+  // every orientation on iPhone too; lib/core/bootstrap/orientation_policy.dart
+  // narrows it to portrait on a phone-sized screen.
+  test('iOS allows every orientation on iPhone, narrowed at run time',
+      () async {
+    final plist = await File('ios/Runner/Info.plist').readAsString();
+    final iphone = RegExp(
+      r'<key>UISupportedInterfaceOrientations</key>\s*<array>(.*?)</array>',
+      dotAll: true,
+    ).firstMatch(plist)!.group(1)!;
+    for (final orientation in [
+      'Portrait',
+      'PortraitUpsideDown',
+      'LandscapeLeft',
+      'LandscapeRight',
+    ]) {
+      expect(iphone,
+          contains('<string>UIInterfaceOrientation$orientation</string>'));
+    }
+    final main = await File('lib/main.dart').readAsString();
+    expect(main, contains('OrientationPolicy.instance.start()'));
+    expect(main, isNot(contains('DeviceOrientation.portraitUp')));
+  });
+
   // Without UIRequiresFullScreen the iPad app joins multitasking, and App
   // Store Connect rejects the upload (error 90474) unless the iPad list
   // names all four orientations.

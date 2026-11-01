@@ -98,10 +98,15 @@
         <string>be.tramckrijte.workmanager.slot_monitoring_task</string>
         <string>com.onhomeroom.app.slotmonitoring</string>
     </array>
+    <!-- Every orientation iOS may use. The app narrows it at run time
+         (lib/core/bootstrap/orientation_policy.dart): portrait on a phone,
+         any way round on a large screen such as iPhone Duo's inner display. -->
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>
         <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <!-- Without UIRequiresFullScreen the iPad app joins multitasking, and App
          Store Connect rejects the upload (error 90474) unless the iPad list

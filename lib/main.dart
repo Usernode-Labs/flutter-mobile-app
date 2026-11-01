@@ -19,6 +19,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
 import 'package:sentry_flutter/sentry_flutter.dart' show SentryLevel;
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
+import 'package:crypto_mobile_app/core/bootstrap/orientation_policy.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/slow_operation.dart';
 import 'package:crypto_mobile_app/design_system/theme/color_is_expensive_theme.dart';
@@ -80,11 +81,9 @@ Future<void> main() async {
 }
 
 Future<void> _runAppBody({required String logTag}) async {
-  // Lock orientation to portrait mode
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Portrait on a phone; a large screen (iPhone Duo unfolded, iPad) turns
+  // with the device. Followed as the screen folds and unfolds.
+  await OrientationPolicy.instance.start();
 
   // Keep the native launch screen up until the splash can draw the same
   // mark, or Flutter's first frame is the bare ground and the mark blinks

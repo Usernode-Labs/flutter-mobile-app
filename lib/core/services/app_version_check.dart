@@ -160,9 +160,12 @@ class AppVersionCheck {
     );
   }
 
-  static String get storeUrl => Platform.isIOS
-      ? 'https://testflight.apple.com/join/H9puE1gu'
-      : 'https://play.google.com/apps/internaltest/4701340899701151099';
+  static const appStoreUrl = 'https://apps.apple.com/app/id6814786047';
+  static const playStoreUrl =
+      'https://play.google.com/store/apps/details?id=com.onhomeroom.app';
+
+  /// Where Update goes when the server names no `update_url`.
+  static String get storeUrl => Platform.isIOS ? appStoreUrl : playStoreUrl;
 }
 
 // =============================================================================

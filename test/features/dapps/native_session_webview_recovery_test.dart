@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/sv_shell_gate.dart';
+import 'package:crypto_mobile_app/core/services/native_connectivity.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
@@ -15,6 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
+
+import '../../core/services/fake_native_connectivity.dart';
 
 final _url = AppConfig.platformBaseUrl;
 
@@ -36,6 +39,10 @@ void main() {
   });
 
   Widget app({String? url, String? navigationRequest}) => ProviderScope(
+        overrides: [
+          nativeConnectivityProvider
+              .overrideWithValue(FakeNativeConnectivity()),
+        ],
         child: MaterialApp(
           home: DappWebViewScreen(
             url: url ?? _url,
@@ -71,6 +78,10 @@ void main() {
     SvShellGateStorage.passed = true;
     addTearDown(() => SvShellGateStorage.passed = false);
     Widget shell(String link, String launch) => ProviderScope(
+          overrides: [
+            nativeConnectivityProvider
+                .overrideWithValue(FakeNativeConnectivity()),
+          ],
           child: MaterialApp(
             theme:
                 ThemeData(extensions: DesignSystemTheme.standardExtensions()),

@@ -7,7 +7,9 @@
 // screen; on the first launch ever the cover also waits for the page to load.
 //
 // `shellPainted` goes through the real JS channel and dispatch here, so these
-// also pin the bridge contract the web shell relies on.
+// also pin the bridge contract the web shell relies on, as does
+// `usernode:native-connectivity`, the phone's own connectivity sent to the
+// page.
 
 import 'dart:async';
 import 'dart:convert';
@@ -15,6 +17,7 @@ import 'dart:convert';
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/sv_shell_gate.dart';
+import 'package:crypto_mobile_app/core/services/native_connectivity.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/theme/design_system_theme.dart';
 import 'package:crypto_mobile_app/features/dapps/sv_shell_screen.dart';
@@ -27,13 +30,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
+import '../../core/services/fake_native_connectivity.dart';
+
 final _url = AppConfig.platformBaseUrl;
 
 void main() {
   late _WebViewPlatform platform;
   late WebViewPlatform? originalPlatform;
+  late FakeNativeConnectivity connectivity;
 
   setUp(() {
+    connectivity = FakeNativeConnectivity();
     SharedPreferences.setMockInitialValues({});
     LaunchCoverClock.reset();
     SvShellGateStorage.passed = true;
@@ -48,6 +55,9 @@ void main() {
   });
 
   Widget shell({String? link, String? launch}) => ProviderScope(
+        overrides: [
+          nativeConnectivityProvider.overrideWithValue(connectivity),
+        ],
         child: MaterialApp(
           theme: ThemeData(extensions: DesignSystemTheme.standardExtensions()),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -63,6 +73,10 @@ void main() {
 
   final cover = find.byKey(SvShellScreen.coverKey);
   final connecting = find.byKey(LaunchCover.connectingKey);
+
+  String offlineMessage(WidgetTester tester) => AppLocalizations.of(
+        tester.element(find.byType(SvShellScreen)),
+      ).svShellOfflineMessage;
 
   bool lifting(WidgetTester tester) =>
       tester.widget<IgnorePointer>(cover).ignoring;
@@ -85,6 +99,51 @@ void main() {
       (s) => s.contains('__usernodeResolve(${jsonEncode(id)}'),
     );
   }
+
+  /// Has the page say its native-event listeners are installed, the way the
+  /// web shell does once it has booted: fetch the realm's capability, then
+  /// `markPrivilegedBridgeReady` with it.
+  Future<void> markReady(WidgetTester tester) async {
+    final controller = platform.controller;
+    controller.channel.onMessageReceived(const JavaScriptMessage(
+      message: '{"id":"capability","method":"getPrivilegedBridgeCapability"}',
+    ));
+    await tester.pump();
+    expect(controller.capability, isNotNull);
+    controller.channel.onMessageReceived(JavaScriptMessage(
+      message: jsonEncode({
+        'id': 'ready',
+        'method': 'markPrivilegedBridgeReady',
+        'args': {},
+        'privilegedCapability': controller.capability,
+      }),
+    ));
+    await tester.pump();
+    await tester.pump();
+  }
+
+  /// The scripts that sent `usernode:native-connectivity`, in order.
+  List<String> connectivityScripts() => [
+        for (final script in platform.controller.evaluated)
+          if (script.contains('"usernode:native-connectivity"')) script,
+      ];
+
+  /// The details those scripts sent, in order.
+  List<Object?> connectivitySent() => [
+        for (final script in connectivityScripts())
+          jsonDecode(
+            RegExp(r'const detail = (.*?);window\.').firstMatch(script)![1]!,
+          ),
+      ];
+
+  const wifi = {
+    'online': true,
+    'via': ['wifi'],
+  };
+  const mobile = {
+    'online': true,
+    'via': ['mobile'],
+  };
 
   /// The fade's first frame starts its clock, and it is done once MORE than
   /// its duration has passed; its end drops the cover.
@@ -163,6 +222,20 @@ void main() {
       expect(await call(tester, 'shellPainted'), contains(', true, null'));
       await tester.pump(const Duration(seconds: 4));
       expect(cover, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('has no load limit: a slow load never says it cannot connect',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      await tester.pump(SvShellScreen.coverCap);
+      expect(lifting(tester), isTrue);
+      await finishFade(tester);
+
+      await tester.pump(SvShellScreen.firstLoadLimit);
+      expect(find.text(offlineMessage(tester)), findsNothing);
+      expect(cover, findsNothing);
+      expect(platform.controller.loads, [Uri.parse(_url)]);
       expect(tester.takeException(), isNull);
     });
 
@@ -305,6 +378,254 @@ void main() {
       expect(cover, findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+        'offers a retry once the load has taken 15 s, and keeps loading',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      final loading = platform.controller;
+      final message = find.text(offlineMessage(tester));
+
+      await tester.pump(
+        SvShellScreen.firstLoadLimit - const Duration(milliseconds: 1),
+      );
+      expect(message, findsNothing);
+      expect(connecting, findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(message, findsOneWidget);
+      expect(
+          find.text(AppLocalizations.of(
+            tester.element(find.byType(SvShellScreen)),
+          ).retry),
+          findsOneWidget);
+      expect(connecting, findsNothing);
+      expect(lifting(tester), isFalse);
+      expect(platform.controller, same(loading), reason: 'not rebuilt');
+      expect(loading.loads, [Uri.parse(_url)], reason: 'not reloaded');
+      expect(SvShellGateStorage.passed, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a load that finishes after the limit lifts the message',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      await tester.pump(SvShellScreen.firstLoadLimit);
+      final message = find.text(offlineMessage(tester));
+      expect(message, findsOneWidget);
+
+      platform.navigation.onPageFinished!(_url);
+      await tester.pump();
+      expect(message, findsNothing);
+      expect(SvShellGateStorage.passed, isTrue);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('sv_shell_first_load_ok'), isTrue);
+
+      // Then exactly as on time: the cap counts from the load.
+      await tester.pump(const Duration(milliseconds: 2900));
+      expect(lifting(tester), isFalse);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(lifting(tester), isTrue);
+      await finishFade(tester);
+      expect(cover, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a load that fails after the limit changes nothing',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      await tester.pump(SvShellScreen.firstLoadLimit);
+      final loading = platform.controller;
+
+      platform.navigation.onWebResourceError!(const WebResourceError(
+        errorCode: -1001,
+        description: 'The request timed out.',
+        isForMainFrame: true,
+      ));
+      await tester.pump();
+      expect(find.text(offlineMessage(tester)), findsOneWidget);
+      expect(platform.controller, same(loading));
+      await tester.pump(const Duration(seconds: 5));
+      expect(lifting(tester), isFalse);
+      expect(SvShellGateStorage.passed, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('retry after the limit rebuilds the WebView and restarts it',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      await tester.pump(SvShellScreen.firstLoadLimit);
+      final message = find.text(offlineMessage(tester));
+      final overdue = platform.controller;
+
+      await tester.tap(find.text(AppLocalizations.of(
+        tester.element(find.byType(SvShellScreen)),
+      ).retry));
+      await tester.pump();
+      expect(platform.controller, isNot(same(overdue)));
+      expect(platform.controller.loads, [Uri.parse(_url)]);
+      expect(message, findsNothing);
+
+      await tester.pump(
+        SvShellScreen.firstLoadLimit - const Duration(milliseconds: 1),
+      );
+      expect(message, findsNothing);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(message, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the phone coming back online retries by itself',
+        (tester) async {
+      connectivity.current = const [ConnectivityResult.none];
+      await tester.pumpWidget(shell());
+      await tester.pump();
+      platform.navigation.onWebResourceError!(const WebResourceError(
+        errorCode: -1009,
+        description: 'The Internet connection appears to be offline.',
+        isForMainFrame: true,
+      ));
+      await tester.pump();
+      final message = find.text(offlineMessage(tester));
+      expect(message, findsOneWidget);
+      final failed = platform.controller;
+
+      connectivity.emit(const [ConnectivityResult.none]);
+      await tester.pump();
+      expect(platform.controller, same(failed), reason: 'still offline');
+
+      connectivity.emit(const [ConnectivityResult.wifi]);
+      await tester.pump();
+      expect(platform.controller, isNot(same(failed)));
+      expect(platform.controller.loads, [Uri.parse(_url)]);
+      expect(message, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'only a return from offline retries, and only under the message',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      await tester.pump();
+      final loading = platform.controller;
+
+      // Back online while still connecting: nothing to retry.
+      connectivity.emit(const [ConnectivityResult.none]);
+      connectivity.emit(const [ConnectivityResult.wifi]);
+      await tester.pump();
+      expect(platform.controller, same(loading));
+
+      // Online to online under the message: not a return.
+      await tester.pump(SvShellScreen.firstLoadLimit);
+      expect(find.text(offlineMessage(tester)), findsOneWidget);
+      connectivity.emit(const [ConnectivityResult.mobile]);
+      await tester.pump();
+      expect(platform.controller, same(loading));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('native connectivity', () {
+    testWidgets(
+        'a page that is ready is told where it starts, and again '
+        'after each page finish', (tester) async {
+      connectivity.current = const [
+        ConnectivityResult.wifi,
+        ConnectivityResult.vpn,
+        ConnectivityResult.wifi,
+      ];
+      await tester.pumpWidget(shell());
+      await markReady(tester);
+      const wifiVpn = {
+        'online': true,
+        'via': ['wifi', 'vpn'],
+      };
+      expect(connectivitySent(), [wifiVpn]);
+
+      platform.navigation.onPageFinished!(_url);
+      await tester.pump();
+      expect(connectivitySent(), [wifiVpn, wifiVpn]);
+      final script = connectivityScripts().last;
+      expect(
+        script,
+        contains('if (window[markerKey] !== "realm") return false;'),
+        reason: 'sent only into the ready realm',
+      );
+      expect(
+        script,
+        contains('const detail = {"online":true,"via":["wifi","vpn"]};'
+            'window.__usernodeNativeConnectivity = detail;'
+            'window.dispatchEvent(new CustomEvent('
+            '"usernode:native-connectivity", { detail: detail }));'),
+      );
+
+      connectivity.current = const [ConnectivityResult.mobile];
+      platform.navigation.onPageFinished!(_url);
+      await tester.pump();
+      expect(connectivitySent().last, mobile);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('nothing is sent until the page is ready', (tester) async {
+      await tester.pumpWidget(shell());
+      platform.navigation.onPageFinished!(_url);
+      await tester.pump();
+      connectivity.emit(const [ConnectivityResult.mobile]);
+      await tester.pump();
+      expect(connectivitySent(), isEmpty);
+
+      await markReady(tester);
+      expect(connectivitySent(), [mobile]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a change is sent once, and the same state again is not',
+        (tester) async {
+      await tester.pumpWidget(shell());
+      await markReady(tester);
+      expect(connectivitySent(), [wifi]);
+
+      connectivity.emit(const [ConnectivityResult.wifi]);
+      await tester.pump();
+      expect(connectivitySent(), [wifi], reason: 'the page has it already');
+
+      connectivity.emit(const [ConnectivityResult.mobile]);
+      await tester.pump();
+      connectivity.emit(const [ConnectivityResult.mobile]);
+      connectivity.emit(const [
+        ConnectivityResult.mobile,
+        ConnectivityResult.mobile,
+      ]);
+      await tester.pump();
+      expect(connectivitySent(), [wifi, mobile]);
+
+      connectivity.emit(const [ConnectivityResult.wifi]);
+      await tester.pump();
+      expect(connectivitySent(), [wifi, mobile, wifi]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('none is offline', (tester) async {
+      await tester.pumpWidget(shell());
+      await markReady(tester);
+
+      connectivity.emit(const [ConnectivityResult.none]);
+      await tester.pump();
+      expect(connectivitySent().last, {
+        'online': false,
+        'via': ['none'],
+      });
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('stops listening when the WebView goes', (tester) async {
+      await tester.pumpWidget(shell());
+      expect(connectivity.hasListener, isTrue);
+
+      await tester.pumpWidget(const SizedBox());
+      expect(connectivity.hasListener, isFalse);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
 
@@ -366,6 +687,12 @@ class _Controller extends PlatformWebViewController {
   final scripts = <String>[];
   final loads = <Uri>[];
 
+  /// Every evaluation, realm-bound sends and replies included.
+  final evaluated = <String>[];
+
+  /// The realm capability the page was handed, once it has asked.
+  String? capability;
+
   @override
   Future<void> runJavaScript(String script) async {
     scripts.add(script);
@@ -373,8 +700,15 @@ class _Controller extends PlatformWebViewController {
 
   @override
   Future<Object> runJavaScriptReturningResult(String script) async {
+    evaluated.add(script);
     if (script.contains('return marker.length')) {
       return '5:realm${owner.topFrameUrl}';
+    }
+    final resolved =
+        RegExp(r'resolver\((.*?)\);', dotAll: true).firstMatch(script);
+    if (resolved != null) {
+      final args = jsonDecode('[${resolved[1]}]') as List;
+      if (args[0] == 'capability') capability = args[1] as String?;
     }
     return true;
   }

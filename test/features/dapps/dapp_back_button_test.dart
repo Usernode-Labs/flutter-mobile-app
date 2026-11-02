@@ -14,6 +14,7 @@
 // Run with: flutter test test/features/dapps/dapp_back_button_test.dart
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
+import 'package:crypto_mobile_app/core/services/native_connectivity.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
 import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_ingress.dart';
@@ -22,6 +23,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
+
+import '../../core/services/fake_native_connectivity.dart';
 
 final _url = AppConfig.platformBaseUrl;
 
@@ -51,6 +54,10 @@ void main() {
   });
 
   Widget app() => ProviderScope(
+        overrides: [
+          nativeConnectivityProvider
+              .overrideWithValue(FakeNativeConnectivity()),
+        ],
         child: MaterialApp(
           home: DappWebViewScreen(
             url: _url,

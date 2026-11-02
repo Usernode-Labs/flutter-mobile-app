@@ -10,6 +10,7 @@ import 'package:crypto_mobile_app/core/config/app_router.dart';
 import 'package:crypto_mobile_app/core/config/homeroom_link_redirect.dart';
 import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/config/sv_shell_gate.dart';
+import 'package:crypto_mobile_app/core/services/native_connectivity.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:crypto_mobile_app/features/dapps/dapp_webview_screen.dart';
@@ -34,7 +35,11 @@ import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_in
 ///
 /// First-launch gate: until one SV load has ever succeeded on this install
 /// (after which the service worker owns offline), the cover also stays up
-/// until that load succeeds, with no cap, and offers a retry if it fails.
+/// until that load succeeds, with no cap, and offers a retry if it fails or
+/// has neither succeeded nor failed within [firstLoadLimit]. The load is not
+/// stopped at that limit: if it succeeds later, the message goes and the
+/// launch carries on as if it had been on time. While the message shows, the
+/// phone coming back online retries by itself.
 /// Then it waits for the paint as usual, with [coverCap] counted from the
 /// load.
 /// Later launches skip the gate: [SvShellGateStorage] is read before the
@@ -73,6 +78,12 @@ class SvShellScreen extends ConsumerStatefulWidget {
   /// or a page that is slow to paint, gets the cover lifted anyway.
   static const coverCap = Duration(seconds: 3);
 
+  /// How long the first launch ever waits for its first load to succeed or
+  /// fail before it says it can't reach Homeroom. A network that looks
+  /// connected but passes no packets does neither for a minute or more, and
+  /// "Connecting to Homeroom…" for that long reads as stuck.
+  static const firstLoadLimit = Duration(seconds: 15);
+
   /// How long the cover takes to fade into the page.
   static const coverFade = Duration(milliseconds: 150);
 
@@ -95,6 +106,19 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   /// [_gatePassed] directly.
   bool? _loadOk;
 
+  /// [SvShellScreen.firstLoadLimit] has passed with the current attempt's
+  /// first load still pending. Shows the retry, but the load goes on, and
+  /// its success still passes the gate.
+  bool _firstLoadOverdue = false;
+  Timer? _firstLoadTimer;
+
+  /// Watches the phone's connectivity until the gate passes, so the phone
+  /// coming back online can retry a first launch that could not load.
+  StreamSubscription<List<ConnectivityResult>>? _connectivity;
+
+  /// Whether the phone was last seen online; null until it has been read.
+  bool? _online;
+
   /// Bumped on retry so the webview subtree is rebuilt from scratch.
   int _attempt = 0;
 
@@ -111,7 +135,12 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
   void initState() {
     super.initState();
     _gatePassed = SvShellGateStorage.passed;
-    if (_gatePassed) _startCap();
+    if (_gatePassed) {
+      _startCap();
+    } else {
+      _startFirstLoadLimit();
+      _watchConnectivity();
+    }
   }
 
   void _startCap() {
@@ -122,11 +151,50 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     });
   }
 
+  void _startFirstLoadLimit() {
+    _firstLoadTimer?.cancel();
+    _firstLoadTimer = Timer(SvShellScreen.firstLoadLimit, () {
+      if (!mounted || _gatePassed || _loadOk != null) return;
+      setState(() => _firstLoadOverdue = true);
+    });
+  }
+
+  void _watchConnectivity() {
+    final source = ref.read(nativeConnectivityProvider);
+    _connectivity = source.changes.listen(
+      _onConnectivityChanged,
+      onError: (Object _) {},
+    );
+    unawaited(source.check().then((results) {
+      // A change that has already arrived is newer than this reading.
+      _online ??= ConnectivitySnapshot.of(results).online;
+    }, onError: (Object _) {}));
+  }
+
+  void _onConnectivityChanged(List<ConnectivityResult> results) {
+    final online = ConnectivitySnapshot.of(results).online;
+    final cameBack = _online == false && online;
+    _online = online;
+    if (cameBack && mounted && _showsOfflineMessage) _retry();
+  }
+
+  void _stopWatchingConnectivity() {
+    unawaited(_connectivity?.cancel());
+    _connectivity = null;
+  }
+
   @override
   void dispose() {
     _capTimer?.cancel();
+    _firstLoadTimer?.cancel();
+    _stopWatchingConnectivity();
     super.dispose();
   }
+
+  /// The first launch ever could not load, or has not loaded within
+  /// [SvShellScreen.firstLoadLimit].
+  bool get _showsOfflineMessage =>
+      !_gatePassed && (_loadOk == false || _firstLoadOverdue);
 
   /// Starts the fade once the page can be shown: it has loaded at least once
   /// on this install, and it has painted or the cap has passed.
@@ -144,12 +212,17 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     _liftCoverIfReady();
   }
 
+  /// The current attempt's first load, however late. A failure after
+  /// [SvShellScreen.firstLoadLimit] leaves the message that is already up.
   Future<void> _onFirstLoadResult(bool ok) async {
     if (!mounted) return;
+    _firstLoadTimer?.cancel();
     if (ok) {
+      _stopWatchingConnectivity();
       setState(() {
         _loadOk = true;
         _gatePassed = true;
+        _firstLoadOverdue = false;
       });
       if (_painted) {
         _liftCoverIfReady();
@@ -166,7 +239,9 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     setState(() {
       _attempt++;
       _loadOk = null;
+      _firstLoadOverdue = false;
     });
+    _startFirstLoadLimit();
   }
 
   /// Cold-boots the shell after a voluntary sign-out has SETTLED. Reuses the
@@ -186,7 +261,9 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
     setState(() {
       _attempt++;
       _loadOk = null;
+      _firstLoadOverdue = false;
     });
+    if (!_gatePassed) _startFirstLoadLimit();
   }
 
   String get _shellUrl {
@@ -243,15 +320,13 @@ class _SvShellScreenState extends ConsumerState<SvShellScreen> {
           }
         },
         child: LaunchCover(
-          message: !_gatePassed && _loadOk == false
-              ? _buildOfflineMessage(context)
-              : null,
+          message: _showsOfflineMessage ? _buildOfflineMessage(context) : null,
         ),
       ),
     );
   }
 
-  /// Under the mark when the first-ever SV load has failed.
+  /// Under the mark when the first-ever SV load has failed or is overdue.
   Widget _buildOfflineMessage(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);

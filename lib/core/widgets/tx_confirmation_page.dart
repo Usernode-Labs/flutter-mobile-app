@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_radii.dart';
 import 'package:crypto_mobile_app/design_system/tokens/app_sizing.dart';
@@ -39,6 +40,7 @@ class _TxConfirmationPageState extends State<TxConfirmationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final spacing = theme.extension<AppSpacing>()!;
     final sizing = theme.extension<AppSizing>()!;
@@ -79,17 +81,17 @@ class _TxConfirmationPageState extends State<TxConfirmationPage> {
     final detailsContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        detailRow('From', widget.from, mono: true),
+        detailRow(l10n.txFrom, widget.from, mono: true),
         const Divider(height: 1),
-        detailRow('To', widget.to, mono: true),
+        detailRow(l10n.txTo, widget.to, mono: true),
         const Divider(height: 1),
-        detailRow('Fee', '0'),
+        detailRow(l10n.txFee, '0'),
         if (formattedMemo.isNotEmpty) ...[
           const Divider(height: 1),
           Padding(
             padding: EdgeInsets.only(top: spacing.space8),
             child: Text(
-              'Memo',
+              l10n.txMemo,
               style: theme.textTheme.labelSmall?.copyWith(color: muted),
             ),
           ),
@@ -118,11 +120,11 @@ class _TxConfirmationPageState extends State<TxConfirmationPage> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          tooltip: 'Back',
+          tooltip: l10n.commonBack,
           onPressed: () => Navigator.pop(context, false),
           icon: const Icon(Symbols.arrow_back_sharp),
         ),
-        title: Text(widget.confirmTitle ?? 'Confirm Transaction'),
+        title: Text(widget.confirmTitle ?? l10n.txConfirmTitle),
         titleSpacing: 0,
       ),
       body: SafeArea(
@@ -132,13 +134,12 @@ class _TxConfirmationPageState extends State<TxConfirmationPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                widget.confirmSubtitle ??
-                    'A dapp is requesting to send a transaction.',
+                widget.confirmSubtitle ?? l10n.txConfirmSubtitleDefault,
                 style: theme.textTheme.bodySmall?.copyWith(color: muted),
               ),
               SizedBox(height: spacing.space24),
               Text(
-                'Amount',
+                l10n.txAmount,
                 style: theme.textTheme.labelSmall?.copyWith(color: muted),
               ),
               SizedBox(height: spacing.space4),
@@ -179,7 +180,7 @@ class _TxConfirmationPageState extends State<TxConfirmationPage> {
                             child: Row(
                               children: [
                                 Text(
-                                  'Details',
+                                  l10n.txDetails,
                                   style: theme.textTheme.titleSmall,
                                 ),
                                 const Spacer(),
@@ -222,7 +223,7 @@ class _TxConfirmationPageState extends State<TxConfirmationPage> {
                 children: [
                   Expanded(
                     child: Button(
-                      label: 'Deny',
+                      label: l10n.commonDeny,
                       variant: ButtonVariant.outlined,
                       onTap: () => Navigator.pop(context, false),
                     ),
@@ -230,7 +231,7 @@ class _TxConfirmationPageState extends State<TxConfirmationPage> {
                   SizedBox(width: spacing.space12),
                   Expanded(
                     child: Button(
-                      label: 'Confirm',
+                      label: l10n.commonConfirm,
                       variant: ButtonVariant.primary,
                       onTap: () => Navigator.pop(context, true),
                     ),

@@ -5,7 +5,19 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
+import 'app_localizations_ar.dart';
 import 'app_localizations_en.dart';
+import 'app_localizations_es.dart';
+import 'app_localizations_fr.dart';
+import 'app_localizations_hi.dart';
+import 'app_localizations_id.dart';
+import 'app_localizations_ja.dart';
+import 'app_localizations_ko.dart';
+import 'app_localizations_pt.dart';
+import 'app_localizations_ru.dart';
+import 'app_localizations_tr.dart';
+import 'app_localizations_vi.dart';
+import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
 
@@ -92,7 +104,21 @@ abstract class AppLocalizations {
   ];
 
   /// A list of this localizations delegate's supported locales.
-  static const List<Locale> supportedLocales = <Locale>[Locale('en')];
+  static const List<Locale> supportedLocales = <Locale>[
+    Locale('ar'),
+    Locale('en'),
+    Locale('es'),
+    Locale('fr'),
+    Locale('hi'),
+    Locale('id'),
+    Locale('ja'),
+    Locale('ko'),
+    Locale('pt'),
+    Locale('ru'),
+    Locale('tr'),
+    Locale('vi'),
+    Locale('zh')
+  ];
 
   /// The name of the application
   ///
@@ -1305,6 +1331,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t stop delegating. Check your connection and try again.'**
   String get stakingUndelegateError;
+
+  /// Title of the blocking app-update dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Update Required'**
+  String get versionUpdateRequiredTitle;
+
+  /// Title of the optional app-update dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Update Available'**
+  String get versionUpdateAvailableTitle;
+
+  /// Button that opens the store listing to update the app
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get versionUpdateAction;
+
+  /// Button that dismisses the optional app-update dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get versionUpdateLater;
+
+  /// Update dialog message when the server sends none
+  ///
+  /// In en, this message translates to:
+  /// **'A new version of the app is available.'**
+  String get versionUpdateFallbackMessage;
+
+  /// Tooltip of a back button
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get commonBack;
+
+  /// Button that refuses a request from a dApp
+  ///
+  /// In en, this message translates to:
+  /// **'Deny'**
+  String get commonDeny;
+
+  /// Button that confirms a request from a dApp
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get commonConfirm;
+
+  /// Button that approves a request from a dApp
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get commonApprove;
+
+  /// App bar title when a dApp asks to send a transaction
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Transaction'**
+  String get txConfirmTitle;
+
+  /// Line under the title when the dApp gives no description
+  ///
+  /// In en, this message translates to:
+  /// **'A dapp is requesting to send a transaction.'**
+  String get txConfirmSubtitleDefault;
+
+  /// Label above the transaction amount
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get txAmount;
+
+  /// Heading of the expandable transaction details
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get txDetails;
+
+  /// Label of the sender address in the transaction details
+  ///
+  /// In en, this message translates to:
+  /// **'From'**
+  String get txFrom;
+
+  /// Label of the recipient address in the transaction details
+  ///
+  /// In en, this message translates to:
+  /// **'To'**
+  String get txTo;
+
+  /// Label of the fee in the transaction details
+  ///
+  /// In en, this message translates to:
+  /// **'Fee'**
+  String get txFee;
+
+  /// Label of the memo in the transaction details
+  ///
+  /// In en, this message translates to:
+  /// **'Memo'**
+  String get txMemo;
+
+  /// App bar title when a dApp asks the user to sign a challenge
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Identity'**
+  String get verifyIdentityTitle;
+
+  /// Headline naming the dApp that asks to verify the user's identity
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is requesting to verify your identity'**
+  String verifyIdentityRequest(String name);
+
+  /// Explains that signing a challenge costs nothing
+  ///
+  /// In en, this message translates to:
+  /// **'This will sign a challenge with your private key to prove you own this wallet. No transaction will be sent and no tokens will be spent.'**
+  String get verifyIdentityExplanation;
+
+  /// Snackbar when a zkPassport reset is refused because a proof is running
+  ///
+  /// In en, this message translates to:
+  /// **'A zkPassport proof is still being processed. Try again shortly.'**
+  String get zkChallengeBusy;
+
+  /// Snackbar after the zkPassport proof state was reset
+  ///
+  /// In en, this message translates to:
+  /// **'ZK proof state reset'**
+  String get zkChallengeResetDone;
 }
 
 class _AppLocalizationsDelegate
@@ -1317,8 +1475,21 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['en'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>[
+        'ar',
+        'en',
+        'es',
+        'fr',
+        'hi',
+        'id',
+        'ja',
+        'ko',
+        'pt',
+        'ru',
+        'tr',
+        'vi',
+        'zh'
+      ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -1327,8 +1498,32 @@ class _AppLocalizationsDelegate
 AppLocalizations lookupAppLocalizations(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
+    case 'ar':
+      return AppLocalizationsAr();
     case 'en':
       return AppLocalizationsEn();
+    case 'es':
+      return AppLocalizationsEs();
+    case 'fr':
+      return AppLocalizationsFr();
+    case 'hi':
+      return AppLocalizationsHi();
+    case 'id':
+      return AppLocalizationsId();
+    case 'ja':
+      return AppLocalizationsJa();
+    case 'ko':
+      return AppLocalizationsKo();
+    case 'pt':
+      return AppLocalizationsPt();
+    case 'ru':
+      return AppLocalizationsRu();
+    case 'tr':
+      return AppLocalizationsTr();
+    case 'vi':
+      return AppLocalizationsVi();
+    case 'zh':
+      return AppLocalizationsZh();
   }
 
   throw FlutterError(

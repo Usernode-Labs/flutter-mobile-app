@@ -158,13 +158,14 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase {
         pageBuilder: (ctx, _, __) {
           final spacing = Theme.of(ctx).extension<AppSpacing>()!;
           final sizing = Theme.of(ctx).extension<AppSizing>()!;
+          final l10n = AppLocalizations.of(ctx);
           return Scaffold(
             appBar: AppBar(
               leading: IconButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 icon: const Icon(Symbols.close),
               ),
-              title: const Text('Verify Identity'),
+              title: Text(l10n.verifyIdentityTitle),
               titleSpacing: 0,
             ),
             body: Padding(
@@ -179,15 +180,13 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase {
                   ),
                   SizedBox(height: spacing.space16),
                   Text(
-                    '${widget.name} is requesting to verify your identity',
+                    l10n.verifyIdentityRequest(widget.name),
                     style: Theme.of(ctx).textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: spacing.space12),
                   Text(
-                    'This will sign a challenge with your private key to '
-                    'prove you own this wallet. No transaction will be sent '
-                    'and no tokens will be spent.',
+                    l10n.verifyIdentityExplanation,
                     style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -198,7 +197,7 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase {
                     children: [
                       Expanded(
                         child: Button(
-                          label: 'Deny',
+                          label: l10n.commonDeny,
                           variant: ButtonVariant.outlined,
                           onTap: () => Navigator.pop(ctx, false),
                         ),
@@ -206,7 +205,7 @@ mixin _BridgeWallet on _DappWebViewScreenStateBase {
                       SizedBox(width: spacing.space12),
                       Expanded(
                         child: Button(
-                          label: 'Approve',
+                          label: l10n.commonApprove,
                           variant: ButtonVariant.primary,
                           onTap: () => Navigator.pop(ctx, true),
                         ),

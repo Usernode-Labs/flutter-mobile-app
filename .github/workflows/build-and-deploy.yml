@@ -638,6 +638,29 @@ jobs:
           print('Signed IPA has a microphone permission explanation')
           PY
 
+      - name: Verify privacy manifests in signed IPA
+        env:
+          IPA_PATH: ${{ steps.ipa.outputs.ipa_path }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import zipfile
+
+          with zipfile.ZipFile(os.environ['IPA_PATH']) as ipa:
+              names = ipa.namelist()
+          required = {
+              'app': r'Payload/[^/]+\.app/PrivacyInfo\.xcprivacy',
+              'widgets': r'Payload/[^/]+\.app/PlugIns/[^/]+\.appex/PrivacyInfo\.xcprivacy',
+              'Rust library': r'Payload/[^/]+\.app/Frameworks/rust_lib_crypto_mobile_app\.framework/.*PrivacyInfo\.xcprivacy',
+          }
+          missing = [label for label, pattern in required.items()
+                     if not any(re.fullmatch(pattern, name) for name in names)]
+          if missing:
+              raise SystemExit('Signed IPA is missing a privacy manifest for: ' + ', '.join(missing))
+          print('Signed IPA has every privacy manifest')
+          PY
+
       - name: Upload iOS release debug files to Sentry
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

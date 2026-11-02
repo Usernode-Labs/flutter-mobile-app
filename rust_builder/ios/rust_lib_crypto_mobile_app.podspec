@@ -19,6 +19,8 @@ A new Flutter FFI plugin project.
   # `../src/*` so that the C sources can be shared among all target platforms.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
+  # The Rust library's own required-reason API declarations.
+  s.resource_bundles = { 'rust_lib_crypto_mobile_app_privacy' => ['Resources/PrivacyInfo.xcprivacy'] }
   s.dependency 'Flutter'
   s.ios.deployment_target = '12.0'
 

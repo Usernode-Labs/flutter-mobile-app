@@ -685,4 +685,76 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get stakingUndelegateError =>
       'Couldn\'t stop delegating. Check your connection and try again.';
+
+  @override
+  String get versionUpdateRequiredTitle => 'Update Required';
+
+  @override
+  String get versionUpdateAvailableTitle => 'Update Available';
+
+  @override
+  String get versionUpdateAction => 'Update';
+
+  @override
+  String get versionUpdateLater => 'Later';
+
+  @override
+  String get versionUpdateFallbackMessage =>
+      'A new version of the app is available.';
+
+  @override
+  String get commonBack => 'Back';
+
+  @override
+  String get commonDeny => 'Deny';
+
+  @override
+  String get commonConfirm => 'Confirm';
+
+  @override
+  String get commonApprove => 'Approve';
+
+  @override
+  String get txConfirmTitle => 'Confirm Transaction';
+
+  @override
+  String get txConfirmSubtitleDefault =>
+      'A dapp is requesting to send a transaction.';
+
+  @override
+  String get txAmount => 'Amount';
+
+  @override
+  String get txDetails => 'Details';
+
+  @override
+  String get txFrom => 'From';
+
+  @override
+  String get txTo => 'To';
+
+  @override
+  String get txFee => 'Fee';
+
+  @override
+  String get txMemo => 'Memo';
+
+  @override
+  String get verifyIdentityTitle => 'Verify Identity';
+
+  @override
+  String verifyIdentityRequest(String name) {
+    return '$name is requesting to verify your identity';
+  }
+
+  @override
+  String get verifyIdentityExplanation =>
+      'This will sign a challenge with your private key to prove you own this wallet. No transaction will be sent and no tokens will be spent.';
+
+  @override
+  String get zkChallengeBusy =>
+      'A zkPassport proof is still being processed. Try again shortly.';
+
+  @override
+  String get zkChallengeResetDone => 'ZK proof state reset';
 }

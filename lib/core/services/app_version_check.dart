@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -77,8 +78,8 @@ class AppVersionCheck {
         'language': locale.toLanguageTag(),
       };
 
-  /// The dialog around the message stays in English, so a translated message
-  /// says its own direction.
+  /// The server's message may be in a different language from the dialog
+  /// around it, so it says its own direction.
   @visibleForTesting
   static TextDirection messageDirection(String message) =>
       Bidi.detectRtlDirectionality(message)
@@ -256,11 +257,16 @@ class _UpdateDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
-    final message = result.details ?? 'A new version of the app is available.';
+    final l10n = AppLocalizations.of(context);
+    final message = result.details ?? l10n.versionUpdateFallbackMessage;
     return PopScope(
       canPop: !result.isBlocking,
       child: AlertDialog(
-        title: Text(result.isBlocking ? 'Update Required' : 'Update Available'),
+        title: Text(
+          result.isBlocking
+              ? l10n.versionUpdateRequiredTitle
+              : l10n.versionUpdateAvailableTitle,
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -272,7 +278,7 @@ class _UpdateDialog extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: Button(
-                label: 'Update',
+                label: l10n.versionUpdateAction,
                 variant: ButtonVariant.primary,
                 onTap: () => _openStore(),
               ),
@@ -280,7 +286,7 @@ class _UpdateDialog extends StatelessWidget {
             if (!result.isBlocking) ...[
               SizedBox(height: spacing.space8),
               Button(
-                label: 'Later',
+                label: l10n.versionUpdateLater,
                 size: ButtonSize.small,
                 variant: ButtonVariant.outlined,
                 onTap: () => Navigator.of(context).pop(),

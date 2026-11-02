@@ -896,5 +896,98 @@
   "stakingUndelegateError": "Couldn't stop delegating. Check your connection and try again.",
   "@stakingUndelegateError": {
     "description": "Error shown when undelegation cannot be committed"
+  },
+  "versionUpdateRequiredTitle": "Update Required",
+  "@versionUpdateRequiredTitle": {
+    "description": "Title of the blocking app-update dialog"
+  },
+  "versionUpdateAvailableTitle": "Update Available",
+  "@versionUpdateAvailableTitle": {
+    "description": "Title of the optional app-update dialog"
+  },
+  "versionUpdateAction": "Update",
+  "@versionUpdateAction": {
+    "description": "Button that opens the store listing to update the app"
+  },
+  "versionUpdateLater": "Later",
+  "@versionUpdateLater": {
+    "description": "Button that dismisses the optional app-update dialog"
+  },
+  "versionUpdateFallbackMessage": "A new version of the app is available.",
+  "@versionUpdateFallbackMessage": {
+    "description": "Update dialog message when the server sends none"
+  },
+  "commonBack": "Back",
+  "@commonBack": {
+    "description": "Tooltip of a back button"
+  },
+  "commonDeny": "Deny",
+  "@commonDeny": {
+    "description": "Button that refuses a request from a dApp"
+  },
+  "commonConfirm": "Confirm",
+  "@commonConfirm": {
+    "description": "Button that confirms a request from a dApp"
+  },
+  "commonApprove": "Approve",
+  "@commonApprove": {
+    "description": "Button that approves a request from a dApp"
+  },
+  "txConfirmTitle": "Confirm Transaction",
+  "@txConfirmTitle": {
+    "description": "App bar title when a dApp asks to send a transaction"
+  },
+  "txConfirmSubtitleDefault": "A dapp is requesting to send a transaction.",
+  "@txConfirmSubtitleDefault": {
+    "description": "Line under the title when the dApp gives no description"
+  },
+  "txAmount": "Amount",
+  "@txAmount": {
+    "description": "Label above the transaction amount"
+  },
+  "txDetails": "Details",
+  "@txDetails": {
+    "description": "Heading of the expandable transaction details"
+  },
+  "txFrom": "From",
+  "@txFrom": {
+    "description": "Label of the sender address in the transaction details"
+  },
+  "txTo": "To",
+  "@txTo": {
+    "description": "Label of the recipient address in the transaction details"
+  },
+  "txFee": "Fee",
+  "@txFee": {
+    "description": "Label of the fee in the transaction details"
+  },
+  "txMemo": "Memo",
+  "@txMemo": {
+    "description": "Label of the memo in the transaction details"
+  },
+  "verifyIdentityTitle": "Verify Identity",
+  "@verifyIdentityTitle": {
+    "description": "App bar title when a dApp asks the user to sign a challenge"
+  },
+  "verifyIdentityRequest": "{name} is requesting to verify your identity",
+  "@verifyIdentityRequest": {
+    "description": "Headline naming the dApp that asks to verify the user's identity",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "verifyIdentityExplanation": "This will sign a challenge with your private key to prove you own this wallet. No transaction will be sent and no tokens will be spent.",
+  "@verifyIdentityExplanation": {
+    "description": "Explains that signing a challenge costs nothing"
+  },
+  "zkChallengeBusy": "A zkPassport proof is still being processed. Try again shortly.",
+  "@zkChallengeBusy": {
+    "description": "Snackbar when a zkPassport reset is refused because a proof is running"
+  },
+  "zkChallengeResetDone": "ZK proof state reset",
+  "@zkChallengeResetDone": {
+    "description": "Snackbar after the zkPassport proof state was reset"
   }
 }

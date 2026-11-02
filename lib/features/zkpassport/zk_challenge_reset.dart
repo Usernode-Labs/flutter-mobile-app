@@ -1,3 +1,4 @@
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,11 +15,7 @@ Future<bool> resetChallengeState(WidgetRef ref, BuildContext context) async {
   if (!discarded) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'A zkPassport proof is still being processed. Try again shortly.',
-          ),
-        ),
+        SnackBar(content: Text(AppLocalizations.of(context).zkChallengeBusy)),
       );
     }
     return false;
@@ -28,7 +25,9 @@ Future<bool> resetChallengeState(WidgetRef ref, BuildContext context) async {
   await ref.read(zkPassportFlowControllerProvider).clearActiveRegistration();
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ZK proof state reset')),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).zkChallengeResetDone),
+      ),
     );
   }
   return true;

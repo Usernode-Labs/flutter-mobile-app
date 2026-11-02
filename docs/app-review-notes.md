@@ -16,8 +16,11 @@ the app's members and voted in before it goes live.
 before the vote. Only that app's members can see it, and it is held to the same
 rules as the live app.
 
-**Moderation (1.2, 4.7.1).** Every app has "Report app". People can block apps
-and other people, and admins can suspend an app.
+**Moderation (1.2, 4.7.1).** People can report apps, messages and other people,
+and can block apps and people. Reports go to a moderation queue, where staff can
+hide a message and suspend an app or a person. Every proposed change also gets a
+content check against Homeroom's content rules, and the app's members vote on it
+before it goes live. Contact: https://onhomeroom.com/contact
 
 **Content and age (4.7.5).** Every app is held to the "None" content rule in
 Homeroom's app conventions, so no app exceeds Homeroom's age rating. Age is also
@@ -36,6 +39,8 @@ public key and language, as the privacy policy describes.
 **Index of apps (4.7.4).** Discover lists the apps. Each app has a link,
 `https://app.onhomeroom.com/app/<slug>`, that opens it in Homeroom.
 
+**Sign-in (4.8).** People sign in with Apple, Google or a username and password.
+
 **Reviewer account (2.1).** Sign in with username and password:
 
 - Username: `<from create_test_account>`
@@ -45,6 +50,8 @@ Make the account with the admin connector's `create_test_account` just before
 submitting. Do not commit the password here.
 
 ## Questions for the consultation
+
+Status: not sent as of 2 Nov 2026. Send this before the first submission.
 
 We would like Apple to confirm our reading on four points.
 

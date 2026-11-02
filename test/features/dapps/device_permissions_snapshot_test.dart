@@ -51,6 +51,7 @@ void main() {
       'notificationPermission': 'denied',
       'batteryOptDisabled': null,
       'deviceManufacturer': null,
+      'backgroundProduction': false,
     });
   });
 

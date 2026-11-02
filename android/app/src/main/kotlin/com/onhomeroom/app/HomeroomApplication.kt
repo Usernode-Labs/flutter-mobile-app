@@ -5,11 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import com.onhomeroom.app.session.NativeProducerWakeCoordinator
 
 /** Creates the Social channel before FCM can render a background message. */
 class HomeroomApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        NativeProducerWakeCoordinator.retireBackgroundOwnership(this)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
         val channel = NotificationChannel(

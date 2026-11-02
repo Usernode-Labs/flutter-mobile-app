@@ -44,5 +44,6 @@ Future<Map<String, Object?>> devicePermissionsSnapshot({
     'notificationPermission': notificationPermission.name,
     'batteryOptDisabled': batteryOptDisabled,
     'deviceManufacturer': deviceManufacturer,
+    'backgroundProduction': backgroundProductionEnabled,
   };
 }

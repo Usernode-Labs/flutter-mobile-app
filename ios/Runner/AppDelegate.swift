@@ -104,26 +104,6 @@ final class ApplicationIncarnationStore {
     registerSocialNotificationCategory()
     print("[AppDelegate] UNUserNotificationCenter delegate set")
 
-    // Register a no-op legacy BGTask handler during launch. New versions do
-    // not submit BGTasks, but old installed requests still need a safe drain.
-    if #available(iOS 13.0, *) {
-      print("[AppDelegate] Registering legacy BGTask drain (iOS 13+)...")
-      let success = bgTaskScheduler.registerBGTasks()
-      if success {
-        print("[AppDelegate] ✓ Legacy BGTask drain registered during app launch")
-      } else {
-        print("[AppDelegate] ✗ WARNING - Failed to register legacy BGTask drain")
-      }
-    } else {
-      print("[AppDelegate] Skipping legacy BGTask drain (iOS < 13)")
-    }
-
-    // Enable background fetch
-    if #available(iOS 13.0, *) {
-      print("[AppDelegate] Setting minimum background fetch interval")
-      UIApplication.shared.setMinimumBackgroundFetchInterval(UIApplication.backgroundFetchIntervalMinimum)
-    }
-
     // Check notification permissions on launch
     checkAndNotifyNotificationPermissionStatus()
 
@@ -289,9 +269,8 @@ final class ApplicationIncarnationStore {
     case "registerBGTasks":
       print("[AppDelegate] registerBGTasks called via MethodChannel")
       if #available(iOS 13.0, *) {
-        // The legacy drain is already registered in didFinishLaunching.
-        // This compatibility method intentionally does no additional work.
-        print("[AppDelegate] Legacy BGTask drain already registered, returning true")
+        // Nothing runs in the background any more. BGTaskScheduler can't be
+        // registered without the Info.plist entries, so this only answers.
         result(true)
       } else {
         print("[AppDelegate] BGTasks unavailable (iOS < 13)")

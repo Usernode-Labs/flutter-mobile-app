@@ -1,5 +1,13 @@
 # Background Block Production
 
+**Turned off for now.** The app produces blocks only while it is open.
+`BACKGROUND_PRODUCTION_ENABLED` (Android) and `backgroundProductionEnabled`
+(Dart) are false, and the service, alarm receiver, permissions and iOS
+background modes are out of the manifests. Android declines "schedule" and
+"retry" the way iOS does, so Rust keeps the runtime active until the system
+suspends the app. The rest of this document describes the feature when it's on.
+To turn it back on, flip both switches and restore those manifest entries.
+
 Background production is owned by the native Usernode runtime and each mobile
 OS. Flutter is interactive glue; it does not start a headless engine, own a
 second node, or reconstruct session authority for an alarm.

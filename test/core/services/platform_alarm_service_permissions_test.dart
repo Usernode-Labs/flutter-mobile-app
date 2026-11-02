@@ -51,6 +51,33 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  group('with background production off', () {
+    late PlatformAlarmService offService;
+
+    setUp(() async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      await setUpService();
+      offService = PlatformAlarmService.test(
+        observability: ObservabilityReportingService.instance,
+        backgroundProductionEnabled: false,
+      );
+      await offService.initialize();
+      calls.clear();
+    });
+
+    test('the release build has it off', () {
+      expect(backgroundProductionEnabled, isFalse);
+    });
+
+    test('android: never opens the exact-alarm or battery settings', () async {
+      expect(await offService.requestAlarmPermissions(), isTrue);
+      expect(await offService.requestBatteryOptimizationExemption(), isFalse);
+      expect(await offService.openBatteryOptimizationSettings(), isFalse);
+      expect(calls, isEmpty);
+      expect(offService.consumeRecentSystemSurfaceLaunch(), isFalse);
+    });
+  });
+
   group('requestAlarmPermissions', () {
     test('android: asks for the missing exact alarm only, never notifications',
         () async {

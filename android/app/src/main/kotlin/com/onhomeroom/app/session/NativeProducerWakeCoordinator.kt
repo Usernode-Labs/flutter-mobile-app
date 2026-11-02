@@ -21,6 +21,26 @@ import java.nio.charset.StandardCharsets
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+/**
+ * Temporary off switch. The app produces blocks only while it is open, so
+ * nothing here may start a service, hold a wakelock or set an alarm. Turning
+ * this back on also needs the manifest entries restored.
+ */
+internal const val BACKGROUND_PRODUCTION_ENABLED = false
+
+/**
+ * What the app can't do without background production: pause for an alarm, or
+ * retry later from a service. It says so to Rust, which keeps the runtime
+ * active, as on iOS.
+ */
+internal fun declinedWhileForegroundOnly(
+    directive: ProducerWakeDirective,
+    backgroundProductionEnabled: Boolean = BACKGROUND_PRODUCTION_ENABLED,
+): Boolean = !backgroundProductionEnabled && (
+    directive is ProducerWakeDirective.ScheduleExact ||
+        directive is ProducerWakeDirective.RetryLater
+    )
+
 internal fun armForegroundProducerOwnership(
     pollAfterMs: Long,
     ensureWatchdog: () -> Unit,
@@ -99,6 +119,31 @@ internal object NativeProducerWakeCoordinator {
                 applicationIncarnation,
             )
             completion?.invoke(outcome)
+        }
+    }
+
+    /**
+     * Clears what an earlier build left behind: its watchdog, its alarm and
+     * the "wake scheduled" notification. Runs once per process start.
+     */
+    fun retireBackgroundOwnership(context: Context) {
+        if (BACKGROUND_PRODUCTION_ENABLED) return
+        val appContext = context.applicationContext
+        executor.execute {
+            synchronized(runLock) {
+                try {
+                    AlarmWatchdogScheduler.cancel(appContext)
+                    val store = NativeProducerWakeStore(appContext)
+                    val current = store.current()
+                    current?.wakeIdentity?.let { wake ->
+                        alarmScheduler(appContext).cancelAlarm(alarmId(wake))
+                        store.replace(current, NativeProducerWakeState.ready(current.readyRevision))
+                    }
+                    alarmScheduler(appContext).clearScheduledNotification()
+                } catch (error: Throwable) {
+                    Log.w(TAG, "Could not retire background work (${error.javaClass.simpleName})")
+                }
+            }
         }
     }
 
@@ -422,6 +467,12 @@ internal object NativeProducerWakeCoordinator {
             completeApply(exactResponse, success = false)
             return ProducerWakeAttemptOutcome.RetryUnowned
         }
+        if (declinedWhileForegroundOnly(directive)) {
+            completeApply(exactResponse, success = false)
+            store.replace(previous, NativeProducerWakeState.ready(directive.revision))
+            previous?.wakeIdentity?.let { alarmScheduler(context).cancelAlarm(alarmId(it)) }
+            return ProducerWakeAttemptOutcome.Completed
+        }
 
         val applied = try {
             when (directive) {
@@ -634,6 +685,7 @@ internal object NativeProducerWakeCoordinator {
         reason: ProducerWakeReason,
         detail: ProducerForegroundDetail,
     ): Boolean {
+        if (!BACKGROUND_PRODUCTION_ENABLED) return true
         val armed = armForegroundProducerOwnership(
             pollAfterMs = pollAfterMs,
             ensureWatchdog = {
@@ -818,7 +870,7 @@ internal data class NativeScheduledWake(
     val triggerAtMs: Long,
 )
 
-private sealed class ProducerWakeDirective(
+internal sealed class ProducerWakeDirective(
     open val revision: Long,
     open val reason: ProducerWakeReason,
 ) {

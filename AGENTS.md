@@ -77,7 +77,6 @@ All new design system work lives in `lib/design_system/`.
 Common flags
 - Enable result-based node providers: `--dart-define=USE_RESULT_PROVIDERS=true`
 - Sentry DSN: `--dart-define=SENTRY_DSN=...` (omit to disable Sentry)
-- Feedback → GitHub: `--dart-define=GITHUB_TOKEN=ghp_xxx` (required for `GitHubIssueService`)
 
 ## Localization
 - Edit ARB files under `lib/core/l10n/` (e.g., `app_en.arb`).
@@ -130,7 +129,7 @@ Common flags
 - CI must pass (format/analyze/tests). Avoid unrelated refactors; keep diffs focused.
 
 ## Security & Configuration
-- Do not commit secrets. Pass config via `--dart-define` (e.g., `APP_ENV`, `API_BASE_URL`, `SENTRY_DSN`, `GITHUB_TOKEN`).
+- Do not commit secrets. Pass config via `--dart-define` (e.g., `APP_ENV`, `API_BASE_URL`, `SENTRY_DSN`).
 - Keep `GITHUB_TOKEN` scoped to creating issues only; never hard-code or log it.
 - Sentry: configured via `lib/core/utils/sentry.dart`; DSN optional. Breadcrumbs still log locally.
 

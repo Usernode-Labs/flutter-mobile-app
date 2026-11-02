@@ -132,7 +132,6 @@ jobs:
           API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
           VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
           SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
-          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
           USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
@@ -144,7 +143,6 @@ jobs:
           API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
           VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
           SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
-          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
           USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}
@@ -510,7 +508,6 @@ jobs:
           API_BASE_URL=${{ secrets.PROD_API_BASE_URL }}
           VERBOSE_LOGGING=${{ secrets.PROD_VERBOSE_LOGGING }}
           SENTRY_DSN=${{ secrets.PROD_SENTRY_DSN }}
-          GITHUB_TOKEN=${{ secrets.PROD_GITHUB_TOKEN }}
           USE_RESULT_PROVIDERS=${{ secrets.PROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.PROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.PROD_DISABLED_FEATURES }}
@@ -522,7 +519,6 @@ jobs:
           API_BASE_URL=${{ secrets.NONPROD_API_BASE_URL }}
           VERBOSE_LOGGING=${{ secrets.NONPROD_VERBOSE_LOGGING }}
           SENTRY_DSN=${{ secrets.NONPROD_SENTRY_DSN }}
-          GITHUB_TOKEN=${{ secrets.NONPROD_GITHUB_TOKEN }}
           USE_RESULT_PROVIDERS=${{ secrets.NONPROD_USE_RESULT_PROVIDERS }}
           ENABLED_FEATURES=${{ secrets.NONPROD_ENABLED_FEATURES }}
           DISABLED_FEATURES=${{ secrets.NONPROD_DISABLED_FEATURES }}

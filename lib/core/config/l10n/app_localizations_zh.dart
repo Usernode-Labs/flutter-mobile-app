@@ -720,4 +720,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'ZK 证明状态已重置';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return '正在准备证明工具：$percent%。下载的文件将保存，供以后使用。';
+  }
+
+  @override
+  String get provingParametersDownloadFailed => '无法下载证明工具。请检查网络连接后重试。';
 }

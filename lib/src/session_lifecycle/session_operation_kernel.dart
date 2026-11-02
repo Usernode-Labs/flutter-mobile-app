@@ -317,6 +317,13 @@ final class _SessionOperation implements SessionOperation {
       );
 
   @override
+  Future<void> prepareProvingParameters({
+    void Function(int completedBytes, int totalBytes)? onProgress,
+  }) =>
+      _runEffect(
+          (sink) => sink.prepareProvingParameters(onProgress: onProgress));
+
+  @override
   Future<SessionZkPassportVerifyOuterResult> verifyZkPassportOuter({
     required List<int> outerProof,
     required bool facematchStrict,
@@ -650,6 +657,10 @@ abstract interface class _SessionEffectSink {
     String? payloadJson,
   });
 
+  Future<void> prepareProvingParameters({
+    void Function(int completedBytes, int totalBytes)? onProgress,
+  });
+
   Future<SessionZkPassportVerifyOuterResult> verifyZkPassportOuter({
     required List<int> outerProof,
     required bool facematchStrict,
@@ -746,6 +757,12 @@ final class _ClosedSessionEffectSink implements _SessionEffectSink {
     String? payloadJson,
   }) =>
       _closed();
+  @override
+  Future<void> prepareProvingParameters({
+    void Function(int completedBytes, int totalBytes)? onProgress,
+  }) =>
+      _closed();
+
   @override
   Future<SessionZkPassportVerifyOuterResult> verifyZkPassportOuter({
     required List<int> outerProof,

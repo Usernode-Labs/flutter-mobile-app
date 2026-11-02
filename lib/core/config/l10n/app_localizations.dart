@@ -1463,6 +1463,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'ZK proof state reset'**
   String get zkChallengeResetDone;
+
+  /// Progress of the one-time download needed to create proofs on this device
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing proof tools: {percent}%. This download is saved for future use.'**
+  String provingParametersDownloadProgress(int percent);
+
+  /// Foreground proof parameter download failed; Retry resumes cached partial data.
+  ///
+  /// In en, this message translates to:
+  /// **'The proof tools could not be downloaded. Check your connection and try again.'**
+  String get provingParametersDownloadFailed;
 }
 
 class _AppLocalizationsDelegate

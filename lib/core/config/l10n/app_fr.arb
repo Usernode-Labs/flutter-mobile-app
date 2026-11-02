@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name} demande à vérifier votre identité",
   "verifyIdentityExplanation": "Cela signera un défi avec votre clé privée pour prouver que ce portefeuille est le vôtre. Aucune transaction ne sera envoyée et aucun jeton ne sera dépensé.",
   "zkChallengeBusy": "Une preuve zkPassport est encore en cours de traitement. Réessayez dans un instant.",
-  "zkChallengeResetDone": "État de la preuve ZK réinitialisé"
+  "zkChallengeResetDone": "État de la preuve ZK réinitialisé",
+  "provingParametersDownloadProgress": "Préparation des outils de preuve : {percent} %. Ce téléchargement est conservé pour une utilisation ultérieure.",
+  "provingParametersDownloadFailed": "Les outils de preuve n’ont pas pu être téléchargés. Vérifiez votre connexion et réessayez."
 }

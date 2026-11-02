@@ -764,4 +764,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'Estado de la prueba ZK restablecido';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'Preparando las herramientas de prueba: $percent%. Esta descarga se guarda para usarla en el futuro.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'No se pudieron descargar las herramientas de prueba. Comprueba tu conexión e inténtalo de nuevo.';
 }

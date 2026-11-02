@@ -982,12 +982,14 @@ final class _NativeSessionEffects implements _SessionEffectSink {
   @override
   Future<perf_types.PerfRunHandle> startDeviceBenchmark(
     perf_types.PerfRunProfile profile,
-  ) =>
-      native.nativeDeviceBenchmarkStart(
-        root: _root,
-        session: _session,
-        request: perf_types.PerfRunRequest(profile: profile),
-      );
+  ) async {
+    await prepareProvingParameters();
+    return native.nativeDeviceBenchmarkStart(
+      root: _root,
+      session: _session,
+      request: perf_types.PerfRunRequest(profile: profile),
+    );
+  }
 
   @override
   Future<perf_types.PerfRunStatus?> readDeviceBenchmarkStatus(
@@ -1033,6 +1035,13 @@ final class _NativeSessionEffects implements _SessionEffectSink {
       discarded: result.discarded,
       reason: result.reason,
     );
+  }
+
+  @override
+  Future<void> prepareProvingParameters({
+    void Function(int completedBytes, int totalBytes)? onProgress,
+  }) async {
+    await _prepareProvingParameters(_root, onProgress: onProgress);
   }
 
   @override
@@ -1543,6 +1552,9 @@ final class _NativeSessionCompositionRoot
           );
         },
         recoverableReady: (nativeRevision, attemptId, identity) async {
+          if (identity.accountId != null) {
+            await _prepareForegroundProvingParameters(root);
+          }
           final recovery = await platform.recoverSession(
             expectedRevision: _platformRevision(nativeRevision),
           );
@@ -1870,6 +1882,18 @@ final class _NativeSessionCompositionRoot
   }
 
   @override
+  Future<void> prepareProvingParameters({required String realmMarker}) async {
+    _validateRealmMarker(realmMarker);
+    if (terminallyRetired) {
+      _throwTerminallyRetired();
+    }
+    await _prepareForegroundProvingParameters(_root);
+    if (terminallyRetired) {
+      _throwTerminallyRetired();
+    }
+  }
+
+  @override
   Future<Map<String, Object?>> establishNativeSession({
     required Map<String, dynamic> payload,
     required String realmMarker,
@@ -1879,6 +1903,18 @@ final class _NativeSessionCompositionRoot
     final attempt = _beginEstablish(intent, realmMarker);
     String? installedAttemptId;
     try {
+      if (!native.nativeProvingParametersStatus(root: _root).ready) {
+        throw const NativeSessionException(
+          'native_proving_parameters_required',
+          'Refresh Homeroom to prepare proof tools before native sign-in.',
+        );
+      }
+      if (attempt.terminalIntent != null) {
+        throw const NativeSessionException(
+          'native_session_not_ready',
+          'The native session establishment was retired.',
+        );
+      }
       final rawTicket = await _platform.redeemHandoff(intent.attemptId);
       final ticket = _NativeSessionTicketEnvelope.fromNativeHandoff(
         rawTicket,
@@ -2331,6 +2367,10 @@ final class _FailingNativeSessionBridgeIngress
       Future<void>.value();
 
   @override
+  Future<void> prepareProvingParameters({required String realmMarker}) =>
+      Future<void>.error(_failure);
+
+  @override
   Future<Map<String, Object?>> establishNativeSession({
     required Map<String, dynamic> payload,
     required String realmMarker,
@@ -2715,6 +2755,51 @@ Future<List<String>> runNativeRetirementRecoverySelfCheck() async {
   return List<String>.unmodifiable(events);
 }
 
+/// Public-data preparation must not retain session authority or block logout.
+Future<List<String>> runNativePreparationRetirementSelfCheck() async {
+  const realm = 'trusted-realm';
+  final check = await _RetirementSelfCheck.start(wallet: false);
+  await check.root.prepareForLogin(realmMarker: realm);
+  final preparing = check.root.prepareProvingParameters(realmMarker: realm);
+  await Future<void>.delayed(Duration.zero);
+  await check.root.logoutNativeSession(realmMarker: realm);
+  _expectSelfCheck(check.signedOut, 'preparation blocked retirement');
+  _expectSelfCheck(
+      !native.nativeProvingParametersStatus(root: check.root._root).ready,
+      'retirement waited for the download');
+  await preparing;
+  _expectSelfCheck(
+      check.signedOut, 'preparation established a retired session');
+  _expectSelfCheck(!check.channel.calls.contains('redeemNativeSessionHandoff'),
+      'preparation redeemed a credential handoff');
+  return const [
+    'preparation-does-not-block-retirement',
+    'preparation-handoff-not-redeemed'
+  ];
+}
+
+/// A cached old web client must fail promptly instead of downloading inside
+/// its timed establishment request or consuming its credential handoff.
+Future<String> runNativeUnpreparedEstablishmentSelfCheck() async {
+  const realm = 'trusted-realm';
+  final check = await _RetirementSelfCheck.start(wallet: false);
+  await check.root.prepareForLogin(realmMarker: realm);
+  try {
+    await check.root.establishNativeSession(
+      payload: _selfCheckEstablishPayload,
+      realmMarker: realm,
+    );
+  } on NativeSessionException catch (error) {
+    _expectSelfCheck(
+        check.signedOut, 'unprepared establishment changed authority');
+    _expectSelfCheck(
+        !check.channel.calls.contains('redeemNativeSessionHandoff'),
+        'unprepared establishment consumed a handoff');
+    return error.code;
+  }
+  throw StateError('unprepared establishment was admitted');
+}
+
 final _selfCheckEstablishPayload = <String, dynamic>{
   'args': <String, Object?>{
     'attemptId': 'nsa_${'A' * 43}',
@@ -2931,3 +3016,28 @@ final class _SelfCheckProcessRoot implements native.ProcessRootClient {
   @override
   bool get isDisposed => _disposed;
 }
+
+Future<void> _prepareForegroundProvingParameters(
+    native.ProcessRootClient root) async {
+  final status = native.nativeProvingParametersStatus(root: root);
+  if (status.ready) return;
+  await _provingParametersPreparation
+      .run((report) => _prepareProvingParameters(root, onProgress: report));
+}
+
+Future<void> _prepareProvingParameters(
+  native.ProcessRootClient root, {
+  void Function(int, int)? onProgress,
+}) =>
+    pollProvingParameters(
+      prepare: () => native.nativePrepareProvingParameters(root: root),
+      status: () async {
+        final status = native.nativeProvingParametersStatus(root: root);
+        return (
+          status.ready,
+          status.completedBytes.toInt(),
+          status.totalBytes.toInt()
+        );
+      },
+      report: onProgress ?? (_, __) {},
+    );

@@ -19,6 +19,8 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
 import 'package:sentry_flutter/sentry_flutter.dart' show SentryLevel;
 
 import 'package:crypto_mobile_app/core/bootstrap/app_bootstrap.dart';
+import 'package:crypto_mobile_app/core/bootstrap/proving_parameters_preparation.dart';
+import 'package:crypto_mobile_app/features/splash/widgets/proving_parameters_cover.dart';
 import 'package:crypto_mobile_app/core/bootstrap/orientation_policy.dart';
 import 'package:crypto_mobile_app/core/utils/sentry.dart';
 import 'package:crypto_mobile_app/core/utils/slow_operation.dart';
@@ -59,6 +61,8 @@ import 'package:crypto_mobile_app/src/session_lifecycle/native_session_bridge_in
 part 'src/session_lifecycle/session_operation_kernel.dart';
 part 'src/session_lifecycle/native_session_transport.dart';
 part 'src/session_lifecycle/app_router_root.dart';
+
+final _provingParametersPreparation = ProvingParametersPreparation();
 
 /// Marionette MCP mode initializes MarionetteBinding for runtime inspection
 /// and screenshots by an external AI agent. It must bypass Sentry because
@@ -230,6 +234,10 @@ class _NativeSessionBootstrapAppState
       debugShowCheckedModeBanner: false,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
+      builder: (context, child) => ProvingParametersCover(
+        preparation: _provingParametersPreparation,
+        child: child!,
+      ),
       home: _failure == null
           ? const SplashScreen()
           : const _NativeSessionStartupFailureScreen(),
@@ -321,10 +329,13 @@ class _CryptoMobileAppState extends ConsumerState<_CryptoMobileApp> {
       routerConfig: _router,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      builder: (context, child) => _AppWrapper(
-        router: _router,
-        nativeSession: widget._nativeSession,
-        child: child,
+      builder: (context, child) => ProvingParametersCover(
+        preparation: _provingParametersPreparation,
+        child: _AppWrapper(
+          router: _router,
+          nativeSession: widget._nativeSession,
+          child: child,
+        ),
       ),
     );
   }

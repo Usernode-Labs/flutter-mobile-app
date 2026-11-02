@@ -758,4 +758,13 @@ class AppLocalizationsVi extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'Đã đặt lại trạng thái bằng chứng ZK';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'Đang chuẩn bị công cụ tạo bằng chứng: $percent%. Dữ liệu tải xuống được lưu lại để dùng về sau.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'Không thể tải xuống công cụ tạo bằng chứng. Hãy kiểm tra kết nối và thử lại.';
 }

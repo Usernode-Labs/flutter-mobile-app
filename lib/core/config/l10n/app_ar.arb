@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "يطلب {name} التحقق من هويتك",
   "verifyIdentityExplanation": "سيوقّع هذا تحدّيًا بمفتاحك الخاص لإثبات أنك صاحب هذه المحفظة. لن تُرسَل أي معاملة ولن يُنفَق أي رمز.",
   "zkChallengeBusy": "لا يزال إثبات zkPassport قيد المعالجة. حاول مرة أخرى بعد قليل.",
-  "zkChallengeResetDone": "أُعيد ضبط حالة إثبات ZK"
+  "zkChallengeResetDone": "أُعيد ضبط حالة إثبات ZK",
+  "provingParametersDownloadProgress": "جارٍ تجهيز أدوات الإثبات: {percent}٪. تُحفظ الملفات التي يتم تنزيلها لاستخدامها لاحقًا.",
+  "provingParametersDownloadFailed": "تعذّر تنزيل أدوات الإثبات. تحقّق من اتصالك وحاول مرة أخرى."
 }

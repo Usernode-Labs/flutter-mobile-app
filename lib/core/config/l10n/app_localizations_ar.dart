@@ -753,4 +753,13 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'أُعيد ضبط حالة إثبات ZK';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'جارٍ تجهيز أدوات الإثبات: $percent٪. تُحفظ الملفات التي يتم تنزيلها لاستخدامها لاحقًا.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'تعذّر تنزيل أدوات الإثبات. تحقّق من اتصالك وحاول مرة أخرى.';
 }

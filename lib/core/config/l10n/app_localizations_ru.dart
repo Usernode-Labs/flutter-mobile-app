@@ -758,4 +758,13 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'Состояние ZK-доказательства сброшено';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'Подготовка инструментов для создания доказательств: $percent%. Загруженные данные сохраняются для дальнейшего использования.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'Не удалось загрузить инструменты для создания доказательств. Проверьте подключение и повторите попытку.';
 }

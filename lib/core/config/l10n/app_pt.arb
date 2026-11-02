@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name} está pedindo para verificar sua identidade",
   "verifyIdentityExplanation": "Isso vai assinar um desafio com sua chave privada para provar que você é o dono desta carteira. Nenhuma transação será enviada e nenhum token será gasto.",
   "zkChallengeBusy": "Uma prova do zkPassport ainda está sendo processada. Tente novamente em instantes.",
-  "zkChallengeResetDone": "Estado da prova ZK redefinido"
+  "zkChallengeResetDone": "Estado da prova ZK redefinido",
+  "provingParametersDownloadProgress": "Preparando as ferramentas de prova: {percent}%. Este download é salvo para uso futuro.",
+  "provingParametersDownloadFailed": "Não foi possível baixar as ferramentas de prova. Verifique sua conexão e tente novamente."
 }

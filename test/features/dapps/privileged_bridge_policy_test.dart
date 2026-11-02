@@ -62,6 +62,7 @@ void main() {
       'openNotificationSettings',
       'markPrivilegedBridgeReady',
       'prepareForLogin',
+      'prepareProvingParameters',
       'restoreWebSession',
       'logout',
       'establishNativeSession',

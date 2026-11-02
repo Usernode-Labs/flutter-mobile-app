@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name}があなたの本人確認を求めています",
   "verifyIdentityExplanation": "このウォレットの所有者であることを証明するため、秘密鍵でチャレンジに署名します。トランザクションは送信されず、トークンも消費されません。",
   "zkChallengeBusy": "zkPassportの証明をまだ処理中です。しばらくしてからもう一度お試しください。",
-  "zkChallengeResetDone": "ZK証明の状態をリセットしました"
+  "zkChallengeResetDone": "ZK証明の状態をリセットしました",
+  "provingParametersDownloadProgress": "証明ツールを準備しています: {percent}%。ダウンロードしたデータは今後の利用のために保存されます。",
+  "provingParametersDownloadFailed": "証明ツールをダウンロードできませんでした。接続を確認して、もう一度お試しください。"
 }

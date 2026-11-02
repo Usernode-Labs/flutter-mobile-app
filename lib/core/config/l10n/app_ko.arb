@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name}이(가) 본인 확인을 요청하고 있습니다",
   "verifyIdentityExplanation": "이 지갑의 소유자임을 증명하기 위해 개인 키로 챌린지에 서명합니다. 트랜잭션은 전송되지 않으며 토큰도 사용되지 않습니다.",
   "zkChallengeBusy": "zkPassport 증명을 아직 처리하는 중입니다. 잠시 후 다시 시도하세요.",
-  "zkChallengeResetDone": "ZK 증명 상태를 초기화했습니다"
+  "zkChallengeResetDone": "ZK 증명 상태를 초기화했습니다",
+  "provingParametersDownloadProgress": "증명 도구 준비 중: {percent}%. 다운로드한 데이터는 나중에 사용할 수 있도록 저장됩니다.",
+  "provingParametersDownloadFailed": "증명 도구를 다운로드하지 못했습니다. 연결을 확인하고 다시 시도해 주세요."
 }

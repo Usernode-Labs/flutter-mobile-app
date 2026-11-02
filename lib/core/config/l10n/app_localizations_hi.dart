@@ -756,4 +756,13 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'ZK प्रूफ़ की स्थिति रीसेट हो गई';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'प्रूफ़ टूल तैयार किए जा रहे हैं: $percent%। यह डाउनलोड आगे इस्तेमाल के लिए सहेजा जाता है।';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'प्रूफ़ टूल डाउनलोड नहीं किए जा सके। अपना कनेक्शन जाँचें और फिर से कोशिश करें।';
 }

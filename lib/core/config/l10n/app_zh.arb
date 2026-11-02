@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name} 请求验证你的身份",
   "verifyIdentityExplanation": "这将使用你的私钥对一条挑战信息签名,以证明你拥有此钱包。不会发送任何交易,也不会花费任何代币。",
   "zkChallengeBusy": "仍在处理 zkPassport 证明。请稍后再试。",
-  "zkChallengeResetDone": "ZK 证明状态已重置"
+  "zkChallengeResetDone": "ZK 证明状态已重置",
+  "provingParametersDownloadProgress": "正在准备证明工具：{percent}%。下载的文件将保存，供以后使用。",
+  "provingParametersDownloadFailed": "无法下载证明工具。请检查网络连接后重试。"
 }

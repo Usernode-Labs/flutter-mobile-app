@@ -35,6 +35,10 @@ abstract interface class NativeSessionBridgeIngress {
   /// Emits once when the native session requires process recovery.
   Stream<void> get terminalRetirements;
 
+  /// Prepare public proving data before a short-lived sign-in handoff exists.
+  /// This does not acquire session authority or hold session-operation drain.
+  Future<void> prepareProvingParameters({required String realmMarker});
+
   Future<Map<String, Object?>> establishNativeSession({
     required Map<String, dynamic> payload,
     required String realmMarker,

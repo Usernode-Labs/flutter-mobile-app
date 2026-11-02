@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -7,7 +8,8 @@ import 'package:crypto_mobile_app/src/rust/mobile_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  setUpAll(() => RustLib.initMock(api: _HealthyRustLifecycle()));
+  final rust = _HealthyRustLifecycle();
+  setUpAll(() => RustLib.initMock(api: rust));
 
   test('a session the server ended no longer blocks the next sign-in',
       () async {
@@ -21,6 +23,45 @@ void main() {
       'native-retirement-latched',
       'failed-retirement-latched',
     ]);
+  });
+
+  test('parameter preparation does not block logout or establish a session',
+      () async {
+    rust.parametersReady = false;
+    rust.preparationStarted = Completer<void>();
+    rust.preparationRelease = Completer<void>();
+    rust.establishments = 0;
+    try {
+      final checking = runNativePreparationRetirementSelfCheck();
+      await rust.preparationStarted!.future;
+      // The selfcheck retires the owner on the next event turn while Rust waits.
+      await Future<void>.delayed(Duration.zero);
+      rust.preparationRelease!.complete();
+      expect(await checking, [
+        'preparation-does-not-block-retirement',
+        'preparation-handoff-not-redeemed',
+      ]);
+      expect(rust.establishments, 0);
+    } finally {
+      if (!rust.preparationRelease!.isCompleted) {
+        rust.preparationRelease!.complete();
+      }
+      rust.parametersReady = true;
+      rust.preparationStarted = null;
+      rust.preparationRelease = null;
+    }
+  });
+
+  test('unprepared establishment fails before consuming a handoff', () async {
+    rust.parametersReady = false;
+    rust.establishments = 0;
+    try {
+      expect(await runNativeUnpreparedEstablishmentSelfCheck(),
+          'native_proving_parameters_required');
+      expect(rust.establishments, 0);
+    } finally {
+      rust.parametersReady = true;
+    }
   });
 
   test('interactive iOS wakes report absence instead of retiring in Rust', () {
@@ -50,6 +91,29 @@ void main() {
 /// and establishment commits the requested attempt.
 final class _HealthyRustLifecycle implements RustLibApi {
   var _revision = 1;
+  var parametersReady = true;
+  var establishments = 0;
+  Completer<void>? preparationStarted;
+  Completer<void>? preparationRelease;
+
+  @override
+  NativeProvingParametersStatus crateMobileApiNativeProvingParametersStatus({
+    required ProcessRootClient root,
+  }) =>
+      NativeProvingParametersStatus(
+        ready: parametersReady,
+        completedBytes: parametersReady ? BigInt.from(10) : BigInt.zero,
+        totalBytes: BigInt.from(10),
+      );
+
+  @override
+  Future<void> crateMobileApiNativePrepareProvingParameters({
+    required ProcessRootClient root,
+  }) async {
+    preparationStarted!.complete();
+    await preparationRelease!.future;
+    parametersReady = true;
+  }
 
   @override
   Future<NativeLogoutResult> crateMobileApiLogoutNativeSession({
@@ -69,15 +133,17 @@ final class _HealthyRustLifecycle implements RustLibApi {
   Future<NativeEstablishResult> crateMobileApiEstablishNativeSession({
     required ProcessRootClient root,
     required NativeEstablishRequest request,
-  }) async =>
-      NativeEstablishResult(
-        protocol: 2,
-        attemptId: request.attemptId,
-        nativeRevision: BigInt.from(++_revision),
-        identity: const NativeIdentity(participantId: '2'),
-        runtimeStatus: const NativeRuntimeStatus.notStarted(),
-        receiptStatus: NativeReceiptStatus.committedReady,
-      );
+  }) async {
+    establishments++;
+    return NativeEstablishResult(
+      protocol: 2,
+      attemptId: request.attemptId,
+      nativeRevision: BigInt.from(++_revision),
+      identity: const NativeIdentity(participantId: '2'),
+      runtimeStatus: const NativeRuntimeStatus.notStarted(),
+      receiptStatus: NativeReceiptStatus.committedReady,
+    );
+  }
 
   @override
   SessionNativeClient crateMobileApiCurrentNativeSession({

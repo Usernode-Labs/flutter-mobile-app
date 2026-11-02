@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:ui' show PlatformDispatcher;
+import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 
 import 'package:crypto_mobile_app/core/config/app_config.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
@@ -1467,6 +1469,31 @@ class ZkPassportPipelineController
               resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
             );
           }
+          _setState(
+            status: ZkPassportPipelineStatus.processing,
+            phase: ZkPassportPipelinePhase.wrapping,
+            message: 'Wrapping proof into mega-compatible shape...',
+            requestId: requestId,
+            verifyOuterMs: verifyOuterMs,
+            resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+          );
+          final locale = PlatformDispatcher.instance.locale;
+          final l10n = lookupAppLocalizations(AppLocalizations.supportedLocales
+              .firstWhere(
+                  (supported) => supported.languageCode == locale.languageCode,
+                  orElse: () => AppLocalizations.supportedLocales.first));
+          await operation.prepareProvingParameters(
+              onProgress: (completed, total) {
+            _setState(
+              status: ZkPassportPipelineStatus.processing,
+              phase: ZkPassportPipelinePhase.wrapping,
+              message: l10n.provingParametersDownloadProgress(
+                  total == 0 ? 0 : (completed * 100 ~/ total).clamp(0, 100)),
+              requestId: requestId,
+              verifyOuterMs: verifyOuterMs,
+              resumeAttemptCount: _runtimeSession?.resumeAttemptCount,
+            );
+          });
           _setState(
             status: ZkPassportPipelineStatus.processing,
             phase: ZkPassportPipelinePhase.wrapping,

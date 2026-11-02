@@ -730,4 +730,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'ZK証明の状態をリセットしました';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return '証明ツールを準備しています: $percent%。ダウンロードしたデータは今後の利用のために保存されます。';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      '証明ツールをダウンロードできませんでした。接続を確認して、もう一度お試しください。';
 }

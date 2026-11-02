@@ -58,6 +58,7 @@ mixin _BridgeDispatch
     'requestAlarmPermissions',
     'openNotificationSettings',
     'prepareForLogin',
+    'prepareProvingParameters',
     'restoreWebSession',
     'logout',
     // Logout retires local authority and clears WebView data without the API.
@@ -341,6 +342,10 @@ mixin _BridgeDispatch
 
     if (method == 'restoreWebSession') {
       await _handleRestoreWebSession(id);
+      return;
+    }
+    if (method == 'prepareProvingParameters') {
+      await _handlePrepareProvingParameters(id);
       return;
     }
     if (method == 'prepareForLogin') {

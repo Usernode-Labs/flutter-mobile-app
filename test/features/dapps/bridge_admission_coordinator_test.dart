@@ -102,6 +102,36 @@ void main() {
     expect(await firstHandler, firstLease?.capability);
   });
 
+  test('parameter preparation leaves lifecycle admission available', () async {
+    final frame = _AdmissionTopFrame(trustedUrl);
+    final policy = _policy(frame);
+    final coordinator = _coordinator(frame, policy: policy);
+    final lease = await policy.bootstrapLease();
+    final started = Completer<void>();
+    final release = Completer<void>();
+    final preparing = coordinator.runRequest(
+      method: 'prepareProvingParameters',
+      payload: {'privilegedCapability': lease?.capability},
+      body: (_) async {
+        started.complete();
+        await release.future;
+      },
+    );
+    await started.future;
+    try {
+      await coordinator
+          .runRequest(
+            method: 'logout',
+            payload: {'privilegedCapability': lease?.capability},
+            body: (_) async {},
+          )
+          .timeout(const Duration(seconds: 1));
+    } finally {
+      release.complete();
+      await preparing;
+    }
+  });
+
   test('lifecycle handler blocks every later bridge admission', () async {
     for (final lifecycleMethod in [
       'prepareForLogin',

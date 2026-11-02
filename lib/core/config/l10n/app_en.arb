@@ -989,5 +989,18 @@
   "zkChallengeResetDone": "ZK proof state reset",
   "@zkChallengeResetDone": {
     "description": "Snackbar after the zkPassport proof state was reset"
+  },
+  "provingParametersDownloadProgress": "Preparing proof tools: {percent}%. This download is saved for future use.",
+  "@provingParametersDownloadProgress": {
+    "description": "Progress of the one-time download needed to create proofs on this device",
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "provingParametersDownloadFailed": "The proof tools could not be downloaded. Check your connection and try again.",
+  "@provingParametersDownloadFailed": {
+    "description": "Foreground proof parameter download failed; Retry resumes cached partial data."
   }
 }

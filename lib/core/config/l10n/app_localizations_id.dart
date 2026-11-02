@@ -760,4 +760,13 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'Status bukti ZK direset';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'Menyiapkan alat pembuktian: $percent%. Unduhan ini disimpan untuk digunakan lagi.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'Alat pembuktian tidak dapat diunduh. Periksa koneksi Anda dan coba lagi.';
 }

@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name} meminta untuk memverifikasi identitas Anda",
   "verifyIdentityExplanation": "Ini akan menandatangani sebuah tantangan dengan kunci privat Anda untuk membuktikan bahwa Anda pemilik dompet ini. Tidak ada transaksi yang dikirim dan tidak ada token yang digunakan.",
   "zkChallengeBusy": "Bukti zkPassport masih diproses. Coba lagi sebentar lagi.",
-  "zkChallengeResetDone": "Status bukti ZK direset"
+  "zkChallengeResetDone": "Status bukti ZK direset",
+  "provingParametersDownloadProgress": "Menyiapkan alat pembuktian: {percent}%. Unduhan ini disimpan untuk digunakan lagi.",
+  "provingParametersDownloadFailed": "Alat pembuktian tidak dapat diunduh. Periksa koneksi Anda dan coba lagi."
 }

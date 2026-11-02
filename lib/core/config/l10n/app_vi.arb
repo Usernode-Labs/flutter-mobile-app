@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name} yêu cầu xác minh danh tính của bạn",
   "verifyIdentityExplanation": "Thao tác này sẽ ký một thử thách bằng khóa riêng của bạn để chứng minh bạn sở hữu ví này. Sẽ không có giao dịch nào được gửi và không có token nào bị tiêu.",
   "zkChallengeBusy": "Một bằng chứng zkPassport vẫn đang được xử lý. Hãy thử lại sau ít phút.",
-  "zkChallengeResetDone": "Đã đặt lại trạng thái bằng chứng ZK"
+  "zkChallengeResetDone": "Đã đặt lại trạng thái bằng chứng ZK",
+  "provingParametersDownloadProgress": "Đang chuẩn bị công cụ tạo bằng chứng: {percent}%. Dữ liệu tải xuống được lưu lại để dùng về sau.",
+  "provingParametersDownloadFailed": "Không thể tải xuống công cụ tạo bằng chứng. Hãy kiểm tra kết nối và thử lại."
 }

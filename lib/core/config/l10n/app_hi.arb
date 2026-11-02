@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name} आपकी पहचान सत्यापित करने का अनुरोध कर रहा है",
   "verifyIdentityExplanation": "यह साबित करने के लिए कि यह वॉलेट आपका है, यह आपकी प्राइवेट की से एक चैलेंज साइन करेगा। कोई लेन-देन नहीं भेजा जाएगा और कोई टोकन ख़र्च नहीं होगा।",
   "zkChallengeBusy": "zkPassport का एक प्रूफ़ अभी प्रोसेस हो रहा है। थोड़ी देर बाद फिर कोशिश करें।",
-  "zkChallengeResetDone": "ZK प्रूफ़ की स्थिति रीसेट हो गई"
+  "zkChallengeResetDone": "ZK प्रूफ़ की स्थिति रीसेट हो गई",
+  "provingParametersDownloadProgress": "प्रूफ़ टूल तैयार किए जा रहे हैं: {percent}%। यह डाउनलोड आगे इस्तेमाल के लिए सहेजा जाता है।",
+  "provingParametersDownloadFailed": "प्रूफ़ टूल डाउनलोड नहीं किए जा सके। अपना कनेक्शन जाँचें और फिर से कोशिश करें।"
 }

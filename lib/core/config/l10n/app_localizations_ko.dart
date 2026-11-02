@@ -733,4 +733,13 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'ZK 증명 상태를 초기화했습니다';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return '증명 도구 준비 중: $percent%. 다운로드한 데이터는 나중에 사용할 수 있도록 저장됩니다.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      '증명 도구를 다운로드하지 못했습니다. 연결을 확인하고 다시 시도해 주세요.';
 }

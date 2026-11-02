@@ -757,4 +757,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'ZK proof state reset';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'Preparing proof tools: $percent%. This download is saved for future use.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'The proof tools could not be downloaded. Check your connection and try again.';
 }

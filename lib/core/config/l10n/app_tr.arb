@@ -223,5 +223,7 @@
   "verifyIdentityRequest": "{name} kimliğinizi doğrulamak istiyor",
   "verifyIdentityExplanation": "Bu işlem, bu cüzdanın sahibi olduğunuzu kanıtlamak için özel anahtarınızla bir sınama imzalar. Hiçbir işlem gönderilmez ve hiçbir token harcanmaz.",
   "zkChallengeBusy": "Bir zkPassport kanıtı hâlâ işleniyor. Birazdan tekrar deneyin.",
-  "zkChallengeResetDone": "ZK kanıt durumu sıfırlandı"
+  "zkChallengeResetDone": "ZK kanıt durumu sıfırlandı",
+  "provingParametersDownloadProgress": "Kanıt araçları hazırlanıyor: %{percent}. İndirilen veriler daha sonra kullanılmak üzere kaydedilir.",
+  "provingParametersDownloadFailed": "Kanıt araçları indirilemedi. Bağlantınızı kontrol edip tekrar deneyin."
 }

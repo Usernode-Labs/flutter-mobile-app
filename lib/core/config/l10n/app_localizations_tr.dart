@@ -758,4 +758,13 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get zkChallengeResetDone => 'ZK kanıt durumu sıfırlandı';
+
+  @override
+  String provingParametersDownloadProgress(int percent) {
+    return 'Kanıt araçları hazırlanıyor: %$percent. İndirilen veriler daha sonra kullanılmak üzere kaydedilir.';
+  }
+
+  @override
+  String get provingParametersDownloadFailed =>
+      'Kanıt araçları indirilemedi. Bağlantınızı kontrol edip tekrar deneyin.';
 }

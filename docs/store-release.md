@@ -31,9 +31,9 @@ It talks to the production backend.
 
 ## Google Play
 
-1. Finish the App content section, including the permission and wallet
-   declarations. Background block production uses exact alarms, the battery
-   exemption and a data-sync foreground service, so these need explaining.
+1. Finish the App content section, including the wallet declaration. Background
+   block production is off, so there are no exact-alarm or foreground-service
+   declarations. Remove any left over from open testing.
 2. Pick countries, then promote the tested build to production.
 3. Start the rollout at 10–20% and watch Sentry and Android vitals.
 

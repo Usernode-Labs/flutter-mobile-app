@@ -9,6 +9,7 @@ import 'package:crypto_mobile_app/core/config/l10n/app_localizations.dart';
 import 'package:crypto_mobile_app/core/session/session_operation_runner.dart';
 import 'package:crypto_mobile_app/core/providers/providers.dart'
     show buildEnvProvider, debugModeProvider, themeModeProvider;
+import 'package:crypto_mobile_app/core/services/native_connectivity.dart';
 import 'package:crypto_mobile_app/core/services/platform_alarm_service.dart';
 import 'package:crypto_mobile_app/core/widgets/tx_confirmation_page.dart';
 import 'package:crypto_mobile_app/design_system/src/button.dart';
@@ -61,6 +62,7 @@ part 'bridge/dapp_bridge_social_push.dart';
 part 'bridge/dapp_bridge_capture.dart';
 part 'bridge/dapp_bridge_sign_in.dart';
 part 'bridge/dapp_bridge_build_activity.dart';
+part 'bridge/dapp_bridge_connectivity.dart';
 part 'bridge/dapp_bridge_dispatch.dart';
 part 'bridge/dapp_bridge_node_requirement.dart';
 
@@ -106,6 +108,9 @@ class DappWebViewScreen extends ConsumerStatefulWidget {
   /// `true` on the first successful [onPageFinished], `false` if a
   /// main-frame resource error lands first. Used by the shell's
   /// first-launch gate ("has SV ever rendered on this install?").
+  /// No time limit applies here: the load goes on however long it takes, so
+  /// an owner that stops waiting for it (the shell's own limit) still hears
+  /// a late success.
   final void Function(bool ok)? onFirstLoadResult;
 
   /// Fired when the trusted shell document reports `shellPainted`: its first
@@ -160,6 +165,7 @@ abstract class _DappWebViewScreenStateBase
   static const _jsChannelName = 'Usernode';
 
   void _dispatchPendingSocialPushEvents();
+  void _replayNativeConnectivity();
   Future<bool> _seedReadyMainFrame(PrivilegedBridgeLease lease) async {
     final delivered =
         await _privilegedBridgePolicy.runInLease(lease, 'void 0;');
@@ -167,6 +173,7 @@ abstract class _DappWebViewScreenStateBase
     await _nodeRequirementGuards.retainOnlyRealm(lease.marker);
     _readyMainFrameLease = lease;
     _dispatchPendingSocialPushEvents();
+    _replayNativeConnectivity();
     return true;
   }
 
@@ -451,6 +458,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         _BridgeCapture,
         _BridgeSignIn,
         _BridgeBuildActivity,
+        _BridgeConnectivity,
         _BridgeDispatch {
   int _widgetNavigationRevision = 0;
   // Transaction confirmation uses Navigator.push with an opaque route instead
@@ -517,6 +525,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             if (!mounted) return;
             unawaited(_reconcileNodeRequirementRealm());
             _reportFirstLoadResult(true);
+            _sendNativeConnectivityAfterPageFinished();
             _logServiceWorkerStateForDebug();
           },
           onWebResourceError: (error) {
@@ -576,6 +585,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     unawaited(const WebViewFormAccessory().hideFor(_controller));
     _listenForSocialPushEvents();
     _listenForPermissionChanges();
+    _listenForNativeConnectivity(ref.read(nativeConnectivityProvider));
   }
 
   /// Reacts to a changed [DappWebViewScreen.url] on a *live* webview. Most
@@ -694,6 +704,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     _privilegedBridgePolicy.dispose();
     _disposeSocialPushEvents();
     _disposePermissionChanges();
+    _disposeNativeConnectivity();
     super.dispose();
   }
 

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 class AppConfig {
   final String environment;
   final bool verboseLogging;
@@ -179,12 +177,6 @@ class AppConfig {
         '362395561249-pfci84ag0r2hr8tln0taqcq9t90mslp6.apps.googleusercontent.com',
   );
 
-  // GitHub configuration
-  static const String githubToken =
-      String.fromEnvironment('GITHUB_TOKEN', defaultValue: '');
-  static const String githubOwner = 'Usernode-Labs';
-  static const String githubRepo = 'flutter-mobile-app';
-
   // Node prover configuration
   static const bool enableRealProver =
       bool.fromEnvironment('ENABLE_REAL_PROVER', defaultValue: false);
@@ -238,68 +230,9 @@ class AppConfig {
   static const String discordInviteUrl =
       'https://discord.com/channels/1427970105521737760/1447595610877460591';
 
-  // Demo accounts configuration (JSON object with account metadata)
-  static const String _demoAccountsJson = String.fromEnvironment(
-      'DEMO_ACCOUNTS_JSON',
-      defaultValue: '{"accounts":[]}');
-
-  static List<DemoAccount> get demoAccounts {
-    try {
-      final decoded = jsonDecode(_demoAccountsJson);
-      if (decoded is Map && decoded['accounts'] is List) {
-        final accounts = decoded['accounts'] as List;
-        return accounts
-            .map((acc) => DemoAccount.fromJson(acc as Map<String, dynamic>))
-            .toList();
-      }
-      return [];
-    } catch (e) {
-      return [];
-    }
-  }
-
   static int? _parseOptionalInt(String raw) {
     final trimmed = raw.trim();
     if (trimmed.isEmpty) return null;
     return int.tryParse(trimmed);
-  }
-}
-
-/// Demo account model with metadata
-class DemoAccount {
-  final String secretKey;
-  final String publicKey;
-  final String address;
-  final int amount;
-  final String tier;
-
-  DemoAccount({
-    required this.secretKey,
-    required this.publicKey,
-    required this.address,
-    required this.amount,
-    required this.tier,
-  });
-
-  factory DemoAccount.fromJson(Map<String, dynamic> json) {
-    String requiredString(List<String> keys) {
-      for (final key in keys) {
-        final value = json[key];
-        if (value is String && value.isNotEmpty) return value;
-      }
-      throw FormatException('Missing required field: ${keys.join(' or ')}');
-    }
-
-    return DemoAccount(
-      secretKey: requiredString(['secret_key', 'secret_key_hex']),
-      publicKey: requiredString(['public_key', 'public_key_hex']),
-      address: requiredString([
-        'address',
-        'public_key_hash_bech32m',
-        'public_key_hash',
-      ]),
-      amount: json['amount'] as int,
-      tier: json['tier'] as String,
-    );
   }
 }

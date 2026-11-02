@@ -844,7 +844,6 @@ cp .env.example .env
 # - APP_ENV: development (default)
 # - VERBOSE_LOGGING: false (default)
 # - SENTRY_DSN: (empty = disabled)
-# - GITHUB_TOKEN: (empty = feedback disabled)
 ```
 
 **For Production/CI Builds**: See the "Environment Configuration" section below for the full list of environment variables used in CI (PROD*\* and NONPROD*\* variants).
@@ -1129,7 +1128,6 @@ The following environment variables are used in production builds:
 | `APP_ENV`              | Environment name                  | Yes      | `production`, `development` |
 | `VERBOSE_LOGGING`      | Enable verbose logging            | No       | `false`, `true`             |
 | `SENTRY_DSN`           | Sentry error tracking DSN         | No       | `https://...@sentry.io/...` |
-| `GITHUB_TOKEN`         | GitHub token for feedback         | No       | `ghp_...`                   |
 | `USE_RESULT_PROVIDERS` | Enable result providers           | No       | `true`, `false`             |
 | `ENABLED_FEATURES`     | Comma-separated enabled features  | No       | `feature1,feature2`         |
 | `DISABLED_FEATURES`    | Comma-separated disabled features | No       | `feature3,feature4`         |
@@ -1147,7 +1145,6 @@ cp .env.example .env
 APP_ENV=development
 VERBOSE_LOGGING=true
 SENTRY_DSN=
-GITHUB_TOKEN=
 USE_RESULT_PROVIDERS=true
 ENABLED_FEATURES=
 DISABLED_FEATURES=
@@ -1162,7 +1159,6 @@ In CI (GitHub Actions), environment variables are managed as GitHub Secrets:
 - `PROD_APP_ENV`
 - `PROD_VERBOSE_LOGGING`
 - `PROD_SENTRY_DSN`
-- `PROD_GITHUB_TOKEN`
 - `PROD_USE_RESULT_PROVIDERS`
 - `PROD_ENABLED_FEATURES`
 - `PROD_DISABLED_FEATURES`
@@ -1172,7 +1168,6 @@ In CI (GitHub Actions), environment variables are managed as GitHub Secrets:
 - `NONPROD_APP_ENV`
 - `NONPROD_VERBOSE_LOGGING`
 - `NONPROD_SENTRY_DSN`
-- `NONPROD_GITHUB_TOKEN`
 - `NONPROD_USE_RESULT_PROVIDERS`
 - `NONPROD_ENABLED_FEATURES`
 - `NONPROD_DISABLED_FEATURES`

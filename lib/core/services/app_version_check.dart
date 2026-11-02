@@ -6,6 +6,7 @@ import 'package:crypto_mobile_app/design_system/design_system.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart' show Bidi;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -60,6 +61,30 @@ class AppVersionCheck {
 
   Timer? _timer;
 
+  /// What the version check is asked. The platform answers `details` in
+  /// [locale]'s language when it has a translation, else in English.
+  @visibleForTesting
+  static Map<String, Object> requestBody({
+    required String os,
+    required String appVersion,
+    required int buildNumber,
+    required Locale locale,
+  }) =>
+      {
+        'os': os,
+        'app_version': appVersion,
+        'build_number': buildNumber,
+        'language': locale.toLanguageTag(),
+      };
+
+  /// The dialog around the message stays in English, so a translated message
+  /// says its own direction.
+  @visibleForTesting
+  static TextDirection messageDirection(String message) =>
+      Bidi.detectRtlDirectionality(message)
+          ? TextDirection.rtl
+          : TextDirection.ltr;
+
   /// Check version and return result (null on error = fail open).
   /// Returns null if version check is disabled.
   Future<VersionCheckResult?> check() async {
@@ -74,11 +99,14 @@ class AppVersionCheck {
           .post(
             Uri.parse(AppConfig.versionCheckApiUrl),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'os': Platform.isIOS ? 'ios' : 'android',
-              'app_version': info.version,
-              'build_number': int.tryParse(info.buildNumber) ?? 1,
-            }),
+            body: jsonEncode(
+              requestBody(
+                os: Platform.isIOS ? 'ios' : 'android',
+                appVersion: info.version,
+                buildNumber: int.tryParse(info.buildNumber) ?? 1,
+                locale: WidgetsBinding.instance.platformDispatcher.locale,
+              ),
+            ),
           )
           .timeout(const Duration(seconds: 8));
 
@@ -228,6 +256,7 @@ class _UpdateDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final spacing = Theme.of(context).extension<AppSpacing>()!;
+    final message = result.details ?? 'A new version of the app is available.';
     return PopScope(
       canPop: !result.isBlocking,
       child: AlertDialog(
@@ -236,7 +265,8 @@ class _UpdateDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              result.details ?? 'A new version of the app is available.',
+              message,
+              textDirection: AppVersionCheck.messageDirection(message),
             ),
             SizedBox(height: spacing.space24),
             SizedBox(

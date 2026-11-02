@@ -8,6 +8,11 @@ import 'package:crypto_mobile_app/core/utils/logger.dart';
 
 final _log = LoggingService.instance.withTag('usernode/AlarmService');
 
+/// Temporary off switch, matching `BACKGROUND_PRODUCTION_ENABLED` on Android.
+/// The app produces blocks only while it is open, so it no longer asks for
+/// exact alarms or the battery exemption, and has neither in its manifest.
+const bool backgroundProductionEnabled = false;
+
 /// Callback type for handling boot reschedule events
 typedef BootRescheduleCallback = Future<void> Function();
 
@@ -262,15 +267,20 @@ class PlatformAlarmService {
       : _observability =
             observability ?? ObservabilityReportingService.instance,
         _isAndroid = Platform.isAndroid,
-        _isIOS = Platform.isIOS;
+        _isIOS = Platform.isIOS,
+        _backgroundProductionEnabled = backgroundProductionEnabled;
 
   @visibleForTesting
   PlatformAlarmService.test({
     required ObservabilityReportingService observability,
     TargetPlatform? platform,
+    bool backgroundProductionEnabled = true,
   })  : _observability = observability,
         _isAndroid = platform == TargetPlatform.android,
-        _isIOS = platform == TargetPlatform.iOS;
+        _isIOS = platform == TargetPlatform.iOS,
+        _backgroundProductionEnabled = backgroundProductionEnabled;
+
+  final bool _backgroundProductionEnabled;
 
   static const MethodChannel _channel =
       MethodChannel('com.onhomeroom.app/alarm');
@@ -695,6 +705,7 @@ class PlatformAlarmService {
       return false;
     }
     if (defaultTargetPlatform != TargetPlatform.android) return true;
+    if (!_backgroundProductionEnabled) return true;
 
     try {
       final hasExactAlarm = await _requestAndroidExactAlarmAndBattery();
@@ -837,7 +848,8 @@ class PlatformAlarmService {
       final hasNotifications = await _requestAndroidNotificationsPermission();
 
       // 2 + 3. Exact alarm and battery exemption.
-      final hasExactAlarm = await _requestAndroidExactAlarmAndBattery();
+      final hasExactAlarm = !_backgroundProductionEnabled ||
+          await _requestAndroidExactAlarmAndBattery();
 
       // Update permissions granted status
       _permissionsGranted = hasNotifications && hasExactAlarm;
@@ -977,7 +989,7 @@ class PlatformAlarmService {
   /// On Android 12+ this opens the system settings where the user can allow
   /// exact alarms for the app. On other platforms, this returns true.
   Future<bool> requestExactAlarmOnly() async {
-    if (!Platform.isAndroid) {
+    if (!Platform.isAndroid || !_backgroundProductionEnabled) {
       return true;
     }
     if (!_initialized) {
@@ -1247,6 +1259,7 @@ class PlatformAlarmService {
 
   /// Request battery optimization exemption
   Future<bool> requestBatteryOptimizationExemption() async {
+    if (!_backgroundProductionEnabled) return false;
     if (!Platform.isAndroid) {
       return true; // iOS doesn't have this concept
     }
@@ -1716,6 +1729,7 @@ class PlatformAlarmService {
   ///
   /// Helps users exempt the app from battery optimization on OEM devices.
   Future<bool> openBatteryOptimizationSettings() async {
+    if (!_backgroundProductionEnabled) return false;
     try {
       _noteSystemSurfaceLaunch();
       final success =

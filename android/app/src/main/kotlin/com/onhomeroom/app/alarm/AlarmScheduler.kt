@@ -308,6 +308,8 @@ class AlarmScheduler(
         prefs.edit().remove(SCHEDULED_ALARMS_KEY).apply()
     }
 
+    fun clearScheduledNotification() = cancelScheduledNotification()
+
     private fun clearScheduledNotificationIfIdle() {
         if (getScheduledAlarms().isEmpty()) cancelScheduledNotification()
     }

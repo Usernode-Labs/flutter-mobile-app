@@ -12,6 +12,46 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ForegroundProducerOwnershipTest {
+    private val scheduleExact = ProducerWakeDirective.ScheduleExact(
+        revision = 1,
+        wakeIdentity = ByteArray(32),
+        triggerAtMs = 1,
+        rustWakeTimeMs = 1,
+        targetGlobalSlot = 1,
+        targetRustTimeMs = 1,
+        pauseRuntime = true,
+        reason = ProducerWakeReason.RUNTIME_UNAVAILABLE,
+    )
+    private val retryLater = ProducerWakeDirective.RetryLater(
+        revision = 1,
+        retryAfterMs = 1,
+        reason = ProducerWakeReason.RUNTIME_UNAVAILABLE,
+    )
+    private val keepForeground = ProducerWakeDirective.KeepForeground(
+        revision = 1,
+        pollAfterMs = 1,
+        reason = ProducerWakeReason.RUNTIME_UNAVAILABLE,
+        detail = ProducerForegroundDetail.None,
+    )
+
+    @Test
+    fun `the release build has background production off`() {
+        assertFalse(BACKGROUND_PRODUCTION_ENABLED)
+    }
+
+    @Test
+    fun `foreground only declines an alarm and a retry but keeps the runtime`() {
+        assertTrue(declinedWhileForegroundOnly(scheduleExact, backgroundProductionEnabled = false))
+        assertTrue(declinedWhileForegroundOnly(retryLater, backgroundProductionEnabled = false))
+        assertFalse(declinedWhileForegroundOnly(keepForeground, backgroundProductionEnabled = false))
+    }
+
+    @Test
+    fun `nothing is declined with background production on`() {
+        assertFalse(declinedWhileForegroundOnly(scheduleExact, backgroundProductionEnabled = true))
+        assertFalse(declinedWhileForegroundOnly(retryLater, backgroundProductionEnabled = true))
+    }
+
     @Test
     fun `only exact node epoch unavailable response enables current epoch fallback`() {
         assertTrue(allowsCurrentEpochProduction(503, "node_epoch_unavailable"))

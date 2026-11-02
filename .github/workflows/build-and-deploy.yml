@@ -272,6 +272,20 @@ jobs:
       - name: Verify Android AAB
         run: test -s "${{ steps.env_config.outputs.aab_path }}"
 
+      - name: Verify background permissions stay out of the release manifest
+        run: |
+          set -euo pipefail
+          MANIFEST="$(find build/app/intermediates -type f -name AndroidManifest.xml -path '*merged_manifests/release*' | head -1)"
+          if [ -z "$MANIFEST" ]; then
+            echo "Could not find the merged release manifest" >&2
+            exit 1
+          fi
+          if grep -E 'SCHEDULE_EXACT_ALARM|USE_EXACT_ALARM|REQUEST_IGNORE_BATTERY_OPTIMIZATIONS|android.permission.FOREGROUND_SERVICE|RECEIVE_BOOT_COMPLETED|SlotMonitoringService' "$MANIFEST"; then
+            echo "A background permission or service came back in $MANIFEST" >&2
+            exit 1
+          fi
+          echo "Release manifest has no background permissions"
+
       - name: Upload Android release debug files to Sentry
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

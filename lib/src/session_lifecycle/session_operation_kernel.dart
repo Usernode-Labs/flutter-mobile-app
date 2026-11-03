@@ -29,6 +29,7 @@ final class _SessionScope {
   int _children = 0;
   int _effects = 0;
   final Completer<void> _drained = Completer<void>();
+  final Completer<void> _closing = Completer<void>();
 
   late final SessionOperationRunner runner = _SessionOperationRunner(this);
   late final _SessionSleepyPolicyCoordinator sleepyPolicy =
@@ -81,6 +82,7 @@ final class _SessionScope {
       // already admitted may still register counted children/effects until
       // its structured callback settles; the drain waits for all of them.
       _state = _ScopeState.closing;
+      _closing.complete();
       _completeDrainIfReady();
     }
     return _drained.future;
@@ -188,7 +190,9 @@ final class _SessionOperation implements SessionOperation {
   Object? _firstChildError;
   StackTrace? _firstChildStackTrace;
 
-  bool get isExpired => _expired;
+  var _preparationCancelled = false;
+
+  bool get isExpired => _expired || _preparationCancelled;
 
   Future<T> invoke<T>(
     FutureOr<T> Function(SessionOperation operation) body,
@@ -267,14 +271,16 @@ final class _SessionOperation implements SessionOperation {
     required String destinationAddress,
     required BigInt amount,
     required String memo,
-  }) =>
-      _runEffect(
-        (sink) => sink.submitTransaction(
-          destinationAddress: destinationAddress,
-          amount: amount,
-          memo: memo,
-        ),
-      );
+  }) async {
+    await prepareProvingParameters();
+    return _runEffect(
+      (sink) => sink.submitTransaction(
+        destinationAddress: destinationAddress,
+        amount: amount,
+        memo: memo,
+      ),
+    );
+  }
 
   @override
   Future<SessionMessageSignature> signMessage(String message) =>
@@ -287,8 +293,10 @@ final class _SessionOperation implements SessionOperation {
   @override
   Future<perf_types.PerfRunHandle> startDeviceBenchmark(
     perf_types.PerfRunProfile profile,
-  ) =>
-      _runEffect((sink) => sink.startDeviceBenchmark(profile));
+  ) async {
+    await prepareProvingParameters();
+    return _runEffect((sink) => sink.startDeviceBenchmark(profile));
+  }
 
   @override
   Future<perf_types.PerfRunStatus?> readDeviceBenchmarkStatus(int runId) =>
@@ -319,9 +327,46 @@ final class _SessionOperation implements SessionOperation {
   @override
   Future<void> prepareProvingParameters({
     void Function(int completedBytes, int totalBytes)? onProgress,
-  }) =>
-      _runEffect(
-          (sink) => sink.prepareProvingParameters(onProgress: onProgress));
+  }) async {
+    if (isExpired) throw const SessionOperationExpiredException();
+    if (_scope._state != _ScopeState.open) {
+      throw const SessionAdmissionClosedException();
+    }
+    var waiting = true;
+    final cancelled = _scope._closing.future.then<void>((_) {
+      if (waiting) {
+        _preparationCancelled = true;
+        throw const SessionAdmissionClosedException();
+      }
+    });
+    // Public cache work retains only the process root, never session authority.
+    // Closing cancels this operation's wait; a late cache completion cannot
+    // continue the retired transaction, benchmark, or proof operation.
+    final preparing = Future<void>.sync(() {
+      if (onProgress == null) {
+        return _provingParametersPreparation.run(
+          (report) =>
+              _scope.effects.prepareProvingParameters(onProgress: report),
+          cancelled: _scope._closing.future,
+        );
+      }
+      return _scope.effects.prepareProvingParameters(
+          onProgress: (completed, total) {
+        if (_scope._state == _ScopeState.open && !isExpired) {
+          onProgress(completed, total);
+        }
+      });
+    });
+    try {
+      await Future.any([preparing, cancelled]);
+    } finally {
+      waiting = false;
+    }
+    if (_scope._state != _ScopeState.open) {
+      _preparationCancelled = true;
+      throw const SessionAdmissionClosedException();
+    }
+  }
 
   @override
   Future<SessionZkPassportVerifyOuterResult> verifyZkPassportOuter({
@@ -710,10 +755,13 @@ final class _ClosedSessionEffectSink implements _SessionEffectSink {
   const _ClosedSessionEffectSink([
     this._failureHandler,
     this._sleepyHandler,
+    this._preparationHandler,
   ]);
 
   final void Function(Object error, StackTrace stackTrace)? _failureHandler;
   final Future<SessionSleepySnapshot> Function(bool enabled)? _sleepyHandler;
+  final Future<void> Function(void Function(int, int)? report)?
+      _preparationHandler;
 
   @override
   void reportFailure(Object error, StackTrace stackTrace) {
@@ -761,7 +809,7 @@ final class _ClosedSessionEffectSink implements _SessionEffectSink {
   Future<void> prepareProvingParameters({
     void Function(int completedBytes, int totalBytes)? onProgress,
   }) =>
-      _closed();
+      _preparationHandler?.call(onProgress) ?? _closed();
 
   @override
   Future<SessionZkPassportVerifyOuterResult> verifyZkPassportOuter({

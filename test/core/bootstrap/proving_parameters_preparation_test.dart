@@ -51,6 +51,46 @@ void main() {
       expect(preparation.value, isNull);
     });
 
+    test('cancellation clears the cover and ignores late progress', () async {
+      final preparation = ProvingParametersPreparation();
+      addTearDown(preparation.dispose);
+      final finish = Completer<void>();
+      final cancel = Completer<void>();
+      late void Function(int, int) report;
+      final preparing = preparation.run((update) {
+        report = update;
+        update(1, 10);
+        return finish.future;
+      }, cancelled: cancel.future);
+      final rejected = expectLater(
+          preparing, throwsA(isA<ProvingParametersPreparationCancelled>()));
+      cancel.complete();
+      await rejected;
+      expect(preparation.value, isNull);
+      report(8, 10);
+      finish.complete();
+      await flushAsync();
+      expect(preparation.value, isNull);
+      await preparation.run((_) async {});
+      expect(preparation.value, isNull);
+    });
+
+    test('cancellation releases a pending retry', () async {
+      final preparation = ProvingParametersPreparation();
+      addTearDown(preparation.dispose);
+      final cancel = Completer<void>();
+      final preparing = preparation.run((_) async {
+        throw StateError('download failed');
+      }, cancelled: cancel.future);
+      final rejected = expectLater(
+          preparing, throwsA(isA<ProvingParametersPreparationCancelled>()));
+      await flushAsync();
+      expect(preparation.value!.failed, isTrue);
+      cancel.complete();
+      await rejected;
+      expect(preparation.value, isNull);
+    });
+
     test('progress fractions are bounded and unknown totals stay indeterminate',
         () {
       expect(const ProvingParametersProgress(1, 0).fraction, 0);

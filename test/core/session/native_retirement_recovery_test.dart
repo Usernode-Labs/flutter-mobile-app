@@ -25,40 +25,45 @@ void main() {
     ]);
   });
 
-  test('parameter preparation does not block logout or establish a session',
-      () async {
-    rust.parametersReady = false;
-    rust.preparationStarted = Completer<void>();
-    rust.preparationRelease = Completer<void>();
-    rust.establishments = 0;
-    try {
-      final checking = runNativePreparationRetirementSelfCheck();
-      await rust.preparationStarted!.future;
-      // The selfcheck retires the owner on the next event turn while Rust waits.
-      await Future<void>.delayed(Duration.zero);
-      rust.preparationRelease!.complete();
-      expect(await checking, [
-        'preparation-does-not-block-retirement',
-        'preparation-handoff-not-redeemed',
-      ]);
-      expect(rust.establishments, 0);
-    } finally {
-      if (!rust.preparationRelease!.isCompleted) {
+  for (final submitTransaction in [false, true]) {
+    test(
+        'logout interrupts ${submitTransaction ? 'transaction' : 'explicit'} preparation',
+        () async {
+      rust.parametersReady = false;
+      rust.preparationStarted = Completer<void>();
+      rust.preparationRelease = Completer<void>();
+      rust.establishments = 0;
+      try {
+        final checking = runNativePreparationRetirementSelfCheck(
+            submitTransaction: submitTransaction);
+        await rust.preparationStarted!.future;
+        // The selfcheck retires the owner on the next event turn while Rust waits.
+        await Future<void>.delayed(Duration.zero);
         rust.preparationRelease!.complete();
+        expect(await checking, [
+          'preparation-does-not-block-retirement',
+          'preparation-handoff-not-redeemed',
+        ]);
+        expect(rust.establishments, 0);
+      } finally {
+        if (!rust.preparationRelease!.isCompleted) {
+          rust.preparationRelease!.complete();
+        }
+        rust.parametersReady = true;
+        rust.preparationStarted = null;
+        rust.preparationRelease = null;
       }
-      rust.parametersReady = true;
-      rust.preparationStarted = null;
-      rust.preparationRelease = null;
-    }
-  });
+    });
+  }
 
-  test('unprepared establishment fails before consuming a handoff', () async {
+  test('sign-in establishes without downloading proving parameters', () async {
     rust.parametersReady = false;
+    rust.preparationCalls = 0;
     rust.establishments = 0;
     try {
-      expect(await runNativeUnpreparedEstablishmentSelfCheck(),
-          'native_proving_parameters_required');
-      expect(rust.establishments, 0);
+      expect(await runNativeUnpreparedEstablishmentSelfCheck(), isTrue);
+      expect(rust.establishments, 1);
+      expect(rust.preparationCalls, 0);
     } finally {
       rust.parametersReady = true;
     }
@@ -92,6 +97,7 @@ void main() {
 final class _HealthyRustLifecycle implements RustLibApi {
   var _revision = 1;
   var parametersReady = true;
+  var preparationCalls = 0;
   var establishments = 0;
   Completer<void>? preparationStarted;
   Completer<void>? preparationRelease;
@@ -110,8 +116,10 @@ final class _HealthyRustLifecycle implements RustLibApi {
   Future<void> crateMobileApiNativePrepareProvingParameters({
     required ProcessRootClient root,
   }) async {
-    preparationStarted!.complete();
-    await preparationRelease!.future;
+    preparationCalls++;
+    preparationStarted?.complete();
+    final release = preparationRelease;
+    if (release != null) await release.future;
     parametersReady = true;
   }
 

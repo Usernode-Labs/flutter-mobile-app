@@ -983,7 +983,6 @@ final class _NativeSessionEffects implements _SessionEffectSink {
   Future<perf_types.PerfRunHandle> startDeviceBenchmark(
     perf_types.PerfRunProfile profile,
   ) async {
-    await prepareProvingParameters();
     return native.nativeDeviceBenchmarkStart(
       root: _root,
       session: _session,
@@ -1041,7 +1040,17 @@ final class _NativeSessionEffects implements _SessionEffectSink {
   Future<void> prepareProvingParameters({
     void Function(int completedBytes, int totalBytes)? onProgress,
   }) async {
-    await _prepareProvingParameters(_root, onProgress: onProgress);
+    try {
+      await _prepareProvingParameters(_root, onProgress: onProgress);
+    } catch (error, stackTrace) {
+      LoggingService.instance.error(
+        'Proving parameter preparation failed',
+        tag: 'usernode/ProvingParameters',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -1552,9 +1561,6 @@ final class _NativeSessionCompositionRoot
           );
         },
         recoverableReady: (nativeRevision, attemptId, identity) async {
-          if (identity.accountId != null) {
-            await _prepareForegroundProvingParameters(root);
-          }
           final recovery = await platform.recoverSession(
             expectedRevision: _platformRevision(nativeRevision),
           );
@@ -1882,18 +1888,6 @@ final class _NativeSessionCompositionRoot
   }
 
   @override
-  Future<void> prepareProvingParameters({required String realmMarker}) async {
-    _validateRealmMarker(realmMarker);
-    if (terminallyRetired) {
-      _throwTerminallyRetired();
-    }
-    await _prepareForegroundProvingParameters(_root);
-    if (terminallyRetired) {
-      _throwTerminallyRetired();
-    }
-  }
-
-  @override
   Future<Map<String, Object?>> establishNativeSession({
     required Map<String, dynamic> payload,
     required String realmMarker,
@@ -1903,12 +1897,6 @@ final class _NativeSessionCompositionRoot
     final attempt = _beginEstablish(intent, realmMarker);
     String? installedAttemptId;
     try {
-      if (!native.nativeProvingParametersStatus(root: _root).ready) {
-        throw const NativeSessionException(
-          'native_proving_parameters_required',
-          'Refresh Homeroom to prepare proof tools before native sign-in.',
-        );
-      }
       if (attempt.terminalIntent != null) {
         throw const NativeSessionException(
           'native_session_not_ready',
@@ -2367,10 +2355,6 @@ final class _FailingNativeSessionBridgeIngress
       Future<void>.value();
 
   @override
-  Future<void> prepareProvingParameters({required String realmMarker}) =>
-      Future<void>.error(_failure);
-
-  @override
   Future<Map<String, Object?>> establishNativeSession({
     required Map<String, dynamic> payload,
     required String realmMarker,
@@ -2755,49 +2739,53 @@ Future<List<String>> runNativeRetirementRecoverySelfCheck() async {
   return List<String>.unmodifiable(events);
 }
 
-/// Public-data preparation must not retain session authority or block logout.
-Future<List<String>> runNativePreparationRetirementSelfCheck() async {
+/// A retired session stops waiting for public cache work before any proof effect.
+Future<List<String>> runNativePreparationRetirementSelfCheck({
+  bool submitTransaction = false,
+}) async {
   const realm = 'trusted-realm';
-  final check = await _RetirementSelfCheck.start(wallet: false);
-  await check.root.prepareForLogin(realmMarker: realm);
-  final preparing = check.root.prepareProvingParameters(realmMarker: realm);
+  final check =
+      await _RetirementSelfCheck.start(wallet: false, prepareParameters: true);
+  await check.root.appLifecycleStateChanged(AppLifecycleState.resumed);
+  final preparing =
+      check.root.sessions.current.operations.run<void>((operation) async {
+    if (submitTransaction) {
+      await operation.submitTransaction(
+          destinationAddress: 'self-check-destination',
+          amount: BigInt.one,
+          memo: '');
+    } else {
+      await operation.prepareProvingParameters(onProgress: (_, __) {});
+      await operation.signMessage('must-not-run-after-logout');
+    }
+  });
+  final observed = preparing.then<Object?>((_) => null,
+      onError: (Object error, StackTrace _) => error);
   await Future<void>.delayed(Duration.zero);
   await check.root.logoutNativeSession(realmMarker: realm);
+  _expectSelfCheck(await observed is SessionAdmissionClosedException,
+      'preparation did not stop its retired operation');
   _expectSelfCheck(check.signedOut, 'preparation blocked retirement');
   _expectSelfCheck(
       !native.nativeProvingParametersStatus(root: check.root._root).ready,
       'retirement waited for the download');
-  await preparing;
-  _expectSelfCheck(
-      check.signedOut, 'preparation established a retired session');
-  _expectSelfCheck(!check.channel.calls.contains('redeemNativeSessionHandoff'),
-      'preparation redeemed a credential handoff');
   return const [
     'preparation-does-not-block-retirement',
     'preparation-handoff-not-redeemed'
   ];
 }
 
-/// A cached old web client must fail promptly instead of downloading inside
-/// its timed establishment request or consuming its credential handoff.
-Future<String> runNativeUnpreparedEstablishmentSelfCheck() async {
+/// Sign-in can establish authority without starting a public parameter download.
+Future<bool> runNativeUnpreparedEstablishmentSelfCheck() async {
   const realm = 'trusted-realm';
   final check = await _RetirementSelfCheck.start(wallet: false);
   await check.root.prepareForLogin(realmMarker: realm);
-  try {
-    await check.root.establishNativeSession(
-      payload: _selfCheckEstablishPayload,
-      realmMarker: realm,
-    );
-  } on NativeSessionException catch (error) {
-    _expectSelfCheck(
-        check.signedOut, 'unprepared establishment changed authority');
-    _expectSelfCheck(
-        !check.channel.calls.contains('redeemNativeSessionHandoff'),
-        'unprepared establishment consumed a handoff');
-    return error.code;
-  }
-  throw StateError('unprepared establishment was admitted');
+  final receipt = await check.root.establishNativeSession(
+    payload: _selfCheckEstablishPayload,
+    realmMarker: realm,
+  );
+  return receipt['receiptStatus'] == 'committedReady' &&
+      check.root.sessions.current.identity.participantId == 2;
 }
 
 final _selfCheckEstablishPayload = <String, dynamic>{
@@ -2818,6 +2806,7 @@ final class _RetirementSelfCheck {
     bool wallet = true,
     String wakeOutcome = 'completed',
     bool retirementFails = false,
+    bool prepareParameters = false,
   }) async {
     final channel = _SelfCheckNativeChannel((method, arguments) {
       switch (method) {
@@ -2872,13 +2861,18 @@ final class _RetirementSelfCheck {
         : SessionIdentityProjection.ready(
             nativeRevision: '1', participantId: 1);
     late final _NativeSessionCompositionRoot root;
+    final processRoot = _SelfCheckProcessRoot();
     final effects = _ClosedSessionEffectSink(
       (error, stackTrace) => root._handleEffectFailure(error, stackTrace),
       (enabled) async =>
           SessionSleepySnapshot(enabled: enabled, decision: 'self_check'),
+      prepareParameters
+          ? (report) =>
+              _prepareProvingParameters(processRoot, onProgress: report)
+          : null,
     );
     root = _NativeSessionCompositionRoot._(
-      root: _SelfCheckProcessRoot(),
+      root: processRoot,
       platform: platform,
       exchange: _SelfCheckExchange(),
       sessions: _SessionCompositionRoot(identity, readyEffects: effects),
@@ -3015,14 +3009,6 @@ final class _SelfCheckProcessRoot implements native.ProcessRootClient {
 
   @override
   bool get isDisposed => _disposed;
-}
-
-Future<void> _prepareForegroundProvingParameters(
-    native.ProcessRootClient root) async {
-  final status = native.nativeProvingParametersStatus(root: root);
-  if (status.ready) return;
-  await _provingParametersPreparation
-      .run((report) => _prepareProvingParameters(root, onProgress: report));
 }
 
 Future<void> _prepareProvingParameters(

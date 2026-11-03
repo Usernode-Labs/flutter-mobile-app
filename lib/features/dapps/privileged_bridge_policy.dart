@@ -107,7 +107,6 @@ class PrivilegedBridgePolicy {
     'openNotificationSettings',
     'markPrivilegedBridgeReady',
     'prepareForLogin',
-    'prepareProvingParameters',
     'restoreWebSession',
     'logout',
     'establishNativeSession',

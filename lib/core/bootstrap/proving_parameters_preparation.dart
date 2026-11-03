@@ -14,7 +14,7 @@ class ProvingParametersProgress {
       totalBytes == 0 ? 0 : (completedBytes / totalBytes).clamp(0, 1);
 }
 
-/// Keeps foreground startup pending across a retry, before session admission.
+/// Coalesces foreground preparation and clears its UI when the session closes.
 class ProvingParametersPreparation
     extends ValueNotifier<ProvingParametersProgress?> {
   ProvingParametersPreparation() : super(null);
@@ -23,29 +23,48 @@ class ProvingParametersPreparation
   Completer<void>? _retry;
 
   Future<void> run(
-      Future<void> Function(void Function(int, int) report) attempt) {
-    return _active ??= _run(attempt).whenComplete(() => _active = null);
+    Future<void> Function(void Function(int, int) report) attempt, {
+    Future<void>? cancelled,
+  }) {
+    return _active ??=
+        _run(attempt, cancelled).whenComplete(() => _active = null);
   }
 
   Future<void> _run(
-      Future<void> Function(void Function(int, int) report) attempt) async {
-    while (true) {
-      value = const ProvingParametersProgress(0, 0);
-      try {
-        await attempt((completed, total) {
-          value = ProvingParametersProgress(completed, total);
-        });
-        value = null;
-        return;
-      } catch (_) {
-        final previous = value!;
-        final retry = _retry = Completer<void>();
-        value = ProvingParametersProgress(
-            previous.completedBytes, previous.totalBytes,
-            failed: true);
-        await retry.future;
-        _retry = null;
+    Future<void> Function(void Function(int, int) report) attempt,
+    Future<void>? cancelled,
+  ) async {
+    var stopped = false;
+    final cancellation = cancelled?.then<void>((_) {
+      stopped = true;
+      throw const ProvingParametersPreparationCancelled();
+    });
+    Future<void> wait(Future<void> work) =>
+        cancellation == null ? work : Future.any([work, cancellation]);
+    try {
+      while (true) {
+        value = const ProvingParametersProgress(0, 0);
+        try {
+          await wait(attempt((completed, total) {
+            if (!stopped) value = ProvingParametersProgress(completed, total);
+          }));
+          value = null;
+          return;
+        } catch (_) {
+          if (stopped) rethrow;
+          final previous = value!;
+          final retry = _retry = Completer<void>();
+          value = ProvingParametersProgress(
+              previous.completedBytes, previous.totalBytes,
+              failed: true);
+          await wait(retry.future);
+          _retry = null;
+        }
       }
+    } finally {
+      stopped = true;
+      _retry = null;
+      value = null;
     }
   }
 
@@ -53,6 +72,10 @@ class ProvingParametersPreparation
     final retry = _retry;
     if (retry != null && !retry.isCompleted) retry.complete();
   }
+}
+
+final class ProvingParametersPreparationCancelled implements Exception {
+  const ProvingParametersPreparationCancelled();
 }
 
 /// Joins polling with preparation so failures cannot leave polling behind.

@@ -84,33 +84,6 @@ mixin _BridgeAuthNode on _DappWebViewScreenStateBase {
     }
   }
 
-  Future<void> _handlePrepareProvingParameters(String id) async {
-    if (!await _requireTrustedChromeOrigin(id, 'prepareProvingParameters')) {
-      return;
-    }
-    final lease = _activePrivilegedBridgeLease;
-    if (lease == null ||
-        !await _revalidatePrivilegedBridgeLease(
-            id, 'prepareProvingParameters')) {
-      return;
-    }
-    try {
-      await widget._nativeSessionBridge.prepareProvingParameters(
-        realmMarker: lease.marker,
-      );
-      await _resolveJsPromise(id: id, value: true, error: null);
-    } on NativeSessionException catch (error) {
-      await _resolveJsPromise(
-          id: id,
-          value: null,
-          error: error.message,
-          errorInfo: {'code': error.code});
-    } catch (_) {
-      await _resolveJsPromise(
-          id: id, value: null, error: 'Native proof preparation failed');
-    }
-  }
-
   Future<void> _handleRestoreWebSession(String id) async {
     if (!await _requireTrustedChromeOrigin(id, 'restoreWebSession')) return;
     final lease = _activePrivilegedBridgeLease;

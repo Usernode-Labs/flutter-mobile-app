@@ -35,6 +35,7 @@ import 'package:crypto_mobile_app/features/social_notifications/social_push_stor
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
 import 'package:crypto_mobile_app/features/dapps/webview_form_accessory.dart';
 import 'package:crypto_mobile_app/features/dapps/webview_keyboard_inset.dart';
+import 'package:crypto_mobile_app/features/dapps/webview_system_bar_insets.dart';
 import 'package:crypto_mobile_app/features/zkpassport/zk_challenge_reset.dart'
     show resetChallengeState;
 import 'package:crypto_mobile_app/features/zkpassport/providers/zkpassport_flow_provider.dart'
@@ -461,6 +462,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         _BridgeConnectivity,
         _BridgeDispatch {
   int _widgetNavigationRevision = 0;
+  WebViewSystemBarInsets? _systemBarInsets;
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
   // corrupts WKWebView's gesture recognizer when a translucent modal barrier
@@ -520,9 +522,13 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             _resetBackNavigation();
             _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
             _clearStatusBarTone();
+            _sendSystemBarInsets();
           },
           onPageFinished: (_) {
             if (!mounted) return;
+            // Again, in case onPageStarted ran before the new document replaced
+            // the old one: the value lives on the document's <html>.
+            _sendSystemBarInsets();
             unawaited(_reconcileNodeRequirementRealm());
             _reportFirstLoadResult(true);
             _sendNativeConnectivityAfterPageFinished();
@@ -693,6 +699,29 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     super.didChangeDependencies();
     _providersContainer ??= ProviderScope.containerOf(context, listen: false);
     _applyWebViewBackground();
+    _updateSystemBarInsets();
+  }
+
+  /// Tracks the system bars through rotation, a navigation mode change and the
+  /// keyboard. The keyboard moves `padding` on every frame of its rise, so the
+  /// page only hears about a value that differs from the last one.
+  void _updateSystemBarInsets() {
+    final insets = webViewSystemBarInsetsFor(
+      defaultTargetPlatform,
+      viewPadding: MediaQuery.viewPaddingOf(context),
+      padding: MediaQuery.paddingOf(context),
+    );
+    if (insets == _systemBarInsets) return;
+    _systemBarInsets = insets;
+    _sendSystemBarInsets();
+  }
+
+  void _sendSystemBarInsets() {
+    final insets = _systemBarInsets;
+    if (insets == null) return;
+    _controller
+        .runJavaScript(webViewSystemBarInsetsScript(insets))
+        .catchError((_) {});
   }
 
   @override

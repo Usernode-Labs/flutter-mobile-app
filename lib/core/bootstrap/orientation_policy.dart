@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -39,14 +41,36 @@ List<DeviceOrientation> orientationsFor(
       : portraitOnly;
 }
 
+/// Where the iOS side of [OrientationPolicy] asks UIKit to read the list
+/// again (ios/Runner/OrientationChannel.swift).
+const MethodChannel orientationChannel =
+    MethodChannel('com.onhomeroom.app/orientation');
+
+/// How long the screen has to stay put after the list changes before UIKit is
+/// asked to read it again.
+const Duration orientationSettleDelay = Duration(milliseconds: 500);
+
 /// Applies [orientationsFor] at launch and again whenever the screen changes.
+///
+/// Flutter hands a new list to UIKit once. When that lands while the scene is
+/// moving from the cover to the inner display, UIKit keeps the portrait it read
+/// before until the app next comes back from the background: unfolded, the app
+/// stayed portrait until a trip home (flutter-mobile-app#635). Sending the same
+/// list again does nothing, because Flutter skips a list it already has. So on
+/// iOS, once the screen has gone [orientationSettleDelay] without changing
+/// after a new list, [orientationChannel] asks UIKit to read it again.
 final class OrientationPolicy with WidgetsBindingObserver {
   OrientationPolicy._();
+
+  /// A policy of its own, so a test starts from nothing applied.
+  @visibleForTesting
+  OrientationPolicy.forTesting();
 
   static final OrientationPolicy instance = OrientationPolicy._();
 
   List<DeviceOrientation>? _applied;
   bool _started = false;
+  Timer? _reread;
 
   /// Applies the rule now and follows the screen from here on. Before the
   /// first frame the view can still report no size; that reads as a phone,
@@ -59,8 +83,19 @@ final class OrientationPolicy with WidgetsBindingObserver {
     await _apply();
   }
 
+  /// Stops following the screen.
+  @visibleForTesting
+  void stop() {
+    WidgetsBinding.instance.removeObserver(this);
+    _reread?.cancel();
+    _reread = null;
+    _started = false;
+  }
+
   @override
   void didChangeMetrics() {
+    // Still changing: wait for it to settle before asking UIKit again.
+    if (_reread != null) _scheduleReread();
     _apply();
   }
 
@@ -73,5 +108,15 @@ final class OrientationPolicy with WidgetsBindingObserver {
     if (listEquals(next, _applied)) return;
     _applied = next;
     await SystemChrome.setPreferredOrientations(next);
+    _scheduleReread();
+  }
+
+  void _scheduleReread() {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return;
+    _reread?.cancel();
+    _reread = Timer(orientationSettleDelay, () {
+      _reread = null;
+      orientationChannel.invokeMethod<void>('refresh').catchError((_) {});
+    });
   }
 }

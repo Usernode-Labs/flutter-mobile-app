@@ -89,6 +89,25 @@ void main() {
     expect(main, isNot(contains('DeviceOrientation.portraitUp')));
   });
 
+  // Unfolded, UIKit could keep the portrait it read before until a trip home
+  // (#635); the policy asks it to read the list again over this channel.
+  test('iOS answers the orientation policy\'s re-read', () async {
+    final channel =
+        await File('ios/Runner/OrientationChannel.swift').readAsString();
+    final policy =
+        await File('lib/core/bootstrap/orientation_policy.dart').readAsString();
+    const name = 'com.onhomeroom.app/orientation';
+    expect(channel, contains('"$name"'));
+    expect(policy, contains("'$name'"));
+    expect(channel, contains('case "refresh":'));
+    expect(policy, contains("invokeMethod<void>('refresh')"));
+    expect(channel, contains('setNeedsUpdateOfSupportedInterfaceOrientations'));
+    expect(appDelegate, contains('name: OrientationChannel.channelName'));
+    final project =
+        await File('ios/Runner.xcodeproj/project.pbxproj').readAsString();
+    expect(project, contains('OrientationChannel.swift in Sources'));
+  });
+
   // Without UIRequiresFullScreen the iPad app joins multitasking, and App
   // Store Connect rejects the upload (error 90474) unless the iPad list
   // names all four orientations.

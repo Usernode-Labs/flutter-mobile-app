@@ -82,6 +82,7 @@ final class ApplicationIncarnationStore {
   private var nativeSessionChannel: IOSNativeSessionChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
   private let buildActivityChannel = BuildActivityChannel()
+  private let orientationChannel = OrientationChannel()
   private let bgTaskScheduler = BGTaskSchedulerManager()
   private var transientBackgroundTask: UIBackgroundTaskIdentifier = .invalid
 
@@ -152,6 +153,15 @@ final class ApplicationIncarnationStore {
       self?.buildActivityChannel.handle(call, result: result)
     }
     print("[AppDelegate] Method channel '\(BuildActivityChannel.channelName)' configured")
+
+    let orientationMethodChannel = FlutterMethodChannel(
+      name: OrientationChannel.channelName,
+      binaryMessenger: binaryMessenger
+    )
+    orientationMethodChannel.setMethodCallHandler { [weak self] (call, result) in
+      self?.orientationChannel.handle(call, result: result)
+    }
+    print("[AppDelegate] Method channel '\(OrientationChannel.channelName)' configured")
 
     screenshotChannel = FlutterMethodChannel(
       name: screenshotChannelName,

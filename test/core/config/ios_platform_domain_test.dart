@@ -26,15 +26,17 @@ void main() {
     );
   });
 
-  test('the apps domain is covered by the iOS App-Bound Domains', () {
-    // Homeroom serves generated apps and their previews on onhomeroom.app,
-    // a different site from the platform, and shows them in frames inside
-    // the platform's page. The dapp WebView limits navigations to the
-    // App-Bound Domains, so a frame on a domain not listed never loads.
+  test('the apps and previews domains are covered by the iOS App-Bound Domains',
+      () {
+    // Homeroom serves generated apps on onhomeroom.app, a different site
+    // from the platform, and shows them in frames inside the platform's
+    // page; previews are to move to onhomeroom.dev, a site of their own.
+    // The dapp WebView limits navigations to the App-Bound Domains, so a
+    // frame on a domain not listed never loads.
     expect(
       appBoundDomains(),
-      contains('onhomeroom.app'),
-      reason: 'apps inside Homeroom load from <slug>.onhomeroom.app',
+      containsAll(<String>['onhomeroom.app', 'onhomeroom.dev']),
+      reason: 'apps and previews inside Homeroom load from those domains',
     );
   });
 }

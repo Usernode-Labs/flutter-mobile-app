@@ -152,7 +152,6 @@
 		<string>onhomeroom.com</string>
 		<string>onhomeroom.app</string>
 		<string>onhomeroom.dev</string>
-		<string>evanshapiro.dev</string>
 		<string>localhost</string>
 	</array>
 	<key>NSAppTransportSecurity</key>

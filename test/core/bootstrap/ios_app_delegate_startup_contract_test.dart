@@ -102,6 +102,10 @@ void main() {
     expect(channel, contains('case "refresh":'));
     expect(policy, contains("invokeMethod<void>('refresh')"));
     expect(channel, contains('setNeedsUpdateOfSupportedInterfaceOrientations'));
+    // Requesting every orientation replaces the portrait-only request Flutter
+    // sends on the cover, which the inner display (where every geometry request
+    // is refused) would otherwise keep until a trip home.
+    expect(channel, contains('interfaceOrientations: .all'));
     expect(appDelegate, contains('name: OrientationChannel.channelName'));
     final project =
         await File('ios/Runner.xcodeproj/project.pbxproj').readAsString();

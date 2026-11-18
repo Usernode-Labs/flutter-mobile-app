@@ -59,6 +59,11 @@ const Duration orientationSettleDelay = Duration(milliseconds: 500);
 /// list again does nothing, because Flutter skips a list it already has. So on
 /// iOS, once the screen has gone [orientationSettleDelay] without changing
 /// after a new list, [orientationChannel] asks UIKit to read it again.
+///
+/// That holds for folding too. The re-read after a fold replaces the
+/// portrait-only geometry request Flutter sent for the cover, which the inner
+/// display would otherwise keep: unfolded upright, the app ignored the turn
+/// until a trip home (ios/Runner/OrientationChannel.swift).
 final class OrientationPolicy with WidgetsBindingObserver {
   OrientationPolicy._();
 

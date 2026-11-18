@@ -107,6 +107,27 @@ void main() {
       expect(preferred, hasLength(2));
     }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
+    // Folded while upright, the cover is sideways and Flutter sends UIKit a
+    // portrait-only geometry request. The inner display refuses the wider one
+    // after the unfold, so the re-read on the cover is what replaces it: without
+    // it the app ignored the turn after an upright unfold.
+    testWidgets('asks iOS to read the list again once the fold settles',
+        (tester) async {
+      await startOn(tester, const Size(669, 951));
+      await tester.pump(orientationSettleDelay);
+      expect(rereads, ['refresh']);
+
+      await showScreen(tester, const Size(466, 678));
+      expect(preferred.last, [
+        for (final orientation in portraitOnly) orientation.toString(),
+      ]);
+      expect(rereads, ['refresh'], reason: 'the screen has not settled yet');
+
+      await tester.pump(orientationSettleDelay);
+      expect(rereads, ['refresh', 'refresh']);
+      expect(preferred, hasLength(2));
+    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
     testWidgets('does not ask again while the list stays the same',
         (tester) async {
       await startOn(tester, const Size(669, 951));

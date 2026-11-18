@@ -11,6 +11,17 @@ import UIKit
 /// again until the app comes back from the background: unfolded, the app
 /// stayed portrait until a trip home (flutter-mobile-app#635). `refresh` asks
 /// UIKit to read it again, once the policy has seen the screen settle.
+///
+/// Flutter also sends each new list as a geometry request, and SpringBoard
+/// keeps the last one for the scene. A Duo folded while upright has its cover
+/// sideways, so the request it keeps is "portrait". The inner display refuses
+/// every geometry request ("The current windowing mode does not allow for
+/// programmatic changes to interface orientation"), so the wider list never
+/// replaces it there, and only a trip to the background clears it: unfolded
+/// upright, the app ignored the turn until a trip home. So `refresh` requests
+/// every orientation. That replaces whatever narrower request Flutter left on
+/// the cover, while the supported list alone keeps a phone-sized screen
+/// portrait.
 class OrientationChannel {
   static let channelName = "com.onhomeroom.app/orientation"
 
@@ -61,7 +72,8 @@ class OrientationChannel {
     }
   }
 
-  /// The same two calls Flutter makes when the list changes, made again.
+  /// The two calls Flutter makes when the list changes, made again, except
+  /// that the geometry request asks for every orientation (see above).
   private func reread(_ scene: UIWindowScene) {
     guard let root = scene.keyWindow?.rootViewController ??
       scene.windows.first?.rootViewController else { return }
@@ -73,7 +85,7 @@ class OrientationChannel {
     print("[Orientation] Re-reading supported orientations: \(orientations.rawValue)")
     root.setNeedsUpdateOfSupportedInterfaceOrientations()
     let preferences = UIWindowScene.GeometryPreferences.iOS(
-      interfaceOrientations: orientations
+      interfaceOrientations: .all
     )
     scene.requestGeometryUpdate(preferences) { error in
       print("[Orientation] Geometry update refused: \(error.localizedDescription)")

@@ -29,6 +29,7 @@ import 'package:crypto_mobile_app/features/dapps/node_requirement_guard_registry
 import 'package:crypto_mobile_app/features/dapps/privileged_bridge_policy.dart';
 import 'package:crypto_mobile_app/features/dapps/status_bar_style.dart';
 import 'package:crypto_mobile_app/features/dapps/submit_transaction_contract.dart';
+import 'package:crypto_mobile_app/features/dapps/web_content_process_recovery.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_service.dart';
 import 'package:crypto_mobile_app/features/social_notifications/social_push_store.dart'
     show SocialPushState;
@@ -463,6 +464,11 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
         _BridgeDispatch {
   int _widgetNavigationRevision = 0;
   WebViewSystemBarInsets? _systemBarInsets;
+
+  /// A main-frame load has finished, so WebKit has a page to reload.
+  bool _pageHasLoaded = false;
+  late final WebContentProcessRecovery _contentProcessRecovery;
+  late final AppLifecycleListener _appLifecycleListener;
   // Transaction confirmation uses Navigator.push with an opaque route instead
   // of showModalBottomSheet. A known Flutter engine bug (fixed in 3.41.0)
   // corrupts WKWebView's gesture recognizer when a translucent modal barrier
@@ -529,6 +535,7 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             // Again, in case onPageStarted ran before the new document replaced
             // the old one: the value lives on the document's <html>.
             _sendSystemBarInsets();
+            _pageHasLoaded = true;
             unawaited(_reconcileNodeRequirementRealm());
             _reportFirstLoadResult(true);
             _sendNativeConnectivityAfterPageFinished();
@@ -536,6 +543,20 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
           },
           onWebResourceError: (error) {
             if (!mounted) return;
+            // WebKit lost the page's content process (iOS reclaims it from a
+            // backgrounded app) and now shows only the background colour.
+            // That is not a failed load: bring the page back.
+            if (error.errorType ==
+                WebResourceErrorType.webContentProcessTerminated) {
+              debugPrint(
+                '[webview] content process terminated; lifecycle='
+                '${WidgetsBinding.instance.lifecycleState?.name}',
+              );
+              // Its realm is gone with it.
+              _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
+              _contentProcessRecovery.noteProcessTerminated();
+              return;
+            }
             // Sub-resource failures (an image, a beacon) don't mean the
             // page failed; only main-frame errors flunk the first-load gate.
             if (error.isForMainFrame != false) {
@@ -560,6 +581,18 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     _bridgeAdmissionCoordinator = BridgeAdmissionCoordinator(
       policy: _privilegedBridgePolicy,
       markRealmReady: _seedReadyMainFrame,
+    );
+    _contentProcessRecovery = WebContentProcessRecovery(
+      lifecycleState: WidgetsBinding.instance.lifecycleState,
+      reload: _reloadTerminatedPage,
+      onGaveUp: () {
+        debugPrint('[webview] content process keeps terminating; not '
+            'reloading again until the app returns from the background');
+        _reportFirstLoadResult(false);
+      },
+    );
+    _appLifecycleListener = AppLifecycleListener(
+      onStateChange: _contentProcessRecovery.noteLifecycleState,
     );
     // TODO(native-session-recovery): Temporary white-screen hotfix. Restore
     // terminal document retirement only after the initiating native failure is
@@ -685,6 +718,28 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     return FileType.any;
   }
 
+  /// Loads the page again after WebKit lost its content process.
+  ///
+  /// `reload()`, not a fresh request for [DappWebViewScreen.url]: WebKit
+  /// reloads its current back-forward item, so the person comes back to the
+  /// screen they were on (the SPA's pushState and hash routes are history
+  /// entries) instead of the link that launched the app. Either way the
+  /// result is a new document, and a new document gets its session the way
+  /// the first load did: [BridgeAdmissionCoordinator.noteDocumentLoadStarted]
+  /// in onPageStarted, then the page's own capability handshake and
+  /// `restoreWebSession` from the native session, which outlives the web
+  /// process. Before any page has loaded there is no item to reload, so the
+  /// original destination is requested.
+  void _reloadTerminatedPage() {
+    if (!mounted) return;
+    final load = _pageHasLoaded
+        ? _controller.reload()
+        : _controller.loadRequest(parseDappUrl(widget.url));
+    unawaited(load.catchError((Object error) {
+      debugPrint('[webview] reload after content process loss failed: $error');
+    }));
+  }
+
   /// Reports the first main-frame load outcome exactly once (shell
   /// first-launch gate). Success and failure race; whichever navigation
   /// callback lands first wins.
@@ -727,6 +782,8 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
   @override
   void dispose() {
     _resetBackNavigation();
+    _appLifecycleListener.dispose();
+    _contentProcessRecovery.dispose();
     _bridgeAdmissionCoordinator.dispose();
     unawaited(_nodeRequirementGuards.dispose());
     _readyMainFrameLease = null;

@@ -38,7 +38,12 @@ void main() {
     await session.retirements.close();
   });
 
-  Widget app({String? url, String? navigationRequest}) => ProviderScope(
+  Widget app({
+    String? url,
+    String? navigationRequest,
+    void Function(bool ok)? onFirstLoadResult,
+  }) =>
+      ProviderScope(
         overrides: [
           nativeConnectivityProvider
               .overrideWithValue(FakeNativeConnectivity()),
@@ -48,6 +53,7 @@ void main() {
             url: url ?? _url,
             name: 'Usernode',
             navigationRequest: navigationRequest,
+            onFirstLoadResult: onFirstLoadResult,
             nativeSessionBridge: session,
             sessionAccess: _SessionAccess(),
           ),
@@ -233,6 +239,85 @@ void main() {
     expect(find.byType(WebViewWidget), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('a lost content process reloads the page, not a failed load',
+      (tester) async {
+    final results = <bool>[];
+    await tester.pumpWidget(app(onFirstLoadResult: results.add));
+    final controller = platform.controller;
+    platform.navigation.onPageFinished(_url);
+    platform.events.clear();
+
+    platform.navigation.terminateContentProcess();
+    await tester.pump();
+
+    // reload(), which returns to the current page, not the launch URL.
+    expect(platform.events, ['reload']);
+    expect(controller.loads, [Uri.parse(_url)]);
+    expect(results, [true]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a content process lost before the first load requests it again',
+      (tester) async {
+    final results = <bool>[];
+    await tester.pumpWidget(app(onFirstLoadResult: results.add));
+    platform.events.clear();
+
+    platform.navigation.terminateContentProcess();
+    await tester.pump();
+
+    expect(platform.events, ['load']);
+    expect(platform.controller.loads, [Uri.parse(_url), Uri.parse(_url)]);
+    expect(results, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a content process lost in the background reloads on resume',
+      (tester) async {
+    await tester.pumpWidget(app());
+    platform.navigation.onPageFinished(_url);
+    platform.events.clear();
+    for (final state in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+
+    platform.navigation.terminateContentProcess();
+    await tester.pump();
+    expect(platform.events, isEmpty);
+
+    for (final state in [
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+    await tester.pump();
+    expect(platform.events, ['reload']);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+      'a page that keeps losing its process falls back to a failed load',
+      (tester) async {
+    final results = <bool>[];
+    await tester.pumpWidget(app(onFirstLoadResult: results.add));
+    platform.events.clear();
+
+    platform.navigation.terminateContentProcess();
+    await tester.pump(const Duration(seconds: 1));
+    platform.navigation.terminateContentProcess();
+    await tester.pump();
+
+    expect(platform.events, ['load']);
+    expect(results, [false]);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _NativeSession extends Fake implements NativeSessionBridgeIngress {
@@ -262,6 +347,7 @@ class _SessionAccess extends Fake implements SessionFeatureAccessView {}
 
 class _WebViewPlatform extends WebViewPlatform {
   late _Controller controller;
+  late _NavigationDelegate navigation;
   final events = <String>[];
   bool failCookies = false;
 
@@ -281,7 +367,7 @@ class _WebViewPlatform extends WebViewPlatform {
   PlatformNavigationDelegate createPlatformNavigationDelegate(
     PlatformNavigationDelegateCreationParams params,
   ) =>
-      _NavigationDelegate(params);
+      navigation = _NavigationDelegate(params);
 
   @override
   PlatformWebViewWidget createPlatformWebViewWidget(
@@ -342,6 +428,11 @@ class _Controller extends PlatformWebViewController {
   }
 
   @override
+  Future<void> reload() async {
+    events.add('reload');
+  }
+
+  @override
   Future<String?> currentUrl() async =>
       currentUrlOverride ?? loads.lastOrNull?.toString();
 
@@ -374,17 +465,34 @@ class _Controller extends PlatformWebViewController {
 
 class _NavigationDelegate extends PlatformNavigationDelegate {
   _NavigationDelegate(super.params) : super.implementation();
+  late PageEventCallback onPageFinished;
+  late WebResourceErrorCallback onWebResourceError;
 
   @override
   Future<void> setOnPageStarted(PageEventCallback onPageStarted) async {}
 
   @override
-  Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {}
+  Future<void> setOnPageFinished(PageEventCallback onPageFinished) async {
+    this.onPageFinished = onPageFinished;
+  }
 
   @override
   Future<void> setOnWebResourceError(
     WebResourceErrorCallback onWebResourceError,
-  ) async {}
+  ) async {
+    this.onWebResourceError = onWebResourceError;
+  }
+
+  /// What webview_flutter_wkwebview reports for
+  /// `webViewWebContentProcessDidTerminate`.
+  void terminateContentProcess() => onWebResourceError(
+        const WebResourceError(
+          errorCode: 2,
+          description: '',
+          errorType: WebResourceErrorType.webContentProcessTerminated,
+          isForMainFrame: true,
+        ),
+      );
 }
 
 class _Cookies extends PlatformWebViewCookieManager {

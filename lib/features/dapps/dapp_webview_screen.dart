@@ -34,6 +34,7 @@ import 'package:crypto_mobile_app/features/social_notifications/social_push_serv
 import 'package:crypto_mobile_app/features/social_notifications/social_push_store.dart'
     show SocialPushState;
 import 'package:crypto_mobile_app/features/dapps/providers/pinned_dapps_provider.dart';
+import 'package:crypto_mobile_app/features/dapps/webkit_cookie_partitioning.dart';
 import 'package:crypto_mobile_app/features/dapps/webview_form_accessory.dart';
 import 'package:crypto_mobile_app/features/dapps/webview_keyboard_inset.dart';
 import 'package:crypto_mobile_app/features/dapps/webview_system_bar_insets.dart';
@@ -529,6 +530,10 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
             _bridgeAdmissionCoordinator.noteDocumentLoadStarted();
             _clearStatusBarTone();
             _sendSystemBarInsets();
+            // iOS: so private apps framed from another site keep their
+            // partitioned access cookie (an iOS 26 WebKit bug). No-op
+            // elsewhere.
+            unawaited(const WebKitCookiePartitioning().refreshFor(_controller));
           },
           onPageFinished: (_) {
             if (!mounted) return;

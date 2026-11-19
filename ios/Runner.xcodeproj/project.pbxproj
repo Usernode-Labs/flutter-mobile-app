@@ -31,6 +31,7 @@
 		0AE10032000000000000C0DE /* NativeSessionVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10035000000000000C0DE /* NativeSessionVault.swift */; };
 		0AE10033000000000000C0DE /* NativeSessionPlatform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10036000000000000C0DE /* NativeSessionPlatform.swift */; };
 		0AE10041000000000000C0DE /* WebViewFormAccessory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10042000000000000C0DE /* WebViewFormAccessory.swift */; };
+		0AE10043000000000000C0DE /* WebKitCookiePartitioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10044000000000000C0DE /* WebKitCookiePartitioning.swift */; };
 		0AE10052000000000000C0DE /* BuildActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10051000000000000C0DE /* BuildActivityAttributes.swift */; };
 		0AE10053000000000000C0DE /* BuildActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10051000000000000C0DE /* BuildActivityAttributes.swift */; };
 		0AE10055000000000000C0DE /* BuildActivityChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE10054000000000000C0DE /* BuildActivityChannel.swift */; };
@@ -119,6 +120,7 @@
 		0AE10035000000000000C0DE /* NativeSessionVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionVault.swift; sourceTree = "<group>"; };
 		0AE10036000000000000C0DE /* NativeSessionPlatform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeSessionPlatform.swift; sourceTree = "<group>"; };
 		0AE10042000000000000C0DE /* WebViewFormAccessory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewFormAccessory.swift; sourceTree = "<group>"; };
+		0AE10044000000000000C0DE /* WebKitCookiePartitioning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebKitCookiePartitioning.swift; sourceTree = "<group>"; };
 		0AE10051000000000000C0DE /* BuildActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildActivityAttributes.swift; sourceTree = "<group>"; };
 		0AE10054000000000000C0DE /* BuildActivityChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildActivityChannel.swift; sourceTree = "<group>"; };
 		0AE10075000000000000C0DE /* OrientationChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationChannel.swift; sourceTree = "<group>"; };
@@ -227,6 +229,7 @@
 				0AE10020000000000000C0DE /* PinnedDappIntents.swift */,
 				0AE10028000000000000C0DE /* ShortcutIconFile.swift */,
 				0AE10042000000000000C0DE /* WebViewFormAccessory.swift */,
+				0AE10044000000000000C0DE /* WebKitCookiePartitioning.swift */,
 				0AE10051000000000000C0DE /* BuildActivityAttributes.swift */,
 				0AE10054000000000000C0DE /* BuildActivityChannel.swift */,
 				0AE10075000000000000C0DE /* OrientationChannel.swift */,
@@ -553,6 +556,7 @@
 				0AE10021000000000000C0DE /* PinnedDappIntents.swift in Sources */,
 				0AE10026000000000000C0DE /* ShortcutIconFile.swift in Sources */,
 				0AE10041000000000000C0DE /* WebViewFormAccessory.swift in Sources */,
+				0AE10043000000000000C0DE /* WebKitCookiePartitioning.swift in Sources */,
 				0AE10052000000000000C0DE /* BuildActivityAttributes.swift in Sources */,
 				0AE10055000000000000C0DE /* BuildActivityChannel.swift in Sources */,
 				0AE10074000000000000C0DE /* OrientationChannel.swift in Sources */,

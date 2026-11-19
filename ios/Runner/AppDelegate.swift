@@ -79,6 +79,7 @@ final class ApplicationIncarnationStore {
   private var alarmChannel: FlutterMethodChannel?
   private var screenshotChannel: FlutterMethodChannel?
   private var webViewKeyboardChannel: FlutterMethodChannel?
+  private var cookiePartitioningChannel: FlutterMethodChannel?
   private var nativeSessionChannel: IOSNativeSessionChannel?
   private let homeShortcutsChannel = HomeShortcutsChannel()
   private let buildActivityChannel = BuildActivityChannel()
@@ -126,6 +127,13 @@ final class ApplicationIncarnationStore {
       pluginRegistry: engineBridge.pluginRegistry
     )
     print("[AppDelegate] Method channel '\(WebViewFormAccessory.channelName)' configured")
+
+    // Also finds the platform WKWebView, to share its data store.
+    cookiePartitioningChannel = WebKitCookiePartitioning.makeChannel(
+      binaryMessenger: engineBridge.applicationRegistrar.messenger(),
+      pluginRegistry: engineBridge.pluginRegistry
+    )
+    print("[AppDelegate] Method channel '\(WebKitCookiePartitioning.channelName)' configured")
   }
 
   private func setupApplicationChannels(binaryMessenger: FlutterBinaryMessenger) {

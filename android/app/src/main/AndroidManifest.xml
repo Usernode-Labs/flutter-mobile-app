@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Keep the portrait activity preference without filtering device installs. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
     <!-- Add network permissions here -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

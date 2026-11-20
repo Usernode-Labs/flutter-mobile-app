@@ -257,7 +257,7 @@ class MainActivity: FlutterActivity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        webViewMediaPermissions?.onRequestPermissionsResult(requestCode)
+        webViewMediaPermissions?.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (::alarmHandler.isInitialized) {
             alarmHandler.onRequestPermissionsResult(requestCode, permissions, grantResults)
         }

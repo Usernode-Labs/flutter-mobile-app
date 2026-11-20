@@ -60,13 +60,11 @@ class WebViewMediaPermissions(
     ) {
         /** Requests waiting on the one OS prompt; all of them get its answer. */
         val pending = mutableListOf<Pending>()
-        var promptInFlight = false
 
         fun hasPermission(): Boolean =
             ContextCompat.checkSelfPermission(activity, permission) == PackageManager.PERMISSION_GRANTED
 
         fun cancelPending() {
-            promptInFlight = false
             val values = pending.toList()
             pending.clear()
             values.forEach { it.request.deny() }
@@ -83,6 +81,8 @@ class WebViewMediaPermissions(
         R.string.webview_camera_blocked_title, R.string.webview_camera_blocked_message,
     )
     private val gates = listOf(microphone, camera)
+    private val prompts = PermissionPromptQueue<Gate>()
+    private var closed = false
     private val prefs = activity.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     init {
@@ -130,33 +130,56 @@ class WebViewMediaPermissions(
             value.request.grant(arrayOf(gate.resource))
             return
         }
-        if (gate.promptInFlight) {
-            gate.pending += value
+        gate.pending += value
+        prompts.enqueue(gate)
+        drainPrompts()
+    }
+
+    private fun drainPrompts() {
+        if (closed) return
+        val gate = prompts.next() ?: return
+        // A queued request can outlive its frame or gain OS permission elsewhere.
+        val values = gate.pending.toList()
+        gate.pending.clear()
+        for (value in values) {
+            if (!eligible(value)) value.request.deny()
+            else if (gate.hasPermission()) value.request.grant(arrayOf(gate.resource))
+            else gate.pending += value
+        }
+        if (gate.pending.isEmpty()) {
+            finishPrompt(gate)
             return
         }
-        // Android stops showing its prompt after a permanent denial, so point
-        // the user to Settings instead of failing silently.
+        // Only a completed OS answer counts as having asked. An empty result
+        // is cancellation (including another Activity permission prompt).
         if (prefs.getBoolean(gate.askedKey, false) &&
             !ActivityCompat.shouldShowRequestPermissionRationale(activity, gate.permission)
         ) {
-            value.request.deny()
+            gate.cancelPending()
             showSettingsPrompt(gate)
+            finishPrompt(gate)
             return
         }
-        gate.pending += value
-        gate.promptInFlight = true
-        prefs.edit().putBoolean(gate.askedKey, true).apply()
         try {
             ActivityCompat.requestPermissions(activity, arrayOf(gate.permission), gate.requestCode)
         } catch (e: RuntimeException) {
             Log.w(TAG, "Permission prompt failed for ${gate.permission}", e)
             gate.cancelPending()
+            finishPrompt(gate)
         }
     }
 
-    fun onRequestPermissionsResult(requestCode: Int) {
-        val gate = gates.firstOrNull { it.requestCode == requestCode } ?: return
-        gate.promptInFlight = false
+    private fun finishPrompt(gate: Gate) {
+        prompts.complete(gate)
+        // Leave Android's result dispatch before launching the next OS prompt.
+        activity.window.decorView.post { drainPrompts() }
+    }
+
+    fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        val gate = prompts.active?.takeIf { it.requestCode == requestCode } ?: return
+        if (permissions.contains(gate.permission) && grantResults.isNotEmpty()) {
+            prefs.edit().putBoolean(gate.askedKey, true).apply()
+        }
         val values = gate.pending.toList()
         gate.pending.clear()
         val granted = gate.hasPermission()
@@ -168,6 +191,7 @@ class WebViewMediaPermissions(
                 value.request.deny()
             }
         }
+        finishPrompt(gate)
     }
 
     private fun showSettingsPrompt(gate: Gate) {
@@ -190,6 +214,7 @@ class WebViewMediaPermissions(
     }
 
     fun close() {
+        closed = true
         gates.forEach { it.cancelPending() }
         channel.setMethodCallHandler(null)
     }

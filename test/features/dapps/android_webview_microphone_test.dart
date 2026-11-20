@@ -74,4 +74,18 @@ void main() {
       ),
     );
   });
+
+  test('Android declares the camera without requiring camera hardware',
+      () async {
+    final manifest =
+        await File('android/app/src/main/AndroidManifest.xml').readAsString();
+    expect(manifest, contains('android.permission.CAMERA'));
+    expect(
+      manifest,
+      contains(
+        '<uses-feature android:name="android.hardware.camera" '
+        'android:required="false" />',
+      ),
+    );
+  });
 }

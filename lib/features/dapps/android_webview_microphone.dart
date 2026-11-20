@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
-/// Installs the Android microphone gate on a WebView before it loads a document.
+/// Installs the Android microphone and camera gates on a WebView before it
+/// loads a document. The channel keeps the name it was given for the
+/// microphone alone.
 ///
 /// The pinned WebView package's Dart permission callback omits the requesting
 /// origin. Native code checks it directly, including for cross-origin frames.
@@ -32,7 +34,8 @@ class AndroidWebViewMicrophone {
           }) ??
           false;
       if (!configured) {
-        debugPrint('[webview microphone] not configured; dictation is off');
+        debugPrint(
+            '[webview microphone] not configured; dictation and the camera are off');
       }
       return configured;
     } on PlatformException catch (e) {

@@ -614,8 +614,8 @@ class _DappWebViewScreenState extends _DappWebViewScreenStateBase
     if (platformController is AndroidWebViewController) {
       platformController.setOnShowFileSelector(_showAndroidFileSelector);
       // Not awaited: platform messages are handled in send order, so the
-      // microphone gate is installed before the load below starts, and a page
-      // can only ask for the microphone once it has loaded.
+      // microphone and camera gates are installed before the load below
+      // starts, and a page can only ask for either once it has loaded.
       unawaited(
         const AndroidWebViewMicrophone().configure(
           platformController,
